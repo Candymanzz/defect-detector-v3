@@ -14,10 +14,10 @@ class InspectionResult:
     status: str
     anomaly_score: float
     threshold: float
-    aligned_image_b64: str
-    diff_map_b64: str
-    heatmap_b64: str
-    segmentation_mask_b64: str
+    aligned_image_b64: str = ""
+    diff_map_b64: str = ""
+    heatmap_b64: str = ""
+    segmentation_mask_b64: str = ""
 
 
 class InspectionService:
@@ -52,6 +52,7 @@ class InspectionService:
         product_type: str,
         image_bytes: bytes,
         threshold: Optional[float] = None,
+        include_visuals: bool = True,
     ) -> InspectionResult:
         reference = self.get_reference(product_type)
         if reference is None:
@@ -68,17 +69,17 @@ class InspectionService:
         )
         status = "БРАК" if anomaly_score >= inspection_threshold else "ГОДЕН"
 
-        heatmap = self._build_heatmap(segmentation_mask)
+        heatmap = self._build_heatmap(segmentation_mask) if include_visuals else None
 
         return InspectionResult(
             product_type=product_type,
             status=status,
             anomaly_score=anomaly_score,
             threshold=inspection_threshold,
-            aligned_image_b64=self._encode_image(aligned),
-            diff_map_b64=self._encode_image(diff_map),
-            heatmap_b64=self._encode_image(heatmap),
-            segmentation_mask_b64=self._encode_image(segmentation_mask),
+            aligned_image_b64=self._encode_image(aligned) if include_visuals else "",
+            diff_map_b64=self._encode_image(diff_map) if include_visuals else "",
+            heatmap_b64=self._encode_image(heatmap) if include_visuals and heatmap is not None else "",
+            segmentation_mask_b64=self._encode_image(segmentation_mask) if include_visuals else "",
         )
 
     def _decode_image(self, image_bytes: bytes) -> np.ndarray:

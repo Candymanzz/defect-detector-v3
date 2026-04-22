@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ImagePlus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FlaskConical, ImagePlus, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 const API_URL = "http://localhost:8000";
 
@@ -21,6 +21,10 @@ function App() {
   });
   const [logs, setLogs] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [normalTestLogs, setNormalTestLogs] = useState([]);
+  const [normalTestSummary, setNormalTestSummary] = useState(null);
+  const [brackTestLogs, setBrackTestLogs] = useState([]);
+  const [brackTestSummary, setBrackTestSummary] = useState(null);
 
   const statusClass = useMemo(() => {
     if (status === "ГОДЕН") return "bg-ok/20 text-ok border-ok/40";
@@ -97,11 +101,44 @@ function App() {
     }
   };
 
+  const runBatchTest = async (dataset) => {
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("product_type", productType);
+      formData.append("threshold", String(threshold));
+      formData.append("dataset", dataset);
+
+      const res = await fetch(`${API_URL}/test-run`, {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error("Ошибка тестирования");
+
+      const data = await res.json();
+      if (dataset === "normal") {
+        setNormalTestLogs(data.logs || []);
+        setNormalTestSummary(data.summary || null);
+      } else {
+        setBrackTestLogs(data.logs || []);
+        setBrackTestSummary(data.summary || null);
+      }
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const resetAll = () => {
     setStatus("ОЖИДАНИЕ");
     setScore(0);
     setCapturedFile(null);
     setImages({ original: "", diff: "", heatmap: "" });
+    setNormalTestLogs([]);
+    setNormalTestSummary(null);
+    setBrackTestLogs([]);
+    setBrackTestSummary(null);
   };
 
   return (
@@ -178,7 +215,7 @@ function App() {
         </section>
 
         <section className="rounded-2xl border border-slate-700 bg-panel p-4">
-          <div className="grid gap-3 md:grid-cols-5">
+          <div className="grid gap-3 md:grid-cols-7">
             <input
               className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm outline-none ring-amber-300 focus:ring"
               value={productType}
@@ -202,6 +239,20 @@ function App() {
               className="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
             >
               Проверить
+            </button>
+            <button
+              onClick={() => runBatchTest("normal")}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
+            >
+              <FlaskConical size={16} /> Тест нормальные
+            </button>
+            <button
+              onClick={() => runBatchTest("brack")}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
+            >
+              <FlaskConical size={16} /> Тест брак
             </button>
             <button
               onClick={resetAll}
@@ -254,6 +305,96 @@ function App() {
                       </td>
                       <td className="px-3 py-2">{entry.score}</td>
                       <td className="px-3 py-2 text-slate-300">{entry.duration}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-700 bg-panel p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-medium">Тесты по папке normal</h2>
+            {normalTestSummary && (
+              <div className="text-sm text-slate-300">
+                Годных: <span className="text-green-400">{normalTestSummary.good_count}</span> | Брак:{" "}
+                <span className="text-red-400">{normalTestSummary.defect_count}</span> | Брак, %:{" "}
+                <span className="text-amber-300">{normalTestSummary.defect_percent}</span>
+              </div>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-700">
+            <table className="w-full border-collapse text-sm">
+              <thead className="bg-slate-900 text-slate-300">
+                <tr>
+                  <th className="px-3 py-2 text-left">Файл</th>
+                  <th className="px-3 py-2 text-left">Результат</th>
+                  <th className="px-3 py-2 text-left">Score</th>
+                  <th className="px-3 py-2 text-left">Длительность</th>
+                </tr>
+              </thead>
+              <tbody>
+                {normalTestLogs.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={4}>
+                      Тесты еще не запускались
+                    </td>
+                  </tr>
+                ) : (
+                  normalTestLogs.map((entry, index) => (
+                    <tr key={`${entry.filename}-${index}`} className="border-t border-slate-800">
+                      <td className="px-3 py-2">{entry.filename}</td>
+                      <td className={`px-3 py-2 ${entry.status === "БРАК" ? "text-red-400" : "text-green-400"}`}>
+                        {entry.status}
+                      </td>
+                      <td className="px-3 py-2">{Number(entry.score).toFixed(3)}</td>
+                      <td className="px-3 py-2 text-slate-300">{formatDuration(Number(entry.duration_ms))}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-700 bg-panel p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-medium">Тесты по папке brack</h2>
+            {brackTestSummary && (
+              <div className="text-sm text-slate-300">
+                Годных: <span className="text-green-400">{brackTestSummary.good_count}</span> | Брак:{" "}
+                <span className="text-red-400">{brackTestSummary.defect_count}</span> | Брак, %:{" "}
+                <span className="text-amber-300">{brackTestSummary.defect_percent}</span>
+              </div>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-700">
+            <table className="w-full border-collapse text-sm">
+              <thead className="bg-slate-900 text-slate-300">
+                <tr>
+                  <th className="px-3 py-2 text-left">Файл</th>
+                  <th className="px-3 py-2 text-left">Результат</th>
+                  <th className="px-3 py-2 text-left">Score</th>
+                  <th className="px-3 py-2 text-left">Длительность</th>
+                </tr>
+              </thead>
+              <tbody>
+                {brackTestLogs.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={4}>
+                      Тесты еще не запускались
+                    </td>
+                  </tr>
+                ) : (
+                  brackTestLogs.map((entry, index) => (
+                    <tr key={`${entry.filename}-${index}`} className="border-t border-slate-800">
+                      <td className="px-3 py-2">{entry.filename}</td>
+                      <td className={`px-3 py-2 ${entry.status === "БРАК" ? "text-red-400" : "text-green-400"}`}>
+                        {entry.status}
+                      </td>
+                      <td className="px-3 py-2">{Number(entry.score).toFixed(3)}</td>
+                      <td className="px-3 py-2 text-slate-300">{formatDuration(Number(entry.duration_ms))}</td>
                     </tr>
                   ))
                 )}
