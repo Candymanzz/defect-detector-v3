@@ -4,6 +4,8 @@ import { AlertTriangle, CheckCircle2, ImagePlus, RotateCcw, SlidersHorizontal } 
 const API_URL = "http://localhost:8000";
 
 const toDataUrl = (base64) => (base64 ? `data:image/png;base64,${base64}` : "");
+const formatDuration = (durationMs) =>
+  durationMs < 1000 ? `${Math.round(durationMs)} ms` : `${(durationMs / 1000).toFixed(2)} s`;
 
 function App() {
   const [productType, setProductType] = useState("bucket-default");
@@ -56,6 +58,7 @@ function App() {
 
   const runInspection = async () => {
     if (!capturedFile) return;
+    const startedAt = performance.now();
     setBusy(true);
     try {
       const formData = new FormData();
@@ -70,6 +73,7 @@ function App() {
       if (!res.ok) throw new Error("Ошибка проверки");
 
       const data = await res.json();
+      const elapsedMs = performance.now() - startedAt;
       setStatus(data.status);
       setScore(data.anomaly_score);
       setImages((prev) => ({
@@ -81,7 +85,8 @@ function App() {
         {
           ts: new Date().toLocaleTimeString(),
           result: data.status,
-          score: Number(data.anomaly_score).toFixed(3)
+          score: Number(data.anomaly_score).toFixed(3),
+          duration: formatDuration(elapsedMs)
         },
         ...prev
       ]);
@@ -230,12 +235,13 @@ function App() {
                   <th className="px-3 py-2 text-left">Время</th>
                   <th className="px-3 py-2 text-left">Результат</th>
                   <th className="px-3 py-2 text-left">Score</th>
+                  <th className="px-3 py-2 text-left">Длительность</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={3}>
+                    <td className="px-3 py-4 text-slate-500" colSpan={4}>
                       Пока нет проверок
                     </td>
                   </tr>
@@ -247,6 +253,7 @@ function App() {
                         {entry.result}
                       </td>
                       <td className="px-3 py-2">{entry.score}</td>
+                      <td className="px-3 py-2 text-slate-300">{entry.duration}</td>
                     </tr>
                   ))
                 )}
