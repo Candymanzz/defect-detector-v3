@@ -35,7 +35,7 @@ class InspectionService:
             from anomalib.deploy import OpenVINOInferencer  # type: ignore
 
             self._anomaly_engine = OpenVINOInferencer(
-                path="models/patchcore/openvino/model.xml"
+                path="models/patchcore/openvino/model.xml" # model path
             )
         except Exception:
             self._anomaly_engine = None
