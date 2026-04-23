@@ -10,3 +10,5 @@ frontend/dist/
 .DS_Store
 /backend/app/normal
 /backend/app/brack
+*.jpg
+c_capture/camera_server
