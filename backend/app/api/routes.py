@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 import cv2
+import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
@@ -45,6 +46,132 @@ class TestRunResponse(BaseModel):
     dataset: str
     logs: list[TestLogEntry] = Field(default_factory=list)
     summary: TestSummary
+
+
+class InspectFromCameraResponse(InspectResponse):
+    original_image_b64: str
+    camera_source: str
+    camera_duration_ms: float
+
+
+class RoiConfig(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class RoiResponse(BaseModel):
+    product_type: str
+    roi: RoiConfig
+
+
+class RoiPoint(BaseModel):
+    x: float
+    y: float
+
+
+class RoiPolygonRequest(BaseModel):
+    product_type: str
+    points: list[RoiPoint]
+
+
+class RoiPolygonResponse(BaseModel):
+    product_type: str
+    points: list[RoiPoint]
+
+
+class UploadRefFromCameraResponse(BaseModel):
+    message: str
+    product_type: str
+    camera_source: str
+    camera_duration_ms: float
+    reference_b64: str
+
+
+def _decode_camera_payload(camera_response: httpx.Response, camera_server_url: str) -> tuple[bytes, str, float]:
+    content_type = camera_response.headers.get("content-type", "").lower()
+
+    if content_type.startswith("image/"):
+        return camera_response.content, camera_server_url, 0.0
+
+    payload = camera_response.json()
+    original_b64 = payload["image_b64"]
+    camera_source = payload.get("source", camera_server_url)
+    camera_duration_ms = float(payload.get("duration_ms", 0.0))
+    image_bytes = base64.b64decode(original_b64)
+    return image_bytes, camera_source, camera_duration_ms
+
+
+@router.post("/roi", response_model=RoiResponse)
+async def set_roi(product_type: str = Form(...), x: float = Form(...), y: float = Form(...), w: float = Form(...), h: float = Form(...)) -> RoiResponse:
+    if inspection_service.get_reference(product_type) is None:
+        raise HTTPException(status_code=400, detail="Reference is not set for this product_type")
+    try:
+        inspection_service.set_roi(product_type=product_type, x=x, y=y, w=w, h=h)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return RoiResponse(product_type=product_type, roi=RoiConfig(x=x, y=y, w=w, h=h))
+
+
+@router.get("/roi/{product_type}", response_model=RoiResponse)
+async def get_roi(product_type: str) -> RoiResponse:
+    roi = inspection_service.get_roi(product_type)
+    if roi is None:
+        raise HTTPException(status_code=404, detail="ROI not set for this product_type")
+    x, y, w, h = roi
+    return RoiResponse(product_type=product_type, roi=RoiConfig(x=x, y=y, w=w, h=h))
+
+
+@router.post("/roi-polygon", response_model=RoiPolygonResponse)
+async def set_roi_polygon(payload: RoiPolygonRequest) -> RoiPolygonResponse:
+    if inspection_service.get_reference(payload.product_type) is None:
+        raise HTTPException(status_code=400, detail="Reference is not set for this product_type")
+    points = [(p.x, p.y) for p in payload.points]
+    try:
+        inspection_service.set_roi_polygon(product_type=payload.product_type, points=points)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RoiPolygonResponse(product_type=payload.product_type, points=payload.points)
+
+
+@router.get("/roi-polygon/{product_type}", response_model=RoiPolygonResponse)
+async def get_roi_polygon(product_type: str) -> RoiPolygonResponse:
+    points = inspection_service.get_roi_polygon(product_type)
+    if points is None:
+        raise HTTPException(status_code=404, detail="ROI polygon not set for this product_type")
+    return RoiPolygonResponse(
+        product_type=product_type,
+        points=[RoiPoint(x=x, y=y) for x, y in points],
+    )
+
+
+@router.post("/upload-ref-from-camera", response_model=UploadRefFromCameraResponse)
+async def upload_reference_from_camera(
+    product_type: str = Form(...),
+    camera_server_url: str = Form("http://localhost:8080"),
+) -> UploadRefFromCameraResponse:
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            camera_response = await client.get(camera_server_url)
+        camera_response.raise_for_status()
+        image_bytes, camera_source, camera_duration_ms = _decode_camera_payload(camera_response, camera_server_url)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Camera server error: {exc}") from exc
+
+    try:
+        inspection_service.set_reference(product_type=product_type, image_bytes=image_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return UploadRefFromCameraResponse(
+        message="Reference uploaded from camera",
+        product_type=product_type,
+        camera_source=camera_source,
+        camera_duration_ms=camera_duration_ms,
+        reference_b64=base64.b64encode(image_bytes).decode(),
+    )
 
 
 @router.post("/upload-ref")
@@ -179,4 +306,46 @@ async def test_run(
             defect_count=defect_count,
             defect_percent=round(defect_percent, 2),
         ),
+    )
+
+
+@router.post("/inspect-from-camera", response_model=InspectFromCameraResponse)
+async def inspect_from_camera(
+    product_type: str = Form(...),
+    threshold: Optional[float] = Form(None),
+    camera_server_url: str = Form("http://localhost:8080"),
+) -> InspectFromCameraResponse:
+    if inspection_service.get_reference(product_type) is None:
+        raise HTTPException(status_code=400, detail="Reference is not set for this product_type")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            camera_response = await client.get(camera_server_url)
+        camera_response.raise_for_status()
+        image_bytes, camera_source, camera_duration_ms = _decode_camera_payload(camera_response, camera_server_url)
+        original_b64 = base64.b64encode(image_bytes).decode()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Camera server error: {exc}") from exc
+
+    try:
+        result = inspection_service.inspect(
+            product_type=product_type,
+            image_bytes=image_bytes,
+            threshold=threshold,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return InspectFromCameraResponse(
+        product_type=result.product_type,
+        status=result.status,
+        anomaly_score=result.anomaly_score,
+        threshold=result.threshold,
+        aligned_image_b64=result.aligned_image_b64,
+        diff_map_b64=result.diff_map_b64,
+        heatmap_b64=result.heatmap_b64,
+        segmentation_mask_b64=result.segmentation_mask_b64,
+        original_image_b64=original_b64,
+        camera_source=camera_source,
+        camera_duration_ms=camera_duration_ms,
     )

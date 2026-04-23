@@ -1,11 +1,20 @@
-import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, FlaskConical, ImagePlus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Camera, CheckCircle2, FlaskConical, ImagePlus, RotateCcw, SlidersHorizontal } from "lucide-react";
 
 const API_URL = "http://localhost:8000";
 
 const toDataUrl = (base64) => (base64 ? `data:image/png;base64,${base64}` : "");
 const formatDuration = (durationMs) =>
   durationMs < 1000 ? `${Math.round(durationMs)} ms` : `${(durationMs / 1000).toFixed(2)} s`;
+const getErrorMessage = async (response, fallbackMessage) => {
+  try {
+    const payload = await response.json();
+    if (payload?.detail) return String(payload.detail);
+  } catch {
+    // Ignore malformed error body and return fallback below.
+  }
+  return fallbackMessage;
+};
 
 function App() {
   const [productType, setProductType] = useState("bucket-default");
@@ -25,6 +34,13 @@ function App() {
   const [normalTestSummary, setNormalTestSummary] = useState(null);
   const [brackTestLogs, setBrackTestLogs] = useState([]);
   const [brackTestSummary, setBrackTestSummary] = useState(null);
+  const [cameraSource, setCameraSource] = useState("http://localhost:8080");
+  const [roi, setRoi] = useState({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
+  const [roiPolygon, setRoiPolygon] = useState([]);
+  const [drawPolygonMode, setDrawPolygonMode] = useState(false);
+  const [referenceImageSize, setReferenceImageSize] = useState({ width: 0, height: 0 });
+  const [referenceBox, setReferenceBox] = useState({ left: 0, top: 0, width: 0, height: 0 });
+  const referenceContainerRef = useRef(null);
 
   const statusClass = useMemo(() => {
     if (status === "ГОДЕН") return "bg-ok/20 text-ok border-ok/40";
@@ -53,6 +69,29 @@ function App() {
       });
       if (!res.ok) throw new Error("Не удалось загрузить эталон");
       setReferencePreview(URL.createObjectURL(capturedFile));
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadReferenceFromCamera = async () => {
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("product_type", productType);
+      formData.append("camera_server_url", cameraSource);
+
+      const res = await fetch(`${API_URL}/upload-ref-from-camera`, {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось задать эталон с камеры"));
+
+      const data = await res.json();
+      setReferencePreview(toDataUrl(data.reference_b64));
+      setImages((prev) => ({ ...prev, original: toDataUrl(data.reference_b64) }));
     } catch (error) {
       window.alert(error.message);
     } finally {
@@ -130,6 +169,185 @@ function App() {
     }
   };
 
+  const runInspectionFromCamera = async () => {
+    const startedAt = performance.now();
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("product_type", productType);
+      formData.append("threshold", String(threshold));
+      formData.append("camera_server_url", cameraSource);
+
+      const res = await fetch(`${API_URL}/inspect-from-camera`, {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Ошибка проверки с камеры"));
+
+      const data = await res.json();
+      const elapsedMs = performance.now() - startedAt;
+      setStatus(data.status);
+      setScore(data.anomaly_score);
+      setImages({
+        original: toDataUrl(data.original_image_b64),
+        diff: toDataUrl(data.diff_map_b64),
+        heatmap: toDataUrl(data.heatmap_b64)
+      });
+      setLogs((prev) => [
+        {
+          ts: new Date().toLocaleTimeString(),
+          result: data.status,
+          score: Number(data.anomaly_score).toFixed(3),
+          duration: formatDuration(elapsedMs)
+        },
+        ...prev
+      ]);
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveRoi = async () => {
+    setBusy(true);
+    try {
+      const formData = new FormData();
+      formData.append("product_type", productType);
+      formData.append("x", String(roi.x));
+      formData.append("y", String(roi.y));
+      formData.append("w", String(roi.w));
+      formData.append("h", String(roi.h));
+
+      const res = await fetch(`${API_URL}/roi`, {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить ROI"));
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const recomputeReferenceBox = () => {
+    const container = referenceContainerRef.current;
+    if (!container || !referenceImageSize.width || !referenceImageSize.height) {
+      setReferenceBox({ left: 0, top: 0, width: 0, height: 0 });
+      return;
+    }
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    if (!containerWidth || !containerHeight) {
+      setReferenceBox({ left: 0, top: 0, width: 0, height: 0 });
+      return;
+    }
+
+    const containerAspect = containerWidth / containerHeight;
+    const imageAspect = referenceImageSize.width / referenceImageSize.height;
+
+    let drawWidth = containerWidth;
+    let drawHeight = containerHeight;
+    let offsetLeft = 0;
+    let offsetTop = 0;
+
+    if (imageAspect > containerAspect) {
+      drawHeight = containerWidth / imageAspect;
+      offsetTop = (containerHeight - drawHeight) / 2;
+    } else {
+      drawWidth = containerHeight * imageAspect;
+      offsetLeft = (containerWidth - drawWidth) / 2;
+    }
+
+    setReferenceBox({
+      left: offsetLeft,
+      top: offsetTop,
+      width: drawWidth,
+      height: drawHeight
+    });
+  };
+
+  useEffect(() => {
+    recomputeReferenceBox();
+    const onResize = () => recomputeReferenceBox();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [referenceImageSize.width, referenceImageSize.height, referencePreview]);
+
+  const addPolygonPoint = (event) => {
+    if (!drawPolygonMode || !referencePreview) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const activeBox =
+      referenceBox.width > 0 && referenceBox.height > 0
+        ? referenceBox
+        : { left: 0, top: 0, width: rect.width, height: rect.height };
+
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const inImageX = localX - activeBox.left;
+    const inImageY = localY - activeBox.top;
+
+    if (inImageX < 0 || inImageY < 0 || inImageX > activeBox.width || inImageY > activeBox.height) {
+      return;
+    }
+
+    const x = Math.max(0, Math.min(1, inImageX / activeBox.width));
+    const y = Math.max(0, Math.min(1, inImageY / activeBox.height));
+    setRoiPolygon((prev) => [...prev, { x, y }]);
+  };
+
+  const savePolygonRoi = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/roi-polygon`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_type: productType,
+          points: roiPolygon
+        })
+      });
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить контур ROI"));
+      setDrawPolygonMode(false);
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadReferenceAndPolygon = async () => {
+    try {
+      const [referenceRes, polygonRes] = await Promise.all([
+        fetch(`${API_URL}/reference/${encodeURIComponent(productType)}`),
+        fetch(`${API_URL}/roi-polygon/${encodeURIComponent(productType)}`)
+      ]);
+
+      if (referenceRes.ok) {
+        const referenceData = await referenceRes.json();
+        setReferencePreview(toDataUrl(referenceData.reference_b64));
+      } else {
+        setReferencePreview("");
+        setRoiPolygon([]);
+        return;
+      }
+
+      if (polygonRes.ok) {
+        const polygonData = await polygonRes.json();
+        const points = Array.isArray(polygonData.points) ? polygonData.points : [];
+        setRoiPolygon(points.map((p) => ({ x: Number(p.x), y: Number(p.y) })));
+      } else {
+        setRoiPolygon([]);
+      }
+    } catch {
+      setReferencePreview("");
+      setRoiPolygon([]);
+    }
+  };
+
   const resetAll = () => {
     setStatus("ОЖИДАНИЕ");
     setScore(0);
@@ -140,6 +358,10 @@ function App() {
     setBrackTestLogs([]);
     setBrackTestSummary(null);
   };
+
+  useEffect(() => {
+    loadReferenceAndPolygon();
+  }, [productType]);
 
   return (
     <main className="min-h-screen bg-transparent p-6 text-slate-100">
@@ -184,12 +406,85 @@ function App() {
 
             <div className="rounded-xl border border-slate-700 bg-panelSoft p-3">
               <p className="mb-2 text-sm text-slate-300">Golden Template</p>
-              <div className="h-36 overflow-hidden rounded border border-slate-700 bg-black/40">
+              <div
+                ref={referenceContainerRef}
+                className={`relative h-36 overflow-hidden rounded border border-slate-700 bg-black/40 ${
+                  drawPolygonMode ? "cursor-crosshair" : ""
+                }`}
+                onClick={addPolygonPoint}
+              >
                 {referencePreview ? (
-                  <img src={referencePreview} alt="reference" className="h-full w-full object-contain" />
+                  <>
+                    <img
+                      src={referencePreview}
+                      alt="reference"
+                      className="h-full w-full object-contain"
+                      onLoad={(event) => {
+                        setReferenceImageSize({
+                          width: event.currentTarget.naturalWidth,
+                          height: event.currentTarget.naturalHeight
+                        });
+                        requestAnimationFrame(recomputeReferenceBox);
+                      }}
+                    />
+                    {roiPolygon.length > 0 && referenceBox.width > 0 && referenceBox.height > 0 && (
+                      <svg
+                        className="pointer-events-none absolute"
+                        style={{
+                          left: `${referenceBox.left}px`,
+                          top: `${referenceBox.top}px`,
+                          width: `${referenceBox.width}px`,
+                          height: `${referenceBox.height}px`
+                        }}
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                      >
+                        <polygon
+                          points={roiPolygon.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(" ")}
+                          fill="rgba(16, 185, 129, 0.2)"
+                          stroke="rgb(16, 185, 129)"
+                          strokeWidth="2"
+                        />
+                        {roiPolygon.map((p, index) => (
+                          <circle
+                            key={`${p.x}-${p.y}-${index}`}
+                            cx={(p.x * 100).toFixed(2)}
+                            cy={(p.y * 100).toFixed(2)}
+                            r="2.2"
+                            fill="rgb(251, 191, 36)"
+                            stroke="rgb(255, 255, 255)"
+                            strokeWidth="0.7"
+                          />
+                        ))}
+                      </svg>
+                    )}
+                  </>
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-slate-500">Эталон не задан</div>
                 )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setDrawPolygonMode((prev) => !prev)}
+                  disabled={busy || !referencePreview}
+                  className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
+                >
+                  {drawPolygonMode ? "Завершить рисование" : "Рисовать контур"}
+                </button>
+                <button
+                  onClick={() => setRoiPolygon([])}
+                  disabled={busy || roiPolygon.length === 0}
+                  className="rounded-lg bg-slate-700 px-2 py-1 text-xs font-medium disabled:opacity-60"
+                >
+                  Очистить контур
+                </button>
+                <button
+                  onClick={savePolygonRoi}
+                  disabled={busy || roiPolygon.length < 3}
+                  className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-medium text-slate-950 disabled:opacity-60"
+                >
+                  Сохранить контур ROI
+                </button>
               </div>
             </div>
           </div>
@@ -215,7 +510,7 @@ function App() {
         </section>
 
         <section className="rounded-2xl border border-slate-700 bg-panel p-4">
-          <div className="grid gap-3 md:grid-cols-7">
+          <div className="grid gap-3 md:grid-cols-8">
             <input
               className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm outline-none ring-amber-300 focus:ring"
               value={productType}
@@ -234,11 +529,25 @@ function App() {
               <ImagePlus size={16} /> Задать эталон
             </button>
             <button
+              onClick={uploadReferenceFromCamera}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 rounded-lg bg-amber-300 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
+            >
+              <Camera size={16} /> Эталон с камеры
+            </button>
+            <button
               onClick={runInspection}
               disabled={busy || !capturedFile}
               className="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
             >
               Проверить
+            </button>
+            <button
+              onClick={runInspectionFromCamera}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
+            >
+              <Camera size={16} /> Проверить с камеры
             </button>
             <button
               onClick={() => runBatchTest("normal")}
@@ -259,6 +568,56 @@ function App() {
               className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium"
             >
               <RotateCcw size={16} /> Сброс
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <input
+              className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm outline-none ring-amber-300 focus:ring"
+              value={cameraSource}
+              onChange={(event) => setCameraSource(event.target.value)}
+              placeholder="URL camera server capture endpoint"
+            />
+            <div className="rounded-lg border border-slate-700 bg-panelSoft px-3 py-2 text-sm text-slate-300">
+              Пример: http://localhost:8080
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-6">
+            {[
+              { key: "x", label: "ROI X" },
+              { key: "y", label: "ROI Y" },
+              { key: "w", label: "ROI W" },
+              { key: "h", label: "ROI H" }
+            ].map((field) => (
+              <label key={field.key} className="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm">
+                <span className="text-slate-300">{field.label}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={roi[field.key]}
+                  onChange={(event) =>
+                    setRoi((prev) => ({ ...prev, [field.key]: Number(event.target.value) }))
+                  }
+                  className="w-full bg-transparent text-right text-slate-100 outline-none"
+                />
+              </label>
+            ))}
+            <button
+              onClick={saveRoi}
+              disabled={busy}
+              className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
+            >
+              Сохранить ROI
+            </button>
+            <button
+              onClick={() => setRoi({ x: 0, y: 0, w: 1, h: 1 })}
+              disabled={busy}
+              className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium"
+            >
+              ROI = весь кадр
             </button>
           </div>
 
