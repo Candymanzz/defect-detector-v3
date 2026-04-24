@@ -9,6 +9,7 @@
 
 typedef struct {
     ArvCamera *camera;
+    ArvDevice *device;
     ArvStream *stream;
 } CameraContext;
 
@@ -19,8 +20,13 @@ static unsigned char* capture_frame(CameraContext *ctx, unsigned long *jpeg_size
         arv_stream_push_buffer(ctx->stream, stale);
     }
 
-    // 2) Ждем следующий кадр после очистки очереди (то есть "свежий" кадр).
-    ArvBuffer *buffer = arv_stream_timeout_pop_buffer(ctx->stream, 1000000);
+    // 2) Делаем software trigger: камера снимает кадр "в момент запроса".
+    if (ctx->device) {
+        arv_device_execute_command(ctx->device, "TriggerSoftware", NULL);
+    }
+
+    // 3) Ждем новый кадр после trigger.
+    ArvBuffer *buffer = arv_stream_timeout_pop_buffer(ctx->stream, 1500000);
     if (!buffer) return NULL;
 
     if (arv_buffer_get_status(buffer) != ARV_BUFFER_STATUS_SUCCESS) {
@@ -115,9 +121,11 @@ int main() {
     if (device) {
         // Устанавливаем размер пакета 1500 для совместимости
         arv_device_set_integer_feature_value(device, "GevSCPSPacketSize", 1500, NULL);
-        // Явно отключаем триггерный режим, чтобы получать актуальные кадры в потоке.
-        arv_device_set_string_feature_value(device, "TriggerMode", "Off", NULL);
+        // Настраиваем software trigger: кадр по HTTP-запросу.
         arv_device_set_string_feature_value(device, "AcquisitionMode", "Continuous", NULL);
+        arv_device_set_string_feature_value(device, "TriggerSelector", "FrameStart", NULL);
+        arv_device_set_string_feature_value(device, "TriggerSource", "Software", NULL);
+        arv_device_set_string_feature_value(device, "TriggerMode", "On", NULL);
     }
 
     // Принудительно ставим Mono8 (8 бит на пиксель, ч/б)
@@ -151,7 +159,7 @@ int main() {
         return 1;
     }
 
-    CameraContext ctx = {camera, stream};
+    CameraContext ctx = {camera, device, stream};
 
     // 5. Запуск HTTP сервера (на порту 8080)
     struct MHD_Daemon *daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD, 8080,
