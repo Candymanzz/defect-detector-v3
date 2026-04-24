@@ -25,7 +25,7 @@ class InspectionService:
         self.references: Dict[str, np.ndarray] = {}
         self.rois: Dict[str, Tuple[float, float, float, float]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
-        self._orb = cv2.ORB_create(nfeatures=3000)
+        self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fallback_threshold = 0.25
 
@@ -194,20 +194,37 @@ class InspectionService:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         aligned_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
 
-        # ECC is sensitive to large differences, so we run it as a small affine
-        # refinement after coarse ORB+homography alignment.
+        # ECC can be expensive; run a lightweight refinement on a downscaled copy.
         warp = np.eye(2, 3, dtype=np.float32)
-        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 1e-5)
+        max_side = 640
+        h, w = ref_gray.shape[:2]
+        scale = min(1.0, float(max_side) / float(max(h, w)))
+        if scale < 1.0:
+            ref_small = cv2.resize(ref_gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+            aligned_small = cv2.resize(
+                aligned_gray,
+                (int(w * scale), int(h * scale)),
+                interpolation=cv2.INTER_AREA,
+            )
+        else:
+            ref_small = ref_gray
+            aligned_small = aligned_gray
+
+        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 15, 1e-3)
         try:
             cv2.findTransformECC(
-                ref_gray,
-                aligned_gray,
+                ref_small,
+                aligned_small,
                 warp,
                 cv2.MOTION_AFFINE,
                 criteria,
                 None,
-                5,
+                3,
             )
+            # Scale translation back to full resolution.
+            if scale < 1.0:
+                warp[0, 2] /= scale
+                warp[1, 2] /= scale
             h, w = reference.shape[:2]
             refined = cv2.warpAffine(
                 aligned,
