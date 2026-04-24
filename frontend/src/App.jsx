@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Camera, CheckCircle2, FlaskConical, ImagePlus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { calculate } from "./utils/bucketCalculator";
 
 const API_URL = "http://localhost:8000";
 
@@ -37,7 +38,18 @@ function App() {
   const [cameraSource, setCameraSource] = useState("http://localhost:8080");
   const [roi, setRoi] = useState({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
   const [roiPolygon, setRoiPolygon] = useState([]);
-  const [drawPolygonMode, setDrawPolygonMode] = useState(false);
+  const [itemPolygon, setItemPolygon] = useState([]);
+  const [activeContourMode, setActiveContourMode] = useState(null); // "roi" | "item" | null
+  const [bucketGeometry, setBucketGeometry] = useState({
+    topRadius: 155,
+    bottomRadius: 125,
+    height: 280
+  });
+  const [projectionParams, setProjectionParams] = useState({
+    pixelTopY: 20,
+    pixelBottomY: 180,
+    pixelCenterX: 120
+  });
   const [referenceImageSize, setReferenceImageSize] = useState({ width: 0, height: 0 });
   const [referenceBox, setReferenceBox] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const referenceContainerRef = useRef(null);
@@ -47,6 +59,105 @@ function App() {
     if (status === "БРАК") return "bg-ng/20 text-ng border-ng/40";
     return "bg-slate-700/40 text-slate-300 border-slate-600";
   }, [status]);
+
+  const polygonArea = (points) => {
+    if (!Array.isArray(points) || points.length < 3) return 0;
+    let sum = 0;
+    for (let i = 0; i < points.length; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      sum += a.x * b.y - b.x * a.y;
+    }
+    return Math.abs(sum) / 2;
+  };
+
+  const roiArea = useMemo(() => polygonArea(roiPolygon), [roiPolygon]);
+  const itemArea = useMemo(() => polygonArea(itemPolygon), [itemPolygon]);
+  const roiCoveragePercent = useMemo(() => {
+    if (itemArea <= 0) return 0;
+    return (roiArea / itemArea) * 100;
+  }, [roiArea, itemArea]);
+  const physicalAreaStats = useMemo(() => {
+    if (!referenceBox.width || !referenceBox.height) {
+      return {
+        roiMm2: 0,
+        itemMm2: 0,
+        coveragePercent: 0,
+        coverageFromVisibleSidePercent: 0,
+        fullSideAreaMm2: 0,
+        visibleSideAreaMm2: 0,
+        errorPercent: 0
+      };
+    }
+
+    const toPixelPoints = (pts) =>
+      pts.map((p) => ({
+        x: p.x * referenceBox.width,
+        y: p.y * referenceBox.height
+      }));
+
+    const params = {
+      realHeight: Number(bucketGeometry.height),
+      rTop: Number(bucketGeometry.topRadius),
+      rBottom: Number(bucketGeometry.bottomRadius),
+      pixelTopY: Number(projectionParams.pixelTopY),
+      pixelBottomY: Number(projectionParams.pixelBottomY),
+      pixelCenterX: Number(projectionParams.pixelCenterX),
+      visibleAngleFactor: 1.0
+    };
+
+    try {
+      const roiRes = calculate(toPixelPoints(roiPolygon), params);
+      const itemRes = calculate(toPixelPoints(itemPolygon), params);
+      const coveragePercent = itemRes.areaMm2 > 0 ? (roiRes.areaMm2 / itemRes.areaMm2) * 100 : 0;
+      const topR = Number(bucketGeometry.topRadius);
+      const bottomR = Number(bucketGeometry.bottomRadius);
+      const h = Number(bucketGeometry.height);
+      const slantHeight = Math.sqrt((topR - bottomR) ** 2 + h ** 2);
+      const fullSideAreaMm2 = Math.PI * (topR + bottomR) * slantHeight;
+      const visibleAngleDeg = 160;
+      const visibleSideAreaMm2 = fullSideAreaMm2 * (visibleAngleDeg / 360);
+      const coverageFromVisibleSidePercent = visibleSideAreaMm2 > 0 ? (roiRes.areaMm2 / visibleSideAreaMm2) * 100 : 0;
+      return {
+        roiMm2: roiRes.areaMm2,
+        itemMm2: itemRes.areaMm2,
+        coveragePercent,
+        coverageFromVisibleSidePercent,
+        fullSideAreaMm2,
+        visibleSideAreaMm2,
+        errorPercent: Math.max(roiRes.errorPercent, itemRes.errorPercent)
+      };
+    } catch {
+      return {
+        roiMm2: 0,
+        itemMm2: 0,
+        coveragePercent: 0,
+        coverageFromVisibleSidePercent: 0,
+        fullSideAreaMm2: 0,
+        visibleSideAreaMm2: 0,
+        errorPercent: 0
+      };
+    }
+  }, [
+    roiPolygon,
+    itemPolygon,
+    referenceBox.width,
+    referenceBox.height,
+    bucketGeometry.height,
+    bucketGeometry.topRadius,
+    bucketGeometry.bottomRadius,
+    projectionParams.pixelTopY,
+    projectionParams.pixelBottomY,
+    projectionParams.pixelCenterX
+  ]);
+  const bucketSideArea = useMemo(() => {
+    const topR = Number(bucketGeometry.topRadius);
+    const bottomR = Number(bucketGeometry.bottomRadius);
+    const height = Number(bucketGeometry.height);
+    if (topR <= 0 || bottomR <= 0 || height <= 0) return 0;
+    const slantHeight = Math.sqrt((topR - bottomR) ** 2 + height ** 2);
+    return Math.PI * (topR + bottomR) * slantHeight;
+  }, [bucketGeometry.topRadius, bucketGeometry.bottomRadius, bucketGeometry.height]);
 
   const handlePickImage = (event) => {
     const file = event.target.files?.[0];
@@ -276,7 +387,7 @@ function App() {
   }, [referenceImageSize.width, referenceImageSize.height, referencePreview]);
 
   const addPolygonPoint = (event) => {
-    if (!drawPolygonMode || !referencePreview) return;
+    if (!activeContourMode || !referencePreview) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
 
@@ -296,7 +407,12 @@ function App() {
 
     const x = Math.max(0, Math.min(1, inImageX / activeBox.width));
     const y = Math.max(0, Math.min(1, inImageY / activeBox.height));
-    setRoiPolygon((prev) => [...prev, { x, y }]);
+    const point = { x, y };
+    if (activeContourMode === "roi") {
+      setRoiPolygon((prev) => [...prev, point]);
+    } else if (activeContourMode === "item") {
+      setItemPolygon((prev) => [...prev, point]);
+    }
   };
 
   const savePolygonRoi = async () => {
@@ -311,7 +427,9 @@ function App() {
         })
       });
       if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить контур ROI"));
-      setDrawPolygonMode(false);
+      if (activeContourMode === "roi") {
+        setActiveContourMode(null);
+      }
     } catch (error) {
       window.alert(error.message);
     } finally {
@@ -342,9 +460,13 @@ function App() {
       } else {
         setRoiPolygon([]);
       }
+      setItemPolygon([]);
+      setActiveContourMode(null);
     } catch {
       setReferencePreview("");
       setRoiPolygon([]);
+      setItemPolygon([]);
+      setActiveContourMode(null);
     }
   };
 
@@ -362,6 +484,22 @@ function App() {
   useEffect(() => {
     loadReferenceAndPolygon();
   }, [productType]);
+
+  useEffect(() => {
+    if (itemPolygon.length < 3 || !referenceBox.width || !referenceBox.height) return;
+    const xs = itemPolygon.map((p) => p.x * referenceBox.width);
+    const ys = itemPolygon.map((p) => p.y * referenceBox.height);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    setProjectionParams((prev) => ({
+      ...prev,
+      pixelTopY: Number.isFinite(minY) ? Number(minY.toFixed(1)) : prev.pixelTopY,
+      pixelBottomY: Number.isFinite(maxY) ? Number(maxY.toFixed(1)) : prev.pixelBottomY,
+      pixelCenterX: Number.isFinite((minX + maxX) / 2) ? Number((((minX + maxX) / 2).toFixed(1))) : prev.pixelCenterX
+    }));
+  }, [itemPolygon, referenceBox.width, referenceBox.height]);
 
   return (
     <main className="min-h-screen bg-transparent p-6 text-slate-100">
@@ -408,9 +546,8 @@ function App() {
               <p className="mb-2 text-sm text-slate-300">Golden Template</p>
               <div
                 ref={referenceContainerRef}
-                className={`relative h-36 overflow-hidden rounded border border-slate-700 bg-black/40 ${
-                  drawPolygonMode ? "cursor-crosshair" : ""
-                }`}
+                className={`relative h-36 overflow-hidden rounded border border-slate-700 bg-black/40 ${activeContourMode ? "cursor-crosshair" : ""
+                  }`}
                 onClick={addPolygonPoint}
               >
                 {referencePreview ? (
@@ -427,7 +564,7 @@ function App() {
                         requestAnimationFrame(recomputeReferenceBox);
                       }}
                     />
-                    {roiPolygon.length > 0 && referenceBox.width > 0 && referenceBox.height > 0 && (
+                    {referenceBox.width > 0 && referenceBox.height > 0 && (roiPolygon.length > 0 || itemPolygon.length > 0) && (
                       <svg
                         className="pointer-events-none absolute"
                         style={{
@@ -439,15 +576,36 @@ function App() {
                         viewBox="0 0 100 100"
                         preserveAspectRatio="none"
                       >
-                        <polygon
-                          points={roiPolygon.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(" ")}
-                          fill="rgba(16, 185, 129, 0.2)"
-                          stroke="rgb(16, 185, 129)"
-                          strokeWidth="2"
-                        />
+                        {itemPolygon.length > 0 && (
+                          <polygon
+                            points={itemPolygon.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(" ")}
+                            fill="rgba(59, 130, 246, 0.18)"
+                            stroke="rgb(59, 130, 246)"
+                            strokeWidth="2"
+                          />
+                        )}
+                        {roiPolygon.length > 0 && (
+                          <polygon
+                            points={roiPolygon.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(" ")}
+                            fill="rgba(16, 185, 129, 0.22)"
+                            stroke="rgb(16, 185, 129)"
+                            strokeWidth="2"
+                          />
+                        )}
+                        {itemPolygon.map((p, index) => (
+                          <circle
+                            key={`item-${p.x}-${p.y}-${index}`}
+                            cx={(p.x * 100).toFixed(2)}
+                            cy={(p.y * 100).toFixed(2)}
+                            r="2.2"
+                            fill="rgb(59, 130, 246)"
+                            stroke="rgb(255, 255, 255)"
+                            strokeWidth="0.7"
+                          />
+                        ))}
                         {roiPolygon.map((p, index) => (
                           <circle
-                            key={`${p.x}-${p.y}-${index}`}
+                            key={`roi-${p.x}-${p.y}-${index}`}
                             cx={(p.x * 100).toFixed(2)}
                             cy={(p.y * 100).toFixed(2)}
                             r="2.2"
@@ -465,11 +623,18 @@ function App() {
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
-                  onClick={() => setDrawPolygonMode((prev) => !prev)}
+                  onClick={() => setActiveContourMode((prev) => (prev === "roi" ? null : "roi"))}
                   disabled={busy || !referencePreview}
                   className="rounded-lg bg-emerald-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
                 >
-                  {drawPolygonMode ? "Завершить рисование" : "Рисовать контур"}
+                  {activeContourMode === "roi" ? "Завершить ROI" : "Рисовать ROI контур"}
+                </button>
+                <button
+                  onClick={() => setActiveContourMode((prev) => (prev === "item" ? null : "item"))}
+                  disabled={busy || !referencePreview}
+                  className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
+                >
+                  {activeContourMode === "item" ? "Завершить контур изделия" : "Рисовать контур изделия"}
                 </button>
                 <button
                   onClick={() => setRoiPolygon([])}
@@ -479,12 +644,124 @@ function App() {
                   Очистить контур
                 </button>
                 <button
+                  onClick={() => setItemPolygon([])}
+                  disabled={busy || itemPolygon.length === 0}
+                  className="rounded-lg bg-slate-700 px-2 py-1 text-xs font-medium disabled:opacity-60"
+                >
+                  Очистить контур изделия
+                </button>
+                <button
                   onClick={savePolygonRoi}
                   disabled={busy || roiPolygon.length < 3}
                   className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-medium text-slate-950 disabled:opacity-60"
                 >
                   Сохранить контур ROI
                 </button>
+              </div>
+              <div className="mt-2 rounded-md border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs text-slate-300">
+                <div>Площадь ROI: {(roiArea * 100).toFixed(2)}% кадра</div>
+                <div>Площадь изделия: {(itemArea * 100).toFixed(2)}% кадра</div>
+                <div className={roiCoveragePercent >= 20 && roiCoveragePercent <= 30 ? "text-emerald-300" : "text-amber-300"}>
+                  ROI от изделия: {roiCoveragePercent.toFixed(1)}% (цель ~25%)
+                </div>
+                <div className="mt-2 border-t border-slate-700 pt-2">
+                  <div className="mb-1 text-slate-400">Параметры ведра (мм)</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1">
+                      <span className="whitespace-nowrap text-[11px] text-slate-300">R верх</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={bucketGeometry.topRadius}
+                        onChange={(event) =>
+                          setBucketGeometry((prev) => ({ ...prev, topRadius: Number(event.target.value) }))
+                        }
+                        className="w-full bg-transparent text-right text-xs text-slate-100 outline-none"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1">
+                      <span className="whitespace-nowrap text-[11px] text-slate-300">R низ</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={bucketGeometry.bottomRadius}
+                        onChange={(event) =>
+                          setBucketGeometry((prev) => ({ ...prev, bottomRadius: Number(event.target.value) }))
+                        }
+                        className="w-full bg-transparent text-right text-xs text-slate-100 outline-none"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1">
+                      <span className="whitespace-nowrap text-[11px] text-slate-300">H</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={bucketGeometry.height}
+                        onChange={(event) =>
+                          setBucketGeometry((prev) => ({ ...prev, height: Number(event.target.value) }))
+                        }
+                        className="w-full bg-transparent text-right text-xs text-slate-100 outline-none"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    Боковая площадь (усеченный конус): {bucketSideArea > 0 ? bucketSideArea.toFixed(0) : 0} мм²
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <label className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1">
+                      <span className="whitespace-nowrap text-[11px] text-slate-300">Y верх(px)</span>
+                      <input
+                        type="number"
+                        step={1}
+                        value={projectionParams.pixelTopY}
+                        onChange={(event) =>
+                          setProjectionParams((prev) => ({ ...prev, pixelTopY: Number(event.target.value) }))
+                        }
+                        className="w-full bg-transparent text-right text-xs text-slate-100 outline-none"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1">
+                      <span className="whitespace-nowrap text-[11px] text-slate-300">Y низ(px)</span>
+                      <input
+                        type="number"
+                        step={1}
+                        value={projectionParams.pixelBottomY}
+                        onChange={(event) =>
+                          setProjectionParams((prev) => ({ ...prev, pixelBottomY: Number(event.target.value) }))
+                        }
+                        className="w-full bg-transparent text-right text-xs text-slate-100 outline-none"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1">
+                      <span className="whitespace-nowrap text-[11px] text-slate-300">X центр(px)</span>
+                      <input
+                        type="number"
+                        step={1}
+                        value={projectionParams.pixelCenterX}
+                        onChange={(event) =>
+                          setProjectionParams((prev) => ({ ...prev, pixelCenterX: Number(event.target.value) }))
+                        }
+                        className="w-full bg-transparent text-right text-xs text-slate-100 outline-none"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-2 border-t border-slate-700 pt-2 text-[11px] text-slate-300">
+                    <div>ROI (оценка в реальности): {physicalAreaStats.roiMm2.toFixed(0)} мм²</div>
+                    <div>Изделие (оценка по контуру): {physicalAreaStats.itemMm2.toFixed(0)} мм²</div>
+                    <div>Полная боковая площадь: {physicalAreaStats.fullSideAreaMm2.toFixed(0)} мм²</div>
+                    <div>Видимая боковая площадь (~160°): {physicalAreaStats.visibleSideAreaMm2.toFixed(0)} мм²</div>
+                    <div
+                      className={physicalAreaStats.coverageFromVisibleSidePercent >= 20 && physicalAreaStats.coverageFromVisibleSidePercent <= 30 ? "text-emerald-300" : "text-amber-300"}
+                    >
+                      ROI от видимой боковой площади: {physicalAreaStats.coverageFromVisibleSidePercent.toFixed(1)}% (цель ~25%)
+                    </div>
+                    <div className="text-slate-400">ROI от синего контура изделия: {physicalAreaStats.coveragePercent.toFixed(1)}%</div>
+                    <div className="text-slate-400">Оценочная погрешность модели: ±{physicalAreaStats.errorPercent}%</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
