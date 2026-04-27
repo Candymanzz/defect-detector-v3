@@ -194,6 +194,7 @@ class InspectionService:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         aligned_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
 
+
         # ECC can be expensive; run a lightweight refinement on a downscaled copy.
         warp = np.eye(2, 3, dtype=np.float32)
         max_side = 640
