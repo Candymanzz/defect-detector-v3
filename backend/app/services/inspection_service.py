@@ -186,6 +186,11 @@ class InspectionService:
             ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
 
+        # Light pre-smoothing suppresses matrix/sensor micro-noise so it does not
+        # turn into false positives in robust difference map.
+        ref_gray = cv2.GaussianBlur(ref_gray, (5, 5), 0)
+        cur_gray = cv2.GaussianBlur(cur_gray, (5, 5), 0)
+
         kernel = np.ones((5, 5), dtype=np.uint8)
         ref_min = cv2.erode(ref_gray, kernel, iterations=1)
         ref_max = cv2.dilate(ref_gray, kernel, iterations=1)
@@ -201,14 +206,20 @@ class InspectionService:
         # that can otherwise be boosted as false micro-defects.
         robust_gray = cv2.GaussianBlur(robust_gray, (3, 3), 0)
 
-        # Black Hat highlights narrow dark structures on top of larger bright regions
-        # (e.g., thin scratches over bucket texture/text).
+        # Black Hat/Top Hat pair highlights both dark and bright thin defects
+        # over text/background structure (scratches, erasures, missing strokes).
         blackhat = cv2.morphologyEx(
             robust_gray,
             cv2.MORPH_BLACKHAT,
             np.ones((15, 15), dtype=np.uint8),
         )
-        robust_gray = cv2.addWeighted(robust_gray, 0.7, blackhat, 0.3, 0.0)
+        tophat = cv2.morphologyEx(
+            robust_gray,
+            cv2.MORPH_TOPHAT,
+            np.ones((15, 15), dtype=np.uint8),
+        )
+        robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
+        robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
 
         # Edge suppression on strong static reference edges (lid/border/text bounds):
         # reduce anomaly response in a small tolerance band around those edges.
@@ -227,6 +238,20 @@ class InspectionService:
         if np.any(text_like_zone):
             text_vals = robust_gray[text_like_zone]
             robust_gray[text_like_zone] = np.where(text_vals >= 55, text_vals, 0).astype(np.uint8)
+
+        # Boost zones where reference has strong text gradients but current frame
+        # has low gradients (possible erased/missing text).
+        ref_grad_x = cv2.Sobel(ref_gray, cv2.CV_32F, 1, 0, ksize=3)
+        ref_grad_y = cv2.Sobel(ref_gray, cv2.CV_32F, 0, 1, ksize=3)
+        cur_grad_x = cv2.Sobel(cur_gray, cv2.CV_32F, 1, 0, ksize=3)
+        cur_grad_y = cv2.Sobel(cur_gray, cv2.CV_32F, 0, 1, ksize=3)
+        ref_grad_mag = cv2.magnitude(ref_grad_x, ref_grad_y)
+        cur_grad_mag = cv2.magnitude(cur_grad_x, cur_grad_y)
+        contrast_loss_zone = (ref_grad_mag > 40.0) & (cur_grad_mag < 15.0)
+        if np.any(contrast_loss_zone):
+            robust_float = robust_gray.astype(np.float32)
+            robust_float[contrast_loss_zone] *= 2.0
+            robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
 
         # Median blur removes salt-like speckles without erasing thin linear defects.
         robust_gray = cv2.medianBlur(robust_gray, 3)
@@ -305,23 +330,55 @@ class InspectionService:
             np.ones((3, 3), dtype=np.uint8),
             iterations=1,
         )
+        kernel_long = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 1))
+        cleaned = cv2.morphologyEx(
+            cleaned,
+            cv2.MORPH_CLOSE,
+            kernel_long,
+            iterations=1,
+        )
 
         num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
         filtered = np.zeros_like(cleaned)
         min_area = 6
         max_aspect = 0.0
         max_object_score = 0.0
+        # Approximate text-like zones on diff map by strong local gradients.
+        grad_x = cv2.Sobel(gray_blur, cv2.CV_32F, 1, 0, ksize=3)
+        grad_y = cv2.Sobel(gray_blur, cv2.CV_32F, 0, 1, ksize=3)
+        grad_mag = cv2.magnitude(grad_x, grad_y)
+        text_like_zone = grad_mag > 25.0
+        cur_grad_mag = grad_mag
+        # Proxy "reference" gradient: local expected structure level in neighborhood.
+        ref_grad_mag = cv2.GaussianBlur(cur_grad_mag, (9, 9), 0)
         for label_idx in range(1, num_labels):
             area = int(stats[label_idx, cv2.CC_STAT_AREA])
             w = max(1, int(stats[label_idx, cv2.CC_STAT_WIDTH]))
             h = max(1, int(stats[label_idx, cv2.CC_STAT_HEIGHT]))
             aspect = max(w / h, h / w)
+            object_min_area = 5 if aspect > 6.0 else min_area
 
             # Keep tiny but clearly elongated components (scratch-like traces).
-            if area >= min_area or (area > 3 and aspect > 3.0):
-                filtered[labels == label_idx] = 255
-                max_aspect = max(max_aspect, float(aspect))
-                local_score = float((aspect / 15.0) + (area / 500.0))
+            if area >= object_min_area or (area > 3 and aspect > 3.0):
+                component_mask = labels == label_idx
+                text_overlap = 0.0
+                if np.any(component_mask):
+                    text_overlap = float(np.mean(text_like_zone[component_mask]))
+                is_text_critical = aspect > 8.0 and text_overlap > 0.2
+                if is_text_critical or area >= object_min_area or (area > 3 and aspect > 3.0):
+                    filtered[component_mask] = 255
+                    max_aspect = max(max_aspect, float(aspect))
+                    local_score = float((aspect / 15.0) + (area / 500.0))
+                    if text_overlap > 0.2:
+                        local_score *= 1.3
+
+                    # Penalty for structural "emptiness": if inside anomaly region
+                    # current gradient is much weaker than text gradient in reference.
+                    ref_object_grad = float(np.mean(ref_grad_mag[component_mask])) if np.any(component_mask) else 0.0
+                    cur_object_grad = float(np.mean(cur_grad_mag[component_mask])) if np.any(component_mask) else 0.0
+                    if ref_object_grad > (cur_object_grad + 12.0):
+                        local_score += 0.4
+
                 max_object_score = max(max_object_score, local_score)
 
         filtered = cv2.dilate(filtered, np.ones((3, 3), dtype=np.uint8), iterations=1)
@@ -363,6 +420,9 @@ class InspectionService:
         diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
         combined = cv2.max(mask_gray, diff_norm)
+        combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
+        combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
+        combined = np.clip(combined_gamma, 0, 255).astype(np.uint8)
         heatmap = cv2.applyColorMap(combined, cv2.COLORMAP_JET)
 
         # Brighten detected defects so they pop in red while background remains darker.
