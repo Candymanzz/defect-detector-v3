@@ -157,7 +157,7 @@ class InspectionService:
         src_pts = np.float32([kp_cur[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp_ref[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
-        homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 1.0)
         if homography is None or mask is None:
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
@@ -186,7 +186,7 @@ class InspectionService:
             ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
 
-        kernel = np.ones((3, 3), dtype=np.uint8)
+        kernel = np.ones((5, 5), dtype=np.uint8)
         ref_min = cv2.erode(ref_gray, kernel, iterations=1)
         ref_max = cv2.dilate(ref_gray, kernel, iterations=1)
 
@@ -196,6 +196,19 @@ class InspectionService:
 
         # Bilateral filter better preserves thin scratch edges than Gaussian blur.
         robust_gray = cv2.bilateralFilter(robust_gray, d=7, sigmaColor=35, sigmaSpace=35)
+
+        # Light Gaussian denoising before Black Hat suppresses sensor speckles
+        # that can otherwise be boosted as false micro-defects.
+        robust_gray = cv2.GaussianBlur(robust_gray, (3, 3), 0)
+
+        # Black Hat highlights narrow dark structures on top of larger bright regions
+        # (e.g., thin scratches over bucket texture/text).
+        blackhat = cv2.morphologyEx(
+            robust_gray,
+            cv2.MORPH_BLACKHAT,
+            np.ones((15, 15), dtype=np.uint8),
+        )
+        robust_gray = cv2.addWeighted(robust_gray, 0.7, blackhat, 0.3, 0.0)
 
         # Edge suppression on strong static reference edges (lid/border/text bounds):
         # reduce anomaly response in a small tolerance band around those edges.
@@ -215,22 +228,17 @@ class InspectionService:
             text_vals = robust_gray[text_like_zone]
             robust_gray[text_like_zone] = np.where(text_vals >= 55, text_vals, 0).astype(np.uint8)
 
-        # Remove isolated single-pixel noise after suppression.
-        robust_gray = cv2.morphologyEx(
-            robust_gray,
-            cv2.MORPH_OPEN,
-            np.ones((3, 3), dtype=np.uint8),
-            iterations=1,
-        )
+        # Median blur removes salt-like speckles without erasing thin linear defects.
+        robust_gray = cv2.medianBlur(robust_gray, 3)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
 
     def _refine_alignment_ecc(self, aligned: np.ndarray, reference: np.ndarray) -> np.ndarray:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         aligned_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
 
-        # Pyramid ECC (3 levels) with phase-correlation bootstrap.
+        # Pyramid ECC (4 levels) with phase-correlation bootstrap.
         # This is more stable for tiny shifts on text-heavy surfaces.
-        levels = 3
+        levels = 4
         ref_pyr = [ref_gray]
         aligned_pyr = [aligned_gray]
         for _ in range(1, levels):
@@ -238,7 +246,7 @@ class InspectionService:
             aligned_pyr.append(cv2.pyrDown(aligned_pyr[-1]))
 
         warp_aff = np.eye(2, 3, dtype=np.float32)
-        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 1e-4)
+        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 1e-4)
         try:
             for level in reversed(range(levels)):
                 ref_lvl = ref_pyr[level]
@@ -283,10 +291,8 @@ class InspectionService:
         # broad low-contrast texture/background changes.
         gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         gray_blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        # Adaptive threshold: reduce false positives on clean frames.
-        base_thresh = float(np.mean(gray_blur)) + 2.0 * float(np.std(gray_blur))
-        strong_threshold = float(np.clip(base_thresh, 20, 45))
-        if float(np.max(gray_blur)) < 30:
+        strong_threshold = float(np.percentile(gray_blur, 95))
+        if float(np.max(gray_blur)) < 20:
             zero = np.zeros_like(gray_blur, dtype=np.uint8)
             return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
         _, binary = cv2.threshold(gray_blur, strong_threshold, 255, cv2.THRESH_BINARY)
@@ -302,17 +308,17 @@ class InspectionService:
 
         num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
         filtered = np.zeros_like(cleaned)
-        min_area = 50
-        min_elongated_area = 15
+        min_area = 15
+        max_aspect = 0.0
         for label_idx in range(1, num_labels):
             area = int(stats[label_idx, cv2.CC_STAT_AREA])
             w = max(1, int(stats[label_idx, cv2.CC_STAT_WIDTH]))
             h = max(1, int(stats[label_idx, cv2.CC_STAT_HEIGHT]))
             aspect = max(w / h, h / w)
+            max_aspect = max(max_aspect, float(aspect))
 
-            # Keep large blobs and also keep narrow elongated components
-            # (likely scratch-like defects) even if area is relatively small.
-            if area >= min_area or (area >= min_elongated_area and aspect >= 3.5):
+            # Keep any object above minimum area; elongated contours are always critical.
+            if area >= min_area or aspect > 4.0:
                 filtered[labels == label_idx] = 255
 
         changed_ratio = float(np.count_nonzero(filtered)) / float(filtered.size)
@@ -321,21 +327,18 @@ class InspectionService:
         flat = gray_blur.reshape(-1)
         k = max(1, int(flat.size * 0.01))  # top 1% brightest pixels
         top_mean = float(np.mean(np.partition(flat, -k)[-k:])) / 255.0
-        p99 = float(np.percentile(gray_blur, 99)) / 255.0
 
         # If even the brightest tail is too weak, treat it as background noise.
         if top_mean < 0.05:
             zero = np.zeros_like(filtered)
             return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
 
-        # Alignment-error guard:
-        # large changed area with very weak average response usually means drift/noise.
-        if changed_ratio > 0.05 and float(np.mean(gray_blur)) < 10.0:
-            zero = np.zeros_like(filtered)
-            return 0.03, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
-
-        area_term = float(np.sqrt(changed_ratio))
-        heuristic_score = float(np.clip(0.45 * top_mean + 0.45 * p99 + 0.10 * area_term, 0.0, 1.0))
+        # Score bias toward strong thin scratches:
+        # 70% from brightest 1% intensity, 30% from contour elongation.
+        aspect_term = float(np.clip(max_aspect / 10.0, 0.0, 1.0))
+        heuristic_score = float(np.clip(0.70 * top_mean + 0.30 * aspect_term, 0.0, 1.0))
+        if max_aspect > 5.0:
+            heuristic_score = max(heuristic_score, 0.4)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
         if self._anomaly_engine is not None:
@@ -365,7 +368,12 @@ class InspectionService:
         diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
         combined = cv2.max(mask_gray, diff_norm)
-        return cv2.applyColorMap(combined, cv2.COLORMAP_JET)
+        heatmap = cv2.applyColorMap(combined, cv2.COLORMAP_JET)
+
+        # Brighten detected defects so they pop in red while background remains darker.
+        mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
+        boosted = heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float)
+        return np.clip(boosted, 0, 255).astype(np.uint8)
 
     def _crop_to_roi(
         self,
