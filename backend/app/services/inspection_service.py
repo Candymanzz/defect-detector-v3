@@ -290,12 +290,12 @@ class InspectionService:
         # This helps thin/high-contrast defects (e.g. scratches) score higher than
         # broad low-contrast texture/background changes.
         gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        gray_blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        strong_threshold = float(np.percentile(gray_blur, 95))
-        if float(np.max(gray_blur)) < 20:
+        gray_blur = cv2.GaussianBlur(gray, (3, 3), 0)
+        if float(np.max(gray_blur)) < 12.0:
             zero = np.zeros_like(gray_blur, dtype=np.uint8)
             return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
-        _, binary = cv2.threshold(gray_blur, strong_threshold, 255, cv2.THRESH_BINARY)
+        threshold_value = float(max(10.0, min(np.percentile(gray_blur, 98), 35.0)))
+        _, binary = cv2.threshold(gray_blur, threshold_value, 255, cv2.THRESH_BINARY)
 
         # Suppress speckle noise but keep thin structures (scratches).
         cleaned = cv2.medianBlur(binary, 3)
@@ -308,37 +308,32 @@ class InspectionService:
 
         num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
         filtered = np.zeros_like(cleaned)
-        min_area = 15
+        min_area = 6
         max_aspect = 0.0
+        max_object_score = 0.0
         for label_idx in range(1, num_labels):
             area = int(stats[label_idx, cv2.CC_STAT_AREA])
             w = max(1, int(stats[label_idx, cv2.CC_STAT_WIDTH]))
             h = max(1, int(stats[label_idx, cv2.CC_STAT_HEIGHT]))
             aspect = max(w / h, h / w)
-            max_aspect = max(max_aspect, float(aspect))
 
-            # Keep any object above minimum area; elongated contours are always critical.
-            if area >= min_area or aspect > 4.0:
+            # Keep tiny but clearly elongated components (scratch-like traces).
+            if area >= min_area or (area > 3 and aspect > 3.0):
                 filtered[labels == label_idx] = 255
+                max_aspect = max(max_aspect, float(aspect))
+                local_score = float((aspect / 15.0) + (area / 500.0))
+                max_object_score = max(max_object_score, local_score)
 
-        changed_ratio = float(np.count_nonzero(filtered)) / float(filtered.size)
+        filtered = cv2.dilate(filtered, np.ones((3, 3), dtype=np.uint8), iterations=1)
 
         # Brightest tail statistics: more robust for narrow defects than plain mean.
         flat = gray_blur.reshape(-1)
         k = max(1, int(flat.size * 0.01))  # top 1% brightest pixels
         top_mean = float(np.mean(np.partition(flat, -k)[-k:])) / 255.0
 
-        # If even the brightest tail is too weak, treat it as background noise.
-        if top_mean < 0.05:
-            zero = np.zeros_like(filtered)
-            return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
-
-        # Score bias toward strong thin scratches:
-        # 70% from brightest 1% intensity, 30% from contour elongation.
-        aspect_term = float(np.clip(max_aspect / 10.0, 0.0, 1.0))
-        heuristic_score = float(np.clip(0.70 * top_mean + 0.30 * aspect_term, 0.0, 1.0))
-        if max_aspect > 5.0:
-            heuristic_score = max(heuristic_score, 0.4)
+        heuristic_score = float(np.clip(max_object_score + (top_mean * 1.5), 0.0, 1.0))
+        if max_aspect > 4.5:
+            heuristic_score = max(heuristic_score, 0.35)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
         if self._anomaly_engine is not None:
