@@ -12,3 +12,4 @@ frontend/dist/
 /backend/app/brack
 *.jpg
 c_capture/camera_server
+backend/app/data/fp_zones.json
