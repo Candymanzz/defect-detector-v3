@@ -1,6 +1,10 @@
 import base64
+import json
+import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import cv2
@@ -18,6 +22,22 @@ class InspectionResult:
     diff_map_b64: str = ""
     heatmap_b64: str = ""
     segmentation_mask_b64: str = ""
+    raw_anomaly_score: float = 0.0
+    rechecked_zones_count: int = 0
+    recheck_adjustment: float = 0.0
+    rechecked_zone_ids: list[str] | None = None
+
+
+@dataclass
+class FPZone:
+    id: str
+    product_type: str
+    points_norm_heatmap: list[Tuple[float, float]]
+    points_norm_ref: list[Tuple[float, float]]
+    heatmap_w: int
+    heatmap_h: int
+    created_at: str
+    note: str = ""
 
 
 class InspectionService:
@@ -28,9 +48,12 @@ class InspectionService:
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fallback_threshold = 0.25
+        self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
+        self.fp_zones: Dict[str, list[FPZone]] = {}
 
         self._anomaly_engine = None
         self._load_anomalib_engine()
+        self._load_fp_zones()
 
     def _load_anomalib_engine(self) -> None:
         try:
@@ -75,6 +98,45 @@ class InspectionService:
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
 
+    def add_fp_zone(
+        self,
+        product_type: str,
+        points_norm_heatmap: list[Tuple[float, float]],
+        heatmap_w: int,
+        heatmap_h: int,
+        note: str = "",
+    ) -> FPZone:
+        normalized = self._validate_polygon_points(points_norm_heatmap, "FP polygon")
+        if self._polygon_area(normalized) < 0.0001:
+            raise ValueError("FP polygon area is too small")
+        if heatmap_w <= 0 or heatmap_h <= 0:
+            raise ValueError("heatmap size must be positive")
+        zone = FPZone(
+            id=str(uuid.uuid4()),
+            product_type=product_type,
+            points_norm_heatmap=normalized,
+            points_norm_ref=list(normalized),
+            heatmap_w=int(heatmap_w),
+            heatmap_h=int(heatmap_h),
+            created_at=datetime.now(timezone.utc).isoformat(),
+            note=note.strip(),
+        )
+        self.fp_zones.setdefault(product_type, []).append(zone)
+        self._save_fp_zones()
+        return zone
+
+    def get_fp_zones(self, product_type: str) -> list[FPZone]:
+        return list(self.fp_zones.get(product_type, []))
+
+    def delete_fp_zone(self, zone_id: str) -> bool:
+        for product_type, zones in self.fp_zones.items():
+            retained = [zone for zone in zones if zone.id != zone_id]
+            if len(retained) != len(zones):
+                self.fp_zones[product_type] = retained
+                self._save_fp_zones()
+                return True
+        return False
+
     def inspect(
         self,
         product_type: str,
@@ -100,6 +162,10 @@ class InspectionService:
         diff_map = self._compute_advanced_difference(aligned, reference)
 
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map)
+        raw_score = anomaly_score
+        fp_recheck = self._recheck_fp_zones(product_type, diff_map, segmentation_mask, raw_score)
+        anomaly_score = fp_recheck["final_score"]
+        segmentation_mask = fp_recheck["filtered_mask"]
 
         inspection_threshold = (
             threshold if threshold is not None else self._fallback_threshold
@@ -107,6 +173,8 @@ class InspectionService:
         status = "БРАК" if anomaly_score >= inspection_threshold else "ГОДЕН"
 
         heatmap = self._build_heatmap(segmentation_mask, diff_map) if include_visuals else None
+        if include_visuals and heatmap is not None:
+            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
 
         return InspectionResult(
             product_type=product_type,
@@ -117,7 +185,166 @@ class InspectionService:
             diff_map_b64=self._encode_image(diff_map) if include_visuals else "",
             heatmap_b64=self._encode_image(heatmap) if include_visuals and heatmap is not None else "",
             segmentation_mask_b64=self._encode_image(segmentation_mask) if include_visuals else "",
+            raw_anomaly_score=raw_score,
+            rechecked_zones_count=len(fp_recheck["rechecked_zone_ids"]),
+            recheck_adjustment=raw_score - anomaly_score,
+            rechecked_zone_ids=fp_recheck["rechecked_zone_ids"],
         )
+
+    def _validate_polygon_points(self, points: list[Tuple[float, float]], label: str) -> list[Tuple[float, float]]:
+        if len(points) < 3:
+            raise ValueError(f"{label} must contain at least 3 points")
+        normalized_points: list[Tuple[float, float]] = []
+        for idx, (x, y) in enumerate(points):
+            if x < 0 or x > 1 or y < 0 or y > 1:
+                raise ValueError(f"{label} point #{idx + 1} must be inside [0, 1]")
+            normalized_points.append((float(x), float(y)))
+        return normalized_points
+
+    def _polygon_area(self, points: list[Tuple[float, float]]) -> float:
+        if len(points) < 3:
+            return 0.0
+        area = 0.0
+        for idx, point in enumerate(points):
+            nx, ny = points[(idx + 1) % len(points)]
+            area += point[0] * ny - nx * point[1]
+        return abs(area) * 0.5
+
+    def _load_fp_zones(self) -> None:
+        self.fp_zones = {}
+        if not self._fp_zones_file.exists():
+            return
+        try:
+            raw_payload = json.loads(self._fp_zones_file.read_text(encoding="utf-8"))
+            entries = raw_payload if isinstance(raw_payload, list) else []
+            for entry in entries:
+                product_type = str(entry.get("product_type", "")).strip()
+                if not product_type:
+                    continue
+                zone = FPZone(
+                    id=str(entry.get("id", str(uuid.uuid4()))),
+                    product_type=product_type,
+                    points_norm_heatmap=[(float(p[0]), float(p[1])) for p in entry.get("points_norm_heatmap", [])],
+                    points_norm_ref=[(float(p[0]), float(p[1])) for p in entry.get("points_norm_ref", entry.get("points_norm_heatmap", []))],
+                    heatmap_w=int(entry.get("heatmap_w", 1)),
+                    heatmap_h=int(entry.get("heatmap_h", 1)),
+                    created_at=str(entry.get("created_at", datetime.now(timezone.utc).isoformat())),
+                    note=str(entry.get("note", "")),
+                )
+                if len(zone.points_norm_ref) >= 3:
+                    self.fp_zones.setdefault(product_type, []).append(zone)
+        except Exception:
+            self.fp_zones = {}
+
+    def _save_fp_zones(self) -> None:
+        self._fp_zones_file.parent.mkdir(parents=True, exist_ok=True)
+        entries = []
+        for zones in self.fp_zones.values():
+            for zone in zones:
+                entries.append(
+                    {
+                        "id": zone.id,
+                        "product_type": zone.product_type,
+                        "points_norm_heatmap": zone.points_norm_heatmap,
+                        "points_norm_ref": zone.points_norm_ref,
+                        "heatmap_w": zone.heatmap_w,
+                        "heatmap_h": zone.heatmap_h,
+                        "created_at": zone.created_at,
+                        "note": zone.note,
+                    }
+                )
+        self._fp_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+
+    def _polygon_mask_from_norm_points(self, width: int, height: int, points: list[Tuple[float, float]]) -> np.ndarray:
+        pts = np.array(
+            [[int(round(x * (width - 1))), int(round(y * (height - 1)))] for x, y in points],
+            dtype=np.int32,
+        )
+        mask = np.zeros((height, width), dtype=np.uint8)
+        cv2.fillPoly(mask, [pts], 255)
+        return mask
+
+    def _recheck_fp_zones(
+        self,
+        product_type: str,
+        diff_map: np.ndarray,
+        segmentation_mask: np.ndarray,
+        raw_score: float,
+    ) -> dict:
+        zones = self.get_fp_zones(product_type)
+        if not zones:
+            return {"final_score": raw_score, "rechecked_zone_ids": [], "filtered_mask": segmentation_mask}
+
+        h, w = diff_map.shape[:2]
+        seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
+        diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+        filtered_gray = seg_gray.copy()
+        total_anomaly_pixels = float(np.count_nonzero(seg_gray > 0))
+        seg_active = (seg_gray > 0).astype(np.uint8) * 255
+        # Small tolerance around anomaly mask to avoid frame-to-frame misses.
+        seg_active_dilated = cv2.dilate(seg_active, np.ones((9, 9), dtype=np.uint8), iterations=1)
+        zone_scores: list[float] = []
+        rechecked_zone_ids: list[str] = []
+        fp_overlap_ratio = 0.0
+        for zone in zones:
+            zone_mask = self._polygon_mask_from_norm_points(w, h, zone.points_norm_ref)
+            zone_pixels = zone_mask > 0
+            if not np.any(zone_pixels):
+                continue
+            zone_overlap_pixels = float(np.count_nonzero((seg_active_dilated > 0) & zone_pixels))
+            zone_diff_q90 = float(np.percentile(diff_gray[zone_pixels], 90)) if np.any(zone_pixels) else 0.0
+            # Trigger recheck either by mask overlap (with tolerance) or by strong diff energy.
+            has_zone_activation = zone_overlap_pixels > 0 or zone_diff_q90 >= 22.0
+            if not has_zone_activation:
+                continue
+            x, y, zone_w, zone_h = cv2.boundingRect(
+                np.array(
+                    [[int(round(px * (w - 1))), int(round(py * (h - 1)))] for px, py in zone.points_norm_ref],
+                    dtype=np.int32,
+                )
+            )
+            if zone_w < 3 or zone_h < 3:
+                continue
+            patch = diff_map[y : y + zone_h, x : x + zone_w]
+            if patch.size == 0:
+                continue
+            patch_score, _ = self._run_anomaly_model(patch)
+            zone_scores.append(float(patch_score))
+            rechecked_zone_ids.append(zone.id)
+            if total_anomaly_pixels > 0:
+                zone_anomaly_pixels = float(np.count_nonzero((seg_active_dilated > 0) & zone_pixels))
+                fp_overlap_ratio += zone_anomaly_pixels / total_anomaly_pixels
+            # Suppress marked false-positive regions in the visualization/secondary logic.
+            suppress_mask = cv2.dilate(zone_mask, np.ones((5, 5), dtype=np.uint8), iterations=1) > 0
+            filtered_gray[suppress_mask] = 0
+
+        if not zone_scores:
+            return {"final_score": raw_score, "rechecked_zone_ids": [], "filtered_mask": segmentation_mask}
+
+        mean_zone_score = float(np.mean(zone_scores))
+        mean_based_score = float(np.clip((raw_score + mean_zone_score) / 2.0, 0.0, 1.0))
+        overlap_ratio = float(np.clip(fp_overlap_ratio, 0.0, 1.0))
+        overlap_based_score = float(np.clip(raw_score * (1.0 - 0.85 * overlap_ratio), 0.0, 1.0))
+        final_score = min(mean_based_score, overlap_based_score)
+        filtered_mask = cv2.cvtColor(filtered_gray, cv2.COLOR_GRAY2BGR)
+        return {"final_score": final_score, "rechecked_zone_ids": rechecked_zone_ids, "filtered_mask": filtered_mask}
+
+    def _draw_fp_zone_overlay(self, heatmap: np.ndarray, zones: list[FPZone], rechecked_ids: list[str]) -> np.ndarray:
+        if not zones:
+            return heatmap
+        overlay = heatmap.copy()
+        h, w = heatmap.shape[:2]
+        for zone in zones:
+            pts = np.array(
+                [[int(round(x * (w - 1))), int(round(y * (h - 1)))] for x, y in zone.points_norm_ref],
+                dtype=np.int32,
+            )
+            if len(pts) < 3:
+                continue
+            color = (50, 220, 50) if zone.id in rechecked_ids else (40, 150, 220)
+            cv2.fillPoly(overlay, [pts], color)
+            cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
+        return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)
 
     def _decode_image(self, image_bytes: bytes) -> np.ndarray:
         data = np.frombuffer(image_bytes, dtype=np.uint8)

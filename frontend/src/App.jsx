@@ -39,7 +39,11 @@ function App() {
   const [roi, setRoi] = useState({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
   const [roiPolygon, setRoiPolygon] = useState([]);
   const [itemPolygon, setItemPolygon] = useState([]);
-  const [activeContourMode, setActiveContourMode] = useState(null); // "roi" | "item" | null
+  const [fpPolygonDraft, setFpPolygonDraft] = useState([]);
+  const [fpZones, setFpZones] = useState([]);
+  const [lastRecheckedZoneIds, setLastRecheckedZoneIds] = useState([]);
+  const [recheckStats, setRecheckStats] = useState({ count: 0, adjustment: 0, rawScore: 0 });
+  const [activeContourMode, setActiveContourMode] = useState(null); // "roi" | "item" | "fp" | null
   const [bucketGeometry, setBucketGeometry] = useState({
     topRadius: 155,
     bottomRadius: 125,
@@ -53,6 +57,9 @@ function App() {
   const [referenceImageSize, setReferenceImageSize] = useState({ width: 0, height: 0 });
   const [referenceBox, setReferenceBox] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const referenceContainerRef = useRef(null);
+  const heatmapContainerRef = useRef(null);
+  const [heatmapImageSize, setHeatmapImageSize] = useState({ width: 0, height: 0 });
+  const [heatmapBox, setHeatmapBox] = useState({ left: 0, top: 0, width: 0, height: 0 });
 
   const statusClass = useMemo(() => {
     if (status === "ГОДЕН") return "bg-ok/20 text-ok border-ok/40";
@@ -230,6 +237,12 @@ function App() {
       const elapsedMs = performance.now() - startedAt;
       setStatus(data.status);
       setScore(data.anomaly_score);
+      setLastRecheckedZoneIds(data.rechecked_zone_ids || []);
+      setRecheckStats({
+        count: Number(data.rechecked_zones_count || 0),
+        adjustment: Number(data.recheck_adjustment || 0),
+        rawScore: Number(data.raw_anomaly_score || data.anomaly_score || 0)
+      });
       setImages((prev) => ({
         ...prev,
         diff: toDataUrl(data.diff_map_b64),
@@ -240,6 +253,8 @@ function App() {
           ts: new Date().toLocaleTimeString(),
           result: data.status,
           score: Number(data.anomaly_score).toFixed(3),
+          recheckedZonesCount: Number(data.rechecked_zones_count || 0),
+          recheckAdjustment: Number(data.recheck_adjustment || 0).toFixed(3),
           duration: formatDuration(elapsedMs)
         },
         ...prev
@@ -299,6 +314,12 @@ function App() {
       const elapsedMs = performance.now() - startedAt;
       setStatus(data.status);
       setScore(data.anomaly_score);
+      setLastRecheckedZoneIds(data.rechecked_zone_ids || []);
+      setRecheckStats({
+        count: Number(data.rechecked_zones_count || 0),
+        adjustment: Number(data.recheck_adjustment || 0),
+        rawScore: Number(data.raw_anomaly_score || data.anomaly_score || 0)
+      });
       setImages({
         original: toDataUrl(data.original_image_b64),
         diff: toDataUrl(data.diff_map_b64),
@@ -309,6 +330,8 @@ function App() {
           ts: new Date().toLocaleTimeString(),
           result: data.status,
           score: Number(data.anomaly_score).toFixed(3),
+          recheckedZonesCount: Number(data.rechecked_zones_count || 0),
+          recheckAdjustment: Number(data.recheck_adjustment || 0).toFixed(3),
           duration: formatDuration(elapsedMs)
         },
         ...prev
@@ -342,21 +365,18 @@ function App() {
     }
   };
 
-  const recomputeReferenceBox = () => {
-    const container = referenceContainerRef.current;
-    if (!container || !referenceImageSize.width || !referenceImageSize.height) {
-      setReferenceBox({ left: 0, top: 0, width: 0, height: 0 });
-      return;
+  const computeContainBox = (container, imageSize) => {
+    if (!container || !imageSize.width || !imageSize.height) {
+      return { left: 0, top: 0, width: 0, height: 0 };
     }
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
     if (!containerWidth || !containerHeight) {
-      setReferenceBox({ left: 0, top: 0, width: 0, height: 0 });
-      return;
+      return { left: 0, top: 0, width: 0, height: 0 };
     }
 
     const containerAspect = containerWidth / containerHeight;
-    const imageAspect = referenceImageSize.width / referenceImageSize.height;
+    const imageAspect = imageSize.width / imageSize.height;
 
     let drawWidth = containerWidth;
     let drawHeight = containerHeight;
@@ -371,20 +391,34 @@ function App() {
       offsetLeft = (containerWidth - drawWidth) / 2;
     }
 
-    setReferenceBox({
+    return {
       left: offsetLeft,
       top: offsetTop,
       width: drawWidth,
       height: drawHeight
-    });
+    };
+  };
+
+  const recomputeReferenceBox = () => {
+    setReferenceBox(computeContainBox(referenceContainerRef.current, referenceImageSize));
+  };
+
+  const recomputeHeatmapBox = () => {
+    setHeatmapBox(computeContainBox(heatmapContainerRef.current, heatmapImageSize));
   };
 
   useEffect(() => {
     recomputeReferenceBox();
+    recomputeHeatmapBox();
     const onResize = () => recomputeReferenceBox();
+    const onHeatmapResize = () => recomputeHeatmapBox();
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [referenceImageSize.width, referenceImageSize.height, referencePreview]);
+    window.addEventListener("resize", onHeatmapResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onHeatmapResize);
+    };
+  }, [referenceImageSize.width, referenceImageSize.height, referencePreview, heatmapImageSize.width, heatmapImageSize.height, images.heatmap]);
 
   const addPolygonPoint = (event) => {
     if (!activeContourMode || !referencePreview) return;
@@ -415,6 +449,26 @@ function App() {
     }
   };
 
+  const addHeatmapFpPoint = (event) => {
+    if (activeContourMode !== "fp" || !images.heatmap) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const activeBox =
+      heatmapBox.width > 0 && heatmapBox.height > 0
+        ? heatmapBox
+        : { left: 0, top: 0, width: rect.width, height: rect.height };
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const inImageX = localX - activeBox.left;
+    const inImageY = localY - activeBox.top;
+    if (inImageX < 0 || inImageY < 0 || inImageX > activeBox.width || inImageY > activeBox.height) return;
+    const point = {
+      x: Math.max(0, Math.min(1, inImageX / activeBox.width)),
+      y: Math.max(0, Math.min(1, inImageY / activeBox.height))
+    };
+    setFpPolygonDraft((prev) => [...prev, point]);
+  };
+
   const savePolygonRoi = async () => {
     setBusy(true);
     try {
@@ -430,6 +484,59 @@ function App() {
       if (activeContourMode === "roi") {
         setActiveContourMode(null);
       }
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadFpZones = async () => {
+    try {
+      const res = await fetch(`${API_URL}/fp-zones/${encodeURIComponent(productType)}`);
+      if (!res.ok) {
+        setFpZones([]);
+        return;
+      }
+      const data = await res.json();
+      const zones = Array.isArray(data.zones) ? data.zones : [];
+      setFpZones(zones);
+    } catch {
+      setFpZones([]);
+    }
+  };
+
+  const saveFpZone = async () => {
+    if (fpPolygonDraft.length < 3 || !heatmapImageSize.width || !heatmapImageSize.height) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/fp-zones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_type: productType,
+          points: fpPolygonDraft,
+          heatmap_w: heatmapImageSize.width,
+          heatmap_h: heatmapImageSize.height
+        })
+      });
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить FP-зону"));
+      setFpPolygonDraft([]);
+      setActiveContourMode(null);
+      await loadFpZones();
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteFpZone = async (zoneId) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/fp-zones/${encodeURIComponent(zoneId)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось удалить FP-зону"));
+      await loadFpZones();
     } catch (error) {
       window.alert(error.message);
     } finally {
@@ -460,13 +567,17 @@ function App() {
       } else {
         setRoiPolygon([]);
       }
+      await loadFpZones();
       setItemPolygon([]);
       setActiveContourMode(null);
+      setFpPolygonDraft([]);
     } catch {
       setReferencePreview("");
       setRoiPolygon([]);
       setItemPolygon([]);
       setActiveContourMode(null);
+      setFpPolygonDraft([]);
+      setFpZones([]);
     }
   };
 
@@ -479,6 +590,9 @@ function App() {
     setNormalTestSummary(null);
     setBrackTestLogs([]);
     setBrackTestSummary(null);
+    setFpPolygonDraft([]);
+    setLastRecheckedZoneIds([]);
+    setRecheckStats({ count: 0, adjustment: 0, rawScore: 0 });
   };
 
   useEffect(() => {
@@ -768,22 +882,133 @@ function App() {
         </section>
 
         <section className="grid gap-4 rounded-2xl border border-slate-700 bg-panel p-4 md:grid-cols-3">
-          {[
-            { title: "Оригинал", src: images.original },
-            { title: "Карта разницы", src: images.diff },
-            { title: "Тепловая карта", src: images.heatmap }
-          ].map((item) => (
-            <article key={item.title} className="rounded-xl border border-slate-700 bg-panelSoft p-3">
-              <h3 className="mb-2 text-sm font-medium text-slate-200">{item.title}</h3>
-              <div className="aspect-video overflow-hidden rounded border border-slate-700 bg-black/40">
-                {item.src ? (
-                  <img src={item.src} alt={item.title} className="h-full w-full object-contain" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-slate-500">Нет данных</div>
-                )}
+          <article className="rounded-xl border border-slate-700 bg-panelSoft p-3">
+            <h3 className="mb-2 text-sm font-medium text-slate-200">Оригинал</h3>
+            <div className="aspect-video overflow-hidden rounded border border-slate-700 bg-black/40">
+              {images.original ? (
+                <img src={images.original} alt="Оригинал" className="h-full w-full object-contain" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-slate-500">Нет данных</div>
+              )}
+            </div>
+          </article>
+          <article className="rounded-xl border border-slate-700 bg-panelSoft p-3">
+            <h3 className="mb-2 text-sm font-medium text-slate-200">Карта разницы</h3>
+            <div className="aspect-video overflow-hidden rounded border border-slate-700 bg-black/40">
+              {images.diff ? (
+                <img src={images.diff} alt="Карта разницы" className="h-full w-full object-contain" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-slate-500">Нет данных</div>
+              )}
+            </div>
+          </article>
+          <article className="rounded-xl border border-slate-700 bg-panelSoft p-3">
+            <h3 className="mb-2 text-sm font-medium text-slate-200">Тепловая карта (разметка FP)</h3>
+            <div
+              ref={heatmapContainerRef}
+              className={`relative aspect-video overflow-hidden rounded border border-slate-700 bg-black/40 ${activeContourMode === "fp" ? "cursor-crosshair" : ""}`}
+              onClick={addHeatmapFpPoint}
+            >
+              {images.heatmap ? (
+                <>
+                  <img
+                    src={images.heatmap}
+                    alt="Тепловая карта"
+                    className="h-full w-full object-contain"
+                    onLoad={(event) => {
+                      setHeatmapImageSize({
+                        width: event.currentTarget.naturalWidth,
+                        height: event.currentTarget.naturalHeight
+                      });
+                      requestAnimationFrame(recomputeHeatmapBox);
+                    }}
+                  />
+                  {heatmapBox.width > 0 && heatmapBox.height > 0 && (
+                    <svg
+                      className="pointer-events-none absolute"
+                      style={{
+                        left: `${heatmapBox.left}px`,
+                        top: `${heatmapBox.top}px`,
+                        width: `${heatmapBox.width}px`,
+                        height: `${heatmapBox.height}px`
+                      }}
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      {fpZones.map((zone) => {
+                        const isRechecked = lastRecheckedZoneIds.includes(zone.id);
+                        const pts = zone.points_norm_heatmap || [];
+                        return (
+                          <polygon
+                            key={zone.id}
+                            points={pts.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(" ")}
+                            fill={isRechecked ? "rgba(34, 197, 94, 0.28)" : "rgba(14, 165, 233, 0.20)"}
+                            stroke={isRechecked ? "rgb(34, 197, 94)" : "rgb(14, 165, 233)"}
+                            strokeWidth="2"
+                          />
+                        );
+                      })}
+                      {fpPolygonDraft.length > 0 && (
+                        <polygon
+                          points={fpPolygonDraft.map((p) => `${(p.x * 100).toFixed(2)},${(p.y * 100).toFixed(2)}`).join(" ")}
+                          fill="rgba(250, 204, 21, 0.20)"
+                          stroke="rgb(250, 204, 21)"
+                          strokeWidth="2"
+                        />
+                      )}
+                    </svg>
+                  )}
+                </>
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-slate-500">Нет данных</div>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveContourMode((prev) => (prev === "fp" ? null : "fp"))}
+                disabled={busy || !images.heatmap}
+                className="rounded-lg bg-cyan-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
+              >
+                {activeContourMode === "fp" ? "Завершить FP-контур" : "Рисовать FP-контур"}
+              </button>
+              <button
+                onClick={() => setFpPolygonDraft([])}
+                disabled={busy || fpPolygonDraft.length === 0}
+                className="rounded-lg bg-slate-700 px-2 py-1 text-xs font-medium disabled:opacity-60"
+              >
+                Очистить FP-черновик
+              </button>
+              <button
+                onClick={saveFpZone}
+                disabled={busy || fpPolygonDraft.length < 3 || !images.heatmap}
+                className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-medium text-slate-950 disabled:opacity-60"
+              >
+                Сохранить FP-зону
+              </button>
+            </div>
+            <div className="mt-2 text-xs text-slate-300">
+              <div>Recheck зон в последней проверке: {recheckStats.count}</div>
+              <div>Raw score: {recheckStats.rawScore.toFixed(3)} | Коррекция: -{Math.max(0, recheckStats.adjustment).toFixed(3)}</div>
+            </div>
+            {fpZones.length > 0 && (
+              <div className="mt-2 max-h-24 space-y-1 overflow-y-auto rounded border border-slate-700 bg-slate-900/60 p-2 text-xs">
+                {fpZones.map((zone) => (
+                  <div key={zone.id} className="flex items-center justify-between gap-2">
+                    <span className={lastRecheckedZoneIds.includes(zone.id) ? "text-emerald-300" : "text-slate-300"}>
+                      {zone.id.slice(0, 8)}...
+                    </span>
+                    <button
+                      onClick={() => deleteFpZone(zone.id)}
+                      disabled={busy}
+                      className="rounded bg-rose-600 px-2 py-0.5 text-white disabled:opacity-60"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ))}
               </div>
-            </article>
-          ))}
+            )}
+          </article>
         </section>
 
         <section className="rounded-2xl border border-slate-700 bg-panel p-4">
@@ -922,13 +1147,14 @@ function App() {
                   <th className="px-3 py-2 text-left">Время</th>
                   <th className="px-3 py-2 text-left">Результат</th>
                   <th className="px-3 py-2 text-left">Score</th>
+                  <th className="px-3 py-2 text-left">FP recheck</th>
                   <th className="px-3 py-2 text-left">Длительность</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={4}>
+                    <td className="px-3 py-4 text-slate-500" colSpan={5}>
                       Пока нет проверок
                     </td>
                   </tr>
@@ -940,6 +1166,9 @@ function App() {
                         {entry.result}
                       </td>
                       <td className="px-3 py-2">{entry.score}</td>
+                      <td className="px-3 py-2 text-slate-300">
+                        зон: {entry.recheckedZonesCount || 0}, -{entry.recheckAdjustment || "0.000"}
+                      </td>
                       <td className="px-3 py-2 text-slate-300">{entry.duration}</td>
                     </tr>
                   ))

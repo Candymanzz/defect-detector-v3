@@ -24,6 +24,10 @@ class InspectResponse(BaseModel):
     diff_map_b64: str
     heatmap_b64: str
     segmentation_mask_b64: str
+    raw_anomaly_score: float
+    rechecked_zones_count: int
+    recheck_adjustment: float
+    rechecked_zone_ids: list[str] = Field(default_factory=list)
 
 
 class TestLogEntry(BaseModel):
@@ -89,6 +93,35 @@ class UploadRefFromCameraResponse(BaseModel):
     reference_b64: str
 
 
+class FPZonePoint(BaseModel):
+    x: float
+    y: float
+
+
+class FPZoneCreateRequest(BaseModel):
+    product_type: str
+    points: list[FPZonePoint]
+    heatmap_w: int
+    heatmap_h: int
+    note: str = ""
+
+
+class FPZoneResponse(BaseModel):
+    id: str
+    product_type: str
+    points_norm_heatmap: list[FPZonePoint]
+    points_norm_ref: list[FPZonePoint]
+    heatmap_w: int
+    heatmap_h: int
+    created_at: str
+    note: str
+
+
+class FPZoneListResponse(BaseModel):
+    product_type: str
+    zones: list[FPZoneResponse] = Field(default_factory=list)
+
+
 def _decode_camera_payload(camera_response: httpx.Response, camera_server_url: str) -> tuple[bytes, str, float]:
     content_type = camera_response.headers.get("content-type", "").lower()
 
@@ -134,6 +167,60 @@ async def set_roi_polygon(payload: RoiPolygonRequest) -> RoiPolygonResponse:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return RoiPolygonResponse(product_type=payload.product_type, points=payload.points)
+
+
+@router.post("/fp-zones", response_model=FPZoneResponse)
+async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
+    points = [(p.x, p.y) for p in payload.points]
+    try:
+        zone = inspection_service.add_fp_zone(
+            product_type=payload.product_type,
+            points_norm_heatmap=points,
+            heatmap_w=payload.heatmap_w,
+            heatmap_h=payload.heatmap_h,
+            note=payload.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return FPZoneResponse(
+        id=zone.id,
+        product_type=zone.product_type,
+        points_norm_heatmap=[FPZonePoint(x=x, y=y) for x, y in zone.points_norm_heatmap],
+        points_norm_ref=[FPZonePoint(x=x, y=y) for x, y in zone.points_norm_ref],
+        heatmap_w=zone.heatmap_w,
+        heatmap_h=zone.heatmap_h,
+        created_at=zone.created_at,
+        note=zone.note,
+    )
+
+
+@router.get("/fp-zones/{product_type}", response_model=FPZoneListResponse)
+async def get_fp_zones(product_type: str) -> FPZoneListResponse:
+    zones = inspection_service.get_fp_zones(product_type)
+    return FPZoneListResponse(
+        product_type=product_type,
+        zones=[
+            FPZoneResponse(
+                id=zone.id,
+                product_type=zone.product_type,
+                points_norm_heatmap=[FPZonePoint(x=x, y=y) for x, y in zone.points_norm_heatmap],
+                points_norm_ref=[FPZonePoint(x=x, y=y) for x, y in zone.points_norm_ref],
+                heatmap_w=zone.heatmap_w,
+                heatmap_h=zone.heatmap_h,
+                created_at=zone.created_at,
+                note=zone.note,
+            )
+            for zone in zones
+        ],
+    )
+
+
+@router.delete("/fp-zones/{zone_id}")
+async def delete_fp_zone(zone_id: str) -> dict:
+    deleted = inspection_service.delete_fp_zone(zone_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="FP zone not found")
+    return {"deleted": True, "zone_id": zone_id}
 
 
 @router.get("/roi-polygon/{product_type}", response_model=RoiPolygonResponse)
@@ -231,6 +318,10 @@ async def inspect(
         diff_map_b64=result.diff_map_b64,
         heatmap_b64=result.heatmap_b64,
         segmentation_mask_b64=result.segmentation_mask_b64,
+        raw_anomaly_score=result.raw_anomaly_score,
+        rechecked_zones_count=result.rechecked_zones_count,
+        recheck_adjustment=result.recheck_adjustment,
+        rechecked_zone_ids=result.rechecked_zone_ids or [],
     )
 
 
@@ -345,6 +436,10 @@ async def inspect_from_camera(
         diff_map_b64=result.diff_map_b64,
         heatmap_b64=result.heatmap_b64,
         segmentation_mask_b64=result.segmentation_mask_b64,
+        raw_anomaly_score=result.raw_anomaly_score,
+        rechecked_zones_count=result.rechecked_zones_count,
+        recheck_adjustment=result.recheck_adjustment,
+        rechecked_zone_ids=result.rechecked_zone_ids or [],
         original_image_b64=original_b64,
         camera_source=camera_source,
         camera_duration_ms=camera_duration_ms,
