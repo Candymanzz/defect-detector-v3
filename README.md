@@ -43,7 +43,7 @@ brew install pkgconf aravis libmicrohttpd jpeg-turbo
 ### Build and run
 
 ```bash
-cd /Users/pavel_stykachow/Documents/GitHub/defect-detector-v3
+cd /defect-detector-v3
 cc c_capture/camera_server.c -o c_capture/camera_server \
   $(pkg-config --cflags --libs aravis-0.8 libmicrohttpd libjpeg)
 
