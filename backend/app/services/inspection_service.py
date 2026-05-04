@@ -37,6 +37,10 @@ class FPZone:
     heatmap_w: int
     heatmap_h: int
     created_at: str
+    baseline_diff_q90: float = 0.0
+    baseline_diff_max: float = 0.0
+    baseline_active_ratio: float = 0.0
+    baseline_score: float = 0.0
     note: str = ""
 
 
@@ -50,6 +54,8 @@ class InspectionService:
         self._fallback_threshold = 0.25
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
         self.fp_zones: Dict[str, list[FPZone]] = {}
+        self._last_diff_maps: Dict[str, np.ndarray] = {}
+        self._last_segmentation_masks: Dict[str, np.ndarray] = {}
 
         self._anomaly_engine = None
         self._load_anomalib_engine()
@@ -111,6 +117,7 @@ class InspectionService:
             raise ValueError("FP polygon area is too small")
         if heatmap_w <= 0 or heatmap_h <= 0:
             raise ValueError("heatmap size must be positive")
+        baseline = self._measure_fp_zone_activity(product_type, normalized)
         zone = FPZone(
             id=str(uuid.uuid4()),
             product_type=product_type,
@@ -119,6 +126,10 @@ class InspectionService:
             heatmap_w=int(heatmap_w),
             heatmap_h=int(heatmap_h),
             created_at=datetime.now(timezone.utc).isoformat(),
+            baseline_diff_q90=baseline["diff_q90"],
+            baseline_diff_max=baseline["diff_max"],
+            baseline_active_ratio=baseline["active_ratio"],
+            baseline_score=baseline["score"],
             note=note.strip(),
         )
         self.fp_zones.setdefault(product_type, []).append(zone)
@@ -162,6 +173,8 @@ class InspectionService:
         diff_map = self._compute_advanced_difference(aligned, reference)
 
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map)
+        self._last_diff_maps[product_type] = diff_map.copy()
+        self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
         fp_recheck = self._recheck_fp_zones(product_type, diff_map, segmentation_mask, raw_score)
         anomaly_score = fp_recheck["final_score"]
@@ -229,6 +242,10 @@ class InspectionService:
                     heatmap_w=int(entry.get("heatmap_w", 1)),
                     heatmap_h=int(entry.get("heatmap_h", 1)),
                     created_at=str(entry.get("created_at", datetime.now(timezone.utc).isoformat())),
+                    baseline_diff_q90=float(entry.get("baseline_diff_q90", 0.0)),
+                    baseline_diff_max=float(entry.get("baseline_diff_max", 0.0)),
+                    baseline_active_ratio=float(entry.get("baseline_active_ratio", 0.0)),
+                    baseline_score=float(entry.get("baseline_score", 0.0)),
                     note=str(entry.get("note", "")),
                 )
                 if len(zone.points_norm_ref) >= 3:
@@ -250,6 +267,10 @@ class InspectionService:
                         "heatmap_w": zone.heatmap_w,
                         "heatmap_h": zone.heatmap_h,
                         "created_at": zone.created_at,
+                        "baseline_diff_q90": zone.baseline_diff_q90,
+                        "baseline_diff_max": zone.baseline_diff_max,
+                        "baseline_active_ratio": zone.baseline_active_ratio,
+                        "baseline_score": zone.baseline_score,
                         "note": zone.note,
                     }
                 )
@@ -264,6 +285,59 @@ class InspectionService:
         cv2.fillPoly(mask, [pts], 255)
         return mask
 
+    def _measure_fp_zone_activity(self, product_type: str, points: list[Tuple[float, float]]) -> dict[str, float]:
+        diff_map = self._last_diff_maps.get(product_type)
+        segmentation_mask = self._last_segmentation_masks.get(product_type)
+        if diff_map is None or segmentation_mask is None:
+            return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
+        return self._measure_zone_activity(diff_map, segmentation_mask, points)
+
+    def _measure_zone_activity(
+        self,
+        diff_map: np.ndarray,
+        segmentation_mask: np.ndarray,
+        points: list[Tuple[float, float]],
+    ) -> dict[str, float]:
+        h, w = diff_map.shape[:2]
+        zone_mask = self._polygon_mask_from_norm_points(w, h, points) > 0
+        if not np.any(zone_mask):
+            return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
+
+        diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+        seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
+        zone_diff = diff_gray[zone_mask]
+        zone_active = seg_gray[zone_mask] > 0
+        diff_q90 = float(np.percentile(zone_diff, 90))
+        diff_max = float(np.max(zone_diff))
+        active_ratio = float(np.mean(zone_active))
+        score = float(np.clip((diff_q90 / 255.0) * 0.8 + (diff_max / 255.0) * 0.2 + active_ratio * 1.2, 0.0, 1.0))
+        return {"diff_q90": diff_q90, "diff_max": diff_max, "active_ratio": active_ratio, "score": score}
+
+    def _should_suppress_fp_zone(self, zone: FPZone, activity: dict[str, float]) -> bool:
+        has_baseline = any(
+            value > 0.0
+            for value in (
+                zone.baseline_diff_q90,
+                zone.baseline_diff_max,
+                zone.baseline_active_ratio,
+                zone.baseline_score,
+            )
+        )
+        if not has_baseline:
+            # Old zones have no baseline. Be conservative so a real new scratch is not hidden.
+            return activity["score"] <= 0.35 and activity["active_ratio"] <= 0.08 and activity["diff_q90"] <= 45.0
+
+        q90_limit = max(zone.baseline_diff_q90 + 18.0, zone.baseline_diff_q90 * 1.45)
+        max_limit = max(zone.baseline_diff_max + 25.0, zone.baseline_diff_max * 1.35)
+        active_limit = max(zone.baseline_active_ratio + 0.04, zone.baseline_active_ratio * 2.0)
+        score_limit = max(zone.baseline_score + 0.20, zone.baseline_score * 1.6)
+        return (
+            activity["diff_q90"] <= q90_limit
+            and activity["diff_max"] <= max_limit
+            and activity["active_ratio"] <= active_limit
+            and activity["score"] <= score_limit
+        )
+
     def _recheck_fp_zones(
         self,
         product_type: str,
@@ -277,7 +351,6 @@ class InspectionService:
 
         h, w = diff_map.shape[:2]
         seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
-        diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         seg_active = (seg_gray > 0).astype(np.uint8) * 255
         # Small tolerance around anomaly mask to avoid frame-to-frame misses.
         seg_active_dilated = cv2.dilate(seg_active, np.ones((9, 9), dtype=np.uint8), iterations=1)
@@ -289,10 +362,12 @@ class InspectionService:
             if not np.any(zone_pixels):
                 continue
             zone_overlap_pixels = float(np.count_nonzero((seg_active_dilated > 0) & zone_pixels))
-            zone_diff_q90 = float(np.percentile(diff_gray[zone_pixels], 90)) if np.any(zone_pixels) else 0.0
+            activity = self._measure_zone_activity(diff_map, segmentation_mask, zone.points_norm_ref)
             # Trigger recheck either by mask overlap (with tolerance) or by strong diff energy.
-            has_zone_activation = zone_overlap_pixels > 0 or zone_diff_q90 >= 22.0
+            has_zone_activation = zone_overlap_pixels > 0 or activity["diff_q90"] >= 22.0
             if not has_zone_activation:
+                continue
+            if not self._should_suppress_fp_zone(zone, activity):
                 continue
             rechecked_zone_ids.append(zone.id)
             # Suppress only activated FP regions, then recompute the score from the remaining image.
