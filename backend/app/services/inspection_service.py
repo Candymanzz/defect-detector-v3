@@ -278,14 +278,11 @@ class InspectionService:
         h, w = diff_map.shape[:2]
         seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
         diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        filtered_gray = seg_gray.copy()
-        total_anomaly_pixels = float(np.count_nonzero(seg_gray > 0))
         seg_active = (seg_gray > 0).astype(np.uint8) * 255
         # Small tolerance around anomaly mask to avoid frame-to-frame misses.
         seg_active_dilated = cv2.dilate(seg_active, np.ones((9, 9), dtype=np.uint8), iterations=1)
-        zone_scores: list[float] = []
         rechecked_zone_ids: list[str] = []
-        fp_overlap_ratio = 0.0
+        combined_suppress_mask = np.zeros((h, w), dtype=bool)
         for zone in zones:
             zone_mask = self._polygon_mask_from_norm_points(w, h, zone.points_norm_ref)
             zone_pixels = zone_mask > 0
@@ -297,36 +294,19 @@ class InspectionService:
             has_zone_activation = zone_overlap_pixels > 0 or zone_diff_q90 >= 22.0
             if not has_zone_activation:
                 continue
-            x, y, zone_w, zone_h = cv2.boundingRect(
-                np.array(
-                    [[int(round(px * (w - 1))), int(round(py * (h - 1)))] for px, py in zone.points_norm_ref],
-                    dtype=np.int32,
-                )
-            )
-            if zone_w < 3 or zone_h < 3:
-                continue
-            patch = diff_map[y : y + zone_h, x : x + zone_w]
-            if patch.size == 0:
-                continue
-            patch_score, _ = self._run_anomaly_model(patch)
-            zone_scores.append(float(patch_score))
             rechecked_zone_ids.append(zone.id)
-            if total_anomaly_pixels > 0:
-                zone_anomaly_pixels = float(np.count_nonzero((seg_active_dilated > 0) & zone_pixels))
-                fp_overlap_ratio += zone_anomaly_pixels / total_anomaly_pixels
-            # Suppress marked false-positive regions in the visualization/secondary logic.
+            # Suppress only activated FP regions, then recompute the score from the remaining image.
             suppress_mask = cv2.dilate(zone_mask, np.ones((5, 5), dtype=np.uint8), iterations=1) > 0
-            filtered_gray[suppress_mask] = 0
+            combined_suppress_mask |= suppress_mask
 
-        if not zone_scores:
+        if not rechecked_zone_ids:
             return {"final_score": raw_score, "rechecked_zone_ids": [], "filtered_mask": segmentation_mask}
 
-        mean_zone_score = float(np.mean(zone_scores))
-        mean_based_score = float(np.clip((raw_score + mean_zone_score) / 2.0, 0.0, 1.0))
-        overlap_ratio = float(np.clip(fp_overlap_ratio, 0.0, 1.0))
-        overlap_based_score = float(np.clip(raw_score * (1.0 - 0.85 * overlap_ratio), 0.0, 1.0))
-        final_score = min(mean_based_score, overlap_based_score)
-        filtered_mask = cv2.cvtColor(filtered_gray, cv2.COLOR_GRAY2BGR)
+        filtered_diff_map = diff_map.copy()
+        filtered_diff_map[combined_suppress_mask] = 0
+        remaining_score, filtered_mask = self._run_anomaly_model(filtered_diff_map)
+        filtered_mask[combined_suppress_mask] = 0
+        final_score = float(min(raw_score, remaining_score))
         return {"final_score": final_score, "rechecked_zone_ids": rechecked_zone_ids, "filtered_mask": filtered_mask}
 
     def _draw_fp_zone_overlay(self, heatmap: np.ndarray, zones: list[FPZone], rechecked_ids: list[str]) -> np.ndarray:
