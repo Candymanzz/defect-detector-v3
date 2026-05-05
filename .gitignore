@@ -13,3 +13,4 @@ frontend/dist/
 *.jpg
 c_capture/camera_server
 backend/app/data/fp_zones.json
+/LightServer/obj
