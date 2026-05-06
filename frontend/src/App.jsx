@@ -2,11 +2,58 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Camera, CheckCircle2, FlaskConical, ImagePlus, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { calculate } from "./utils/bucketCalculator";
 
-const API_URL = "http://localhost:8000";
+const DEV_API_URL = "http://localhost:8000";
+const DEFAULT_REQUEST_TIMEOUT_MS = 120000;
+const BATCH_REQUEST_TIMEOUT_MS = 300000;
+const STORAGE_KEYS = {
+  productType: "defectDetector.productType",
+  threshold: "defectDetector.threshold"
+};
 
 const toDataUrl = (base64) => (base64 ? `data:image/png;base64,${base64}` : "");
 const formatDuration = (durationMs) =>
   durationMs < 1000 ? `${Math.round(durationMs)} ms` : `${(durationMs / 1000).toFixed(2)} s`;
+const normalizeApiBaseUrl = (value) => {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed ? trimmed.replace(/\/+$/, "") : "";
+};
+const getDesktopBridge = () =>
+  typeof window !== "undefined" && window.defectDetectorDesktop ? window.defectDetectorDesktop : null;
+const writeDesktopLog = (entry) => {
+  const desktopBridge = getDesktopBridge();
+  if (!desktopBridge?.writeLog) return;
+  desktopBridge.writeLog(entry).catch(() => {
+    // Logging must never break the operator workflow.
+  });
+};
+const readLocalStorage = (key) => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const writeLocalStorage = (key, value) => {
+  try {
+    window.localStorage.setItem(key, String(value));
+  } catch {
+    // Local persistence is best-effort only.
+  }
+};
+const getInitialApiBaseUrl = () => {
+  if (getDesktopBridge()?.getConfig) {
+    return import.meta.env.DEV ? DEV_API_URL : "";
+  }
+
+  const envUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
+  const devFallbackUrl = import.meta.env.DEV ? DEV_API_URL : "";
+  return envUrl || devFallbackUrl;
+};
+const getInitialProductType = () => readLocalStorage(STORAGE_KEYS.productType) || "bucket-default";
+const getInitialThreshold = () => {
+  const savedThreshold = Number(readLocalStorage(STORAGE_KEYS.threshold));
+  return Number.isFinite(savedThreshold) ? Math.min(1, Math.max(0, savedThreshold)) : 0.25;
+};
 const getErrorMessage = async (response, fallbackMessage) => {
   try {
     const payload = await response.json();
@@ -18,8 +65,11 @@ const getErrorMessage = async (response, fallbackMessage) => {
 };
 
 function App() {
-  const [productType, setProductType] = useState("bucket-default");
-  const [threshold, setThreshold] = useState(0.25);
+  const [apiBaseUrl, setApiBaseUrl] = useState(getInitialApiBaseUrl);
+  const [apiBaseUrlDraft, setApiBaseUrlDraft] = useState(getInitialApiBaseUrl);
+  const [configReady, setConfigReady] = useState(() => !getDesktopBridge()?.getConfig);
+  const [productType, setProductType] = useState(getInitialProductType);
+  const [threshold, setThreshold] = useState(getInitialThreshold);
   const [referencePreview, setReferencePreview] = useState("");
   const [capturedFile, setCapturedFile] = useState(null);
   const [status, setStatus] = useState("ОЖИДАНИЕ");
@@ -60,6 +110,120 @@ function App() {
   const heatmapContainerRef = useRef(null);
   const [heatmapImageSize, setHeatmapImageSize] = useState({ width: 0, height: 0 });
   const [heatmapBox, setHeatmapBox] = useState({ left: 0, top: 0, width: 0, height: 0 });
+
+  const apiPath = (path) => {
+    const normalizedBaseUrl = normalizeApiBaseUrl(apiBaseUrl);
+    if (!normalizedBaseUrl) {
+      throw new Error("Backend API URL is not configured");
+    }
+    return `${normalizedBaseUrl}${path}`;
+  };
+
+  const logDesktop = (level, event, fields = {}) => {
+    writeDesktopLog({
+      level,
+      event,
+      apiBaseUrl: normalizeApiBaseUrl(apiBaseUrl),
+      ...fields,
+    });
+  };
+
+  const apiFetch = async (path, options = {}, logOptions = {}) => {
+    const {
+      timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+      logHttpError = true,
+      expectedStatuses = [],
+      event = "backend.request",
+    } = logOptions;
+    const url = apiPath(path);
+    const method = options.method || "GET";
+    const controller = new AbortController();
+    const startedAt = performance.now();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      const durationMs = Math.round(performance.now() - startedAt);
+      const isExpectedStatus = expectedStatuses.includes(response.status);
+
+      if (!response.ok && logHttpError && !isExpectedStatus) {
+        logDesktop("error", `${event}.failed`, {
+          method,
+          path,
+          status: response.status,
+          statusText: response.statusText,
+          duration_ms: durationMs,
+        });
+
+        if ([502, 503, 504].includes(response.status)) {
+          logDesktop("error", "backend.unavailable", {
+            method,
+            path,
+            status: response.status,
+            duration_ms: durationMs,
+          });
+        }
+      }
+
+      return response;
+    } catch (error) {
+      const durationMs = Math.round(performance.now() - startedAt);
+      const isTimeout = error?.name === "AbortError";
+
+      logDesktop("error", isTimeout ? "backend.request.timeout" : "backend.request.error", {
+        method,
+        path,
+        duration_ms: durationMs,
+        timeout_ms: timeoutMs,
+        error: error?.message || String(error),
+      });
+
+      if (!isTimeout) {
+        logDesktop("error", "backend.unavailable", {
+          method,
+          path,
+          duration_ms: durationMs,
+          error: error?.message || String(error),
+        });
+      }
+
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
+  const saveApiBaseUrl = async () => {
+    const normalizedBaseUrl = normalizeApiBaseUrl(apiBaseUrlDraft);
+    if (!normalizedBaseUrl) {
+      window.alert("Backend API URL is not configured");
+      return;
+    }
+
+    setApiBaseUrl(normalizedBaseUrl);
+    setApiBaseUrlDraft(normalizedBaseUrl);
+
+    const desktopBridge = getDesktopBridge();
+    if (desktopBridge?.setConfig) {
+      try {
+        const config = await desktopBridge.setConfig({ apiBaseUrl: normalizedBaseUrl });
+        const savedApiBaseUrl = normalizeApiBaseUrl(config?.apiBaseUrl);
+        if (savedApiBaseUrl) {
+          setApiBaseUrl(savedApiBaseUrl);
+          setApiBaseUrlDraft(savedApiBaseUrl);
+        }
+      } catch {
+        window.alert("Could not save desktop config");
+      }
+    }
+
+    logDesktop("info", "backend_url.selected", {
+      apiBaseUrl: normalizedBaseUrl,
+    });
+  };
 
   const statusClass = useMemo(() => {
     if (status === "ГОДЕН") return "bg-ok/20 text-ok border-ok/40";
@@ -166,6 +330,43 @@ function App() {
     return Math.PI * (topR + bottomR) * slantHeight;
   }, [bucketGeometry.topRadius, bucketGeometry.bottomRadius, bucketGeometry.height]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const desktopBridge = getDesktopBridge();
+    if (!desktopBridge?.getConfig) {
+      setConfigReady(true);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    desktopBridge
+      .getConfig()
+      .then((config) => {
+        if (!isMounted) return;
+        const desktopApiBaseUrl = normalizeApiBaseUrl(config?.apiBaseUrl);
+        if (desktopApiBaseUrl || !import.meta.env.DEV) {
+          setApiBaseUrl(desktopApiBaseUrl);
+          setApiBaseUrlDraft(desktopApiBaseUrl);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setConfigReady(true);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    writeLocalStorage(STORAGE_KEYS.productType, productType);
+  }, [productType]);
+
+  useEffect(() => {
+    writeLocalStorage(STORAGE_KEYS.threshold, threshold);
+  }, [threshold]);
+
   const handlePickImage = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -175,19 +376,35 @@ function App() {
 
   const uploadReference = async () => {
     if (!capturedFile) return;
+    const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "reference.upload.started", {
+      product_type: productType,
+      filename: capturedFile.name,
+    });
     try {
       const formData = new FormData();
       formData.append("product_type", productType);
       formData.append("file", capturedFile);
 
-      const res = await fetch(`${API_URL}/upload-ref`, {
+      const res = await apiFetch("/upload-ref", {
         method: "POST",
         body: formData
-      });
+      }, { event: "reference.upload" });
       if (!res.ok) throw new Error("Не удалось загрузить эталон");
       setReferencePreview(URL.createObjectURL(capturedFile));
+      logDesktop("info", "reference.upload.finished", {
+        product_type: productType,
+        filename: capturedFile.name,
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
     } catch (error) {
+      logDesktop("error", "reference.upload.failed", {
+        product_type: productType,
+        filename: capturedFile.name,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -195,22 +412,39 @@ function App() {
   };
 
   const uploadReferenceFromCamera = async () => {
+    const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "reference.upload_from_camera.started", {
+      product_type: productType,
+      camera_source: cameraSource,
+    });
     try {
       const formData = new FormData();
       formData.append("product_type", productType);
       formData.append("camera_server_url", cameraSource);
 
-      const res = await fetch(`${API_URL}/upload-ref-from-camera`, {
+      const res = await apiFetch("/upload-ref-from-camera", {
         method: "POST",
         body: formData
-      });
+      }, { event: "reference.upload_from_camera" });
       if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось задать эталон с камеры"));
 
       const data = await res.json();
       setReferencePreview(toDataUrl(data.reference_b64));
       setImages((prev) => ({ ...prev, original: toDataUrl(data.reference_b64) }));
+      logDesktop("info", "reference.upload_from_camera.finished", {
+        product_type: productType,
+        camera_source: data.camera_source || cameraSource,
+        duration_ms: Math.round(performance.now() - startedAt),
+        camera_duration_ms: Number(data.camera_duration_ms || 0),
+      });
     } catch (error) {
+      logDesktop("error", "reference.upload_from_camera.failed", {
+        product_type: productType,
+        camera_source: cameraSource,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -221,16 +455,21 @@ function App() {
     if (!capturedFile) return;
     const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "inspect.started", {
+      product_type: productType,
+      threshold,
+      filename: capturedFile.name,
+    });
     try {
       const formData = new FormData();
       formData.append("product_type", productType);
       formData.append("threshold", String(threshold));
       formData.append("file", capturedFile);
 
-      const res = await fetch(`${API_URL}/inspect`, {
+      const res = await apiFetch("/inspect", {
         method: "POST",
         body: formData
-      });
+      }, { event: "inspect" });
       if (!res.ok) throw new Error("Ошибка проверки");
 
       const data = await res.json();
@@ -259,7 +498,24 @@ function App() {
         },
         ...prev
       ]);
+      logDesktop("info", "inspect.finished", {
+        product_type: productType,
+        status: data.status,
+        score: Number(data.anomaly_score),
+        threshold: Number(data.threshold || threshold),
+        duration_ms: Math.round(elapsedMs),
+        filename: capturedFile.name,
+        raw_score: Number(data.raw_anomaly_score || data.anomaly_score || 0),
+        rechecked_zones_count: Number(data.rechecked_zones_count || 0),
+      });
     } catch (error) {
+      logDesktop("error", "inspect.failed", {
+        product_type: productType,
+        threshold,
+        filename: capturedFile.name,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -267,17 +523,23 @@ function App() {
   };
 
   const runBatchTest = async (dataset) => {
+    const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "test_run.started", {
+      product_type: productType,
+      threshold,
+      dataset,
+    });
     try {
       const formData = new FormData();
       formData.append("product_type", productType);
       formData.append("threshold", String(threshold));
       formData.append("dataset", dataset);
 
-      const res = await fetch(`${API_URL}/test-run`, {
+      const res = await apiFetch("/test-run", {
         method: "POST",
         body: formData
-      });
+      }, { event: "test_run", timeoutMs: BATCH_REQUEST_TIMEOUT_MS });
       if (!res.ok) throw new Error("Ошибка тестирования");
 
       const data = await res.json();
@@ -288,7 +550,22 @@ function App() {
         setBrackTestLogs(data.logs || []);
         setBrackTestSummary(data.summary || null);
       }
+      logDesktop("info", "test_run.finished", {
+        product_type: productType,
+        threshold: Number(data.threshold || threshold),
+        dataset,
+        duration_ms: Math.round(performance.now() - startedAt),
+        total: Number(data.summary?.total || 0),
+        defect_count: Number(data.summary?.defect_count || 0),
+      });
     } catch (error) {
+      logDesktop("error", "test_run.failed", {
+        product_type: productType,
+        threshold,
+        dataset,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -298,16 +575,21 @@ function App() {
   const runInspectionFromCamera = async () => {
     const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "inspect_from_camera.started", {
+      product_type: productType,
+      threshold,
+      camera_source: cameraSource,
+    });
     try {
       const formData = new FormData();
       formData.append("product_type", productType);
       formData.append("threshold", String(threshold));
       formData.append("camera_server_url", cameraSource);
 
-      const res = await fetch(`${API_URL}/inspect-from-camera`, {
+      const res = await apiFetch("/inspect-from-camera", {
         method: "POST",
         body: formData
-      });
+      }, { event: "inspect_from_camera" });
       if (!res.ok) throw new Error(await getErrorMessage(res, "Ошибка проверки с камеры"));
 
       const data = await res.json();
@@ -336,7 +618,25 @@ function App() {
         },
         ...prev
       ]);
+      logDesktop("info", "inspect_from_camera.finished", {
+        product_type: productType,
+        status: data.status,
+        score: Number(data.anomaly_score),
+        threshold: Number(data.threshold || threshold),
+        duration_ms: Math.round(elapsedMs),
+        camera_source: data.camera_source || cameraSource,
+        camera_duration_ms: Number(data.camera_duration_ms || 0),
+        raw_score: Number(data.raw_anomaly_score || data.anomaly_score || 0),
+        rechecked_zones_count: Number(data.rechecked_zones_count || 0),
+      });
     } catch (error) {
+      logDesktop("error", "inspect_from_camera.failed", {
+        product_type: productType,
+        threshold,
+        camera_source: cameraSource,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -344,7 +644,12 @@ function App() {
   };
 
   const saveRoi = async () => {
+    const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "roi_rect.save.started", {
+      product_type: productType,
+      roi,
+    });
     try {
       const formData = new FormData();
       formData.append("product_type", productType);
@@ -353,12 +658,25 @@ function App() {
       formData.append("w", String(roi.w));
       formData.append("h", String(roi.h));
 
-      const res = await fetch(`${API_URL}/roi`, {
+      const res = await apiFetch("/roi", {
         method: "POST",
         body: formData
-      });
+      }, { event: "roi_rect.save" });
+      if (res.ok) {
+        logDesktop("info", "roi_rect.save.finished", {
+          product_type: productType,
+          roi,
+          duration_ms: Math.round(performance.now() - startedAt),
+        });
+      }
       if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить ROI"));
     } catch (error) {
+      logDesktop("error", "roi_rect.save.failed", {
+        product_type: productType,
+        roi,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -470,21 +788,39 @@ function App() {
   };
 
   const savePolygonRoi = async () => {
+    const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "roi_polygon.save.started", {
+      product_type: productType,
+      points_count: roiPolygon.length,
+    });
     try {
-      const res = await fetch(`${API_URL}/roi-polygon`, {
+      const res = await apiFetch("/roi-polygon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product_type: productType,
           points: roiPolygon
         })
-      });
+      }, { event: "roi_polygon.save" });
+      if (res.ok) {
+        logDesktop("info", "roi_polygon.save.finished", {
+          product_type: productType,
+          points_count: roiPolygon.length,
+          duration_ms: Math.round(performance.now() - startedAt),
+        });
+      }
       if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить контур ROI"));
       if (activeContourMode === "roi") {
         setActiveContourMode(null);
       }
     } catch (error) {
+      logDesktop("error", "roi_polygon.save.failed", {
+        product_type: productType,
+        points_count: roiPolygon.length,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -493,7 +829,11 @@ function App() {
 
   const loadFpZones = async () => {
     try {
-      const res = await fetch(`${API_URL}/fp-zones/${encodeURIComponent(productType)}`);
+      const res = await apiFetch(
+        `/fp-zones/${encodeURIComponent(productType)}`,
+        {},
+        { event: "fp_zones.load", logHttpError: false }
+      );
       if (!res.ok) {
         setFpZones([]);
         return;
@@ -508,9 +848,16 @@ function App() {
 
   const saveFpZone = async () => {
     if (fpPolygonDraft.length < 3 || !heatmapImageSize.width || !heatmapImageSize.height) return;
+    const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "fp_zone.create.started", {
+      product_type: productType,
+      points_count: fpPolygonDraft.length,
+      heatmap_w: heatmapImageSize.width,
+      heatmap_h: heatmapImageSize.height,
+    });
     try {
-      const res = await fetch(`${API_URL}/fp-zones`, {
+      const res = await apiFetch("/fp-zones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -519,12 +866,27 @@ function App() {
           heatmap_w: heatmapImageSize.width,
           heatmap_h: heatmapImageSize.height
         })
-      });
+      }, { event: "fp_zone.create" });
+      if (res.ok) {
+        const zone = await res.json();
+        logDesktop("info", "fp_zone.create.finished", {
+          product_type: productType,
+          zone_id: zone.id,
+          points_count: fpPolygonDraft.length,
+          duration_ms: Math.round(performance.now() - startedAt),
+        });
+      }
       if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить FP-зону"));
       setFpPolygonDraft([]);
       setActiveContourMode(null);
       await loadFpZones();
     } catch (error) {
+      logDesktop("error", "fp_zone.create.failed", {
+        product_type: productType,
+        points_count: fpPolygonDraft.length,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -532,12 +894,34 @@ function App() {
   };
 
   const deleteFpZone = async (zoneId) => {
+    const startedAt = performance.now();
     setBusy(true);
+    logDesktop("info", "fp_zone.delete.started", {
+      product_type: productType,
+      zone_id: zoneId,
+    });
     try {
-      const res = await fetch(`${API_URL}/fp-zones/${encodeURIComponent(zoneId)}`, { method: "DELETE" });
+      const res = await apiFetch(
+        `/fp-zones/${encodeURIComponent(zoneId)}`,
+        { method: "DELETE" },
+        { event: "fp_zone.delete" }
+      );
+      if (res.ok) {
+        logDesktop("info", "fp_zone.delete.finished", {
+          product_type: productType,
+          zone_id: zoneId,
+          duration_ms: Math.round(performance.now() - startedAt),
+        });
+      }
       if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось удалить FP-зону"));
       await loadFpZones();
     } catch (error) {
+      logDesktop("error", "fp_zone.delete.failed", {
+        product_type: productType,
+        zone_id: zoneId,
+        duration_ms: Math.round(performance.now() - startedAt),
+        error: error?.message || String(error),
+      });
       window.alert(error.message);
     } finally {
       setBusy(false);
@@ -547,8 +931,16 @@ function App() {
   const loadReferenceAndPolygon = async () => {
     try {
       const [referenceRes, polygonRes] = await Promise.all([
-        fetch(`${API_URL}/reference/${encodeURIComponent(productType)}`),
-        fetch(`${API_URL}/roi-polygon/${encodeURIComponent(productType)}`)
+        apiFetch(
+          `/reference/${encodeURIComponent(productType)}`,
+          {},
+          { event: "reference.load", logHttpError: false }
+        ),
+        apiFetch(
+          `/roi-polygon/${encodeURIComponent(productType)}`,
+          {},
+          { event: "roi_polygon.load", logHttpError: false }
+        )
       ]);
 
       if (referenceRes.ok) {
@@ -596,8 +988,9 @@ function App() {
   };
 
   useEffect(() => {
+    if (!configReady) return;
     loadReferenceAndPolygon();
-  }, [productType]);
+  }, [productType, apiBaseUrl, configReady]);
 
   useEffect(() => {
     if (itemPolygon.length < 3 || !referenceBox.width || !referenceBox.height) return;
@@ -1070,6 +1463,22 @@ function App() {
               className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium"
             >
               <RotateCcw size={16} /> Сброс
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm outline-none ring-amber-300 focus:ring"
+              value={apiBaseUrlDraft}
+              onChange={(event) => setApiBaseUrlDraft(event.target.value)}
+              placeholder="Backend API URL"
+            />
+            <button
+              onClick={saveApiBaseUrl}
+              disabled={busy || !apiBaseUrlDraft.trim()}
+              className="rounded-lg bg-cyan-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
+            >
+              Save backend URL
             </button>
           </div>
 
