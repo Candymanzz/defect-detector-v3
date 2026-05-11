@@ -10,11 +10,10 @@ const getRecheckStatsFromInspection = (data) => ({
 
 export function useFpZones({
   apiFetch,
-  logDesktop,
   productType,
   heatmapImageSize,
   setActiveContourMode,
-  setBusy
+  runTracked
 }) {
   const [fpPolygonDraft, setFpPolygonDraft] = useState([]);
   const [fpZones, setFpZones] = useState([]);
@@ -65,100 +64,76 @@ export function useFpZones({
 
   const saveFpZone = useCallback(async () => {
     if (fpPolygonDraft.length < 3 || !heatmapImageSize.width || !heatmapImageSize.height) return;
-    const startedAt = performance.now();
-    setBusy(true);
-    logDesktop("info", "fp_zone.create.started", {
-      product_type: productType,
-      points_count: fpPolygonDraft.length,
-      heatmap_w: heatmapImageSize.width,
-      heatmap_h: heatmapImageSize.height
+
+    const result = await runTracked({
+      event: "fp_zone.create",
+      payload: {
+        product_type: productType,
+        points_count: fpPolygonDraft.length,
+        heatmap_w: heatmapImageSize.width,
+        heatmap_h: heatmapImageSize.height
+      },
+      run: async () => {
+        const res = await apiFetch(
+          "/fp-zones",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              product_type: productType,
+              points: fpPolygonDraft,
+              heatmap_w: heatmapImageSize.width,
+              heatmap_h: heatmapImageSize.height
+            })
+          },
+          { event: "fp_zone.create" }
+        );
+        if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить FP-зону"));
+        return await res.json();
+      },
+      buildFinishedPayload: (zone) => ({
+        zone_id: zone.id
+      })
     });
-    try {
-      const res = await apiFetch(
-        "/fp-zones",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            product_type: productType,
-            points: fpPolygonDraft,
-            heatmap_w: heatmapImageSize.width,
-            heatmap_h: heatmapImageSize.height
-          })
-        },
-        { event: "fp_zone.create" }
-      );
-      if (res.ok) {
-        const zone = await res.json();
-        logDesktop("info", "fp_zone.create.finished", {
-          product_type: productType,
-          zone_id: zone.id,
-          points_count: fpPolygonDraft.length,
-          duration_ms: Math.round(performance.now() - startedAt)
-        });
-      }
-      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить FP-зону"));
+
+    if (result.ok) {
       setFpPolygonDraft([]);
       setActiveContourMode(null);
       await loadFpZones();
-    } catch (error) {
-      logDesktop("error", "fp_zone.create.failed", {
-        product_type: productType,
-        points_count: fpPolygonDraft.length,
-        duration_ms: Math.round(performance.now() - startedAt),
-        error: error?.message || String(error)
-      });
-      window.alert(error.message);
-    } finally {
-      setBusy(false);
     }
   }, [
     apiFetch,
     fpPolygonDraft,
     heatmapImageSize,
     loadFpZones,
-    logDesktop,
     productType,
-    setActiveContourMode,
-    setBusy
+    runTracked,
+    setActiveContourMode
   ]);
 
   const deleteFpZone = useCallback(
     async (zoneId) => {
-      const startedAt = performance.now();
-      setBusy(true);
-      logDesktop("info", "fp_zone.delete.started", {
-        product_type: productType,
-        zone_id: zoneId
-      });
-      try {
-        const res = await apiFetch(
-          `/fp-zones/${encodeURIComponent(zoneId)}`,
-          { method: "DELETE" },
-          { event: "fp_zone.delete" }
-        );
-        if (res.ok) {
-          logDesktop("info", "fp_zone.delete.finished", {
-            product_type: productType,
-            zone_id: zoneId,
-            duration_ms: Math.round(performance.now() - startedAt)
-          });
-        }
-        if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось удалить FP-зону"));
-        await loadFpZones();
-      } catch (error) {
-        logDesktop("error", "fp_zone.delete.failed", {
+      const result = await runTracked({
+        event: "fp_zone.delete",
+        payload: {
           product_type: productType,
-          zone_id: zoneId,
-          duration_ms: Math.round(performance.now() - startedAt),
-          error: error?.message || String(error)
-        });
-        window.alert(error.message);
-      } finally {
-        setBusy(false);
+          zone_id: zoneId
+        },
+        run: async () => {
+          const res = await apiFetch(
+            `/fp-zones/${encodeURIComponent(zoneId)}`,
+            { method: "DELETE" },
+            { event: "fp_zone.delete" }
+          );
+          if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось удалить FP-зону"));
+        }
+      });
+
+      if (result.ok) {
+        await loadFpZones();
       }
     },
-    [apiFetch, loadFpZones, logDesktop, productType, setBusy]
+    [apiFetch, loadFpZones, productType, runTracked]
   );
 
   return {

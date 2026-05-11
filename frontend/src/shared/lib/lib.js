@@ -1,5 +1,15 @@
 export const toDataUrl = (base64) => (base64 ? `data:image/png;base64,${base64}` : "");
 
+export const revokeBlobUrl = (url) => {
+  if (typeof url === "string" && url.startsWith("blob:")) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // Best-effort cleanup.
+    }
+  }
+};
+
 export const formatDuration = (durationMs) =>
   durationMs < 1000 ? `${Math.round(durationMs)} ms` : `${(durationMs / 1000).toFixed(2)} s`;
 

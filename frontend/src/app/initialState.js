@@ -53,6 +53,8 @@ export const getInitialApiBaseUrl = () => {
 export const getInitialProductType = () =>
   readLocalStorage(STORAGE_KEYS.productType) || "bucket-default";
 export const getInitialThreshold = () => {
-  const savedThreshold = Number(readLocalStorage(STORAGE_KEYS.threshold));
-  return Number.isFinite(savedThreshold) ? Math.min(1, Math.max(0, savedThreshold)) : 0.25;
+  const raw = readLocalStorage(STORAGE_KEYS.threshold);
+  if (raw === null || raw === "") return 0.25;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 0.25;
 };

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { OperatorPrimaryToolbarButtons } from "./OperatorPrimaryToolbarButtons";
 
@@ -8,6 +8,27 @@ const ROI_FIELDS = [
   { key: "w", label: "ROI W" },
   { key: "h", label: "ROI H" }
 ];
+
+const FULL_FRAME_ROI = { x: 0, y: 0, w: 1, h: 1 };
+
+const RoiFieldInput = memo(function RoiFieldInput({ name, label, value, onChange }) {
+  const handleChange = (event) => onChange(name, Number(event.target.value));
+
+  return (
+    <label className="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm">
+      <span className="text-slate-300">{label}</span>
+      <input
+        type="number"
+        min={0}
+        max={1}
+        step={0.01}
+        value={value}
+        onChange={handleChange}
+        className="w-full bg-transparent text-right text-slate-100 outline-none"
+      />
+    </label>
+  );
+});
 
 export const OperatorControlsPanel = memo(function OperatorControlsPanel({
   productType,
@@ -32,6 +53,16 @@ export const OperatorControlsPanel = memo(function OperatorControlsPanel({
   threshold,
   onThresholdChange
 }) {
+  const handleRoiFieldChange = useCallback(
+    (name, value) => onRoiChange((prev) => ({ ...prev, [name]: value })),
+    [onRoiChange]
+  );
+
+  const resetRoiToFullFrame = useCallback(
+    () => onRoiChange(FULL_FRAME_ROI),
+    [onRoiChange]
+  );
+
   return (
     <section className="rounded-2xl border border-slate-700 bg-panel p-4">
       <div className="grid gap-3 md:grid-cols-8">
@@ -87,23 +118,13 @@ export const OperatorControlsPanel = memo(function OperatorControlsPanel({
 
       <div className="mt-3 grid gap-3 md:grid-cols-6">
         {ROI_FIELDS.map((field) => (
-          <label
+          <RoiFieldInput
             key={field.key}
-            className="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm"
-          >
-            <span className="text-slate-300">{field.label}</span>
-            <input
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              value={roi[field.key]}
-              onChange={(event) =>
-                onRoiChange((prev) => ({ ...prev, [field.key]: Number(event.target.value) }))
-              }
-              className="w-full bg-transparent text-right text-slate-100 outline-none"
-            />
-          </label>
+            name={field.key}
+            label={field.label}
+            value={roi[field.key]}
+            onChange={handleRoiFieldChange}
+          />
         ))}
         <button
           onClick={onSaveRoi}
@@ -113,7 +134,7 @@ export const OperatorControlsPanel = memo(function OperatorControlsPanel({
           Сохранить ROI
         </button>
         <button
-          onClick={() => onRoiChange({ x: 0, y: 0, w: 1, h: 1 })}
+          onClick={resetRoiToFullFrame}
           disabled={busy}
           className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium"
         >

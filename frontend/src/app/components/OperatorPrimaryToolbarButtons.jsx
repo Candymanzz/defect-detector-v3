@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { Camera, FlaskConical, ImagePlus, RotateCcw } from "lucide-react";
 
 export const OperatorPrimaryToolbarButtons = memo(function OperatorPrimaryToolbarButtons({
@@ -11,6 +11,9 @@ export const OperatorPrimaryToolbarButtons = memo(function OperatorPrimaryToolba
   capturedFile,
   busy
 }) {
+  const runNormalBatch = useCallback(() => onRunBatchTest("normal"), [onRunBatchTest]);
+  const runBrackBatch = useCallback(() => onRunBatchTest("brack"), [onRunBatchTest]);
+
   return (
     <>
       <button
@@ -47,7 +50,7 @@ export const OperatorPrimaryToolbarButtons = memo(function OperatorPrimaryToolba
       </button>
       <button
         type="button"
-        onClick={() => onRunBatchTest("normal")}
+        onClick={runNormalBatch}
         disabled={busy}
         className="flex items-center justify-center gap-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
       >
@@ -55,7 +58,7 @@ export const OperatorPrimaryToolbarButtons = memo(function OperatorPrimaryToolba
       </button>
       <button
         type="button"
-        onClick={() => onRunBatchTest("brack")}
+        onClick={runBrackBatch}
         disabled={busy}
         className="flex items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
       >

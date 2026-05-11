@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { DEFAULT_STATE } from "../../../app/initialState";
-import { getErrorMessage, toDataUrl } from "../../../shared/lib/lib";
+import { getErrorMessage, revokeBlobUrl, toDataUrl } from "../../../shared/lib/lib";
 import { buildInspectionLogRow } from "../lib/buildInspectionLogRow";
 
 const getEmptyImages = () => ({ ...DEFAULT_STATE.images });
@@ -26,7 +26,10 @@ export function useInspection({
       const file = event.target.files?.[0];
       if (!file) return;
       setCapturedFile(file);
-      setImages((prev) => ({ ...prev, original: URL.createObjectURL(file) }));
+      setImages((prev) => {
+        revokeBlobUrl(prev.original);
+        return { ...prev, original: URL.createObjectURL(file) };
+      });
     },
     [setCapturedFile, setImages]
   );
@@ -143,7 +146,10 @@ export function useInspection({
     setStatus("ОЖИДАНИЕ");
     setScore(0);
     setCapturedFile(null);
-    setImages(getEmptyImages());
+    setImages((prev) => {
+      revokeBlobUrl(prev.original);
+      return getEmptyImages();
+    });
     resetInspectionRecheck();
   }, [resetInspectionRecheck, setCapturedFile, setImages]);
 

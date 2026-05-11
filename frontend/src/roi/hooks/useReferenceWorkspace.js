@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEFAULT_STATE } from "../../app/initialState";
-import { getErrorMessage, toDataUrl } from "../../shared/lib/lib";
+import { getErrorMessage, revokeBlobUrl, toDataUrl } from "../../shared/lib/lib";
 import { getNormalizedPointInImageBox } from "../lib/imageBox";
 import { getPolygonArea } from "../lib/geometry";
 
@@ -80,10 +80,11 @@ export function useReferenceWorkspace({
           { event: "reference.upload" }
         );
         if (!res.ok) throw new Error("Не удалось загрузить эталон");
+        revokeBlobUrl(referencePreview);
         setReferencePreview(URL.createObjectURL(capturedFile));
       }
     });
-  }, [apiFetch, capturedFile, productType, runTracked, setReferencePreview]);
+  }, [apiFetch, capturedFile, productType, referencePreview, runTracked, setReferencePreview]);
 
   const uploadReferenceFromCamera = useCallback(async () => {
     await runTracked({

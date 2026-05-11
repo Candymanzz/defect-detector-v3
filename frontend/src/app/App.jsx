@@ -80,11 +80,10 @@ function App() {
     deleteFpZone
   } = useFpZones({
     apiFetch,
-    logDesktop,
     productType,
     heatmapImageSize,
     setActiveContourMode,
-    setBusy
+    runTracked
   });
 
   const {
