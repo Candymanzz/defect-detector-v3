@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Camera, CheckCircle2, FlaskConical, ImagePlus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { calculate } from "./utils/bucketCalculator";
 
 const API_URL = "http://localhost:8000";
 
-const toDataUrl = (base64) => (base64 ? `data:image/png;base64,${base64}` : "");
-const formatDuration = (durationMs) =>
-  durationMs < 1000 ? `${Math.round(durationMs)} ms` : `${(durationMs / 1000).toFixed(2)} s`;
 const getErrorMessage = async (response, fallbackMessage) => {
   try {
     const payload = await response.json();
@@ -21,7 +18,6 @@ function App() {
   const [productType, setProductType] = useState("bucket-default");
   const [threshold, setThreshold] = useState(0.25);
   const [referencePreview, setReferencePreview] = useState("");
-  const [capturedFile, setCapturedFile] = useState(null);
   const [status, setStatus] = useState("ОЖИДАНИЕ");
   const [score, setScore] = useState(0);
   const [images, setImages] = useState({
@@ -31,12 +27,6 @@ function App() {
   });
   const [logs, setLogs] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [normalTestLogs, setNormalTestLogs] = useState([]);
-  const [normalTestSummary, setNormalTestSummary] = useState(null);
-  const [brackTestLogs, setBrackTestLogs] = useState([]);
-  const [brackTestSummary, setBrackTestSummary] = useState(null);
-  const [cameraSource, setCameraSource] = useState("http://localhost:8080");
-  const [roi, setRoi] = useState({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
   const [roiPolygon, setRoiPolygon] = useState([]);
   const [itemPolygon, setItemPolygon] = useState([]);
   const [fpPolygonDraft, setFpPolygonDraft] = useState([]);
@@ -165,205 +155,6 @@ function App() {
     const slantHeight = Math.sqrt((topR - bottomR) ** 2 + height ** 2);
     return Math.PI * (topR + bottomR) * slantHeight;
   }, [bucketGeometry.topRadius, bucketGeometry.bottomRadius, bucketGeometry.height]);
-
-  const handlePickImage = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setCapturedFile(file);
-    setImages((prev) => ({ ...prev, original: URL.createObjectURL(file) }));
-  };
-
-  const uploadReference = async () => {
-    if (!capturedFile) return;
-    setBusy(true);
-    try {
-      const formData = new FormData();
-      formData.append("product_type", productType);
-      formData.append("file", capturedFile);
-
-      const res = await fetch(`${API_URL}/upload-ref`, {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error("Не удалось загрузить эталон");
-      setReferencePreview(URL.createObjectURL(capturedFile));
-    } catch (error) {
-      window.alert(error.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const uploadReferenceFromCamera = async () => {
-    setBusy(true);
-    try {
-      const formData = new FormData();
-      formData.append("product_type", productType);
-      formData.append("camera_server_url", cameraSource);
-
-      const res = await fetch(`${API_URL}/upload-ref-from-camera`, {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось задать эталон с камеры"));
-
-      const data = await res.json();
-      setReferencePreview(toDataUrl(data.reference_b64));
-      setImages((prev) => ({ ...prev, original: toDataUrl(data.reference_b64) }));
-    } catch (error) {
-      window.alert(error.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const runInspection = async () => {
-    if (!capturedFile) return;
-    const startedAt = performance.now();
-    setBusy(true);
-    try {
-      const formData = new FormData();
-      formData.append("product_type", productType);
-      formData.append("threshold", String(threshold));
-      formData.append("file", capturedFile);
-
-      const res = await fetch(`${API_URL}/inspect`, {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error("Ошибка проверки");
-
-      const data = await res.json();
-      const elapsedMs = performance.now() - startedAt;
-      setStatus(data.status);
-      setScore(data.anomaly_score);
-      setLastRecheckedZoneIds(data.rechecked_zone_ids || []);
-      setRecheckStats({
-        count: Number(data.rechecked_zones_count || 0),
-        adjustment: Number(data.recheck_adjustment || 0),
-        rawScore: Number(data.raw_anomaly_score || data.anomaly_score || 0)
-      });
-      setImages((prev) => ({
-        ...prev,
-        diff: toDataUrl(data.diff_map_b64),
-        heatmap: toDataUrl(data.heatmap_b64)
-      }));
-      setLogs((prev) => [
-        {
-          ts: new Date().toLocaleTimeString(),
-          result: data.status,
-          score: Number(data.anomaly_score).toFixed(3),
-          recheckedZonesCount: Number(data.rechecked_zones_count || 0),
-          recheckAdjustment: Number(data.recheck_adjustment || 0).toFixed(3),
-          duration: formatDuration(elapsedMs)
-        },
-        ...prev
-      ]);
-    } catch (error) {
-      window.alert(error.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const runBatchTest = async (dataset) => {
-    setBusy(true);
-    try {
-      const formData = new FormData();
-      formData.append("product_type", productType);
-      formData.append("threshold", String(threshold));
-      formData.append("dataset", dataset);
-
-      const res = await fetch(`${API_URL}/test-run`, {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error("Ошибка тестирования");
-
-      const data = await res.json();
-      if (dataset === "normal") {
-        setNormalTestLogs(data.logs || []);
-        setNormalTestSummary(data.summary || null);
-      } else {
-        setBrackTestLogs(data.logs || []);
-        setBrackTestSummary(data.summary || null);
-      }
-    } catch (error) {
-      window.alert(error.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const runInspectionFromCamera = async () => {
-    const startedAt = performance.now();
-    setBusy(true);
-    try {
-      const formData = new FormData();
-      formData.append("product_type", productType);
-      formData.append("threshold", String(threshold));
-      formData.append("camera_server_url", cameraSource);
-
-      const res = await fetch(`${API_URL}/inspect-from-camera`, {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(await getErrorMessage(res, "Ошибка проверки с камеры"));
-
-      const data = await res.json();
-      const elapsedMs = performance.now() - startedAt;
-      setStatus(data.status);
-      setScore(data.anomaly_score);
-      setLastRecheckedZoneIds(data.rechecked_zone_ids || []);
-      setRecheckStats({
-        count: Number(data.rechecked_zones_count || 0),
-        adjustment: Number(data.recheck_adjustment || 0),
-        rawScore: Number(data.raw_anomaly_score || data.anomaly_score || 0)
-      });
-      setImages({
-        original: toDataUrl(data.original_image_b64),
-        diff: toDataUrl(data.diff_map_b64),
-        heatmap: toDataUrl(data.heatmap_b64)
-      });
-      setLogs((prev) => [
-        {
-          ts: new Date().toLocaleTimeString(),
-          result: data.status,
-          score: Number(data.anomaly_score).toFixed(3),
-          recheckedZonesCount: Number(data.rechecked_zones_count || 0),
-          recheckAdjustment: Number(data.recheck_adjustment || 0).toFixed(3),
-          duration: formatDuration(elapsedMs)
-        },
-        ...prev
-      ]);
-    } catch (error) {
-      window.alert(error.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveRoi = async () => {
-    setBusy(true);
-    try {
-      const formData = new FormData();
-      formData.append("product_type", productType);
-      formData.append("x", String(roi.x));
-      formData.append("y", String(roi.y));
-      formData.append("w", String(roi.w));
-      formData.append("h", String(roi.h));
-
-      const res = await fetch(`${API_URL}/roi`, {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) throw new Error(await getErrorMessage(res, "Не удалось сохранить ROI"));
-    } catch (error) {
-      window.alert(error.message);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const computeContainBox = (container, imageSize) => {
     if (!container || !imageSize.width || !imageSize.height) {
@@ -546,19 +337,8 @@ function App() {
 
   const loadReferenceAndPolygon = async () => {
     try {
-      const [referenceRes, polygonRes] = await Promise.all([
-        fetch(`${API_URL}/reference/${encodeURIComponent(productType)}`),
-        fetch(`${API_URL}/roi-polygon/${encodeURIComponent(productType)}`)
-      ]);
-
-      if (referenceRes.ok) {
-        const referenceData = await referenceRes.json();
-        setReferencePreview(toDataUrl(referenceData.reference_b64));
-      } else {
-        setReferencePreview("");
-        setRoiPolygon([]);
-        return;
-      }
+      const polygonRes = await fetch(`${API_URL}/roi-polygon/${encodeURIComponent(productType)}`);
+      setReferencePreview("");
 
       if (polygonRes.ok) {
         const polygonData = await polygonRes.json();
@@ -584,12 +364,7 @@ function App() {
   const resetAll = () => {
     setStatus("ОЖИДАНИЕ");
     setScore(0);
-    setCapturedFile(null);
     setImages({ original: "", diff: "", heatmap: "" });
-    setNormalTestLogs([]);
-    setNormalTestSummary(null);
-    setBrackTestLogs([]);
-    setBrackTestSummary(null);
     setFpPolygonDraft([]);
     setLastRecheckedZoneIds([]);
     setRecheckStats({ count: 0, adjustment: 0, rawScore: 0 });
@@ -1012,114 +787,18 @@ function App() {
         </section>
 
         <section className="rounded-2xl border border-slate-700 bg-panel p-4">
-          <div className="grid gap-3 md:grid-cols-8">
+          <div className="grid gap-3 md:grid-cols-2">
             <input
               className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm outline-none ring-amber-300 focus:ring"
               value={productType}
               onChange={(event) => setProductType(event.target.value)}
               placeholder="Тип изделия"
             />
-            <label className="rounded-lg border border-dashed border-slate-600 px-3 py-2 text-sm text-slate-300">
-              <input type="file" accept="image/*" className="hidden" onChange={handlePickImage} />
-              Выбрать изображение
-            </label>
-            <button
-              onClick={uploadReference}
-              disabled={busy || !capturedFile}
-              className="flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
-            >
-              <ImagePlus size={16} /> Задать эталон
-            </button>
-            <button
-              onClick={uploadReferenceFromCamera}
-              disabled={busy}
-              className="flex items-center justify-center gap-2 rounded-lg bg-amber-300 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
-            >
-              <Camera size={16} /> Эталон с камеры
-            </button>
-            <button
-              onClick={runInspection}
-              disabled={busy || !capturedFile}
-              className="rounded-lg bg-sky-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
-            >
-              Проверить
-            </button>
-            <button
-              onClick={runInspectionFromCamera}
-              disabled={busy}
-              className="flex items-center justify-center gap-2 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
-            >
-              <Camera size={16} /> Проверить с камеры
-            </button>
-            <button
-              onClick={() => runBatchTest("normal")}
-              disabled={busy}
-              className="flex items-center justify-center gap-2 rounded-lg bg-fuchsia-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
-            >
-              <FlaskConical size={16} /> Тест нормальные
-            </button>
-            <button
-              onClick={() => runBatchTest("brack")}
-              disabled={busy}
-              className="flex items-center justify-center gap-2 rounded-lg bg-rose-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
-            >
-              <FlaskConical size={16} /> Тест брак
-            </button>
             <button
               onClick={resetAll}
               className="flex items-center justify-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium"
             >
               <RotateCcw size={16} /> Сброс
-            </button>
-          </div>
-
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <input
-              className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm outline-none ring-amber-300 focus:ring"
-              value={cameraSource}
-              onChange={(event) => setCameraSource(event.target.value)}
-              placeholder="URL camera server capture endpoint"
-            />
-            <div className="rounded-lg border border-slate-700 bg-panelSoft px-3 py-2 text-sm text-slate-300">
-              Пример: http://localhost:8080
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-3 md:grid-cols-6">
-            {[
-              { key: "x", label: "ROI X" },
-              { key: "y", label: "ROI Y" },
-              { key: "w", label: "ROI W" },
-              { key: "h", label: "ROI H" }
-            ].map((field) => (
-              <label key={field.key} className="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm">
-                <span className="text-slate-300">{field.label}</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={roi[field.key]}
-                  onChange={(event) =>
-                    setRoi((prev) => ({ ...prev, [field.key]: Number(event.target.value) }))
-                  }
-                  className="w-full bg-transparent text-right text-slate-100 outline-none"
-                />
-              </label>
-            ))}
-            <button
-              onClick={saveRoi}
-              disabled={busy}
-              className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
-            >
-              Сохранить ROI
-            </button>
-            <button
-              onClick={() => setRoi({ x: 0, y: 0, w: 1, h: 1 })}
-              disabled={busy}
-              className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium"
-            >
-              ROI = весь кадр
             </button>
           </div>
 
@@ -1178,95 +857,6 @@ function App() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-700 bg-panel p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-medium">Тесты по папке normal</h2>
-            {normalTestSummary && (
-              <div className="text-sm text-slate-300">
-                Годных: <span className="text-green-400">{normalTestSummary.good_count}</span> | Брак:{" "}
-                <span className="text-red-400">{normalTestSummary.defect_count}</span> | Брак, %:{" "}
-                <span className="text-amber-300">{normalTestSummary.defect_percent}</span>
-              </div>
-            )}
-          </div>
-          <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-700">
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-slate-900 text-slate-300">
-                <tr>
-                  <th className="px-3 py-2 text-left">Файл</th>
-                  <th className="px-3 py-2 text-left">Результат</th>
-                  <th className="px-3 py-2 text-left">Score</th>
-                  <th className="px-3 py-2 text-left">Длительность</th>
-                </tr>
-              </thead>
-              <tbody>
-                {normalTestLogs.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={4}>
-                      Тесты еще не запускались
-                    </td>
-                  </tr>
-                ) : (
-                  normalTestLogs.map((entry, index) => (
-                    <tr key={`${entry.filename}-${index}`} className="border-t border-slate-800">
-                      <td className="px-3 py-2">{entry.filename}</td>
-                      <td className={`px-3 py-2 ${entry.status === "БРАК" ? "text-red-400" : "text-green-400"}`}>
-                        {entry.status}
-                      </td>
-                      <td className="px-3 py-2">{Number(entry.score).toFixed(3)}</td>
-                      <td className="px-3 py-2 text-slate-300">{formatDuration(Number(entry.duration_ms))}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-slate-700 bg-panel p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-medium">Тесты по папке brack</h2>
-            {brackTestSummary && (
-              <div className="text-sm text-slate-300">
-                Годных: <span className="text-green-400">{brackTestSummary.good_count}</span> | Брак:{" "}
-                <span className="text-red-400">{brackTestSummary.defect_count}</span> | Брак, %:{" "}
-                <span className="text-amber-300">{brackTestSummary.defect_percent}</span>
-              </div>
-            )}
-          </div>
-          <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-700">
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-slate-900 text-slate-300">
-                <tr>
-                  <th className="px-3 py-2 text-left">Файл</th>
-                  <th className="px-3 py-2 text-left">Результат</th>
-                  <th className="px-3 py-2 text-left">Score</th>
-                  <th className="px-3 py-2 text-left">Длительность</th>
-                </tr>
-              </thead>
-              <tbody>
-                {brackTestLogs.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={4}>
-                      Тесты еще не запускались
-                    </td>
-                  </tr>
-                ) : (
-                  brackTestLogs.map((entry, index) => (
-                    <tr key={`${entry.filename}-${index}`} className="border-t border-slate-800">
-                      <td className="px-3 py-2">{entry.filename}</td>
-                      <td className={`px-3 py-2 ${entry.status === "БРАК" ? "text-red-400" : "text-green-400"}`}>
-                        {entry.status}
-                      </td>
-                      <td className="px-3 py-2">{Number(entry.score).toFixed(3)}</td>
-                      <td className="px-3 py-2 text-slate-300">{formatDuration(Number(entry.duration_ms))}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
       </div>
     </main>
   );

@@ -29,6 +29,10 @@ class InspectionResult:
     rechecked_zones_count: int = 0
     recheck_adjustment: float = 0.0
     rechecked_zone_ids: list[str] | None = None
+    aligned_image: Optional[np.ndarray] = None
+    diff_map: Optional[np.ndarray] = None
+    heatmap: Optional[np.ndarray] = None
+    segmentation_mask: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -50,7 +54,6 @@ class FPZone:
 class InspectionService:
     def __init__(self) -> None:
         self.references: Dict[str, np.ndarray] = {}
-        self.rois: Dict[str, Tuple[float, float, float, float]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
@@ -83,19 +86,6 @@ class InspectionService:
 
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
         return self.references.get(product_type)
-
-    def set_roi(self, product_type: str, x: float, y: float, w: float, h: float) -> None:
-        for name, value in {"x": x, "y": y, "w": w, "h": h}.items():
-            if value < 0 or value > 1:
-                raise ValueError(f"ROI field '{name}' must be in [0, 1]")
-        if w <= 0 or h <= 0:
-            raise ValueError("ROI width/height must be > 0")
-        if x + w > 1 or y + h > 1:
-            raise ValueError("ROI rectangle must be fully inside image bounds")
-        self.rois[product_type] = (x, y, w, h)
-
-    def get_roi(self, product_type: str) -> Optional[Tuple[float, float, float, float]]:
-        return self.rois.get(product_type)
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
         if len(points) < 3:
@@ -189,10 +179,6 @@ class InspectionService:
         if polygon is not None:
             aligned, reference = self._mask_to_polygon(aligned, reference, polygon)
 
-        roi = self.get_roi(product_type)
-        if roi is not None:
-            aligned, reference = self._crop_to_roi(aligned, reference, roi)
-
         diff_map = self._compute_advanced_difference(aligned, reference)
 
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map)
@@ -218,14 +204,14 @@ class InspectionService:
             anomaly_score=anomaly_score,
             threshold=inspection_threshold,
             detector_id=get_application_id(),
-            aligned_image_b64=self._encode_image(aligned) if include_visuals else "",
-            diff_map_b64=self._encode_image(diff_map) if include_visuals else "",
-            heatmap_b64=self._encode_image(heatmap) if include_visuals and heatmap is not None else "",
-            segmentation_mask_b64=self._encode_image(segmentation_mask) if include_visuals else "",
             raw_anomaly_score=raw_score,
             rechecked_zones_count=len(fp_recheck["rechecked_zone_ids"]),
             recheck_adjustment=raw_score - anomaly_score,
             rechecked_zone_ids=fp_recheck["rechecked_zone_ids"],
+            aligned_image=aligned if include_visuals else None,
+            diff_map=diff_map if include_visuals else None,
+            heatmap=heatmap if include_visuals else None,
+            segmentation_mask=segmentation_mask if include_visuals else None,
         )
 
     def _validate_polygon_points(self, points: list[Tuple[float, float]], label: str) -> list[Tuple[float, float]]:
@@ -734,26 +720,6 @@ class InspectionService:
         mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
         boosted = heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float)
         return np.clip(boosted, 0, 255).astype(np.uint8)
-
-    def _crop_to_roi(
-        self,
-        aligned: np.ndarray,
-        reference: np.ndarray,
-        roi: Tuple[float, float, float, float],
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        x_ratio, y_ratio, w_ratio, h_ratio = roi
-        height, width = reference.shape[:2]
-        x1 = int(round(x_ratio * width))
-        y1 = int(round(y_ratio * height))
-        x2 = int(round((x_ratio + w_ratio) * width))
-        y2 = int(round((y_ratio + h_ratio) * height))
-
-        x1 = max(0, min(x1, width - 1))
-        y1 = max(0, min(y1, height - 1))
-        x2 = max(x1 + 1, min(x2, width))
-        y2 = max(y1 + 1, min(y2, height))
-
-        return aligned[y1:y2, x1:x2], reference[y1:y2, x1:x2]
 
     def _mask_to_polygon(
         self,
