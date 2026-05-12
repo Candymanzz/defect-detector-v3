@@ -1,7 +1,6 @@
 import base64
 import json
 import uuid
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
@@ -12,43 +11,13 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
-
-
-@dataclass
-class InspectionResult:
-    product_type: str
-    status: str
-    anomaly_score: float
-    threshold: float
-    detector_id: str = ""
-    aligned_image_b64: str = ""
-    diff_map_b64: str = ""
-    heatmap_b64: str = ""
-    segmentation_mask_b64: str = ""
-    raw_anomaly_score: float = 0.0
-    rechecked_zones_count: int = 0
-    recheck_adjustment: float = 0.0
-    rechecked_zone_ids: list[str] | None = None
-    aligned_image: Optional[np.ndarray] = None
-    diff_map: Optional[np.ndarray] = None
-    heatmap: Optional[np.ndarray] = None
-    segmentation_mask: Optional[np.ndarray] = None
-
-
-@dataclass
-class FPZone:
-    id: str
-    product_type: str
-    points_norm_heatmap: list[Tuple[float, float]]
-    points_norm_ref: list[Tuple[float, float]]
-    heatmap_w: int
-    heatmap_h: int
-    created_at: str
-    baseline_diff_q90: float = 0.0
-    baseline_diff_max: float = 0.0
-    baseline_active_ratio: float = 0.0
-    baseline_score: float = 0.0
-    note: str = ""
+from app.services.inspection_geometry import (
+    mask_to_polygon,
+    polygon_area,
+    polygon_mask_from_norm_points,
+    validate_polygon_points,
+)
+from app.services.inspection_models import FPZone, InspectionResult
 
 
 class InspectionService:
@@ -88,14 +57,7 @@ class InspectionService:
         return self.references.get(product_type)
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
-        if len(points) < 3:
-            raise ValueError("ROI polygon must contain at least 3 points")
-        normalized_points: list[Tuple[float, float]] = []
-        for idx, (x, y) in enumerate(points):
-            if x < 0 or x > 1 or y < 0 or y > 1:
-                raise ValueError(f"ROI polygon point #{idx + 1} must be inside [0, 1]")
-            normalized_points.append((float(x), float(y)))
-        self.roi_polygons[product_type] = normalized_points
+        self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
 
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
@@ -108,8 +70,8 @@ class InspectionService:
         heatmap_h: int,
         note: str = "",
     ) -> FPZone:
-        normalized = self._validate_polygon_points(points_norm_heatmap, "FP polygon")
-        if self._polygon_area(normalized) < 0.0001:
+        normalized = validate_polygon_points(points_norm_heatmap, "FP polygon")
+        if polygon_area(normalized) < 0.0001:
             raise ValueError("FP polygon area is too small")
         if heatmap_w <= 0 or heatmap_h <= 0:
             raise ValueError("heatmap size must be positive")
@@ -177,7 +139,7 @@ class InspectionService:
 
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
-            aligned, reference = self._mask_to_polygon(aligned, reference, polygon)
+            aligned, reference = mask_to_polygon(aligned, reference, polygon)
 
         diff_map = self._compute_advanced_difference(aligned, reference)
 
@@ -213,25 +175,6 @@ class InspectionService:
             heatmap=heatmap if include_visuals else None,
             segmentation_mask=segmentation_mask if include_visuals else None,
         )
-
-    def _validate_polygon_points(self, points: list[Tuple[float, float]], label: str) -> list[Tuple[float, float]]:
-        if len(points) < 3:
-            raise ValueError(f"{label} must contain at least 3 points")
-        normalized_points: list[Tuple[float, float]] = []
-        for idx, (x, y) in enumerate(points):
-            if x < 0 or x > 1 or y < 0 or y > 1:
-                raise ValueError(f"{label} point #{idx + 1} must be inside [0, 1]")
-            normalized_points.append((float(x), float(y)))
-        return normalized_points
-
-    def _polygon_area(self, points: list[Tuple[float, float]]) -> float:
-        if len(points) < 3:
-            return 0.0
-        area = 0.0
-        for idx, point in enumerate(points):
-            nx, ny = points[(idx + 1) % len(points)]
-            area += point[0] * ny - nx * point[1]
-        return abs(area) * 0.5
 
     def _load_fp_zones(self) -> None:
         self.fp_zones = {}
@@ -286,15 +229,6 @@ class InspectionService:
                 )
         self._fp_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
 
-    def _polygon_mask_from_norm_points(self, width: int, height: int, points: list[Tuple[float, float]]) -> np.ndarray:
-        pts = np.array(
-            [[int(round(x * (width - 1))), int(round(y * (height - 1)))] for x, y in points],
-            dtype=np.int32,
-        )
-        mask = np.zeros((height, width), dtype=np.uint8)
-        cv2.fillPoly(mask, [pts], 255)
-        return mask
-
     def _measure_fp_zone_activity(self, product_type: str, points: list[Tuple[float, float]]) -> dict[str, float]:
         diff_map = self._last_diff_maps.get(product_type)
         segmentation_mask = self._last_segmentation_masks.get(product_type)
@@ -309,7 +243,7 @@ class InspectionService:
         points: list[Tuple[float, float]],
     ) -> dict[str, float]:
         h, w = diff_map.shape[:2]
-        zone_mask = self._polygon_mask_from_norm_points(w, h, points) > 0
+        zone_mask = polygon_mask_from_norm_points(w, h, points) > 0
         if not np.any(zone_mask):
             return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
 
@@ -367,7 +301,7 @@ class InspectionService:
         rechecked_zone_ids: list[str] = []
         combined_suppress_mask = np.zeros((h, w), dtype=bool)
         for zone in zones:
-            zone_mask = self._polygon_mask_from_norm_points(w, h, zone.points_norm_ref)
+            zone_mask = polygon_mask_from_norm_points(w, h, zone.points_norm_ref)
             zone_pixels = zone_mask > 0
             if not np.any(zone_pixels):
                 continue
@@ -721,20 +655,3 @@ class InspectionService:
         boosted = heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float)
         return np.clip(boosted, 0, 255).astype(np.uint8)
 
-    def _mask_to_polygon(
-        self,
-        aligned: np.ndarray,
-        reference: np.ndarray,
-        polygon: list[Tuple[float, float]],
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        height, width = reference.shape[:2]
-        pts = np.array(
-            [[int(round(x * (width - 1))), int(round(y * (height - 1)))] for x, y in polygon],
-            dtype=np.int32,
-        )
-        mask = np.zeros((height, width), dtype=np.uint8)
-        cv2.fillPoly(mask, [pts], 255)
-
-        aligned_masked = cv2.bitwise_and(aligned, aligned, mask=mask)
-        reference_masked = cv2.bitwise_and(reference, reference, mask=mask)
-        return aligned_masked, reference_masked
