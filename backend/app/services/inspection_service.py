@@ -11,6 +11,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from app.runtime import get_application_id
+
 
 @dataclass
 class InspectionResult:
@@ -18,6 +20,7 @@ class InspectionResult:
     status: str
     anomaly_score: float
     threshold: float
+    detector_id: str = ""
     aligned_image_b64: str = ""
     diff_map_b64: str = ""
     heatmap_b64: str = ""
@@ -74,6 +77,9 @@ class InspectionService:
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
         self.references[product_type] = image
+
+    def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
+        self.references[product_type] = frame.copy()
 
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
         return self.references.get(product_type)
@@ -154,13 +160,30 @@ class InspectionService:
         image_bytes: bytes,
         threshold: Optional[float] = None,
         include_visuals: bool = True,
+        detector_id: Optional[str] = None,
+    ) -> InspectionResult:
+        current = self._decode_image(image_bytes)
+        return self.inspect_frame(
+            product_type=product_type,
+            frame=current,
+            threshold=threshold,
+            include_visuals=include_visuals,
+            detector_id=detector_id,
+        )
+
+    def inspect_frame(
+        self,
+        product_type: str,
+        frame: np.ndarray,
+        threshold: Optional[float] = None,
+        include_visuals: bool = True,
+        detector_id: Optional[str] = None,
     ) -> InspectionResult:
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
 
-        current = self._decode_image(image_bytes)
-        aligned = self._align_to_reference(current, reference)
+        aligned = self._align_to_reference(frame, reference)
 
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
@@ -194,6 +217,7 @@ class InspectionService:
             status=status,
             anomaly_score=anomaly_score,
             threshold=inspection_threshold,
+            detector_id=get_application_id(),
             aligned_image_b64=self._encode_image(aligned) if include_visuals else "",
             diff_map_b64=self._encode_image(diff_map) if include_visuals else "",
             heatmap_b64=self._encode_image(heatmap) if include_visuals and heatmap is not None else "",

@@ -8,6 +8,7 @@ import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from app.runtime import get_application_id
 from app.services.inspection_service import InspectionService
 
 
@@ -20,6 +21,7 @@ class InspectResponse(BaseModel):
     status: str
     anomaly_score: float
     threshold: float
+    detector_id: str
     aligned_image_b64: str
     diff_map_b64: str
     heatmap_b64: str
@@ -56,6 +58,12 @@ class InspectFromCameraResponse(InspectResponse):
     original_image_b64: str
     camera_source: str
     camera_duration_ms: float
+
+
+class DetectorHealthResponse(BaseModel):
+    status: str
+    service: str
+    detector_id: str
 
 
 class RoiConfig(BaseModel):
@@ -134,6 +142,33 @@ def _decode_camera_payload(camera_response: httpx.Response, camera_server_url: s
     camera_duration_ms = float(payload.get("duration_ms", 0.0))
     image_bytes = base64.b64decode(original_b64)
     return image_bytes, camera_source, camera_duration_ms
+
+
+def _to_inspect_response(result) -> InspectResponse:
+    return InspectResponse(
+        product_type=result.product_type,
+        status=result.status,
+        anomaly_score=result.anomaly_score,
+        threshold=result.threshold,
+        detector_id=result.detector_id,
+        aligned_image_b64=result.aligned_image_b64,
+        diff_map_b64=result.diff_map_b64,
+        heatmap_b64=result.heatmap_b64,
+        segmentation_mask_b64=result.segmentation_mask_b64,
+        raw_anomaly_score=result.raw_anomaly_score,
+        rechecked_zones_count=result.rechecked_zones_count,
+        recheck_adjustment=result.recheck_adjustment,
+        rechecked_zone_ids=result.rechecked_zone_ids or [],
+    )
+
+
+@router.get("/detector/health", response_model=DetectorHealthResponse)
+async def detector_health() -> DetectorHealthResponse:
+    return DetectorHealthResponse(
+        status="ok",
+        service="python-detectors",
+        detector_id=get_application_id(),
+    )
 
 
 @router.post("/roi", response_model=RoiResponse)
@@ -294,6 +329,8 @@ async def get_reference(product_type: str) -> dict:
 async def inspect(
     product_type: str = Form(...),
     threshold: Optional[float] = Form(None),
+    include_visuals: bool = Form(True),
+    detector_id: Optional[str] = Form(None),
     file: UploadFile = File(...),
 ) -> InspectResponse:
     content = await file.read()
@@ -305,24 +342,13 @@ async def inspect(
             product_type=product_type,
             image_bytes=content,
             threshold=threshold,
+            include_visuals=include_visuals,
+            detector_id=detector_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return InspectResponse(
-        product_type=result.product_type,
-        status=result.status,
-        anomaly_score=result.anomaly_score,
-        threshold=result.threshold,
-        aligned_image_b64=result.aligned_image_b64,
-        diff_map_b64=result.diff_map_b64,
-        heatmap_b64=result.heatmap_b64,
-        segmentation_mask_b64=result.segmentation_mask_b64,
-        raw_anomaly_score=result.raw_anomaly_score,
-        rechecked_zones_count=result.rechecked_zones_count,
-        recheck_adjustment=result.recheck_adjustment,
-        rechecked_zone_ids=result.rechecked_zone_ids or [],
-    )
+    return _to_inspect_response(result)
 
 
 @router.post("/test-run", response_model=TestRunResponse)
@@ -404,6 +430,8 @@ async def test_run(
 async def inspect_from_camera(
     product_type: str = Form(...),
     threshold: Optional[float] = Form(None),
+    include_visuals: bool = Form(True),
+    detector_id: Optional[str] = Form(None),
     camera_server_url: str = Form("http://localhost:8080"),
 ) -> InspectFromCameraResponse:
     if inspection_service.get_reference(product_type) is None:
@@ -423,23 +451,15 @@ async def inspect_from_camera(
             product_type=product_type,
             image_bytes=image_bytes,
             threshold=threshold,
+            include_visuals=include_visuals,
+            detector_id=detector_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    base_response = _to_inspect_response(result)
     return InspectFromCameraResponse(
-        product_type=result.product_type,
-        status=result.status,
-        anomaly_score=result.anomaly_score,
-        threshold=result.threshold,
-        aligned_image_b64=result.aligned_image_b64,
-        diff_map_b64=result.diff_map_b64,
-        heatmap_b64=result.heatmap_b64,
-        segmentation_mask_b64=result.segmentation_mask_b64,
-        raw_anomaly_score=result.raw_anomaly_score,
-        rechecked_zones_count=result.rechecked_zones_count,
-        recheck_adjustment=result.recheck_adjustment,
-        rechecked_zone_ids=result.rechecked_zone_ids or [],
+        **base_response.dict(),
         original_image_b64=original_b64,
         camera_source=camera_source,
         camera_duration_ms=camera_duration_ms,
