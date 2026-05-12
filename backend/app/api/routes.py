@@ -5,7 +5,8 @@ from typing import Optional
 
 import cv2
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+import numpy as np
+from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.runtime import get_application_id
@@ -162,6 +163,23 @@ def _to_inspect_response(result) -> InspectResponse:
     )
 
 
+def _decode_bgr_frame(frame_bytes: bytes, width: int, height: int, channels: int = 3) -> np.ndarray:
+    if width <= 0 or height <= 0:
+        raise ValueError("width and height must be positive")
+    if channels != 3:
+        raise ValueError("Only 3-channel BGR uint8 frames are supported")
+
+    expected_size = width * height * channels
+    actual_size = len(frame_bytes)
+    if actual_size != expected_size:
+        raise ValueError(
+            f"BGR uint8 payload size mismatch: expected {expected_size} bytes "
+            f"for {width}x{height}x{channels}, got {actual_size}"
+        )
+
+    return np.frombuffer(frame_bytes, dtype=np.uint8).reshape((height, width, channels))
+
+
 @router.get("/detector/health", response_model=DetectorHealthResponse)
 async def detector_health() -> DetectorHealthResponse:
     return DetectorHealthResponse(
@@ -313,6 +331,22 @@ async def upload_reference(
     return {"message": "Reference uploaded", "product_type": product_type}
 
 
+@router.post("/upload-ref-bgr")
+async def upload_reference_bgr(
+    product_type: str = Query(...),
+    width: int = Query(...),
+    height: int = Query(...),
+    frame: bytes = Body(..., media_type="application/octet-stream"),
+) -> dict:
+    try:
+        bgr_frame = _decode_bgr_frame(frame, width=width, height=height)
+        inspection_service.set_reference_frame(product_type=product_type, frame=bgr_frame)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {"message": "Reference uploaded from BGR uint8 frame", "product_type": product_type}
+
+
 @router.get("/reference/{product_type}")
 async def get_reference(product_type: str) -> dict:
     reference = inspection_service.get_reference(product_type)
@@ -341,6 +375,31 @@ async def inspect(
         result = inspection_service.inspect(
             product_type=product_type,
             image_bytes=content,
+            threshold=threshold,
+            include_visuals=include_visuals,
+            detector_id=detector_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _to_inspect_response(result)
+
+
+@router.post("/inspect-bgr", response_model=InspectResponse)
+async def inspect_bgr(
+    product_type: str = Query(...),
+    width: int = Query(...),
+    height: int = Query(...),
+    threshold: Optional[float] = Query(None),
+    include_visuals: bool = Query(True),
+    detector_id: Optional[str] = Query(None),
+    frame: bytes = Body(..., media_type="application/octet-stream"),
+) -> InspectResponse:
+    try:
+        bgr_frame = _decode_bgr_frame(frame, width=width, height=height)
+        result = inspection_service.inspect_frame(
+            product_type=product_type,
+            frame=bgr_frame,
             threshold=threshold,
             include_visuals=include_visuals,
             detector_id=detector_id,
