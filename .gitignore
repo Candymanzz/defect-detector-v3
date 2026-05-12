@@ -15,3 +15,4 @@ c_capture/camera_server
 backend/app/data/fp_zones.json
 /LightServer/obj
 /megaOrchestratoraue228-main
+/frontend/node_modules
