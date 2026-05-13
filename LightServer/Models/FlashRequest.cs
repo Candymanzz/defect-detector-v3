@@ -5,15 +5,15 @@ public class FlashRequest
     /// <summary>
     /// Номер порта: 1-8
     /// </summary>
-    public int Port { get; set; }
+    public byte Port { get; set; }
     
     /// <summary>
     /// Яркость: 0-100
     /// </summary>
-    public int Brightness { get; set; } = 100;
+    public UInt16 Brightness { get; set; } = 100;
     
     /// <summary>
     /// Длительность вспышки в мс
     /// </summary>
-    public int DurationMs { get; set; } = 100;
+    public UInt16 DurationMs { get; set; } = 100;
 }

@@ -1,3 +1,4 @@
+using LightServer.Models;
 using NsIOControllerSDK;
 
 namespace LightServer.Services;
@@ -77,7 +78,7 @@ public class LightService : IDisposable
         }
     }
 
-    public async Task<bool> SetLightAsync(int port, int brightness, int durationMs = 0)
+    public async Task<bool> SetLightAsync(Byte port, UInt16 brightness, UInt16 durationMs = 0)
     {
         if (!_isInitialized || _handle == IntPtr.Zero)
         {
@@ -101,10 +102,10 @@ public class LightService : IDisposable
         {
             var lightParam = new CIOControllerSDK.MV_IO_LIGHT_PARAM();
             lightParam.nPortNumber = portMask;
-            lightParam.nLightValue = (ushort)brightness;
+            lightParam.nLightValue = brightness;
             lightParam.nLightState = 1; // Постоянное свечение
             lightParam.nLightEdge = 0;
-            lightParam.nDurationTime = (ushort)durationMs;
+            lightParam.nDurationTime = durationMs;
             lightParam.nReserved = new uint[3];
 
             int result = CIOControllerSDK.MV_IO_SetLightParam_CS(_handle, ref lightParam);
@@ -125,7 +126,7 @@ public class LightService : IDisposable
         }
     }
 
-    public async Task<bool> SetMultipleLightsAsync(byte brightness)
+    public async Task<bool> SetMultipleLightsAsync(UInt16 brightness)
     {
         if (!_isInitialized || _handle == IntPtr.Zero)
         {
@@ -134,7 +135,8 @@ public class LightService : IDisposable
 
         int result = 0;
 
-        foreach (var port in _portMapping.Values){
+        foreach (var port in _portMapping.Values)
+        {
             var lightParam = new CIOControllerSDK.MV_IO_LIGHT_PARAM();
             lightParam.nPortNumber = port;
             lightParam.nLightValue = brightness;
@@ -149,7 +151,7 @@ public class LightService : IDisposable
         return result == 0;
     }
 
-    public async Task<bool> FlashAsync(int port, int brightness, int durationMs)
+    public async Task<bool> FlashAsync(Byte port, UInt16 brightness, UInt16 durationMs)
     {
         if (!await SetLightAsync(port, brightness))
             return false;
@@ -162,6 +164,12 @@ public class LightService : IDisposable
     public async Task TurnOffAllAsync()
     {
         await SetMultipleLightsAsync(0);
+        _logger.LogInformation("Все порты выключены");
+    }
+
+    public async Task TurnOnAllAsync(SetLightForAll request)
+    {
+        await SetMultipleLightsAsync(request.Brightness);
         _logger.LogInformation("Все порты выключены");
     }
 

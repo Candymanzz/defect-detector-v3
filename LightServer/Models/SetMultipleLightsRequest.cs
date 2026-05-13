@@ -10,5 +10,5 @@ public class SetMultipleLightsRequest
     /// <summary>
     /// Яркость: 0-100
     /// </summary>
-    public int Brightness { get; set; }
+    public UInt16 Brightness { get; set; }
 }
