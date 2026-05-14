@@ -20,12 +20,12 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-2. Команда в конфиге: `kopcheniservice/backend/.venv/.../python` + `kopcheniservice/run_stdio_worker.py` (обёртка добавляет `backend` в `PYTHONPATH`). Реализация: `app/orchestrator_stdio_runner.py`.
+2. Команда в конфиге: `analisSurface/backend/.venv/.../python` + `analisSurface/run_stdio_worker.py` (обёртка добавляет `backend` в `PYTHONPATH`). Реализация: `app/orchestrator_stdio_runner.py`.
 
 3. Ручная проверка из **корня репозитория** (после сборки venv): процесс сразу выйдет на EOF stdin — это нормально.
 
 ```bash
-kopcheniservice/backend/.venv/bin/python kopcheniservice/run_stdio_worker.py
+analisSurface/backend/.venv/bin/python analisSurface/run_stdio_worker.py
 ```
 
 ## Python camera server (RTSP/USB capture)

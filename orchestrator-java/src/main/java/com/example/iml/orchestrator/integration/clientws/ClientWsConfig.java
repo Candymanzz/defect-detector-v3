@@ -18,7 +18,7 @@ public record ClientWsConfig(
         /**
          * Если {@code true}, после WS-событий (пакет эталонов, FP hot-update, смена ракурса) оркестратор
          * рассылает stdio-команды в пул kopcheni (см. {@code docs/KOPCHENI_STDIO_PHASE5_PYTHON.md}). По умолчанию {@code false},
-         * пока в kopcheniservice не реализованы соответствующие {@code op}.
+         * пока в analisSurface не реализованы соответствующие {@code op}.
          */
         boolean kopcheniBundleSyncEnabled
 ) {

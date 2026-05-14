@@ -5,7 +5,7 @@ import com.example.iml.orchestrator.integration.config.YamlScalars;
 import java.util.Map;
 
 /**
- * HTTP API для фронта на том же порту, что {@code ui_http}: прокси к kopcheniservice и runtime-geometry.
+ * HTTP API для фронта на том же порту, что {@code ui_http}: прокси к analisSurface и runtime-geometry.
  */
 public record ClientApiMount(
         boolean enabled,

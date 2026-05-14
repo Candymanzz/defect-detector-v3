@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "IML Orchestrator — HTTP API",
-    "description": "Локальные HTTP-эндпоинты оркестратора: превью UI, кэш geometry, **client_api** (прокси к kopcheniservice + runtime java_geometry), заглушка fan-out (`fanout.client_http`). Порты по умолчанию 8099 и 8088 — при других значениях в конфиге смените **Servers** в Swagger UI.",
+    "description": "Локальные HTTP-эндпоинты оркестратора: превью UI, кэш geometry, **client_api** (прокси к analisSurface + runtime java_geometry), заглушка fan-out (`fanout.client_http`). Порты по умолчанию 8099 и 8088 — при других значениях в конфиге смените **Servers** в Swagger UI.",
     "version": "0.1.0"
   },
   "servers": [
@@ -30,7 +30,7 @@
     },
     {
       "name": "client_api",
-      "description": "Фронт через оркестратор: runtime java_geometry и прокси к kopcheniservice (`client_api` в YAML, тот же порт что ui_http)"
+      "description": "Фронт через оркестратор: runtime java_geometry и прокси к analisSurface (`client_api` в YAML, тот же порт что ui_http)"
     }
   ],
   "paths": {

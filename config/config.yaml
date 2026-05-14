@@ -57,7 +57,7 @@ ui_http:
   client_preview_max_width: 0
 
 # HTTP API для фронта на том же порту, что ui_http (нужен ui_http.enabled: true).
-# Прокси к kopcheniservice: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
+# Прокси к analisSurface: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
 # geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).
 client_api:
   enabled: false
@@ -146,15 +146,15 @@ integration:
     directory: "testimage"
     jpeg_quality: 0.92
   python_command_windows:
-    - "kopcheniservice/backend/.venv/Scripts/python.exe"
-    - "kopcheniservice/run_stdio_worker.py"
+    - "analisSurface/backend/.venv/Scripts/python.exe"
+    - "analisSurface/run_stdio_worker.py"
   geometry_command_windows:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
   python_command_linux:
-    - "kopcheniservice/backend/.venv/bin/python"
-    - "kopcheniservice/run_stdio_worker.py"
+    - "analisSurface/backend/.venv/bin/python"
+    - "analisSurface/run_stdio_worker.py"
   geometry_command_linux:
     - "java"
     - "-jar"

@@ -13,7 +13,7 @@ import java.time.Duration;
 import java.util.Locale;
 
 /**
- * Прокси HTTP-запросов фронта к локальному FastAPI kopcheniservice (FP zones, ROI, inspect и т.д.).
+ * Прокси HTTP-запросов фронта к локальному FastAPI analisSurface (FP zones, ROI, inspect и т.д.).
  */
 public final class KopcheniHttpProxy {
 

@@ -120,23 +120,23 @@ Set-Location ..
 
 ---
 
-## Шаг 5а. Виртуальное окружение детектора (kopcheniservice)
+## Шаг 5а. Виртуальное окружение детектора (analisSurface)
 
-Оркестратор по умолчанию запускает **не** старый `python-detectors`, а сервис из папки `kopcheniservice` через скрипт `kopcheniservice\run_stdio_worker.py`. Ему нужен Python с зависимостями в **`kopcheniservice\backend\.venv`**.
+Оркестратор по умолчанию запускает **не** старый `python-detectors`, а сервис из папки `analisSurface` через скрипт `analisSurface\run_stdio_worker.py`. Ему нужен Python с зависимостями в **`analisSurface\backend\.venv`**.
 
 1. Откройте PowerShell.
 2. Выполните (путь к корню проекта подставьте свой):
 
 ```powershell
-Set-Location "D:\VisionMaster4.4.0\megaOrchestratoraue228-main\kopcheniservice\backend"
+Set-Location "D:\VisionMaster4.4.0\megaOrchestratoraue228-main\analisSurface\backend"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
 3. Деактивировать среду не обязательно. Главное — чтобы существовали файлы:
-   - `kopcheniservice\backend\.venv\Scripts\python.exe` (Windows),  
-   - или `kopcheniservice/backend/.venv/bin/python` (Linux).
+   - `analisSurface\backend\.venv\Scripts\python.exe` (Windows),  
+   - или `analisSurface/backend/.venv/bin/python` (Linux).
 
 Если `python -m venv` выдаёт ошибку — установите Python 3 с сайта python.org и повторите.
 
@@ -151,7 +151,7 @@ pip install -r requirements.txt
 java -jar orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar
 ```
 
-Если оркестратор ругается на отсутствие конфига или **не находит** `kopcheniservice\backend\.venv\...`, хотя файлы на месте — вы, скорее всего, запускаете Java **не из корня проекта** (например, двойной щелчок по jar из другой папки). Тогда укажите конфиг **полным путём**:
+Если оркестратор ругается на отсутствие конфига или **не находит** `analisSurface\backend\.venv\...`, хотя файлы на месте — вы, скорее всего, запускаете Java **не из корня проекта** (например, двойной щелчок по jar из другой папки). Тогда укажите конфиг **полным путём**:
 
 ```powershell
 java -jar orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar "D:\полный\путь\к\репозиторию\config\config.yaml"

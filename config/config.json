@@ -109,8 +109,8 @@
       "jpeg_quality": 0.92
     },
     "python_command_windows": [
-      "kopcheniservice/backend/.venv/Scripts/python.exe",
-      "kopcheniservice/run_stdio_worker.py"
+      "analisSurface/backend/.venv/Scripts/python.exe",
+      "analisSurface/run_stdio_worker.py"
     ],
     "geometry_command_windows": [
       "java",
@@ -118,8 +118,8 @@
       "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
     ],
     "python_command_linux": [
-      "kopcheniservice/backend/.venv/bin/python",
-      "kopcheniservice/run_stdio_worker.py"
+      "analisSurface/backend/.venv/bin/python",
+      "analisSurface/run_stdio_worker.py"
     ],
     "geometry_command_linux": [
       "java",
