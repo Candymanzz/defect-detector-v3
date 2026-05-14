@@ -1,0 +1,1 @@
+ "C:/Program Files/Python314/libs/python314.lib" "C:/Program Files (x86)/MVS/Development/Libraries/win64/MvCameraControl.lib" -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 

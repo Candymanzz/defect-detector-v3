@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "frame": {
+    "width": 2448,
+    "height": 2048,
+    "format": "BGR8"
+  },
+  "capture_source": "hik",
+  "frame_timeout_ms": 4000,
+  "orchestrator": {
+    "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
+    "control_pipe_linux": "/tmp/iml-orchestrator.sock"
+  },
+  "cameras": [
+    {
+      "id": 0,
+      "enabled": true,
+      "ip": "192.168.1.10",
+      "exposure_us": 12000,
+      "detector": "v1",
+      "pipe_command": "\\\\.\\pipe\\camera-0-cmd",
+      "pipe_command_linux": "/tmp/camera-0-cmd.sock"
+    }
+  ],
+  "java_geometry": {
+    "pixels_to_mm": 0.01,
+    "main_roi": {
+      "x": 0,
+      "y": 0,
+      "width": 2448,
+      "height": 2048
+    },
+    "joint_roi": null,
+    "wrinkles_roi": null,
+    "max_shift_mm": 0.5,
+    "max_rotation_deg": 1.0,
+    "max_concentricity_mm": 0.2,
+    "max_joint_defect_mm": 0.3,
+    "max_wrinkles_score": 0.05
+  },
+  "python_detector": {
+    "rois": [
+      {
+        "name": "main",
+        "x": 0,
+        "y": 0,
+        "width": 2448,
+        "height": 2048
+      }
+    ],
+    "fallback_threshold": 0.25
+  },
+  "client": {
+    "url": "ws://127.0.0.1:8765",
+    "preview_max_fps": 10
+  },
+  "robot": {
+    "url": "http://127.0.0.1:9999",
+    "enabled": false
+  },
+  "fanout": {
+    "robot_tcp": {
+      "host": "127.0.0.1",
+      "port": 9999,
+      "connect_timeout_ms": 300,
+      "write_timeout_ms": 300,
+      "queue_size": 256
+    },
+    "client_http": {
+      "host": "127.0.0.1",
+      "port": 8088,
+      "queue_size": 128,
+      "artificial_delay_ms": 1200
+    }
+  },
+  "light_server": {
+    "enabled": true,
+    "base_url": "http://127.0.0.1:5079",
+    "trigger_path": "/api/light/trigger-inspection",
+    "timeout_ms": 1500,
+    "fail_on_error": false,
+    "brightness": 100,
+    "duration_ms": 180,
+    "flash_lead_ms": 35,
+    "settle_delay_ms": 100
+  },
+  "integration": {
+    "camera_parallelism": 1,
+    "geometry_pool_size": 2,
+    "python_parallelism": 1,
+    "stage_queue_size": 16,
+    "worker_ipc_mode": "stdio",
+    "worker_named_pipe_template": "\\\\.\\pipe\\iml-camera-%d-binary",
+    "worker_named_pipe_template_linux": "/tmp/iml-camera-%d.pipe",
+    "worker_named_pipe_connect_timeout_ms": 3000,
+    "light_server_startup_delay_ms": 5000,
+    "single_frame_benchmark": {
+      "enabled": false,
+      "reference_repeats": 5,
+      "inspection_repeats": 5
+    },
+    "continuous_inspection": {
+      "enabled": true,
+      "cycle_delay_ms": 400
+    },
+    "save_captures": {
+      "enabled": true,
+      "directory": "testimage",
+      "jpeg_quality": 0.92
+    },
+    "python_command_windows": [
+      "kopcheniservice/backend/.venv/Scripts/python.exe",
+      "kopcheniservice/run_stdio_worker.py"
+    ],
+    "geometry_command_windows": [
+      "java",
+      "-jar",
+      "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
+    ],
+    "python_command_linux": [
+      "kopcheniservice/backend/.venv/bin/python",
+      "kopcheniservice/run_stdio_worker.py"
+    ],
+    "geometry_command_linux": [
+      "java",
+      "-jar",
+      "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
+    ],
+    "light_server_command_windows": [
+      "dotnet",
+      "exec",
+      "LightServer/bin/Release/net10.0/LightServer.dll",
+      "--urls",
+      "http://127.0.0.1:5079"
+    ],
+    "light_server_command_linux": [
+      "dotnet",
+      "exec",
+      "LightServer/bin/Release/net10.0/LightServer.dll",
+      "--urls",
+      "http://127.0.0.1:5079"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+/testimage/
+/tools/
+/scripts/
+/script/
+/docs/
+/logs/
+
+# Build outputs (GitHub rejects files > 100 MB)
+**/target/
+LightServer/bin/
+LightServer/obj/

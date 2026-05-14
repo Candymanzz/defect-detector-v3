@@ -1,0 +1,174 @@
+# Оркестратор читает YAML; camera-worker — config/config.json (должен совпадать по capture_source и integration.*).
+# capture_source: fake | aravis | hik. Aravis — Linux + pkg-config arv-0.8. Hik — Windows + MVS SDK (см. camera-worker/CMakeLists.txt, MVS_ROOT); один процесс — primary (GigE по ip в config), остальные — clone с общим кадром.
+version: 1
+
+frame:
+  width: 2448
+  height: 2048
+  format: BGR8
+
+capture_source: "hik"
+frame_timeout_ms: 4000
+
+orchestrator:
+  control_pipe: "\\\\.\\pipe\\iml-orchestrator"
+  control_pipe_linux: "/tmp/iml-orchestrator.sock"
+
+cameras:
+  - id: 0
+    enabled: true
+    ip: "192.168.1.10"
+    exposure_us: 12000
+    detector: "v1"
+    product_type: "bench-single-frame"
+    pipe_command: "\\\\.\\pipe\\camera-0-cmd"
+    pipe_command_linux: "/tmp/camera-0-cmd.sock"
+
+java_geometry:
+  pixels_to_mm: 0.01
+  main_roi: { x: 0, y: 0, width: 2448, height: 2048 }
+  joint_roi: null
+  wrinkles_roi: null
+  max_shift_mm: 0.5
+  max_rotation_deg: 1.0
+  max_concentricity_mm: 0.2
+  max_joint_defect_mm: 0.3
+  max_wrinkles_score: 0.05
+
+python_detector:
+  rois:
+    - name: main
+      x: 0
+      y: 0
+      width: 2448
+      height: 2048
+  fallback_threshold: 0.25
+  include_visuals: false
+
+ui_http:
+  enabled: false
+  host: "127.0.0.1"
+  port: 8099
+  visuals_async_enabled: false
+  visuals_queue_size: 8
+  store_current_jpeg: true
+  store_heatmap_u8: true
+  client_preview_jpeg_quality: 58
+  client_preview_max_width: 0
+
+# HTTP API для фронта на том же порту, что ui_http (нужен ui_http.enabled: true).
+# Прокси к kopcheniservice: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
+# geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).
+client_api:
+  enabled: false
+  kopcheni_base_url: "http://127.0.0.1:8000"
+
+# WebSocket UI (Фаза 1): hello + session_state; один клиент; ping по RFC6455; таймаут без входящих сообщений/pong.
+client_ws:
+  enabled: false
+  host: "127.0.0.1"
+  port: 8765
+  path: "/"
+  replace_existing_session: true
+  ping_interval_ms: 20000
+  read_idle_timeout_ms: 90000
+  # Фаза 5: stdio sync в пул kopcheni (см. docs/KOPCHENI_STDIO_PHASE5_PYTHON.md). true только после реализации op в Python.
+  kopcheni_bundle_sync_enabled: false
+
+client:
+  url: "ws://127.0.0.1:8765"
+  preview_max_fps: 10
+
+robot:
+  url: "http://127.0.0.1:9999"
+  enabled: false
+
+fanout:
+  robot_tcp:
+    host: "127.0.0.1"
+    port: 9999
+    connect_timeout_ms: 300
+    write_timeout_ms: 300
+    queue_size: 256
+  client_http:
+    host: "127.0.0.1"
+    port: 8088
+    queue_size: 128
+    artificial_delay_ms: 1200
+
+light_server:
+  enabled: true
+  base_url: "http://127.0.0.1:5079"
+  trigger_path: "/api/light/trigger-inspection"
+  timeout_ms: 1500
+  fail_on_error: false
+  brightness: 100
+  duration_ms: 180
+  # После ответа LightServer (вспышка отработала) — доп. пауза перед capture (как в рабочей сборке sperm).
+  flash_lead_ms: 35
+  # Пауза после HTTP-триггера на стороне клиента (драйвер/строб).
+  settle_delay_ms: 100
+
+integration:
+  camera_parallelism: 1
+  geometry_pool_size: 2
+  python_parallelism: 1
+  stage_queue_size: 16
+  worker_ipc_mode: "stdio"
+  worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
+  worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
+  worker_named_pipe_connect_timeout_ms: 3000
+  # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
+  light_server_startup_delay_ms: 5000
+  # Один кадр с камеры: N раз выставить эталон в Python из того же SHM, затем один capture и M прогонов geometry+python+решение на тех же пикселях.
+  single_frame_benchmark:
+    enabled: false
+    reference_repeats: 5
+    inspection_repeats: 5
+  # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
+  continuous_inspection:
+    enabled: true
+    cycle_delay_ms: 400
+  # Симуляция конвейера (100 вёдер × N снимков): см. config/conveyor-benchmark.yaml
+  conveyor_benchmark:
+    enabled: false
+    buckets: 100
+    photos_per_bucket: 5
+    reference_repeats: 5
+    cycle_delay_ms: 400
+    product_type_prefix: "conv-bucket-"
+  timing_stages_log:
+    enabled: false
+    file: "logs/pipeline-stages.jsonl"
+  # JPEG кадров из SHM в каталог относительно корня репозитория (эталон: ref_*, инспекция: cap_*).
+  save_captures:
+    enabled: true
+    directory: "testimage"
+    jpeg_quality: 0.92
+  python_command_windows:
+    - "kopcheniservice/backend/.venv/Scripts/python.exe"
+    - "kopcheniservice/run_stdio_worker.py"
+  geometry_command_windows:
+    - "java"
+    - "-jar"
+    - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
+  python_command_linux:
+    - "kopcheniservice/backend/.venv/bin/python"
+    - "kopcheniservice/run_stdio_worker.py"
+  geometry_command_linux:
+    - "java"
+    - "-jar"
+    - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
+  # exec готового DLL — без dotnet run/build, нет блокировки LightServer.exe при повторном старте.
+  light_server_command_windows:
+    - "dotnet"
+    - "exec"
+    - "LightServer/bin/Release/net10.0/LightServer.dll"
+    - "--urls"
+    - "http://127.0.0.1:5079"
+  light_server_command_linux:
+    - "dotnet"
+    - "exec"
+    - "LightServer/bin/Release/net10.0/LightServer.dll"
+    - "--urls"
+    - "http://127.0.0.1:5079"
