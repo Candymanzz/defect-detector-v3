@@ -56,6 +56,6 @@ async def add_application_id_to_json(request: Request, call_next) -> Response:
 async def health() -> dict:
     return {
         "status": "ok",
-        "service": "kopcheni-service",
+        "service": "analisSurface-service",
         "detector_id": get_application_id(),
     }

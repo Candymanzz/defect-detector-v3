@@ -7,26 +7,20 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-## Stdio-детектор для Java-оркестратора (IMLB)
+## Детектор для Java-оркестратора (HTTP)
 
-Оркестратор из корня репозитория поднимает процесс с бинарным протоколом по stdin/stdout (как бывший `python-detectors`).
+Оркестратор ходит в **FastAPI** (`app.main`): `POST /upload-ref-shm`, `POST /inspect-shm`, FP/ROI и т.д. В корневом `config/config.yaml` задайте **`integration.analis_surface_http_base_url`** (или **`client_api.analis_surface_base_url`** при включённом `client_api`).
 
-1. Виртуальное окружение **в каталоге `backend/`** (пути в `config/config.yaml` ждут именно его):
+Локальный запуск API (из `analisSurface/backend`):
 
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+python -m app.runner --port 8000
 ```
 
-2. Команда в конфиге: `analisSurface/backend/.venv/.../python` + `analisSurface/run_stdio_worker.py` (обёртка добавляет `backend` в `PYTHONPATH`). Реализация: `app/orchestrator_stdio_runner.py`.
-
-3. Ручная проверка из **корня репозитория** (после сборки venv): процесс сразу выйдет на EOF stdin — это нормально.
-
-```bash
-analisSurface/backend/.venv/bin/python analisSurface/run_stdio_worker.py
-```
+См. также раздел **Backend** выше (`uvicorn app.main:app`).
 
 ## Python camera server (RTSP/USB capture)
 

@@ -47,7 +47,15 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             try {
                 BinaryProtocol.Message pyResp = python.command(pyHeader);
                 if (log.isDebugEnabled()) {
-                    log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
+                    Map<String, Object> ph = pyResp.header();
+                    log.debug(
+                            "{} cam={} frame={} py_type={} py_header_keys={}",
+                            python.supervisorLabel(),
+                            cameraId,
+                            state.capture().header().get("frame_id"),
+                            pyResp.type(),
+                            ph == null ? List.of() : ph.keySet()
+                    );
                 }
                 return new PipelineState(
                         state.capture(),

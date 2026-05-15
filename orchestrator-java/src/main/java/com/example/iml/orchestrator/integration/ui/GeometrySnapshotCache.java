@@ -27,6 +27,14 @@ public final class GeometrySnapshotCache {
         return Optional.ofNullable(byCamera.get(cameraId));
     }
 
+    /** Снимок только если кэшированный {@code frame_id} совпадает с запрошенным кадром инспекции. */
+    public Optional<Snapshot> getIfFrameMatches(int cameraId, long frameId) {
+        if (frameId < 0) {
+            return Optional.empty();
+        }
+        return get(cameraId).filter(s -> s.frameId() == frameId);
+    }
+
     public Set<Integer> cameraIds() {
         return byCamera.keySet();
     }

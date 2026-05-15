@@ -17,16 +17,20 @@ public record ClientWsConfig(
         int readIdleTimeoutMs,
         /**
          * Если {@code true}, после WS-событий (пакет эталонов, FP hot-update, смена ракурса) оркестратор
-         * рассылает stdio-команды в пул kopcheni (см. {@code docs/KOPCHENI_STDIO_PHASE5_PYTHON.md}). По умолчанию {@code false},
-         * пока в analisSurface не реализованы соответствующие {@code op}.
+         * рассылает команды в пул HTTP-клиентов analisSurface. По умолчанию {@code false}.
          */
-        boolean kopcheniBundleSyncEnabled
+        boolean analisSurfaceBundleSyncEnabled,
+        /**
+         * Ракурс пакета (0…4), чей {@code ShmFrameRef} подставляется в {@code reference_shm_*} для java-geometry (Фаза 6).
+         * {@code -1} — использовать {@code joint_view_index} из принятого пакета.
+         */
+        int geometryReferenceViewIndex
 ) {
 
     private static final int PROTOCOL_VERSION = 1;
 
     public static ClientWsConfig disabled() {
-        return new ClientWsConfig(false, "127.0.0.1", 8765, "/", true, 20_000, 90_000, false);
+        return new ClientWsConfig(false, "127.0.0.1", 8765, "/", true, 20_000, 90_000, false, -1);
     }
 
     @SuppressWarnings("unchecked")
@@ -65,8 +69,12 @@ public record ClientWsConfig(
         boolean replace = YamlScalars.toBool(m.get("replace_existing_session"), true);
         int ping = Math.max(5_000, YamlScalars.toInt(m.get("ping_interval_ms"), 20_000));
         int idle = Math.max(10_000, YamlScalars.toInt(m.get("read_idle_timeout_ms"), 90_000));
-        boolean kopSync = YamlScalars.toBool(m.get("kopcheni_bundle_sync_enabled"), false);
-        return new ClientWsConfig(true, host, port, path, replace, ping, idle, kopSync);
+        boolean analisSurfaceSync = YamlScalars.toBool(m.get("analis_surface_bundle_sync_enabled"), false);
+        int geomRef = YamlScalars.toInt(m.get("geometry_reference_view_index"), -1);
+        if (geomRef < -1 || geomRef > 4) {
+            geomRef = -1;
+        }
+        return new ClientWsConfig(true, host, port, path, replace, ping, idle, analisSurfaceSync, geomRef);
     }
 
     public int protocolVersion() {

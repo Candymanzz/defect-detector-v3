@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.logging.ShmRefLogSanitizer;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
@@ -85,7 +86,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             BinaryProtocol.Message capture = worker.command(Map.of("op", "capture"));
             jpegWriter.saveCapturedFrame(projectRoot, saveCaptures, capture.header(), "cap");
             if (log.isDebugEnabled()) {
-                log.debug("worker cam={} {} header={}", cameraId, debugLogSuffix, capture.header());
+                log.debug("worker cam={} {} header={}", cameraId, debugLogSuffix, ShmRefLogSanitizer.redactFrameHeader(capture.header()));
             }
             return new PipelineState(capture, null, null, YamlScalars.nanosToMs(System.nanoTime() - t0), 0L, 0L);
         } catch (InterruptedException e) {

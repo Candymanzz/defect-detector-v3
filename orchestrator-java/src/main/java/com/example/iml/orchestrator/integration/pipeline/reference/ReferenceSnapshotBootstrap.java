@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
+import com.example.iml.orchestrator.integration.logging.ShmRefLogSanitizer;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
@@ -18,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Захват эталона в SHM и рассылка заголовка в python/UI-visuals (единая точка для conveyor и обычного режима).
+ * Захват эталона в SHM и рассылка заголовка в детектор analisSurface (HTTP).
  */
 public final class ReferenceSnapshotBootstrap {
 
@@ -47,7 +48,6 @@ public final class ReferenceSnapshotBootstrap {
             WorkerProcessSupervisor worker,
             LightTriggerClient lightClient,
             List<? extends BinaryRpcSupervisor> pythonPool,
-            BinaryRpcSupervisor uiVisualsPython,
             int referenceRepeatCount,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
             PipelineStagesLog pipelineStagesLog,
@@ -66,9 +66,9 @@ public final class ReferenceSnapshotBootstrap {
         lightClient.trigger(cameraId, -1, "reference");
         BinaryProtocol.Message referenceCapture = worker.command(Map.of("op", "capture"));
         if (logStyle == ReferenceLogStyle.CONVEYOR_BUCKET) {
-            log.info("worker cam={} reference capture header={} (conveyor)", cameraId, referenceCapture.header());
+            log.info("worker cam={} reference capture header={} (conveyor)", cameraId, ShmRefLogSanitizer.redactFrameHeader(referenceCapture.header()));
         } else {
-            log.info("worker cam={} reference capture header={}", cameraId, referenceCapture.header());
+            log.info("worker cam={} reference capture header={}", cameraId, ShmRefLogSanitizer.redactFrameHeader(referenceCapture.header()));
         }
         capture.saveReferenceCapture(projectRoot, saveCaptures, referenceCapture);
         ReferenceSnapshot snapshot = new ReferenceSnapshot(shmProductType, Map.copyOf(referenceCapture.header()));
@@ -77,9 +77,6 @@ public final class ReferenceSnapshotBootstrap {
         for (int r = 0; r < referenceRepeatCount; r++) {
             for (BinaryRpcSupervisor python : pythonPool) {
                 python.command(refHdr);
-            }
-            if (uiVisualsPython != null) {
-                uiVisualsPython.command(refHdr);
             }
         }
         long wallMs = YamlScalars.nanosToMs(System.nanoTime() - tRef0);

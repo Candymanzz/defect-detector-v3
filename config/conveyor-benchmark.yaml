@@ -91,6 +91,7 @@ light_server:
   settle_delay_ms: 100
 
 integration:
+  analis_surface_http_base_url: "http://127.0.0.1:8000"
   camera_parallelism: 1
   geometry_pool_size: 2
   python_parallelism: 1
@@ -122,16 +123,10 @@ integration:
     enabled: true
     directory: "testimage"
     jpeg_quality: 0.92
-  python_command_windows:
-    - "analisSurface/backend/.venv/Scripts/python.exe"
-    - "analisSurface/run_stdio_worker.py"
   geometry_command_windows:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  python_command_linux:
-    - "analisSurface/backend/.venv/bin/python"
-    - "analisSurface/run_stdio_worker.py"
   geometry_command_linux:
     - "java"
     - "-jar"

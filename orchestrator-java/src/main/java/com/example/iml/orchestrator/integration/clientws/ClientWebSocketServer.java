@@ -6,6 +6,8 @@ import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleParser;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.ui.InspectionResultCache;
+import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -16,7 +18,9 @@ import org.java_websocket.framing.Framedata;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -28,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * WebSocket сервер для одного клиента UI: hello, эталоны (Фаза 2), FP/active-view (Фаза 5), результат инспекции (Фаза 4), ping, idle.
+ * WebSocket сервер для одного клиента UI: hello, эталоны (Фаза 2), сброс эталона (Фаза 7b), FP/active-view (Фаза 5), результат инспекции (Фаза 4), ping, idle; метрики Фазы 8.
  */
 public final class ClientWebSocketServer extends WebSocketServer implements AutoCloseable {
 
@@ -36,9 +40,11 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     private final Logger log;
     private final ClientWsConfig cfg;
+    private final ClientWsObservability observability;
     private final ClientWsReferenceContext referenceContext = new ClientWsReferenceContext();
     private final AtomicReference<ClientWsSessionState> sessionState = new AtomicReference<>(ClientWsSessionState.NO_REFERENCE);
-    private volatile List<? extends BinaryRpcSupervisor> kopcheniPythonPool = List.of();
+    private volatile List<? extends BinaryRpcSupervisor> analisSurfacePythonPool = List.of();
+    private volatile InspectionResultCache inspectionResultCache;
     private final Object sessionLock = new Object();
     private WebSocket activeClient;
     private final ScheduledExecutorService pingScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -49,11 +55,21 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     private volatile long lastClientActivityEpochMs = System.currentTimeMillis();
 
     public ClientWebSocketServer(Logger log, ClientWsConfig cfg) {
+        this(log, cfg, null);
+    }
+
+    public ClientWebSocketServer(Logger log, ClientWsConfig cfg, ClientWsObservability observability) {
         super(new InetSocketAddress(cfg.host(), cfg.port()));
         this.log = log;
         this.cfg = cfg;
+        this.observability = observability;
         setReuseAddr(true);
         setConnectionLostTimeout(0);
+    }
+
+    /** Метрики WS (Фаза 8); {@code null}, если сервер без наблюдаемости. */
+    public ClientWsObservability observability() {
+        return observability;
     }
 
     public void begin() {
@@ -80,28 +96,94 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     }
 
     /**
-     * Пул stdio kopcheni (тот же, что пайплайн инспекции): синхронизация FP/эталонов по Фазе 5.
+     * Пул HTTP-клиентов analisSurface (тот же, что пайплайн инспекции): синхронизация FP/эталонов по Фазе 5.
      */
-    public void setKopcheniPythonPool(List<? extends BinaryRpcSupervisor> pool) {
-        kopcheniPythonPool = pool == null ? List.of() : List.copyOf(pool);
+    public void setAnalisSurfacePythonPool(List<? extends BinaryRpcSupervisor> pool) {
+        analisSurfacePythonPool = pool == null ? List.of() : List.copyOf(pool);
+    }
+
+    public void setInspectionResultCache(InspectionResultCache inspectionResultCache) {
+        this.inspectionResultCache = inspectionResultCache;
     }
 
     /**
-     * После инспекции: один JSON {@code server.inspect_result} — ссылка на current (SHM), дескриптор heatmap (HTTP по opaque-токену с {@link com.example.iml.orchestrator.integration.ui.UiHttpServer} и/или {@code file_path}), FP из контекста (без бинарника).
+     * После HTTP CRUD FP в analisSurface: подтянуть полный список зон и обновить RAM + (опционально) {@code replace_fp_zones} в пуле детектора.
+     */
+    public void pullFpZonesFromAnalisSurfaceHttp(String analisSurfaceHttpBaseUrl, String productType) throws Exception {
+        if (analisSurfaceHttpBaseUrl == null || analisSurfaceHttpBaseUrl.isBlank()) {
+            throw new IllegalArgumentException("analisSurface base url required");
+        }
+        if (productType == null || productType.isBlank()) {
+            throw new IllegalArgumentException("product_type required");
+        }
+        String root = analisSurfaceHttpBaseUrl.endsWith("/")
+                ? analisSurfaceHttpBaseUrl.substring(0, analisSurfaceHttpBaseUrl.length() - 1)
+                : analisSurfaceHttpBaseUrl;
+        String url = root + "/fp-zones/" + java.net.URLEncoder.encode(productType.trim(), StandardCharsets.UTF_8);
+        java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder(java.net.URI.create(url))
+                .timeout(java.time.Duration.ofSeconds(30))
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        java.net.http.HttpResponse<byte[]> resp = java.net.http.HttpClient.newHttpClient().send(req, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+        if (resp.statusCode() / 100 != 2) {
+            throw new IOException("GET fp-zones HTTP " + resp.statusCode());
+        }
+        byte[] body = resp.body();
+        if (body == null || body.length == 0) {
+            throw new IOException("empty fp-zones response");
+        }
+        JsonNode tree = JSON.readTree(body);
+        List<FpZoneNorm> zones;
+        try {
+            zones = ReferenceBundleParser.parseFpZonesPayload(tree.path("zones"));
+        } catch (BundleParseException e) {
+            throw new IOException("fp-zones parse: " + e.getMessage(), e);
+        }
+        int hw = 0;
+        int hh = 0;
+        JsonNode zonesArr = tree.path("zones");
+        if (zonesArr.isArray() && zonesArr.size() > 0) {
+            JsonNode z0 = zonesArr.get(0);
+            hw = YamlScalars.toInt(z0.get("heatmap_w"), 0);
+            hh = YamlScalars.toInt(z0.get("heatmap_h"), 0);
+        }
+        if (hw <= 0) {
+            hw = referenceContext.effectiveHeatmapWidth();
+        }
+        if (hh <= 0) {
+            hh = referenceContext.effectiveHeatmapHeight();
+        }
+        if (hw <= 0 || hh <= 0) {
+            throw new IOException("cannot infer heatmap dimensions for fp zones");
+        }
+        referenceContext.applyFpZonesHotUpdate(hw, hh, zones);
+        broadcastAnalisSurface(AnalisSurfaceClientWsSync.replaceFpZones(productType.trim(), hw, hh, zones));
+    }
+
+    /**
+     * После инспекции: один JSON {@code server.inspect_result} — SHM-дескриптор кадра, заголовки python/geometry,
+     * снимок FPI-зон на момент инспекции, дескриптор heatmap (при необходимости абсолютный {@code file_path} на диске оркестратора).
+     * Тот же JSON кладётся в {@link InspectionResultCache} (HTTP reload), даже если WS-клиент не подключён.
      *
-     * @param heatmapArtifactTokenOrNull токен из {@code UiHttpServer.registerHeatmapArtifact}; если не {@code null} — в payload {@code http_path} = {@code /api/heatmap-artifact/}{@code token} и {@code artifact_id}
+     * @param heatmapArtifactTokenOrNull зарезервировано; передавайте {@code null}. Раньше использовался opaque-токен {@code /api/heatmap-artifact/}; теперь при необходимости указывайте {@code file_path} через {@code includeHeatmapFilePathInWs}.
      * @param includeHeatmapFilePathInWs если {@code true}, в дескриптор добавляется абсолютный {@code file_path} (fallback при отсутствии токена или отладка)
+     * @param pipelineDoneNanos момент {@link System#nanoTime()} после завершения пайплайна инспекции (до async UI); {@code 0} — не писать метрику задержки
      */
     public void notifyInspectResult(
             int cameraId,
             String productType,
             String detectorId,
             Map<String, Object> captureHeader,
+            BinaryProtocol.Message pythonOrNull,
+            BinaryProtocol.Message geometryOrNull,
+            List<FpZoneNorm> fpiZonesSnapshotOrNull,
             Path heatmapU8Path,
             int heatmapW,
             int heatmapH,
             String heatmapArtifactTokenOrNull,
-            boolean includeHeatmapFilePathInWs
+            boolean includeHeatmapFilePathInWs,
+            long pipelineDoneNanos
     ) {
         if (captureHeader == null || cameraId < 0) {
             return;
@@ -118,13 +200,9 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         if (frameId < 0) {
             return;
         }
-        WebSocket c;
-        synchronized (sessionLock) {
-            c = activeClient;
-        }
-        if (c == null || !c.isOpen()) {
-            return;
-        }
+        List<FpZoneNorm> fpi = fpiZonesSnapshotOrNull != null
+                ? fpiZonesSnapshotOrNull
+                : List.copyOf(referenceContext.effectiveFpZones());
         try {
             String json = buildInspectResultJson(
                     cameraId,
@@ -133,16 +211,34 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                     captureHeader,
                     frameId,
                     shmName,
+                    pythonOrNull,
+                    geometryOrNull,
+                    fpi,
                     heatmapU8Path,
                     heatmapW,
                     heatmapH,
                     heatmapArtifactTokenOrNull,
                     includeHeatmapFilePathInWs
             );
-            c.send(json);
-            log.info("client_ws sent type=server.inspect_result camera_id={} frame_id={}", cameraId, frameId);
+            InspectionResultCache cache = inspectionResultCache;
+            if (cache != null) {
+                cache.putEnvelopeUtf8(cameraId, frameId, json.getBytes(StandardCharsets.UTF_8));
+            }
+            WebSocket c;
+            synchronized (sessionLock) {
+                c = activeClient;
+            }
+            if (c != null && c.isOpen()) {
+                c.send(json);
+                if (observability != null && pipelineDoneNanos > 0L) {
+                    observability.recordInspectResultDeliveredNanos(System.nanoTime() - pipelineDoneNanos);
+                }
+                log.info("client_ws sent type=server.inspect_result camera_id={} frame_id={}", cameraId, frameId);
+            } else {
+                log.debug("client_ws inspect_result cached only (no active ws) camera_id={} frame_id={}", cameraId, frameId);
+            }
         } catch (Exception e) {
-            log.debug("client_ws inspect_result send failed: {}", e.getMessage());
+            log.debug("client_ws inspect_result build/cache/send failed: {}", e.getMessage());
         }
     }
 
@@ -180,6 +276,9 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 activeClient = null;
             }
         }
+        if (observability != null) {
+            observability.recordWsDisconnect();
+        }
         log.info("client_ws closed code={} reason={} remote={}", code, reason, remote);
     }
 
@@ -192,6 +291,8 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             log.info("client_ws inbound type={}", type);
             if ("client.reference_bundle".equals(type)) {
                 handleReferenceBundle(conn, root);
+            } else if ("client.reset_session".equals(type)) {
+                handleResetSession(conn, root);
             } else if ("client.fp_zones_update".equals(type)) {
                 handleFpZonesUpdate(conn, root);
             } else if ("client.set_active_reference_view".equals(type)) {
@@ -300,22 +401,63 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             Map<String, Object> captureHeader,
             long frameIdLong,
             String shmName,
+            BinaryProtocol.Message pythonOrNull,
+            BinaryProtocol.Message geometryOrNull,
+            List<FpZoneNorm> fpiZonesForPayload,
             Path heatmapU8Path,
             int heatmapW,
             int heatmapH,
             String heatmapArtifactTokenOrNull,
             boolean includeHeatmapFilePathInWs
     ) throws Exception {
-        ObjectNode current = buildCurrentShmObjectNode(cameraId, captureHeader, frameIdLong, shmName);
+        ObjectNode capShm = buildCurrentShmObjectNode(cameraId, captureHeader, frameIdLong, shmName);
         ObjectNode root = JSON.createObjectNode();
         root.put("type", "server.inspect_result");
         root.put("protocol_version", cfg.protocolVersion());
         root.put("message_id", UUID.randomUUID().toString());
         ObjectNode payload = JSON.createObjectNode();
+        long inspectedAtMs = System.currentTimeMillis();
         payload.put("camera_id", cameraId);
         payload.put("frame_id", Long.toString(frameIdLong));
         payload.put("session_state", sessionState.get().name());
-        payload.set("current", current);
+        ObjectNode corr = payload.putObject("correlation");
+        corr.put("camera_id", cameraId);
+        corr.put("frame_id", Long.toString(frameIdLong));
+        corr.put("inspected_at_epoch_ms", inspectedAtMs);
+        if (productType != null && !productType.isBlank()) {
+            corr.put("product_type", productType);
+        }
+        if (detectorId != null && !detectorId.isBlank()) {
+            corr.put("detector_id", detectorId);
+        }
+        payload.set("capture_shm", capShm);
+        payload.set("current", capShm);
+        ObjectNode pyBlock = payload.putObject("python");
+        if (pythonOrNull != null) {
+            pyBlock.put("message_type", pythonOrNull.type());
+            Map<String, Object> ph = pythonOrNull.header();
+            if (ph != null && !ph.isEmpty()) {
+                pyBlock.set("header", JSON.valueToTree(ph));
+            } else {
+                pyBlock.putNull("header");
+            }
+        } else {
+            pyBlock.putNull("message_type");
+            pyBlock.putNull("header");
+        }
+        ObjectNode geomBlock = payload.putObject("geometry");
+        if (geometryOrNull != null) {
+            geomBlock.put("message_type", geometryOrNull.type());
+            Map<String, Object> gh = geometryOrNull.header();
+            if (gh != null && !gh.isEmpty()) {
+                geomBlock.set("header", JSON.valueToTree(gh));
+            } else {
+                geomBlock.putNull("header");
+            }
+        } else {
+            geomBlock.putNull("message_type");
+            geomBlock.putNull("header");
+        }
         boolean hasHm = heatmapU8Path != null
                 && heatmapW > 0
                 && heatmapH > 0
@@ -347,7 +489,9 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             det.put("product_type", productType);
         }
         payload.set("detector", det);
-        payload.set("fp_zones", fpZonesJsonArray());
+        ArrayNode fpiArr = fpZonesJsonArrayFromList(fpiZonesForPayload);
+        payload.set("fpi_zones", fpiArr);
+        payload.set("fp_zones", fpiArr.deepCopy());
         int hmw = referenceContext.effectiveHeatmapWidth();
         int hmh = referenceContext.effectiveHeatmapHeight();
         if (hmw > 0 && hmh > 0) {
@@ -355,7 +499,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             coo.put("heatmap_width", hmw);
             coo.put("heatmap_height", hmh);
         }
-        payload.put("server_ts_ms", System.currentTimeMillis());
+        payload.put("server_ts_ms", inspectedAtMs);
         root.set("payload", payload);
         return JSON.writeValueAsString(root);
     }
@@ -423,9 +567,9 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         return current;
     }
 
-    private ArrayNode fpZonesJsonArray() {
+    private ArrayNode fpZonesJsonArrayFromList(List<FpZoneNorm> zones) {
         ArrayNode arr = JSON.createArrayNode();
-        for (FpZoneNorm z : referenceContext.effectiveFpZones()) {
+        for (FpZoneNorm z : zones) {
             ObjectNode zo = arr.addObject();
             if (z.id() != null && !z.id().isBlank()) {
                 zo.put("id", z.id());
@@ -441,7 +585,33 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         return arr;
     }
 
+    /**
+     * Сброс принятого пакета эталонов и FP hot-update в RAM; сессия → {@link ClientWsSessionState#NO_REFERENCE}.
+     * Синхронизация analisSurface для сброса пока не вызывается (в пуле нет согласованного {@code op}).
+     */
+    private void handleResetSession(WebSocket conn, JsonNode root) {
+        JsonNode payload = root.path("payload");
+        if (!payload.isObject()) {
+            sendError(conn, "invalid_payload", "payload must be object");
+            return;
+        }
+        int pv = payload.path("protocol_version").asInt(-1);
+        if (pv != cfg.protocolVersion()) {
+            sendError(conn, "invalid_protocol_version", "expected protocol_version=" + cfg.protocolVersion());
+            return;
+        }
+        referenceContext.clear();
+        setSessionState(ClientWsSessionState.NO_REFERENCE);
+        if (observability != null) {
+            observability.recordResetSession();
+        }
+        sendResetSessionAck(conn, root);
+        sendSessionState(conn, ClientWsSessionState.NO_REFERENCE);
+        log.info("client_ws reset_session: reference context cleared, session_state=NO_REFERENCE");
+    }
+
     private void handleReferenceBundle(WebSocket conn, JsonNode root) {
+        long t0 = System.nanoTime();
         ReferenceBundleParser.Result r = ReferenceBundleParser.parseBundle(root, cfg.protocolVersion());
         if (r instanceof ReferenceBundleParser.Result.Err err) {
             sendError(conn, err.code(), err.message());
@@ -449,10 +619,10 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         }
         ReferenceBundleSnapshot snap = ((ReferenceBundleParser.Result.Ok) r).snapshot();
         try {
-            broadcastKopcheni(KopcheniClientWsSync.syncClientReferenceBundle(snap, 0));
+            broadcastAnalisSurface(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
         } catch (Exception e) {
-            log.warn("client_ws kopcheni sync after bundle failed: {}", e.getMessage());
-            sendError(conn, "kopcheni_sync_failed", truncate(e.getMessage(), 400));
+            log.warn("client_ws analisSurface sync after bundle failed: {}", e.getMessage());
+            sendError(conn, "analis_surface_sync_failed", truncate(e.getMessage(), 400));
             return;
         }
         referenceContext.applyBundle(snap);
@@ -461,12 +631,35 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         sendSessionState(conn, ClientWsSessionState.READY);
         setSessionState(ClientWsSessionState.OPERATIONAL);
         sendSessionState(conn, ClientWsSessionState.OPERATIONAL);
+        if (observability != null) {
+            observability.recordReferenceBundleProcessedNanos(System.nanoTime() - t0);
+        }
         log.info(
                 "client_ws reference bundle accepted product_type={} joint_view_index={} fp_zones={}",
                 snap.productType(),
                 snap.jointViewIndex(),
                 snap.fpZones().size()
         );
+    }
+
+    /**
+     * Применение эталона из HTTP {@code /api/reference-draft/confirm} (синхронизация с analisSurface уже выполнена вызывающим кодом).
+     */
+    public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) {
+        referenceContext.applyBundle(snap);
+        setSessionState(ClientWsSessionState.READY);
+        WebSocket c;
+        synchronized (sessionLock) {
+            c = activeClient;
+        }
+        if (c != null && c.isOpen()) {
+            sendSessionState(c, ClientWsSessionState.READY);
+            setSessionState(ClientWsSessionState.OPERATIONAL);
+            sendSessionState(c, ClientWsSessionState.OPERATIONAL);
+        } else {
+            setSessionState(ClientWsSessionState.OPERATIONAL);
+        }
+        log.info("client_ws reference bundle applied from reference-draft confirm product_type={}", snap.productType());
     }
 
     private void handleFpZonesUpdate(WebSocket conn, JsonNode root) {
@@ -503,10 +696,10 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             return;
         }
         try {
-            broadcastKopcheni(KopcheniClientWsSync.replaceFpZones(productType, hw, hh, zones));
+            broadcastAnalisSurface(AnalisSurfaceClientWsSync.replaceFpZones(productType, hw, hh, zones));
         } catch (Exception e) {
-            log.warn("client_ws kopcheni replace_fp_zones failed: {}", e.getMessage());
-            sendError(conn, "kopcheni_sync_failed", truncate(e.getMessage(), 400));
+            log.warn("client_ws analisSurface replace_fp_zones failed: {}", e.getMessage());
+            sendError(conn, "analis_surface_sync_failed", truncate(e.getMessage(), 400));
             return;
         }
         referenceContext.applyFpZonesHotUpdate(hw, hh, zones);
@@ -539,22 +732,22 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             return;
         }
         try {
-            broadcastKopcheni(KopcheniClientWsSync.setActiveReferenceView(productType, viewIndex));
+            broadcastAnalisSurface(AnalisSurfaceClientWsSync.setActiveReferenceView(productType, viewIndex));
         } catch (Exception e) {
-            log.warn("client_ws kopcheni set_active_reference_view failed: {}", e.getMessage());
-            sendError(conn, "kopcheni_sync_failed", truncate(e.getMessage(), 400));
+            log.warn("client_ws analisSurface set_active_reference_view failed: {}", e.getMessage());
+            sendError(conn, "analis_surface_sync_failed", truncate(e.getMessage(), 400));
             return;
         }
         referenceContext.setActiveReferenceViewIndex(viewIndex);
         sendActiveReferenceViewAck(conn, root, viewIndex);
     }
 
-    private void broadcastKopcheni(Map<String, Object> header) throws Exception {
-        if (!cfg.kopcheniBundleSyncEnabled()) {
-            log.debug("client_ws skip kopcheni stdio sync (client_ws.kopcheni_bundle_sync_enabled=false) op={}", header.get("op"));
+    private void broadcastAnalisSurface(Map<String, Object> header) throws Exception {
+        if (!cfg.analisSurfaceBundleSyncEnabled()) {
+            log.debug("client_ws skip analisSurface sync (client_ws.analis_surface_bundle_sync_enabled=false) op={}", header.get("op"));
             return;
         }
-        List<? extends BinaryRpcSupervisor> pool = kopcheniPythonPool;
+        List<? extends BinaryRpcSupervisor> pool = analisSurfacePythonPool;
         if (pool == null || pool.isEmpty()) {
             return;
         }
@@ -564,7 +757,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 py.command(header);
             } catch (Exception e) {
                 last = e;
-                log.warn("client_ws kopcheni command failed worker={}: {}", py.supervisorLabel(), e.getMessage());
+                log.warn("client_ws analisSurface command failed worker={}: {}", py.supervisorLabel(), e.getMessage());
             }
         }
         if (last != null) {
@@ -581,6 +774,23 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             }
         }
         root.put("message_id", UUID.randomUUID().toString());
+    }
+
+    private void sendResetSessionAck(WebSocket conn, JsonNode requestRoot) {
+        try {
+            ObjectNode root = JSON.createObjectNode();
+            root.put("type", "server.reset_session_ack");
+            root.put("protocol_version", cfg.protocolVersion());
+            copyRequestMessageId(root, requestRoot);
+            ObjectNode payload = JSON.createObjectNode();
+            payload.put("ok", true);
+            payload.put("server_ts_ms", System.currentTimeMillis());
+            root.set("payload", payload);
+            conn.send(JSON.writeValueAsString(root));
+            log.info("client_ws sent type=server.reset_session_ack");
+        } catch (Exception e) {
+            log.warn("client_ws reset_session_ack send failed: {}", e.getMessage());
+        }
     }
 
     private void sendReferenceBundleAck(WebSocket conn, JsonNode requestRoot) {

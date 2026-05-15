@@ -70,16 +70,20 @@ public final class SingleFrameBenchmarkOrchestrator {
             long tDecision0 = System.nanoTime();
             InspectionDecision decision = svc.decisionPolicy().decide(cameraId, afterPy.capture(), afterPy.py(), afterPy.geom());
             long tAfterDecision = System.nanoTime();
+            long inspectionCycleEndNanos = System.nanoTime();
             svc.afterInspectionSidecar().scheduleAfterInspection(
                     in.uiServer(),
                     in.uiCfg(),
-                    in.uiVisualsPython(),
+                    in.analisSurfaceHttpBaseUrl(),
+                    in.analisSurfaceHttpTimeoutMs(),
                     in.uiArtifactsExecutor(),
                     cameraId,
                     in.productType(),
                     in.detectorId(),
                     afterPy.capture(),
-                    afterPy.geom()
+                    afterPy.py(),
+                    afterPy.geom(),
+                    inspectionCycleEndNanos
             );
             in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
             long tAfterFanout = System.nanoTime();

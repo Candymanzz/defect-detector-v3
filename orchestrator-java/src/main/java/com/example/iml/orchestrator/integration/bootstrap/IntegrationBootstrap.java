@@ -25,11 +25,18 @@ import com.example.iml.orchestrator.integration.pipeline.telemetry.PipelineInspe
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
+import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.ClientWsConfig;
+import com.example.iml.orchestrator.integration.clientws.ClientWsObservability;
+import com.example.iml.orchestrator.integration.clientws.ClientWsReferenceContext;
+import com.example.iml.orchestrator.integration.referencedraft.ReferenceDraftCoordinator;
+import com.example.iml.orchestrator.integration.referencedraft.ReferenceDraftCoordinatorHolder;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
+import com.example.iml.orchestrator.integration.ui.InspectionResultCache;
 import com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -77,9 +84,8 @@ public final class IntegrationBootstrap {
             return;
         }
 
-        List<String> pythonCommand = CameraWorkerPaths.pickIntegrationCommandList(integration, isWindows, "python_command_windows", "python_command_linux");
         List<String> geometryCommand = CameraWorkerPaths.pickIntegrationCommandList(integration, isWindows, "geometry_command_windows", "geometry_command_linux");
-        IntegrationBootConfig cfg = IntegrationBootConfig.load(integration, cameras.size(), isWindows).withPoolCommands(pythonCommand, geometryCommand);
+        IntegrationBootConfig cfg = IntegrationBootConfig.load(integration, cameras.size(), isWindows).withGeometryCommand(geometryCommand);
 
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);
         LightServerLauncher lightServerLauncher = new LightServerLauncher(log);
@@ -87,6 +93,28 @@ public final class IntegrationBootstrap {
         GeometrySnapshotCache geometrySnapshotCache = new GeometrySnapshotCache();
         GeometryRuntimeConfig geometryRuntimeConfig = new GeometryRuntimeConfig();
         ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(root, geometryRuntimeConfig);
+        ClientWsConfig clientWsCfg = ClientWsConfig.fromRootYaml(root);
+        ClientWsObservability clientWsObsForUi = null;
+        final ClientWebSocketServer clientWsServer;
+        if (!clientWsCfg.enabled()) {
+            clientWsServer = null;
+        } else {
+            ClientWsObservability obs = new ClientWsObservability();
+            ClientWebSocketServer started = null;
+            try {
+                started = new ClientWebSocketServer(log, clientWsCfg, obs);
+                started.begin();
+                clientWsObsForUi = obs;
+            } catch (Exception e) {
+                log.warn("client_ws failed to start: {}", e.getMessage());
+            }
+            clientWsServer = started;
+        }
+        ReferenceDraftCoordinator referenceDraftCoordinator = null;
+        if (clientWsServer != null) {
+            referenceDraftCoordinator = new ReferenceDraftCoordinator(log, clientWsServer);
+        }
+        ClientWsReferenceContext wsRefForGeometry = clientWsServer != null ? clientWsServer.referenceContext() : null;
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);
         WorkerCaptureCoordinator captureCoordinator = new WorkerCaptureCoordinator(log, jpegWriter);
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
@@ -95,7 +123,13 @@ public final class IntegrationBootstrap {
                 log,
                 new DefaultInspectionDecisionAggregator(log),
                 pipelineTelemetry,
-                new InspectGeometryExecutor(log, geometrySnapshotCache, geometryRuntimeConfig),
+                new InspectGeometryExecutor(
+                        log,
+                        geometrySnapshotCache,
+                        geometryRuntimeConfig,
+                        wsRefForGeometry,
+                        clientWsCfg.geometryReferenceViewIndex()
+                ),
                 new InspectPythonExecutor(log),
                 captureCoordinator,
                 new InspectionDecisionToFanOutEvent(),
@@ -104,13 +138,43 @@ public final class IntegrationBootstrap {
         );
         InspectionPipeline inspectionPipeline = new InspectionPipeline(pipelineServices);
 
-        List<ServiceProcessSupervisor> pythonPool = servicePools.startOptionalPool(
-                pythonCommand,
-                projectRoot,
-                "detector-stdio",
-                cfg.serviceCommandTimeoutMs(),
-                cfg.pythonParallelism()
-        );
+        var analisSurfaceOpt = IntegrationFeatureConfig.resolveAnalisSurfaceHttpBaseUrl(integration, clientApiMount.analisSurfaceBaseUrl());
+        if (analisSurfaceOpt.isEmpty()) {
+            log.error(
+                    "analisSurface HTTP base URL is required: set integration.analis_surface_http_base_url or client_api.analis_surface_base_url "
+                            + "(stdio detector removed).");
+            return;
+        }
+        final String analisSurfaceHttpBaseUrl = analisSurfaceOpt.get();
+        if (clientWsCfg.analisSurfaceBundleSyncEnabled()) {
+            log.warn(
+                    "client_ws.analis_surface_bundle_sync_enabled=true: sync_client_reference_bundle and set_active_reference_view "
+                            + "are not supported over HTTP; expect analis_surface_sync_failed unless you disable the flag."
+            );
+        }
+        log.info("python detector analisSurface HTTP baseUrl={} poolSize={}", analisSurfaceHttpBaseUrl, cfg.pythonParallelism());
+        List<BinaryRpcSupervisor> pythonPool = new ArrayList<>();
+        for (int i = 0; i < cfg.pythonParallelism(); i++) {
+            String label = cfg.pythonParallelism() == 1 ? "analisSurface-http" : "analisSurface-http-" + i;
+            try {
+                AnalisSurfaceHttpBinaryRpcSupervisor sup =
+                        new AnalisSurfaceHttpBinaryRpcSupervisor(label, analisSurfaceHttpBaseUrl, cfg.serviceCommandTimeoutMs());
+                sup.start();
+                pythonPool.add(sup);
+            } catch (Exception e) {
+                log.warn("failed to start {}: {}", label, e.getMessage());
+            }
+        }
+        if (pythonPool.isEmpty()) {
+            log.error("HTTP python pool is empty after startup attempts; pipeline not started.");
+            return;
+        }
+        if (clientWsServer != null) {
+            clientWsServer.setAnalisSurfacePythonPool(pythonPool);
+        }
+        if (referenceDraftCoordinator != null) {
+            referenceDraftCoordinator.attachPythonPool(pythonPool);
+        }
         List<ServiceProcessSupervisor> geometryPool = servicePools.startOptionalPool(
                 geometryCommand,
                 projectRoot,
@@ -133,35 +197,26 @@ public final class IntegrationBootstrap {
         }
         LightTriggerClient lightClient = LightTriggerClient.fromLightServerYaml(lightCfg);
 
-        ClientWebSocketServer clientWsServer = null;
-        final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(uiCfg, geometrySnapshotCache, clientApiMount);
-        ClientWsConfig clientWsCfg = ClientWsConfig.fromRootYaml(root);
-        if (clientWsCfg.enabled()) {
-            try {
-                clientWsServer = new ClientWebSocketServer(log, clientWsCfg);
-                clientWsServer.begin();
-            } catch (Exception e) {
-                log.warn("client_ws failed to start: {}", e.getMessage());
-                clientWsServer = null;
-            }
-        }
-        if (clientWsServer != null) {
-            clientWsServer.setKopcheniPythonPool(pythonPool);
-        }
+        InspectionResultCache inspectionResultCache = new InspectionResultCache();
+        final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(
+                uiCfg,
+                referenceDraftCoordinator,
+                inspectionResultCache,
+                clientWsServer,
+                analisSurfaceHttpBaseUrl);
         uiSidecar.setClientWebSocketServer(clientWsServer);
+        uiSidecar.setReferenceDraftCoordinator(referenceDraftCoordinator);
+        if (clientWsServer != null) {
+            clientWsServer.setInspectionResultCache(inspectionResultCache);
+        }
+        ReferenceDraftCoordinatorHolder.set(referenceDraftCoordinator);
         if (clientApiMount.enabled()) {
             log.info(
-                    "client_api enabled (same port as ui_http): kopcheni_proxy={} kopcheni_base_url={}",
-                    clientApiMount.kopcheniConfigured(),
-                    clientApiMount.kopcheniBaseUrl()
+                    "client_api enabled (same port as ui_http): analis_surface_proxy={} analis_surface_base_url={}",
+                    clientApiMount.analisSurfaceConfigured(),
+                    clientApiMount.analisSurfaceBaseUrl()
             );
         }
-        final ServiceProcessSupervisor uiVisualsPython = uiSidecar.startVisualsPythonIfEnabled(
-                uiCfg,
-                projectRoot,
-                cfg.serviceCommandTimeoutMs(),
-                pythonCommand
-        );
         final ExecutorService uiArtifactsExecutor = uiSidecar.startUiPublishExecutorIfEnabled(uiCfg);
         FanOutCoordinator fanOut = null;
         ExecutorService cameraExecutor = null;
@@ -193,6 +248,10 @@ public final class IntegrationBootstrap {
             final PipelineStagesLog pipelineStagesLog = pipelineStagesLogMutable;
             FanOutCoordinator activeFanOut = FanOutCoordinator.fromConfig(root);
             fanOut = activeFanOut;
+            if (clientWsCfg.enabled() && clientWsServer != null) {
+                activeFanOut.setRobotCombatFanoutAllowed(() -> clientWsServer.referenceContext().hasCommittedBundle());
+                log.info("client_ws Phase 7: fanout robot_tcp gated until reference bundle accepted (client_http unchanged)");
+            }
             log.info("integration parallel settings: camera_parallelism={} geometry_pool_size={}", cfg.cameraParallelism(), geometryPool.size());
             for (Map<String, Object> camera : cameras) {
                 int cameraId = ((Number) camera.get("id")).intValue();
@@ -282,7 +341,8 @@ public final class IntegrationBootstrap {
                             activeDecisionStageExecutor,
                             uiCfg,
                             uiServer,
-                            uiVisualsPython,
+                            analisSurfaceHttpBaseUrl,
+                            cfg.serviceCommandTimeoutMs(),
                             uiArtifactsExecutor,
                             singleFrameBenchmark,
                             conveyorBenchmark,
@@ -312,7 +372,6 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
-                    uiVisualsPython,
                     uiArtifactsExecutor,
                     fanOut,
                     clientWsServer,

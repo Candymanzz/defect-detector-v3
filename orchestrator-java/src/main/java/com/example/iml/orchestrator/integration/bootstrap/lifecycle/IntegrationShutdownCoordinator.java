@@ -4,10 +4,10 @@ import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
+import com.example.iml.orchestrator.integration.clientws.ClientWsObservability;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import org.apache.logging.log4j.Logger;
 
@@ -34,7 +34,6 @@ public final class IntegrationShutdownCoordinator {
             List<? extends BinaryRpcSupervisor> pythonPool,
             List<? extends BinaryRpcSupervisor> geometryPool,
             ExternalServiceProcess lightServerProcess,
-            ServiceProcessSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             FanOutCoordinator fanOut,
             ClientWebSocketServer clientWebSocketServer,
@@ -80,16 +79,16 @@ public final class IntegrationShutdownCoordinator {
         if (r.lightServerProcess != null) {
             r.lightServerProcess.close();
         }
-        if (r.uiVisualsPython != null) {
-            r.log.info("{} supervisor restarts={}", r.uiVisualsPython.supervisorLabel(), r.uiVisualsPython.restartCount());
-            r.uiVisualsPython.close();
-        }
         r.servicePools.shutdownExecutor(r.uiArtifactsExecutor);
         if (r.fanOut != null) {
             r.log.info("fanout metrics: {}", r.fanOut.metricsSummary());
             r.fanOut.close();
         }
         if (r.clientWebSocketServer() != null) {
+            ClientWsObservability o = r.clientWebSocketServer().observability();
+            if (o != null) {
+                r.log.info("client_ws observability {}", o.summaryForLog());
+            }
             try {
                 r.clientWebSocketServer().close();
             } catch (Exception ignored) {

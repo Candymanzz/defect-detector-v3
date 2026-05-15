@@ -5,19 +5,32 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 
 /**
  * Координация fan-out: робот (TCP) и HTTP-заглушка клиента по корневому YAML.
+ * Фаза 7: при активном {@code client_ws} на TCP-робота не уходят «боевые» PASS/FAIL,
+ * пока нет принятого пакета из пяти эталонов (см. {@link #setRobotCombatFanoutAllowed}).
  */
 public final class FanOutCoordinator implements AutoCloseable {
     private static final Logger log = LogManager.getLogger(FanOutCoordinator.class);
 
     private final RobotTcpPublisher robotPublisher;
     private final ClientHttpStubServer clientServer;
+    /** Если {@code false} — событие не ставится в очередь робота (client_http получает как раньше). */
+    private volatile BooleanSupplier robotCombatFanoutAllowed = () -> true;
 
     private FanOutCoordinator(RobotTcpPublisher robotPublisher, ClientHttpStubServer clientServer) {
         this.robotPublisher = robotPublisher;
         this.clientServer = clientServer;
+    }
+
+    /**
+     * Вызывается из bootstrap при включённом {@code client_ws}: робот не получает решения инспекции,
+     * пока {@code supplier} не вернёт {@code true} (принятый пакет эталонов в RAM).
+     */
+    public void setRobotCombatFanoutAllowed(BooleanSupplier supplier) {
+        this.robotCombatFanoutAllowed = supplier == null ? () -> true : supplier;
     }
 
     public static FanOutCoordinator fromConfig(Map<String, Object> root) {
@@ -69,7 +82,7 @@ public final class FanOutCoordinator implements AutoCloseable {
     }
 
     public void publish(FanOutEvent event) {
-        if (robotPublisher != null) {
+        if (robotPublisher != null && robotCombatFanoutAllowed.getAsBoolean()) {
             robotPublisher.publish(event);
         }
         clientServer.publish(event);

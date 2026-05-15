@@ -1,29 +1,40 @@
 package com.example.iml.orchestrator.integration.ui;
 
-import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
+import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
+import com.example.iml.orchestrator.integration.referencedraft.ReferenceDraftCoordinator;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 /**
- * Асинхронные артефакты UI: отдельный Python и пул задач после инспекции (не в горячем пути).
+ * Асинхронные артефакты UI: пул задач после инспекции; heatmap через HTTP FastAPI {@code /inspect-shm-visuals}.
  */
 public final class UiArtifactsSidecar implements AfterInspectionSidecar {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(15))
+            .build();
 
     /**
      * Путь и размеры heatmap после ответа {@code inspect_shm} (поля заголовка задаёт Python).
@@ -36,9 +47,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     private final Logger log;
     private volatile ClientWebSocketServer clientWebSocketServer;
+    private volatile ReferenceDraftCoordinator referenceDraftCoordinator;
 
     public UiArtifactsSidecar(Logger log) {
         this.log = log;
+    }
+
+    public void setReferenceDraftCoordinator(ReferenceDraftCoordinator referenceDraftCoordinator) {
+        this.referenceDraftCoordinator = referenceDraftCoordinator;
     }
 
     /**
@@ -50,8 +66,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     public UiHttpServer startHttpServerIfEnabled(
             Map<String, Object> uiCfg,
-            GeometrySnapshotCache geometrySnapshotCache,
-            ClientApiMount clientApiMount
+            ReferenceDraftCoordinator referenceDraftCoordinator,
+            InspectionResultCache inspectionResultCache,
+            ClientWebSocketServer orchestratorClientWs,
+            String analisSurfaceHttpBaseUrl
     ) {
         boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false);
         if (!enabled) {
@@ -60,39 +78,18 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         String host = String.valueOf(uiCfg.getOrDefault("host", "127.0.0.1"));
         int port = YamlScalars.toInt(uiCfg.get("port"), 8099);
         try {
-            UiHttpServer server = new UiHttpServer(host, port, geometrySnapshotCache, clientApiMount == null ? ClientApiMount.disabled() : clientApiMount);
+            UiHttpServer server = new UiHttpServer(
+                    host,
+                    port,
+                    referenceDraftCoordinator,
+                    inspectionResultCache,
+                    orchestratorClientWs,
+                    analisSurfaceHttpBaseUrl
+            );
             log.info("ui http started on {}:{}", host, port);
             return server;
         } catch (Exception e) {
             log.warn("ui http failed to start: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    public ServiceProcessSupervisor startVisualsPythonIfEnabled(
-            Map<String, Object> uiCfg,
-            Path projectRoot,
-            int commandTimeoutMs,
-            List<String> pythonCommand
-    ) {
-        boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false)
-                && YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("visuals_async_enabled"), false);
-        if (!enabled || pythonCommand == null || pythonCommand.isEmpty()) {
-            return null;
-        }
-        try {
-            ServiceProcessSupervisor supervisor = new ServiceProcessSupervisor(
-                    "python-visuals",
-                    new ArrayList<>(pythonCommand),
-                    projectRoot,
-                    commandTimeoutMs
-            );
-            supervisor.start();
-            BinaryProtocol.Message health = supervisor.health();
-            log.info("python-visuals health => {}", health.header());
-            return supervisor;
-        } catch (Exception e) {
-            log.warn("failed to start optional python-visuals service command={}: {}", pythonCommand, e.getMessage());
             return null;
         }
     }
@@ -134,23 +131,49 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     public void scheduleAfterInspection(
             UiHttpServer uiServer,
             Map<String, Object> uiCfg,
-            ServiceProcessSupervisor uiVisualsPython,
+            String analisSurfaceHttpBaseUrl,
+            int analisSurfaceHttpTimeoutMs,
             ExecutorService uiArtifactsExecutor,
             int cameraId,
             String productType,
             String detectorId,
             BinaryProtocol.Message capture,
-            BinaryProtocol.Message geomResp
+            BinaryProtocol.Message python,
+            BinaryProtocol.Message geometry,
+            long inspectionCycleEndNanos
     ) {
         if (capture == null) {
             return;
         }
         Map<String, Object> cap = capture.header();
+        ClientWebSocketServer wsSnap = clientWebSocketServer;
+        List<FpZoneNorm> fpiSnap = wsSnap == null ? List.of() : List.copyOf(wsSnap.referenceContext().effectiveFpZones());
+        ReferenceDraftCoordinator draft = referenceDraftCoordinator;
+        if (draft != null) {
+            draft.recordCapture(cameraId, cap);
+        }
+        if (draft != null && draft.isPaused()) {
+            return;
+        }
         ClientWebSocketServer ws = clientWebSocketServer;
         if (uiServer == null || uiArtifactsExecutor == null) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, false);
+                    ws.notifyInspectResult(
+                            cameraId,
+                            productType,
+                            detectorId,
+                            cap,
+                            python,
+                            geometry,
+                            fpiSnap,
+                            null,
+                            0,
+                            0,
+                            null,
+                            false,
+                            inspectionCycleEndNanos
+                    );
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no ui pool) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -162,7 +185,21 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!storeCurrent && !storeHeatmapU8) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, false);
+                    ws.notifyInspectResult(
+                            cameraId,
+                            productType,
+                            detectorId,
+                            cap,
+                            python,
+                            geometry,
+                            fpiSnap,
+                            null,
+                            0,
+                            0,
+                            null,
+                            false,
+                            inspectionCycleEndNanos
+                    );
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no store flags) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -176,39 +213,38 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         int height = YamlScalars.toInt(cap.get("height"), 2048);
         int stride = YamlScalars.toInt(cap.get("stride"), width * 3);
 
-        Object homography = geomResp == null ? null : geomResp.header().get("homographyRefToCurrent");
-
+        final long pipelineDoneNanos = inspectionCycleEndNanos;
         uiArtifactsExecutor.execute(() -> {
             try {
+                ReferenceDraftCoordinator d = referenceDraftCoordinator;
+                if (d != null && d.isPaused()) {
+                    return;
+                }
                 Path heatmapU8 = null;
                 int uw = 0;
                 int uh = 0;
-                if (uiVisualsPython != null && storeHeatmapU8) {
-                    Map<String, Object> pyHeader = new HashMap<>();
-                    pyHeader.put("op", "inspect_shm");
-                    pyHeader.put("camera_id", cameraId);
-                    pyHeader.put("frame_id", frameId);
-                    pyHeader.put("product_type", productType);
-                    pyHeader.put("detector_id", detectorId);
-                    pyHeader.put("threshold", 0.25);
-                    pyHeader.put("include_visuals", false);
-                    pyHeader.put("shm_name", shmName);
-                    pyHeader.put("shm_offset", cap.get("shm_offset"));
-                    pyHeader.put("width", width);
-                    pyHeader.put("height", height);
-                    pyHeader.put("stride", stride);
-                    if (homography != null) {
-                        pyHeader.put("alignment_h_ref_to_cur", homography);
-                    }
+                if (storeHeatmapU8 && analisSurfaceHttpBaseUrl != null && !analisSurfaceHttpBaseUrl.isBlank()) {
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("product_type", productType);
+                    body.put("detector_id", detectorId);
+                    body.put("threshold", 0.25);
+                    body.put("shm_name", shmName);
+                    body.put("shm_offset", cap.get("shm_offset"));
+                    body.put("width", width);
+                    body.put("height", height);
+                    body.put("stride", stride);
                     String base = (shmName.startsWith("/") ? shmName.substring(1) : shmName);
                     Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(base + ".heatmap.u8");
-                    pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
-                    BinaryProtocol.Message pyResp = uiVisualsPython.command(pyHeader);
-                    if (pyResp.type() != BinaryProtocol.MSG_ERROR) {
-                        HeatmapArtifact hm = resolveHeatmapArtifact(pyResp.header(), heatmapOutRequested, width, height);
+                    body.put("heatmap_u8_output_path", heatmapOutRequested.toString());
+                    try {
+                        Map<String, Object> json = postInspectShmVisuals(analisSurfaceHttpBaseUrl, body, analisSurfaceHttpTimeoutMs);
+                        Map<String, Object> flat = flattenHeatmapFromVisualsResponse(json);
+                        HeatmapArtifact hm = resolveHeatmapArtifact(flat, heatmapOutRequested, width, height);
                         heatmapU8 = hm.path();
                         uw = hm.width();
                         uh = hm.height();
+                    } catch (Exception e) {
+                        log.debug("ui heatmap inspect-shm-visuals failed cam={}: {}", cameraId, e.getMessage());
                     }
                 }
                 Path currentJpeg = null;
@@ -258,21 +294,21 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
                 if (ws != null) {
                     try {
-                        String hmToken = null;
-                        if (hasHm) {
-                            hmToken = uiServer.registerHeatmapArtifact(cameraId, heatmapU8);
-                        }
-                        boolean filePathInWs = hasHm && hmToken == null;
+                        boolean filePathInWs = hasHm;
                         ws.notifyInspectResult(
                                 cameraId,
                                 productType,
                                 detectorId,
                                 cap,
+                                python,
+                                geometry,
+                                fpiSnap,
                                 hasHm ? heatmapU8 : null,
                                 hasHm ? uw : 0,
                                 hasHm ? uh : 0,
-                                hmToken,
-                                filePathInWs
+                                null,
+                                filePathInWs,
+                                pipelineDoneNanos
                         );
                     } catch (Exception e) {
                         log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
@@ -281,6 +317,44 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             } catch (Exception ignored) {
             }
         });
+    }
+
+    private static Map<String, Object> postInspectShmVisuals(String baseUrl, Map<String, Object> body, int timeoutMs)
+            throws IOException, InterruptedException {
+        String root = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        byte[] json = MAPPER.writeValueAsBytes(body);
+        HttpRequest req = HttpRequest.newBuilder(URI.create(root + "/inspect-shm-visuals"))
+                .timeout(Duration.ofMillis(Math.max(100, timeoutMs)))
+                .header("Content-Type", "application/json; charset=utf-8")
+                .header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(json))
+                .build();
+        HttpResponse<byte[]> resp = HTTP_CLIENT.send(req, HttpResponse.BodyHandlers.ofByteArray());
+        if (resp.statusCode() / 100 != 2) {
+            throw new IOException("inspect-shm-visuals HTTP " + resp.statusCode());
+        }
+        byte[] rb = resp.body();
+        if (rb == null || rb.length == 0) {
+            return Map.of();
+        }
+        return MAPPER.readValue(rb, new TypeReference<>() {});
+    }
+
+    private static Map<String, Object> flattenHeatmapFromVisualsResponse(Map<String, Object> json) {
+        Map<String, Object> h = new HashMap<>();
+        Object hm = json.get("heatmap_u8");
+        if (hm instanceof Map<?, ?> m) {
+            if (m.get("path") != null) {
+                h.put("heatmap_u8_path", m.get("path"));
+            }
+            if (m.get("width") != null) {
+                h.put("heatmap_u8_width", m.get("width"));
+            }
+            if (m.get("height") != null) {
+                h.put("heatmap_u8_height", m.get("height"));
+            }
+        }
+        return h;
     }
 
     /**

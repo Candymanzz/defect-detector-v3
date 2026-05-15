@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.config;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Разбор секции {@code integration:} YAML: режимы пайплайна, логи стадий, сохранение кадров.
@@ -105,5 +106,28 @@ public final class IntegrationFeatureConfig {
         int delay = Math.max(0, YamlScalars.toInt(m.get("cycle_delay_ms"), 0));
         String prefix = m.get("product_type_prefix") != null ? String.valueOf(m.get("product_type_prefix")) : "bucket-";
         return new ConveyorBenchmarkConfig(enabled, buckets, photos, refR, delay, prefix);
+    }
+
+    /**
+     * Базовый URL FastAPI analisSurface: {@code integration.analis_surface_http_base_url}, иначе {@code clientApiAnalisSurfaceBaseUrl}.
+     */
+    public static Optional<String> resolveAnalisSurfaceHttpBaseUrl(
+            Map<String, Object> integration,
+            String clientApiAnalisSurfaceBaseUrl
+    ) {
+        String url = "";
+        if (integration != null) {
+            Object u = integration.get("analis_surface_http_base_url");
+            if (u != null && !String.valueOf(u).isBlank()) {
+                url = String.valueOf(u).trim();
+            }
+        }
+        if (url.isBlank() && clientApiAnalisSurfaceBaseUrl != null && !clientApiAnalisSurfaceBaseUrl.isBlank()) {
+            url = clientApiAnalisSurfaceBaseUrl.trim();
+        }
+        if (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        return url.isBlank() ? Optional.empty() : Optional.of(url);
     }
 }

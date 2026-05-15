@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
+import com.example.iml.orchestrator.integration.referencedraft.ReferenceDraftCoordinatorHolder;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -20,7 +21,11 @@ public final class AsyncInspectionCycleRunner {
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
             Map<String, Object> timingExtras
-    ) {
+    ) throws InterruptedException {
+        var draft = ReferenceDraftCoordinatorHolder.get();
+        if (draft != null) {
+            draft.awaitLive();
+        }
         CompletableFuture<PipelineState> captureFuture = svc.captureStage().scheduleCapture(
                 in.projectRoot(),
                 in.saveCaptures(),
@@ -65,16 +70,20 @@ public final class AsyncInspectionCycleRunner {
             InspectionDecision decision = svc.decisionPolicy().decide(
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
+            long inspectionCycleEndNanos = System.nanoTime();
             svc.afterInspectionSidecar().scheduleAfterInspection(
                     in.uiServer(),
                     in.uiCfg(),
-                    in.uiVisualsPython(),
+                    in.analisSurfaceHttpBaseUrl(),
+                    in.analisSurfaceHttpTimeoutMs(),
                     in.uiArtifactsExecutor(),
                     in.cameraId(),
                     in.productType(),
                     in.detectorId(),
                     state.capture(),
-                    state.geom()
+                    state.py(),
+                    state.geom(),
+                    inspectionCycleEndNanos
             );
             in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
             long tFanoutDone = System.nanoTime();

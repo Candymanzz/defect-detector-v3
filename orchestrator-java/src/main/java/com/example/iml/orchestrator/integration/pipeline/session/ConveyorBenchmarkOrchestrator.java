@@ -56,7 +56,6 @@ public final class ConveyorBenchmarkOrchestrator {
                     shared.worker(),
                     shared.lightClient(),
                     shared.pythonPool(),
-                    shared.uiVisualsPython(),
                     conveyorBenchmark.referenceRepeats(),
                     referenceByCamera,
                     shared.pipelineStagesLog(),

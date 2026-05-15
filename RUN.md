@@ -120,9 +120,9 @@ Set-Location ..
 
 ---
 
-## Шаг 5а. Виртуальное окружение детектора (analisSurface)
+## Шаг 5а. Детектор analisSurface (FastAPI) для оркестратора
 
-Оркестратор по умолчанию запускает **не** старый `python-detectors`, а сервис из папки `analisSurface` через скрипт `analisSurface\run_stdio_worker.py`. Ему нужен Python с зависимостями в **`analisSurface\backend\.venv`**.
+Оркестратор вызывает детектор **по HTTP** (`integration.analis_surface_http_base_url` или `client_api.analis_surface_base_url` в `config/config.yaml`). Нужен Python с зависимостями в **`analisSurface\backend\.venv`**.
 
 1. Откройте PowerShell.
 2. Выполните (путь к корню проекта подставьте свой):
@@ -132,11 +132,10 @@ Set-Location "D:\VisionMaster4.4.0\megaOrchestratoraue228-main\analisSurface\bac
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+python -m app.runner --port 8000
 ```
 
-3. Деактивировать среду не обязательно. Главное — чтобы существовали файлы:
-   - `analisSurface\backend\.venv\Scripts\python.exe` (Windows),  
-   - или `analisSurface/backend/.venv/bin/python` (Linux).
+3. В `config\config.yaml` укажите тот же порт, например `integration.analis_surface_http_base_url: "http://127.0.0.1:8000"`.
 
 Если `python -m venv` выдаёт ошибку — установите Python 3 с сайта python.org и повторите.
 

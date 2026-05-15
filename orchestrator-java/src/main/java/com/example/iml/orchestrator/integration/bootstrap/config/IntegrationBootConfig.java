@@ -20,7 +20,6 @@ public record IntegrationBootConfig(
         int geometryPoolSize,
         boolean reloadReference,
         int pythonParallelism,
-        List<String> pythonCommand,
         List<String> geometryCommand,
         int stageQueueSize
 ) {
@@ -54,13 +53,12 @@ public record IntegrationBootConfig(
                 reloadReference,
                 pythonParallelism,
                 List.of(),
-                List.of(),
                 stageQueueSize
         );
     }
 
-    /** Команды пулов подставляются снаружи (нужен projectRoot и pickIntegrationCommandList). */
-    public IntegrationBootConfig withPoolCommands(List<String> pythonCommand, List<String> geometryCommand) {
+    /** Команда пула java-geometry подставляется снаружи (нужен projectRoot и pickIntegrationCommandList). */
+    public IntegrationBootConfig withGeometryCommand(List<String> geometryCommand) {
         return new IntegrationBootConfig(
                 workerIpcMode,
                 workerPipeTemplate,
@@ -72,7 +70,6 @@ public record IntegrationBootConfig(
                 geometryPoolSize,
                 reloadReference,
                 pythonParallelism,
-                pythonCommand,
                 geometryCommand,
                 stageQueueSize
         );

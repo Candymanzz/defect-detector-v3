@@ -1,643 +1,190 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "IML Orchestrator — HTTP API",
-    "description": "Локальные HTTP-эндпоинты оркестратора: превью UI, кэш geometry, **client_api** (прокси к analisSurface + runtime java_geometry), заглушка fan-out (`fanout.client_http`). Порты по умолчанию 8099 и 8088 — при других значениях в конфиге смените **Servers** в Swagger UI.",
-    "version": "0.1.0"
+    "title": "IML Orchestrator — HTTP API (клиентский порт ui_http)",
+    "description": "Оставшиеся маршруты оркестратора на порту `ui_http`: health, батч метаданных камер (с `file_path` к локальным артефактам при наличии), черновик эталона, кэш результата инспекции, CRUD FP зон через analisSurface с синхронизацией `client_ws`. Документация OpenAPI на этом порту не отдаётся — используйте этот файл из репозитория. Отдельный порт fan-out client stub (если включён) не описан здесь.",
+    "version": "0.2.0"
   },
   "servers": [
     {
       "url": "http://127.0.0.1:8099",
-      "description": "UI HTTP (ui_http.host / ui_http.port)"
-    },
-    {
-      "url": "http://127.0.0.1:8088",
-      "description": "Fan-out client stub (fanout.client_http)"
+      "description": "ui_http.host / ui_http.port"
     }
   ],
   "tags": [
     {
-      "name": "ui_http",
-      "description": "Превью последнего кадра и heatmap (файлы на диске после инспекции)"
+      "name": "health",
+      "description": "Проверка процесса"
     },
     {
-      "name": "fanout_stub",
-      "description": "HTTP-заглушка «клиента»: приём событий из пайплайна (стенд / отладка)"
+      "name": "ui_cameras",
+      "description": "Метаданные последних артефактов по камерам 0…4"
     },
     {
-      "name": "ui_geometry",
-      "description": "Последний ответ java-geometry по камере (кэш после стадии пайплайна, тот же порт что ui_http)"
+      "name": "reference_draft",
+      "description": "Черновик эталона (пауза пайплайна)"
     },
     {
-      "name": "client_api",
-      "description": "Фронт через оркестратор: runtime java_geometry и прокси к analisSurface (`client_api` в YAML, тот же порт что ui_http)"
+      "name": "inspection",
+      "description": "Кэш JSON server.inspect_result"
+    },
+    {
+      "name": "orchestrator_fp",
+      "description": "FP зоны через analisSurface + синхронизация RAM оркестратора"
     }
   ],
   "paths": {
     "/health": {
       "get": {
-        "tags": [
-          "ui_http",
-          "fanout_stub"
-        ],
-        "summary": "Health check",
-        "description": "На порту UI: ответ `text/plain` — строка `ok`. На порту fan-out stub: JSON `{\"status\":\"ok\",\"service\":\"client-http-stub\"}`.",
+        "tags": ["health"],
+        "summary": "Liveness",
         "responses": {
           "200": {
-            "description": "Сервис доступен",
+            "description": "text/plain: ok",
             "content": {
               "text/plain": {
-                "schema": {
-                  "type": "string",
-                  "example": "ok\n"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StubHealth"
-                }
+                "schema": { "type": "string", "example": "ok\n" }
               }
             }
           }
         }
       }
     },
-    "/api/camera/{cameraId}/current.jpg": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
+    "/api/cameras/latest.json": {
       "get": {
-        "tags": [
-          "ui_http"
-        ],
-        "summary": "JPEG текущего кадра",
-        "description": "Возвращает последний сохранённый превью-JPEG для камеры, если пайплайн уже выставил артефакты (`ui_http` + sidecar). Иначе 404.",
-        "parameters": [
-          {
-            "name": "cameraId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
-        ],
+        "tags": ["ui_cameras"],
+        "summary": "Пять слотов камер 0…4",
+        "description": "Массив `cameras`: метаданные, `hasCurrent`/`hasHeatmap`, размеры; при наличии файлов — `currentJpeg.file_path` и `heatmapU8.file_path` (абсолютные пути на машине оркестратора).",
         "responses": {
           "200": {
-            "description": "JPEG изображение",
-            "content": {
-              "image/jpeg": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Нет данных или неверный путь"
-          }
-        }
-      }
-    },
-    "/api/camera/{cameraId}/heatmap.u8": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
-      "get": {
-        "tags": [
-          "ui_http"
-        ],
-        "summary": "Heatmap (сырой u8)",
-        "description": "Сырой буфер heatmap uint8, если sidecar его записал. Иначе 404.",
-        "parameters": [
-          {
-            "name": "cameraId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Бинарные данные",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Нет данных или неверный путь"
-          }
-        }
-      }
-    },
-    "/api/heatmap-artifact/{artifactId}": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
-      "get": {
-        "tags": [
-          "ui_http"
-        ],
-        "summary": "Heatmap по opaque-токену (WebSocket Фаза 4b)",
-        "description": "Сырой буфер heatmap uint8 для токена, выданного при публикации артефакта (поле `artifact_id` / `http_path` в `server.inspect_result`). Стабильный путь `/api/camera/{id}/heatmap.u8` остаётся для `latest.json`.",
-        "parameters": [
-          {
-            "name": "artifactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{32}$"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Бинарные данные",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Неизвестный или снятый с регистрации токен"
-          }
-        }
-      }
-    },
-    "/api/cameras": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
-      "get": {
-        "tags": [
-          "ui_http"
-        ],
-        "summary": "Список камер с опубликованными артефактами",
-        "description": "JSON: массив `cameras` (id), для которых есть хотя бы JPEG и/или heatmap на UI-порту.",
-        "responses": {
-          "200": {
-            "description": "Список id камер",
+            "description": "JSON",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UiCameraList"
-                }
+                "schema": { "type": "object", "additionalProperties": true }
               }
             }
-          },
-          "405": {
-            "description": "Метод не GET"
           }
         }
       }
     },
-    "/api/camera/{cameraId}/latest.json": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
+    "/api/reference-draft/status": {
       "get": {
-        "tags": [
-          "ui_http"
-        ],
-        "summary": "Метаданные последнего кадра для клиентов (Python/скрипты)",
-        "description": "JSON: `frameId`, `productType`, `detectorId`, размеры захвата, флаги `hasCurrent` / `hasHeatmap`, относительные пути к JPEG и heatmap. CORS `Access-Control-Allow-Origin: *`.",
+        "tags": ["reference_draft"],
+        "summary": "Статус черновика",
+        "responses": {
+          "200": { "description": "paused, frozen_slots, server_ts_ms" }
+        }
+      }
+    },
+    "/api/reference-draft/start": {
+      "post": {
+        "tags": ["reference_draft"],
+        "summary": "Начать черновик",
+        "responses": { "200": { "description": "{\"ok\":true}" } }
+      }
+    },
+    "/api/reference-draft/cancel": {
+      "post": {
+        "tags": ["reference_draft"],
+        "summary": "Отменить черновик",
+        "responses": { "200": { "description": "{\"ok\":true}" } }
+      }
+    },
+    "/api/reference-draft/confirm": {
+      "post": {
+        "tags": ["reference_draft"],
+        "summary": "Подтвердить эталон",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "type": "object" } }
+          }
+        },
+        "responses": { "200": { "description": "{\"ok\":true}" } }
+      }
+    },
+    "/api/inspection/result": {
+      "get": {
+        "tags": ["inspection"],
+        "summary": "Последний server.inspect_result",
         "parameters": [
           {
-            "name": "cameraId",
-            "in": "path",
+            "name": "camera_id",
+            "in": "query",
             "required": true,
-            "schema": {
-              "type": "integer",
-              "minimum": 0
-            }
+            "schema": { "type": "integer", "minimum": 0 }
+          },
+          {
+            "name": "frame_id",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "format": "int64" }
           }
         ],
         "responses": {
           "200": {
-            "description": "Метаданные снимка",
+            "description": "Конверт server.inspect_result",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UiLatestSnapshot"
-                }
+                "schema": { "type": "object", "additionalProperties": true }
               }
             }
           },
-          "404": {
-            "description": "Камера не найдена или снимок ещё не публиковался"
-          },
-          "405": {
-            "description": "Метод не GET"
-          }
+          "400": { "description": "Неверные параметры" },
+          "404": { "description": "Нет кэша для камеры/кадра" },
+          "503": { "description": "Кэш не настроен" }
         }
       }
     },
-    "/api/geometry/cameras": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
+    "/api/orchestrator/fp-zones": {
       "get": {
-        "tags": [
-          "ui_geometry"
-        ],
-        "summary": "Камеры с закэшированным ответом geometry",
-        "description": "JSON: `cameras` — id камер, для которых уже был успешный `inspect_shm` у java-geometry в текущем сеансе.",
-        "responses": {
-          "200": {
-            "description": "Список id камер",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UiCameraList"
-                }
-              }
-            }
-          },
-          "405": {
-            "description": "Метод не GET"
-          }
-        }
-      }
-    },
-    "/api/geometry/camera/{cameraId}/latest.json": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
-      "get": {
-        "tags": [
-          "ui_geometry"
-        ],
-        "summary": "Последний JSON-ответ java-geometry для клиента",
-        "description": "Обёртка: `cameraId`, `frameId`, `updatedAtMs`, `latestJsonPath`, объект `geometry` — заголовок ответа сервиса (`status`, `overallPass`, `homographyRefToCurrent`, метрики и т.д.). CORS `Access-Control-Allow-Origin: *`.",
+        "tags": ["orchestrator_fp"],
+        "summary": "Список FP зон (analisSurface)",
         "parameters": [
           {
-            "name": "cameraId",
-            "in": "path",
+            "name": "product_type",
+            "in": "query",
             "required": true,
-            "schema": {
-              "type": "integer",
-              "minimum": 0
-            }
+            "schema": { "type": "string" }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Снимок geometry",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GeometryLatestSnapshot"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Нет снимка для камеры"
-          },
-          "405": {
-            "description": "Метод не GET"
-          }
-        }
-      }
-    },
-    "/api/client/geometry-runtime": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8099"
-        }
-      ],
-      "get": {
-        "tags": [
-          "client_api"
-        ],
-        "summary": "Текущие runtime-переопределения geometry (YAML + overrides)",
-        "responses": {
-          "200": {
-            "description": "JSON: runtimeOverrides, effectiveForNextGeometryInspect"
-          }
-        }
+        "responses": { "200": { "description": "Ответ analisSurface" } }
       },
-      "put": {
-        "tags": [
-          "client_api"
-        ],
-        "summary": "Заменить runtime-переопределения geometry (тело — объект полей mainRoi, maxShiftMm, … или snake_case)",
-        "responses": {
-          "200": {
-            "description": "{\"ok\":true}"
+      "post": {
+        "tags": ["orchestrator_fp"],
+        "summary": "Добавить зону + синхронизация оркестратора",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "type": "object" } }
           }
-        }
-      },
+        },
+        "responses": { "200": { "description": "Ответ analisSurface" } }
+      }
+    },
+    "/api/orchestrator/fp-zones/{zoneId}": {
       "delete": {
-        "tags": [
-          "client_api"
-        ],
-        "summary": "Сбросить runtime-переопределения geometry",
-        "responses": {
-          "200": {
-            "description": "{\"ok\":true}"
+        "tags": ["orchestrator_fp"],
+        "summary": "Удалить зону + синхронизация",
+        "parameters": [
+          {
+            "name": "zoneId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "product_type",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
           }
-        }
-      }
-    },
-    "/events": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8088"
-        }
-      ],
-      "get": {
-        "tags": [
-          "fanout_stub"
         ],
-        "summary": "Снимок очереди событий",
-        "description": "JSON-массив событий, попавших в очередь заглушки (для отладки fan-out).",
-        "responses": {
-          "200": {
-            "description": "Массив FanOutEvent",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/FanOutEvent"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metrics": {
-      "servers": [
-        {
-          "url": "http://127.0.0.1:8088"
-        }
-      ],
-      "get": {
-        "tags": [
-          "fanout_stub"
-        ],
-        "summary": "Метрики очереди заглушки",
-        "responses": {
-          "200": {
-            "description": "Глубина очереди, счётчики",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StubMetrics"
-                }
-              }
-            }
-          }
-        }
+        "responses": { "200": { "description": "Ответ analisSurface" } }
       }
     }
   },
   "components": {
-    "schemas": {
-      "UiCameraList": {
-        "type": "object",
-        "required": [
-          "cameras"
-        ],
-        "properties": {
-          "cameras": {
-            "type": "array",
-            "items": {
-              "type": "integer"
-            },
-            "example": [
-              0
-            ]
-          }
-        }
-      },
-      "UiLatestSnapshot": {
-        "type": "object",
-        "required": [
-          "cameraId",
-          "frameId",
-          "productType",
-          "detectorId",
-          "shmName",
-          "updatedAtMs",
-          "hasCurrent",
-          "hasHeatmap",
-          "capture",
-          "currentJpeg",
-          "heatmapU8"
-        ],
-        "properties": {
-          "cameraId": {
-            "type": "integer"
-          },
-          "frameId": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "productType": {
-            "type": "string"
-          },
-          "detectorId": {
-            "type": "string"
-          },
-          "shmName": {
-            "type": "string"
-          },
-          "updatedAtMs": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "hasCurrent": {
-            "type": "boolean"
-          },
-          "hasHeatmap": {
-            "type": "boolean"
-          },
-          "capture": {
-            "type": "object",
-            "properties": {
-              "width": {
-                "type": "integer"
-              },
-              "height": {
-                "type": "integer"
-              }
-            }
-          },
-          "currentJpeg": {
-            "type": "object",
-            "properties": {
-              "width": {
-                "type": "integer"
-              },
-              "height": {
-                "type": "integer"
-              },
-              "path": {
-                "type": "string",
-                "example": "/api/camera/0/current.jpg"
-              }
-            }
-          },
-          "heatmapU8": {
-            "type": "object",
-            "properties": {
-              "width": {
-                "type": "integer"
-              },
-              "height": {
-                "type": "integer"
-              },
-              "path": {
-                "type": "string",
-                "example": "/api/camera/0/heatmap.u8"
-              }
-            }
-          }
-        }
-      },
-      "GeometryLatestSnapshot": {
-        "type": "object",
-        "required": [
-          "cameraId",
-          "frameId",
-          "updatedAtMs",
-          "latestJsonPath",
-          "geometry"
-        ],
-        "properties": {
-          "cameraId": {
-            "type": "integer"
-          },
-          "frameId": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "updatedAtMs": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "latestJsonPath": {
-            "type": "string",
-            "example": "/api/geometry/camera/0/latest.json"
-          },
-          "geometry": {
-            "type": "object",
-            "description": "Заголовок MSG_RESPONSE java-geometry-service после inspect_shm",
-            "additionalProperties": true
-          }
-        }
-      },
-      "StubHealth": {
-        "type": "object",
-        "required": [
-          "status",
-          "service"
-        ],
-        "properties": {
-          "status": {
-            "type": "string",
-            "example": "ok"
-          },
-          "service": {
-            "type": "string",
-            "example": "client-http-stub"
-          }
-        }
-      },
-      "FanOutEvent": {
-        "type": "object",
-        "required": [
-          "cameraId",
-          "frameId",
-          "overallPass",
-          "action",
-          "anomalyScore",
-          "pythonStatus",
-          "geometryStatus",
-          "timestampMs"
-        ],
-        "properties": {
-          "cameraId": {
-            "type": "integer"
-          },
-          "frameId": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "overallPass": {
-            "type": "boolean"
-          },
-          "action": {
-            "type": "string"
-          },
-          "anomalyScore": {
-            "type": "number",
-            "format": "double"
-          },
-          "pythonStatus": {
-            "type": "string"
-          },
-          "geometryStatus": {
-            "type": "string"
-          },
-          "timestampMs": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "StubMetrics": {
-        "type": "object",
-        "properties": {
-          "queue_depth": {
-            "type": "integer"
-          },
-          "queue_dropped_total": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "queue_pushed_total": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "artificial_delay_ms": {
-            "type": "integer"
-          }
-        }
-      }
-    }
+    "schemas": {}
   }
 }

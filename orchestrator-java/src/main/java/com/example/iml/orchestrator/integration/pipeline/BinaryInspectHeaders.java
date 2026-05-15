@@ -3,7 +3,9 @@ package com.example.iml.orchestrator.integration.pipeline;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -72,6 +74,12 @@ public final class BinaryInspectHeaders {
         pyHeader.put("width", capture.header().get("width"));
         pyHeader.put("height", capture.header().get("height"));
         pyHeader.put("stride", capture.header().get("stride"));
+        int frameW = YamlScalars.toInt(capture.header().get("width"), 0);
+        int frameH = YamlScalars.toInt(capture.header().get("height"), 0);
+        List<Map<String, Object>> roiPolyNorm = resolveRoiPolygonNormForPython(pythonCfg, frameW, frameH);
+        if (roiPolyNorm != null && roiPolyNorm.size() >= 3) {
+            pyHeader.put("roi_polygon_norm", roiPolyNorm);
+        }
         if (geomResp != null) {
             Object h = geomResp.header().get("homographyRefToCurrent");
             if (h != null) {
@@ -79,6 +87,102 @@ public final class BinaryInspectHeaders {
             }
         }
         return pyHeader;
+    }
+
+    /**
+     * Многоугольник ROI в нормализованных координатах кадра [0,1]×[0,1] (как ожидает Python {@code validate_polygon_points}).
+     * Источники (по приоритету): {@code python_detector.roi_polygon_norm}; один полигон в {@code rois} с полем {@code points};
+     * первый прямоугольный элемент {@code rois} (x,y,width,height) → четыре угла.
+     */
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> resolveRoiPolygonNormForPython(Map<String, Object> pythonCfg, int frameW, int frameH) {
+        if (pythonCfg == null) {
+            return null;
+        }
+        Object explicit = pythonCfg.get("roi_polygon_norm");
+        if (explicit != null) {
+            List<Map<String, Object>> parsed = parseNormPointList(explicit);
+            if (parsed != null && parsed.size() >= 3) {
+                return parsed;
+            }
+        }
+        Object roisObj = pythonCfg.get("rois");
+        if (roisObj instanceof Map<?, ?> one) {
+            Object pts = one.get("points");
+            List<Map<String, Object>> parsed = parseNormPointList(pts);
+            if (parsed != null && parsed.size() >= 3) {
+                return parsed;
+            }
+        }
+        if (roisObj instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map<?, ?> first) {
+            Map<String, Object> m = (Map<String, Object>) first;
+            if (m.get("points") != null) {
+                List<Map<String, Object>> parsed = parseNormPointList(m.get("points"));
+                if (parsed != null && parsed.size() >= 3) {
+                    return parsed;
+                }
+            }
+            Integer x = YamlScalars.toInt(m.get("x"), Integer.MIN_VALUE);
+            Integer y = YamlScalars.toInt(m.get("y"), Integer.MIN_VALUE);
+            int w = YamlScalars.toInt(m.get("width"), 0);
+            int h = YamlScalars.toInt(m.get("height"), 0);
+            if (x != Integer.MIN_VALUE && y != Integer.MIN_VALUE && w > 0 && h > 0 && frameW >= 1 && frameH >= 1) {
+                int x1 = x;
+                int y1 = y;
+                int x2 = x + w - 1;
+                int y2 = y + h - 1;
+                double dx = Math.max(1, frameW - 1);
+                double dy = Math.max(1, frameH - 1);
+                List<Map<String, Object>> quad = new ArrayList<>(4);
+                quad.add(normPoint(x1, y1, dx, dy));
+                quad.add(normPoint(x2, y1, dx, dy));
+                quad.add(normPoint(x2, y2, dx, dy));
+                quad.add(normPoint(x1, y2, dx, dy));
+                return quad;
+            }
+        }
+        return null;
+    }
+
+    private static Map<String, Object> normPoint(int px, int py, double denomX, double denomY) {
+        double nx = clamp01(px / denomX);
+        double ny = clamp01(py / denomY);
+        return Map.of("x", nx, "y", ny);
+    }
+
+    private static double clamp01(double v) {
+        if (v < 0d) {
+            return 0d;
+        }
+        if (v > 1d) {
+            return 1d;
+        }
+        return v;
+    }
+
+    private static List<Map<String, Object>> parseNormPointList(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (raw instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> pt) {
+                    double x = YamlScalars.toDouble(pt.get("x"), Double.NaN);
+                    double y = YamlScalars.toDouble(pt.get("y"), Double.NaN);
+                    if (!Double.isNaN(x) && !Double.isNaN(y)) {
+                        out.add(Map.of("x", clamp01(x), "y", clamp01(y)));
+                    }
+                } else if (o instanceof List<?> pair && pair.size() >= 2) {
+                    double x = YamlScalars.toDouble(pair.get(0), Double.NaN);
+                    double y = YamlScalars.toDouble(pair.get(1), Double.NaN);
+                    if (!Double.isNaN(x) && !Double.isNaN(y)) {
+                        out.add(Map.of("x", clamp01(x), "y", clamp01(y)));
+                    }
+                }
+            }
+        }
+        return out.isEmpty() ? null : out;
     }
 
     public static Map<String, Object> setReferenceShmHeader(

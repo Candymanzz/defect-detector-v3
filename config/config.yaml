@@ -57,11 +57,11 @@ ui_http:
   client_preview_max_width: 0
 
 # HTTP API для фронта на том же порту, что ui_http (нужен ui_http.enabled: true).
-# Прокси к analisSurface: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
+# Прокси к analisSurface: путь /api/client/<...> → <analis_surface_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
 # geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).
 client_api:
   enabled: false
-  kopcheni_base_url: "http://127.0.0.1:8000"
+  analis_surface_base_url: "http://127.0.0.1:8000"
 
 # WebSocket UI (Фаза 1): hello + session_state; один клиент; ping по RFC6455; таймаут без входящих сообщений/pong.
 client_ws:
@@ -72,8 +72,9 @@ client_ws:
   replace_existing_session: true
   ping_interval_ms: 20000
   read_idle_timeout_ms: 90000
-  # Фаза 5: stdio sync в пул kopcheni (см. docs/KOPCHENI_STDIO_PHASE5_PYTHON.md). true только после реализации op в Python.
-  kopcheni_bundle_sync_enabled: false
+  analis_surface_bundle_sync_enabled: false
+  # Фаза 6: какой из пяти ракурсов пакета подставлять в reference_shm_* для java-geometry (-1 = joint_view_index из пакета).
+  # geometry_reference_view_index: -1
 
 client:
   url: "ws://127.0.0.1:8765"
@@ -110,6 +111,8 @@ light_server:
   settle_delay_ms: 100
 
 integration:
+  # URL FastAPI analisSurface. Если пусто — берётся client_api.analis_surface_base_url при включённом client_api.
+  analis_surface_http_base_url: "http://127.0.0.1:8000"
   camera_parallelism: 1
   geometry_pool_size: 2
   python_parallelism: 1
@@ -145,16 +148,10 @@ integration:
     enabled: true
     directory: "testimage"
     jpeg_quality: 0.92
-  python_command_windows:
-    - "analisSurface/backend/.venv/Scripts/python.exe"
-    - "analisSurface/run_stdio_worker.py"
   geometry_command_windows:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  python_command_linux:
-    - "analisSurface/backend/.venv/bin/python"
-    - "analisSurface/run_stdio_worker.py"
   geometry_command_linux:
     - "java"
     - "-jar"

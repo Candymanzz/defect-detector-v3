@@ -66,7 +66,7 @@ public final class ClientWsReferenceContext {
         }
     }
 
-    /** Hot-update FP (Фаза 5): зоны и размер сетки для UI и kopcheni. */
+    /** Hot-update FP (Фаза 5): зоны и размер сетки для UI и analisSurface. */
     public void applyFpZonesHotUpdate(int heatmapWidth, int heatmapHeight, List<FpZoneNorm> zones) {
         fpOverride.set(new FpZonesOverride(heatmapWidth, heatmapHeight, List.copyOf(zones)));
         markDirty();

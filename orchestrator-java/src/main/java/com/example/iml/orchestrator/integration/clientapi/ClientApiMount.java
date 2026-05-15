@@ -10,7 +10,7 @@ import java.util.Map;
 public record ClientApiMount(
         boolean enabled,
         GeometryRuntimeConfig geometryRuntime,
-        String kopcheniBaseUrl,
+        String analisSurfaceBaseUrl,
         Map<String, Object> javaGeometryYaml
 ) {
     public static ClientApiMount disabled() {
@@ -31,7 +31,7 @@ public record ClientApiMount(
             return disabled();
         }
         String url = "";
-        Object urlObj = m.get("kopcheni_base_url");
+        Object urlObj = m.get("analis_surface_base_url");
         if (urlObj != null) {
             url = String.valueOf(urlObj).trim();
         }
@@ -46,7 +46,7 @@ public record ClientApiMount(
         return new ClientApiMount(true, geometryRuntime, url, jg);
     }
 
-    public boolean kopcheniConfigured() {
-        return kopcheniBaseUrl != null && !kopcheniBaseUrl.isBlank();
+    public boolean analisSurfaceConfigured() {
+        return analisSurfaceBaseUrl != null && !analisSurfaceBaseUrl.isBlank();
     }
 }

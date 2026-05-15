@@ -62,6 +62,9 @@ class InspectionService:
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
 
+    def clear_roi_polygon(self, product_type: str) -> None:
+        self.roi_polygons.pop(product_type, None)
+
     def add_fp_zone(
         self,
         product_type: str,

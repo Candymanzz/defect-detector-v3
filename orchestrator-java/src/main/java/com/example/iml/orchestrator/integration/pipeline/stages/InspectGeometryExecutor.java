@@ -8,6 +8,8 @@ import com.example.iml.orchestrator.integration.pipeline.spi.GeometryInspectStag
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
+import com.example.iml.orchestrator.integration.clientws.ClientWsReferenceContext;
+import com.example.iml.orchestrator.integration.clientws.GeometryWsBundleMerge;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -24,13 +26,15 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
     private final Logger log;
     private final GeometrySnapshotCache geometrySnapshotCache;
     private final GeometryRuntimeConfig geometryRuntimeConfig;
+    private final ClientWsReferenceContext wsReferenceContext;
+    private final int geometryReferenceViewIndex;
 
     public InspectGeometryExecutor(Logger log) {
-        this(log, null, null);
+        this(log, null, null, null, -1);
     }
 
     public InspectGeometryExecutor(Logger log, GeometrySnapshotCache geometrySnapshotCache) {
-        this(log, geometrySnapshotCache, null);
+        this(log, geometrySnapshotCache, null, null, -1);
     }
 
     public InspectGeometryExecutor(
@@ -38,9 +42,21 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             GeometrySnapshotCache geometrySnapshotCache,
             GeometryRuntimeConfig geometryRuntimeConfig
     ) {
+        this(log, geometrySnapshotCache, geometryRuntimeConfig, null, -1);
+    }
+
+    public InspectGeometryExecutor(
+            Logger log,
+            GeometrySnapshotCache geometrySnapshotCache,
+            GeometryRuntimeConfig geometryRuntimeConfig,
+            ClientWsReferenceContext wsReferenceContext,
+            int geometryReferenceViewIndex
+    ) {
         this.log = log;
         this.geometrySnapshotCache = geometrySnapshotCache;
         this.geometryRuntimeConfig = geometryRuntimeConfig;
+        this.wsReferenceContext = wsReferenceContext;
+        this.geometryReferenceViewIndex = geometryReferenceViewIndex < -1 || geometryReferenceViewIndex > 4 ? -1 : geometryReferenceViewIndex;
     }
 
     @Override
@@ -60,6 +76,13 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         try {
             long t0 = System.nanoTime();
             Map<String, Object> gHeader = BinaryInspectHeaders.geometryInspectHeader(cameraId, state.capture(), activeReference, geometryCfg);
+            GeometryWsBundleMerge.applyCommittedBundleToGeometryHeader(
+                    wsReferenceContext,
+                    cameraId,
+                    geometryReferenceViewIndex,
+                    gHeader,
+                    log
+            );
             if (geometryRuntimeConfig != null) {
                 geometryRuntimeConfig.applyToGeometryHeader(gHeader);
             }
@@ -67,7 +90,15 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);
                 if (log.isDebugEnabled()) {
-                    log.debug("{} cam={} frame={} => {}", geometry.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), geomResp.header());
+                    Map<String, Object> gh = geomResp.header();
+                    log.debug(
+                            "{} cam={} frame={} geom_type={} geom_header_keys={}",
+                            geometry.supervisorLabel(),
+                            cameraId,
+                            state.capture().header().get("frame_id"),
+                            geomResp.type(),
+                            gh == null ? List.of() : gh.keySet()
+                    );
                 }
                 if (geometrySnapshotCache != null && geomResp.type() == BinaryProtocol.MSG_RESPONSE) {
                     long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
