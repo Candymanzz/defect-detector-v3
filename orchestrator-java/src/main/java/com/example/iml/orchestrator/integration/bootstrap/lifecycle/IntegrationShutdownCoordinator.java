@@ -3,8 +3,8 @@ package com.example.iml.orchestrator.integration.bootstrap.lifecycle;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
+import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
@@ -34,7 +34,9 @@ public final class IntegrationShutdownCoordinator {
             List<? extends BinaryRpcSupervisor> pythonPool,
             List<? extends BinaryRpcSupervisor> geometryPool,
             ExternalServiceProcess lightServerProcess,
-            ServiceProcessSupervisor uiVisualsPython,
+            ExternalServiceProcess lightServerV2Process,
+            LightTriggerClient lightTriggerClient,
+            BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             FanOutCoordinator fanOut,
             ClientWebSocketServer clientWebSocketServer,
@@ -79,6 +81,12 @@ public final class IntegrationShutdownCoordinator {
         }
         if (r.lightServerProcess != null) {
             r.lightServerProcess.close();
+        }
+        if (r.lightServerV2Process != null) {
+            r.lightServerV2Process.close();
+        }
+        if (r.lightTriggerClient != null) {
+            r.lightTriggerClient.shutdown();
         }
         if (r.uiVisualsPython != null) {
             r.log.info("{} supervisor restarts={}", r.uiVisualsPython.supervisorLabel(), r.uiVisualsPython.restartCount());

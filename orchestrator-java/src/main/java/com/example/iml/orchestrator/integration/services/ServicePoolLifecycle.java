@@ -1,8 +1,11 @@
 package com.example.iml.orchestrator.integration.services;
 
+import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +46,35 @@ public final class ServicePoolLifecycle {
                 pool.add(supervisor);
             } catch (Exception e) {
                 log.warn("failed to start optional {} service command={}: {}", serviceName, command, e.getMessage());
+            }
+        }
+        return pool;
+    }
+
+    /**
+     * Пул HTTP-клиентов к FastAPI analisSurface (без subprocess stdio).
+     */
+    public List<BinaryRpcSupervisor> startAnalisSurfaceHttpPool(
+            String baseUrl,
+            int poolSize,
+            int commandTimeoutMs
+    ) {
+        List<BinaryRpcSupervisor> pool = new ArrayList<>();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return pool;
+        }
+        int n = Math.max(1, poolSize);
+        for (int i = 0; i < n; i++) {
+            String name = n == 1 ? "analis-surface-http" : ("analis-surface-http-" + i);
+            AnalisSurfaceHttpBinaryRpcSupervisor supervisor =
+                    new AnalisSurfaceHttpBinaryRpcSupervisor(name, baseUrl, commandTimeoutMs);
+            try {
+                supervisor.start();
+                BinaryProtocol.Message health = supervisor.health();
+                log.info("{} health => {}", name, health.header());
+                pool.add(supervisor);
+            } catch (IOException e) {
+                log.warn("failed to start {} baseUrl={}: {}", name, baseUrl, e.getMessage());
             }
         }
         return pool;

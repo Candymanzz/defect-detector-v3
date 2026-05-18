@@ -1,110 +1,134 @@
 package com.example.iml.orchestrator.integration.lighting;
 
-import com.example.iml.orchestrator.integration.config.YamlScalars;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
- * HTTP-клиент к LightServer: триггер вспышки и ожидание готовности сервиса.
+ * Параллельный HTTP-триггер всех настроенных LightServer / LightServerv.v2.
+ * Яркость в конфиге и {@link #setBrightnessPercent(int)} — единая шкала 0…100%.
  */
 public final class LightTriggerClient {
-    private static final Logger log = LogManager.getLogger(LightTriggerClient.class);
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static final Logger LOG = LogManager.getLogger(LightTriggerClient.class);
     private static final int MAX_TRIGGER_ATTEMPTS = 10;
     private static final long RETRY_DELAY_MS = 200L;
-    private static final long READY_WAIT_MS = 30_000L;
 
     private final boolean enabled;
     private final boolean failOnError;
-    private final URI triggerUri;
-    private final URI statusUri;
-    private final HttpClient httpClient;
-    private final Duration timeout;
-    private final int defaultBrightness;
-    private final int defaultDurationMs;
+    private final int brightnessPercent;
+    private final int durationMs;
     private final int settleDelayMs;
-    private volatile boolean readyChecked;
+    private final List<LightEndpoint> endpoints;
+    private final ExecutorService triggerExecutor;
+    private volatile int runtimeBrightnessPercent;
 
-    public static LightTriggerClient fromLightServerYaml(Map<String, Object> lightCfg) {
-        boolean enabled = lightCfg != null && Boolean.parseBoolean(String.valueOf(lightCfg.getOrDefault("enabled", false)));
-        String baseUrl = lightCfg == null ? "http://127.0.0.1:5079" : String.valueOf(lightCfg.getOrDefault("base_url", "http://127.0.0.1:5079"));
-        String triggerPath = lightCfg == null ? "/api/light/trigger-inspection" : String.valueOf(lightCfg.getOrDefault("trigger_path", "/api/light/trigger-inspection"));
-        int timeoutMs = YamlScalars.toInt(lightCfg == null ? null : lightCfg.get("timeout_ms"), 800);
-        boolean failOnError = lightCfg != null && Boolean.parseBoolean(String.valueOf(lightCfg.getOrDefault("fail_on_error", false)));
-        int brightness = YamlScalars.toInt(lightCfg == null ? null : lightCfg.get("brightness"), 100);
-        int durationMs = YamlScalars.toInt(lightCfg == null ? null : lightCfg.get("duration_ms"), 100);
-        int settleDelayMs = YamlScalars.toInt(lightCfg == null ? null : lightCfg.get("settle_delay_ms"), 75);
-        return new LightTriggerClient(enabled, failOnError, baseUrl, triggerPath, timeoutMs, brightness, durationMs,
-                settleDelayMs);
+    public static LightTriggerClient fromRootYaml(Map<String, Object> root) {
+        return new LightTriggerClient(LightServersConfig.fromRootYaml(root));
     }
 
-    private LightTriggerClient(boolean enabled, boolean failOnError, String baseUrl, String triggerPath, int timeoutMs,
-                       int defaultBrightness, int defaultDurationMs, int settleDelayMs) {
-        this.enabled = enabled;
-        this.failOnError = failOnError;
-        this.timeout = Duration.ofMillis(Math.max(100, timeoutMs));
-        this.defaultBrightness = defaultBrightness;
-        this.defaultDurationMs = defaultDurationMs;
-        this.settleDelayMs = Math.max(0, settleDelayMs);
-        String root = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        String path = triggerPath.startsWith("/") ? triggerPath : "/" + triggerPath;
-        this.triggerUri = URI.create(root + path);
-        this.statusUri = URI.create(root + "/api/light/status");
-        this.httpClient = HttpClient.newBuilder().connectTimeout(this.timeout).build();
+    /** @deprecated используйте {@link #fromRootYaml(Map)} */
+    @Deprecated
+    public static LightTriggerClient fromLightServerYaml(Map<String, Object> lightCfg) {
+        Map<String, Object> root = lightCfg == null ? Map.of() : Map.of("light_server", lightCfg);
+        return fromRootYaml(root);
+    }
+
+    public LightTriggerClient(LightServersConfig cfg) {
+        this.enabled = cfg.enabled() && !cfg.endpoints().isEmpty();
+        this.failOnError = cfg.failOnError();
+        this.brightnessPercent = cfg.brightnessPercent();
+        this.runtimeBrightnessPercent = cfg.brightnessPercent();
+        this.durationMs = cfg.durationMs();
+        this.settleDelayMs = Math.max(0, cfg.settleDelayMs());
+        this.endpoints = buildEndpoints(cfg);
+        int n = Math.max(1, (int) endpoints.stream().filter(LightEndpoint::enabled).count());
+        this.triggerExecutor = Executors.newFixedThreadPool(n, r -> {
+            Thread t = new Thread(r, "light-trigger");
+            t.setDaemon(true);
+            return t;
+        });
+        if (enabled) {
+            LOG.info("light_servers: {} endpoint(s) brightness_percent={} duration_ms={}",
+                    endpoints.size(), brightnessPercent, durationMs);
+            for (LightEndpoint ep : endpoints) {
+                if (ep.enabled()) {
+                    LOG.info("  light endpoint id={} type={}", ep.id(), ep.getClass().getSimpleName());
+                }
+            }
+        }
+    }
+
+    private static List<LightEndpoint> buildEndpoints(LightServersConfig cfg) {
+        List<LightEndpoint> list = new ArrayList<>();
+        for (LightServersConfig.EndpointSpec spec : cfg.endpoints()) {
+            if (!spec.enabled()) {
+                continue;
+            }
+            LightEndpoint ep = switch (spec.type()) {
+                case TRIGGER_INSPECTION -> new TriggerInspectionLightEndpoint(
+                        LOG,
+                        spec.id(),
+                        true,
+                        spec.baseUrl(),
+                        spec.triggerPath(),
+                        spec.statusPath(),
+                        cfg.timeoutMs()
+                );
+                case MV_LE -> new MvLeLightEndpoint(
+                        LOG,
+                        spec.id(),
+                        true,
+                        spec.baseUrl(),
+                        cfg.timeoutMs(),
+                        spec.deviceIndex(),
+                        spec.channels()
+                );
+            };
+            list.add(ep);
+        }
+        return List.copyOf(list);
+    }
+
+    /**
+     * Единая яркость для всех контроллеров (0…100). Для будущего client API.
+     */
+    public void setBrightnessPercent(int percent) {
+        this.runtimeBrightnessPercent = LightBrightnessScale.clampPercent(percent);
+    }
+
+    public int brightnessPercent() {
+        return runtimeBrightnessPercent;
     }
 
     public void trigger(int cameraId, long frameId, String phase) {
         if (!enabled) {
             return;
         }
-        waitUntilReady();
-        byte[] body;
-        try {
-            body = MAPPER.writeValueAsBytes(Map.of(
-                    "cameraId", cameraId,
-                    "frameId", frameId,
-                    "phase", phase,
-                    "brightness", defaultBrightness,
-                    "durationMs", defaultDurationMs
-            ));
-        } catch (Exception e) {
-            if (failOnError) {
-                throw new IllegalStateException("light trigger payload encode error", e);
+        int brightness = runtimeBrightnessPercent;
+        for (LightEndpoint ep : endpoints) {
+            if (ep.enabled()) {
+                ep.ensureReady();
             }
-            log.warn("light trigger payload encode error: {}", e.getMessage());
-            return;
         }
 
         RuntimeException lastError = null;
         for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
             try {
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(triggerUri)
-                        .timeout(timeout)
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                        .build();
-                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() / 100 == 2) {
-                    logSimulatedIfNeeded(response.body());
-                    sleepSettle();
-                    return;
-                }
-                String msg = "light trigger failed status=" + response.statusCode() + " body=" + response.body();
-                lastError = new IllegalStateException(msg);
-            } catch (Exception e) {
-                lastError = new IllegalStateException("light trigger error", e);
+                triggerAllParallel(cameraId, frameId, phase, brightness, durationMs);
+                sleepSettle();
+                return;
+            } catch (RuntimeException e) {
+                lastError = e;
             }
-
             if (attempt < MAX_TRIGGER_ATTEMPTS) {
                 try {
                     Thread.sleep(RETRY_DELAY_MS);
@@ -114,28 +138,46 @@ public final class LightTriggerClient {
                 }
             }
         }
-
         if (lastError == null) {
             return;
         }
         if (failOnError) {
             throw lastError;
         }
-        log.warn("{} ({})", lastError.getMessage(), lastError.getCause() != null ? lastError.getCause() : "no cause");
+        LOG.warn("light trigger: {}", lastError.getMessage());
     }
 
-    private void logSimulatedIfNeeded(String body) {
-        if (body == null || body.isEmpty()) {
+    private void triggerAllParallel(int cameraId, long frameId, String phase, int brightness, int durationMs) {
+        List<Callable<Void>> tasks = new ArrayList<>();
+        for (LightEndpoint ep : endpoints) {
+            if (!ep.enabled()) {
+                continue;
+            }
+            tasks.add(() -> {
+                ep.trigger(cameraId, frameId, phase, brightness, durationMs);
+                return null;
+            });
+        }
+        if (tasks.isEmpty()) {
             return;
         }
         try {
-            JsonNode root = MAPPER.readTree(body);
-            boolean simulated = root.path("simulated").asBoolean(false);
-            if (simulated) {
-                log.warn("Вспышка: LightServer в режиме симуляции (нет импульса на COM). "
-                        + "Проверьте ComPort; для стенда без железа SimulateIfInitFailed=true.");
+            List<Future<Void>> futures = triggerExecutor.invokeAll(tasks);
+            List<String> errors = new ArrayList<>();
+            for (Future<Void> f : futures) {
+                try {
+                    f.get();
+                } catch (Exception e) {
+                    Throwable c = e.getCause() != null ? e.getCause() : e;
+                    errors.add(c.getMessage() != null ? c.getMessage() : c.toString());
+                }
             }
-        } catch (Exception ignored) {
+            if (!errors.isEmpty()) {
+                throw new IllegalStateException("light trigger failed: " + String.join("; ", errors));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("light trigger interrupted", e);
         }
     }
 
@@ -150,41 +192,15 @@ public final class LightTriggerClient {
         }
     }
 
-    private void waitUntilReady() {
-        if (readyChecked) {
-            return;
-        }
-        synchronized (this) {
-            if (readyChecked) {
-                return;
+    public void shutdown() {
+        triggerExecutor.shutdownNow();
+        try {
+            if (!triggerExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
+                triggerExecutor.shutdownNow();
             }
-            long deadline = System.currentTimeMillis() + READY_WAIT_MS;
-            while (System.currentTimeMillis() < deadline) {
-                try {
-                    HttpRequest request = HttpRequest.newBuilder()
-                            .uri(statusUri)
-                            .timeout(timeout)
-                            .GET()
-                            .build();
-                    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                    if (response.statusCode() / 100 == 2) {
-                        readyChecked = true;
-                        return;
-                    }
-                } catch (Exception ignored) {
-                }
-                try {
-                    Thread.sleep(RETRY_DELAY_MS);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-            if (failOnError) {
-                throw new IllegalStateException("light server is not ready at " + statusUri);
-            }
-            log.warn("light server is not ready at {} (продолжаем попытки trigger)", statusUri);
-            readyChecked = true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            triggerExecutor.shutdownNow();
         }
     }
 }

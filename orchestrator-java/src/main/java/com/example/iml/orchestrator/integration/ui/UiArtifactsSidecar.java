@@ -2,10 +2,11 @@ package com.example.iml.orchestrator.integration.ui;
 
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
+import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -51,7 +52,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     public UiHttpServer startHttpServerIfEnabled(
             Map<String, Object> uiCfg,
             GeometrySnapshotCache geometrySnapshotCache,
-            ClientApiMount clientApiMount
+            ClientApiMount clientApiMount,
+            LightTriggerClient lightClient,
+            Map<String, Object> rootYaml
     ) {
         boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false);
         if (!enabled) {
@@ -60,8 +63,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         String host = String.valueOf(uiCfg.getOrDefault("host", "127.0.0.1"));
         int port = YamlScalars.toInt(uiCfg.get("port"), 8099);
         try {
-            UiHttpServer server = new UiHttpServer(host, port, geometrySnapshotCache, clientApiMount == null ? ClientApiMount.disabled() : clientApiMount);
-            log.info("ui http started on {}:{}", host, port);
+            UiHttpServer server = new UiHttpServer(
+                    host,
+                    port,
+                    geometrySnapshotCache,
+                    clientApiMount == null ? ClientApiMount.disabled() : clientApiMount,
+                    lightClient,
+                    rootYaml == null ? Map.of() : rootYaml
+            );
+            log.info("ui http started on {}:{} (front controller)", host, port);
             return server;
         } catch (Exception e) {
             log.warn("ui http failed to start: {}", e.getMessage());
@@ -69,32 +79,17 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
     }
 
-    public ServiceProcessSupervisor startVisualsPythonIfEnabled(
-            Map<String, Object> uiCfg,
-            Path projectRoot,
-            int commandTimeoutMs,
-            List<String> pythonCommand
-    ) {
+    /**
+     * Heatmap/visuals через тот же FastAPI-пул, что и пайплайн ({@code POST /inspect-shm-visuals}).
+     */
+    public BinaryRpcSupervisor resolveVisualsDetector(Map<String, Object> uiCfg, BinaryRpcSupervisor pythonHttp) {
         boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false)
                 && YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("visuals_async_enabled"), false);
-        if (!enabled || pythonCommand == null || pythonCommand.isEmpty()) {
+        if (!enabled || pythonHttp == null) {
             return null;
         }
-        try {
-            ServiceProcessSupervisor supervisor = new ServiceProcessSupervisor(
-                    "python-visuals",
-                    new ArrayList<>(pythonCommand),
-                    projectRoot,
-                    commandTimeoutMs
-            );
-            supervisor.start();
-            BinaryProtocol.Message health = supervisor.health();
-            log.info("python-visuals health => {}", health.header());
-            return supervisor;
-        } catch (Exception e) {
-            log.warn("failed to start optional python-visuals service command={}: {}", pythonCommand, e.getMessage());
-            return null;
-        }
+        log.info("ui visuals use analisSurface HTTP ({})", pythonHttp.supervisorLabel());
+        return pythonHttp;
     }
 
     /**
@@ -134,7 +129,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     public void scheduleAfterInspection(
             UiHttpServer uiServer,
             Map<String, Object> uiCfg,
-            ServiceProcessSupervisor uiVisualsPython,
+            BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             int cameraId,
             String productType,
@@ -225,7 +220,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     currentJpegW = art.width();
                     currentJpegH = art.height();
                 }
-                UiHttpServer.Latest prev = uiServer.latest(cameraId).orElse(null);
+                CameraPreviewStore.Latest prev = uiServer.latest(cameraId).orElse(null);
                 if (currentJpeg == null && prev != null) {
                     currentJpeg = prev.currentJpeg();
                     currentJpegW = prev.currentJpegWidth();

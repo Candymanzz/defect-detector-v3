@@ -5,11 +5,14 @@ import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationS
 import com.example.iml.orchestrator.integration.camera.WorkerIpcMode;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
+import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
@@ -77,9 +80,9 @@ public final class IntegrationBootstrap {
             return;
         }
 
-        List<String> pythonCommand = CameraWorkerPaths.pickIntegrationCommandList(integration, isWindows, "python_command_windows", "python_command_linux");
         List<String> geometryCommand = CameraWorkerPaths.pickIntegrationCommandList(integration, isWindows, "geometry_command_windows", "geometry_command_linux");
-        IntegrationBootConfig cfg = IntegrationBootConfig.load(integration, cameras.size(), isWindows).withPoolCommands(pythonCommand, geometryCommand);
+        IntegrationBootConfig cfg = IntegrationBootConfig.load(integration, cameras.size(), isWindows).withPoolCommands(List.of(), geometryCommand);
+        PythonDetectorConfig pythonDetectorCfg = PythonDetectorConfig.fromRootYaml(root);
 
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);
         LightServerLauncher lightServerLauncher = new LightServerLauncher(log);
@@ -104,13 +107,19 @@ public final class IntegrationBootstrap {
         );
         InspectionPipeline inspectionPipeline = new InspectionPipeline(pipelineServices);
 
-        List<ServiceProcessSupervisor> pythonPool = servicePools.startOptionalPool(
-                pythonCommand,
-                projectRoot,
-                "detector-stdio",
-                cfg.serviceCommandTimeoutMs(),
-                cfg.pythonParallelism()
+        List<BinaryRpcSupervisor> pythonPool = servicePools.startAnalisSurfaceHttpPool(
+                pythonDetectorCfg.baseUrl(),
+                cfg.pythonParallelism(),
+                cfg.serviceCommandTimeoutMs()
         );
+        if (pythonPool.isEmpty()) {
+            log.error(
+                    "analisSurface FastAPI pool is empty (base_url={}). Start uvicorn and check python_detector.base_url.",
+                    pythonDetectorCfg.baseUrl()
+            );
+            return;
+        }
+        log.info("python detector transport=http base_url={} pool_size={}", pythonDetectorCfg.baseUrl(), pythonPool.size());
         List<ServiceProcessSupervisor> geometryPool = servicePools.startOptionalPool(
                 geometryCommand,
                 projectRoot,
@@ -118,23 +127,25 @@ public final class IntegrationBootstrap {
                 cfg.serviceCommandTimeoutMs(),
                 cfg.geometryPoolSize()
         );
-        ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        LightServerLauncher.StartedProcesses lightProcesses = lightServerLauncher.startAllIfConfigured(
+                integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        ExternalServiceProcess lightServerProcess = lightProcesses.primary();
+        ExternalServiceProcess lightServerV2Process = lightProcesses.secondary();
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
         Map<String, Object> geometryCfg = (Map<String, Object>) root.get("java_geometry");
         @SuppressWarnings("unchecked")
         Map<String, Object> uiCfg = (Map<String, Object>) root.get("ui_http");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> lightCfg = (Map<String, Object>) root.get("light_server");
-        int flashLeadMs = Math.max(0, YamlScalars.toInt(lightCfg == null ? null : lightCfg.get("flash_lead_ms"), 0));
+        int flashLeadMs = LightServersConfig.flashLeadMsFromRoot(root);
         if (flashLeadMs > 0) {
-            log.info("light_server flash_lead_ms={} (пауза после ответа вспышки, перед capture)", flashLeadMs);
+            log.info("light_servers flash_lead_ms={} (пауза после ответа вспышки, перед capture)", flashLeadMs);
         }
-        LightTriggerClient lightClient = LightTriggerClient.fromLightServerYaml(lightCfg);
+        LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
 
         ClientWebSocketServer clientWsServer = null;
-        final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(uiCfg, geometrySnapshotCache, clientApiMount);
+        final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(
+                uiCfg, geometrySnapshotCache, clientApiMount, lightClient, root);
         ClientWsConfig clientWsCfg = ClientWsConfig.fromRootYaml(root);
         if (clientWsCfg.enabled()) {
             try {
@@ -156,11 +167,9 @@ public final class IntegrationBootstrap {
                     clientApiMount.kopcheniBaseUrl()
             );
         }
-        final ServiceProcessSupervisor uiVisualsPython = uiSidecar.startVisualsPythonIfEnabled(
+        final BinaryRpcSupervisor uiVisualsPython = uiSidecar.resolveVisualsDetector(
                 uiCfg,
-                projectRoot,
-                cfg.serviceCommandTimeoutMs(),
-                pythonCommand
+                pythonPool.isEmpty() ? null : pythonPool.get(0)
         );
         final ExecutorService uiArtifactsExecutor = uiSidecar.startUiPublishExecutorIfEnabled(uiCfg);
         FanOutCoordinator fanOut = null;
@@ -312,6 +321,8 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
+                    lightServerV2Process,
+                    lightClient,
                     uiVisualsPython,
                     uiArtifactsExecutor,
                     fanOut,

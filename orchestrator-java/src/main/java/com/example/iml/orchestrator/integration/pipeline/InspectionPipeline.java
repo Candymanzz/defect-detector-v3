@@ -13,7 +13,6 @@ import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspection
 import com.example.iml.orchestrator.integration.pipeline.session.ConveyorBenchmarkOrchestrator;
 import com.example.iml.orchestrator.integration.pipeline.session.ProductionInspectionOrchestrator;
 import com.example.iml.orchestrator.integration.pipeline.session.SingleFrameBenchmarkOrchestrator;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
 import java.nio.file.Path;
@@ -56,7 +55,7 @@ public final class InspectionPipeline {
             ExecutorService decisionStageExecutor,
             Map<String, Object> uiCfg,
             UiHttpServer uiServer,
-            ServiceProcessSupervisor uiVisualsPython,
+            BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark,
             IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark,

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Заголовки команд analisSurface (Фаза 5): синхронизация пакета эталонов, FP, активного ракурса.
+ * Заголовки команд для analisSurface (HTTP): синхронизация пакета эталонов, FP, активного ракурса.
  */
 public final class AnalisSurfaceClientWsSync {
 

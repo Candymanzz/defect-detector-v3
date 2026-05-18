@@ -80,10 +80,37 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     }
 
     /**
-     * Пул stdio kopcheni (тот же, что пайплайн инспекции): синхронизация FP/эталонов по Фазе 5.
+     * Пул HTTP-детектора (тот же, что пайплайн): синхронизация FP/эталонов в FastAPI.
      */
     public void setKopcheniPythonPool(List<? extends BinaryRpcSupervisor> pool) {
         kopcheniPythonPool = pool == null ? List.of() : List.copyOf(pool);
+    }
+
+    /**
+     * Применение пакета эталонов из внешнего источника: sync в FastAPI (если включён),
+     * in-memory контекст и push состояния сессии UI.
+     */
+    public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws Exception {
+        broadcastKopcheni(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
+        referenceContext.applyBundle(snap);
+        setSessionState(ClientWsSessionState.READY);
+        WebSocket c;
+        synchronized (sessionLock) {
+            c = activeClient;
+        }
+        if (c != null && c.isOpen()) {
+            sendSessionState(c, ClientWsSessionState.READY);
+        }
+        setSessionState(ClientWsSessionState.OPERATIONAL);
+        if (c != null && c.isOpen()) {
+            sendSessionState(c, ClientWsSessionState.OPERATIONAL);
+        }
+        log.info(
+                "client_ws reference bundle applied from draft product_type={} joint_view_index={} fp_zones={}",
+                snap.productType(),
+                snap.jointViewIndex(),
+                snap.fpZones().size()
+        );
     }
 
     /**
@@ -449,7 +476,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         }
         ReferenceBundleSnapshot snap = ((ReferenceBundleParser.Result.Ok) r).snapshot();
         try {
-            broadcastKopcheni(KopcheniClientWsSync.syncClientReferenceBundle(snap, 0));
+            broadcastKopcheni(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
         } catch (Exception e) {
             log.warn("client_ws kopcheni sync after bundle failed: {}", e.getMessage());
             sendError(conn, "kopcheni_sync_failed", truncate(e.getMessage(), 400));
@@ -503,7 +530,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             return;
         }
         try {
-            broadcastKopcheni(KopcheniClientWsSync.replaceFpZones(productType, hw, hh, zones));
+            broadcastKopcheni(AnalisSurfaceClientWsSync.replaceFpZones(productType, hw, hh, zones));
         } catch (Exception e) {
             log.warn("client_ws kopcheni replace_fp_zones failed: {}", e.getMessage());
             sendError(conn, "kopcheni_sync_failed", truncate(e.getMessage(), 400));
@@ -539,7 +566,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             return;
         }
         try {
-            broadcastKopcheni(KopcheniClientWsSync.setActiveReferenceView(productType, viewIndex));
+            broadcastKopcheni(AnalisSurfaceClientWsSync.setActiveReferenceView(productType, viewIndex));
         } catch (Exception e) {
             log.warn("client_ws kopcheni set_active_reference_view failed: {}", e.getMessage());
             sendError(conn, "kopcheni_sync_failed", truncate(e.getMessage(), 400));

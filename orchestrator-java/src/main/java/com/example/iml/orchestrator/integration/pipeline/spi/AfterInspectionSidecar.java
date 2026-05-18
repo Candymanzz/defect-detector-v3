@@ -1,6 +1,6 @@
 package com.example.iml.orchestrator.integration.pipeline.spi;
 
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
@@ -15,7 +15,7 @@ public interface AfterInspectionSidecar {
     void scheduleAfterInspection(
             UiHttpServer uiServer,
             Map<String, Object> uiCfg,
-            ServiceProcessSupervisor uiVisualsPython,
+            BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             int cameraId,
             String productType,
