@@ -1,0 +1,23 @@
+{
+  "name": "defect-detector-front-end",
+  "private": true,
+  "version": "0.1.0",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:renderer": "vite --host localhost",
+    "dev:electron": "electron .",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host localhost"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "electron": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
