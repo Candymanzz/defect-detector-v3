@@ -2,7 +2,7 @@ package com.example.iml.orchestrator.integration.clientws.handler;
 
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsKopcheniSyncException;
-import com.example.iml.orchestrator.integration.clientws.outbound.WsOutboundMessenger;
+import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
 import com.example.iml.orchestrator.integration.clientws.routing.WsMessageContext;
 import com.example.iml.orchestrator.integration.clientws.routing.WsMessageHandler;
 import com.example.iml.orchestrator.integration.clientws.sync.AnalisSurfaceClientWsSync;
@@ -48,7 +48,7 @@ public final class SetActiveReferenceViewWsHandler implements WsMessageHandler {
             app.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.setActiveReferenceView(productType, viewIndex));
         } catch (ClientWsKopcheniSyncException e) {
             app.log().warn("client_ws kopcheni set_active_reference_view failed: {}", e.getMessage());
-            app.outbound().sendError(ctx.connection(), "kopcheni_sync_failed", WsOutboundMessenger.truncate(e.getMessage(), 400));
+            app.outbound().sendError(ctx.connection(), "kopcheni_sync_failed", WsTextUtil.truncate(e.getMessage(), 400));
             return;
         }
         app.referenceContext().setActiveReferenceViewIndex(viewIndex);

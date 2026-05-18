@@ -5,7 +5,7 @@ import com.example.iml.orchestrator.integration.clientws.exception.ClientWsExcep
 import com.example.iml.orchestrator.integration.clientws.handler.FpZonesUpdateWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.ReferenceBundleWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.SetActiveReferenceViewWsHandler;
-import com.example.iml.orchestrator.integration.clientws.outbound.WsOutboundMessenger;
+import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
 import com.example.iml.orchestrator.integration.clientws.protocol.WsMessageTypes;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.java_websocket.WebSocket;
@@ -40,7 +40,7 @@ public final class WsFrontController {
             application.outbound().sendError(
                     connection,
                     "handler_error",
-                    WsOutboundMessenger.truncate(e.getMessage(), 400)
+                    WsTextUtil.truncate(e.getMessage(), 400)
             );
         }
     }

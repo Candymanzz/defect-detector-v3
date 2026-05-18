@@ -30,7 +30,7 @@ public final class ReferenceBundleWsHandler implements WsMessageHandler {
             ctx.application().outbound().sendError(
                     ctx.connection(),
                     "kopcheni_sync_failed",
-                    com.example.iml.orchestrator.integration.clientws.outbound.WsOutboundMessenger.truncate(e.getMessage(), 400)
+                    com.example.iml.orchestrator.integration.clientws.util.WsTextUtil.truncate(e.getMessage(), 400)
             );
         }
     }

@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.clientws.exception.ClientWsSendF
 import com.example.iml.orchestrator.integration.clientws.protocol.WsMessageTypes;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferenceContext;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
+import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,7 +50,7 @@ public final class WsOutboundMessenger {
 
     public void sendHello(WebSocket conn) {
         try {
-            conn.send(buildHelloJson());
+            sendRaw(conn, buildHelloJson(), WsMessageTypes.SERVER_HELLO);
             log.info("client_ws sent type={} session_state={}", WsMessageTypes.SERVER_HELLO, sessionState.get());
         } catch (ClientWsJsonSerializationException e) {
             log.warn("client_ws hello failed: {}", e.getMessage());
@@ -171,7 +172,7 @@ public final class WsOutboundMessenger {
             root.put("message_id", UUID.randomUUID().toString());
             ObjectNode payload = JSON.createObjectNode();
             payload.put("code", code == null ? "error" : code);
-            payload.put("message", message == null ? "" : truncate(message, 800));
+            payload.put("message", message == null ? "" : WsTextUtil.truncate(message, 800));
             root.set("payload", payload);
             sendRaw(conn, writeJson(root), WsMessageTypes.SERVER_ERROR);
             log.info("client_ws sent type={} code={}", WsMessageTypes.SERVER_ERROR, code);
@@ -367,10 +368,4 @@ public final class WsOutboundMessenger {
         }
     }
 
-    static String truncate(String s, int max) {
-        if (s == null) {
-            return "";
-        }
-        return s.length() <= max ? s : s.substring(0, max) + "…";
-    }
 }
