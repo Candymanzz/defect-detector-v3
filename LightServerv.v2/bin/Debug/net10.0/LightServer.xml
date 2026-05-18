@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>LightServer</name>
+    </assembly>
+    <members>
+        <member name="M:LightServer.Controllers.LightController.ListDevices">
+            <summary>Список устройств MVS (найти индекс MV-LE).</summary>
+        </member>
+        <member name="M:LightServer.Controllers.LightController.SetLight(LightServer.Models.LightCommandRequest)">
+            <summary>Вкл/выкл и яркость (LightBrightness 0–255) на каналах MV-LE.</summary>
+        </member>
+        <member name="T:LightServer.Models.LightCommandRequest">
+            <summary>Команда контроллеру подсветки MV-LE.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.DeviceIndex">
+            <summary>Индекс из GET /api/devices (обычно 1 для MV-LE200).</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.LightControllerSource">
+            <summary>On — свет вкл, Off — выкл.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.Channels">
+            <summary>Каналы 1–4.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.Brightness">
+            <summary>
+            Яркость LightBrightness для каждого канала (0–255), порядок как в channels.
+            255 ≈ 100%. Если не задано и source=On — для всех каналов 255.
+            </summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.SetLight(LightServer.Models.LightCommandRequest)">
+            <summary>Открыть MV-LE, применить source и яркость на каналах, закрыть.</summary>
+        </member>
+        <member name="T:Program">
+            <summary>
+            Auto-generated public partial Program class for top-level statement apps.
+            </summary>
+        </member>
+    </members>
+</doc>
