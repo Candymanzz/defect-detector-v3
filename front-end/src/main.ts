@@ -1,6 +1,7 @@
 import "./style.css";
 import { orchestratorApi } from "./api";
 import { appEnv } from "./config/env";
+import { appStore, errorMessage } from "./state/appState";
 import { orchestratorWs } from "./ws";
 import type {
   ClientReferenceBundlePayload,
@@ -77,6 +78,40 @@ app.innerHTML = `
       </div>
     </section>
 
+    <section class="brightness-panel" aria-label="Flash brightness settings">
+      <div class="section-heading">
+        <p class="eyebrow">http endpoint</p>
+        <h2>Flash brightness</h2>
+      </div>
+
+      <div class="status-row endpoint-row">
+        <span>Endpoint</span>
+        <strong id="brightness-endpoint">unknown</strong>
+      </div>
+
+      <div class="brightness-controls">
+        <label class="field">
+          <span>Brightness percent</span>
+          <input id="flash-brightness-range" type="range" min="0" max="100" step="1" value="100" />
+        </label>
+
+        <label class="field">
+          <span>Value</span>
+          <input id="flash-brightness-value" type="number" min="0" max="100" step="1" value="100" />
+        </label>
+      </div>
+
+      <div class="button-row brightness-actions">
+        <button id="flash-brightness-save" type="button">Save</button>
+        <button id="flash-brightness-refresh" type="button" class="secondary">Refresh</button>
+      </div>
+
+      <div class="status-row brightness-status">
+        <span>Status</span>
+        <strong id="flash-brightness-status">checking</strong>
+      </div>
+    </section>
+
     <section class="ws-outbox" aria-label="WebSocket outbox">
       <div class="section-heading">
         <p class="eyebrow">websocket</p>
@@ -133,6 +168,14 @@ const wsActiveView = document.querySelector<HTMLInputElement>("#ws-active-view")
 const wsSend = document.querySelector<HTMLButtonElement>("#ws-send");
 const wsExample = document.querySelector<HTMLButtonElement>("#ws-example");
 const wsLastSent = document.querySelector<HTMLElement>("#ws-last-sent");
+const brightnessEndpoint = document.querySelector<HTMLElement>("#brightness-endpoint");
+const flashBrightnessRange = document.querySelector<HTMLInputElement>("#flash-brightness-range");
+const flashBrightnessValue = document.querySelector<HTMLInputElement>("#flash-brightness-value");
+const flashBrightnessSave = document.querySelector<HTMLButtonElement>("#flash-brightness-save");
+const flashBrightnessRefresh = document.querySelector<HTMLButtonElement>("#flash-brightness-refresh");
+const flashBrightnessStatus = document.querySelector<HTMLElement>("#flash-brightness-status");
+
+appStore.subscribe(renderAppState);
 
 async function loadRuntimeInfo() {
   const api = window.electronAPI;
@@ -166,28 +209,66 @@ loadRuntimeInfo().catch((error) => {
   console.error(error);
 });
 
-loadBackendSummary().catch((error) => {
-  setText(backendHealth, "offline");
-  setText(cameraCount, "unavailable");
-  console.error(error);
-});
+loadBackendSummary();
 
 async function loadBackendSummary() {
-  const health = await orchestratorApi.health();
-  setText(backendHealth, health.trim() || "ok");
+  appStore.patch({
+    backend: {
+      health: "loading",
+      camerasStatus: "loading",
+      lastError: null,
+    },
+  });
 
-  const cameraList = await orchestratorApi.listCameras();
-  setText(cameraCount, String(cameraList.cameras.length));
+  try {
+    const health = await orchestratorApi.health();
+    appStore.patch({
+      backend: {
+        health: "ready",
+        healthText: health.trim() || "ok",
+      },
+    });
+
+    const cameraList = await orchestratorApi.listCameras();
+    appStore.patch({
+      backend: {
+        cameras: cameraList,
+        camerasStatus: "ready",
+      },
+    });
+  } catch (error) {
+    appStore.patch({
+      backend: {
+        health: "error",
+        camerasStatus: "error",
+        lastError: errorMessage(error),
+      },
+    });
+    console.error(error);
+  }
 }
 
+setupFlashBrightness();
+
 orchestratorWs.onStatus((status) => {
-  setText(wsConnection, formatWsStatus(status));
+  appStore.patch({
+    ws: {
+      connection: status,
+      lastError: status.lastError ?? null,
+    },
+  });
   updateWsSendButton();
 });
 
 orchestratorWs.onMessage((message) => {
-  setText(wsLastEvent, message.type);
-  updateSessionState(message);
+  appStore.patch({
+    ws: {
+      lastEvent: message.type,
+      session: sessionStateFromMessage(message),
+      lastInspectResult: message.type === "server.inspect_result" ? message.payload : appStore.snapshot.ws.lastInspectResult,
+      lastError: message.type === "server.error" ? message.payload.message : null,
+    },
+  });
 });
 
 orchestratorWs.connect();
@@ -197,20 +278,16 @@ window.addEventListener("beforeunload", () => {
   orchestratorWs.disconnect();
 });
 
-function updateSessionState(message: ServerWsMessage) {
+function sessionStateFromMessage(message: ServerWsMessage) {
   if (message.type === "server.hello" || message.type === "server.state") {
-    setText(wsSession, message.payload.session_state);
-    return;
+    return message.payload.session_state;
   }
 
   if (message.type === "server.inspect_result") {
-    setText(wsSession, message.payload.session_state);
-    return;
+    return message.payload.session_state;
   }
 
-  if (message.type === "server.error") {
-    setText(wsSession, message.payload.code);
-  }
+  return appStore.snapshot.ws.session;
 }
 
 function formatWsStatus(status: WsConnectionStatus) {
@@ -264,10 +341,18 @@ function sendWsMessageFromForm() {
       });
     }
 
-    setText(wsLastSent, shortMessageId(messageId));
+    appStore.patch({
+      ws: {
+        lastSentMessageId: messageId,
+        lastError: null,
+      },
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "send failed";
-    setText(wsLastSent, message);
+    appStore.patch({
+      ws: {
+        lastError: errorMessage(error),
+      },
+    });
   }
 }
 
@@ -403,4 +488,148 @@ function updateWsSendButton() {
 
 function shortMessageId(messageId: string) {
   return messageId.length > 12 ? `${messageId.slice(0, 8)}...` : messageId;
+}
+
+function setupFlashBrightness() {
+  appStore.patch({
+    light: {
+      endpoint: `GET/PUT ${orchestratorApi.lightBrightnessPath}`,
+    },
+  });
+  syncBrightnessInputs(100);
+  loadFlashBrightness();
+
+  flashBrightnessRange?.addEventListener("input", () => {
+    syncBrightnessInputs(Number(flashBrightnessRange.value));
+  });
+
+  flashBrightnessValue?.addEventListener("input", () => {
+    syncBrightnessInputs(Number(flashBrightnessValue.value));
+  });
+
+  flashBrightnessRefresh?.addEventListener("click", () => {
+    loadFlashBrightness();
+  });
+
+  flashBrightnessSave?.addEventListener("click", () => {
+    saveFlashBrightness();
+  });
+}
+
+async function loadFlashBrightness() {
+  appStore.patch({
+    light: {
+      status: "loading",
+      lastError: null,
+    },
+  });
+
+  try {
+    const settings = await orchestratorApi.getLightBrightness();
+    syncBrightnessInputs(settings.brightness_percent);
+    appStore.patch({
+      light: {
+        status: "ready",
+        settings,
+      },
+    });
+  } catch (error) {
+    appStore.patch({
+      light: {
+        status: "error",
+        lastError: errorMessage(error),
+      },
+    });
+    console.error(error);
+  }
+}
+
+async function saveFlashBrightness() {
+  const brightness = clampBrightness(Number(flashBrightnessValue?.value ?? 0));
+  syncBrightnessInputs(brightness);
+  appStore.patch({
+    light: {
+      status: "saving",
+      lastError: null,
+    },
+  });
+
+  try {
+    const response = await orchestratorApi.setLightBrightness(brightness);
+    syncBrightnessInputs(response.brightness_percent);
+    appStore.patch({
+      light: {
+        status: "ready",
+        settings: {
+          brightness_percent: response.brightness_percent,
+          com_controller_percent: response.brightness_percent,
+          mv_le_brightness: Math.round((response.brightness_percent / 100) * 255),
+          scale: "0-100 unified; COM uses percent; MV-LE maps to 0-255",
+        },
+      },
+    });
+  } catch (error) {
+    appStore.patch({
+      light: {
+        status: "error",
+        lastError: errorMessage(error),
+      },
+    });
+    console.error(error);
+  }
+}
+
+function syncBrightnessInputs(value: number) {
+  const brightness = clampBrightness(value);
+
+  if (flashBrightnessRange) {
+    flashBrightnessRange.value = String(brightness);
+  }
+
+  if (flashBrightnessValue) {
+    flashBrightnessValue.value = String(brightness);
+  }
+}
+
+function clampBrightness(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function renderAppState() {
+  const state = appStore.snapshot;
+
+  setText(backendHealth, state.backend.health === "ready" ? state.backend.healthText : state.backend.health);
+  setText(
+    cameraCount,
+    state.backend.camerasStatus === "ready"
+      ? String(state.backend.cameras.cameras.length)
+      : state.backend.camerasStatus,
+  );
+  setText(wsConnection, formatWsStatus(state.ws.connection));
+  setText(wsSession, state.ws.session);
+  setText(wsLastEvent, state.ws.lastEvent);
+  setText(
+    wsLastSent,
+    state.ws.lastError ?? (state.ws.lastSentMessageId ? shortMessageId(state.ws.lastSentMessageId) : "none"),
+  );
+  setText(brightnessEndpoint, state.light.endpoint || "unknown");
+  setText(flashBrightnessStatus, formatLightStatus());
+}
+
+function formatLightStatus() {
+  const light = appStore.snapshot.light;
+
+  if (light.status === "ready" && light.settings) {
+    return `${light.settings.brightness_percent}% / MV-LE ${light.settings.mv_le_brightness}`;
+  }
+
+  if (light.status === "error") {
+    return "unavailable";
+  }
+
+  return light.status;
 }

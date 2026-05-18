@@ -1,4 +1,20 @@
 export type WsConnectionState = "idle" | "connecting" | "open" | "reconnecting" | "error" | "closed";
+export type WsProtocolVersion = 1;
+export type WsMessageId = string;
+
+export type ClientWsMessageType =
+  | "client.reference_bundle"
+  | "client.fp_zones_update"
+  | "client.set_active_reference_view";
+
+export type ServerWsMessageType =
+  | "server.hello"
+  | "server.state"
+  | "server.inspect_result"
+  | "server.reference_bundle_ack"
+  | "server.fp_zones_ack"
+  | "server.active_reference_view_ack"
+  | "server.error";
 
 export type WsConnectionStatus = {
   state: WsConnectionState;
@@ -12,18 +28,47 @@ export type WsConnectionStatus = {
 };
 
 export type WsSessionState = "NO_REFERENCE" | "READY" | "OPERATIONAL";
+export type ServerErrorCode =
+  | "parse_error"
+  | "no_reference"
+  | "invalid_payload"
+  | "invalid_protocol_version"
+  | "invalid_heatmap_size"
+  | "invalid_view_index"
+  | "invalid_product_type"
+  | "invalid_joint_view_index"
+  | "invalid_views"
+  | "invalid_view"
+  | "invalid_frame"
+  | "invalid_camera_id"
+  | "invalid_frame_id"
+  | "invalid_shm_name"
+  | "invalid_frame_size"
+  | "invalid_shm_offset"
+  | "invalid_stride"
+  | "invalid_interest_roi"
+  | "invalid_joint_roi"
+  | "missing_joint_roi"
+  | "invalid_fp_zones"
+  | "invalid_fp_zone"
+  | "invalid_fp_polygon"
+  | "invalid_fp_point"
+  | "fp_point_out_of_range"
+  | "kopcheni_sync_failed"
+  | "error"
+  | string;
 
 export type ServerWsEnvelope<TType extends string, TPayload> = {
   type: TType;
   protocol_version: number;
-  message_id: string;
+  message_id: WsMessageId;
   payload: TPayload;
 };
 
-export type ClientWsEnvelope<TType extends keyof ClientWsPayloadByType> = {
+export type ClientWsEnvelope<TType extends ClientWsMessageType> = {
   type: TType;
-  protocol_version: 1;
-  message_id: string;
+  protocol_version: WsProtocolVersion;
+  message_id: WsMessageId;
   payload: ClientWsPayloadByType[TType];
 };
 
@@ -72,7 +117,7 @@ export type ServerActiveReferenceViewAckMessage = ServerWsEnvelope<
 export type ServerErrorMessage = ServerWsEnvelope<
   "server.error",
   {
-    code: string;
+    code: ServerErrorCode;
     message: string;
   }
 >;
@@ -93,6 +138,16 @@ export type ServerWsMessage =
   | ServerActiveReferenceViewAckMessage
   | ServerErrorMessage
   | UnknownServerWsMessage;
+
+export type ServerWsPayloadByType = {
+  "server.hello": ServerHelloMessage["payload"];
+  "server.state": ServerStateMessage["payload"];
+  "server.inspect_result": InspectResultPayload;
+  "server.reference_bundle_ack": ServerReferenceBundleAckMessage["payload"];
+  "server.fp_zones_ack": ServerFpZonesAckMessage["payload"];
+  "server.active_reference_view_ack": ServerActiveReferenceViewAckMessage["payload"];
+  "server.error": ServerErrorMessage["payload"];
+};
 
 export type WsMessageHandler = (message: ServerWsMessage) => void;
 export type WsStatusHandler = (status: WsConnectionStatus) => void;
@@ -118,23 +173,26 @@ export type InspectResultPayload = {
 
 export type ShmFrameRefData = {
   camera_id: number;
-  frame_id: string;
+  frame_id: string | number;
   shm_name: string;
   width: number;
   height: number;
   stride: number;
   shm_offset: number;
-  pixel_format: string;
+  pixel_format: PixelFormat;
   channels: number;
   expires_at_ms?: number;
   ttl_ms?: number;
   read_token?: string;
 };
 
+export type PixelFormat = "bgr_u8" | "gray_u8" | string;
+export type HeatmapPixelFormat = "gray_u8" | string;
+
 export type HeatmapDescriptor = {
   width: number;
   height: number;
-  pixel_format: "gray_u8" | string;
+  pixel_format: HeatmapPixelFormat;
   channels: number;
   artifact_id?: string;
   http_path?: string;
@@ -151,10 +209,12 @@ export type PixelRoi = {
 export type FpZoneNorm = {
   id?: string;
   note: string;
-  points_norm_heatmap: Array<{
-    x: number;
-    y: number;
-  }>;
+  points_norm_heatmap: FpPointNorm[];
+};
+
+export type FpPointNorm = {
+  x: number;
+  y: number;
 };
 
 export type ReferenceViewSlot = {
@@ -173,14 +233,14 @@ export type ClientReferenceBundlePayload = {
 };
 
 export type ClientFpZonesUpdatePayload = {
-  protocol_version: 1;
+  protocol_version: WsProtocolVersion;
   heatmap_width: number;
   heatmap_height: number;
   fp_zones: FpZoneNorm[];
 };
 
 export type ClientSetActiveReferenceViewPayload = {
-  protocol_version: 1;
+  protocol_version: WsProtocolVersion;
   view_index: number;
 };
 
@@ -189,3 +249,8 @@ export type ClientWsPayloadByType = {
   "client.fp_zones_update": ClientFpZonesUpdatePayload;
   "client.set_active_reference_view": ClientSetActiveReferenceViewPayload;
 };
+
+export type ClientWsMessage =
+  | ClientWsEnvelope<"client.reference_bundle">
+  | ClientWsEnvelope<"client.fp_zones_update">
+  | ClientWsEnvelope<"client.set_active_reference_view">;

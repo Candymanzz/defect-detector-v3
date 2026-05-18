@@ -3,14 +3,20 @@ import { HttpClient } from "./httpClient";
 import type {
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
+  LightBrightnessSettings,
+  LightBrightnessUpdateRequest,
+  LightBrightnessUpdateResponse,
   UiCameraList,
   UiLatestSnapshot,
 } from "./types";
 
 const http = new HttpClient(appEnv.apiRequestBaseUrl);
+const LIGHT_BRIGHTNESS_PATH = "/api/orchestrator/light/brightness";
 
 export const orchestratorApi = {
   url: (path: string) => http.url(path),
+
+  lightBrightnessPath: LIGHT_BRIGHTNESS_PATH,
 
   async health() {
     return http.text("/health", {
@@ -79,6 +85,21 @@ export const orchestratorApi = {
   async clearGeometryRuntime() {
     return http.json<{ ok: true }>("/api/client/geometry-runtime", {
       method: "DELETE",
+    });
+  },
+
+  async getLightBrightness() {
+    return http.json<LightBrightnessSettings>(LIGHT_BRIGHTNESS_PATH);
+  },
+
+  async setLightBrightness(brightnessPercent: number) {
+    const body: LightBrightnessUpdateRequest = {
+      brightness_percent: brightnessPercent,
+    };
+
+    return http.json<LightBrightnessUpdateResponse>(LIGHT_BRIGHTNESS_PATH, {
+      method: "PUT",
+      body,
     });
   },
 

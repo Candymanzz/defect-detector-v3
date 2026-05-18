@@ -48,7 +48,7 @@ python_detector:
   include_visuals: false
 
 ui_http:
-  enabled: false
+  enabled: true
   host: "127.0.0.1"
   port: 8099
   visuals_async_enabled: false
@@ -62,12 +62,12 @@ ui_http:
 # Прокси к analisSurface: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
 # geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).
 client_api:
-  enabled: false
+  enabled: true
   kopcheni_base_url: "http://127.0.0.1:8000"
 
 # WebSocket UI (Фаза 1): hello + session_state; один клиент; ping по RFC6455; таймаут без входящих сообщений/pong.
 client_ws:
-  enabled: false
+  enabled: true
   host: "127.0.0.1"
   port: 8765
   path: "/"

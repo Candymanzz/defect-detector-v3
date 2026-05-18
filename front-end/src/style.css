@@ -92,6 +92,7 @@ h1 {
   text-align: right;
 }
 
+.brightness-panel,
 .ws-outbox {
   display: grid;
   grid-column: 1 / -1;
@@ -191,6 +192,28 @@ button:disabled {
   grid-column: 2;
 }
 
+.endpoint-row,
+.brightness-controls,
+.brightness-actions,
+.brightness-status {
+  grid-column: 2;
+}
+
+.endpoint-row strong {
+  overflow-wrap: anywhere;
+}
+
+.brightness-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 12px;
+}
+
+input[type="range"] {
+  padding: 0;
+  accent-color: #8fd4c7;
+}
+
 @media (max-width: 840px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -204,16 +227,23 @@ button:disabled {
     width: 100%;
   }
 
+  .brightness-panel,
   .ws-outbox,
   .control-grid,
   .field-wide,
   .button-row,
-  .outbox-status {
+  .outbox-status,
+  .endpoint-row,
+  .brightness-controls,
+  .brightness-actions,
+  .brightness-status {
     grid-column: 1;
   }
 
+  .brightness-panel,
   .ws-outbox,
-  .control-grid {
+  .control-grid,
+  .brightness-controls {
     grid-template-columns: 1fr;
   }
 }
