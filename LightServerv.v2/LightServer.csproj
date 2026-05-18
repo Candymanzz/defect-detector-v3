@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>LightServer</RootNamespace>
+    <AssemblyName>LightServer</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <MvCameraControlNetDll Condition="Exists('$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll')">$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll</MvCameraControlNetDll>
+    <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(MSBuildProjectDirectory)\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll')">$(MSBuildProjectDirectory)\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll</MvCameraControlNetDll>
+    <MvsRuntimeDir Condition="Exists('$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\Runtime\win64')">$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\Runtime\win64</MvsRuntimeDir>
+    <MvsRuntimeDir Condition="'$(MvsRuntimeDir)' == ''">$(MSBuildProjectDirectory)\ThirdParty\MVS\Runtime\win64</MvsRuntimeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.OpenApi" Version="2.4.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="MvCameraControl.Net">
+      <HintPath>$(MvCameraControlNetDll)</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MvsRuntimeDir)')">
+    <Content Include="$(MvsRuntimeDir)\*.dll">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,35 @@
+@host = http://localhost:5080
+
+### Список устройств
+GET {{host}}/api/devices
+
+### Свет ВКЛ — разная яркость на каждый канал (0–255)
+POST {{host}}/api/light
+Content-Type: application/json
+
+{
+  "deviceIndex": 1,
+  "lightControllerSource": "On",
+  "channels": [1, 2, 3, 4],
+  "brightness": [50, 100, 150, 255]
+}
+
+### Свет ВЫКЛ
+POST {{host}}/api/light
+Content-Type: application/json
+
+{
+  "deviceIndex": 1,
+  "lightControllerSource": "Off",
+  "channels": [1, 2, 3, 4]
+}
+
+### Вкл без brightness — на всех каналах 255
+POST {{host}}/api/light
+Content-Type: application/json
+
+{
+  "deviceIndex": 1,
+  "lightControllerSource": "On",
+  "channels": [1, 2]
+}
