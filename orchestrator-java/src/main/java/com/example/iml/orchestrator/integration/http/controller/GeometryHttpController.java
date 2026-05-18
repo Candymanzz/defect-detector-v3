@@ -63,7 +63,7 @@ public final class GeometryHttpController implements HttpController {
                 HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(geometryLatestJson(cam, snap)));
                 return;
             }
-        } catch (Exception ignored) {
+        } catch (NumberFormatException ignored) {
         }
         HttpResponses.notFound(ctx);
     }

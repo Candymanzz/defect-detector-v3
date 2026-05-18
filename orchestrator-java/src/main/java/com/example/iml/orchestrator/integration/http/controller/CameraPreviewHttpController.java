@@ -83,7 +83,7 @@ public final class CameraPreviewHttpController implements HttpController {
                 HttpResponses.send(ctx, 200, "application/octet-stream", Files.readAllBytes(l.heatmapU8()));
                 return;
             }
-        } catch (Exception ignored) {
+        } catch (NumberFormatException | IOException ignored) {
         }
         HttpResponses.notFound(ctx);
     }

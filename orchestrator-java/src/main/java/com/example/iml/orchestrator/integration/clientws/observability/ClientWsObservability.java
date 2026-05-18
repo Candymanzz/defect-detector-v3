@@ -1,11 +1,11 @@
-package com.example.iml.orchestrator.integration.clientws;
+package com.example.iml.orchestrator.integration.clientws.observability;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Счётчики и накопители задержек для WebSocket-клиента (Фаза 8). Потокобезопасно.
+ * Счётчики и накопители задержек для WebSocket-клиента. Потокобезопасно.
  */
 public final class ClientWsObservability {
 

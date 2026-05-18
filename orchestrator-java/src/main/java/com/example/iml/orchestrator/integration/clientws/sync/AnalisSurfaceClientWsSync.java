@@ -1,4 +1,4 @@
-package com.example.iml.orchestrator.integration.clientws;
+package com.example.iml.orchestrator.integration.clientws.sync;
 
 import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.clientws.bundle.PixelRoi;

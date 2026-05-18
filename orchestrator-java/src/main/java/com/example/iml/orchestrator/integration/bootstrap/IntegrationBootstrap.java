@@ -31,7 +31,7 @@ import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProces
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
-import com.example.iml.orchestrator.integration.clientws.ClientWsConfig;
+import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
 import com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
