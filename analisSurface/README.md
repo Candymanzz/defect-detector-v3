@@ -7,26 +7,9 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-## Stdio-детектор для Java-оркестратора (IMLB)
+## Java-оркестратор (HTTP)
 
-Оркестратор из корня репозитория поднимает процесс с бинарным протоколом по stdin/stdout (как бывший `python-detectors`).
-
-1. Виртуальное окружение **в каталоге `backend/`** (пути в `config/config.yaml` ждут именно его):
-
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-2. Команда в конфиге: `analisSurface/backend/.venv/.../python` + `analisSurface/run_stdio_worker.py` (обёртка добавляет `backend` в `PYTHONPATH`). Реализация: `app/orchestrator_stdio_runner.py`.
-
-3. Ручная проверка из **корня репозитория** (после сборки venv): процесс сразу выйдет на EOF stdin — это нормально.
-
-```bash
-analisSurface/backend/.venv/bin/python analisSurface/run_stdio_worker.py
-```
+Оркестратор вызывает этот API по `python_detector.base_url` в `config/config.yaml` (по умолчанию `http://127.0.0.1:8000`). Перед стартом оркестратора поднимите FastAPI (см. раздел выше).
 
 ## Python camera server (RTSP/USB capture)
 

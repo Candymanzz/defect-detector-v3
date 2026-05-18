@@ -120,12 +120,11 @@ Set-Location ..
 
 ---
 
-## Шаг 5а. Виртуальное окружение детектора (analisSurface)
+## Шаг 5а. Детектор analisSurface (FastAPI)
 
-Оркестратор по умолчанию запускает **не** старый `python-detectors`, а сервис из папки `analisSurface` через скрипт `analisSurface\run_stdio_worker.py`. Ему нужен Python с зависимостями в **`analisSurface\backend\.venv`**.
+Оркестратор общается с Python **только по HTTP** (`python_detector.base_url` в `config\config.yaml`, обычно `http://127.0.0.1:8000`).
 
-1. Откройте PowerShell.
-2. Выполните (путь к корню проекта подставьте свой):
+1. Создайте venv и установите зависимости (один раз):
 
 ```powershell
 Set-Location "D:\VisionMaster4.4.0\megaOrchestratoraue228-main\analisSurface\backend"
@@ -134,11 +133,15 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-3. Деактивировать среду не обязательно. Главное — чтобы существовали файлы:
-   - `analisSurface\backend\.venv\Scripts\python.exe` (Windows),  
-   - или `analisSurface/backend/.venv/bin/python` (Linux).
+2. В **отдельном** окне PowerShell запустите API и не закрывайте его:
 
-Если `python -m venv` выдаёт ошибку — установите Python 3 с сайта python.org и повторите.
+```powershell
+Set-Location "D:\VisionMaster4.4.0\megaOrchestratoraue228-main\analisSurface\backend"
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+3. Проверка: в браузере или `curl http://127.0.0.1:8000/detector/health` — ответ JSON со `status: ok`.
 
 ---
 

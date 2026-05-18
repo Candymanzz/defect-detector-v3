@@ -112,8 +112,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             case "set_reference_shm" -> uploadRefShm(header);
             case "inspect_shm" -> inspectShm(header);
             case "replace_fp_zones" -> replaceFpZones(header);
-            case "sync_client_reference_bundle", "set_active_reference_view" ->
-                    httpNotSupported(op);
+            case "sync_client_reference_bundle" -> syncClientReferenceBundle(header);
+            case "set_active_reference_view" -> setActiveReferenceView(header);
             default -> new BinaryProtocol.Message(
                     BinaryProtocol.MSG_ERROR,
                     Map.of("error", "unknown op=" + op + " (http transport)", "op", op),
@@ -122,18 +122,114 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         };
     }
 
-    private static BinaryProtocol.Message httpNotSupported(String op) {
-        return new BinaryProtocol.Message(
-                BinaryProtocol.MSG_ERROR,
-                Map.of(
-                        "error",
-                        "op=" + op + " is not supported over HTTP; set client_ws.analis_surface_bundle_sync_enabled=false "
-                                + "or extend the FastAPI contract.",
-                        "op",
-                        op
-                ),
-                new byte[0]
-        );
+    private BinaryProtocol.Message setActiveReferenceView(Map<String, Object> header) {
+        Map<String, Object> ok = new LinkedHashMap<>();
+        ok.put("status", "ok");
+        ok.put("product_type", String.valueOf(header.getOrDefault("product_type", "")));
+        ok.put("view_index", YamlScalars.toInt(header.get("view_index"), 0));
+        ok.put("transport", "http");
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, ok, new byte[0]);
+    }
+
+    /**
+     * FastAPI хранит один эталон на {@code product_type}: загружаем активный ракурс из пакета и ROI.
+     */
+    private BinaryProtocol.Message syncClientReferenceBundle(Map<String, Object> header) throws IOException {
+        String productType = String.valueOf(header.get("product_type"));
+        int activeIdx = Math.max(0, Math.min(4, YamlScalars.toInt(header.get("active_reference_view_index"), 0)));
+        Map<String, Object> view = findViewByIndex(header.get("views"), activeIdx);
+        if (view == null) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of("error", "sync_client_reference_bundle: missing view index=" + activeIdx, "op", "sync_client_reference_bundle"),
+                    new byte[0]
+            );
+        }
+        Map<String, Object> refHdr = new LinkedHashMap<>(view);
+        refHdr.put("product_type", productType);
+        BinaryProtocol.Message refResp = uploadRefShm(refHdr);
+        if (refResp.type() == BinaryProtocol.MSG_ERROR) {
+            return refResp;
+        }
+        Map<String, Object> interest = findInterestRoi(header.get("interest_rois"), activeIdx);
+        if (interest != null) {
+            List<Map<String, Object>> points = bboxToPolygonPoints(interest);
+            if (points.size() >= 3) {
+                Map<String, Object> roiBody = new LinkedHashMap<>();
+                roiBody.put("product_type", productType);
+                roiBody.put("points", points);
+                HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
+                if (roiResp.statusCode() / 100 != 2) {
+                    return errorMessageToMsg(roiResp, "roi-polygon");
+                }
+            }
+        }
+        Object fp = header.get("fp_zones");
+        if (fp instanceof List<?> list && !list.isEmpty()) {
+            Map<String, Object> fpHdr = new LinkedHashMap<>(header);
+            fpHdr.put("op", "replace_fp_zones");
+            BinaryProtocol.Message fpResp = replaceFpZones(fpHdr);
+            if (fpResp.type() == BinaryProtocol.MSG_ERROR) {
+                return fpResp;
+            }
+        }
+        Map<String, Object> ok = new LinkedHashMap<>();
+        ok.put("status", "ok");
+        ok.put("product_type", productType);
+        ok.put("active_reference_view_index", activeIdx);
+        ok.put("transport", "http");
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, ok, new byte[0]);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> findViewByIndex(Object viewsObj, int index) {
+        if (!(viewsObj instanceof List<?> views)) {
+            return null;
+        }
+        for (Object o : views) {
+            if (o instanceof Map<?, ?> m) {
+                int vi = YamlScalars.toInt(m.get("view_index"), -1);
+                if (vi == index) {
+                    return (Map<String, Object>) m;
+                }
+            }
+        }
+        if (index >= 0 && index < views.size() && views.get(index) instanceof Map<?, ?> m) {
+            return (Map<String, Object>) m;
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> findInterestRoi(Object roisObj, int index) {
+        if (!(roisObj instanceof List<?> rois)) {
+            return null;
+        }
+        for (Object o : rois) {
+            if (o instanceof Map<?, ?> m) {
+                int vi = YamlScalars.toInt(m.get("view_index"), -1);
+                if (vi == index) {
+                    return (Map<String, Object>) m;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static List<Map<String, Object>> bboxToPolygonPoints(Map<String, Object> roi) {
+        int x = YamlScalars.toInt(roi.get("x"), 0);
+        int y = YamlScalars.toInt(roi.get("y"), 0);
+        int w = YamlScalars.toInt(roi.get("width"), 0);
+        int h = YamlScalars.toInt(roi.get("height"), 0);
+        if (w <= 0 || h <= 0) {
+            return List.of();
+        }
+        List<Map<String, Object>> pts = new ArrayList<>(4);
+        pts.add(Map.of("x", (double) x, "y", (double) y));
+        pts.add(Map.of("x", (double) (x + w), "y", (double) y));
+        pts.add(Map.of("x", (double) (x + w), "y", (double) (y + h)));
+        pts.add(Map.of("x", (double) x, "y", (double) (y + h)));
+        return pts;
     }
 
     private BinaryProtocol.Message uploadRefShm(Map<String, Object> header) throws IOException {
@@ -148,6 +244,10 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private BinaryProtocol.Message inspectShm(Map<String, Object> header) throws IOException {
+        Object heatmapOut = header.get("heatmap_u8_output_path");
+        if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
+            return inspectShmVisuals(header);
+        }
         Object poly = header.get("roi_polygon_norm");
         if (poly instanceof List<?> list && list.size() >= 3) {
             String productType = String.valueOf(header.get("product_type"));
@@ -169,6 +269,30 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         Map<String, Object> json = readJson(resp.body());
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, inspectJsonToStdioHeader(json), new byte[0]);
+    }
+
+    private BinaryProtocol.Message inspectShmVisuals(Map<String, Object> header) throws IOException {
+        Map<String, Object> body = shmFrameJson(header);
+        Object heatmapPath = header.get("heatmap_u8_output_path");
+        if (heatmapPath != null) {
+            body.put("heatmap_u8_output_path", String.valueOf(heatmapPath));
+        }
+        HttpResponse<byte[]> resp = httpPostJson("/inspect-shm-visuals", body);
+        if (resp.statusCode() / 100 != 2) {
+            return errorMessageToMsg(resp, "inspect-shm-visuals");
+        }
+        Map<String, Object> json = readJson(resp.body());
+        Map<String, Object> h = new LinkedHashMap<>();
+        h.put("status", "ok");
+        h.put("product_type", String.valueOf(json.getOrDefault("product_type", header.get("product_type"))));
+        h.put("detector_id", String.valueOf(json.getOrDefault("detector_id", header.get("detector_id"))));
+        Object hm = json.get("heatmap_u8");
+        if (hm instanceof Map<?, ?> hmMap) {
+            h.put("heatmap_u8_path", hmMap.get("path"));
+            h.put("heatmap_width", hmMap.get("width"));
+            h.put("heatmap_height", hmMap.get("height"));
+        }
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, h, new byte[0]);
     }
 
     private BinaryProtocol.Message replaceFpZones(Map<String, Object> header) throws IOException {

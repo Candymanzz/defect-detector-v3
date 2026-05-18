@@ -1,4 +1,4 @@
-package com.example.iml.orchestrator.integration.clientws;
+package com.example.iml.orchestrator.integration.clientws.sync;
 
 import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.clientws.bundle.PixelRoi;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Заголовки команд analisSurface (Фаза 5): синхронизация пакета эталонов, FP, активного ракурса.
+ * Заголовки команд для analisSurface (HTTP): синхронизация пакета эталонов, FP, активного ракурса.
  */
 public final class AnalisSurfaceClientWsSync {
 

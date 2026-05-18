@@ -39,6 +39,7 @@
     "max_wrinkles_score": 0.05
   },
   "python_detector": {
+    "base_url": "http://127.0.0.1:8000",
     "rois": [
       {
         "name": "main",
@@ -108,18 +109,10 @@
       "directory": "testimage",
       "jpeg_quality": 0.92
     },
-    "python_command_windows": [
-      "analisSurface/backend/.venv/Scripts/python.exe",
-      "analisSurface/run_stdio_worker.py"
-    ],
     "geometry_command_windows": [
       "java",
       "-jar",
       "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-    ],
-    "python_command_linux": [
-      "analisSurface/backend/.venv/bin/python",
-      "analisSurface/run_stdio_worker.py"
     ],
     "geometry_command_linux": [
       "java",

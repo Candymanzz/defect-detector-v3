@@ -7,7 +7,6 @@ import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
 import java.nio.file.Path;
@@ -46,7 +45,7 @@ public record AsyncInspectionCycleInput(
         ExecutorService decisionStageExecutor,
         Map<String, Object> uiCfg,
         UiHttpServer uiServer,
-        ServiceProcessSupervisor uiVisualsPython,
+        BinaryRpcSupervisor uiVisualsPython,
         ExecutorService uiArtifactsExecutor,
         int flashLeadMs,
         PipelineStagesLog pipelineStagesLog
@@ -117,7 +116,7 @@ public record AsyncInspectionCycleInput(
             ExecutorService decisionStageExecutor,
             Map<String, Object> uiCfg,
             UiHttpServer uiServer,
-            ServiceProcessSupervisor uiVisualsPython,
+            BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             int flashLeadMs,
             PipelineStagesLog pipelineStagesLog

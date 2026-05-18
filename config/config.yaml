@@ -36,6 +36,8 @@ java_geometry:
   max_wrinkles_score: 0.05
 
 python_detector:
+  # FastAPI analisSurface (запускайте uvicorn отдельно).
+  base_url: "http://127.0.0.1:8000"
   rois:
     - name: main
       x: 0
@@ -72,8 +74,8 @@ client_ws:
   replace_existing_session: true
   ping_interval_ms: 20000
   read_idle_timeout_ms: 90000
-  # Фаза 5: stdio sync в пул kopcheni (см. docs/KOPCHENI_STDIO_PHASE5_PYTHON.md). true только после реализации op в Python.
-  kopcheni_bundle_sync_enabled: false
+  # Синхронизация эталона/FP в детектор по HTTP (тот же base_url, что python_detector).
+  kopcheni_bundle_sync_enabled: true
 
 client:
   url: "ws://127.0.0.1:8765"
@@ -96,18 +98,28 @@ fanout:
     queue_size: 128
     artificial_delay_ms: 1200
 
-light_server:
+# Подсветка: параллельный HTTP-триггер на все enabled endpoints (яркость 0…100% для всех).
+light_servers:
   enabled: true
-  base_url: "http://127.0.0.1:5079"
-  trigger_path: "/api/light/trigger-inspection"
-  timeout_ms: 1500
   fail_on_error: false
-  brightness: 100
+  timeout_ms: 1500
+  brightness_percent: 100
   duration_ms: 180
-  # После ответа LightServer (вспышка отработала) — доп. пауза перед capture (как в рабочей сборке sperm).
   flash_lead_ms: 35
-  # Пауза после HTTP-триггера на стороне клиента (драйвер/строб).
   settle_delay_ms: 100
+  endpoints:
+    - id: light-com
+      enabled: true
+      type: trigger_inspection
+      base_url: "http://127.0.0.1:5079"
+      trigger_path: "/api/light/trigger-inspection"
+      status_path: "/api/light/status"
+    - id: light-mv-le
+      enabled: true
+      type: mv_le
+      base_url: "http://127.0.0.1:5080"
+      device_index: 1
+      channels: [1, 2, 3, 4]
 
 integration:
   camera_parallelism: 1
@@ -145,16 +157,10 @@ integration:
     enabled: true
     directory: "testimage"
     jpeg_quality: 0.92
-  python_command_windows:
-    - "analisSurface/backend/.venv/Scripts/python.exe"
-    - "analisSurface/run_stdio_worker.py"
   geometry_command_windows:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  python_command_linux:
-    - "analisSurface/backend/.venv/bin/python"
-    - "analisSurface/run_stdio_worker.py"
   geometry_command_linux:
     - "java"
     - "-jar"
@@ -172,3 +178,15 @@ integration:
     - "LightServer/bin/Release/net10.0/LightServer.dll"
     - "--urls"
     - "http://127.0.0.1:5079"
+  light_server_v2_command_windows:
+    - "dotnet"
+    - "exec"
+    - "LightServerv.v2/bin/Debug/net10.0/LightServer.dll"
+    - "--urls"
+    - "http://127.0.0.1:5080"
+  light_server_v2_command_linux:
+    - "dotnet"
+    - "exec"
+    - "LightServerv.v2/bin/Debug/net10.0/LightServer.dll"
+    - "--urls"
+    - "http://127.0.0.1:5080"

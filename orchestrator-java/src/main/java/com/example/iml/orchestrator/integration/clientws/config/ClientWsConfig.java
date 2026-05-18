@@ -1,4 +1,4 @@
-package com.example.iml.orchestrator.integration.clientws;
+package com.example.iml.orchestrator.integration.clientws.config;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
@@ -15,11 +15,6 @@ public record ClientWsConfig(
         boolean replaceExistingSession,
         int pingIntervalMs,
         int readIdleTimeoutMs,
-        /**
-         * Если {@code true}, после WS-событий (пакет эталонов, FP hot-update, смена ракурса) оркестратор
-         * рассылает stdio-команды в пул kopcheni (см. {@code docs/KOPCHENI_STDIO_PHASE5_PYTHON.md}). По умолчанию {@code false},
-         * пока в analisSurface не реализованы соответствующие {@code op}.
-         */
         boolean kopcheniBundleSyncEnabled
 ) {
 
@@ -29,7 +24,6 @@ public record ClientWsConfig(
         return new ClientWsConfig(false, "127.0.0.1", 8765, "/", true, 20_000, 90_000, false);
     }
 
-    @SuppressWarnings("unchecked")
     public static ClientWsConfig fromRootYaml(Map<String, Object> root) {
         if (root == null) {
             return disabled();
