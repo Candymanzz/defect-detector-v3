@@ -244,6 +244,8 @@ public final class IntegrationBootstrap {
             IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark = IntegrationFeatureConfig.parseSingleFrameBenchmark(integration);
             IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark = IntegrationFeatureConfig.parseConveyorBenchmark(integration);
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection = IntegrationFeatureConfig.parseContinuousInspection(integration);
+            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub =
+                    IntegrationFeatureConfig.parseDevAutoTriggerStub(integration);
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures = IntegrationFeatureConfig.parseSaveCaptures(integration);
             if (saveCaptures.enabled()) {
                 log.info("save_captures enabled dir={} (от корня проекта)", saveCaptures.relativeDir());
@@ -258,6 +260,8 @@ public final class IntegrationBootstrap {
             } else if (singleFrameBenchmark.enabled()) {
                 log.info("single_frame_benchmark enabled reference_repeats={} inspection_repeats={}",
                         singleFrameBenchmark.referenceRepeats(), singleFrameBenchmark.inspectionRepeats());
+            } else if (devAutoTriggerStub.enabled()) {
+                log.info("dev_auto_trigger_stub enabled interval_ms={}", devAutoTriggerStub.intervalMs());
             } else if (continuousInspection.enabled()) {
                 log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
             }
@@ -296,6 +300,7 @@ public final class IntegrationBootstrap {
                             singleFrameBenchmark,
                             conveyorBenchmark,
                             continuousInspection,
+                            devAutoTriggerStub,
                             saveCaptures,
                             flashLeadMs,
                             pipelineStagesLog

@@ -137,9 +137,13 @@ integration:
     enabled: false
     reference_repeats: 5
     inspection_repeats: 5
+  # Временная заглушка: цикл каждые N мс без внешнего триггера (пока в разработке). Выключить, когда появится сигнал с линии.
+  dev_auto_trigger_stub:
+    enabled: true
+    interval_ms: 5000
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
-    enabled: true
+    enabled: false
     cycle_delay_ms: 400
   # Симуляция конвейера (100 вёдер × N снимков): см. config/conveyor-benchmark.yaml
   conveyor_benchmark:

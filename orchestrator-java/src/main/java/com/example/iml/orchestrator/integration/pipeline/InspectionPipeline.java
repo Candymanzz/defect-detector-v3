@@ -60,6 +60,7 @@ public final class InspectionPipeline {
             IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark,
             IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark,
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection,
+            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub,
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
             int flashLeadMs,
             PipelineStagesLog pipelineStagesLog
@@ -160,6 +161,6 @@ public final class InspectionPipeline {
             return;
         }
 
-        ProductionInspectionOrchestrator.run(svc, in, continuousInspection);
+        ProductionInspectionOrchestrator.run(svc, in, continuousInspection, devAutoTriggerStub);
     }
 }

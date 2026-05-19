@@ -26,6 +26,10 @@ public final class IntegrationFeatureConfig {
     public record ContinuousInspectionConfig(boolean enabled, int cycleDelayMs) {
     }
 
+    /** Временная заглушка: периодический запуск цикла вместо ожидания внешнего триггера. */
+    public record DevAutoTriggerStubConfig(boolean enabled, int intervalMs) {
+    }
+
     public record SaveCapturesConfig(boolean enabled, String relativeDir, float jpegQuality) {
     }
 
@@ -74,6 +78,19 @@ public final class IntegrationFeatureConfig {
         boolean enabled = YamlScalars.toBool(m.get("enabled"), false);
         int delayMs = Math.max(0, YamlScalars.toInt(m.get("cycle_delay_ms"), 0));
         return new ContinuousInspectionConfig(enabled, delayMs);
+    }
+
+    public static DevAutoTriggerStubConfig parseDevAutoTriggerStub(Map<String, Object> integration) {
+        if (integration == null) {
+            return new DevAutoTriggerStubConfig(false, 5000);
+        }
+        Object raw = integration.get("dev_auto_trigger_stub");
+        if (!(raw instanceof Map<?, ?> m)) {
+            return new DevAutoTriggerStubConfig(false, 5000);
+        }
+        boolean enabled = YamlScalars.toBool(m.get("enabled"), false);
+        int intervalMs = Math.max(1000, YamlScalars.toInt(m.get("interval_ms"), 5000));
+        return new DevAutoTriggerStubConfig(enabled, intervalMs);
     }
 
     public static SingleFrameBenchmarkConfig parseSingleFrameBenchmark(Map<String, Object> integration) {
