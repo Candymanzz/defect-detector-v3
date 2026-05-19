@@ -36,4 +36,17 @@ app.MapControllers();
 var lightService = app.Services.GetRequiredService<LightService>();
 await lightService.InitializeAsync();
 
+var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+lifetime.ApplicationStopping.Register(() =>
+{
+    try
+    {
+        lightService.TurnOffAllAsync().GetAwaiter().GetResult();
+    }
+    catch
+    {
+        // best-effort при завершении процесса
+    }
+});
+
 app.Run();

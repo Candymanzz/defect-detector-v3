@@ -12,12 +12,15 @@ import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
+import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.integration.preview.LivePreviewPublisher;
+import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceSnapshotBootstrap;
 import com.example.iml.orchestrator.integration.pipeline.decision.DefaultInspectionDecisionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.fanoutbridge.InspectionDecisionToFanOutEvent;
@@ -46,7 +49,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -85,6 +87,7 @@ public final class IntegrationBootstrap {
         PythonDetectorConfig pythonDetectorCfg = PythonDetectorConfig.fromRootYaml(root);
 
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);
+        AnalisSurfaceLauncher analisSurfaceLauncher = new AnalisSurfaceLauncher(log);
         LightServerLauncher lightServerLauncher = new LightServerLauncher(log);
         UiArtifactsSidecar uiSidecar = new UiArtifactsSidecar(log);
         GeometrySnapshotCache geometrySnapshotCache = new GeometrySnapshotCache();
@@ -107,6 +110,13 @@ public final class IntegrationBootstrap {
         );
         InspectionPipeline inspectionPipeline = new InspectionPipeline(pipelineServices);
 
+        ExternalServiceProcess analisSurfaceProcess = analisSurfaceLauncher.startIfConfigured(
+                integration,
+                projectRoot,
+                isWindows,
+                pythonDetectorCfg.baseUrl()
+        );
+
         List<BinaryRpcSupervisor> pythonPool = servicePools.startAnalisSurfaceHttpPool(
                 pythonDetectorCfg.baseUrl(),
                 cfg.pythonParallelism(),
@@ -114,9 +124,13 @@ public final class IntegrationBootstrap {
         );
         if (pythonPool.isEmpty()) {
             log.error(
-                    "analisSurface FastAPI pool is empty (base_url={}). Start uvicorn and check python_detector.base_url.",
+                    "analisSurface FastAPI pool is empty (base_url={}). "
+                            + "Проверьте venv в analisSurface/backend, integration.analis_surface_autostart и python_detector.base_url.",
                     pythonDetectorCfg.baseUrl()
             );
+            if (analisSurfaceProcess != null) {
+                analisSurfaceProcess.close();
+            }
             return;
         }
         log.info("python detector transport=http base_url={} pool_size={}", pythonDetectorCfg.baseUrl(), pythonPool.size());
@@ -142,6 +156,15 @@ public final class IntegrationBootstrap {
             log.info("light_servers flash_lead_ms={} (пауза после ответа вспышки, перед capture)", flashLeadMs);
         }
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
+        PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
+        Map<Integer, String> detectorByCamera = new LinkedHashMap<>();
+        for (Map<String, Object> camera : cameras) {
+            int cameraId = ((Number) camera.get("id")).intValue();
+            detectorByCamera.put(cameraId, String.valueOf(camera.getOrDefault("detector", "v1")));
+        }
+        if (cfg.referenceSource() == com.example.iml.orchestrator.integration.config.ReferenceSource.CLIENT) {
+            log.info("integration.reference_source=client — эталон только через client.reference_bundle (WebSocket)");
+        }
 
         ClientWebSocketServer clientWsServer = null;
         final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(
@@ -158,6 +181,8 @@ public final class IntegrationBootstrap {
         }
         if (clientWsServer != null) {
             clientWsServer.setKopcheniPythonPool(pythonPool);
+            clientWsServer.attachPipelineReferences(pipelineReferenceRegistry, detectorByCamera);
+            clientWsServer.setLightTriggerClient(lightClient);
         }
         uiSidecar.setClientWebSocketServer(clientWsServer);
         if (clientApiMount.enabled()) {
@@ -179,7 +204,7 @@ public final class IntegrationBootstrap {
         ExecutorService geometryStageExecutor = null;
         ExecutorService decisionStageExecutor = null;
         Map<Integer, WorkerProcessSupervisor> workersByCamera = new LinkedHashMap<>();
-        Map<Integer, ReferenceSnapshot> referenceByCamera = new ConcurrentHashMap<>();
+        Map<Integer, ReferenceSnapshot> referenceByCamera = pipelineReferenceRegistry.byCamera();
         PipelineStagesLog pipelineStagesLogMutable = null;
         Path workerConfigPath = CameraWorkerPaths.resolveWorkerConfigPath(projectRoot, integration);
         if (!Files.isRegularFile(workerConfigPath)) {
@@ -188,6 +213,7 @@ public final class IntegrationBootstrap {
             log.info("camera_worker config={}", workerConfigPath.toAbsolutePath());
         }
 
+        LivePreviewPublisher livePreview = null;
         try {
             IntegrationFeatureConfig.TimingStagesLogConfig timingStagesLogCfg = IntegrationFeatureConfig.parseTimingStagesLog(integration);
             if (timingStagesLogCfg.enabled()) {
@@ -223,6 +249,22 @@ public final class IntegrationBootstrap {
                 log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
                 workersByCamera.put(cameraId, worker);
             }
+            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub =
+                    IntegrationFeatureConfig.parseDevAutoTriggerStub(integration);
+            livePreview = LivePreviewPublisher.start(
+                    log,
+                    root,
+                    cameras,
+                    workersByCamera,
+                    lightClient,
+                    uiServer,
+                    clientWsServer,
+                    flashLeadMs,
+                    uiCfg,
+                    cfg.referenceSource(),
+                    pipelineReferenceRegistry,
+                    devAutoTriggerStub
+            );
             cameraExecutor = Executors.newFixedThreadPool(cfg.cameraParallelism(), r -> {
                 Thread t = new Thread(r, "camera-flow");
                 t.setDaemon(true);
@@ -244,8 +286,6 @@ public final class IntegrationBootstrap {
             IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark = IntegrationFeatureConfig.parseSingleFrameBenchmark(integration);
             IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark = IntegrationFeatureConfig.parseConveyorBenchmark(integration);
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection = IntegrationFeatureConfig.parseContinuousInspection(integration);
-            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub =
-                    IntegrationFeatureConfig.parseDevAutoTriggerStub(integration);
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures = IntegrationFeatureConfig.parseSaveCaptures(integration);
             if (saveCaptures.enabled()) {
                 log.info("save_captures enabled dir={} (от корня проекта)", saveCaptures.relativeDir());
@@ -288,6 +328,7 @@ public final class IntegrationBootstrap {
                             geometryRoundRobin,
                             pythonRoundRobin,
                             referenceByCamera,
+                            cfg.referenceSource(),
                             cfg.reloadReference(),
                             activeCaptureStageExecutor,
                             activePythonStageExecutor,
@@ -315,6 +356,9 @@ public final class IntegrationBootstrap {
         } catch (Exception e) {
             log.error("Integration bootstrap failed", e);
         } finally {
+            if (livePreview != null) {
+                livePreview.close();
+            }
             IntegrationShutdownCoordinator.shutdownAll(new IntegrationShutdownCoordinator.ShutdownResources(
                     pipelineStagesLogMutable,
                     cameraExecutor,
@@ -327,6 +371,7 @@ public final class IntegrationBootstrap {
                     geometryPool,
                     lightServerProcess,
                     lightServerV2Process,
+                    analisSurfaceProcess,
                     lightClient,
                     uiVisualsPython,
                     uiArtifactsExecutor,

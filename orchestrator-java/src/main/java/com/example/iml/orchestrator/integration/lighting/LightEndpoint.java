@@ -12,4 +12,7 @@ public interface LightEndpoint {
     void ensureReady();
 
     void trigger(int cameraId, long frameId, String phase, int brightnessPercent, int durationMs) throws Exception;
+
+    /** Принудительно погасить все каналы (при остановке приложения). */
+    void turnOffAll() throws Exception;
 }

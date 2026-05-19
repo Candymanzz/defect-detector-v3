@@ -1,0 +1,10 @@
+^D:\VISIONGAY\DEFECT-DETECTOR-V3\CAMERA-WORKER\BUILD\CMAKEFILES\90995D5250EBCF3250EFF97165EB465C\GENERATE.STAMP.RULE
+setlocal
+C:\Tools\cmake-4.2.1-windows-x86_64\bin\cmake.exe -SD:/visionGay/defect-detector-v3/camera-worker -BD:/visionGay/defect-detector-v3/camera-worker/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/visionGay/defect-detector-v3/camera-worker/build/camera_worker.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

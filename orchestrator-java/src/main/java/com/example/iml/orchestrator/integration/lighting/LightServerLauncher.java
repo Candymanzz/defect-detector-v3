@@ -28,12 +28,15 @@ public final class LightServerLauncher {
             boolean isWindows,
             int startupDelayMs
     ) {
+        String primaryKey = isWindows ? "light_server_command_windows" : "light_server_command_linux";
+        String secondaryKey = isWindows ? "light_server_v2_command_windows" : "light_server_v2_command_linux";
         ExternalServiceProcess primary = startOne(integration, projectRoot, isWindows,
-                isWindows ? "light_server_command_windows" : "light_server_command_linux",
-                "light-server", startupDelayMs);
+                primaryKey, "light-server", startupDelayMs);
+        int v2StartupDelayMs = hasCommand(integration, secondaryKey)
+                ? Math.max(1500, startupDelayMs / 2)
+                : 0;
         ExternalServiceProcess secondary = startOne(integration, projectRoot, isWindows,
-                isWindows ? "light_server_v2_command_windows" : "light_server_v2_command_linux",
-                "light-server-v2", 0);
+                secondaryKey, "light-server-v2", v2StartupDelayMs);
         return new StartedProcesses(primary, secondary);
     }
 
@@ -44,6 +47,14 @@ public final class LightServerLauncher {
             int startupDelayMs
     ) {
         return startAllIfConfigured(integration, projectRoot, isWindows, startupDelayMs).primary();
+    }
+
+    private static boolean hasCommand(Map<String, Object> integration, String configKey) {
+        if (integration == null) {
+            return false;
+        }
+        Object raw = integration.get(configKey);
+        return raw instanceof List<?> list && !list.isEmpty();
     }
 
     private ExternalServiceProcess startOne(

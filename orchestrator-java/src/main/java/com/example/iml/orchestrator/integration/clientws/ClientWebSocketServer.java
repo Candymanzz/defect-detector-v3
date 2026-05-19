@@ -13,6 +13,8 @@ import com.example.iml.orchestrator.integration.clientws.service.ReferenceBundle
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferenceContext;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -101,12 +103,40 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         kopcheniBroadcaster.setPool(pool);
     }
 
+    public void attachPipelineReferences(PipelineReferenceRegistry registry, Map<Integer, String> detectorByCamera) {
+        application.attachPipelineReferences(registry, detectorByCamera);
+    }
+
+    public void setLightTriggerClient(LightTriggerClient lightTriggerClient) {
+        application.setLightTriggerClient(lightTriggerClient);
+    }
+
     public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws ClientWsKopcheniSyncException {
         WebSocket c;
         synchronized (sessionLock) {
             c = activeClient;
         }
         ReferenceBundleLifecycleService.applyFromDraft(application, c, snap);
+    }
+
+    public void notifyPreviewFrame(
+            int cameraId,
+            String productType,
+            String detectorId,
+            Map<String, Object> captureHeader,
+            String httpPath
+    ) {
+        if (captureHeader == null || cameraId < 0) {
+            return;
+        }
+        WebSocket c;
+        synchronized (sessionLock) {
+            c = activeClient;
+        }
+        if (c == null || !c.isOpen()) {
+            return;
+        }
+        outbound.sendPreviewFrame(c, cameraId, productType, detectorId, captureHeader, httpPath);
     }
 
     public void notifyInspectResult(

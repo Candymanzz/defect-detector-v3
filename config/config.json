@@ -16,6 +16,7 @@
       "id": 0,
       "enabled": true,
       "ip": "192.168.1.10",
+      "product_type": "bench-single-frame",
       "exposure_us": 12000,
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-0-cmd",
@@ -101,7 +102,7 @@
       "inspection_repeats": 5
     },
     "continuous_inspection": {
-      "enabled": true,
+      "enabled": false,
       "cycle_delay_ms": 400
     },
     "save_captures": {

@@ -1,6 +1,5 @@
 #define JSMN_STATIC
 #include "jsmn.h"
-#include "python_embed.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -82,11 +81,6 @@ typedef struct {
     uint64_t last_frame_id;
     int last_slot_index;
     FILE *metrics_log_file;
-    int python_embed_enabled;
-    int python_embed_ready;
-    char python_module[128];
-    char python_function[64];
-    char python_path[256];
     char capture_source[32];
     int frame_timeout_ms;
     uint64_t started_ns;
@@ -264,25 +258,6 @@ static int write_message(FILE *out_stream, uint8_t msg_type, const char *header_
 
 static int extract_op(const char *header_json, char *op, size_t op_len) {
     return json_find_string(header_json, (int)strlen(header_json), "op", op, op_len);
-}
-
-static void build_default_python_path(char *out, size_t out_len) {
-    if (!out || out_len == 0) return;
-#ifdef _WIN32
-    char cwd[MAX_PATH];
-    if (GetCurrentDirectoryA(sizeof(cwd), cwd) == 0) {
-        snprintf(out, out_len, "python-detectors\\src");
-        return;
-    }
-    snprintf(out, out_len, "python-detectors\\src;%s\\python-detectors\\.venv\\Lib\\site-packages", cwd);
-#else
-    char cwd[PATH_MAX];
-    if (!getcwd(cwd, sizeof(cwd))) {
-        snprintf(out, out_len, "python-detectors/src");
-        return;
-    }
-    snprintf(out, out_len, "python-detectors/src;%s/python-detectors/.venv/lib/python3.12/site-packages", cwd);
-#endif
 }
 
 static void update_latency(worker_state_t *st, uint64_t latency_ns) {
@@ -786,7 +761,6 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
 }
 
 static int init_worker_state(worker_state_t *st, int camera_id, const char *detector, const char *ip,
-                             const char *python_module, const char *python_function, const char *python_path,
                              const char *capture_source, int frame_timeout_ms) {
     memset(st, 0, sizeof(*st));
     st->camera_id = camera_id;
@@ -806,22 +780,12 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->shm_win_file = INVALID_HANDLE_VALUE;
     st->shm_win_map = NULL;
 #endif
-    st->python_embed_enabled = 1;
     st->frame_timeout_ms = frame_timeout_ms > 0 ? frame_timeout_ms : 1000;
     st->started_ns = now_ns();
     st->capture_backend_ready = 0;
     snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "not_initialized");
     snprintf(st->capture_source, sizeof(st->capture_source), "%s",
              (capture_source && capture_source[0] != '\0') ? capture_source : "fake");
-    snprintf(st->python_module, sizeof(st->python_module), "%s",
-             (python_module && python_module[0] != '\0') ? python_module : "embedded_detector");
-    snprintf(st->python_function, sizeof(st->python_function), "%s",
-             (python_function && python_function[0] != '\0') ? python_function : "detect");
-    if (python_path && python_path[0] != '\0') {
-        snprintf(st->python_path, sizeof(st->python_path), "%s", python_path);
-    } else {
-        build_default_python_path(st->python_path, sizeof(st->python_path));
-    }
 
     snprintf(st->shm_name, sizeof(st->shm_name), "/iml_cam_%d_frame", camera_id);
 #ifndef _WIN32
@@ -864,16 +828,25 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     }
     char shm_path[MAX_PATH];
     snprintf(shm_path, sizeof(shm_path), "%s\\iml_cam_%d_frame", shm_dir, camera_id);
+    /* Stale file from crashed orchestrator/worker blocks CREATE_ALWAYS (ERROR_USER_MAPPED_FILE=1224). */
+    DeleteFileA(shm_path);
     st->shm_win_file = CreateFileA(
             shm_path,
             GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
             NULL,
             CREATE_ALWAYS,
             FILE_ATTRIBUTE_NORMAL,
             NULL);
     if (st->shm_win_file == INVALID_HANDLE_VALUE) {
-        fprintf(stderr, "CreateFileA shm failed: %lu\n", (unsigned long)GetLastError());
+        DWORD err = GetLastError();
+        fprintf(stderr, "CreateFileA shm failed: %lu path=%s\n", (unsigned long)err, shm_path);
+        if (err == 1224) {
+            fprintf(stderr,
+                    "hint: file is memory-mapped by another process (orchestrator/java/camera_worker). "
+                    "Stop all of them, delete %%LOCALAPPDATA%%\\iml_shm\\iml_cam_%d_frame, retry.\n",
+                    camera_id);
+        }
         return 1;
     }
     st->shm_win_map = CreateFileMappingA(st->shm_win_file, NULL, PAGE_READWRITE,
@@ -963,48 +936,6 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
 #endif
         return 1;
     }
-    if (st->python_embed_enabled) {
-        char py_err[256] = {0};
-        if (py_embed_init(st->python_module, st->python_function, st->python_path, st->detector, py_err, sizeof(py_err)) != 0) {
-            fprintf(stderr, "python embed init failed: %s\n", py_err[0] ? py_err : "unknown");
-            if (st->metrics_log_file) {
-                fclose(st->metrics_log_file);
-                st->metrics_log_file = NULL;
-            }
-            if (st->pattern_frame) {
-                free(st->pattern_frame);
-                st->pattern_frame = NULL;
-            }
-#ifndef _WIN32
-            if (st->shm_base && st->shm_base != MAP_FAILED) {
-                munmap(st->shm_base, st->shm_bytes);
-                st->shm_base = NULL;
-            }
-            if (st->shm_fd >= 0) {
-                close(st->shm_fd);
-                st->shm_fd = -1;
-            }
-            if (st->shm_name[0] != '\0') {
-                shm_unlink(st->shm_name);
-            }
-#else
-            if (st->shm_base) {
-                UnmapViewOfFile(st->shm_base);
-                st->shm_base = NULL;
-            }
-            if (st->shm_win_map) {
-                CloseHandle(st->shm_win_map);
-                st->shm_win_map = NULL;
-            }
-            if (st->shm_win_file != INVALID_HANDLE_VALUE) {
-                CloseHandle(st->shm_win_file);
-                st->shm_win_file = INVALID_HANDLE_VALUE;
-            }
-#endif
-            return 1;
-        }
-        st->python_embed_ready = 1;
-    }
     return 0;
 }
 
@@ -1046,10 +977,6 @@ static void destroy_worker_state(worker_state_t *st) {
         st->shm_win_file = INVALID_HANDLE_VALUE;
     }
 #endif
-    if (st->python_embed_ready) {
-        py_embed_shutdown();
-        st->python_embed_ready = 0;
-    }
 #ifdef HAVE_ARAVIS
     shutdown_aravis(st);
 #endif
@@ -1059,11 +986,9 @@ static void destroy_worker_state(worker_state_t *st) {
 }
 
 static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, const char *detector, const char *ip,
-                              const char *python_module, const char *python_function, const char *python_path,
                               const char *capture_source, int frame_timeout_ms) {
     worker_state_t st;
-    if (init_worker_state(&st, camera_id, detector, ip, python_module, python_function, python_path,
-                          capture_source, frame_timeout_ms) != 0) return 1;
+    if (init_worker_state(&st, camera_id, detector, ip, capture_source, frame_timeout_ms) != 0) return 1;
 
     char header_buf[1024];
 
@@ -1142,7 +1067,7 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
                      "\"last_frame_id\":%llu,\"last_slot_index\":%d,"
                      "\"capture_source\":\"%s\",\"capture_backend_ready\":%s,\"capture_backend_info\":\"%s\","
                      "\"frame_timeout_ms\":%d,\"fps\":%.3f,"
-                     "\"python_embed\":{\"enabled\":%s,\"ready\":%s,\"module\":\"%s\",\"function\":\"%s\",\"version\":\"%s\"}}",
+                     "\"detection\":\"analisSurface\"}",
                      st.camera_id,
                      st.detector,
                      st.ip,
@@ -1159,12 +1084,7 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
                      st.capture_backend_ready ? "true" : "false",
                      st.capture_backend_info,
                      st.frame_timeout_ms,
-                     fps,
-                     st.python_embed_enabled ? "true" : "false",
-                     st.python_embed_ready ? "true" : "false",
-                     st.python_module,
-                     st.python_function,
-                     st.python_embed_ready ? py_embed_python_version() : "n/a");
+                     fps);
             write_message(out_stream, MSG_RESPONSE, out);
         } else if (strcmp(op, "capture") == 0) {
             uint64_t capture_started_ns = now_ns();
@@ -1196,26 +1116,9 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
                 log_metrics(&st);
             }
 
-            py_detect_result_t py_res;
-            memset(&py_res, 0, sizeof(py_res));
-            py_res.ok = 0;
-            snprintf(py_res.status, sizeof(py_res.status), "ERROR");
-            snprintf(py_res.message, sizeof(py_res.message), "python_embed_not_ready");
-            char py_err[256] = {0};
-            if (st.python_embed_ready) {
-                if (py_embed_detect(frame, st.width, st.height, st.stride, frame_id, &py_res, py_err, sizeof(py_err)) != 0) {
-                    py_res.ok = 0;
-                    snprintf(py_res.status, sizeof(py_res.status), "ERROR");
-                    snprintf(py_res.message, sizeof(py_res.message), "%s", py_err[0] ? py_err : "python_detect_failed");
-                    py_res.anomaly_score = 0.0;
-                }
-            }
-            char escaped_msg[512];
-            json_escape(py_res.message, escaped_msg, sizeof(escaped_msg));
             char out[1200];
             snprintf(out, sizeof(out),
-                     "{\"camera_id\":%d,\"frame_id\":%llu,\"slot_index\":%d,\"width\":%d,\"height\":%d,\"stride\":%d,\"format\":\"BGR8\",\"timestamp_ns\":%llu,\"shm_name\":\"%s\",\"shm_offset\":%zu,\"frame_bytes\":%zu,\"ring_slots\":%d,"
-                     "\"detector_result\":{\"ok\":%s,\"status\":\"%s\",\"anomaly_score\":%.6f,\"message\":\"%s\"}}",
+                     "{\"camera_id\":%d,\"frame_id\":%llu,\"slot_index\":%d,\"width\":%d,\"height\":%d,\"stride\":%d,\"format\":\"BGR8\",\"timestamp_ns\":%llu,\"shm_name\":\"%s\",\"shm_offset\":%zu,\"frame_bytes\":%zu,\"ring_slots\":%d}",
                      st.camera_id,
                      (unsigned long long)frame_id,
                      slot_index,
@@ -1226,32 +1129,11 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
                      st.shm_name,
                      slot_offset,
                      st.frame_bytes,
-                     st.ring_slots,
-                     py_res.ok ? "true" : "false",
-                     py_res.status,
-                     py_res.anomaly_score,
-                     escaped_msg);
+                     st.ring_slots);
             write_message(out_stream, MSG_RESPONSE, out);
         } else if (strcmp(op, "set_reference") == 0) {
-            uint64_t frame_id = st.last_frame_id;
-            if (frame_id == 0) {
-                write_message(out_stream, MSG_ERROR, "{\"error\":\"no_frame_available_for_reference\"}");
-                continue;
-            }
-            int slot_index = st.last_slot_index >= 0 ? st.last_slot_index : 0;
-            size_t slot_offset = (size_t)slot_index * st.frame_bytes;
-            uint8_t *frame = st.shm_base + slot_offset;
-            char py_err[256] = {0};
-            if (!st.python_embed_ready ||
-                py_embed_set_reference(frame, st.width, st.height, st.stride, "default", py_err, sizeof(py_err)) != 0) {
-                char escaped[320];
-                json_escape(py_err[0] ? py_err : "python_set_reference_failed", escaped, sizeof(escaped));
-                char out[448];
-                snprintf(out, sizeof(out), "{\"error\":\"%s\"}", escaped);
-                write_message(out_stream, MSG_ERROR, out);
-                continue;
-            }
-            write_message(out_stream, MSG_RESPONSE, "{\"status\":\"ok\",\"product_type\":\"default\"}");
+            write_message(out_stream, MSG_ERROR,
+                          "{\"error\":\"set_reference_not_supported\",\"hint\":\"use analisSurface set_reference_shm\"}");
         } else if (strcmp(op, "inject_exit") == 0) {
             fflush(out_stream);
             destroy_worker_state(&st);
@@ -1285,15 +1167,12 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
     return 0;
 }
 
-static int run_binary_loop(int camera_id, const char *detector, const char *ip, const char *python_module,
-                           const char *python_function, const char *python_path, const char *capture_source,
+static int run_binary_loop(int camera_id, const char *detector, const char *ip, const char *capture_source,
                            int frame_timeout_ms) {
-    return run_binary_loop_io(stdin, stdout, camera_id, detector, ip, python_module, python_function, python_path,
-                              capture_source, frame_timeout_ms);
+    return run_binary_loop_io(stdin, stdout, camera_id, detector, ip, capture_source, frame_timeout_ms);
 }
 
 static int run_named_pipe_loop(const char *pipe_base_path, int camera_id, const char *detector, const char *ip,
-                               const char *python_module, const char *python_function, const char *python_path,
                                const char *capture_source, int frame_timeout_ms) {
     if (!pipe_base_path || pipe_base_path[0] == '\0') {
         fprintf(stderr, "named pipe path is required\n");
@@ -1304,9 +1183,6 @@ static int run_named_pipe_loop(const char *pipe_base_path, int camera_id, const 
     (void)camera_id;
     (void)detector;
     (void)ip;
-    (void)python_module;
-    (void)python_function;
-    (void)python_path;
     (void)capture_source;
     (void)frame_timeout_ms;
     return 1;
@@ -1339,8 +1215,7 @@ static int run_named_pipe_loop(const char *pipe_base_path, int camera_id, const 
         unlink(resp_pipe);
         return 1;
     }
-    int rc = run_binary_loop_io(in_stream, out_stream, camera_id, detector, ip, python_module, python_function,
-                                python_path, capture_source, frame_timeout_ms);
+    int rc = run_binary_loop_io(in_stream, out_stream, camera_id, detector, ip, capture_source, frame_timeout_ms);
     fclose(in_stream);
     fclose(out_stream);
     unlink(cmd_pipe);
@@ -1363,34 +1238,26 @@ int main(int argc, char **argv) {
     char version[32] = "1";
     char detector[64] = "v1";
     char ip[64] = "127.0.0.1";
-    char python_module[128] = "embedded_detector";
-    char python_function[64] = "detect";
-    char python_path[256] = "";
     char capture_source[32] = "fake";
     int frame_timeout_ms = 1000;
     (void)json_find_string(js, (int)jslen, "version", version, sizeof(version));
     (void)json_find_string(js, (int)jslen, "detector", detector, sizeof(detector));
     (void)json_find_string(js, (int)jslen, "ip", ip, sizeof(ip));
-    (void)json_find_string(js, (int)jslen, "python_embed_module", python_module, sizeof(python_module));
-    (void)json_find_string(js, (int)jslen, "python_embed_function", python_function, sizeof(python_function));
-    (void)json_find_string(js, (int)jslen, "python_embed_path", python_path, sizeof(python_path));
     (void)json_find_string(js, (int)jslen, "capture_source", capture_source, sizeof(capture_source));
     (void)json_find_int(js, (int)jslen, "frame_timeout_ms", &frame_timeout_ms);
 
     fprintf(stderr, "worker start config version=%s path=%s camera=%d mode=%s\n", version, path, camera_id,
             binary_mode ? "binary-stdio" : (named_pipe_mode ? "named-pipe" : "stdout"));
-    fprintf(stderr, "python embed module=%s function=%s path=%s\n", python_module, python_function, python_path);
-    fprintf(stderr, "capture source=%s frame_timeout_ms=%d\n", capture_source, frame_timeout_ms);
+    fprintf(stderr, "capture source=%s frame_timeout_ms=%d (detection via analisSurface)\n", capture_source,
+            frame_timeout_ms);
 
     free(js);
 
     if (binary_mode) {
-        return run_binary_loop(camera_id, detector, ip, python_module, python_function, python_path,
-                               capture_source, frame_timeout_ms);
+        return run_binary_loop(camera_id, detector, ip, capture_source, frame_timeout_ms);
     }
     if (named_pipe_mode) {
-        return run_named_pipe_loop(named_pipe_path, camera_id, detector, ip, python_module, python_function, python_path,
-                                   capture_source, frame_timeout_ms);
+        return run_named_pipe_loop(named_pipe_path, camera_id, detector, ip, capture_source, frame_timeout_ms);
     }
 
     printf("Воркер: старт с конфигом версии %s (%s), камера %d\n", version, path, camera_id);

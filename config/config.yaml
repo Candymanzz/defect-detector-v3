@@ -20,8 +20,8 @@ cameras:
     ip: "192.168.1.10"
     exposure_us: 12000
     detector: "v1"
-    product_type: "bench-single-frame"
     pipe_command: "\\\\.\\pipe\\camera-0-cmd"
+    product_type: "bench-single-frame"
     pipe_command_linux: "/tmp/camera-0-cmd.sock"
 
 java_geometry:
@@ -36,7 +36,7 @@ java_geometry:
   max_wrinkles_score: 0.05
 
 python_detector:
-  # FastAPI analisSurface (запускайте uvicorn отдельно).
+  # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
   base_url: "http://127.0.0.1:8000"
   rois:
     - name: main
@@ -48,7 +48,7 @@ python_detector:
   include_visuals: false
 
 ui_http:
-  enabled: false
+  enabled: true
   host: "127.0.0.1"
   port: 8099
   visuals_async_enabled: false
@@ -62,12 +62,12 @@ ui_http:
 # Прокси к analisSurface: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
 # geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).
 client_api:
-  enabled: false
+  enabled: true
   kopcheni_base_url: "http://127.0.0.1:8000"
 
 # WebSocket UI (Фаза 1): hello + session_state; один клиент; ping по RFC6455; таймаут без входящих сообщений/pong.
 client_ws:
-  enabled: false
+  enabled: true
   host: "127.0.0.1"
   port: 8765
   path: "/"
@@ -79,7 +79,8 @@ client_ws:
 
 client:
   url: "ws://127.0.0.1:8765"
-  preview_max_fps: 10
+  # Используется только если в integration.live_preview не задан interval_ms
+  preview_max_fps: 1
 
 robot:
   url: "http://127.0.0.1:9999"
@@ -122,6 +123,12 @@ light_servers:
       channels: [1, 2, 3, 4]
 
 integration:
+  # camera — эталон снимается с камеры при старте; client — только client.reference_bundle по WebSocket.
+  reference_source: client
+  # Preview на фронт (WS server.preview_frame + HTTP current.jpg) до эталона; интервал как у dev_auto_trigger_stub.
+  live_preview:
+    enabled: true
+    interval_ms: 5000
   camera_parallelism: 1
   geometry_pool_size: 2
   python_parallelism: 1
@@ -138,6 +145,7 @@ integration:
     reference_repeats: 5
     inspection_repeats: 5
   # Временная заглушка: цикл каждые N мс без внешнего триггера (пока в разработке). Выключить, когда появится сигнал с линии.
+  # После client.reference_bundle — периодический capture (текущие кадры на :8099 / WS inspect_result).
   dev_auto_trigger_stub:
     enabled: true
     interval_ms: 5000
@@ -161,6 +169,30 @@ integration:
     enabled: true
     directory: "testimage"
     jpeg_quality: 0.92
+  # Автозапуск uvicorn (как LightServer). Один раз: pip install в analisSurface/backend/.venv
+  analis_surface_autostart:
+    enabled: true
+    working_dir: "analisSurface/backend"
+    startup_timeout_ms: 180000
+    health_path: "/health"
+  analis_surface_command_windows:
+    - "analisSurface/backend/.venv/Scripts/python.exe"
+    - "-m"
+    - "uvicorn"
+    - "app.main:app"
+    - "--host"
+    - "127.0.0.1"
+    - "--port"
+    - "8000"
+  analis_surface_command_linux:
+    - "analisSurface/backend/.venv/bin/python"
+    - "-m"
+    - "uvicorn"
+    - "app.main:app"
+    - "--host"
+    - "127.0.0.1"
+    - "--port"
+    - "8000"
   geometry_command_windows:
     - "java"
     - "-jar"

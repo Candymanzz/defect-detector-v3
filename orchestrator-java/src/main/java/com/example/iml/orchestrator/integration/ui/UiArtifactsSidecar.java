@@ -215,7 +215,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     qualPct = Math.min(100, Math.max(5, qualPct));
                     float q = qualPct / 100f;
                     UiHttpServer.ClientPreviewArtifact art =
-                            UiHttpServer.writeCurrentJpegFromBgrShm(shmName, width, height, stride, previewMaxW, q);
+                            UiHttpServer.writeCurrentJpegFromBgrShm(shmName, width, height, stride, previewMaxW, q, cameraId);
                     currentJpeg = art.path();
                     currentJpegW = art.width();
                     currentJpegH = art.height();

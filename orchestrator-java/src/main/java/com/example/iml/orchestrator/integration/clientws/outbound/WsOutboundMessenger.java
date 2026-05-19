@@ -59,6 +59,35 @@ public final class WsOutboundMessenger {
         }
     }
 
+    public void sendPreviewFrame(
+            WebSocket conn,
+            int cameraId,
+            String productType,
+            String detectorId,
+            Map<String, Object> captureHeader,
+            String httpPath
+    ) {
+        try {
+            long frameIdLong = YamlScalars.toLong(captureHeader.get("frame_id"), -1L);
+            String shmName = String.valueOf(captureHeader.get("shm_name")).trim();
+            String json = buildPreviewFrameJson(
+                    cameraId,
+                    productType,
+                    detectorId,
+                    captureHeader,
+                    frameIdLong,
+                    shmName,
+                    httpPath
+            );
+            sendRaw(conn, json, WsMessageTypes.SERVER_PREVIEW_FRAME);
+            log.debug("client_ws sent type={} camera_id={} frame_id={}", WsMessageTypes.SERVER_PREVIEW_FRAME, cameraId, frameIdLong);
+        } catch (ClientWsInvalidCaptureDescriptorException | ClientWsJsonSerializationException e) {
+            log.debug("client_ws preview_frame build failed: {}", e.getMessage());
+        } catch (ClientWsSendFailedException e) {
+            log.debug("client_ws preview_frame send failed: {}", e.getMessage());
+        }
+    }
+
     public void sendInspectResult(
             WebSocket conn,
             int cameraId,
@@ -93,6 +122,23 @@ public final class WsOutboundMessenger {
             log.debug("client_ws inspect_result build failed: {}", e.getMessage());
         } catch (ClientWsSendFailedException e) {
             log.debug("client_ws inspect_result send failed: {}", e.getMessage());
+        }
+    }
+
+    public void sendLightBrightnessAck(WebSocket conn, JsonNode requestRoot, int brightnessPercent) {
+        try {
+            ObjectNode root = JSON.createObjectNode();
+            root.put("type", WsMessageTypes.SERVER_LIGHT_BRIGHTNESS_ACK);
+            root.put("protocol_version", cfg.protocolVersion());
+            copyRequestMessageId(root, requestRoot);
+            ObjectNode payload = JSON.createObjectNode();
+            payload.put("ok", true);
+            payload.put("brightness_percent", brightnessPercent);
+            root.set("payload", payload);
+            sendRaw(conn, writeJson(root), WsMessageTypes.SERVER_LIGHT_BRIGHTNESS_ACK);
+            log.info("client_ws sent type={} brightness_percent={}", WsMessageTypes.SERVER_LIGHT_BRIGHTNESS_ACK, brightnessPercent);
+        } catch (ClientWsJsonSerializationException | ClientWsSendFailedException e) {
+            log.warn("client_ws light_brightness_ack send failed: {}", e.getMessage());
         }
     }
 
@@ -193,6 +239,44 @@ public final class WsOutboundMessenger {
         return writeJson(root);
     }
 
+    private String buildPreviewFrameJson(
+            int cameraId,
+            String productType,
+            String detectorId,
+            Map<String, Object> captureHeader,
+            long frameIdLong,
+            String shmName,
+            String httpPath
+    ) throws ClientWsJsonSerializationException, ClientWsInvalidCaptureDescriptorException {
+        ObjectNode current = buildCurrentShmObjectNode(cameraId, captureHeader, frameIdLong, shmName);
+        if (httpPath != null && !httpPath.isBlank()) {
+            current.put("http_path", httpPath);
+        }
+        ObjectNode root = JSON.createObjectNode();
+        root.put("type", WsMessageTypes.SERVER_PREVIEW_FRAME);
+        root.put("protocol_version", cfg.protocolVersion());
+        root.put("message_id", UUID.randomUUID().toString());
+        ObjectNode payload = JSON.createObjectNode();
+        payload.put("camera_id", cameraId);
+        payload.put("frame_id", Long.toString(frameIdLong));
+        payload.put("session_state", sessionState.get().name());
+        payload.set("current", current);
+        if (httpPath != null && !httpPath.isBlank()) {
+            payload.put("http_path", httpPath);
+        }
+        ObjectNode det = JSON.createObjectNode();
+        if (detectorId != null && !detectorId.isBlank()) {
+            det.put("detector_id", detectorId);
+        }
+        if (productType != null && !productType.isBlank()) {
+            det.put("product_type", productType);
+        }
+        payload.set("detector", det);
+        payload.put("server_ts_ms", System.currentTimeMillis());
+        root.set("payload", payload);
+        return writeJson(root);
+    }
+
     private String buildInspectResultJson(
             int cameraId,
             String productType,
@@ -207,6 +291,8 @@ public final class WsOutboundMessenger {
             boolean includeHeatmapFilePathInWs
     ) throws ClientWsJsonSerializationException, ClientWsInvalidCaptureDescriptorException {
         ObjectNode current = buildCurrentShmObjectNode(cameraId, captureHeader, frameIdLong, shmName);
+        String previewHttpPath = "/api/camera/" + cameraId + "/current.jpg";
+        current.put("http_path", previewHttpPath);
         ObjectNode root = JSON.createObjectNode();
         root.put("type", WsMessageTypes.SERVER_INSPECT_RESULT);
         root.put("protocol_version", cfg.protocolVersion());
@@ -216,6 +302,7 @@ public final class WsOutboundMessenger {
         payload.put("frame_id", Long.toString(frameIdLong));
         payload.put("session_state", sessionState.get().name());
         payload.set("current", current);
+        payload.put("http_path", previewHttpPath);
         boolean hasHm = heatmapU8Path != null
                 && heatmapW > 0
                 && heatmapH > 0

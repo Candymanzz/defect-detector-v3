@@ -3,11 +3,14 @@ package com.example.iml.orchestrator.integration.http.controller;
 import com.example.iml.orchestrator.integration.http.HttpController;
 import com.example.iml.orchestrator.integration.http.HttpRequestContext;
 import com.example.iml.orchestrator.integration.http.HttpResponses;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessCommands;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessScale;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.Map;
@@ -17,6 +20,7 @@ import java.util.Map;
  */
 public final class LightSettingsHttpController implements HttpController {
 
+    private static final Logger LOG = LogManager.getLogger(LightSettingsHttpController.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LightTriggerClient lightClient;
@@ -36,14 +40,50 @@ public final class LightSettingsHttpController implements HttpController {
             handleGet(ctx);
             return;
         }
-        if ("PUT".equalsIgnoreCase(method)) {
-            handlePut(ctx);
+        if ("PUT".equalsIgnoreCase(method) || "POST".equalsIgnoreCase(method) || "PATCH".equalsIgnoreCase(method)) {
+            handleSet(ctx);
             return;
         }
         HttpResponses.methodNotAllowed(ctx);
     }
 
     private void handleGet(HttpRequestContext ctx) throws IOException {
+        Integer fromQuery = LightBrightnessCommands.parseUnifiedPercentFromQuery(ctx.query());
+        if (fromQuery != null) {
+            lightClient.setBrightnessPercent(fromQuery);
+            LOG.info("light brightness set to {}% via GET query", lightClient.brightnessPercent());
+        }
+        sendCurrent(ctx);
+    }
+
+    private void handleSet(HttpRequestContext ctx) throws IOException {
+        Integer percent = LightBrightnessCommands.parseUnifiedPercentFromQuery(ctx.query());
+        byte[] raw = ctx.readBody();
+        if (percent == null && raw.length > 0) {
+            percent = LightBrightnessCommands.parseUnifiedPercentFromHttpBody(raw);
+        }
+        if (percent == null && raw.length > 0) {
+            Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
+            });
+            percent = LightBrightnessCommands.parseUnifiedPercentFromMap(body);
+        }
+        if (percent == null) {
+            HttpResponses.sendJsonError(ctx, 400, "brightness_percent required (0..100), query or JSON body");
+            return;
+        }
+        int before = lightClient.brightnessPercent();
+        lightClient.setBrightnessPercent(percent);
+        LOG.info("light brightness updated {}% -> {}% via HTTP {} {}",
+                before, lightClient.brightnessPercent(), ctx.method(), ctx.path());
+        ObjectNode ok = JSON.createObjectNode();
+        ok.put("ok", true);
+        ok.put("brightness_percent", lightClient.brightnessPercent());
+        ok.put("com_controller_percent", LightBrightnessScale.toComControllerPercent(lightClient.brightnessPercent()));
+        ok.put("mv_le_brightness", LightBrightnessScale.toMvLeBrightness(lightClient.brightnessPercent()));
+        HttpResponses.sendJson(ctx, 200, ok);
+    }
+
+    private void sendCurrent(HttpRequestContext ctx) throws IOException {
         int p = lightClient.brightnessPercent();
         ObjectNode root = JSON.createObjectNode();
         root.put("brightness_percent", p);
@@ -51,36 +91,5 @@ public final class LightSettingsHttpController implements HttpController {
         root.put("mv_le_brightness", LightBrightnessScale.toMvLeBrightness(p));
         root.put("scale", "0-100 unified; COM uses percent; MV-LE maps to 0-255");
         HttpResponses.sendJson(ctx, 200, root);
-    }
-
-    private void handlePut(HttpRequestContext ctx) throws IOException {
-        byte[] raw = ctx.readBody();
-        if (raw.length == 0) {
-            HttpResponses.sendJsonError(ctx, 400, "body required: brightness_percent");
-            return;
-        }
-        Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
-        });
-        Object v = body.get("brightness_percent");
-        if (v == null) {
-            HttpResponses.sendJsonError(ctx, 400, "brightness_percent required (0..100)");
-            return;
-        }
-        int percent;
-        if (v instanceof Number n) {
-            percent = n.intValue();
-        } else {
-            try {
-                percent = Integer.parseInt(String.valueOf(v).trim());
-            } catch (NumberFormatException e) {
-                HttpResponses.sendJsonError(ctx, 400, "brightness_percent must be integer 0..100");
-                return;
-            }
-        }
-        lightClient.setBrightnessPercent(percent);
-        ObjectNode ok = JSON.createObjectNode();
-        ok.put("ok", true);
-        ok.put("brightness_percent", lightClient.brightnessPercent());
-        HttpResponses.sendJson(ctx, 200, ok);
     }
 }

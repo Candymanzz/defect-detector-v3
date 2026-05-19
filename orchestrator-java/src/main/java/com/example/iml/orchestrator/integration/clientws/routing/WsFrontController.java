@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.clientws.routing;
 import com.example.iml.orchestrator.integration.clientws.application.ClientWsApplicationContext;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsException;
 import com.example.iml.orchestrator.integration.clientws.handler.FpZonesUpdateWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.LightBrightnessWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.ReferenceBundleWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.SetActiveReferenceViewWsHandler;
 import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
@@ -50,6 +51,7 @@ public final class WsFrontController {
         router.register(new WsRoute(WsMessageTypes.CLIENT_REFERENCE_BUNDLE, new ReferenceBundleWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_FP_ZONES_UPDATE, new FpZonesUpdateWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_SET_ACTIVE_REFERENCE_VIEW, new SetActiveReferenceViewWsHandler()));
+        router.register(new WsRoute(WsMessageTypes.CLIENT_LIGHT_BRIGHTNESS, new LightBrightnessWsHandler()));
         return router;
     }
 }

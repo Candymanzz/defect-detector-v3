@@ -21,6 +21,7 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddSingleton<LightControlService>();
 builder.Services.AddHostedService<MvsSdkLifetime>();
+builder.Services.AddHostedService<LightShutdownHostedService>();
 
 var app = builder.Build();
 

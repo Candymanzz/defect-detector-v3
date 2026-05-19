@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Запуск внешнего процесса (отдельный OS-процесс) из командной строки, без управления протоколом IML.
@@ -38,8 +39,14 @@ public final class ExternalServiceProcess implements AutoCloseable {
     @Override
     public void close() {
         try {
-            if (process.isAlive()) {
-                process.destroy();
+            if (!process.isAlive()) {
+                return;
+            }
+            process.destroy();
+            if (!process.waitFor(3, TimeUnit.SECONDS)) {
+                log.warn("external service {} did not exit in 3s, forcing", name);
+                process.destroyForcibly();
+                process.waitFor(1, TimeUnit.SECONDS);
             }
         } catch (Exception e) {
             log.warn("failed to stop external service {}: {}", name, e.getMessage());

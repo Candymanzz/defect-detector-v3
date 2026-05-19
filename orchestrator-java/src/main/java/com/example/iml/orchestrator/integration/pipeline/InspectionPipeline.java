@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.pipeline;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -48,6 +49,7 @@ public final class InspectionPipeline {
             AtomicInteger geometryRoundRobin,
             AtomicInteger pythonRoundRobin,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
+            ReferenceSource referenceSource,
             boolean reloadReferenceGlobal,
             ExecutorService captureStageExecutor,
             ExecutorService pythonStageExecutor,
@@ -123,29 +125,50 @@ public final class InspectionPipeline {
                 || reloadReferenceGlobal
                 || reloadReferenceLocal;
         int referenceRepeatCount = singleFrameBenchmark.enabled() ? singleFrameBenchmark.referenceRepeats() : 1;
-        ReferenceBootstrapOutcome refMain = svc.referenceBootstrap().ensure(
-                projectRoot,
-                saveCaptures,
-                cameraId,
-                productType,
-                productType,
-                detectorId,
-                needReference,
-                referenceSnapshot,
-                worker,
-                lightClient,
-                pythonPool,
-                uiVisualsPython,
-                referenceRepeatCount,
-                referenceByCamera,
-                pipelineStagesLog,
-                null,
-                ReferenceLogStyle.STANDARD,
-                true
-        );
-        referenceSnapshot = refMain.snapshot();
-        long referenceMsFinal = refMain.referenceWallMs();
+        long referenceMsFinal = 0L;
         ReferenceSnapshot activeReference = referenceSnapshot;
+        boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
+        if (referenceFromClient) {
+            if (needReference) {
+                svc.log().info(
+                        "worker cam={}: waiting for client.reference_bundle (integration.reference_source=client)",
+                        cameraId
+                );
+            }
+        } else {
+            try {
+                ReferenceBootstrapOutcome refMain = svc.referenceBootstrap().ensure(
+                        projectRoot,
+                        saveCaptures,
+                        cameraId,
+                        productType,
+                        productType,
+                        detectorId,
+                        needReference,
+                        referenceSnapshot,
+                        worker,
+                        lightClient,
+                        pythonPool,
+                        uiVisualsPython,
+                        referenceRepeatCount,
+                        referenceByCamera,
+                        pipelineStagesLog,
+                        null,
+                        ReferenceLogStyle.STANDARD,
+                        true
+                );
+                activeReference = refMain.snapshot();
+                referenceMsFinal = refMain.referenceWallMs();
+            } catch (Exception e) {
+                svc.log().error(
+                        "worker cam={} reference bootstrap failed (inspection loop will continue): {}",
+                        cameraId,
+                        e.getMessage(),
+                        e
+                );
+                activeReference = referenceByCamera.get(cameraId);
+            }
+        }
 
         AsyncInspectionCycleInput in = shared.withPerCycleIdentity(productType, activeReference, referenceMsFinal);
 
@@ -161,6 +184,13 @@ public final class InspectionPipeline {
             return;
         }
 
-        ProductionInspectionOrchestrator.run(svc, in, continuousInspection, devAutoTriggerStub);
+        ProductionInspectionOrchestrator.run(
+                svc,
+                in,
+                continuousInspection,
+                devAutoTriggerStub,
+                referenceSource,
+                referenceByCamera
+        );
     }
 }

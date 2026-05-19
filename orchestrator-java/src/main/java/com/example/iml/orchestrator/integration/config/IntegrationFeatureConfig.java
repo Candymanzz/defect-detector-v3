@@ -30,6 +30,13 @@ public final class IntegrationFeatureConfig {
     public record DevAutoTriggerStubConfig(boolean enabled, int intervalMs) {
     }
 
+    public static ReferenceSource parseReferenceSource(Map<String, Object> integration) {
+        if (integration == null) {
+            return ReferenceSource.CAMERA;
+        }
+        return ReferenceSource.fromConfig(integration.get("reference_source"));
+    }
+
     public record SaveCapturesConfig(boolean enabled, String relativeDir, float jpegQuality) {
     }
 

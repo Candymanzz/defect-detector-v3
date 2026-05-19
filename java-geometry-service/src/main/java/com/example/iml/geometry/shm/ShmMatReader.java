@@ -6,6 +6,7 @@ import org.opencv.core.Mat;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -14,22 +15,50 @@ public final class ShmMatReader {
     private byte[] shmReadBuffer = new byte[0];
     private byte[] shmRowBuffer = new byte[0];
 
-    /** Linux: /dev/shm. Windows: %LOCALAPPDATA%\\iml_shm (как в camera-worker). */
+    /** Linux: /dev/shm. Windows: абсолютный путь или %LOCALAPPDATA%\\iml_shm\\iml_cam_N_frame. */
     public static Path resolveShmPath(String shmName) {
-        String key = shmName.startsWith("/") ? shmName.substring(1) : shmName;
-        key = key.replace("/", "_");
+        if (shmName == null || shmName.isBlank()) {
+            throw new IllegalArgumentException("shm_name is empty");
+        }
         String os = System.getProperty("os.name", "").toLowerCase();
         if (os.contains("win")) {
-            String base = System.getenv("LOCALAPPDATA");
-            if (base == null || base.isBlank()) {
-                base = System.getenv("TEMP");
+            Path direct = Path.of(shmName.trim());
+            if (direct.isAbsolute()) {
+                if (Files.isRegularFile(direct)) {
+                    return direct;
+                }
+                String name = direct.getFileName().toString();
+                if (name.endsWith(".bin")) {
+                    Path alt = windowsImlShmDir().resolve(name.substring(0, name.length() - 4));
+                    if (Files.isRegularFile(alt)) {
+                        return alt;
+                    }
+                }
+                if (name.startsWith("iml_cam_")) {
+                    Path alt = windowsImlShmDir().resolve(name);
+                    if (Files.isRegularFile(alt)) {
+                        return alt;
+                    }
+                }
+                return direct;
             }
-            if (base == null || base.isBlank()) {
-                base = ".";
-            }
-            return Path.of(base, "iml_shm", key);
+            String key = shmName.startsWith("/") ? shmName.substring(1) : shmName;
+            key = key.replace("/", "_");
+            return windowsImlShmDir().resolve(key);
         }
+        String key = shmName.startsWith("/") ? shmName.substring(1) : shmName;
         return Path.of("/dev/shm", key);
+    }
+
+    private static Path windowsImlShmDir() {
+        String base = System.getenv("LOCALAPPDATA");
+        if (base == null || base.isBlank()) {
+            base = System.getenv("TEMP");
+        }
+        if (base == null || base.isBlank()) {
+            base = ".";
+        }
+        return Path.of(base, "iml_shm");
     }
 
     public Mat readShmMat(Map<String, Object> h) {

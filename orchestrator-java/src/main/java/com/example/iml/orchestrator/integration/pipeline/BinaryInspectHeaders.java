@@ -86,15 +86,18 @@ public final class BinaryInspectHeaders {
             String detectorId,
             Map<String, Object> referenceCaptureHeader
     ) {
-        return Map.of(
-                "op", "set_reference_shm",
-                "product_type", productType,
-                "detector_id", detectorId,
-                "shm_name", referenceCaptureHeader.get("shm_name"),
-                "shm_offset", referenceCaptureHeader.get("shm_offset"),
-                "width", referenceCaptureHeader.get("width"),
-                "height", referenceCaptureHeader.get("height"),
-                "stride", referenceCaptureHeader.get("stride")
-        );
+        Map<String, Object> h = new HashMap<>();
+        h.put("op", "set_reference_shm");
+        h.put("product_type", productType);
+        h.put("detector_id", detectorId);
+        h.put("shm_name", referenceCaptureHeader.get("shm_name"));
+        h.put("shm_offset", referenceCaptureHeader.get("shm_offset"));
+        h.put("width", referenceCaptureHeader.get("width"));
+        h.put("height", referenceCaptureHeader.get("height"));
+        h.put("stride", referenceCaptureHeader.get("stride"));
+        if (referenceCaptureHeader.get("camera_id") != null) {
+            h.put("camera_id", referenceCaptureHeader.get("camera_id"));
+        }
+        return h;
     }
 }

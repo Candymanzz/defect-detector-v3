@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.config;
 
 import com.example.iml.orchestrator.integration.camera.WorkerIpcMode;
+import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.util.List;
@@ -19,6 +20,7 @@ public record IntegrationBootConfig(
         int cameraParallelism,
         int geometryPoolSize,
         boolean reloadReference,
+        ReferenceSource referenceSource,
         int pythonParallelism,
         List<String> pythonCommand,
         List<String> geometryCommand,
@@ -40,6 +42,8 @@ public record IntegrationBootConfig(
         int cameraParallelism = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("camera_parallelism"), Math.min(5, cameraCount)));
         int geometryPoolSize = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("geometry_pool_size"), 2));
         boolean reloadReference = YamlScalars.toBool(integration == null ? null : integration.get("reload_reference"), false);
+        ReferenceSource referenceSource = ReferenceSource.fromConfig(
+                integration == null ? null : integration.get("reference_source"));
         int pythonParallelism = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("python_parallelism"), Math.min(cameraParallelism, 2)));
         int stageQueueSize = Math.max(4, YamlScalars.toInt(integration == null ? null : integration.get("stage_queue_size"), cameraParallelism * 2));
         return new IntegrationBootConfig(
@@ -52,6 +56,7 @@ public record IntegrationBootConfig(
                 cameraParallelism,
                 geometryPoolSize,
                 reloadReference,
+                referenceSource,
                 pythonParallelism,
                 List.of(),
                 List.of(),
@@ -71,6 +76,7 @@ public record IntegrationBootConfig(
                 cameraParallelism,
                 geometryPoolSize,
                 reloadReference,
+                referenceSource,
                 pythonParallelism,
                 pythonCommand,
                 geometryCommand,

@@ -77,6 +77,9 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             String debugLogSuffix
     ) {
         try {
+            if (activeReference == null || activeReference.header() == null) {
+                throw new IllegalStateException("no reference snapshot; wait for reference bootstrap or send client.reference_bundle");
+            }
             long t0 = System.nanoTime();
             lightClient.trigger(cameraId, YamlScalars.toLong(activeReference.header().get("frame_id"), -1L), "capture");
             if (flashLeadMs > 0) {

@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.http.controller.CameraPreviewHtt
 import com.example.iml.orchestrator.integration.http.controller.ClientApiHttpController;
 import com.example.iml.orchestrator.integration.http.controller.GeometryHttpController;
 import com.example.iml.orchestrator.integration.http.controller.HealthHttpController;
+import com.example.iml.orchestrator.integration.http.controller.LightLegacyProxyHttpController;
 import com.example.iml.orchestrator.integration.http.controller.LightSettingsHttpController;
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorFpZonesHttpController;
 import com.sun.net.httpserver.HttpExchange;
@@ -35,7 +36,13 @@ public final class HttpFrontController {
 
         Optional<HttpController> handler = router.match(method, path);
         if (handler.isPresent()) {
-            handler.get().handle(req);
+            try {
+                handler.get().handle(req);
+            } catch (Exception e) {
+                if (!req.exchange().getResponseHeaders().containsKey("Content-type")) {
+                    HttpResponses.sendJsonError(req, 500, e.getClass().getSimpleName() + ": " + e.getMessage());
+                }
+            }
             return;
         }
         HttpResponses.notFound(req);
@@ -65,6 +72,17 @@ public final class HttpFrontController {
             LightSettingsHttpController light = new LightSettingsHttpController(ctx.lightTriggerClient());
             router.register(HttpRoute.exact("GET", "/api/orchestrator/light/brightness", light));
             router.register(HttpRoute.exact("PUT", "/api/orchestrator/light/brightness", light));
+            router.register(HttpRoute.exact("POST", "/api/orchestrator/light/brightness", light));
+            router.register(HttpRoute.exact("PATCH", "/api/orchestrator/light/brightness", light));
+            router.register(HttpRoute.exact("GET", "/api/light/brightness", light));
+            router.register(HttpRoute.exact("PUT", "/api/light/brightness", light));
+            router.register(HttpRoute.exact("POST", "/api/light/brightness", light));
+            LightLegacyProxyHttpController legacy = new LightLegacyProxyHttpController(
+                    ctx.lightTriggerClient(),
+                    ctx.lightServersConfig()
+            );
+            router.register(HttpRoute.exact("POST", "/api/light", legacy));
+            router.register(HttpRoute.exact("POST", "/api/light/trigger-inspection", legacy));
         }
 
         OrchestratorFpZonesHttpController fpZones = new OrchestratorFpZonesHttpController(ctx.analisSurfaceBaseUrl());

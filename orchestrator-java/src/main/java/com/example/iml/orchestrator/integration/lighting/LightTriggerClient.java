@@ -102,7 +102,12 @@ public final class LightTriggerClient {
      * Единая яркость для всех контроллеров (0…100). Для будущего client API.
      */
     public void setBrightnessPercent(int percent) {
-        this.runtimeBrightnessPercent = LightBrightnessScale.clampPercent(percent);
+        int clamped = LightBrightnessScale.clampPercent(percent);
+        int before = this.runtimeBrightnessPercent;
+        this.runtimeBrightnessPercent = clamped;
+        if (before != clamped) {
+            LOG.info("light runtime brightness {}% -> {}%", before, clamped);
+        }
     }
 
     public int brightnessPercent() {
@@ -114,6 +119,8 @@ public final class LightTriggerClient {
             return;
         }
         int brightness = runtimeBrightnessPercent;
+        LOG.info("light trigger cam={} frame={} phase={} brightness_percent={}",
+                cameraId, frameId, phase, brightness);
         for (LightEndpoint ep : endpoints) {
             if (ep.enabled()) {
                 ep.ensureReady();
@@ -192,8 +199,40 @@ public final class LightTriggerClient {
         }
     }
 
+    /** Погасить все подсветки перед остановкой LightServer-процессов. */
+    public void forceAllOff() {
+        if (!enabled) {
+            return;
+        }
+        List<Callable<Void>> tasks = new ArrayList<>();
+        for (LightEndpoint ep : endpoints) {
+            if (!ep.enabled()) {
+                continue;
+            }
+            tasks.add(() -> {
+                try {
+                    ep.turnOffAll();
+                } catch (Exception e) {
+                    LOG.warn("light {} turnOffAll: {}", ep.id(), e.getMessage());
+                }
+                return null;
+            });
+        }
+        if (tasks.isEmpty()) {
+            return;
+        }
+        try {
+            triggerExecutor.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.warn("light forceAllOff interrupted");
+        }
+    }
+
     public void shutdown() {
+        forceAllOff();
         triggerExecutor.shutdownNow();
+        MvLeLightEndpoint.shutdownScheduler();
         try {
             if (!triggerExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
                 triggerExecutor.shutdownNow();

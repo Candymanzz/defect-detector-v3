@@ -5,8 +5,11 @@ import com.example.iml.orchestrator.integration.clientws.outbound.WsOutboundMess
 import com.example.iml.orchestrator.integration.clientws.service.ClientWsKopcheniBroadcaster;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferenceContext;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
+import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import org.apache.logging.log4j.Logger;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -20,6 +23,9 @@ public final class ClientWsApplicationContext {
     private final AtomicReference<ClientWsSessionState> sessionState;
     private final ClientWsKopcheniBroadcaster kopcheniBroadcaster;
     private final WsOutboundMessenger outbound;
+    private volatile PipelineReferenceRegistry pipelineReferences;
+    private volatile Map<Integer, String> detectorByCamera = Map.of();
+    private volatile LightTriggerClient lightTriggerClient;
 
     public ClientWsApplicationContext(
             Logger log,
@@ -63,5 +69,26 @@ public final class ClientWsApplicationContext {
 
     public WsOutboundMessenger outbound() {
         return outbound;
+    }
+
+    public void attachPipelineReferences(PipelineReferenceRegistry registry, Map<Integer, String> detectorByCamera) {
+        this.pipelineReferences = registry;
+        this.detectorByCamera = detectorByCamera == null ? Map.of() : Map.copyOf(detectorByCamera);
+    }
+
+    public PipelineReferenceRegistry pipelineReferences() {
+        return pipelineReferences;
+    }
+
+    public String detectorForCamera(int cameraId) {
+        return detectorByCamera.getOrDefault(cameraId, "v1");
+    }
+
+    public void setLightTriggerClient(LightTriggerClient lightTriggerClient) {
+        this.lightTriggerClient = lightTriggerClient;
+    }
+
+    public LightTriggerClient lightTriggerClient() {
+        return lightTriggerClient;
     }
 }
