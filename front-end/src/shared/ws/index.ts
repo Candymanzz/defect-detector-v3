@@ -1,6 +1,7 @@
 export { OrchestratorWebSocketClient, orchestratorWs } from "./clientWebSocket";
 export type {
   ClientFpZonesUpdatePayload,
+  ClientLightBrightnessPayload,
   ClientReferenceBundlePayload,
   ClientWsEnvelope,
   ClientWsMessage,
@@ -13,8 +14,11 @@ export type {
   InspectResultPayload,
   PixelFormat,
   PixelRoi,
+  PreviewFramePayload,
   ReferenceViewSlot,
   ServerErrorCode,
+  ServerLightBrightnessAckMessage,
+  ServerPreviewFrameMessage,
   ServerWsMessage,
   ServerWsMessageType,
   ServerWsPayloadByType,

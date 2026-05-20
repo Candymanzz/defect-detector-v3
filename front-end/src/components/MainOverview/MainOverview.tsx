@@ -10,7 +10,7 @@ import {
   INITIAL_BACKEND_STATUS,
   loadMainOverviewData,
 } from "./MainController";
-import type { BackendStatus, SelectedCamera } from "./MainController";
+import type { BackendStatus, SelectedCamera } from "./type";
 import "./MainOverview.css";
 
 

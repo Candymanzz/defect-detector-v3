@@ -1,7 +1,7 @@
 import { MainOverview } from "../components/MainOverview";
+import { SettingList } from "../components/SettingList";
 import logo from "../shared/assets/images/savt_logo_white.png";
 import "./App.css";
-import { SettingList } from "../components/SettingList/SettingList";
 
 export function App() {
   return (

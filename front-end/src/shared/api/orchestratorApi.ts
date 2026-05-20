@@ -15,6 +15,7 @@ const LIGHT_BRIGHTNESS_PATH = "/api/orchestrator/light/brightness";
 
 export const orchestratorApi = {
   url: (path: string) => http.url(path),
+  imageUrl: (path: string, version?: string | number) => versionImageUrl(http.url(path), version),
 
   async health() {
     return http.text("/health", {
@@ -33,8 +34,8 @@ export const orchestratorApi = {
     return http.json<UiLatestSnapshot>(`/api/camera/${cameraId}/latest.json`);
   },
 
-  currentFrameUrl(cameraId: number) {
-    return http.url(`/api/camera/${cameraId}/current.jpg`);
+  currentFrameUrl(cameraId: number, version?: string | number) {
+    return versionImageUrl(http.url(`/api/camera/${cameraId}/current.jpg`), version);
   },
 
   heatmapUrl(cameraId: number) {
@@ -109,4 +110,13 @@ export const orchestratorApi = {
 function clientProxyPath(path: string) {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return normalized.startsWith("/api/client/") ? normalized : `/api/client${normalized}`;
+}
+
+function versionImageUrl(imageUrl: string, version?: string | number) {
+  if (version === undefined || version === null || version === "") {
+    return imageUrl;
+  }
+
+  const separator = imageUrl.includes("?") ? "&" : "?";
+  return `${imageUrl}${separator}frame_ts=${encodeURIComponent(String(version))}`;
 }

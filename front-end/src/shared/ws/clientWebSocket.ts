@@ -1,6 +1,7 @@
 import { appEnv } from "../config/env";
 import type {
   ClientFpZonesUpdatePayload,
+  ClientLightBrightnessPayload,
   ClientReferenceBundlePayload,
   ClientSetActiveReferenceViewPayload,
   ClientWsEnvelope,
@@ -134,6 +135,10 @@ export class OrchestratorWebSocketClient {
     });
   }
 
+  sendLightBrightness(payload: ClientLightBrightnessPayload) {
+    return this.send("client.light_brightness", payload);
+  }
+
   send<TType extends keyof ClientWsPayloadByType>(type: TType, payload: ClientWsPayloadByType[TType]) {
     const message: ClientWsEnvelope<TType> = {
       type,
@@ -236,9 +241,11 @@ function normalizeServerMessage(parsed: unknown): ServerWsMessage {
     candidate.type === "server.hello" ||
     candidate.type === "server.state" ||
     candidate.type === "server.inspect_result" ||
+    candidate.type === "server.preview_frame" ||
     candidate.type === "server.reference_bundle_ack" ||
     candidate.type === "server.fp_zones_ack" ||
     candidate.type === "server.active_reference_view_ack" ||
+    candidate.type === "server.light_brightness_ack" ||
     candidate.type === "server.error"
   ) {
     return parsed as ServerWsMessage;

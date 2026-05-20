@@ -5,15 +5,18 @@ export type WsMessageId = string;
 export type ClientWsMessageType =
   | "client.reference_bundle"
   | "client.fp_zones_update"
-  | "client.set_active_reference_view";
+  | "client.set_active_reference_view"
+  | "client.light_brightness";
 
 export type ServerWsMessageType =
   | "server.hello"
   | "server.state"
   | "server.inspect_result"
+  | "server.preview_frame"
   | "server.reference_bundle_ack"
   | "server.fp_zones_ack"
   | "server.active_reference_view_ack"
+  | "server.light_brightness_ack"
   | "server.error";
 
 export type WsConnectionStatus = {
@@ -90,6 +93,8 @@ export type ServerStateMessage = ServerWsEnvelope<
 
 export type ServerInspectResultMessage = ServerWsEnvelope<"server.inspect_result", InspectResultPayload>;
 
+export type ServerPreviewFrameMessage = ServerWsEnvelope<"server.preview_frame", PreviewFramePayload>;
+
 export type ServerReferenceBundleAckMessage = ServerWsEnvelope<
   "server.reference_bundle_ack",
   {
@@ -114,6 +119,14 @@ export type ServerActiveReferenceViewAckMessage = ServerWsEnvelope<
   }
 >;
 
+export type ServerLightBrightnessAckMessage = ServerWsEnvelope<
+  "server.light_brightness_ack",
+  {
+    ok: boolean;
+    brightness_percent: number;
+  }
+>;
+
 export type ServerErrorMessage = ServerWsEnvelope<
   "server.error",
   {
@@ -133,9 +146,11 @@ export type ServerWsMessage =
   | ServerHelloMessage
   | ServerStateMessage
   | ServerInspectResultMessage
+  | ServerPreviewFrameMessage
   | ServerReferenceBundleAckMessage
   | ServerFpZonesAckMessage
   | ServerActiveReferenceViewAckMessage
+  | ServerLightBrightnessAckMessage
   | ServerErrorMessage
   | UnknownServerWsMessage;
 
@@ -143,9 +158,11 @@ export type ServerWsPayloadByType = {
   "server.hello": ServerHelloMessage["payload"];
   "server.state": ServerStateMessage["payload"];
   "server.inspect_result": InspectResultPayload;
+  "server.preview_frame": PreviewFramePayload;
   "server.reference_bundle_ack": ServerReferenceBundleAckMessage["payload"];
   "server.fp_zones_ack": ServerFpZonesAckMessage["payload"];
   "server.active_reference_view_ack": ServerActiveReferenceViewAckMessage["payload"];
+  "server.light_brightness_ack": ServerLightBrightnessAckMessage["payload"];
   "server.error": ServerErrorMessage["payload"];
 };
 
@@ -157,6 +174,7 @@ export type InspectResultPayload = {
   frame_id: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;
+  http_path?: string;
   heatmap: HeatmapDescriptor | null;
   active_reference_view_index: number;
   detector: {
@@ -167,6 +185,19 @@ export type InspectResultPayload = {
   fp_coordinate_space?: {
     heatmap_width: number;
     heatmap_height: number;
+  };
+  server_ts_ms: number;
+};
+
+export type PreviewFramePayload = {
+  camera_id: number;
+  frame_id: string;
+  session_state: WsSessionState;
+  current: ShmFrameRefData;
+  http_path?: string;
+  detector: {
+    detector_id?: string;
+    product_type?: string;
   };
   server_ts_ms: number;
 };
@@ -184,6 +215,7 @@ export type ShmFrameRefData = {
   expires_at_ms?: number;
   ttl_ms?: number;
   read_token?: string;
+  http_path?: string;
 };
 
 export type PixelFormat = "bgr_u8" | "gray_u8" | string;
@@ -244,13 +276,19 @@ export type ClientSetActiveReferenceViewPayload = {
   view_index: number;
 };
 
+export type ClientLightBrightnessPayload = {
+  brightness_percent: number;
+};
+
 export type ClientWsPayloadByType = {
   "client.reference_bundle": ClientReferenceBundlePayload;
   "client.fp_zones_update": ClientFpZonesUpdatePayload;
   "client.set_active_reference_view": ClientSetActiveReferenceViewPayload;
+  "client.light_brightness": ClientLightBrightnessPayload;
 };
 
 export type ClientWsMessage =
   | ClientWsEnvelope<"client.reference_bundle">
   | ClientWsEnvelope<"client.fp_zones_update">
-  | ClientWsEnvelope<"client.set_active_reference_view">;
+  | ClientWsEnvelope<"client.set_active_reference_view">
+  | ClientWsEnvelope<"client.light_brightness">;
