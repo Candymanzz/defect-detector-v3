@@ -1,5 +1,6 @@
 import mmap
 import os
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,10 +19,39 @@ class ShmImageOutputInfo:
     dtype: str = "uint8"
 
 
+def _windows_iml_shm_dir() -> Path:
+    local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("TEMP") or "."
+    return Path(local_app) / "iml_shm"
+
+
 def resolve_shm_path(shm_name: str) -> Path:
     normalized = shm_name.strip()
     if not normalized:
         raise ValueError("shm_name must not be empty")
+
+    if sys.platform == "win32":
+        candidate = Path(normalized)
+        if candidate.is_absolute():
+            if candidate.is_file():
+                return candidate
+            # camera-worker may report logs/*.bin while data lives in %LOCALAPPDATA%\iml_shm
+            name = candidate.name
+            if name.endswith(".bin"):
+                alt = _windows_iml_shm_dir() / name.replace(".bin", "")
+                if alt.is_file():
+                    return alt
+            stem = candidate.stem
+            if stem.startswith("iml_cam_"):
+                alt = _windows_iml_shm_dir() / stem
+                if alt.is_file():
+                    return alt
+            return candidate
+
+        base = normalized.lstrip("/").replace("/", "_")
+        path = _windows_iml_shm_dir() / base
+        if path.is_file():
+            return path
+        return path
 
     if normalized.startswith("/dev/shm/"):
         path = Path(normalized)
@@ -55,6 +85,9 @@ def open_bgr_shm_frame(
 
     required_end = shm_offset + (height - 1) * row_stride + min_stride
     shm_path = resolve_shm_path(shm_name)
+
+    if not shm_path.is_file():
+        raise FileNotFoundError(f"shared memory file not found: {shm_path}")
 
     fd = os.open(shm_path, os.O_RDONLY)
     shm_map = None

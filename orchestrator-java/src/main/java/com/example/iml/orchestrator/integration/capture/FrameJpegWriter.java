@@ -62,11 +62,9 @@ public final class FrameJpegWriter {
         if (frameBytes < need) {
             frameBytes = need;
         }
-        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
-        base = base.replace('/', '_');
-        Path shmPath = imlShmFilePath(base);
-        if (!Files.isRegularFile(shmPath)) {
-            log.warn("save_captures: нет файла SHM {}", shmPath);
+        Path shmPath = resolveShmPath(shmName, cam);
+        if (shmPath == null || !Files.isRegularFile(shmPath)) {
+            log.warn("save_captures: нет файла SHM {} (shm_name={})", shmPath, shmName);
             return;
         }
         Path outDir = projectRoot.resolve(cfg.relativeDir()).normalize();
@@ -83,6 +81,39 @@ public final class FrameJpegWriter {
         } catch (IOException e) {
             log.warn("save_captures: {} — {}", outFile, e.getMessage());
         }
+    }
+
+    /** Абсолютный путь к файлу SHM (Windows .bin или логическое имя /iml_cam_N_frame). */
+    public static Path resolveShmPath(String shmName, int cameraId) {
+        if (shmName == null || shmName.isBlank()) {
+            return null;
+        }
+        Path direct = Path.of(shmName);
+        if (direct.isAbsolute()) {
+            if (Files.isRegularFile(direct)) {
+                return direct;
+            }
+            if (cameraId >= 0) {
+                Path fallback = imlShmFilePath("iml_cam_" + cameraId + "_frame");
+                if (Files.isRegularFile(fallback)) {
+                    return fallback;
+                }
+            }
+            return direct;
+        }
+        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
+        base = base.replace('/', '_');
+        Path inShmDir = imlShmFilePath(base);
+        if (Files.isRegularFile(inShmDir)) {
+            return inShmDir;
+        }
+        if (cameraId >= 0) {
+            Path byCamera = imlShmFilePath("iml_cam_" + cameraId + "_frame");
+            if (Files.isRegularFile(byCamera)) {
+                return byCamera;
+            }
+        }
+        return inShmDir;
     }
 
     /** Каталог общей памяти: Linux /dev/shm, Windows %LOCALAPPDATA%\\iml_shm. */

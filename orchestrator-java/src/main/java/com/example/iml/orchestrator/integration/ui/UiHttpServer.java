@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.http.HttpApplicationContext;
 import com.example.iml.orchestrator.integration.http.HttpFrontController;
@@ -160,13 +161,17 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     public static ClientPreviewArtifact writeCurrentJpegFromBgrShm(
             String shmName, int width, int height, int stride, int previewMaxWidth, float quality
     ) {
+        return writeCurrentJpegFromBgrShm(shmName, width, height, stride, previewMaxWidth, quality, -1);
+    }
+
+    public static ClientPreviewArtifact writeCurrentJpegFromBgrShm(
+            String shmName, int width, int height, int stride, int previewMaxWidth, float quality, int cameraId
+    ) {
         if (width <= 0 || height <= 0 || stride < width * 3) {
             return new ClientPreviewArtifact(null, 0, 0);
         }
-        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
-        base = base.replace('/', '_');
-        Path shmPath = resolveImlShmPath(base);
-        if (!Files.isRegularFile(shmPath)) {
+        Path shmPath = FrameJpegWriter.resolveShmPath(shmName, cameraId);
+        if (shmPath == null || !Files.isRegularFile(shmPath)) {
             return new ClientPreviewArtifact(null, 0, 0);
         }
         long need = (long) stride * (long) height;

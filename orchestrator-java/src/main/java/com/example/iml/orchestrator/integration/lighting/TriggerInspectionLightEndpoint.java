@@ -22,6 +22,7 @@ public final class TriggerInspectionLightEndpoint implements LightEndpoint {
     private final String id;
     private final boolean enabled;
     private final URI triggerUri;
+    private final URI turnOffAllUri;
     private final URI statusUri;
     private final HttpClient httpClient;
     private final Duration timeout;
@@ -41,6 +42,8 @@ public final class TriggerInspectionLightEndpoint implements LightEndpoint {
         this.enabled = enabled;
         String path = triggerPath.startsWith("/") ? triggerPath : "/" + triggerPath;
         this.triggerUri = URI.create(baseUrl + path);
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.turnOffAllUri = URI.create(base + "/api/light/turn-off-all");
         String st = statusPath.startsWith("/") ? statusPath : "/" + statusPath;
         this.statusUri = URI.create(baseUrl + st);
         this.timeout = Duration.ofMillis(Math.max(100, timeoutMs));
@@ -108,7 +111,27 @@ public final class TriggerInspectionLightEndpoint implements LightEndpoint {
         if (response.statusCode() / 100 != 2) {
             throw new IllegalStateException(id + " trigger failed status=" + response.statusCode() + " body=" + response.body());
         }
+        log.info("light {} trigger-inspection cam={} frame={} phase={} brightness%={}",
+                id, cameraId, frameId, phase, brightness);
         logSimulatedIfNeeded(response.body());
+    }
+
+    @Override
+    public void turnOffAll() throws Exception {
+        if (!enabled) {
+            return;
+        }
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(turnOffAllUri)
+                .timeout(timeout)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() / 100 != 2) {
+            throw new IllegalStateException(id + " turn-off-all failed status=" + response.statusCode()
+                    + " body=" + response.body());
+        }
+        log.info("light {} all ports off (shutdown)", id);
     }
 
     private void logSimulatedIfNeeded(String body) {

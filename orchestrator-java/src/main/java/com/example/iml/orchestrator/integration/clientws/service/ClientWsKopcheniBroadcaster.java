@@ -29,6 +29,10 @@ public final class ClientWsKopcheniBroadcaster {
         poolRef.set(pool == null ? List.of() : List.copyOf(pool));
     }
 
+    public List<? extends BinaryRpcSupervisor> pool() {
+        return poolRef.get();
+    }
+
     public void broadcast(Map<String, Object> header) throws ClientWsKopcheniSyncException {
         if (!cfg.kopcheniBundleSyncEnabled()) {
             log.debug("client_ws skip kopcheni sync (kopcheni_bundle_sync_enabled=false) op={}", header.get("op"));

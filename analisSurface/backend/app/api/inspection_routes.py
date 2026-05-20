@@ -37,7 +37,7 @@ def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[s
 async def detector_health() -> DetectorHealthResponse:
     return DetectorHealthResponse(
         status="ok",
-        service="python-detectors",
+        service="analisSurface",
         detector_id=get_application_id(),
     )
 

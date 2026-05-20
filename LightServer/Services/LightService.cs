@@ -445,11 +445,16 @@ public class LightService : IDisposable
         if (_flashHoldMode)
             return await FlashHoldMultiplePortsAsync(ports, brightness, durationMs);
 
-        _logger.LogWarning("Несколько портов при FlashMode=Trigger — последовательные импульсы");
+        _logger.LogDebug("FlashMode=Trigger: импульс по портам [{Ports}], затем принудительное выключение", string.Join(',', ports));
         bool ok = true;
         foreach (int p in ports)
         {
             if (!await FlashAsync(p, brightness, durationMs))
+                ok = false;
+        }
+        foreach (int p in ports)
+        {
+            if (!await SetLightAsync(p, 0))
                 ok = false;
         }
         return ok;

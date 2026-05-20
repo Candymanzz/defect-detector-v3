@@ -1,3 +1,3 @@
-D:/VisionMaster4.4.0/megaOrchestratoraue228-main/camera-worker/build/CMakeFiles/camera_worker.dir
-D:/VisionMaster4.4.0/megaOrchestratoraue228-main/camera-worker/build/CMakeFiles/edit_cache.dir
-D:/VisionMaster4.4.0/megaOrchestratoraue228-main/camera-worker/build/CMakeFiles/rebuild_cache.dir
+D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/camera_worker.dir
+D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/ALL_BUILD.dir
+D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/ZERO_CHECK.dir

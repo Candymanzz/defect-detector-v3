@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -9,6 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -409,7 +411,12 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private Map<String, Object> shmFrameJson(Map<String, Object> header) {
         Map<String, Object> body = new LinkedHashMap<>();
         copyIfPresent(body, header, "product_type");
-        copyIfPresent(body, header, "shm_name");
+        Object shmName = header.get("shm_name");
+        if (shmName != null) {
+            int cam = YamlScalars.toInt(header.get("camera_id"), -1);
+            String logical = logicalShmNameForHttp(String.valueOf(shmName), cam);
+            body.put("shm_name", logical);
+        }
         copyIfPresent(body, header, "width");
         copyIfPresent(body, header, "height");
         copyIfPresent(body, header, "stride");
@@ -427,6 +434,36 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (from.containsKey(key) && from.get(key) != null) {
             to.put(key, from.get(key));
         }
+    }
+
+    /**
+     * Для HTTP в analisSurface передаём короткое имя файла в iml_shm (без {@code D:\...}),
+     * иначе uvicorn может отклонить запрос как «Invalid HTTP request received».
+     */
+    static String logicalShmNameForHttp(String shmName, int cameraId) {
+        Path resolved = FrameJpegWriter.resolveShmPath(shmName, cameraId);
+        if (resolved != null) {
+            String base = resolved.getFileName().toString();
+            if (base.endsWith(".bin")) {
+                return base.substring(0, base.length() - 4);
+            }
+            return base;
+        }
+        String s = shmName.trim();
+        if (s.contains("/") || s.contains("\\")) {
+            int slash = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+            s = s.substring(slash + 1);
+        }
+        if (s.endsWith(".bin")) {
+            s = s.substring(0, s.length() - 4);
+        }
+        if (s.startsWith("/")) {
+            s = s.substring(1);
+        }
+        if (s.isEmpty() && cameraId >= 0) {
+            return "iml_cam_" + cameraId + "_frame";
+        }
+        return s;
     }
 
     private Map<String, Object> inspectJsonToStdioHeader(Map<String, Object> json) {
@@ -477,6 +514,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         URI uri = URI.create(baseUrl + path);
         HttpRequest req = HttpRequest.newBuilder(uri)
                 .timeout(Duration.ofMillis(commandTimeoutMs))
+                .version(HttpClient.Version.HTTP_1_1)
                 .header("Content-Type", "application/json; charset=utf-8")
                 .header("Accept", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(json))

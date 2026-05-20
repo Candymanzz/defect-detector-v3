@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.http;
 
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
+import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
@@ -14,6 +15,7 @@ public record HttpApplicationContext(
         GeometrySnapshotCache geometrySnapshotCache,
         ClientApiMount clientApi,
         LightTriggerClient lightTriggerClient,
+        LightServersConfig lightServersConfig,
         String analisSurfaceBaseUrl
 ) {
     public boolean geometryEnabled() {
@@ -28,6 +30,10 @@ public record HttpApplicationContext(
         return lightTriggerClient != null;
     }
 
+    public LightServersConfig lightServersConfig() {
+        return lightServersConfig;
+    }
+
     public static HttpApplicationContext of(
             CameraPreviewStore previewStore,
             GeometrySnapshotCache geometryCache,
@@ -37,6 +43,7 @@ public record HttpApplicationContext(
     ) {
         PythonDetectorConfig py = PythonDetectorConfig.fromRootYaml(rootYaml);
         String base = py.configured() ? py.baseUrl() : "";
-        return new HttpApplicationContext(previewStore, geometryCache, clientApi, lightClient, base);
+        LightServersConfig lightCfg = LightServersConfig.fromRootYaml(rootYaml);
+        return new HttpApplicationContext(previewStore, geometryCache, clientApi, lightClient, lightCfg, base);
     }
 }

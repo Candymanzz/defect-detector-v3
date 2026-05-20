@@ -1,3 +1,0 @@
-C:\Tools\mingw64\mingw64\bin\cmake.exe -E rm -f CMakeFiles\camera_worker.dir/objects.a
-C:\Tools\mingw64\mingw64\bin\ar.exe qc CMakeFiles\camera_worker.dir/objects.a @CMakeFiles\camera_worker.dir\objects1.rsp
-C:\Tools\mingw64\mingw64\bin\gcc.exe -O3 -DNDEBUG -Wl,--whole-archive CMakeFiles\camera_worker.dir/objects.a -Wl,--no-whole-archive -o camera_worker.exe -Wl,--out-implib,libcamera_worker.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\camera_worker.dir\linkLibs.rsp

@@ -70,13 +70,27 @@ public final class MvLeLightEndpoint implements LightEndpoint {
     }
 
     @Override
+    public void turnOffAll() throws Exception {
+        if (!enabled) {
+            return;
+        }
+        postLight("Off", null);
+        log.info("light {} MV-LE Off (shutdown)", id);
+    }
+
+    /** Остановить отложенные Off после завершения оркестратора. */
+    public static void shutdownScheduler() {
+        OFF_SCHEDULER.shutdownNow();
+    }
+
+    @Override
     public void trigger(int cameraId, long frameId, String phase, int brightnessPercent, int durationMs) throws Exception {
         if (!enabled) {
             return;
         }
         int[] brightness = LightBrightnessScale.mvLeBrightnessForChannels(brightnessPercent, channels);
         postLight("On", brightness);
-        log.debug("light {} On cam={} frame={} phase={} brightness%={} mvLe={}",
+        log.info("light {} MV-LE On cam={} frame={} phase={} brightness%={} mvLe={}",
                 id, cameraId, frameId, phase, brightnessPercent, brightness[0]);
         int offDelay = Math.max(1, durationMs);
         OFF_SCHEDULER.schedule(() -> {
