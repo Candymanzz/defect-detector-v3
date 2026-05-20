@@ -16,8 +16,6 @@ const LIGHT_BRIGHTNESS_PATH = "/api/orchestrator/light/brightness";
 export const orchestratorApi = {
   url: (path: string) => http.url(path),
 
-  lightBrightnessPath: LIGHT_BRIGHTNESS_PATH,
-
   async health() {
     return http.text("/health", {
       headers: {

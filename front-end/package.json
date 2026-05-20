@@ -8,16 +8,30 @@
     "dev": "node scripts/dev.mjs",
     "dev:renderer": "vite --host localhost",
     "dev:electron": "electron .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host localhost"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "latest",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "electron": "latest",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
     "typescript": "latest",
+    "typescript-eslint": "^8.59.4",
     "vite": "latest"
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   }
 }

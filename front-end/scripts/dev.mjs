@@ -13,7 +13,7 @@ const env = {
 
 const children = new Set();
 
-const vite = run("vite", ["--host", host, "--port", String(port), "--strictPort"], env);
+run("vite", ["--host", host, "--port", String(port), "--strictPort"], env);
 
 try {
   await waitForHttp(rendererUrl);
