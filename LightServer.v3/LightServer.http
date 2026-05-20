@@ -1,0 +1,42 @@
+@host = http://localhost:5080
+
+### Сеть: список устройств
+GET {{host}}/api/devices
+
+### Сеть: свет
+POST {{host}}/api/light
+Content-Type: application/json
+
+{
+  "deviceIndex": 0,
+  "lightControllerSource": "On",
+  "channels": [1, 2, 3, 4],
+  "brightness": [200, 200, 200, 200]
+}
+
+### COM: список (порты из appsettings или query)
+GET {{host}}/api/com/devices?ports=COM1,COM3
+
+### COM: свет по порту
+POST {{host}}/api/com/light?ports=COM1,COM3
+Content-Type: application/json
+
+{
+  "comPort": "COM1",
+  "lightControllerSource": "On",
+  "channels": [1, 2, 3, 4],
+  "brightness": [255, 128, 80, 50]
+}
+
+### COM: прямой fallback (если /api/com/devices пуст)
+### Яркость: для MvIO см. appsettings IoController:BrightnessMapping.
+### Scale255To100 — 10 из тела ≈ 4% на контроллере; для проверки шлите 255 или режим Percent.
+POST {{host}}/api/com/light
+Content-Type: application/json
+
+{
+  "comPort": "COM1",
+  "lightControllerSource": "On",
+  "channels": [1, 2, 3, 4],
+  "brightness": [100, 100, 100, 100]
+}

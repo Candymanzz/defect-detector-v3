@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>LightServer</name>
+    </assembly>
+    <members>
+        <member name="T:LightServer.Controllers.ComLightController">
+            <summary>Те же операции, что /api/devices и /api/light, но для устройств на COM: перед перечислением вызывается SetEnumSerialPorts.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.ComLightController.ListSerialDevices(System.String)">
+            <summary>Список устройств на указанных COM-портах. Порты: ?ports=COM1,COM3 или из appsettings SerialLight:EnumPorts.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.ComLightController.SetLightSerial(LightServer.Models.LightCommandRequestCom,System.String)">
+            <summary>Управление подсветкой по COM: укажите comPort.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.LightController.ListDevices">
+            <summary>Список устройств (сеть/USB/GenTL), без фильтра COM.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.LightController.SetLight(LightServer.Models.LightCommandRequest)">
+            <summary>Управление MV-LE по индексу из /api/devices.</summary>
+        </member>
+        <member name="T:LightServer.IoControllerOptions">
+            <summary>Настройки прямого COM через MvIOInterfaceBox (как defect-detector LightService).</summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.BrightnessMapping">
+            <summary>Scale255To100 | Percent | Raw255 — см. README в IoControllerComService.</summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.FlashMode">
+            <summary>
+            Hold — постоянное свечение (nLightState=1). Trigger — импульс, как MVS/рабочий проект (FlashMode=Trigger).
+            </summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.DefaultDurationMs">
+            <summary>Длительность импульса (мс) в режиме Trigger.</summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.KeepComSessionOpen">
+            <summary>Не закрывать COM после каждого запроса (как рабочий LightService).</summary>
+        </member>
+        <member name="P:LightServer.Models.DeviceInfoDto.ComPort">
+            <summary>Для Camera Link (COM) — из ICamlDeviceInfo.PortID.</summary>
+        </member>
+        <member name="T:LightServer.Models.LightCommandRequest">
+            <summary>Команда MV-LE по индексу из GET /api/devices (сеть и т.п.).</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.Brightness">
+            <summary>0–255 на канал; длина = channels. При On без массива — 255.</summary>
+        </member>
+        <member name="T:LightServer.Models.LightCommandRequestCom">
+            <summary>Команда MV-LE на COM (после SetEnumSerialPorts). Выбор устройства только по comPort.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequestCom.ComPort">
+            <summary>Например COM1 (как в MVS Client).</summary>
+        </member>
+        <member name="T:LightServer.SerialLightOptions">
+            <summary>Порты для SetEnumSerialPorts перед перечислением COM-устройств (appsettings: SerialLight:EnumPorts).</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.EnumPorts">
+            <summary>Например COM1, COM3. Используется по умолчанию для GET /api/com/devices.</summary>
+        </member>
+        <member name="T:LightServer.Services.IoControllerComService">
+            <summary>
+            Управление MV-LE / IO Box по COM через MvIOInterfaceBox.dll.
+            Поведение выровнено с рабочим defect-detector LightService: сессия COM не рвётся, вспышки — Trigger.
+            </summary>
+        </member>
+        <member name="F:LightServer.Services.LightControlService.NetworkLayers">
+            <summary>Как в Test.exe — сеть/USB/GenTL, без Camera Link (COM перечисляется отдельно).</summary>
+        </member>
+        <member name="F:LightServer.Services.LightControlService.SerialLayers">
+            <summary>Устройства на COM после SetEnumSerialPorts.</summary>
+        </member>
+        <member name="F:LightServer.Services.LightControlService.ComDiscoveryLayers">
+            <summary>Слои для поиска COM_Port#COMx (как в MVS → Serial Port), фильтр портов не сбрасывать.</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.ListSerialDevices(System.Collections.Generic.IReadOnlyList{System.String})">
+            <param name="ports">Если null или пусто — из конфига SerialLight:EnumPorts.</param>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.EnumerateWithSerialPorts(System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>Перечисление с SetEnumSerialPorts — имена портов как в GetSerialPortList (COM_Port#COM1).</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.ResolveSdkSerialPortNames(System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>COM1 из API → COM_Port#COM1 для SetEnumSerialPorts (как GetSerialPortList в MVS).</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.BuildDeviceSearchBlob(MvCameraControl.IDeviceInfo)">
+            <summary>Строка как в MVS: COM_Port#COM1 MV-LE200-...(serial).</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.ClearSerialPortFilter">
+            <summary>Сброс фильтра COM перед перечислением сети (пустой список).</summary>
+        </member>
+        <member name="T:Program">
+            <summary>
+            Auto-generated public partial Program class for top-level statement apps.
+            </summary>
+        </member>
+    </members>
+</doc>
