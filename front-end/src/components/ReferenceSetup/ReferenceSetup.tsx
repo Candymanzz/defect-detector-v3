@@ -82,7 +82,9 @@ export function ReferenceSetup({ onClose }: ReferenceSetupProps) {
             {message}
             
           </p>
+          <div className="reference-setup__image-container">
           {imageUrl && <img src={imageUrl} alt="Preview frame" />}
+          </div>
         </div>
       </section>
     </div>
