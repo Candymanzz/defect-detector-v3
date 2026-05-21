@@ -141,10 +141,8 @@ public final class IntegrationBootstrap {
                 cfg.serviceCommandTimeoutMs(),
                 cfg.geometryPoolSize()
         );
-        LightServerLauncher.StartedProcesses lightProcesses = lightServerLauncher.startAllIfConfigured(
+        ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
                 integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
-        ExternalServiceProcess lightServerProcess = lightProcesses.primary();
-        ExternalServiceProcess lightServerV2Process = lightProcesses.secondary();
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
@@ -370,7 +368,6 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
-                    lightServerV2Process,
                     analisSurfaceProcess,
                     lightClient,
                     uiVisualsPython,

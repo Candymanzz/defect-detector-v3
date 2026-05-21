@@ -15,7 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * LightServerv.v2 (MV-LE): {@code POST /api/light} On/Off, яркость 0…255 (из единых {@code 0…100}%).
+ * LightServer.v3 (MV-LE по сети): {@code POST /api/light} On/Off, яркость 0…255 (из единых {@code 0…100}%).
  */
 public final class MvLeLightEndpoint implements LightEndpoint {
 

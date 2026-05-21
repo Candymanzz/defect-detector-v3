@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Опциональный запуск процессов LightServer и LightServerv.v2 из {@code integration.light_server*_command_*}.
+ * Опциональный запуск LightServer.v3 из {@code integration.light_server_command_*}.
  */
 public final class LightServerLauncher {
 
@@ -19,55 +19,16 @@ public final class LightServerLauncher {
         this.log = log;
     }
 
-    public record StartedProcesses(ExternalServiceProcess primary, ExternalServiceProcess secondary) {
-    }
-
-    public StartedProcesses startAllIfConfigured(
-            Map<String, Object> integration,
-            Path projectRoot,
-            boolean isWindows,
-            int startupDelayMs
-    ) {
-        String primaryKey = isWindows ? "light_server_command_windows" : "light_server_command_linux";
-        String secondaryKey = isWindows ? "light_server_v2_command_windows" : "light_server_v2_command_linux";
-        ExternalServiceProcess primary = startOne(integration, projectRoot, isWindows,
-                primaryKey, "light-server", startupDelayMs);
-        int v2StartupDelayMs = hasCommand(integration, secondaryKey)
-                ? Math.max(1500, startupDelayMs / 2)
-                : 0;
-        ExternalServiceProcess secondary = startOne(integration, projectRoot, isWindows,
-                secondaryKey, "light-server-v2", v2StartupDelayMs);
-        return new StartedProcesses(primary, secondary);
-    }
-
     public ExternalServiceProcess startIfConfigured(
             Map<String, Object> integration,
             Path projectRoot,
             boolean isWindows,
             int startupDelayMs
     ) {
-        return startAllIfConfigured(integration, projectRoot, isWindows, startupDelayMs).primary();
-    }
-
-    private static boolean hasCommand(Map<String, Object> integration, String configKey) {
-        if (integration == null) {
-            return false;
-        }
-        Object raw = integration.get(configKey);
-        return raw instanceof List<?> list && !list.isEmpty();
-    }
-
-    private ExternalServiceProcess startOne(
-            Map<String, Object> integration,
-            Path projectRoot,
-            boolean isWindows,
-            String configKey,
-            String processLabel,
-            int startupDelayMs
-    ) {
         if (integration == null) {
             return null;
         }
+        String configKey = isWindows ? "light_server_command_windows" : "light_server_command_linux";
         Object raw = integration.get(configKey);
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
             return null;
@@ -77,14 +38,14 @@ public final class LightServerLauncher {
             command.add(String.valueOf(e));
         }
         try {
-            ExternalServiceProcess process = ExternalServiceProcess.start(processLabel, command, projectRoot);
+            ExternalServiceProcess process = ExternalServiceProcess.start("light-server", command, projectRoot);
             if (startupDelayMs > 0) {
                 Thread.sleep(startupDelayMs);
             }
-            log.info("started {} command={}", processLabel, command);
+            log.info("started light-server (LightServer.v3) command={}", command);
             return process;
         } catch (Exception e) {
-            log.warn("failed to start optional {} command={}: {}", processLabel, command, e.getMessage());
+            log.warn("failed to start optional light-server command={}: {}", command, e.getMessage());
             return null;
         }
     }

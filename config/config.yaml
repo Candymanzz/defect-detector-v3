@@ -111,15 +111,18 @@ light_servers:
   endpoints:
     - id: light-com
       enabled: true
-      type: trigger_inspection
-      base_url: "http://127.0.0.1:5079"
-      trigger_path: "/api/light/trigger-inspection"
-      status_path: "/api/light/status"
+      type: com_io
+      base_url: "http://127.0.0.1:5080"
+      com_port: "COM1"
+      com_ports: "COM1,COM3"
+      brightness_percent: 100
+      channels: [1, 2, 3, 4]
     - id: light-mv-le
       enabled: true
       type: mv_le
       base_url: "http://127.0.0.1:5080"
-      device_index: 1
+      device_index: 0
+      brightness_percent: 80
       channels: [1, 2, 3, 4]
 
 integration:
@@ -201,28 +204,16 @@ integration:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  # exec готового DLL — без dotnet run/build, нет блокировки LightServer.exe при повторном старте.
+  # LightServer.v3 — COM IO + MV-LE на одном порту.
   light_server_command_windows:
     - "dotnet"
     - "exec"
-    - "LightServer/bin/Release/net10.0/LightServer.dll"
+    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
     - "--urls"
-    - "http://127.0.0.1:5079"
+    - "http://127.0.0.1:5080"
   light_server_command_linux:
     - "dotnet"
     - "exec"
-    - "LightServer/bin/Release/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5079"
-  light_server_v2_command_windows:
-    - "dotnet"
-    - "exec"
-    - "LightServerv.v2/bin/Debug/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5080"
-  light_server_v2_command_linux:
-    - "dotnet"
-    - "exec"
-    - "LightServerv.v2/bin/Debug/net10.0/LightServer.dll"
+    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
     - "--urls"
     - "http://127.0.0.1:5080"

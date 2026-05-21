@@ -1,8 +1,6 @@
 package com.example.iml.orchestrator.integration.lighting;
 
-/**
- * Один HTTP-эндпоинт подсветки (LightServer COM или LightServerv.v2 MV-LE).
- */
+/** Один HTTP-эндпоинт подсветки LightServer.v3 (COM IO или MV-LE). */
 public interface LightEndpoint {
 
     String id();
