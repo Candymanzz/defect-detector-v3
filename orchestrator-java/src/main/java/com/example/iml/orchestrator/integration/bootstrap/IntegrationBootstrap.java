@@ -151,7 +151,7 @@ public final class IntegrationBootstrap {
         Map<String, Object> uiCfg = (Map<String, Object>) root.get("ui_http");
         int flashLeadMs = LightServersConfig.flashLeadMsFromRoot(root);
         if (flashLeadMs > 0) {
-            log.info("light_servers flash_lead_ms={} (пауза после ответа вспышки, перед capture)", flashLeadMs);
+            log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();

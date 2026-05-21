@@ -27,17 +27,22 @@ public final class LightTriggerClient {
     private final boolean failOnError;
     private final int defaultBrightnessPercent;
     private final int durationMs;
+    private final int timeoutMs;
     private final int settleDelayMs;
     private final List<EndpointRuntime> endpoints;
     private final ExecutorService triggerExecutor;
+    /** Один POST за раз — live_preview и capture не держат COM2 параллельно. */
+    private final Object lightCommandLock = new Object();
 
     private static final class EndpointRuntime {
         final LightEndpoint endpoint;
         volatile int brightnessPercent;
+        final int[] brightnessRaw;
 
-        EndpointRuntime(LightEndpoint endpoint, int brightnessPercent) {
+        EndpointRuntime(LightEndpoint endpoint, int brightnessPercent, int[] brightnessRaw) {
             this.endpoint = endpoint;
             this.brightnessPercent = brightnessPercent;
+            this.brightnessRaw = brightnessRaw;
         }
     }
 
@@ -50,6 +55,7 @@ public final class LightTriggerClient {
         this.failOnError = cfg.failOnError();
         this.defaultBrightnessPercent = cfg.brightnessPercent();
         this.durationMs = cfg.durationMs();
+        this.timeoutMs = Math.max(100, cfg.timeoutMs());
         this.settleDelayMs = Math.max(0, cfg.settleDelayMs());
         this.endpoints = buildEndpoints(cfg);
         int n = Math.max(1, (int) endpoints.stream().filter(r -> r.endpoint.enabled()).count());
@@ -85,7 +91,8 @@ public final class LightTriggerClient {
                         spec.comPort(),
                         spec.comPortsQuery(),
                         cfg.timeoutMs(),
-                        spec.channels()
+                        spec.channels(),
+                        spec.brightnessRaw()
                 );
                 case MV_LE -> new MvLeLightEndpoint(
                         LOG,
@@ -97,7 +104,7 @@ public final class LightTriggerClient {
                         spec.channels()
                 );
             };
-            list.add(new EndpointRuntime(ep, spec.brightnessPercent()));
+            list.add(new EndpointRuntime(ep, spec.brightnessPercent(), spec.brightnessRaw()));
         }
         return List.copyOf(list);
     }
@@ -154,23 +161,88 @@ public final class LightTriggerClient {
     }
 
     public void trigger(int cameraId, long frameId, String phase) {
+        lightOn(cameraId, frameId, phase);
+    }
+
+    /**
+     * Цикл съёмки: {@code POST ... lightControllerSource=On} → пауза → capture → {@code Off}.
+     * Иначе MV-LE/COM остаются в On и подсветка горит постоянно.
+     */
+    public void runCaptureWithLighting(
+            int cameraId,
+            long frameId,
+            String phase,
+            int flashLeadMs,
+            CaptureStep captureStep
+    ) throws Exception {
+        if (!enabled) {
+            captureStep.run();
+            return;
+        }
+        synchronized (lightCommandLock) {
+            if (!runSourceWithRetriesLocked(cameraId, frameId, phase, true)) {
+                LOG.warn("light On failed cam={} phase={} — skip Off and capture without lighting", cameraId, phase);
+                captureStep.run();
+                return;
+            }
+            if (flashLeadMs > 0) {
+                Thread.sleep(flashLeadMs);
+            }
+            try {
+                captureStep.run();
+            } finally {
+                runSourceWithRetriesLocked(cameraId, frameId, phase, false);
+                sleepSettle();
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface CaptureStep {
+        void run() throws Exception;
+    }
+
+    /** {@code lightControllerSource=On} на все enabled endpoints (LightServer.v3). */
+    public boolean lightOn(int cameraId, long frameId, String phase) {
+        if (!enabled) {
+            return false;
+        }
+        LOG.info("light On cam={} frame={} phase={} brightness={}",
+                cameraId, frameId, phase, brightnessByEndpoint());
+        return runSourceWithRetries(cameraId, frameId, phase, true);
+    }
+
+    /** {@code lightControllerSource=Off} — погасить после съёмки. */
+    public void lightOff(int cameraId, long frameId, String phase) {
         if (!enabled) {
             return;
         }
-        LOG.info("light trigger cam={} frame={} phase={} brightness={}",
-                cameraId, frameId, phase, brightnessByEndpoint());
+        LOG.info("light Off cam={} frame={} phase={}", cameraId, frameId, phase);
+        runSourceWithRetries(cameraId, frameId, phase, false);
+    }
+
+    private boolean runSourceWithRetries(int cameraId, long frameId, String phase, boolean on) {
+        synchronized (lightCommandLock) {
+            return runSourceWithRetriesLocked(cameraId, frameId, phase, on);
+        }
+    }
+
+    private boolean runSourceWithRetriesLocked(int cameraId, long frameId, String phase, boolean on) {
         for (EndpointRuntime r : endpoints) {
             if (r.endpoint.enabled()) {
                 r.endpoint.ensureReady();
             }
         }
-
         RuntimeException lastError = null;
         for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
             try {
-                triggerAllParallel(cameraId, frameId, phase, durationMs);
-                sleepSettle();
-                return;
+                if (on) {
+                    triggerAllParallel(cameraId, frameId, phase, durationMs);
+                    sleepSettle();
+                } else {
+                    turnOffAllParallel();
+                }
+                return true;
             } catch (RuntimeException e) {
                 lastError = e;
             }
@@ -184,12 +256,47 @@ public final class LightTriggerClient {
             }
         }
         if (lastError == null) {
-            return;
+            return !on;
         }
-        if (failOnError) {
+        if (failOnError && on) {
             throw lastError;
         }
-        LOG.warn("light trigger: {}", lastError.getMessage());
+        LOG.warn("light {} failed cam={} phase={}: {}", on ? "On" : "Off", cameraId, phase, lastError.getMessage());
+        return false;
+    }
+
+    private void turnOffAllParallel() {
+        List<Callable<Void>> tasks = new ArrayList<>();
+        for (EndpointRuntime r : endpoints) {
+            if (!r.endpoint.enabled()) {
+                continue;
+            }
+            tasks.add(() -> {
+                r.endpoint.turnOffAll();
+                return null;
+            });
+        }
+        if (tasks.isEmpty()) {
+            return;
+        }
+        try {
+            List<Future<Void>> futures = triggerExecutor.invokeAll(tasks);
+            List<String> errors = new ArrayList<>();
+            for (Future<Void> f : futures) {
+                try {
+                    f.get();
+                } catch (Exception e) {
+                    Throwable c = e.getCause() != null ? e.getCause() : e;
+                    errors.add(c.getMessage() != null ? c.getMessage() : c.toString());
+                }
+            }
+            if (!errors.isEmpty()) {
+                throw new IllegalStateException("light Off failed: " + String.join("; ", errors));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("light Off interrupted", e);
+        }
     }
 
     private void triggerAllParallel(int cameraId, long frameId, String phase, int durationMs) {

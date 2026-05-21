@@ -36,7 +36,8 @@ public record LightServersConfig(
             String comPortsQuery,
             int deviceIndex,
             int[] channels,
-            int brightnessPercent
+            int brightnessPercent,
+            int[] brightnessRaw
     ) {
     }
 
@@ -64,7 +65,8 @@ public record LightServersConfig(
         int brightness = YamlScalars.toInt(ls.get("brightness_percent"), YamlScalars.toInt(ls.get("brightness"), 100));
         int durationMs = YamlScalars.toInt(ls.get("duration_ms"), 180);
         int globalBrightness = LightBrightnessScale.clampPercent(brightness);
-        List<EndpointSpec> endpoints = parseEndpoints(ls, globalBrightness);
+        int[] globalBrightnessRaw = parseBrightnessRaw(ls.get("brightness_raw"));
+        List<EndpointSpec> endpoints = parseEndpoints(ls, globalBrightness, globalBrightnessRaw);
         return new LightServersConfig(enabled, failOnError, timeoutMs, settleDelayMs, flashLeadMs,
                 globalBrightness, durationMs, endpoints);
     }
@@ -116,7 +118,7 @@ public record LightServersConfig(
     }
 
     @SuppressWarnings("unchecked")
-    private static List<EndpointSpec> parseEndpoints(Map<String, Object> ls, int globalBrightness) {
+    private static List<EndpointSpec> parseEndpoints(Map<String, Object> ls, int globalBrightness, int[] globalBrightnessRaw) {
         Object raw = ls.get("endpoints");
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
             return List.of();
@@ -137,7 +139,11 @@ public record LightServersConfig(
             int[] channels = parseChannels(m.get("channels"));
             int epBrightness = LightBrightnessScale.clampPercent(
                     YamlScalars.toInt(m.get("brightness_percent"), globalBrightness));
-            out.add(new EndpointSpec(id, en, type, baseUrl, comPort, comPortsQuery, deviceIndex, channels, epBrightness));
+            int[] epRaw = parseBrightnessRaw(m.get("brightness_raw"));
+            if (epRaw == null) {
+                epRaw = globalBrightnessRaw;
+            }
+            out.add(new EndpointSpec(id, en, type, baseUrl, comPort, comPortsQuery, deviceIndex, channels, epBrightness, epRaw));
         }
         return List.copyOf(out);
     }
@@ -149,6 +155,17 @@ public record LightServersConfig(
             case "com_io", "com-io", "com", "trigger_inspection", "trigger-inspection" -> EndpointType.COM_IO;
             default -> EndpointType.COM_IO;
         };
+    }
+
+    private static int[] parseBrightnessRaw(Object raw) {
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return null;
+        }
+        int[] values = new int[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            values[i] = Math.max(0, Math.min(255, YamlScalars.toInt(list.get(i), 0)));
+        }
+        return values;
     }
 
     private static int[] parseChannels(Object raw) {

@@ -14,8 +14,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * LightServer.v3 (IO Box по COM): {@code POST /api/com/light} с {@code lightControllerSource=On}.
- * В appsettings IoController:FlashMode=Trigger сервер выполняет импульс вспышки.
+ * LightServer.v3 ComLight (Swagger): {@code POST /api/com/light?ports=COMx} с телом
+ * {@code { comPort, lightControllerSource, channels, brightness }}.
+ * Опционально {@code GET /api/com/devices?ports=...} — не вызываем перед вспышкой (долгое MVS enum).
+ * При {@code IoController:FlashMode=Hold} IO box держит свет до {@code Off}; Trigger — только короткий импульс.
  */
 public final class ComIoLightEndpoint implements LightEndpoint {
 
@@ -25,12 +27,11 @@ public final class ComIoLightEndpoint implements LightEndpoint {
     private final String id;
     private final boolean enabled;
     private final URI lightUri;
-    private final URI devicesUri;
     private final HttpClient httpClient;
     private final Duration timeout;
     private final String comPort;
     private final int[] channels;
-    private volatile boolean readyChecked;
+    private final int[] brightnessRaw;
 
     public ComIoLightEndpoint(
             Logger log,
@@ -40,19 +41,20 @@ public final class ComIoLightEndpoint implements LightEndpoint {
             String comPort,
             String comPortsQuery,
             int timeoutMs,
-            int[] channels
+            int[] channels,
+            int[] brightnessRaw
     ) {
         this.log = log;
         this.id = id;
         this.enabled = enabled;
-        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String base = LightServerV3Http.normalizeBaseUrl(baseUrl);
         String portsQuery = buildPortsQuery(comPort, comPortsQuery);
-        this.lightUri = URI.create(base + "/api/com/light" + portsQuery);
-        this.devicesUri = URI.create(base + "/api/com/devices" + portsQuery);
+        this.lightUri = URI.create(base + LightServerV3Http.PATH_COM_LIGHT + portsQuery);
         this.timeout = Duration.ofMillis(Math.max(100, timeoutMs));
         this.httpClient = HttpClient.newBuilder().connectTimeout(this.timeout).build();
         this.comPort = comPort == null || comPort.isBlank() ? "COM1" : comPort.trim();
         this.channels = channels == null || channels.length == 0 ? new int[]{1, 2, 3, 4} : channels.clone();
+        this.brightnessRaw = brightnessRaw == null ? null : brightnessRaw.clone();
     }
 
     private static String buildPortsQuery(String comPort, String comPortsQuery) {
@@ -75,31 +77,13 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         return enabled;
     }
 
+    /**
+     * Не вызываем GET /api/com/devices перед вспышкой: перечисление MVS занимает 7–15 с,
+     * держит {@code _sdkLock} в LightServer и мешает POST /api/com/light (IoCom fallback).
+     */
     @Override
     public void ensureReady() {
-        if (!enabled || readyChecked) {
-            return;
-        }
-        synchronized (this) {
-            if (readyChecked) {
-                return;
-            }
-            try {
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(devicesUri)
-                        .timeout(timeout)
-                        .GET()
-                        .build();
-                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() / 100 == 2) {
-                    readyChecked = true;
-                    return;
-                }
-            } catch (Exception ignored) {
-            }
-            log.warn("light endpoint {} COM devices not ready at {}", id, devicesUri);
-            readyChecked = true;
-        }
+        // см. комментарий к методу — перечисление устройств не делаем
     }
 
     @Override
@@ -107,10 +91,10 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        ensureReady();
-        postLight("On", LightBrightnessScale.mvLeBrightnessForChannels(brightnessPercent, channels));
-        log.info("light {} COM flash cam={} frame={} phase={} port={} brightness%={}",
-                id, cameraId, frameId, phase, comPort, brightnessPercent);
+        int[] brightness = resolveBrightness(brightnessPercent);
+        postLight("On", brightness);
+        log.info("light {} COM On cam={} frame={} phase={} port={} brightness={}",
+                id, cameraId, frameId, phase, comPort, brightness);
     }
 
     @Override
@@ -119,7 +103,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
             return;
         }
         postLight("Off", null);
-        log.info("light {} COM Off port={} (shutdown)", id, comPort);
+        log.info("light {} COM Off port={}", id, comPort);
     }
 
     private void postLight(String source, int[] brightness) throws Exception {
@@ -134,13 +118,28 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(lightUri)
                 .timeout(timeout)
+                .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(json))
                 .build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() / 100 != 2) {
-            throw new IllegalStateException(id + " POST /api/com/light failed status=" + response.statusCode()
-                    + " body=" + response.body());
+        LightServerV3Http.requireLightCommandSuccess(id, "POST", LightServerV3Http.PATH_COM_LIGHT, response);
+        if (response.body() != null && !response.body().isBlank()) {
+            log.info("light {} COM {} port={} -> {}", id, source, comPort, response.body());
         }
+    }
+
+    private int[] resolveBrightness(int brightnessPercent) {
+        if (brightnessRaw != null && brightnessRaw.length > 0) {
+            if (brightnessRaw.length >= channels.length) {
+                return brightnessRaw.clone();
+            }
+            int[] out = new int[channels.length];
+            for (int i = 0; i < channels.length; i++) {
+                out[i] = brightnessRaw[Math.min(i, brightnessRaw.length - 1)];
+            }
+            return out;
+        }
+        return LightBrightnessScale.mvLeBrightnessForChannels(brightnessPercent, channels);
     }
 }

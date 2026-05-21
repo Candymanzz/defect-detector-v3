@@ -63,8 +63,11 @@ public final class ReferenceSnapshotBootstrap {
             return new ReferenceBootstrapOutcome(existingSnapshot, 0L);
         }
         long tRef0 = System.nanoTime();
-        lightClient.trigger(cameraId, -1, "reference");
-        BinaryProtocol.Message referenceCapture = worker.command(Map.of("op", "capture"));
+        final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
+        lightClient.runCaptureWithLighting(cameraId, -1L, "reference", 0, () -> {
+            captureHolder[0] = worker.command(Map.of("op", "capture"));
+        });
+        BinaryProtocol.Message referenceCapture = captureHolder[0];
         if (logStyle == ReferenceLogStyle.CONVEYOR_BUCKET) {
             log.info("worker cam={} reference capture header={} (conveyor)", cameraId, referenceCapture.header());
         } else {

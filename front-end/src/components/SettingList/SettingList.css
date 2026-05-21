@@ -1,0 +1,98 @@
+.setting-list {
+  width: 20%;
+  border: 1px solid #fff;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 260px;
+  box-sizing: border-box;
+}
+
+.setting-list__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.setting-list__header h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.setting-list__header strong {
+  max-width: 120px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #22252a;
+  color: #f2f5f7;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.setting-list__header strong[data-status="ready"] {
+  color: #00ff00;
+}
+
+.setting-list__header strong[data-status="error"] {
+  color: #ff6b6b;
+}
+
+.setting-list__form {
+  display: grid;
+  gap: 14px;
+}
+
+.setting-list__field {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  color: #f2f5f7;
+}
+
+.setting-list__control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-list input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.setting-list input[type="number"] {
+  height: 34px;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  background: #111827;
+  color: #f2f5f7;
+  padding: 0 8px;
+}
+
+.setting-list__number {
+  text-align: right;
+}
+
+.setting-list__submit {
+  height: 38px;
+  border: 1px solid #00ff00;
+  border-radius: 6px;
+  background: #00ff00;
+  color: #0b0d10;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.setting-list__submit:disabled,
+.setting-list input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

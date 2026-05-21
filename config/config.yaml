@@ -99,38 +99,45 @@ fanout:
     queue_size: 128
     artificial_delay_ms: 1200
 
-# Подсветка: параллельный HTTP-триггер на все enabled endpoints (яркость 0…100% для всех).
+# Подсветка → LightServer.v3 (Swagger :5080/swagger): COM = POST /api/com/light?ports=… ;
+# сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость в jar: 0…100% → brightness 0…255.
 light_servers:
   enabled: true
-  fail_on_error: false
-  timeout_ms: 1500
-  brightness_percent: 100
-  duration_ms: 180
-  flash_lead_ms: 35
-  settle_delay_ms: 100
+  fail_on_error: true
+  # COM: первый POST после старта LightServer может занять 8–12 s (MVS enum + trigger)
+  timeout_ms: 15000
+  brightness_percent: 80
+  # 0…255 в POST; для теста как Swagger: [5,5,5,5]. Уберите строку — будет только brightness_percent.
+  # brightness_raw: [5, 5, 5, 5]
+  duration_ms: 500
+  flash_lead_ms: 400
+  settle_delay_ms: 150
   endpoints:
     - id: light-com
       enabled: true
       type: com_io
       base_url: "http://127.0.0.1:5080"
-      com_port: "COM1"
-      com_ports: "COM1,COM3"
-      brightness_percent: 100
+      # com_port = порт в теле POST; com_ports = query ?ports= (как в Swagger, напр. COM2)
+      com_port: "COM2"
+      com_ports: "COM2"
+      brightness_percent: 80
       channels: [1, 2, 3, 4]
+    # MV-LE по Ethernet: Open 0x80000203 на index 0 — включите после настройки device_index
     - id: light-mv-le
-      enabled: true
+      enabled: false
       type: mv_le
       base_url: "http://127.0.0.1:5080"
-      device_index: 0
+      device_index: 1
       brightness_percent: 80
       channels: [1, 2, 3, 4]
 
 integration:
   # camera — эталон снимается с камеры при старте; client — только client.reference_bundle по WebSocket.
   reference_source: client
-  # Preview на фронт (WS server.preview_frame + HTTP current.jpg) до эталона; интервал как у dev_auto_trigger_stub.
+  # Preview + вспышка On/Off по таймеру — всегда, без эталона. Инспекция — только после reference_bundle.
   live_preview:
     enabled: true
+    flash_on_tick: true
     interval_ms: 5000
   camera_parallelism: 1
   geometry_pool_size: 2
@@ -141,7 +148,7 @@ integration:
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
   worker_named_pipe_connect_timeout_ms: 3000
   # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
-  light_server_startup_delay_ms: 5000
+  light_server_startup_delay_ms: 8000
   # Один кадр с камеры: N раз выставить эталон в Python из того же SHM, затем один capture и M прогонов geometry+python+решение на тех же пикселях.
   single_frame_benchmark:
     enabled: false
