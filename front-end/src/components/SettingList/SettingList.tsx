@@ -8,11 +8,13 @@ import {
   SAVING_SETTING_STATUS,
   updateSettingField,
 } from "./SettingController";
+import { ReferenceSetup } from "../ReferenceSetup";
 import type { SettingFieldName } from "./type";
 import "./SettingList.css";
 
 export function SettingList() {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
+  const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
 
@@ -104,7 +106,17 @@ export function SettingList() {
         <button className="setting-list__submit" type="submit" disabled={isBusy}>
           Сохранить
         </button>
+        <button
+          className="setting-list__submit setting-list__submit--secondary"
+          type="button"
+          disabled={isBusy}
+          onClick={() => setIsReferenceSetupOpen(true)}
+        >
+          Задать эталон
+        </button>
       </form>
+
+      {isReferenceSetupOpen && <ReferenceSetup onClose={() => setIsReferenceSetupOpen(false)} />}
     </aside>
   );
 }

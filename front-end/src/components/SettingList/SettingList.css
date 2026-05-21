@@ -91,6 +91,12 @@
   cursor: pointer;
 }
 
+.setting-list__submit--secondary {
+  border-color: #f2f5f7;
+  background: transparent;
+  color: #f2f5f7;
+}
+
 .setting-list__submit:disabled,
 .setting-list input:disabled {
   cursor: not-allowed;

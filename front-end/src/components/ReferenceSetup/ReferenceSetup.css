@@ -1,0 +1,26 @@
+.reference-setup__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.reference-setup__hint {
+  margin: 0;
+  color: #c5cdd6;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.reference-setup__message {
+  margin: 16px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #e8edf4;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.reference-setup.modal {
+  display: flex;
+  flex-direction: column;
+}
