@@ -148,7 +148,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
                 if (cfg.flashOnTick()) {
                     lightClient.runCaptureWithLighting(cameraId, -1L, "preview", flashLeadMs, () -> {
-                        captureHolder[0] = worker.command(Map.of("op", "capture"));
+                        captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
                     });
                     capture = captureHolder[0];
                 } else {
