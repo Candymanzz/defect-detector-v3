@@ -92,15 +92,6 @@ export type LightBrightnessSettings = {
   scale: string;
 };
 
-export type LightBrightnessUpdateResponse = {
-  ok: true;
-  brightness_percent: number;
-};
-
-export type LightBrightnessUpdateRequest = {
-  brightness_percent: number;
-};
-
 export type StubHealth = {
   status: "ok" | string;
   service: string;

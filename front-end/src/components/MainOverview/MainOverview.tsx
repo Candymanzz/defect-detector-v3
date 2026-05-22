@@ -64,6 +64,7 @@ export function MainOverview() {
       {selectedCamera && (
         <ModalWrapper
           isOpen
+          cameraId={selectedCamera.cameraId}
           cameraImageUrl={modalCameraImageUrl}
           title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}
           onClose={() => setSelectedCamera(null)}

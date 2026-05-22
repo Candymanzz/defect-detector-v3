@@ -4,8 +4,6 @@ import type {
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
   LightBrightnessSettings,
-  LightBrightnessUpdateRequest,
-  LightBrightnessUpdateResponse,
   UiCameraList,
   UiLatestSnapshot,
 } from "./types";
@@ -89,17 +87,6 @@ export const orchestratorApi = {
 
   async getLightBrightness() {
     return http.json<LightBrightnessSettings>(LIGHT_BRIGHTNESS_PATH);
-  },
-
-  async setLightBrightness(brightnessPercent: number) {
-    const body: LightBrightnessUpdateRequest = {
-      brightness_percent: brightnessPercent,
-    };
-
-    return http.json<LightBrightnessUpdateResponse>(LIGHT_BRIGHTNESS_PATH, {
-      method: "PUT",
-      body,
-    });
   },
 
   async clientProxyJson<T>(path: string, options = {}) {

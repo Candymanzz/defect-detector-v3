@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
+import { commitReferenceBundleImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type {
   ClientReferenceBundlePayload,
@@ -20,6 +21,10 @@ export function useReferenceSetupController(onClose: () => void) {
   const [message, setMessage] = useState("Ожидание сообщения...");
   const [imageUrl, setImageUrl] = useState<string>();
   const [lastPreviewFrame, setLastPreviewFrame] = useState<PreviewFramePayload>();
+  const pendingReferenceBundleRef = useRef<{
+    messageId: string;
+    payload: ClientReferenceBundlePayload;
+  } | null>(null);
 
   useEffect(() => {
     orchestratorWs.connect();
@@ -51,6 +56,14 @@ export function useReferenceSetupController(onClose: () => void) {
           break;
         }
         case "server.reference_bundle_ack":
+          if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
+            if (message.payload.ok) {
+              commitReferenceBundleImages(pendingReferenceBundleRef.current.payload);
+            }
+
+            pendingReferenceBundleRef.current = null;
+          }
+
           setMessage(message.payload.ok ? "Пакет эталона принят" : "Пакет эталона отклонен");
           break;
         case "server.error":
@@ -87,7 +100,11 @@ export function useReferenceSetupController(onClose: () => void) {
 
     try {
       const payload = createOneFrameReferenceBundle(lastPreviewFrame);
-      orchestratorWs.sendReferenceBundle(payload);
+      const messageId = orchestratorWs.sendReferenceBundle(payload);
+      pendingReferenceBundleRef.current = {
+        messageId,
+        payload,
+      };
       setMessage("Пакет эталона отправлен");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));

@@ -51,15 +51,16 @@ export async function saveSettingData(form: SettingForm): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
   const geometryRuntime = await orchestratorApi.getGeometryRuntime();
 
-  await Promise.all([
-    orchestratorApi.setLightBrightness(normalizedForm.brightnessPercent),
-    orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm)),
-  ]);
+  await orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm));
 
   const nextData = await loadSettingData();
 
   return {
     ...nextData,
+    form: {
+      ...nextData.form,
+      brightnessPercent: normalizedForm.brightnessPercent,
+    },
     status: {
       state: "ready",
       text: "сохранено",
