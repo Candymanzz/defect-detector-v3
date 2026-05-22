@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Периодический capture + JPEG на ui_http + {@code server.preview_frame} по WebSocket.
- * Работает в {@code NO_REFERENCE} и после эталона; полный пайплайн инспекции не вызывает.
+ * Не зависит от эталона (инспекция geometry+python — только после {@code client.reference_bundle}).
  */
 public final class LivePreviewPublisher implements AutoCloseable {
 
@@ -122,16 +122,17 @@ public final class LivePreviewPublisher implements AutoCloseable {
             }
             String productType = String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId));
             String detectorId = String.valueOf(camera.getOrDefault("detector", "v1"));
-            scheduler.scheduleAtFixedRate(
+            scheduler.scheduleWithFixedDelay(
                     () -> publisher.tick(cameraId, productType, detectorId, worker),
                     500L,
                     intervalMs,
                     TimeUnit.MILLISECONDS
             );
             publisher.log.info(
-                    "live_preview cam={} interval_ms={} (dev_auto_trigger_stub takes over after reference)",
+                    "live_preview cam={} interval_ms={} flash_on_tick={} (independent of reference; inspection needs reference_bundle)",
                     cameraId,
-                    intervalMs
+                    intervalMs,
+                    cfg.flashOnTick()
             );
         }
         return publisher;
@@ -141,20 +142,18 @@ public final class LivePreviewPublisher implements AutoCloseable {
         if (closed.get()) {
             return;
         }
-        if (devAutoStub.enabled()
-                && referenceSource == ReferenceSource.CLIENT
-                && referenceRegistry != null
-                && referenceRegistry.get(cameraId) != null) {
-            return;
-        }
         try {
             BinaryProtocol.Message capture;
             synchronized (worker) {
-                lightClient.trigger(cameraId, -1L, "preview");
-                if (flashLeadMs > 0) {
-                    Thread.sleep(flashLeadMs);
+                final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
+                if (cfg.flashOnTick()) {
+                    lightClient.runCaptureWithLighting(cameraId, -1L, "preview", flashLeadMs, () -> {
+                        captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
+                    });
+                    capture = captureHolder[0];
+                } else {
+                    capture = worker.command(Map.of("op", "capture"));
                 }
-                capture = worker.command(Map.of("op", "capture"));
             }
             if (capture == null || capture.header() == null) {
                 return;

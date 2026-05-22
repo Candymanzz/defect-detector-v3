@@ -37,8 +37,8 @@ public final class ProductionInspectionOrchestrator {
             }
             if (referenceFromClient) {
                 svc.log().info(
-                        "integration cam={}: dev_auto_trigger_stub interval_ms={} after client.reference_bundle "
-                                + "(ticks without reference are skipped)",
+                        "integration cam={}: dev_auto_trigger_stub interval_ms={} — inspection only after "
+                                + "client.reference_bundle (live_preview unchanged)",
                         in.cameraId(),
                         devAutoTriggerStub.intervalMs()
                 );

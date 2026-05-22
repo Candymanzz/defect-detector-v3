@@ -12,3 +12,4 @@
 **/target/
 LightServer/bin/
 LightServer/obj/
+/LightServer.v3/obj

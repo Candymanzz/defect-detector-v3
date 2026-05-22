@@ -1,0 +1,165 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>LightServer</name>
+    </assembly>
+    <members>
+        <member name="T:LightServer.Controllers.ComLightController">
+            <summary>Те же операции, что /api/devices и /api/light, но для устройств на COM: перед перечислением вызывается SetEnumSerialPorts.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.ComLightController.ListSerialDevices(System.String)">
+            <summary>Список устройств на указанных COM-портах. Порты: ?ports=COM1,COM3 или из appsettings SerialLight:EnumPorts.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.ComLightController.SetLightSerial(LightServer.Models.LightCommandRequestCom,System.String)">
+            <summary>Управление подсветкой по COM: укажите comPort.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.LightController.ListDevices">
+            <summary>Список устройств (сеть/USB/GenTL), без фильтра COM.</summary>
+        </member>
+        <member name="M:LightServer.Controllers.LightController.SetLight(LightServer.Models.LightCommandRequest)">
+            <summary>Управление MV-LE по индексу из /api/devices.</summary>
+        </member>
+        <member name="T:LightServer.IoControllerOptions">
+            <summary>Настройки прямого COM через MvIOInterfaceBox (как defect-detector LightService).</summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.BrightnessMapping">
+            <summary>Scale255To100 | Percent | Raw255 — см. README в IoControllerComService.</summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.FlashMode">
+            <summary>
+            Hold — постоянное свечение (nLightState=1). Trigger — импульс, как MVS/рабочий проект (FlashMode=Trigger).
+            </summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.DefaultDurationMs">
+            <summary>Длительность импульса (мс) в режиме Trigger.</summary>
+        </member>
+        <member name="P:LightServer.IoControllerOptions.KeepComSessionOpen">
+            <summary>Не закрывать COM после каждого запроса (как рабочий LightService).</summary>
+        </member>
+        <member name="P:LightServer.Models.DeviceInfoDto.ComPort">
+            <summary>Для Camera Link (COM) — из ICamlDeviceInfo.PortID.</summary>
+        </member>
+        <member name="T:LightServer.Models.LightCommandRequest">
+            <summary>Команда MV-LE по индексу из GET /api/devices (сеть и т.п.).</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.Brightness">
+            <summary>0–255 на канал; длина = channels. При On без массива — 255.</summary>
+        </member>
+        <member name="T:LightServer.Models.LightCommandRequestCom">
+            <summary>Команда MV-LE на COM (после SetEnumSerialPorts). Выбор устройства только по comPort.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequestCom.ComPort">
+            <summary>Например COM1 (как в MVS Client).</summary>
+        </member>
+        <member name="T:LightServer.SerialLightOptions">
+            <summary>Порты для SetEnumSerialPorts перед перечислением COM-устройств (appsettings: SerialLight:EnumPorts).</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.EnumPorts">
+            <summary>Например COM1, COM3. Используется по умолчанию для GET /api/com/devices.</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.KeepDeviceOpen">
+            <summary>Не закрывать MV-LE после каждого POST /api/com/light (On/Off быстрее).</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.EnumCacheSeconds">
+            <summary>Кэш EnumDevices для того же набора портов (сек). 0 — всегда перечислять.</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.PreconfigureBrightnessOnOpen">
+            <summary>Один раз при Open записать яркость на 1–4; On/Off меняют только source (время стабильнее).</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.FlashSyncMode">
+            <summary>Hold: один trigger (зажигание) + broadcast sustain. Deferred: импульс. Direct: по каналам.</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.SustainOnAfterTrigger">
+            <summary>После software trigger перевести каналы в On (удержание до POST Off), иначе импульс Timer1 ~500 ms.</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.DisableSdkLock">
+            <summary>Эксперимент: не брать lock на SDK/COM (возможны гонки и сбои; не для продакшена).</summary>
+        </member>
+        <member name="T:LightServer.Services.IoControllerComService">
+            <summary>
+            Управление MV-LE / IO Box по COM через MvIOInterfaceBox.dll.
+            Поведение выровнено с рабочим defect-detector LightService: сессия COM не рвётся, вспышки — Trigger.
+            </summary>
+        </member>
+        <member name="F:LightServer.Services.LightControlService.NetworkLayers">
+            <summary>Как в Test.exe — сеть/USB/GenTL, без Camera Link (COM перечисляется отдельно).</summary>
+        </member>
+        <member name="F:LightServer.Services.LightControlService.SerialLayers">
+            <summary>Устройства на COM после SetEnumSerialPorts.</summary>
+        </member>
+        <member name="F:LightServer.Services.LightControlService.ComDiscoveryLayers">
+            <summary>Слои для поиска COM_Port#COMx (как в MVS → Serial Port), фильтр портов не сбрасывать.</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.ListSerialDevices(System.Collections.Generic.IReadOnlyList{System.String})">
+            <param name="ports">Если null или пусто — из конфига SerialLight:EnumPorts.</param>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.BuildDeviceSearchBlob(MvCameraControl.IDeviceInfo)">
+            <summary>Строка как в MVS: COM_Port#COM1 MV-LE200-...(serial).</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.ClearSerialPortFilter">
+            <summary>Сброс фильтра COM перед перечислением сети (пустой список).</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.ApplyAllChannels(MvCameraControl.IDevice,System.Object,System.Int32[],System.Int32[],System.String,System.Boolean,System.Int32@)">
+            <summary>Один lock, последовательная запись — предсказуемое время без Parallel.For.</summary>
+        </member>
+        <member name="T:LightServer.Services.MvLeApplyState">
+            <summary>Последнее применённое состояние MV-LE (для пропуска повторных POST и On без перезаписи яркости).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeApplyState.RecordOffKeepingArm(System.Int32[])">
+            <summary>Off: яркость помним, Timer1-arm сбрасываем — следующий On снова assemble+trigger.</summary>
+        </member>
+        <member name="T:LightServer.Services.MvLeDeviceCapabilities">
+            <summary>Возможности MV-LE, определённые один раз при Open (не на каждый POST).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeDeviceCapabilities.#ctor(System.Boolean,System.Boolean)">
+            <summary>Возможности MV-LE, определённые один раз при Open (не на каждый POST).</summary>
+        </member>
+        <member name="T:LightServer.Services.MvLeFlashSyncPlan">
+            <summary>
+            MV-LE Hold: trigger (вспышка разом) + broadcast или быстрый On по каналам — свет всегда остаётся включённым.
+            </summary>
+        </member>
+        <member name="P:LightServer.Services.MvLeFlashSyncPlan.UseHoldTimerRise">
+            <summary>Hold: зажигание одним timer trigger (не broadcast On).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.ResolvePrimeSource(LightServer.Services.MvLeFlashSyncPlan)">
+            <summary>Timer1 при Open / перед On — свет не горит до одного software trigger.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.PrepareHardware(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Int32@)">
+            <summary>Подготовка при Open: яркость (опционально) + Timer1/Off.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.ApplyOnHold(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Boolean,System.Boolean,System.Boolean,System.Int32@,System.String@)">
+            <summary>
+            Hold: фаза 1 — все каналы Timer1+яркость (собрать), фаза 2 — один trigger, фаза 3 — broadcast On (без On по каналам).
+            </summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.TrySustainOn(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Boolean,System.Int32@,System.String@)">
+            <summary>После импульса Timer — один раз перевести все каналы в On (удержание).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.RefreshHoldPlan(MvCameraControl.IDevice,LightServer.Services.MvLeFlashSyncPlan)">
+            <summary>Кэш плана при Open мог быть пустым — перечитываем trigger/broadcast перед On.</summary>
+        </member>
+        <member name="T:LightServer.Services.MvLeSerialLightSessions">
+            <summary>
+            Долгоживущие объекты MvCameraControl для COM MV-LE: кэш EnumDevices и опционально открытый <see cref="T:MvCameraControl.IDevice"/>.
+            Регистрируется в DI как Singleton (как <see cref="T:LightServer.Services.IoControllerComService"/>).
+            </summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeSerialLightSessions.GetSerialDeviceList(System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>Перечисление с SetEnumSerialPorts; повторный вызов с тем же набором портов берёт кэш.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeSerialLightSessions.ResolveDeviceIndex(System.Collections.Generic.List{MvCameraControl.IDeviceInfo},System.String)">
+            <summary>Индекс устройства на COM из кэша перечисления (O(1)).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeSerialLightSessions.AcquireDevice(System.Collections.Generic.List{MvCameraControl.IDeviceInfo},System.Int32,System.String,System.Boolean)">
+            <summary>
+            <paramref name="keepOpen"/> — вернуть уже открытый device; иначе новый (caller закрывает после применения).
+            </summary>
+        </member>
+        <member name="T:Program">
+            <summary>
+            Auto-generated public partial Program class for top-level statement apps.
+            </summary>
+        </member>
+    </members>
+</doc>

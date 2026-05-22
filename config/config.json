@@ -6,6 +6,7 @@
     "format": "BGR8"
   },
   "capture_source": "hik",
+  "capture_trigger_mode": "software",
   "frame_timeout_ms": 4000,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
@@ -75,16 +76,25 @@
       "artificial_delay_ms": 1200
     }
   },
-  "light_server": {
+  "light_servers": {
     "enabled": true,
-    "base_url": "http://127.0.0.1:5079",
-    "trigger_path": "/api/light/trigger-inspection",
     "timeout_ms": 1500,
     "fail_on_error": false,
-    "brightness": 100,
+    "brightness_percent": 100,
     "duration_ms": 180,
-    "flash_lead_ms": 35,
-    "settle_delay_ms": 100
+    "flash_lead_ms": 50,
+    "settle_delay_ms": 100,
+    "endpoints": [
+      {
+        "id": "light-com",
+        "enabled": true,
+        "type": "com_io",
+        "base_url": "http://127.0.0.1:5080",
+        "com_port": "COM1",
+        "brightness_percent": 100,
+        "channels": [1, 2, 3, 4]
+      }
+    ]
   },
   "integration": {
     "camera_parallelism": 1,
@@ -123,16 +133,16 @@
     "light_server_command_windows": [
       "dotnet",
       "exec",
-      "LightServer/bin/Release/net10.0/LightServer.dll",
+      "LightServer.v3/bin/Release/net10.0/LightServer.dll",
       "--urls",
-      "http://127.0.0.1:5079"
+      "http://127.0.0.1:5080"
     ],
     "light_server_command_linux": [
       "dotnet",
       "exec",
-      "LightServer/bin/Release/net10.0/LightServer.dll",
+      "LightServer.v3/bin/Release/net10.0/LightServer.dll",
       "--urls",
-      "http://127.0.0.1:5079"
+      "http://127.0.0.1:5080"
     ]
   }
 }

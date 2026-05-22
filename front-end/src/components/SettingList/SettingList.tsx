@@ -11,6 +11,7 @@ import {
 import { ReferenceSetup } from "../ReferenceSetup";
 import type { SettingFieldName } from "./type";
 import "./SettingList.css";
+<<<<<<< HEAD
 import { orchestratorWs } from "../../shared/ws";
 import type { ServerWsMessage, WsConnectionStatus } from "../../shared/ws";
 
@@ -68,6 +69,15 @@ export function SettingList() {
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
+=======
+
+export function SettingList() {
+  const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
+  const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
+
+  const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
+
+>>>>>>> window
   useEffect(() => {
     let isActive = true;
 
@@ -97,7 +107,10 @@ export function SettingList() {
     event.preventDefault();
 
     const formToSave = settingData.form;
+<<<<<<< HEAD
     sendBrightness(formToSave.brightnessPercent);
+=======
+>>>>>>> window
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       status: SAVING_SETTING_STATUS,
@@ -112,7 +125,11 @@ export function SettingList() {
     <aside className="setting-list" aria-label="Настройки">
       <div className="setting-list__header">
         <h2>Настройки</h2>
+<<<<<<< HEAD
         <strong data-status={settingData.status.state}>{status.state}, {message}</strong>
+=======
+        <strong data-status={settingData.status.state}>{settingData.status.text}</strong>
+>>>>>>> window
       </div>
 
       <form className="setting-list__form" onSubmit={handleSubmit}>

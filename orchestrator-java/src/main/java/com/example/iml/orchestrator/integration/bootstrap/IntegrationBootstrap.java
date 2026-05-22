@@ -141,10 +141,8 @@ public final class IntegrationBootstrap {
                 cfg.serviceCommandTimeoutMs(),
                 cfg.geometryPoolSize()
         );
-        LightServerLauncher.StartedProcesses lightProcesses = lightServerLauncher.startAllIfConfigured(
+        ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
                 integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
-        ExternalServiceProcess lightServerProcess = lightProcesses.primary();
-        ExternalServiceProcess lightServerV2Process = lightProcesses.secondary();
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
@@ -153,7 +151,7 @@ public final class IntegrationBootstrap {
         Map<String, Object> uiCfg = (Map<String, Object>) root.get("ui_http");
         int flashLeadMs = LightServersConfig.flashLeadMsFromRoot(root);
         if (flashLeadMs > 0) {
-            log.info("light_servers flash_lead_ms={} (пауза после ответа вспышки, перед capture)", flashLeadMs);
+            log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
@@ -370,7 +368,6 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
-                    lightServerV2Process,
                     analisSurfaceProcess,
                     lightClient,
                     uiVisualsPython,

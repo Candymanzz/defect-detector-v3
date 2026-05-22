@@ -125,7 +125,12 @@ public final class WsOutboundMessenger {
         }
     }
 
-    public void sendLightBrightnessAck(WebSocket conn, JsonNode requestRoot, int brightnessPercent) {
+    public void sendLightBrightnessAck(
+            WebSocket conn,
+            JsonNode requestRoot,
+            java.util.Map<String, Integer> brightnessByEndpoint,
+            int defaultBrightnessPercent
+    ) {
         try {
             ObjectNode root = JSON.createObjectNode();
             root.put("type", WsMessageTypes.SERVER_LIGHT_BRIGHTNESS_ACK);
@@ -133,10 +138,16 @@ public final class WsOutboundMessenger {
             copyRequestMessageId(root, requestRoot);
             ObjectNode payload = JSON.createObjectNode();
             payload.put("ok", true);
-            payload.put("brightness_percent", brightnessPercent);
+            payload.put("default_brightness_percent", defaultBrightnessPercent);
+            payload.put("brightness_percent", defaultBrightnessPercent);
+            com.fasterxml.jackson.databind.node.ObjectNode endpoints = JSON.createObjectNode();
+            for (var e : brightnessByEndpoint.entrySet()) {
+                endpoints.put(e.getKey(), e.getValue());
+            }
+            payload.set("endpoints", endpoints);
             root.set("payload", payload);
             sendRaw(conn, writeJson(root), WsMessageTypes.SERVER_LIGHT_BRIGHTNESS_ACK);
-            log.info("client_ws sent type={} brightness_percent={}", WsMessageTypes.SERVER_LIGHT_BRIGHTNESS_ACK, brightnessPercent);
+            log.info("client_ws sent type={} brightness={}", WsMessageTypes.SERVER_LIGHT_BRIGHTNESS_ACK, brightnessByEndpoint);
         } catch (ClientWsJsonSerializationException | ClientWsSendFailedException e) {
             log.warn("client_ws light_brightness_ack send failed: {}", e.getMessage());
         }

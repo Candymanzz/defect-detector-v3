@@ -1,11 +1,18 @@
+<<<<<<< HEAD
 import { useEffect, useSyncExternalStore } from "react";
 import { getReferenceImageUrl, subscribeReferenceImages } from "../../shared/referenceImages";
+=======
+import { useEffect } from "react";
+>>>>>>> window
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import "./ModalWrapper.css";
 type ModalWrapperProps = {
   isOpen: boolean;
   title: string;
+<<<<<<< HEAD
   cameraId?: number;
+=======
+>>>>>>> window
   cameraImageUrl?: string;
   referenceImageUrl?: string;
   onClose: () => void;
@@ -14,11 +21,15 @@ type ModalWrapperProps = {
 export function ModalWrapper({
   isOpen,
   title,
+<<<<<<< HEAD
   cameraId,
+=======
+>>>>>>> window
   cameraImageUrl,
   referenceImageUrl,
   onClose,
 }: ModalWrapperProps) {
+<<<<<<< HEAD
   const storedReferenceImageUrl = useSyncExternalStore(
     subscribeReferenceImages,
     () => getReferenceImageUrl(cameraId),
@@ -26,6 +37,8 @@ export function ModalWrapper({
   );
   const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImageUrl;
 
+=======
+>>>>>>> window
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -62,7 +75,11 @@ export function ModalWrapper({
         </header>
 
         <div className="modal__images">
+<<<<<<< HEAD
           <ImagePanel imageUrl={displayedReferenceImageUrl} label="Эталон" />
+=======
+          <ImagePanel imageUrl={referenceImageUrl} label="Эталон" />
+>>>>>>> window
           <ImagePanel imageUrl={cameraImageUrl} label="Проверка камеры" />
         </div>
       </section>
