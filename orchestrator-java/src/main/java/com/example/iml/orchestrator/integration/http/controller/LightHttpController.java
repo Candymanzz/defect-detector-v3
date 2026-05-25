@@ -163,9 +163,11 @@ public final class LightHttpController implements HttpController {
         }
         applyBrightnessUpdate(merged);
         LOG.info("light brightness updated via {} {} -> {}", ctx.method(), ctx.path(), lightClient.brightnessByEndpoint());
+        int defaultPercent = lightClient.brightnessPercent();
         ObjectNode ok = JSON.createObjectNode();
         ok.put("ok", true);
-        ok.put("default_brightness_percent", lightClient.brightnessPercent());
+        ok.put("default_brightness_percent", defaultPercent);
+        ok.put("brightness_percent", defaultPercent);
         ok.set("endpoints", buildEndpointsNode());
         HttpResponses.sendJson(ctx, 200, ok);
     }
@@ -191,8 +193,10 @@ public final class LightHttpController implements HttpController {
     }
 
     private void sendBrightness(HttpRequestContext ctx) throws IOException {
+        int defaultPercent = lightClient.brightnessPercent();
         ObjectNode root = JSON.createObjectNode();
-        root.put("default_brightness_percent", lightClient.brightnessPercent());
+        root.put("default_brightness_percent", defaultPercent);
+        root.put("brightness_percent", defaultPercent);
         root.set("endpoints", buildEndpointsNode());
         root.put("upstream_base_url", upstream == null ? "" : upstream.baseUrl());
         HttpResponses.sendJson(ctx, 200, root);

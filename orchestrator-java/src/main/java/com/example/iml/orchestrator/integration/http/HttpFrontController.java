@@ -140,28 +140,6 @@ public final class HttpFrontController {
 
             router.register(HttpRoute.exact("POST", "/api/orchestrator/light/brightness", light::handleBrightness));
 
-            router.register(HttpRoute.exact("PATCH", "/api/orchestrator/light/brightness", light::handleBrightness));
-
-            router.register(HttpRoute.exact("GET", "/api/light/brightness", light::handleBrightness));
-
-            router.register(HttpRoute.exact("PUT", "/api/light/brightness", light::handleBrightness));
-
-            router.register(HttpRoute.exact("POST", "/api/light/brightness", light::handleBrightness));
-
-            router.register(HttpRoute.exact("PATCH", "/api/light/brightness", light::handleBrightness));
-
-            router.register(HttpRoute.exact("POST", "/api/orchestrator/light/trigger", light::handleTrigger));
-
-            router.register(HttpRoute.exact("POST", "/api/light/trigger", light::handleTrigger));
-
-            router.register(HttpRoute.exact("GET", "/api/devices", light::handleNetworkDevices));
-
-            router.register(HttpRoute.exact("POST", "/api/light", light::handleNetworkLight));
-
-            router.register(HttpRoute.exact("GET", "/api/com/devices", light::handleComDevices));
-
-            router.register(HttpRoute.exact("POST", "/api/com/light", light::handleComLight));
-
         }
 
 
