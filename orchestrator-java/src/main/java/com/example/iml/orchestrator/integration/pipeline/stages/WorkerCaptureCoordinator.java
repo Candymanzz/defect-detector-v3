@@ -84,7 +84,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             long refFrameId = YamlScalars.toLong(activeReference.header().get("frame_id"), -1L);
             final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
             lightClient.runCaptureWithLighting(cameraId, refFrameId, "capture", flashLeadMs, () -> {
-                captureHolder[0] = worker.command(Map.of("op", "capture"));
+                captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
             });
             BinaryProtocol.Message capture = captureHolder[0];
             jpegWriter.saveCapturedFrame(projectRoot, saveCaptures, capture.header(), "cap");

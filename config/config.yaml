@@ -8,6 +8,8 @@ frame:
   format: BGR8
 
 capture_source: "hik"
+# software — кадр только после TriggerSoftware (синхрон с вспышкой); continuous — свободный поток.
+capture_trigger_mode: "software"
 frame_timeout_ms: 4000
 
 orchestrator:
@@ -19,6 +21,7 @@ cameras:
     enabled: true
     ip: "192.168.1.10"
     exposure_us: 12000
+    capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-0-cmd"
     product_type: "bench-single-frame"
@@ -110,7 +113,8 @@ light_servers:
   # 0…255 в POST; для теста как Swagger: [5,5,5,5]. Уберите строку — будет только brightness_percent.
   # brightness_raw: [5, 5, 5, 5]
   duration_ms: 500
-  flash_lead_ms: 400
+  # Пауза после POST On, до software trigger камеры (см. capture_trigger_mode).
+  flash_lead_ms: 50
   settle_delay_ms: 150
   endpoints:
     - id: light-com

@@ -6,6 +6,7 @@
     "format": "BGR8"
   },
   "capture_source": "hik",
+  "capture_trigger_mode": "software",
   "frame_timeout_ms": 4000,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
@@ -81,7 +82,7 @@
     "fail_on_error": false,
     "brightness_percent": 100,
     "duration_ms": 180,
-    "flash_lead_ms": 35,
+    "flash_lead_ms": 50,
     "settle_delay_ms": 100,
     "endpoints": [
       {

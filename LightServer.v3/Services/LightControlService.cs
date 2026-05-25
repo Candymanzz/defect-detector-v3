@@ -1,6 +1,7 @@
+using System.Diagnostics;
 using System.Globalization;
-using System.Text.Json;
 using LightServer.Models;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MvCameraControl;
 
@@ -8,7 +9,6 @@ namespace LightServer.Services;
 
 public sealed class LightControlService
 {
-    private const string DebugLogPath = @"c:\Users\Administrator\Desktop\LightServer.v2\.cursor\debug.log";
     private const string BrightnessNode = "LightBrightness";
     private const int BrightnessMin = 0;
     private const int BrightnessMax = 255;
@@ -35,48 +35,61 @@ public sealed class LightControlService
         | DeviceTLayerType.MvUsbDevice;
 
     private readonly SerialLightOptions _serialDefaults;
+    private readonly MvLeSerialLightSessions _serialSessions;
+    private readonly ILogger<LightControlService> _log;
     private readonly object _sdkLock = new();
 
-    public LightControlService(IOptions<SerialLightOptions> serialOptions) =>
+    public LightControlService(
+        IOptions<SerialLightOptions> serialOptions,
+        MvLeSerialLightSessions serialSessions,
+        ILogger<LightControlService> log)
+    {
         _serialDefaults = serialOptions.Value;
+        _serialSessions = serialSessions;
+        _log = log;
+        if (_serialDefaults.DisableSdkLock)
+            _log.LogWarning("SerialLight:DisableSdkLock=true — SDK/COM без lock (эксперимент, возможны гонки и сбои)");
+    }
+
+    private void RunSdkLocked(Action action)
+    {
+        if (_serialDefaults.DisableSdkLock)
+        {
+            action();
+            return;
+        }
+
+        lock (_sdkLock)
+            action();
+    }
 
     public (bool ok, string? error, DeviceListResponse? data) ListNetworkDevices()
     {
-        lock (_sdkLock)
+        (bool ok, string? error, DeviceListResponse? data) result = (false, "uninitialized", null);
+        RunSdkLocked(() =>
         {
             ClearSerialPortFilter();
-            return EnumToResponse(NetworkLayers);
-        }
+            result = EnumToResponse(NetworkLayers);
+        });
+        return result;
     }
 
     /// <param name="ports">Если null или пусто — из конфига SerialLight:EnumPorts.</param>
     public (bool ok, string? error, DeviceListResponse? data) ListSerialDevices(IReadOnlyList<string>? ports)
     {
         IReadOnlyList<string> portList = NormalizePortList(ports);
-        #region agent log
-        WriteDebugLog("run1", "H1", "LightControlService.ListSerialDevices:47", "ListSerialDevices entry", new
-        {
-            requestedPorts = ports?.ToArray(),
-            normalizedPorts = portList.ToArray()
-        });
-        #endregion
         if (portList.Count == 0)
             return (false, "Укажите COM-порты: query ?ports=COM1,COM3 или SerialLight:EnumPorts в appsettings.json.", null);
 
-        lock (_sdkLock)
+        (bool ok, string? error, DeviceListResponse? data) result = (false, "uninitialized", null);
+        RunSdkLocked(() =>
         {
-            var (enumOk, enumErr, devList) = EnumerateWithSerialPorts(portList);
-            #region agent log
-            WriteDebugLog("run1", "H2", "LightControlService.ListSerialDevices:64", "COM discovery enumeration", new
-            {
-                enumOk,
-                enumErr,
-                deviceCount = devList?.Count ?? -1,
-                labels = devList?.Select(BuildDeviceSearchBlob).ToArray()
-            });
-            #endregion
+            var (enumOk, enumErr, devList) = _serialSessions.GetSerialDeviceList(portList);
             if (!enumOk || devList == null)
-                return (false, enumErr, null);
+            {
+                result = (false, enumErr, null);
+                return;
+            }
 
             var devices = new List<DeviceInfoDto>();
             for (int i = 0; i < devList.Count; i++)
@@ -100,54 +113,33 @@ public sealed class LightControlService
                 .OrderBy(static d => d.ComPort)
                 .ThenBy(static d => d.ModelName)
                 .ToList();
-            #region agent log
-            WriteDebugLog("run1", "H5", "LightControlService.ListSerialDevices:139", "ListSerialDevices final response", new
-            {
-                finalCount = devices.Count,
-                devices = devices.Select(d => new
-                {
-                    d.TLayerType,
-                    d.ModelName,
-                    d.SerialNumber,
-                    d.ComPort
-                }).ToArray()
-            });
-            #endregion
 
-            return (true, null, new DeviceListResponse { Count = devices.Count, Devices = devices });
-        }
+            result = (true, null, new DeviceListResponse { Count = devices.Count, Devices = devices });
+        });
+        return result;
     }
 
     public (bool ok, string? error) SetLightNetwork(LightCommandRequest request)
     {
-        lock (_sdkLock)
-        {
-            ClearSerialPortFilter();
-            var (enumOk, enumErr, list) = EnumDevicesInternal(NetworkLayers);
-            if (!enumOk || list == null)
-                return (false, enumErr);
+        ClearSerialPortFilter();
+        var (enumOk, enumErr, list) = EnumDevicesInternal(NetworkLayers);
+        if (!enumOk || list == null)
+            return (false, enumErr);
 
-            if (request.DeviceIndex < 0 || request.DeviceIndex >= list.Count)
-                return (false, $"Invalid deviceIndex {request.DeviceIndex} (count {list.Count}).");
+        if (request.DeviceIndex < 0 || request.DeviceIndex >= list.Count)
+            return (false, $"Invalid deviceIndex {request.DeviceIndex} (count {list.Count}).");
 
-            return ApplyLightToDevice(DeviceFactory.CreateDevice(list[request.DeviceIndex]), request);
-        }
+        IDevice device = DeviceFactory.CreateDevice(list[request.DeviceIndex]);
+        var caps = new MvLeDeviceCapabilities(
+            device.Parameters.GetEnumValue("LightControllerSelector", out IEnumValue _) == MvError.MV_OK,
+            device.Parameters.GetIntValue(BrightnessNode, out IIntValue _) == MvError.MV_OK);
+        return ApplyLightToDevice(device, request, caps, new object(), alreadyOpen: false, leaveOpen: false);
     }
 
     public (bool ok, string? error) SetLightSerial(LightCommandRequestCom request, IReadOnlyList<string>? enumPorts)
     {
         string? comPort = NormalizeOptionalInput(request.ComPort);
         string source = NormalizeSource(request.LightControllerSource);
-        #region agent log
-        WriteDebugLog("run1", "H1", "LightControlService.SetLightSerial:165", "SetLightSerial entry", new
-        {
-            requestComPort = request.ComPort,
-            normalizedComPort = comPort,
-            source,
-            channels = request.Channels,
-            enumPorts = enumPorts?.ToArray()
-        });
-        #endregion
         if (!IsSupportedSource(source))
             return (false, "lightControllerSource должен быть одним из: On, Off, In1..In4, Timer1..Timer4.");
 
@@ -158,23 +150,24 @@ public sealed class LightControlService
         if (portList.Count == 0)
             return (false, "Для COM укажите порты перечисления: ?ports=COM1,COM3 или SerialLight:EnumPorts в appsettings.json.");
 
-        lock (_sdkLock)
-        {
-            var (enumOk, enumErr, list) = EnumerateWithSerialPorts(portList);
-            if (!enumOk || list == null)
-                return (false, enumErr);
 
-            int idx = FindSerialDeviceIndex(list, comPort);
-            #region agent log
-            WriteDebugLog("run3", "H9", "LightControlService.SetLightSerial:237", "Find device on COM", new
+        (bool ok, string? error) result = (false, "uninitialized");
+        RunSdkLocked(() =>
+        {
+            var sw = Stopwatch.StartNew();
+            var (enumOk, enumErr, list) = _serialSessions.GetSerialDeviceList(portList);
+            if (!enumOk || list == null)
             {
-                comPort,
-                idx,
-                devices = list.Select(static d => BuildDeviceSearchBlob(d)).ToArray()
-            });
-            #endregion
+                result = (false, enumErr);
+                return;
+            }
+
+            int idx = _serialSessions.ResolveDeviceIndex(list, comPort);
             if (idx < 0)
-                return (false, BuildComPortNotFoundMessage(comPort, list));
+            {
+                result = (false, BuildComPortNotFoundMessage(comPort, list));
+                return;
+            }
 
             var applyRequest = new LightCommandRequest
             {
@@ -184,72 +177,185 @@ public sealed class LightControlService
                 Brightness = request.Brightness
             };
 
-            var (applyOk, applyMsg) = ApplyLightToDevice(DeviceFactory.CreateDevice(list[idx]), applyRequest);
-            if (applyOk)
-                applyMsg = $"MvCameraControl ({BuildDeviceSearchBlob(list[idx])}): {applyMsg}";
+            bool keepOpen = _serialDefaults.KeepDeviceOpen;
+            var (device, openErr, fromSession, sessionCreated, caps, syncRoot) =
+                _serialSessions.AcquireDevice(list, idx, comPort, keepOpen);
+            if (device == null)
+            {
+                result = (false, openErr);
+                return;
+            }
 
-            return (applyOk, applyMsg);
-        }
-    }
+            MvLeDeviceCapabilities deviceCaps = caps ?? new MvLeDeviceCapabilities(false, false);
+            object deviceLock = syncRoot ?? new object();
+            MvLeSerialLightSessions.OpenSession? session = _serialSessions.GetOpenSession(comPort);
 
-    /// <summary>Перечисление с SetEnumSerialPorts — имена портов как в GetSerialPortList (COM_Port#COM1).</summary>
-    private (bool ok, string? err, List<IDeviceInfo>? list) EnumerateWithSerialPorts(IReadOnlyList<string> userPortList)
-    {
-        var (resolveOk, resolveErr, sdkPorts) = ResolveSdkSerialPortNames(userPortList);
-        if (!resolveOk)
-            return (false, resolveErr, null);
+            MvLeFlashSyncPlan flashSync = session?.FlashSync
+                ?? MvLeFlashSync.Probe(device, _serialDefaults.FlashSyncMode);
+            flashSync.UseSdkLock = !_serialDefaults.DisableSdkLock;
+            string lockNote = _serialDefaults.DisableSdkLock ? " no-sdk-lock" : "";
 
-        #region agent log
-        WriteDebugLog("run4", "H10", "LightControlService.EnumerateWithSerialPorts", "Resolved SDK serial port names", new
-        {
-            userPorts = userPortList.ToArray(),
-            sdkPorts = sdkPorts.ToArray()
+            if (!TryBuildChannelPlan(applyRequest, deviceCaps, source, session?.ApplyState, out int[] channels, out int[] appliedBrightness, out bool writeBrightness, out string? planErr))
+            {
+                result = (false, planErr);
+                return;
+            }
+
+            if (sessionCreated
+                && session != null
+                && _serialDefaults.PreconfigureBrightnessOnOpen
+                && deviceCaps.HasBrightness
+                && source.Equals("On", StringComparison.OrdinalIgnoreCase))
+            {
+                int[] primeChannels = [1, 2, 3, 4];
+                int[] primeBrightness = ExpandBrightness(appliedBrightness, primeChannels.Length);
+                if (!MvLeFlashSync.PrepareHardware(device, deviceLock, flashSync, primeChannels, primeBrightness, out int primeFail))
+                {
+                    result = (false, $"Prime channels failed on ch{primeFail}.");
+                    return;
+                }
+
+                if (flashSync.UseDeferredTimer || flashSync.UseHoldTimerRise)
+                    session.ApplyState.MarkArmed(primeChannels, primeBrightness, flashSync.TimerArmSource);
+                else
+                    session.ApplyState.Update(primeChannels, "Off", primeBrightness);
+            }
+            else if (sessionCreated
+                && session != null
+                && _serialDefaults.PreconfigureBrightnessOnOpen
+                && (flashSync.UseDeferredTimer || flashSync.UseHoldTimerRise))
+            {
+                int[] primeChannels = [1, 2, 3, 4];
+                if (!MvLeFlashSync.PrepareHardware(device, deviceLock, flashSync, primeChannels, brightness: null, out int primeFail))
+                {
+                    result = (false, $"Prime channels failed on ch{primeFail}.");
+                    return;
+                }
+
+                session.ApplyState.MarkArmed(primeChannels, [0, 0, 0, 0], flashSync.TimerArmSource);
+            }
+
+            if (session?.ApplyState.IsRedundant(channels, source, appliedBrightness, writeBrightness) == true)
+            {
+                _log.LogDebug("SetLightSerial {ComPort} {Source} {ElapsedMs}ms (unchanged, skipped)", comPort, source, sw.ElapsedMilliseconds);
+                result = (true, $"Channels [{string.Join(", ", channels)}] -> {source} (unchanged, skipped){lockNote}.");
+                return;
+            }
+
+            bool needPrepare = writeBrightness
+                || (source.Equals("On", StringComparison.OrdinalIgnoreCase)
+                    && (session?.ApplyState.WasOff == true
+                        || !(session?.ApplyState.IsHardwareArmed == true && session.ApplyState.CanSkipBrightness(channels, appliedBrightness))));
+
+            if ((flashSync.UseDeferredTimer || flashSync.UseHoldTimerRise)
+                && source.Equals("On", StringComparison.OrdinalIgnoreCase)
+                && session?.ApplyState.IsHardwareArmed == true
+                && !needPrepare)
+            {
+                if (!MvLeFlashSync.Apply(device, deviceLock, flashSync, channels, appliedBrightness, source,
+                        writeBrightness, session.ApplyState.IsHardwareArmed, _serialDefaults.SustainOnAfterTrigger, out int failedChannel, out string armedSyncMode))
+                {
+                    _serialSessions.InvalidateOnDeviceError();
+                    result = (false,
+                        $"Simultaneous On failed (need MVS Timer trigger or broadcast). Channel {failedChannel}. Try FlashSyncMode or close MVS Client.");
+                    return;
+                }
+
+                if (keepOpen && session != null)
+                    session.ApplyState.MarkArmed(channels, appliedBrightness, flashSync.TimerArmSource);
+
+                _log.LogDebug("SetLightSerial {ComPort} On sync={SyncMode} (armed, no per-channel On) {ElapsedMs}ms",
+                    comPort, armedSyncMode, sw.ElapsedMilliseconds);
+
+                result = (true, $"Channels [{string.Join(", ", channels)}] -> On ({armedSyncMode}), brightness [{string.Join(", ", appliedBrightness)}]{lockNote}.");
+                return;
+            }
+
+            if (!MvLeFlashSync.Apply(device, deviceLock, flashSync, channels, appliedBrightness, source,
+                    writeBrightness, session?.ApplyState.IsHardwareArmed == true, _serialDefaults.SustainOnAfterTrigger, out int failedCh, out string syncMode))
+            {
+                _serialSessions.InvalidateOnDeviceError();
+                if (source.Equals("On", StringComparison.OrdinalIgnoreCase))
+                {
+                    result = (false,
+                        flashSync.UseDeferredTimer
+                            ? "Simultaneous On unavailable: no Timer software trigger and no broadcast selector. Check MV-LE in MVS (Timer1 + trigger) or FlashSyncMode."
+                            : "Hold On failed: no broadcast selector on device. Try FlashSyncMode Auto/Deferred or configure All channel in MVS.");
+                    return;
+                }
+
+                result = (false, $"Failed channel {failedCh}, source {source}.");
+                return;
+            }
+
+            if (keepOpen && session != null)
+            {
+                if (source.Equals("Off", StringComparison.OrdinalIgnoreCase))
+                    session.ApplyState.RecordOffKeepingArm(channels);
+                else if (source.Equals("On", StringComparison.OrdinalIgnoreCase)
+                    && (flashSync.UseDeferredTimer || flashSync.UseHoldTimerRise))
+                {
+                    session.ApplyState.MarkArmed(channels, appliedBrightness, flashSync.TimerArmSource);
+                }
+                else
+                {
+                    _serialSessions.RecordApplyState(comPort, channels, source, appliedBrightness);
+                }
+            }
+
+            _log.LogDebug("SetLightSerial {ComPort} {Source} sync={SyncMode} writeBrightness={WriteBrightness} brightness=[{Brightness}] {ElapsedMs}ms",
+                comPort, source, syncMode, writeBrightness, string.Join(", ", appliedBrightness), sw.ElapsedMilliseconds);
+
+            result = (true, $"Channels [{string.Join(", ", channels)}] -> {source} ({syncMode}), brightness [{string.Join(", ", appliedBrightness)}]{lockNote}.");
         });
-        #endregion
-
-        int setRet = DeviceEnumerator.SetEnumSerialPorts(sdkPorts);
-        if (setRet != MvError.MV_OK)
-            return (false, $"SetEnumSerialPorts([{string.Join(", ", sdkPorts)}]) failed: 0x{setRet:x8}", null);
-
-        // Сначала только виртуальные COM-устройства (MV-LE), без смешения с GigE-камерой.
-        var (serialOk, serialErr, serialList) = EnumDevicesInternal(SerialLayers);
-        if (serialOk && serialList is { Count: > 0 })
-            return (serialOk, serialErr, serialList);
-
-        return EnumDevicesInternal(ComDiscoveryLayers);
+        return result;
     }
 
-    /// <summary>COM1 из API → COM_Port#COM1 для SetEnumSerialPorts (как GetSerialPortList в MVS).</summary>
-    private static (bool ok, string? err, List<string> ports) ResolveSdkSerialPortNames(IReadOnlyList<string> userPortList)
+    private static bool TryBuildChannelPlan(
+        LightCommandRequest request,
+        MvLeDeviceCapabilities caps,
+        string source,
+        MvLeApplyState? applyState,
+        out int[] channels,
+        out int[] appliedBrightness,
+        out bool writeBrightness,
+        out string? error)
     {
-        int hostRet = DeviceEnumerator.GetSerialPortList(out List<string> hostPorts);
-        hostPorts ??= [];
+        channels = request.Channels is { Length: > 0 } ? request.Channels : [1, 2, 3, 4];
+        appliedBrightness = new int[channels.Length];
+        writeBrightness = false;
+        error = null;
 
-        var resolved = new List<string>();
-        foreach (string raw in userPortList)
+        if (!caps.HasLightController)
         {
-            string com = NormalizeComPort(raw);
-            if (com.Length == 0)
-                continue;
-
-            string marker = $"COM_Port#{com}";
-            string? sdkName = hostPorts.FirstOrDefault(h =>
-                string.Equals(h, marker, StringComparison.OrdinalIgnoreCase)
-                || h.EndsWith($"#{com}", StringComparison.OrdinalIgnoreCase));
-
-            if (sdkName != null)
-                resolved.Add(sdkName);
-            else
-                resolved.Add(marker);
+            error = "Устройство не поддерживает LightControllerSelector (не MV-LE по этому API).";
+            return false;
         }
 
-        if (resolved.Count == 0)
-            return (false, "Не указаны COM-порты для перечисления.", []);
+        if (request.Brightness is { Length: > 0 }
+            && request.Brightness.Length != 1
+            && request.Brightness.Length != channels.Length)
+        {
+            error = $"brightness length ({request.Brightness.Length}) must be 1 or match channels ({channels.Length}).";
+            return false;
+        }
 
-        if (hostRet != MvError.MV_OK && hostPorts.Count == 0)
-            return (true, null, resolved.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        bool wantBrightness = caps.HasBrightness && !source.Equals("Off", StringComparison.OrdinalIgnoreCase);
+        for (int i = 0; i < channels.Length; i++)
+        {
+            int ch = channels[i];
+            if (ch is < 1 or > 4)
+            {
+                error = $"Invalid channel {ch}. Use 1–4.";
+                return false;
+            }
 
-        return (true, null, resolved.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+            appliedBrightness[i] = ResolveBrightness(request, i, channels.Length, source, caps.HasBrightness);
+        }
+
+        writeBrightness = wantBrightness
+            && (applyState == null || !applyState.CanSkipBrightness(channels, appliedBrightness));
+        return true;
     }
 
     private static string BuildComPortNotFoundMessage(string comPort, List<IDeviceInfo> list)
@@ -261,38 +367,6 @@ public sealed class LightControlService
 
         string seen = string.Join("; ", list.Select(static d => BuildDeviceSearchBlob(d)));
         return $"Устройство на {sdkPort} не найдено. EnumDevices: [{seen}]";
-    }
-
-    private static int FindSerialDeviceIndex(List<IDeviceInfo> list, string? comPort)
-    {
-        string? com = NormalizeOptionalInput(comPort);
-        if (com == null)
-            return -1;
-
-        com = NormalizeComPort(com);
-        string marker = $"COM_Port#{com}";
-
-        for (int i = 0; i < list.Count; i++)
-        {
-            IDeviceInfo d = list[i];
-            if (d is ICamlDeviceInfo caml && string.Equals(NormalizeComPort(caml.PortID), com, StringComparison.OrdinalIgnoreCase))
-                return i;
-
-            string blob = BuildDeviceSearchBlob(d);
-            if (blob.Contains(marker, StringComparison.OrdinalIgnoreCase))
-                return i;
-        }
-
-        // MV-LE200 на COM1: модель + COM в одной строке (как в дереве MVS).
-        for (int i = 0; i < list.Count; i++)
-        {
-            string blob = BuildDeviceSearchBlob(list[i]);
-            if (blob.Contains(com, StringComparison.OrdinalIgnoreCase)
-                && blob.Contains("MV-LE", StringComparison.OrdinalIgnoreCase))
-                return i;
-        }
-
-        return -1;
     }
 
     /// <summary>Строка как в MVS: COM_Port#COM1 MV-LE200-...(serial).</summary>
@@ -411,18 +485,27 @@ public sealed class LightControlService
         return (true, null, list);
     }
 
-    private static (bool ok, string? error) ApplyLightToDevice(IDevice device, LightCommandRequest request)
+    private static (bool ok, string? error) ApplyLightToDevice(
+        IDevice device,
+        LightCommandRequest request,
+        MvLeDeviceCapabilities caps,
+        object syncRoot,
+        bool alreadyOpen,
+        bool leaveOpen)
     {
-        int ret = device.Open();
-        if (ret != MvError.MV_OK)
+        if (!alreadyOpen)
         {
-            device.Dispose();
-            return (false, $"Open: 0x{ret:x8}");
+            int ret = device.Open();
+            if (ret != MvError.MV_OK)
+            {
+                device.Dispose();
+                return (false, $"Open: 0x{ret:x8}");
+            }
         }
 
         if (device is IGigEDevice gige)
         {
-            ret = gige.GetOptimalPacketSize(out int packetSize);
+            int ret = gige.GetOptimalPacketSize(out int packetSize);
             if (packetSize > 0)
                 device.Parameters.SetIntValue("GevSCPSPacketSize", packetSize);
         }
@@ -437,10 +520,10 @@ public sealed class LightControlService
             if (request.Brightness is { Length: > 0 } && request.Brightness.Length != channels.Length)
                 return (false, $"brightness length ({request.Brightness.Length}) must match channels ({channels.Length}).");
 
-            if (!SupportsLightController(device))
+            if (!caps.HasLightController)
                 return (false, "Устройство не поддерживает LightControllerSelector (не MV-LE по этому API).");
 
-            bool hasBrightnessNode = SupportsBrightness(device);
+            bool writeBrightness = caps.HasBrightness && !source.Equals("Off", StringComparison.OrdinalIgnoreCase);
             var appliedBrightness = new int[channels.Length];
 
             for (int i = 0; i < channels.Length; i++)
@@ -449,14 +532,13 @@ public sealed class LightControlService
                 if (ch is < 1 or > 4)
                     return (false, $"Invalid channel {ch}. Use 1–4.");
 
-                int brightness = ResolveBrightness(request, i, source, hasBrightnessNode);
-                appliedBrightness[i] = brightness;
-
-                if (!ApplyChannel(device, ch, source, brightness, hasBrightnessNode))
-                    return (false, $"Failed channel {ch}, source {source}, brightness {brightness}.");
+                appliedBrightness[i] = ResolveBrightness(request, i, channels.Length, source, caps.HasBrightness);
             }
 
-            string brightPart = hasBrightnessNode
+            if (!ApplyAllChannels(device, syncRoot, channels, appliedBrightness, source, writeBrightness, out int failedChannel))
+                return (false, $"Failed channel {failedChannel}, source {source}.");
+
+            string brightPart = writeBrightness
                 ? $", brightness [{string.Join(", ", appliedBrightness)}]"
                 : "";
 
@@ -464,54 +546,104 @@ public sealed class LightControlService
         }
         finally
         {
-            device.StreamGrabber.StopGrabbing();
-            device.Close();
-            device.Dispose();
+            if (!leaveOpen)
+            {
+                device.StreamGrabber.StopGrabbing();
+                device.Close();
+                device.Dispose();
+            }
         }
     }
 
-    private static int ResolveBrightness(LightCommandRequest request, int index, string source, bool hasNode)
+    /// <summary>Один lock, последовательная запись — предсказуемое время без Parallel.For.</summary>
+    private static bool ApplyAllChannels(
+        IDevice device,
+        object syncRoot,
+        int[] channels,
+        int[] brightness,
+        string source,
+        bool writeBrightness,
+        out int failedChannel)
+    {
+        failedChannel = 0;
+        bool hasSourceNumeric = TrySourceNumeric(source, out uint sourceNumeric);
+
+        lock (syncRoot)
+        {
+            for (int i = 0; i < channels.Length; i++)
+            {
+                int ch = channels[i];
+                if (!SelectChannel(device, ch))
+                {
+                    failedChannel = ch;
+                    return false;
+                }
+
+                if (writeBrightness)
+                {
+                    if (device.Parameters.SetIntValue(BrightnessNode, brightness[i]) != MvError.MV_OK)
+                    {
+                        failedChannel = ch;
+                        return false;
+                    }
+                }
+
+                int ret = MvError.MV_E_UNKNOW;
+                if (hasSourceNumeric)
+                    ret = device.Parameters.SetEnumValue("LightControllerSource", sourceNumeric);
+
+                if (ret != MvError.MV_OK)
+                    ret = device.Parameters.SetEnumValueByString("LightControllerSource", source);
+
+                if (ret != MvError.MV_OK)
+                {
+                    failedChannel = ch;
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static int ResolveBrightness(LightCommandRequest request, int index, int channelCount, string source, bool hasNode)
     {
         if (!hasNode)
             return 0;
 
-        if (request.Brightness is { Length: > 0 })
+        if (request.Brightness is { Length: 1 })
+            return ClampBrightness(request.Brightness[0]);
+
+        if (request.Brightness is { Length: > 1 })
             return ClampBrightness(request.Brightness[index]);
 
         return source == "On" ? BrightnessDefaultOn : 0;
     }
 
+    private static int[] ExpandBrightness(int[] values, int length)
+    {
+        if (values.Length >= length)
+            return values;
+
+        var expanded = new int[length];
+        int fill = values.Length > 0 ? values[0] : BrightnessDefaultOn;
+        for (int i = 0; i < length; i++)
+            expanded[i] = i < values.Length ? values[i] : fill;
+
+        return expanded;
+    }
+
     private static int ClampBrightness(int value) =>
         Math.Clamp(value, BrightnessMin, BrightnessMax);
 
-    private static bool SupportsLightController(IDevice device) =>
-        device.Parameters.GetEnumValue("LightControllerSelector", out IEnumValue _) == MvError.MV_OK;
-
-    private static bool SupportsBrightness(IDevice device) =>
-        device.Parameters.GetIntValue(BrightnessNode, out IIntValue _) == MvError.MV_OK;
-
-    private static bool ApplyChannel(IDevice device, int channel, string source, int brightness, bool setBrightness)
+    private static bool SelectChannel(IDevice device, int channel)
     {
+        int ret = device.Parameters.SetEnumValue("LightControllerSelector", (uint)channel);
+        if (ret == MvError.MV_OK)
+            return true;
+
         string selector = channel.ToString(CultureInfo.InvariantCulture);
-
-        int ret = device.Parameters.SetEnumValueByString("LightControllerSelector", selector);
-        if (ret != MvError.MV_OK)
-            ret = device.Parameters.SetEnumValue("LightControllerSelector", (uint)channel);
-        if (ret != MvError.MV_OK)
-            return false;
-
-        if (setBrightness)
-        {
-            ret = device.Parameters.SetIntValue(BrightnessNode, brightness);
-            if (ret != MvError.MV_OK)
-                return false;
-        }
-
-        ret = device.Parameters.SetEnumValueByString("LightControllerSource", source);
-        if (ret != MvError.MV_OK && TrySourceNumeric(source, out uint src))
-            ret = device.Parameters.SetEnumValue("LightControllerSource", src);
-
-        return ret == MvError.MV_OK;
+        return device.Parameters.SetEnumValueByString("LightControllerSelector", selector) == MvError.MV_OK;
     }
 
     private static string NormalizeSource(string source)
@@ -571,31 +703,4 @@ public sealed class LightControlService
         || value.Equals("Timer3", StringComparison.OrdinalIgnoreCase)
         || value.Equals("Timer4", StringComparison.OrdinalIgnoreCase);
 
-    private static void WriteDebugLog(string runId, string hypothesisId, string location, string message, object data)
-    {
-        try
-        {
-            string? logDir = Path.GetDirectoryName(DebugLogPath);
-            if (!string.IsNullOrWhiteSpace(logDir))
-                Directory.CreateDirectory(logDir);
-
-            var payload = new
-            {
-                id = Guid.NewGuid().ToString("N"),
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                runId,
-                hypothesisId,
-                location,
-                message,
-                data
-            };
-
-            string line = JsonSerializer.Serialize(payload) + Environment.NewLine;
-            File.AppendAllText(DebugLogPath, line);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[agent-log-fail] {location}: {ex.GetType().Name}: {ex.Message}");
-        }
-    }
 }

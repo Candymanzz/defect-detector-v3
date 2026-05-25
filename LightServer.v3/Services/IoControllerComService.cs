@@ -46,6 +46,7 @@ public sealed class IoControllerComService : IDisposable
 
                 var applied = new List<string>(channels.Length);
                 IntPtr handle = session.Handle;
+                var channelParams = new Native.MV_IO_LIGHT_PARAM[channels.Length];
 
                 for (int i = 0; i < channels.Length; i++)
                 {
@@ -59,19 +60,22 @@ public sealed class IoControllerComService : IDisposable
                     ushort lightValue = ToMvIoLightValue(rawBrightness, off, mapping, out string note);
 
                     byte portIndex = (byte)(ch - 1);
-                    Native.MV_IO_LIGHT_PARAM param = BuildLightParam(
-                        portIndex, lightValue, off, triggerMode, durationMs);
-
-                    int ret = Native.MV_IO_SetLightParam(handle, ref param);
-                    if (ret != 0)
-                        return (false, $"MV_IO_SetLightParam failed on ch{ch}: 0x{ret:x8}");
+                    channelParams[i] = BuildLightParam(portIndex, lightValue, off, triggerMode, durationMs);
 
                     string modeTag = off ? "off" : triggerMode ? $"trigger {durationMs}ms" : "hold";
                     applied.Add($"ch{ch}={note}, {modeTag}");
-
-                    if (triggerMode && !off)
-                        Thread.Sleep(durationMs);
                 }
+
+                for (int i = 0; i < channels.Length; i++)
+                {
+                    int ch = channels[i];
+                    int ret = Native.MV_IO_SetLightParam(handle, ref channelParams[i]);
+                    if (ret != 0)
+                        return (false, $"MV_IO_SetLightParam failed on ch{ch}: 0x{ret:x8}");
+                }
+
+                if (triggerMode && !off)
+                    Thread.Sleep(durationMs);
 
                 if (!_ioOptions.KeepComSessionOpen)
                     CloseSession(sessionKey);

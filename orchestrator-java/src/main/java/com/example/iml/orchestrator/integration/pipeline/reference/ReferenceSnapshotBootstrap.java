@@ -65,7 +65,7 @@ public final class ReferenceSnapshotBootstrap {
         long tRef0 = System.nanoTime();
         final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
         lightClient.runCaptureWithLighting(cameraId, -1L, "reference", 0, () -> {
-            captureHolder[0] = worker.command(Map.of("op", "capture"));
+            captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
         });
         BinaryProtocol.Message referenceCapture = captureHolder[0];
         if (logStyle == ReferenceLogStyle.CONVEYOR_BUCKET) {
