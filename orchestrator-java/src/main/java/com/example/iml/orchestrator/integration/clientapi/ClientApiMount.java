@@ -11,10 +11,11 @@ public record ClientApiMount(
         boolean enabled,
         GeometryRuntimeConfig geometryRuntime,
         String kopcheniBaseUrl,
-        Map<String, Object> javaGeometryYaml
+        Map<String, Object> javaGeometryYaml,
+        Map<String, Object> pythonDetectorYaml
 ) {
     public static ClientApiMount disabled() {
-        return new ClientApiMount(false, null, "", null);
+        return new ClientApiMount(false, null, "", null, null);
     }
 
     @SuppressWarnings("unchecked")
@@ -43,7 +44,12 @@ public record ClientApiMount(
         if (jgo instanceof Map<?, ?> jgm) {
             jg = (Map<String, Object>) jgm;
         }
-        return new ClientApiMount(true, geometryRuntime, url, jg);
+        Map<String, Object> py = null;
+        Object pyo = root.get("python_detector");
+        if (pyo instanceof Map<?, ?> pym) {
+            py = (Map<String, Object>) pym;
+        }
+        return new ClientApiMount(true, geometryRuntime, url, jg, py);
     }
 
     public boolean kopcheniConfigured() {

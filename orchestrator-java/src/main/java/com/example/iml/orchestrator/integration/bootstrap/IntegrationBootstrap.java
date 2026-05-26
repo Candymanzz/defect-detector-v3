@@ -104,7 +104,7 @@ public final class IntegrationBootstrap {
                 new DefaultInspectionDecisionAggregator(log),
                 pipelineTelemetry,
                 new InspectGeometryExecutor(log, geometrySnapshotCache, geometryRuntimeConfig),
-                new InspectPythonExecutor(log),
+                new InspectPythonExecutor(log, geometryRuntimeConfig),
                 captureCoordinator,
                 new InspectionDecisionToFanOutEvent(),
                 referenceBootstrap,

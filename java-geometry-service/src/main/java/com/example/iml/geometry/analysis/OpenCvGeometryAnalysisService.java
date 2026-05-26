@@ -4,6 +4,7 @@ import com.example.iml.geometry.calibration.CalibrationService;
 import com.example.iml.geometry.codec.ImageCodec;
 import com.example.iml.geometry.dto.InspectionRequest;
 import com.example.iml.geometry.dto.InspectionResponse;
+import com.example.iml.geometry.dto.NormPoint;
 import com.example.iml.geometry.dto.RoiRect;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.*;
@@ -101,13 +102,20 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         Mat referenceRoi = null;
         Mat currentRoi = null;
         Mat alignedCurrentRoi = null;
+        Mat roiMask = null;
         AlignmentResult alignment = null;
+        List<NormPoint> mainPolygon = request.mainRoiPolygonNorm();
         try {
             validateInputFrames(reference, current);
 
-            Rect mainRect = toSafeRect(request.mainRoi(), current.cols(), current.rows());
+            Rect mainRect = resolveMainRect(request, current.cols(), current.rows());
             referenceRoi = new Mat(reference, mainRect);
             currentRoi = new Mat(current, mainRect);
+            if (mainPolygon != null && mainPolygon.size() >= 3) {
+                roiMask = RoiPolygonMask.maskForRect(mainPolygon, mainRect, current.cols(), current.rows());
+                RoiPolygonMask.applyMask(referenceRoi, roiMask);
+                RoiPolygonMask.applyMask(currentRoi, roiMask);
+            }
 
             long tAlign0 = System.nanoTime();
             alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm());
@@ -115,6 +123,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             long tWarp0 = System.nanoTime();
             alignedCurrent = warpCurrentToReference(current, alignment.homographyRefToCurrent, mainRect);
             alignedCurrentRoi = new Mat(alignedCurrent, mainRect);
+            if (roiMask != null) {
+                RoiPolygonMask.applyMask(alignedCurrentRoi, roiMask);
+            }
             recordStage("warp", tWarp0);
 
             ConcentricityResult concentricity;
@@ -193,11 +204,24 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     overallPass ? "PASS" : "FAIL"
             );
         } finally {
-            release(referenceRoi, currentRoi, alignedCurrentRoi, debug, alignedCurrent);
+            release(referenceRoi, currentRoi, alignedCurrentRoi, roiMask, debug, alignedCurrent);
             if (alignment != null && alignment.homographyRefToCurrent != null) {
                 alignment.homographyRefToCurrent.release();
             }
         }
+    }
+
+    private Rect resolveMainRect(InspectionRequest request, int frameWidth, int frameHeight) {
+        List<NormPoint> poly = request.mainRoiPolygonNorm();
+        if (poly != null && poly.size() >= 3) {
+            Rect fromPoly = RoiPolygonMask.boundingRect(poly, frameWidth, frameHeight);
+            return toSafeRect(
+                    new RoiRect(fromPoly.x, fromPoly.y, fromPoly.width, fromPoly.height),
+                    frameWidth,
+                    frameHeight
+            );
+        }
+        return toSafeRect(request.mainRoi(), frameWidth, frameHeight);
     }
 
     private static <T> T joinStage(CompletableFuture<T> future, String stage) {
@@ -683,7 +707,11 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             ConcentricityResult concentricity,
             InspectionRequest request
     ) {
-        Imgproc.rectangle(debugFrame, mainRect, new Scalar(0, 255, 0), 2);
+        if (request.mainRoiPolygonNorm() != null && request.mainRoiPolygonNorm().size() >= 3) {
+            drawPolygonOutline(debugFrame, request.mainRoiPolygonNorm(), debugFrame.cols(), debugFrame.rows());
+        } else {
+            Imgproc.rectangle(debugFrame, mainRect, new Scalar(0, 255, 0), 2);
+        }
 
         Point center = new Point(mainRect.x + mainRect.width / 2.0, mainRect.y + mainRect.height / 2.0);
         Point shifted = new Point(center.x + alignment.shiftXPx, center.y + alignment.shiftYPx);
@@ -715,6 +743,23 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         if (request.wrinklesRoi() != null) {
             Rect r = toSafeRect(request.wrinklesRoi(), debugFrame.cols(), debugFrame.rows());
             Imgproc.rectangle(debugFrame, r, new Scalar(255, 255, 255), 2);
+        }
+    }
+
+    private void drawPolygonOutline(Mat frame, List<NormPoint> points, int frameWidth, int frameHeight) {
+        MatOfPoint contour = new MatOfPoint();
+        try {
+            List<Point> pixel = new ArrayList<>(points.size());
+            for (NormPoint p : points) {
+                pixel.add(new Point(
+                        Math.round(p.x() * (frameWidth - 1)),
+                        Math.round(p.y() * (frameHeight - 1))
+                ));
+            }
+            contour.fromList(pixel);
+            Imgproc.polylines(frame, List.of(contour), true, new Scalar(0, 255, 0), 2);
+        } finally {
+            contour.release();
         }
     }
 

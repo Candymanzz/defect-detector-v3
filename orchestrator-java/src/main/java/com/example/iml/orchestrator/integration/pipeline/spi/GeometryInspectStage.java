@@ -17,6 +17,7 @@ public interface GeometryInspectStage {
             int cameraId,
             ReferenceSnapshot activeReference,
             Map<String, Object> geometryCfg,
+            Map<String, Object> pythonCfg,
             List<? extends BinaryRpcSupervisor> geometryPool,
             Semaphore geometrySlots,
             AtomicInteger geometryRoundRobin

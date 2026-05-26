@@ -36,7 +36,8 @@ java_geometry:
   max_rotation_deg: 1.0
   max_concentricity_mm: 0.2
   max_joint_defect_mm: 0.3
-  max_wrinkles_score: 0.05
+  # Совпадает с python_detector.fallback_threshold, если не задан runtime threshold с фронта.
+  max_wrinkles_score: 0.25
 
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
