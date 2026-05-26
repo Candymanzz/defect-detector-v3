@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.pipeline.spi;
 
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
+import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public interface PythonInspectStage {
             int cameraId,
             String productType,
             String detectorId,
+            ReferenceSnapshot activeReference,
             Map<String, Object> pythonCfg,
             List<? extends BinaryRpcSupervisor> pythonPool,
             Semaphore pythonSlots,
