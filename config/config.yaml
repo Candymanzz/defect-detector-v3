@@ -163,6 +163,10 @@ integration:
   dev_auto_trigger_stub:
     enabled: true
     interval_ms: 5000
+  # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
+  client_stream:
+    default_max_fps: 20
+    max_fps_cap: 30
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
     enabled: false

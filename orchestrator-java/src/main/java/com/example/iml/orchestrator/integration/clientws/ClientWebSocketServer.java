@@ -14,6 +14,8 @@ import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferen
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.stream.CameraStreamService;
+import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -57,6 +59,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         return t;
     });
     private volatile long lastClientActivityEpochMs = System.currentTimeMillis();
+    private volatile CameraStreamService cameraStreamService;
 
     public ClientWebSocketServer(Logger log, ClientWsConfig cfg) {
         super(new InetSocketAddress(cfg.host(), cfg.port()));
@@ -109,6 +112,18 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     public void setLightTriggerClient(LightTriggerClient lightTriggerClient) {
         application.setLightTriggerClient(lightTriggerClient);
+    }
+
+    public void setCameraStreamService(CameraStreamService cameraStreamService) {
+        this.cameraStreamService = cameraStreamService;
+        application.setCameraStreamService(cameraStreamService);
+        if (cameraStreamService != null) {
+            cameraStreamService.setOutbound(outbound);
+        }
+    }
+
+    public void setClientStreamConfig(ClientStreamConfig clientStreamConfig) {
+        application.setClientStreamConfig(clientStreamConfig);
     }
 
     public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws ClientWsKopcheniSyncException {
@@ -221,6 +236,10 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             if (activeClient == conn) {
                 activeClient = null;
             }
+        }
+        CameraStreamService streams = cameraStreamService;
+        if (streams != null) {
+            streams.stopAll();
         }
         log.info("client_ws closed code={} reason={} remote={}", code, reason, remote);
     }

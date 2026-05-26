@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.http;
 
 
 
+import com.example.iml.orchestrator.integration.http.controller.CameraMjpegHttpController;
 import com.example.iml.orchestrator.integration.http.controller.CameraPreviewHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.ClientApiHttpController;
@@ -102,11 +103,14 @@ public final class HttpFrontController {
 
         router.register(HttpRoute.exact("GET", "/api/cameras", camera::listCameras));
 
+        if (ctx.cameraStreamEnabled()) {
+            CameraMjpegHttpController mjpeg = new CameraMjpegHttpController(ctx.cameraStreamHolder());
+            router.register(HttpRoute.regex("GET", Pattern.compile("^/api/camera/\\d+/stream\\.mjpeg$"), mjpeg));
+        }
+
         router.register(HttpRoute.prefix("GET", "/api/camera/", camera::handleCameraPath));
 
         router.register(HttpRoute.prefix("GET", "/api/heatmap-artifact/", camera::handleHeatmapArtifact));
-
-
 
         if (ctx.geometryEnabled()) {
 

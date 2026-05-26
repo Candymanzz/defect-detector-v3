@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
@@ -23,10 +24,15 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
 
     private final Logger log;
     private final FrameJpegWriter jpegWriter;
+    private volatile CameraStreamService cameraStreamService;
 
     public WorkerCaptureCoordinator(Logger log, FrameJpegWriter jpegWriter) {
         this.log = log;
         this.jpegWriter = jpegWriter;
+    }
+
+    public void setCameraStreamService(CameraStreamService cameraStreamService) {
+        this.cameraStreamService = cameraStreamService;
     }
 
     @Override
@@ -79,6 +85,11 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
         try {
             if (activeReference == null || activeReference.header() == null) {
                 throw new IllegalStateException("no reference snapshot; wait for reference bootstrap or send client.reference_bundle");
+            }
+            CameraStreamService streams = cameraStreamService;
+            if (streams != null && streams.isStreaming(cameraId)) {
+                throw new IllegalStateException(
+                        "camera " + cameraId + " client stream is active; send client.stream_stop before inspection capture");
             }
             long t0 = System.nanoTime();
             long refFrameId = YamlScalars.toLong(activeReference.header().get("frame_id"), -1L);

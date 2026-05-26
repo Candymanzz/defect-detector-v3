@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import org.apache.logging.log4j.Logger;
@@ -37,6 +38,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
     private final PipelineReferenceRegistry referenceRegistry;
     private final IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub;
     private final ScheduledExecutorService scheduler;
+    private final CameraStreamService cameraStreamService;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private LivePreviewPublisher(
@@ -50,7 +52,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
             ReferenceSource referenceSource,
             PipelineReferenceRegistry referenceRegistry,
             IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub,
-            ScheduledExecutorService scheduler
+            ScheduledExecutorService scheduler,
+            CameraStreamService cameraStreamService
     ) {
         this.log = log;
         this.cfg = cfg;
@@ -65,6 +68,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 ? new IntegrationFeatureConfig.DevAutoTriggerStubConfig(false, 5000)
                 : devAutoStub;
         this.scheduler = scheduler;
+        this.cameraStreamService = cameraStreamService;
     }
 
     public static LivePreviewPublisher start(
@@ -79,7 +83,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
             Map<String, Object> uiCfg,
             ReferenceSource referenceSource,
             PipelineReferenceRegistry referenceRegistry,
-            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub
+            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub,
+            CameraStreamService cameraStreamService
     ) {
         LivePreviewConfig cfg = LivePreviewConfig.fromRootYaml(rootYaml);
         if (!cfg.enabled() || uiServer == null || workersByCamera == null || workersByCamera.isEmpty()) {
@@ -111,7 +116,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 referenceSource,
                 referenceRegistry,
                 devAutoStub,
-                scheduler
+                scheduler,
+                cameraStreamService
         );
         int intervalMs = cfg.tickIntervalMs();
         for (Map<String, Object> camera : cameras) {
@@ -140,6 +146,9 @@ public final class LivePreviewPublisher implements AutoCloseable {
 
     private void tick(int cameraId, String productType, String detectorId, WorkerProcessSupervisor worker) {
         if (closed.get()) {
+            return;
+        }
+        if (cameraStreamService != null && cameraStreamService.isStreaming(cameraId)) {
             return;
         }
         try {
