@@ -23,6 +23,7 @@ from app.services.inspection_models import FPZone, InspectionResult
 class InspectionService:
     def __init__(self) -> None:
         self.references: Dict[str, np.ndarray] = {}
+        self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
@@ -49,9 +50,12 @@ class InspectionService:
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
         self.references[product_type] = image
+        self._update_ref_orb_cache(product_type, image)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
-        self.references[product_type] = frame.copy()
+        image = frame.copy()
+        self.references[product_type] = image
+        self._update_ref_orb_cache(product_type, image)
 
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
         return self.references.get(product_type)
@@ -135,7 +139,7 @@ class InspectionService:
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
 
-        aligned = self._align_to_reference(frame, reference)
+        aligned = self._align_to_reference(frame, reference, product_type)
 
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
@@ -359,11 +363,26 @@ class InspectionService:
         pil_image.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    def _align_to_reference(self, current: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    def _update_ref_orb_cache(self, product_type: str, reference: np.ndarray) -> None:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
-        cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
-
         kp_ref, des_ref = self._orb.detectAndCompute(ref_gray, None)
+        self._ref_orb_cache[product_type] = (kp_ref, des_ref)
+
+    def _get_ref_orb(self, product_type: str, reference: np.ndarray) -> Tuple[list, Optional[np.ndarray]]:
+        cached = self._ref_orb_cache.get(product_type)
+        if cached is not None:
+            return cached
+        self._update_ref_orb_cache(product_type, reference)
+        return self._ref_orb_cache[product_type]
+
+    def _align_to_reference(
+        self,
+        current: np.ndarray,
+        reference: np.ndarray,
+        product_type: str,
+    ) -> np.ndarray:
+        cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
+        kp_ref, des_ref = self._get_ref_orb(product_type, reference)
         kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
