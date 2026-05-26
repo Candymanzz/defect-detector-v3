@@ -9,13 +9,14 @@ import java.util.Map;
  * Живой preview-кадр для UI ({@code integration.live_preview} + {@code client.preview_max_fps}).
  * Приоритет интервала: {@code live_preview.interval_ms} → {@code dev_auto_trigger_stub.interval_ms} → FPS.
  */
-public record LivePreviewConfig(boolean enabled, int maxFps, int intervalMs) {
+public record LivePreviewConfig(boolean enabled, boolean flashOnTick, int maxFps, int intervalMs) {
 
     public static LivePreviewConfig fromRootYaml(Map<String, Object> root) {
         if (root == null) {
             return disabled();
         }
         boolean enabled = true;
+        boolean flashOnTick = false;
         int fps = 10;
         int intervalMs = 0;
 
@@ -33,6 +34,7 @@ public record LivePreviewConfig(boolean enabled, int maxFps, int intervalMs) {
             Object raw = integration.get("live_preview");
             if (raw instanceof Map<?, ?> m) {
                 enabled = YamlScalars.toBool(m.get("enabled"), true);
+                flashOnTick = YamlScalars.toBool(m.get("flash_on_tick"), false);
                 int overrideFps = YamlScalars.toInt(m.get("preview_max_fps"), 0);
                 if (overrideFps > 0) {
                     fps = Math.max(1, Math.min(30, overrideFps));
@@ -48,11 +50,11 @@ public record LivePreviewConfig(boolean enabled, int maxFps, int intervalMs) {
             }
         }
 
-        return new LivePreviewConfig(enabled, fps, intervalMs);
+        return new LivePreviewConfig(enabled, flashOnTick, fps, intervalMs);
     }
 
     public static LivePreviewConfig disabled() {
-        return new LivePreviewConfig(false, 10, 0);
+        return new LivePreviewConfig(false, false, 10, 0);
     }
 
     /** Период между кадрами preview (не чаще имитации триггера). */

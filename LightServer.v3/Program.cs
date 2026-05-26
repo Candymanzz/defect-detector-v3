@@ -22,6 +22,7 @@ builder.Services.AddSwaggerGen(options =>
         options.IncludeXmlComments(xmlPath);
 });
 
+builder.Services.AddSingleton<MvLeSerialLightSessions>();
 builder.Services.AddSingleton<LightControlService>();
 builder.Services.AddSingleton<IoControllerComService>();
 builder.Services.AddHostedService<MvsSdkLifetime>();

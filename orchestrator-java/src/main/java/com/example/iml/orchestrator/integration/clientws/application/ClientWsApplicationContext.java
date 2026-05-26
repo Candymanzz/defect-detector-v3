@@ -7,6 +7,8 @@ import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferen
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
+import com.example.iml.orchestrator.integration.stream.CameraStreamService;
+import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
@@ -26,6 +28,8 @@ public final class ClientWsApplicationContext {
     private volatile PipelineReferenceRegistry pipelineReferences;
     private volatile Map<Integer, String> detectorByCamera = Map.of();
     private volatile LightTriggerClient lightTriggerClient;
+    private volatile CameraStreamService cameraStreamService;
+    private volatile ClientStreamConfig clientStreamConfig = ClientStreamConfig.defaults();
 
     public ClientWsApplicationContext(
             Logger log,
@@ -90,5 +94,21 @@ public final class ClientWsApplicationContext {
 
     public LightTriggerClient lightTriggerClient() {
         return lightTriggerClient;
+    }
+
+    public void setCameraStreamService(CameraStreamService cameraStreamService) {
+        this.cameraStreamService = cameraStreamService;
+    }
+
+    public CameraStreamService cameraStreamService() {
+        return cameraStreamService;
+    }
+
+    public void setClientStreamConfig(ClientStreamConfig clientStreamConfig) {
+        this.clientStreamConfig = clientStreamConfig == null ? ClientStreamConfig.defaults() : clientStreamConfig;
+    }
+
+    public ClientStreamConfig clientStreamConfig() {
+        return clientStreamConfig;
     }
 }

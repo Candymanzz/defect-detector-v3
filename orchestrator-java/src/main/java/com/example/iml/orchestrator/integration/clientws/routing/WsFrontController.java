@@ -6,6 +6,8 @@ import com.example.iml.orchestrator.integration.clientws.handler.FpZonesUpdateWs
 import com.example.iml.orchestrator.integration.clientws.handler.LightBrightnessWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.ReferenceBundleWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.SetActiveReferenceViewWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.StreamStartWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.StreamStopWsHandler;
 import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
 import com.example.iml.orchestrator.integration.clientws.protocol.WsMessageTypes;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -15,6 +17,8 @@ import java.util.Optional;
 
 /**
  * Front Controller WebSocket: маршрутизация по полю {@code type}.
+ * Видеопоток: {@link WsMessageTypes#CLIENT_STREAM_START} / {@link WsMessageTypes#CLIENT_STREAM_STOP};
+ * видео — HTTP {@code GET /api/camera/{id}/stream.mjpeg} (после stream_start).
  */
 public final class WsFrontController {
 
@@ -52,6 +56,8 @@ public final class WsFrontController {
         router.register(new WsRoute(WsMessageTypes.CLIENT_FP_ZONES_UPDATE, new FpZonesUpdateWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_SET_ACTIVE_REFERENCE_VIEW, new SetActiveReferenceViewWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_LIGHT_BRIGHTNESS, new LightBrightnessWsHandler()));
+        router.register(new WsRoute(WsMessageTypes.CLIENT_STREAM_START, new StreamStartWsHandler()));
+        router.register(new WsRoute(WsMessageTypes.CLIENT_STREAM_STOP, new StreamStopWsHandler()));
         return router;
     }
 }

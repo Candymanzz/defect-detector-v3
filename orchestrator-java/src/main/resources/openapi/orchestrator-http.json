@@ -62,6 +62,39 @@
         }
       }
     },
+    "/api/camera/{cameraId}/stream.mjpeg": {
+      "servers": [
+        {
+          "url": "http://127.0.0.1:8099"
+        }
+      ],
+      "get": {
+        "tags": ["ui_http"],
+        "summary": "MJPEG видеопоток (пока активен client stream)",
+        "description": "multipart/x-mixed-replace с JPEG-кадрами. Требует предварительный `client.stream_start` по WebSocket. Управление стримом — только WS.",
+        "parameters": [
+          {
+            "name": "cameraId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MJPEG поток",
+            "content": {
+              "multipart/x-mixed-replace": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "503": {
+            "description": "Стрим не активен или не настроен"
+          }
+        }
+      }
+    },
     "/api/camera/{cameraId}/current.jpg": {
       "servers": [
         {

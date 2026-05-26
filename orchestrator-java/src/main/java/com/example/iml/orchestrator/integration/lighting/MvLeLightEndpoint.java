@@ -15,7 +15,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * LightServerv.v2 (MV-LE): {@code POST /api/light} On/Off, яркость 0…255 (из единых {@code 0…100}%).
+ * LightServer.v3 Light (Swagger): {@code GET /api/devices}, {@code POST /api/light} с телом
+ * {@code { deviceIndex, lightControllerSource, channels, brightness }} (индекс из списка устройств).
  */
 public final class MvLeLightEndpoint implements LightEndpoint {
 
@@ -47,7 +48,8 @@ public final class MvLeLightEndpoint implements LightEndpoint {
         this.log = log;
         this.id = id;
         this.enabled = enabled;
-        this.lightUri = URI.create(baseUrl + "/api/light");
+        String base = LightServerV3Http.normalizeBaseUrl(baseUrl);
+        this.lightUri = URI.create(base + LightServerV3Http.PATH_NETWORK_LIGHT);
         this.timeout = Duration.ofMillis(Math.max(100, timeoutMs));
         this.httpClient = HttpClient.newBuilder().connectTimeout(this.timeout).build();
         this.deviceIndex = deviceIndex;
@@ -92,15 +94,7 @@ public final class MvLeLightEndpoint implements LightEndpoint {
         postLight("On", brightness);
         log.info("light {} MV-LE On cam={} frame={} phase={} brightness%={} mvLe={}",
                 id, cameraId, frameId, phase, brightnessPercent, brightness[0]);
-        int offDelay = Math.max(1, durationMs);
-        OFF_SCHEDULER.schedule(() -> {
-            try {
-                postLight("Off", null);
-                log.debug("light {} Off after {}ms", id, offDelay);
-            } catch (Exception e) {
-                log.warn("light {} Off failed: {}", id, e.getMessage());
-            }
-        }, offDelay, TimeUnit.MILLISECONDS);
+        // Off — явно из оркестратора после capture ({@link LightTriggerClient#lightOff}).
     }
 
     private void postLight(String source, int[] brightness) throws Exception {
@@ -115,13 +109,11 @@ public final class MvLeLightEndpoint implements LightEndpoint {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(lightUri)
                 .timeout(timeout)
+                .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(json))
                 .build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() / 100 != 2) {
-            throw new IllegalStateException(id + " POST /api/light failed status=" + response.statusCode()
-                    + " body=" + response.body());
-        }
+        LightServerV3Http.requireLightCommandSuccess(id, "POST", LightServerV3Http.PATH_NETWORK_LIGHT, response);
     }
 }

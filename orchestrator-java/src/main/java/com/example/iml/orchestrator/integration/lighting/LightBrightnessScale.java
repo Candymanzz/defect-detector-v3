@@ -2,7 +2,7 @@ package com.example.iml.orchestrator.integration.lighting;
 
 /**
  * Единая шкала яркости для оркестратора и будущего client API: {@code 0…100} (проценты).
- * LightServer (COM): 0…100. LightServerv.v2 (MV-LE): 0…255.
+ * COM IO (Scale255To100 в LightServer): 0…255. MV-LE по сети: 0…255.
  */
 public final class LightBrightnessScale {
 
@@ -11,10 +11,6 @@ public final class LightBrightnessScale {
 
     public static int clampPercent(int value) {
         return Math.max(0, Math.min(100, value));
-    }
-
-    public static int toComControllerPercent(int unifiedPercent) {
-        return clampPercent(unifiedPercent);
     }
 
     public static int toMvLeBrightness(int unifiedPercent) {
