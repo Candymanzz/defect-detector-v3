@@ -20,11 +20,10 @@ export type {
   JsonPrimitive,
   JsonValue,
   LightBrightnessSettings,
-<<<<<<< HEAD
-=======
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
->>>>>>> window
+  LightEndpointBrightness,
+  LightEndpointBrightnessUpdate,
   RelativeApiPath,
   StubHealth,
   StubMetrics,

@@ -1,27 +1,32 @@
 import { useEffect, useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
+import { orchestratorWs } from "../../shared/ws";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import {
   createMainOverviewErrorData,
   createCameraCards,
   createSelectedCamera,
+  createWsFrameImageUrl,
   FALLBACK_CAMERA_IDS,
   getModalCameraImageUrl,
   INITIAL_BACKEND_STATUS,
   loadMainOverviewData,
 } from "./MainController";
-import type { BackendStatus, SelectedCamera } from "./type";
+import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type";
 import "./MainOverview.css";
-
 
 export function MainOverview() {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(INITIAL_BACKEND_STATUS);
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
+  const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
 
   const backendReady = backendStatus.state === "ready";
-  const cameraCards = createCameraCards(cameraIds, backendReady);
-  const modalCameraImageUrl = getModalCameraImageUrl(selectedCamera, backendReady);
+  const cameraCards = createCameraCards(cameraIds, backendReady, imageUrlsByCameraId);
+  const modalCameraImageUrl =
+    selectedCamera && backendReady
+      ? imageUrlsByCameraId[selectedCamera.cameraId] ?? getModalCameraImageUrl(selectedCamera, backendReady)
+      : undefined;
 
   useEffect(() => {
     let isActive = true;
@@ -41,6 +46,32 @@ export function MainOverview() {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!backendReady) {
+      return;
+    }
+
+    orchestratorWs.connect();
+
+    const unsubscribeMessage = orchestratorWs.onMessage((message) => {
+      if (message.type !== "server.preview_frame" && message.type !== "server.inspect_result") {
+        return;
+      }
+
+      const frame = message.payload;
+      const imageUrl = createWsFrameImageUrl(frame);
+
+      setImageUrlsByCameraId((prevImageUrls) => ({
+        ...prevImageUrls,
+        [frame.camera_id]: imageUrl,
+      }));
+    });
+
+    return () => {
+      unsubscribeMessage();
+    };
+  }, [backendReady]);
 
   return (
     <section className="camera-overview" aria-label="Camera frames">
@@ -64,10 +95,7 @@ export function MainOverview() {
       {selectedCamera && (
         <ModalWrapper
           isOpen
-<<<<<<< HEAD
           cameraId={selectedCamera.cameraId}
-=======
->>>>>>> window
           cameraImageUrl={modalCameraImageUrl}
           title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}
           onClose={() => setSelectedCamera(null)}

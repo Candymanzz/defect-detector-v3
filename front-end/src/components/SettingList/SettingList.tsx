@@ -11,65 +11,6 @@ import {
 import { ReferenceSetup } from "../ReferenceSetup";
 import type { SettingFieldName } from "./type";
 import "./SettingList.css";
-<<<<<<< HEAD
-import { orchestratorWs } from "../../shared/ws";
-import type { ServerWsMessage, WsConnectionStatus } from "../../shared/ws";
-
-const INITIAL_STATUS: WsConnectionStatus = {
-  state: "idle",
-  reconnectAttempt: 0,
-};
-export function SettingList() {
-  const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
-  const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
-  const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
-  const [status, setStatus] = useState<WsConnectionStatus>(INITIAL_STATUS);
-  const [message, setMessage] = useState("Ожидание сообщения...");
-
-  useEffect(() => {
-    orchestratorWs.connect();
-
-    const unsubscribeStatus = orchestratorWs.onStatus(setStatus);
-    const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
-      switch (message.type) {
-        case "server.hello":
-          setMessage("Соединение установлено");
-          break;
-        case "server.light_brightness_ack":
-          setMessage(
-            message.payload.ok
-              ? `Яркость установлена: ${message.payload.brightness_percent}%`
-              : "Яркость отклонена",
-          );
-          break;
-        case "server.error":
-          setMessage(`${message.payload.code}: ${message.payload.message}`);
-          break;
-      }
-    });
-
-    return () => {
-      unsubscribeMessage();
-      unsubscribeStatus();
-    };
-  }, []);
-
-  const sendBrightness = (brightnessPercent: number) => {
-    if (!orchestratorWs.isOpen) {
-      setMessage("WS не подключен");
-      return;
-    }
-
-    try {
-      orchestratorWs.sendLightBrightness({
-        brightness_percent: brightnessPercent,
-      });
-      setMessage("Яркость отправлена");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  };
-=======
 
 export function SettingList() {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
@@ -77,7 +18,6 @@ export function SettingList() {
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
 
->>>>>>> window
   useEffect(() => {
     let isActive = true;
 
@@ -107,10 +47,6 @@ export function SettingList() {
     event.preventDefault();
 
     const formToSave = settingData.form;
-<<<<<<< HEAD
-    sendBrightness(formToSave.brightnessPercent);
-=======
->>>>>>> window
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       status: SAVING_SETTING_STATUS,
@@ -125,11 +61,7 @@ export function SettingList() {
     <aside className="setting-list" aria-label="Настройки">
       <div className="setting-list__header">
         <h2>Настройки</h2>
-<<<<<<< HEAD
-        <strong data-status={settingData.status.state}>{status.state}, {message}</strong>
-=======
         <strong data-status={settingData.status.state}>{settingData.status.text}</strong>
->>>>>>> window
       </div>
 
       <form className="setting-list__form" onSubmit={handleSubmit}>

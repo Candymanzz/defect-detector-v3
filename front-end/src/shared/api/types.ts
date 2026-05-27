@@ -85,25 +85,41 @@ export type GeometryRuntimeRoi = {
   height: number;
 };
 
-export type LightBrightnessSettings = {
+export type LightEndpointBrightness = {
+  id: string;
   brightness_percent: number;
-  com_controller_percent: number;
   mv_le_brightness: number;
-  scale: string;
 };
 
-<<<<<<< HEAD
-=======
-export type LightBrightnessUpdateResponse = {
-  ok: true;
-  brightness_percent: number;
+export type LightBrightnessSettings = {
+  default_brightness_percent: number;
+  endpoints: LightEndpointBrightness[];
+  upstream_base_url?: string;
+  brightness_percent?: number;
+  com_controller_percent?: number;
+  mv_le_brightness?: number;
+  scale?: string;
+};
+
+export type LightEndpointBrightnessUpdate = {
+  id: string;
+  brightness_percent?: number;
+  brightness?: number;
 };
 
 export type LightBrightnessUpdateRequest = {
-  brightness_percent: number;
+  brightness_percent?: number;
+  default_brightness_percent?: number;
+  endpoints?: Record<string, number> | LightEndpointBrightnessUpdate[];
 };
 
->>>>>>> window
+export type LightBrightnessUpdateResponse = {
+  ok: true;
+  default_brightness_percent: number;
+  endpoints: LightEndpointBrightness[];
+  brightness_percent?: number;
+};
+
 export type StubHealth = {
   status: "ok" | string;
   service: string;

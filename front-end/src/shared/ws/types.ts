@@ -124,6 +124,8 @@ export type ServerLightBrightnessAckMessage = ServerWsEnvelope<
   {
     ok: boolean;
     brightness_percent: number;
+    default_brightness_percent?: number;
+    endpoints?: Record<string, number>;
   }
 >;
 
@@ -277,7 +279,9 @@ export type ClientSetActiveReferenceViewPayload = {
 };
 
 export type ClientLightBrightnessPayload = {
-  brightness_percent: number;
+  brightness_percent?: number;
+  default_brightness_percent?: number;
+  endpoints?: Record<string, number> | Array<{ id: string; brightness_percent?: number; brightness?: number }>;
 };
 
 export type ClientWsPayloadByType = {

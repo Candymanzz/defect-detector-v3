@@ -1,5 +1,5 @@
 import { orchestratorApi } from "../../shared/api";
-import type { GeometryRuntimeConfig } from "../../shared/api";
+import type { GeometryRuntimeConfig, LightBrightnessSettings } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import type { SettingData, SettingFieldName, SettingForm, SettingStatus } from "./type";
 
@@ -41,7 +41,7 @@ export async function loadSettingData(): Promise<SettingData> {
       text: "загружено",
     },
     form: {
-      brightnessPercent: clampBrightness(lightBrightness.brightness_percent),
+      brightnessPercent: readBrightnessPercent(lightBrightness),
       maxShiftMm: readMaxShiftMm(geometryRuntime),
     },
   };
@@ -51,26 +51,15 @@ export async function saveSettingData(form: SettingForm): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
   const geometryRuntime = await orchestratorApi.getGeometryRuntime();
 
-<<<<<<< HEAD
-  await orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm));
-=======
   await Promise.all([
     orchestratorApi.setLightBrightness(normalizedForm.brightnessPercent),
     orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm)),
   ]);
->>>>>>> window
 
   const nextData = await loadSettingData();
 
   return {
     ...nextData,
-<<<<<<< HEAD
-    form: {
-      ...nextData.form,
-      brightnessPercent: normalizedForm.brightnessPercent,
-    },
-=======
->>>>>>> window
     status: {
       state: "ready",
       text: "сохранено",
@@ -103,6 +92,19 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
     brightnessPercent: clampBrightness(form.brightnessPercent),
     maxShiftMm: clampMaxShiftMm(form.maxShiftMm),
   };
+}
+
+function readBrightnessPercent(lightBrightness: LightBrightnessSettings) {
+  return clampBrightness(
+    firstFiniteNumber(
+      [
+        lightBrightness.brightness_percent,
+        lightBrightness.default_brightness_percent,
+        lightBrightness.endpoints?.[0]?.brightness_percent,
+      ],
+      0,
+    ),
+  );
 }
 
 function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {
