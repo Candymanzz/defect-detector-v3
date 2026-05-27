@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceViewSlo
 import com.example.iml.orchestrator.integration.clientws.bundle.ShmFrameRefData;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
 import org.apache.logging.log4j.Logger;
 
 import java.util.LinkedHashMap;
@@ -39,7 +40,7 @@ public final class PipelineReferenceRegistry {
     ) throws Exception {
         for (ReferenceViewSlot slot : snap.views()) {
             ShmFrameRefData frame = slot.frame();
-            Map<String, Object> header = frameToCaptureHeader(frame);
+            Map<String, Object> header = frameToCaptureHeader(frame, slot);
             ReferenceSnapshot snapshot = new ReferenceSnapshot(snap.productType(), Map.copyOf(header));
             byCamera.put(frame.cameraId(), snapshot);
             Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
@@ -57,7 +58,7 @@ public final class PipelineReferenceRegistry {
         }
     }
 
-    private static Map<String, Object> frameToCaptureHeader(ShmFrameRefData frame) {
+    private static Map<String, Object> frameToCaptureHeader(ShmFrameRefData frame, ReferenceViewSlot slot) {
         Map<String, Object> header = new LinkedHashMap<>();
         header.put("camera_id", frame.cameraId());
         header.put("frame_id", frame.frameId());
@@ -68,6 +69,12 @@ public final class PipelineReferenceRegistry {
         header.put("stride", frame.strideBytes());
         if (frame.pixelFormat() != null && !frame.pixelFormat().isBlank()) {
             header.put("format", frame.pixelFormat());
+        }
+        List<java.util.Map<String, Object>> polygonNorm = slot.hasInterestPolygonNorm()
+                ? InterestPolygonNormCodec.fromNormPoints(slot.interestPolygonNorm())
+                : InterestPolygonNormCodec.fromPixelRoi(slot.interestRoi(), frame.width(), frame.height());
+        if (polygonNorm.size() >= 3) {
+            header.put("interest_polygon_norm", polygonNorm);
         }
         return header;
     }

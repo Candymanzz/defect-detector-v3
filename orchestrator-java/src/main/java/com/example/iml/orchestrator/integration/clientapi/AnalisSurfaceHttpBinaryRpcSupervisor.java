@@ -153,17 +153,33 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (refResp.type() == BinaryProtocol.MSG_ERROR) {
             return refResp;
         }
-        Map<String, Object> interest = findInterestRoi(header.get("interest_rois"), activeIdx);
-        if (interest != null) {
-            List<Map<String, Object>> points = bboxToPolygonPoints(interest);
-            if (points.size() >= 3) {
-                Map<String, Object> roiBody = new LinkedHashMap<>();
-                roiBody.put("product_type", productType);
-                roiBody.put("points", points);
-                HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
-                if (roiResp.statusCode() / 100 != 2) {
-                    return errorMessageToMsg(roiResp, "roi-polygon");
+        List<Map<String, Object>> points = findInterestPolygonNorm(header.get("interest_polygons_norm"), activeIdx);
+        if (points == null || points.size() < 3) {
+            Map<String, Object> interest = findInterestRoi(header.get("interest_rois"), activeIdx);
+            if (interest != null) {
+                int fw = YamlScalars.toInt(view.get("width"), 0);
+                int fh = YamlScalars.toInt(view.get("height"), 0);
+                if (fw > 1 && fh > 1) {
+                    points = com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec.fromPixelRoi(
+                            new com.example.iml.orchestrator.integration.clientws.bundle.PixelRoi(
+                                    YamlScalars.toInt(interest.get("x"), 0),
+                                    YamlScalars.toInt(interest.get("y"), 0),
+                                    YamlScalars.toInt(interest.get("width"), 0),
+                                    YamlScalars.toInt(interest.get("height"), 0)
+                            ),
+                            fw,
+                            fh
+                    );
                 }
+            }
+        }
+        if (points != null && points.size() >= 3) {
+            Map<String, Object> roiBody = new LinkedHashMap<>();
+            roiBody.put("product_type", productType);
+            roiBody.put("points", points);
+            HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
+            if (roiResp.statusCode() / 100 != 2) {
+                return errorMessageToMsg(roiResp, "roi-polygon");
             }
         }
         Object fp = header.get("fp_zones");
@@ -203,6 +219,24 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> findInterestPolygonNorm(Object polysObj, int index) {
+        if (!(polysObj instanceof List<?> polys)) {
+            return null;
+        }
+        for (Object o : polys) {
+            if (o instanceof Map<?, ?> m) {
+                int vi = YamlScalars.toInt(m.get("view_index"), -1);
+                if (vi == index) {
+                    Object pts = m.get("points");
+                    if (pts instanceof List<?> list) {
+                        return normalizeRoiPoints(list);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     private static Map<String, Object> findInterestRoi(Object roisObj, int index) {
         if (!(roisObj instanceof List<?> rois)) {
             return null;

@@ -53,6 +53,7 @@ public final class GeometryCorrectnessGateMain {
                 mainRoi,
                 null,
                 null,
+                null,
                 0.01,
                 0.5,
                 1.0,

@@ -20,6 +20,8 @@ import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.preview.LivePreviewPublisher;
+import com.example.iml.orchestrator.integration.stream.CameraStreamService;
+import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceSnapshotBootstrap;
 import com.example.iml.orchestrator.integration.pipeline.decision.DefaultInspectionDecisionAggregator;
@@ -102,7 +104,7 @@ public final class IntegrationBootstrap {
                 new DefaultInspectionDecisionAggregator(log),
                 pipelineTelemetry,
                 new InspectGeometryExecutor(log, geometrySnapshotCache, geometryRuntimeConfig),
-                new InspectPythonExecutor(log),
+                new InspectPythonExecutor(log, geometryRuntimeConfig),
                 captureCoordinator,
                 new InspectionDecisionToFanOutEvent(),
                 referenceBootstrap,
@@ -141,10 +143,8 @@ public final class IntegrationBootstrap {
                 cfg.serviceCommandTimeoutMs(),
                 cfg.geometryPoolSize()
         );
-        LightServerLauncher.StartedProcesses lightProcesses = lightServerLauncher.startAllIfConfigured(
+        ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
                 integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
-        ExternalServiceProcess lightServerProcess = lightProcesses.primary();
-        ExternalServiceProcess lightServerV2Process = lightProcesses.secondary();
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
@@ -153,7 +153,7 @@ public final class IntegrationBootstrap {
         Map<String, Object> uiCfg = (Map<String, Object>) root.get("ui_http");
         int flashLeadMs = LightServersConfig.flashLeadMsFromRoot(root);
         if (flashLeadMs > 0) {
-            log.info("light_servers flash_lead_ms={} (пауза после ответа вспышки, перед capture)", flashLeadMs);
+            log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
@@ -214,6 +214,7 @@ public final class IntegrationBootstrap {
         }
 
         LivePreviewPublisher livePreview = null;
+        CameraStreamService cameraStreamService = null;
         try {
             IntegrationFeatureConfig.TimingStagesLogConfig timingStagesLogCfg = IntegrationFeatureConfig.parseTimingStagesLog(integration);
             if (timingStagesLogCfg.enabled()) {
@@ -249,6 +250,31 @@ public final class IntegrationBootstrap {
                 log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
                 workersByCamera.put(cameraId, worker);
             }
+            Map<Integer, String> productTypeByCamera = new LinkedHashMap<>();
+            for (Map<String, Object> camera : cameras) {
+                int cameraId = ((Number) camera.get("id")).intValue();
+                productTypeByCamera.put(cameraId, String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId)));
+            }
+            ClientStreamConfig clientStreamCfg = ClientStreamConfig.fromRootYaml(root);
+            if (uiServer != null && !workersByCamera.isEmpty()) {
+                cameraStreamService = new CameraStreamService(
+                        log,
+                        clientStreamCfg,
+                        workersByCamera,
+                        productTypeByCamera,
+                        detectorByCamera,
+                        uiServer,
+                        clientWsServer,
+                        uiCfg
+                );
+                captureCoordinator.setCameraStreamService(cameraStreamService);
+                if (clientWsServer != null) {
+                    clientWsServer.setCameraStreamService(cameraStreamService);
+                    clientWsServer.setClientStreamConfig(clientStreamCfg);
+                }
+                uiServer.attachCameraStreamService(cameraStreamService);
+                log.info("client_stream ready default_max_fps={} cap={}", clientStreamCfg.defaultMaxFps(), clientStreamCfg.maxFpsCap());
+            }
             IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub =
                     IntegrationFeatureConfig.parseDevAutoTriggerStub(integration);
             livePreview = LivePreviewPublisher.start(
@@ -263,7 +289,8 @@ public final class IntegrationBootstrap {
                     uiCfg,
                     cfg.referenceSource(),
                     pipelineReferenceRegistry,
-                    devAutoTriggerStub
+                    devAutoTriggerStub,
+                    cameraStreamService
             );
             cameraExecutor = Executors.newFixedThreadPool(cfg.cameraParallelism(), r -> {
                 Thread t = new Thread(r, "camera-flow");
@@ -359,6 +386,9 @@ public final class IntegrationBootstrap {
             if (livePreview != null) {
                 livePreview.close();
             }
+            if (cameraStreamService != null) {
+                cameraStreamService.close();
+            }
             IntegrationShutdownCoordinator.shutdownAll(new IntegrationShutdownCoordinator.ShutdownResources(
                     pipelineStagesLogMutable,
                     cameraExecutor,
@@ -370,7 +400,6 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
-                    lightServerV2Process,
                     analisSurfaceProcess,
                     lightClient,
                     uiVisualsPython,

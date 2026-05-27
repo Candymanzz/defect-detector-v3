@@ -57,7 +57,10 @@ public final class ClientApiHttpController implements HttpController {
             root.set("runtimeOverrides", JSON.valueToTree(clientApi.geometryRuntime().overridesCopy()));
             root.set(
                     "effectiveForNextGeometryInspect",
-                    JSON.valueToTree(clientApi.geometryRuntime().effectiveForDisplay(clientApi.javaGeometryYaml()))
+                    JSON.valueToTree(clientApi.geometryRuntime().effectiveForDisplay(
+                            clientApi.javaGeometryYaml(),
+                            clientApi.pythonDetectorYaml()
+                    ))
             );
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
             return;

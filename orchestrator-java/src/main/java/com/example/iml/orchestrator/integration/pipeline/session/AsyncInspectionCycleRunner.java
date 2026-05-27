@@ -39,6 +39,7 @@ public final class AsyncInspectionCycleRunner {
                         in.cameraId(),
                         in.activeReference(),
                         in.geometryCfg(),
+                        in.pythonCfg(),
                         in.geometryPool(),
                         in.geometrySlots(),
                         in.geometryRoundRobin()
@@ -52,6 +53,7 @@ public final class AsyncInspectionCycleRunner {
                         in.cameraId(),
                         in.productType(),
                         in.detectorId(),
+                        in.activeReference(),
                         in.pythonCfg(),
                         in.pythonPool(),
                         in.pythonSlots(),

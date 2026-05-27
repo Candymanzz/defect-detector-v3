@@ -1,7 +1,6 @@
 using LightServer.Models;
 using LightServer.Services;
 using Microsoft.AspNetCore.Mvc;
-
 namespace LightServer.Controllers;
 
 /// <summary>Те же операции, что /api/devices и /api/light, но для устройств на COM: перед перечислением вызывается SetEnumSerialPorts.</summary>
@@ -11,7 +10,6 @@ public sealed class ComLightController : ControllerBase
 {
     private readonly LightControlService _light;
     private readonly IoControllerComService _ioCom;
-
     public ComLightController(LightControlService light, IoControllerComService ioCom)
     {
         _light = light;
@@ -61,18 +59,15 @@ public sealed class ComLightController : ControllerBase
     public ActionResult<LightCommandResponse> SetLightSerial([FromBody] LightCommandRequestCom request, [FromQuery] string? ports)
     {
         var portList = ParsePortsQuery(ports);
+        // MV-LE — MvCameraControl; IoCom только если MvCamera не смог (иначе IoCom держит COM2 и ломает следующий On).
         var (ok, message) = _light.SetLightSerial(request, portList);
-        string? cameraPathError = ok ? null : message;
         if (!ok)
         {
-            // MVS для вспышек обычно использует IO Box (Trigger), не GenICam на «пустом» COM в списке камер.
             var (ioOk, ioMsg) = _ioCom.SetLight(request);
             if (ioOk)
             {
                 ok = true;
-                message = cameraPathError == null
-                    ? ioMsg
-                    : $"MvCameraControl: {cameraPathError} | {ioMsg}";
+                message = $"MvCameraControl: {message} | {ioMsg}";
             }
             else
             {

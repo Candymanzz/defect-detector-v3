@@ -48,6 +48,7 @@ public final class SingleFrameBenchmarkOrchestrator {
                             cameraId,
                             activeReference,
                             in.geometryCfg(),
+                            in.pythonCfg(),
                             in.geometryPool(),
                             in.geometrySlots(),
                             in.geometryRoundRobin()
@@ -60,6 +61,7 @@ public final class SingleFrameBenchmarkOrchestrator {
                             cameraId,
                             in.productType(),
                             in.detectorId(),
+                            activeReference,
                             in.pythonCfg(),
                             in.pythonPool(),
                             in.pythonSlots(),
