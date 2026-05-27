@@ -13,3 +13,6 @@
 LightServer/bin/
 LightServer/obj/
 /frontend/node_modules
+/backend/app/api/__pycache__
+/backend/app/services/__pycache__
+/backend/app/__pycache__

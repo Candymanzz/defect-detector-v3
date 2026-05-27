@@ -11,22 +11,28 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
+from app.services.analysis_settings import AnalysisSettings
 from app.services.inspection_geometry import (
+    combine_region_masks,
     mask_to_polygon,
     polygon_area,
     polygon_mask_from_norm_points,
+    validate_polygon_inside_parent,
     validate_polygon_points,
 )
-from app.services.inspection_models import FPZone, InspectionResult
+from app.services.inspection_models import FPZone, InspectionResult, RoiSubZone, RoiSubZoneScore
 
 
 class InspectionService:
     def __init__(self) -> None:
         self.references: Dict[str, np.ndarray] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
+        self.roi_sub_zones: Dict[str, list[RoiSubZone]] = {}
+        self._roi_sub_zones_file = Path(__file__).resolve().parent.parent / "data" / "roi_sub_zones.json"
+        self._analysis_settings_file = Path(__file__).resolve().parent.parent / "data" / "analysis_settings.json"
+        self._analysis_settings_overrides: Dict[str, dict[str, object]] = {}
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-        self._fallback_threshold = 0.25
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
         self.fp_zones: Dict[str, list[FPZone]] = {}
         self._last_diff_maps: Dict[str, np.ndarray] = {}
@@ -35,6 +41,8 @@ class InspectionService:
         self._anomaly_engine = None
         self._load_anomalib_engine()
         self._load_fp_zones()
+        self._load_roi_sub_zones()
+        self._load_analysis_settings()
 
     def _load_anomalib_engine(self) -> None:
         try:
@@ -61,6 +69,96 @@ class InspectionService:
 
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
+
+    def get_roi_sub_zones(self, product_type: str) -> list[RoiSubZone]:
+        return list(self.roi_sub_zones.get(product_type, []))
+
+    def add_roi_sub_zone(
+        self,
+        product_type: str,
+        points: list[Tuple[float, float]],
+        threshold: Optional[float] = None,
+        label: str = "",
+    ) -> RoiSubZone:
+        parent = self.get_roi_polygon(product_type)
+        if parent is None:
+            raise ValueError("Parent ROI polygon must be set before adding sub-zones")
+        normalized = validate_polygon_inside_parent(points, parent, "Sub-ROI polygon")
+        if polygon_area(normalized) < 0.0001:
+            raise ValueError("Sub-ROI polygon area is too small")
+        if threshold is not None and not (0.0 < threshold <= 1.0):
+            raise ValueError("Sub-ROI threshold must be in (0, 1]")
+        zone = RoiSubZone(
+            id=str(uuid.uuid4()),
+            product_type=product_type,
+            points=normalized,
+            threshold=threshold,
+            label=label.strip(),
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+        self.roi_sub_zones.setdefault(product_type, []).append(zone)
+        self._save_roi_sub_zones()
+        return zone
+
+    def update_roi_sub_zone(
+        self,
+        zone_id: str,
+        threshold: Optional[float] = None,
+        label: Optional[str] = None,
+        points: Optional[list[Tuple[float, float]]] = None,
+    ) -> Optional[RoiSubZone]:
+        for product_type, zones in self.roi_sub_zones.items():
+            for idx, zone in enumerate(zones):
+                if zone.id != zone_id:
+                    continue
+                parent = self.get_roi_polygon(product_type)
+                if parent is None:
+                    raise ValueError("Parent ROI polygon must be set")
+                if points is not None:
+                    zone.points = validate_polygon_inside_parent(points, parent, "Sub-ROI polygon")
+                if threshold is not None:
+                    if not (0.0 < threshold <= 1.0):
+                        raise ValueError("Sub-ROI threshold must be in (0, 1]")
+                    zone.threshold = threshold
+                if label is not None:
+                    zone.label = label.strip()
+                zones[idx] = zone
+                self._save_roi_sub_zones()
+                return zone
+        return None
+
+    def delete_roi_sub_zone(self, zone_id: str) -> bool:
+        for product_type, zones in self.roi_sub_zones.items():
+            retained = [zone for zone in zones if zone.id != zone_id]
+            if len(retained) != len(zones):
+                self.roi_sub_zones[product_type] = retained
+                self._save_roi_sub_zones()
+                return True
+        return False
+
+    def get_analysis_settings(self, product_type: str) -> AnalysisSettings:
+        overrides = self._analysis_settings_overrides.get(product_type, {})
+        return AnalysisSettings.from_overrides(overrides)
+
+    def get_analysis_settings_overrides(self, product_type: str) -> dict[str, object]:
+        return dict(self._analysis_settings_overrides.get(product_type, {}))
+
+    def update_analysis_settings(self, product_type: str, partial: dict[str, object]) -> dict[str, object]:
+        current = dict(self._analysis_settings_overrides.get(product_type, {}))
+        allowed = AnalysisSettings.field_names()
+        for key, value in partial.items():
+            if key not in allowed:
+                raise ValueError(f"Unknown analysis setting: {key}")
+            current[key] = value
+        AnalysisSettings.from_overrides(current)
+        self._analysis_settings_overrides[product_type] = current
+        self._save_analysis_settings()
+        return dict(current)
+
+    def reset_analysis_settings(self, product_type: str) -> dict[str, object]:
+        self._analysis_settings_overrides.pop(product_type, None)
+        self._save_analysis_settings()
+        return {}
 
     def add_fp_zone(
         self,
@@ -136,29 +234,60 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
 
         aligned = self._align_to_reference(frame, reference)
+        settings = self.get_analysis_settings(product_type)
 
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
 
-        diff_map = self._compute_advanced_difference(aligned, reference)
+        diff_map = self._compute_advanced_difference(aligned, reference, settings)
 
-        anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map)
+        anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
-        fp_recheck = self._recheck_fp_zones(product_type, diff_map, segmentation_mask, raw_score)
-        anomaly_score = fp_recheck["final_score"]
+        fp_recheck = self._recheck_fp_zones(product_type, diff_map, segmentation_mask, raw_score, settings)
+        filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
 
         inspection_threshold = (
-            threshold if threshold is not None else self._fallback_threshold
+            threshold if threshold is not None else settings.default_threshold
         )
-        status = "БРАК" if anomaly_score >= inspection_threshold else "ГОДЕН"
+        sub_zones = self.get_roi_sub_zones(product_type)
+        h, w = diff_map.shape[:2]
+        hole_polygons = [zone.points for zone in sub_zones]
+        main_region_mask = combine_region_masks(w, h, polygon, hole_polygons)
+        main_roi_score = self._score_region(
+            filtered_diff_map,
+            segmentation_mask,
+            main_region_mask,
+            settings,
+        )
+        sub_zone_scores: list[RoiSubZoneScore] = []
+        for zone in sub_zones:
+            zone_mask = polygon_mask_from_norm_points(w, h, zone.points) > 0
+            zone_score = self._score_region(filtered_diff_map, segmentation_mask, zone_mask, settings)
+            zone_threshold = zone.threshold if zone.threshold is not None else inspection_threshold
+            sub_zone_scores.append(
+                RoiSubZoneScore(
+                    zone_id=zone.id,
+                    label=zone.label,
+                    anomaly_score=zone_score,
+                    threshold=zone_threshold,
+                    status="БРАК" if zone_score >= zone_threshold else "ГОДЕН",
+                )
+            )
+
+        zone_scores = [main_roi_score, *(entry.anomaly_score for entry in sub_zone_scores)]
+        anomaly_score = float(max(zone_scores)) if zone_scores else 0.0
+        main_failed = main_roi_score >= inspection_threshold
+        sub_failed = any(entry.status == "БРАК" for entry in sub_zone_scores)
+        status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
 
         heatmap = self._build_heatmap(segmentation_mask, diff_map) if include_visuals else None
         if include_visuals and heatmap is not None:
             heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
+            heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
 
         return InspectionResult(
             product_type=product_type,
@@ -168,13 +297,96 @@ class InspectionService:
             detector_id=get_application_id(),
             raw_anomaly_score=raw_score,
             rechecked_zones_count=len(fp_recheck["rechecked_zone_ids"]),
-            recheck_adjustment=raw_score - anomaly_score,
+            recheck_adjustment=raw_score - fp_recheck["final_score"],
             rechecked_zone_ids=fp_recheck["rechecked_zone_ids"],
+            main_roi_score=main_roi_score,
+            sub_zone_scores=sub_zone_scores,
             aligned_image=aligned if include_visuals else None,
             diff_map=diff_map if include_visuals else None,
             heatmap=heatmap if include_visuals else None,
             segmentation_mask=segmentation_mask if include_visuals else None,
         )
+
+    def _load_analysis_settings(self) -> None:
+        self._analysis_settings_overrides = {}
+        if not self._analysis_settings_file.exists():
+            return
+        try:
+            raw_payload = json.loads(self._analysis_settings_file.read_text(encoding="utf-8"))
+            entries = raw_payload if isinstance(raw_payload, list) else []
+            for entry in entries:
+                product_type = str(entry.get("product_type", "")).strip()
+                if not product_type:
+                    continue
+                overrides = entry.get("overrides", {})
+                if not isinstance(overrides, dict):
+                    continue
+                filtered = {
+                    key: value
+                    for key, value in overrides.items()
+                    if key in AnalysisSettings.field_names()
+                }
+                if filtered:
+                    self._analysis_settings_overrides[product_type] = filtered
+        except Exception:
+            self._analysis_settings_overrides = {}
+
+    def _save_analysis_settings(self) -> None:
+        self._analysis_settings_file.parent.mkdir(parents=True, exist_ok=True)
+        entries = [
+            {"product_type": product_type, "overrides": overrides}
+            for product_type, overrides in self._analysis_settings_overrides.items()
+        ]
+        self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+
+    def _load_roi_sub_zones(self) -> None:
+        self.roi_sub_zones = {}
+        if not self._roi_sub_zones_file.exists():
+            return
+        try:
+            raw_payload = json.loads(self._roi_sub_zones_file.read_text(encoding="utf-8"))
+            entries = raw_payload if isinstance(raw_payload, list) else []
+            for entry in entries:
+                product_type = str(entry.get("product_type", "")).strip()
+                if not product_type:
+                    continue
+                points = [
+                    (float(p[0]), float(p[1]))
+                    for p in entry.get("points", [])
+                    if isinstance(p, (list, tuple)) and len(p) >= 2
+                ]
+                if len(points) < 3:
+                    continue
+                threshold_raw = entry.get("threshold")
+                threshold = float(threshold_raw) if threshold_raw is not None else None
+                zone = RoiSubZone(
+                    id=str(entry.get("id", str(uuid.uuid4()))),
+                    product_type=product_type,
+                    points=points,
+                    threshold=threshold,
+                    label=str(entry.get("label", "")),
+                    created_at=str(entry.get("created_at", datetime.now(timezone.utc).isoformat())),
+                )
+                self.roi_sub_zones.setdefault(product_type, []).append(zone)
+        except Exception:
+            self.roi_sub_zones = {}
+
+    def _save_roi_sub_zones(self) -> None:
+        self._roi_sub_zones_file.parent.mkdir(parents=True, exist_ok=True)
+        entries = []
+        for zones in self.roi_sub_zones.values():
+            for zone in zones:
+                entries.append(
+                    {
+                        "id": zone.id,
+                        "product_type": zone.product_type,
+                        "points": zone.points,
+                        "threshold": zone.threshold,
+                        "label": zone.label,
+                        "created_at": zone.created_at,
+                    }
+                )
+        self._roi_sub_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
 
     def _load_fp_zones(self) -> None:
         self.fp_zones = {}
@@ -282,16 +494,54 @@ class InspectionService:
             and activity["score"] <= score_limit
         )
 
+    def _score_region(
+        self,
+        diff_map: np.ndarray,
+        segmentation_mask: np.ndarray,
+        region_mask: np.ndarray,
+        settings: AnalysisSettings,
+    ) -> float:
+        if not np.any(region_mask):
+            return 0.0
+        masked_diff = diff_map.copy()
+        masked_diff[~region_mask] = 0
+        score, _ = self._run_anomaly_model(masked_diff, settings)
+        activity = self._measure_zone_activity(diff_map, segmentation_mask, self._mask_to_norm_points(region_mask))
+        blended = float(max(score, activity["score"]))
+        return blended
+
+    def _mask_to_norm_points(self, region_mask: np.ndarray) -> list[Tuple[float, float]]:
+        h, w = region_mask.shape[:2]
+        if w <= 1 or h <= 1:
+            return [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)]
+        ys, xs = np.where(region_mask)
+        if len(xs) == 0:
+            return [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)]
+        x0, x1 = int(xs.min()), int(xs.max())
+        y0, y1 = int(ys.min()), int(ys.max())
+        return [
+            (x0 / (w - 1), y0 / (h - 1)),
+            (x1 / (w - 1), y0 / (h - 1)),
+            (x1 / (w - 1), y1 / (h - 1)),
+            (x0 / (w - 1), y1 / (h - 1)),
+        ]
+
     def _recheck_fp_zones(
         self,
         product_type: str,
         diff_map: np.ndarray,
         segmentation_mask: np.ndarray,
         raw_score: float,
+        settings: AnalysisSettings,
     ) -> dict:
         zones = self.get_fp_zones(product_type)
-        if not zones:
-            return {"final_score": raw_score, "rechecked_zone_ids": [], "filtered_mask": segmentation_mask}
+        if not zones or not settings.fp_recheck_enabled:
+            return {
+                "final_score": raw_score,
+                "rechecked_zone_ids": [],
+                "filtered_mask": segmentation_mask,
+                "filtered_diff_map": diff_map,
+            }
 
         h, w = diff_map.shape[:2]
         seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
@@ -308,7 +558,7 @@ class InspectionService:
             zone_overlap_pixels = float(np.count_nonzero((seg_active_dilated > 0) & zone_pixels))
             activity = self._measure_zone_activity(diff_map, segmentation_mask, zone.points_norm_ref)
             # Trigger recheck either by mask overlap (with tolerance) or by strong diff energy.
-            has_zone_activation = zone_overlap_pixels > 0 or activity["diff_q90"] >= 22.0
+            has_zone_activation = zone_overlap_pixels > 0 or activity["diff_q90"] >= settings.fp_trigger_diff_q90
             if not has_zone_activation:
                 continue
             if not self._should_suppress_fp_zone(zone, activity):
@@ -319,14 +569,49 @@ class InspectionService:
             combined_suppress_mask |= suppress_mask
 
         if not rechecked_zone_ids:
-            return {"final_score": raw_score, "rechecked_zone_ids": [], "filtered_mask": segmentation_mask}
+            return {
+                "final_score": raw_score,
+                "rechecked_zone_ids": [],
+                "filtered_mask": segmentation_mask,
+                "filtered_diff_map": diff_map,
+            }
 
         filtered_diff_map = diff_map.copy()
         filtered_diff_map[combined_suppress_mask] = 0
-        remaining_score, filtered_mask = self._run_anomaly_model(filtered_diff_map)
+        remaining_score, filtered_mask = self._run_anomaly_model(filtered_diff_map, settings)
         filtered_mask[combined_suppress_mask] = 0
         final_score = float(min(raw_score, remaining_score))
-        return {"final_score": final_score, "rechecked_zone_ids": rechecked_zone_ids, "filtered_mask": filtered_mask}
+        return {
+            "final_score": final_score,
+            "rechecked_zone_ids": rechecked_zone_ids,
+            "filtered_mask": filtered_mask,
+            "filtered_diff_map": filtered_diff_map,
+        }
+
+    def _draw_roi_sub_zone_overlay(
+        self,
+        heatmap: np.ndarray,
+        zones: list[RoiSubZone],
+        scores: list[RoiSubZoneScore],
+    ) -> np.ndarray:
+        if not zones:
+            return heatmap
+        overlay = heatmap.copy()
+        h, w = heatmap.shape[:2]
+        score_by_id = {entry.zone_id: entry for entry in scores}
+        for zone in zones:
+            pts = np.array(
+                [[int(round(x * (w - 1))), int(round(y * (h - 1)))] for x, y in zone.points],
+                dtype=np.int32,
+            )
+            if len(pts) < 3:
+                continue
+            zone_score = score_by_id.get(zone.id)
+            is_fail = zone_score is not None and zone_score.status == "БРАК"
+            color = (40, 80, 255) if is_fail else (220, 120, 40)
+            cv2.fillPoly(overlay, [pts], color)
+            cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
+        return cv2.addWeighted(overlay, 0.22, heatmap, 0.78, 0.0)
 
     def _draw_fp_zone_overlay(self, heatmap: np.ndarray, zones: list[FPZone], rechecked_ids: list[str]) -> np.ndarray:
         if not zones:
@@ -351,6 +636,9 @@ class InspectionService:
         if image is None:
             raise ValueError("Could not decode image")
         return image
+
+    def encode_image_b64(self, image: np.ndarray) -> str:
+        return self._encode_image(image)
 
     def _encode_image(self, image: np.ndarray) -> str:
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -395,6 +683,7 @@ class InspectionService:
         self,
         aligned: np.ndarray,
         reference: np.ndarray,
+        settings: AnalysisSettings,
     ) -> np.ndarray:
         if aligned.shape[:2] != reference.shape[:2]:
             aligned = cv2.resize(aligned, (reference.shape[1], reference.shape[0]))
@@ -407,8 +696,8 @@ class InspectionService:
 
         # CLAHE can over-amplify texture noise on smooth frames, so apply it only
         # when the frame has enough contrast/variance.
-        if float(np.std(cur_gray)) > 5.0:
-            clahe = cv2.createCLAHE(clipLimit=1.2, tileGridSize=(8, 8))
+        if settings.enable_clahe and float(np.std(cur_gray)) > 5.0:
+            clahe = cv2.createCLAHE(clipLimit=settings.clahe_clip_limit, tileGridSize=(8, 8))
             ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
 
@@ -453,17 +742,21 @@ class InspectionService:
         edges_zone = cv2.dilate(edges_ref, np.ones((3, 3), dtype=np.uint8), iterations=2)
         edge_mask = edges_zone > 0
         robust_gray = robust_gray.astype(np.float32)
-        robust_gray[edge_mask] *= 0.2
+        robust_gray[edge_mask] *= settings.edge_suppress_factor
         robust_gray = np.clip(robust_gray, 0, 255).astype(np.uint8)
 
         # Structural masking for text-heavy regions:
         # where reference has dense structure, require stronger local contrast
         # to treat response as anomaly.
         structure_mask = cv2.Sobel(ref_gray, cv2.CV_8U, 1, 1, ksize=3)
-        text_like_zone = structure_mask > 30
+        text_like_zone = structure_mask > settings.text_structure_threshold
         if np.any(text_like_zone):
             text_vals = robust_gray[text_like_zone]
-            robust_gray[text_like_zone] = np.where(text_vals >= 55, text_vals, 0).astype(np.uint8)
+            robust_gray[text_like_zone] = np.where(
+                text_vals >= settings.text_min_contrast,
+                text_vals,
+                0,
+            ).astype(np.uint8)
 
         # Boost zones where reference has strong text gradients but current frame
         # has low gradients (possible erased/missing text).
@@ -473,10 +766,12 @@ class InspectionService:
         cur_grad_y = cv2.Sobel(cur_gray, cv2.CV_32F, 0, 1, ksize=3)
         ref_grad_mag = cv2.magnitude(ref_grad_x, ref_grad_y)
         cur_grad_mag = cv2.magnitude(cur_grad_x, cur_grad_y)
-        contrast_loss_zone = (ref_grad_mag > 40.0) & (cur_grad_mag < 15.0)
+        contrast_loss_zone = (ref_grad_mag > settings.contrast_loss_ref_grad) & (
+            cur_grad_mag < settings.contrast_loss_cur_grad
+        )
         if np.any(contrast_loss_zone):
             robust_float = robust_gray.astype(np.float32)
-            robust_float[contrast_loss_zone] *= 2.0
+            robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
             robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
 
         # Median blur removes salt-like speckles without erasing thin linear defects.
@@ -535,16 +830,22 @@ class InspectionService:
         except Exception:
             return aligned
 
-    def _run_anomaly_model(self, diff_map: np.ndarray) -> Tuple[float, np.ndarray]:
+    def _run_anomaly_model(
+        self,
+        diff_map: np.ndarray,
+        settings: AnalysisSettings,
+    ) -> Tuple[float, np.ndarray]:
         # Heuristic fallback score with emphasis on strong local differences.
         # This helps thin/high-contrast defects (e.g. scratches) score higher than
         # broad low-contrast texture/background changes.
         gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         gray_blur = cv2.GaussianBlur(gray, (3, 3), 0)
-        if float(np.max(gray_blur)) < 12.0:
+        if float(np.max(gray_blur)) < settings.min_diff_signal:
             zero = np.zeros_like(gray_blur, dtype=np.uint8)
             return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
-        threshold_value = float(max(10.0, min(np.percentile(gray_blur, 98), 35.0)))
+        threshold_value = float(
+            max(10.0, min(np.percentile(gray_blur, settings.diff_percentile), 35.0))
+        )
         _, binary = cv2.threshold(gray_blur, threshold_value, 255, cv2.THRESH_BINARY)
 
         # Suppress speckle noise but keep thin structures (scratches).
@@ -565,7 +866,7 @@ class InspectionService:
 
         num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
         filtered = np.zeros_like(cleaned)
-        min_area = 6
+        min_area = settings.min_defect_area
         max_aspect = 0.0
         max_object_score = 0.0
         # Approximate text-like zones on diff map by strong local gradients.
@@ -584,13 +885,15 @@ class InspectionService:
             object_min_area = 5 if aspect > 6.0 else min_area
 
             # Keep tiny but clearly elongated components (scratch-like traces).
-            if area >= object_min_area or (area > 3 and aspect > 3.0):
+            if area >= object_min_area or (area > 3 and aspect > settings.min_scratch_aspect):
                 component_mask = labels == label_idx
                 text_overlap = 0.0
                 if np.any(component_mask):
                     text_overlap = float(np.mean(text_like_zone[component_mask]))
                 is_text_critical = aspect > 8.0 and text_overlap > 0.2
-                if is_text_critical or area >= object_min_area or (area > 3 and aspect > 3.0):
+                if is_text_critical or area >= object_min_area or (
+                    area > 3 and aspect > settings.min_scratch_aspect
+                ):
                     filtered[component_mask] = 255
                     max_aspect = max(max_aspect, float(aspect))
                     local_score = float((aspect / 15.0) + (area / 500.0))
@@ -614,11 +917,11 @@ class InspectionService:
         top_mean = float(np.mean(np.partition(flat, -k)[-k:])) / 255.0
 
         heuristic_score = float(np.clip(max_object_score + (top_mean * 1.5), 0.0, 1.0))
-        if max_aspect > 4.5:
-            heuristic_score = max(heuristic_score, 0.35)
+        if max_aspect > settings.scratch_aspect_floor:
+            heuristic_score = max(heuristic_score, settings.scratch_score_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
-        if self._anomaly_engine is not None:
+        if settings.use_patchcore and self._anomaly_engine is not None:
             try:
                 prediction = self._anomaly_engine.predict(image=diff_map)
                 model_score = float(prediction.pred_score)

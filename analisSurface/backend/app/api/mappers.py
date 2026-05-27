@@ -1,11 +1,58 @@
+from app.api.dependencies import inspection_service
 from app.api.schemas import (
+    AnalysisSettingsResponse,
+    AnalysisSettingsValues,
     FPZonePoint,
     FPZoneResponse,
     InspectResponse,
+    InspectWithVisualsResponse,
+    RoiSubZonePoint,
+    RoiSubZoneResponse,
+    RoiSubZoneScoreResponse,
     ShmImageOutput,
     ShmVisualsResponse,
 )
+from app.services.analysis_settings import AnalysisSettings
 from app.services.shm_io import ShmImageOutputInfo
+
+
+def to_analysis_settings_values(settings: AnalysisSettings) -> AnalysisSettingsValues:
+    payload = settings.to_dict()
+    return AnalysisSettingsValues(**payload)
+
+
+def to_analysis_settings_response(product_type: str, overrides: dict) -> AnalysisSettingsResponse:
+    effective = AnalysisSettings.from_overrides(overrides)
+    defaults = AnalysisSettings.defaults()
+    return AnalysisSettingsResponse(
+        product_type=product_type,
+        settings=to_analysis_settings_values(effective),
+        defaults=to_analysis_settings_values(defaults),
+        overrides=overrides,
+    )
+
+
+def to_inspect_with_visuals_response(result) -> InspectWithVisualsResponse:
+    base = to_inspect_response(result)
+    return InspectWithVisualsResponse(
+        **base.model_dump(),
+        aligned_image_b64=(
+            inspection_service.encode_image_b64(result.aligned_image)
+            if result.aligned_image is not None
+            else None
+        ),
+        diff_map_b64=(
+            inspection_service.encode_image_b64(result.diff_map) if result.diff_map is not None else None
+        ),
+        heatmap_b64=(
+            inspection_service.encode_image_b64(result.heatmap) if result.heatmap is not None else None
+        ),
+        segmentation_mask_b64=(
+            inspection_service.encode_image_b64(result.segmentation_mask)
+            if result.segmentation_mask is not None
+            else None
+        ),
+    )
 
 
 def to_inspect_response(result) -> InspectResponse:
@@ -19,6 +66,28 @@ def to_inspect_response(result) -> InspectResponse:
         rechecked_zones_count=result.rechecked_zones_count,
         recheck_adjustment=result.recheck_adjustment,
         rechecked_zone_ids=result.rechecked_zone_ids or [],
+        main_roi_score=result.main_roi_score,
+        sub_zone_scores=[
+            RoiSubZoneScoreResponse(
+                zone_id=entry.zone_id,
+                label=entry.label,
+                anomaly_score=entry.anomaly_score,
+                threshold=entry.threshold,
+                status=entry.status,
+            )
+            for entry in (result.sub_zone_scores or [])
+        ],
+    )
+
+
+def to_roi_sub_zone_response(zone) -> RoiSubZoneResponse:
+    return RoiSubZoneResponse(
+        id=zone.id,
+        product_type=zone.product_type,
+        points=[RoiSubZonePoint(x=x, y=y) for x, y in zone.points],
+        threshold=zone.threshold,
+        label=zone.label,
+        created_at=zone.created_at,
     )
 
 
