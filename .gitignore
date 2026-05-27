@@ -12,3 +12,4 @@
 **/target/
 LightServer/bin/
 LightServer/obj/
+/frontend/node_modules
