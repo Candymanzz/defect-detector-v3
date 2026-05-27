@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.ui;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.http.HttpApplicationContext;
+import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.http.HttpFrontController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.openapi.OrchestratorApiDocumentationHandlers;
@@ -39,6 +40,7 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     }
 
     private final HttpServer httpServer;
+    private final HttpApplicationContext httpContext;
     private final Map<Integer, Latest> latestByCamera = new ConcurrentHashMap<>();
     private final HeatmapArtifactRegistry heatmapArtifacts = new HeatmapArtifactRegistry();
 
@@ -65,14 +67,14 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     ) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         this.httpServer = HttpServer.create(addr, 0);
-        HttpApplicationContext appCtx = HttpApplicationContext.of(
+        this.httpContext = HttpApplicationContext.of(
                 this,
                 geometrySnapshotCache,
                 clientApi == null ? ClientApiMount.disabled() : clientApi,
                 lightClient,
                 rootYaml == null ? Map.of() : rootYaml
         );
-        HttpFrontController frontController = new HttpFrontController(appCtx);
+        HttpFrontController frontController = new HttpFrontController(httpContext);
         OrchestratorApiDocumentationHandlers.register(httpServer);
         httpServer.createContext("/", exchange -> frontController.dispatch(exchange));
         httpServer.setExecutor(null);
@@ -136,6 +138,12 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                         System.currentTimeMillis()
                 )
         );
+    }
+
+    public void attachCameraStreamService(CameraStreamService cameraStreamService) {
+        if (httpContext != null && httpContext.cameraStreamHolder() != null) {
+            httpContext.cameraStreamHolder().set(cameraStreamService);
+        }
     }
 
     @Override

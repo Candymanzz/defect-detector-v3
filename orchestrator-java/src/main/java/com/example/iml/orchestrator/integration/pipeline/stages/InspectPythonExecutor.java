@@ -3,6 +3,8 @@ package com.example.iml.orchestrator.integration.pipeline.stages;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
+import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -19,9 +21,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class InspectPythonExecutor implements PythonInspectStage {
 
     private final Logger log;
+    private final GeometryRuntimeConfig inspectionRuntimeConfig;
 
     public InspectPythonExecutor(Logger log) {
+        this(log, null);
+    }
+
+    public InspectPythonExecutor(Logger log, GeometryRuntimeConfig inspectionRuntimeConfig) {
         this.log = log;
+        this.inspectionRuntimeConfig = inspectionRuntimeConfig;
     }
 
     @Override
@@ -30,6 +38,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             int cameraId,
             String productType,
             String detectorId,
+            ReferenceSnapshot activeReference,
             Map<String, Object> pythonCfg,
             List<? extends BinaryRpcSupervisor> pythonPool,
             Semaphore pythonSlots,
@@ -42,7 +51,10 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         try {
             long t0 = System.nanoTime();
             Map<String, Object> pyHeader = BinaryInspectHeaders.pythonInspectHeader(
-                    cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false);
+                    cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
+            if (inspectionRuntimeConfig != null) {
+                inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg);
+            }
             pythonSlots.acquire();
             try {
                 BinaryProtocol.Message pyResp = python.command(pyHeader);

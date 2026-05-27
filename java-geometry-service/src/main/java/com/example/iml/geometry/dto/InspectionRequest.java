@@ -1,9 +1,12 @@
 package com.example.iml.geometry.dto;
 
+import java.util.List;
+
 public record InspectionRequest(
         String referenceImageBase64,
         String currentImageBase64,
         RoiRect mainRoi,
+        List<NormPoint> mainRoiPolygonNorm,
         RoiRect jointRoi,
         RoiRect wrinklesRoi,
         double pixelsToMm,

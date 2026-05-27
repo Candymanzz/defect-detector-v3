@@ -36,7 +36,8 @@ java_geometry:
   max_rotation_deg: 1.0
   max_concentricity_mm: 0.2
   max_joint_defect_mm: 0.3
-  max_wrinkles_score: 0.05
+  # Совпадает с python_detector.fallback_threshold, если не задан runtime threshold с фронта.
+  max_wrinkles_score: 0.25
 
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
@@ -163,6 +164,10 @@ integration:
   dev_auto_trigger_stub:
     enabled: true
     interval_ms: 5000
+  # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
+  client_stream:
+    default_max_fps: 20
+    max_fps_cap: 30
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
     enabled: false

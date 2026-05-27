@@ -93,6 +93,11 @@ public final class ReferenceBundleParser {
         if (interest == null) {
             throw new BundleParseException("invalid_interest_roi", ctx + ".interest_roi invalid or out of frame");
         }
+        List<FpZoneNorm.PointNorm> interestPolygon = parseNormPolygonPoints(
+                viewNode.path("interest_polygon_norm"),
+                ctx + ".interest_polygon_norm",
+                false
+        );
         boolean expectJoint = index == jointViewIndex;
         JsonNode jointNode = viewNode.get("joint_roi");
         PixelRoi joint = null;
@@ -107,7 +112,7 @@ public final class ReferenceBundleParser {
         } else if (expectJoint) {
             throw new BundleParseException("missing_joint_roi", "joint_roi required on views[" + jointViewIndex + "]");
         }
-        return new ReferenceViewSlot(frame, interest, joint);
+        return new ReferenceViewSlot(frame, interest, joint, List.copyOf(interestPolygon));
     }
 
     private static ShmFrameRefData parseFrame(JsonNode n, String ctx) throws BundleParseException {
@@ -200,6 +205,39 @@ public final class ReferenceBundleParser {
             return null;
         }
         return new PixelRoi(x, y, w, h);
+    }
+
+    private static List<FpZoneNorm.PointNorm> parseNormPolygonPoints(JsonNode pts, String ctx, boolean required)
+            throws BundleParseException {
+        if (pts == null || pts.isNull()) {
+            if (required) {
+                throw new BundleParseException("invalid_interest_polygon", ctx + " required");
+            }
+            return List.of();
+        }
+        if (!pts.isArray()) {
+            throw new BundleParseException("invalid_interest_polygon", ctx + " must be array");
+        }
+        if (pts.isEmpty()) {
+            return List.of();
+        }
+        if (pts.size() < 3) {
+            throw new BundleParseException("invalid_interest_polygon", ctx + " min 3 points");
+        }
+        List<FpZoneNorm.PointNorm> points = new ArrayList<>();
+        for (int pi = 0; pi < pts.size(); pi++) {
+            JsonNode p = pts.get(pi);
+            if (p == null || !p.isObject()) {
+                throw new BundleParseException("invalid_interest_polygon_point", ctx + "[" + pi + "] must be object");
+            }
+            double nx = p.path("x").asDouble(Double.NaN);
+            double ny = p.path("y").asDouble(Double.NaN);
+            if (nx < 0 || nx > 1 || ny < 0 || ny > 1 || Double.isNaN(nx) || Double.isNaN(ny)) {
+                throw new BundleParseException("interest_polygon_point_out_of_range", ctx + "[" + pi + "] must be in [0,1]");
+            }
+            points.add(new FpZoneNorm.PointNorm(nx, ny));
+        }
+        return points;
     }
 
     private static List<FpZoneNorm> parseFpZones(JsonNode fpNode) throws BundleParseException {

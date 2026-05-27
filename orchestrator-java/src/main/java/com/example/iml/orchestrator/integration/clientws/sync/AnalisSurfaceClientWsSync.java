@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.clientws.bundle.PixelRoi;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceViewSlot;
 import com.example.iml.orchestrator.integration.clientws.bundle.ShmFrameRefData;
+import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ public final class AnalisSurfaceClientWsSync {
         h.put("fp_zones", fpZonesToJsonList(snap.fpZones()));
         List<Map<String, Object>> views = new ArrayList<>(5);
         List<Map<String, Object>> interestRois = new ArrayList<>(5);
+        List<Map<String, Object>> interestPolygonsNorm = new ArrayList<>(5);
         for (int i = 0; i < snap.views().size(); i++) {
             ReferenceViewSlot slot = snap.views().get(i);
             ShmFrameRefData f = slot.frame();
@@ -62,9 +64,21 @@ public final class AnalisSurfaceClientWsSync {
             roi.put("width", ir.width());
             roi.put("height", ir.height());
             interestRois.add(roi);
+            List<Map<String, Object>> poly = slot.hasInterestPolygonNorm()
+                    ? InterestPolygonNormCodec.fromNormPoints(slot.interestPolygonNorm())
+                    : InterestPolygonNormCodec.fromPixelRoi(ir, f.width(), f.height());
+            if (poly.size() >= 3) {
+                Map<String, Object> polyEntry = new LinkedHashMap<>();
+                polyEntry.put("view_index", i);
+                polyEntry.put("points", poly);
+                interestPolygonsNorm.add(polyEntry);
+            }
         }
         h.put("views", views);
         h.put("interest_rois", interestRois);
+        if (!interestPolygonsNorm.isEmpty()) {
+            h.put("interest_polygons_norm", interestPolygonsNorm);
+        }
         return h;
     }
 

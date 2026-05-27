@@ -1,8 +1,11 @@
 package com.example.iml.geometry.wire;
 
 import com.example.iml.geometry.dto.InspectionRequest;
+import com.example.iml.geometry.dto.NormPoint;
 import com.example.iml.geometry.dto.RoiRect;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public final class InspectionHeaderMapper {
@@ -15,6 +18,7 @@ public final class InspectionHeaderMapper {
                 str(h.get("referenceImageBase64")),
                 str(h.get("currentImageBase64")),
                 roi(h.get("mainRoi")),
+                polygonNormOrNull(h),
                 roiOrNull(h.get("jointRoi")),
                 roiOrNull(h.get("wrinklesRoi")),
                 num(h.get("pixelsToMm"), 0.01),
@@ -22,7 +26,7 @@ public final class InspectionHeaderMapper {
                 num(h.get("maxRotationDeg"), 1.0),
                 num(h.get("maxConcentricityMm"), 0.2),
                 num(h.get("maxJointDefectMm"), 0.3),
-                num(h.get("maxWrinklesScore"), 0.05)
+                wrinklesThreshold(h)
         );
     }
 
@@ -31,6 +35,7 @@ public final class InspectionHeaderMapper {
                 "",
                 "",
                 roiOrDefault(h.get("mainRoi")),
+                polygonNormOrNull(h),
                 roiOrNull(h.get("jointRoi")),
                 roiOrNull(h.get("wrinklesRoi")),
                 num(h.get("pixelsToMm"), 0.01),
@@ -38,8 +43,15 @@ public final class InspectionHeaderMapper {
                 num(h.get("maxRotationDeg"), 1.0),
                 num(h.get("maxConcentricityMm"), 0.2),
                 num(h.get("maxJointDefectMm"), 0.3),
-                num(h.get("maxWrinklesScore"), 0.05)
+                wrinklesThreshold(h)
         );
+    }
+
+    private static double wrinklesThreshold(Map<String, Object> h) {
+        if (h.containsKey("maxWrinklesScore")) {
+            return num(h.get("maxWrinklesScore"), 0.25);
+        }
+        return num(h.get("threshold"), 0.25);
     }
 
     @SuppressWarnings("unchecked")
@@ -65,6 +77,36 @@ public final class InspectionHeaderMapper {
             return new RoiRect(0, 0, 2448, 2048);
         }
         return roi(o);
+    }
+
+    public static List<NormPoint> polygonNormOrNull(Map<String, Object> h) {
+        Object raw = h.get("mainRoiPolygonNorm");
+        if (raw == null) {
+            raw = h.get("main_roi_polygon_norm");
+        }
+        if (raw == null) {
+            raw = h.get("roi_polygon_norm");
+        }
+        if (raw == null) {
+            raw = h.get("interest_polygon_norm");
+        }
+        return polygonNormOrNull(raw);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<NormPoint> polygonNormOrNull(Object raw) {
+        if (!(raw instanceof List<?> list) || list.size() < 3) {
+            return null;
+        }
+        List<NormPoint> out = new ArrayList<>(list.size());
+        for (Object o : list) {
+            if (o instanceof Map<?, ?> m) {
+                out.add(new NormPoint(num(m.get("x"), Double.NaN), num(m.get("y"), Double.NaN)));
+            } else if (o instanceof List<?> pair && pair.size() >= 2) {
+                out.add(new NormPoint(num(pair.get(0), Double.NaN), num(pair.get(1), Double.NaN)));
+            }
+        }
+        return out.size() >= 3 ? out : null;
     }
 
     public static String str(Object o) {

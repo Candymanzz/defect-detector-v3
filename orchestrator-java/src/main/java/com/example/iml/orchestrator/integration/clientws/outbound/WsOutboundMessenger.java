@@ -125,6 +125,47 @@ public final class WsOutboundMessenger {
         }
     }
 
+    public void sendStreamStarted(WebSocket conn, int cameraId, int maxFps, String httpPath, String mjpegPath) {
+        try {
+            ObjectNode root = JSON.createObjectNode();
+            root.put("type", WsMessageTypes.SERVER_STREAM_STARTED);
+            root.put("protocol_version", cfg.protocolVersion());
+            root.put("message_id", UUID.randomUUID().toString());
+            ObjectNode payload = JSON.createObjectNode();
+            payload.put("ok", true);
+            payload.put("camera_id", cameraId);
+            payload.put("max_fps", maxFps);
+            if (httpPath != null && !httpPath.isBlank()) {
+                payload.put("http_path", httpPath);
+            }
+            if (mjpegPath != null && !mjpegPath.isBlank()) {
+                payload.put("mjpeg_path", mjpegPath);
+            }
+            root.set("payload", payload);
+            sendRaw(conn, writeJson(root), WsMessageTypes.SERVER_STREAM_STARTED);
+            log.info("client_ws sent type={} camera_id={} max_fps={}", WsMessageTypes.SERVER_STREAM_STARTED, cameraId, maxFps);
+        } catch (ClientWsJsonSerializationException | ClientWsSendFailedException e) {
+            log.warn("client_ws stream_started send failed: {}", e.getMessage());
+        }
+    }
+
+    public void sendStreamStopped(WebSocket conn, int cameraId) {
+        try {
+            ObjectNode root = JSON.createObjectNode();
+            root.put("type", WsMessageTypes.SERVER_STREAM_STOPPED);
+            root.put("protocol_version", cfg.protocolVersion());
+            root.put("message_id", UUID.randomUUID().toString());
+            ObjectNode payload = JSON.createObjectNode();
+            payload.put("ok", true);
+            payload.put("camera_id", cameraId);
+            root.set("payload", payload);
+            sendRaw(conn, writeJson(root), WsMessageTypes.SERVER_STREAM_STOPPED);
+            log.info("client_ws sent type={} camera_id={}", WsMessageTypes.SERVER_STREAM_STOPPED, cameraId);
+        } catch (ClientWsJsonSerializationException | ClientWsSendFailedException e) {
+            log.warn("client_ws stream_stopped send failed: {}", e.getMessage());
+        }
+    }
+
     public void sendLightBrightnessAck(
             WebSocket conn,
             JsonNode requestRoot,
