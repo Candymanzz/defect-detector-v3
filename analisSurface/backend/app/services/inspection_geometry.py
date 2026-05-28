@@ -46,3 +46,50 @@ def mask_to_polygon(
     aligned_masked = cv2.bitwise_and(aligned, aligned, mask=mask)
     reference_masked = cv2.bitwise_and(reference, reference, mask=mask)
     return aligned_masked, reference_masked
+
+
+def point_in_polygon(x: float, y: float, polygon: list[Tuple[float, float]]) -> bool:
+    if len(polygon) < 3:
+        return False
+    inside = False
+    j = len(polygon) - 1
+    for i in range(len(polygon)):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        intersects = (yi > y) != (yj > y) and x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-12) + xi
+        if intersects:
+            inside = not inside
+        j = i
+    return inside
+
+
+def validate_polygon_inside_parent(
+    child_points: list[Tuple[float, float]],
+    parent_points: list[Tuple[float, float]],
+    label: str,
+) -> list[Tuple[float, float]]:
+    normalized = validate_polygon_points(child_points, label)
+    if len(parent_points) < 3:
+        raise ValueError("Parent ROI polygon must be set before adding sub-zones")
+    for idx, (x, y) in enumerate(normalized):
+        if not point_in_polygon(x, y, parent_points):
+            raise ValueError(f"{label} point #{idx + 1} must be inside the parent ROI")
+    return normalized
+
+
+def combine_region_masks(
+    width: int,
+    height: int,
+    include_polygon: list[Tuple[float, float]] | None,
+    exclude_polygons: list[list[Tuple[float, float]]],
+) -> np.ndarray:
+    if include_polygon is not None and len(include_polygon) >= 3:
+        region_mask = polygon_mask_from_norm_points(width, height, include_polygon) > 0
+    else:
+        region_mask = np.ones((height, width), dtype=bool)
+
+    for hole in exclude_polygons:
+        if len(hole) < 3:
+            continue
+        region_mask &= ~(polygon_mask_from_norm_points(width, height, hole) > 0)
+    return region_mask
