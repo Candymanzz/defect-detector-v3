@@ -64,6 +64,25 @@ public final class GeometryRuntimeConfig {
         if (overrides.containsKey("threshold")) {
             header.put("threshold", YamlScalars.toDouble(overrides.get("threshold"), defaultPythonThreshold(pythonYaml)));
         }
+        if (overrides.isEmpty()) {
+            return;
+        }
+        Map<String, Object> algorithmParams = new LinkedHashMap<>();
+        putIfPresent(overrides, algorithmParams, "mainRoi", "main_roi");
+        putIfPresent(overrides, algorithmParams, "mainRoiPolygonNorm", "main_roi_polygon_norm");
+        putIfPresent(overrides, algorithmParams, "jointRoi", "joint_roi");
+        putIfPresent(overrides, algorithmParams, "wrinklesRoi", "wrinkles_roi");
+        putIfPresent(overrides, algorithmParams, "pixelsToMm", "pixels_to_mm");
+        putIfPresent(overrides, algorithmParams, "maxShiftMm", "max_shift_mm");
+        putIfPresent(overrides, algorithmParams, "maxRotationDeg", "max_rotation_deg");
+        putIfPresent(overrides, algorithmParams, "maxConcentricityMm", "max_concentricity_mm");
+        putIfPresent(overrides, algorithmParams, "maxJointDefectMm", "max_joint_defect_mm");
+        putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
+        putIfPresent(overrides, algorithmParams, "jointThreshold", "joint_threshold");
+        putIfPresent(overrides, algorithmParams, "threshold", "threshold");
+        if (!algorithmParams.isEmpty()) {
+            header.put("algorithm_params", algorithmParams);
+        }
     }
 
     public double resolvePythonThreshold(Map<String, Object> pythonYaml) {
@@ -141,5 +160,12 @@ public final class GeometryRuntimeConfig {
             case "fallback_threshold", "inspection_threshold", "sensitivity" -> "threshold";
             default -> null;
         };
+    }
+
+    private static void putIfPresent(Map<String, Object> source, Map<String, Object> target, String sourceKey, String targetKey) {
+        Object value = source.get(sourceKey);
+        if (value != null) {
+            target.put(targetKey, value);
+        }
     }
 }
