@@ -4,6 +4,7 @@ import { commitReferenceBundleImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type {
   ClientReferenceBundlePayload,
+  InterestPointNorm,
   PixelRoi,
   PreviewFramePayload,
   ReferenceViewSlot,
@@ -155,8 +156,35 @@ function createReferenceView(
   return {
     frame: previewFrame.current,
     interest_roi: interestRoi,
+    interest_polygon_norm: createRoiPolygonNorm(interestRoi, previewFrame.current.width, previewFrame.current.height),
     joint_roi: jointRoi,
   };
+}
+
+function createRoiPolygonNorm(
+  roi: PixelRoi,
+  frameWidth: number,
+  frameHeight: number,
+): [InterestPointNorm, InterestPointNorm, InterestPointNorm, InterestPointNorm] {
+  const left = normalizeRoiCoordinate(roi.x, frameWidth);
+  const top = normalizeRoiCoordinate(roi.y, frameHeight);
+  const right = normalizeRoiCoordinate(roi.x + roi.width, frameWidth);
+  const bottom = normalizeRoiCoordinate(roi.y + roi.height, frameHeight);
+
+  return [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: right, y: bottom },
+    { x: left, y: bottom },
+  ];
+}
+
+function normalizeRoiCoordinate(value: number, size: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(size) || size <= 0) {
+    return 0;
+  }
+
+  return Math.min(1, Math.max(0, value / size));
 }
 
 function clampViewIndex(cameraId: number) {

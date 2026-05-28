@@ -12,6 +12,7 @@ export type {
   HeatmapDescriptor,
   HeatmapPixelFormat,
   InspectResultPayload,
+  InterestPointNorm,
   PixelFormat,
   PixelRoi,
   PreviewFramePayload,

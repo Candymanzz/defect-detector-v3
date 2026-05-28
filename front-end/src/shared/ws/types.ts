@@ -284,9 +284,15 @@ export type FpPointNorm = {
   y: number;
 };
 
+export type InterestPointNorm = {
+  x: number;
+  y: number;
+};
+
 export type ReferenceViewSlot = {
   frame: ShmFrameRefData;
   interest_roi: PixelRoi;
+  interest_polygon_norm: [InterestPointNorm, InterestPointNorm, InterestPointNorm, InterestPointNorm];
   joint_roi?: PixelRoi | null;
 };
 
