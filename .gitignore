@@ -12,6 +12,10 @@
 **/target/
 LightServer/bin/
 LightServer/obj/
+/frontend/node_modules
+/backend/app/api/__pycache__
+/backend/app/services/__pycache__
+/backend/app/__pycache__
 /LightServer.v3/obj
 /backend/app/api/__pycache__
 /backend/app/__pycache__
@@ -23,6 +27,5 @@ LightServer/obj/
 /iml_detectors/__pycache__
 /iml_detectors/services/__pycache__
 /megaOrchestratoraue228-main
-
 c_capture/camera_server
 /test-pr-ph

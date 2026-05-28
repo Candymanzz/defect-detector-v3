@@ -18,10 +18,12 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Вызовы детектора FastAPI analisSurface по HTTP: те же {@code op}, что ожидает пайплайн,
@@ -34,6 +36,30 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
+    private static final Set<String> ALGORITHM_PARAM_KEYS = Set.of(
+            "mainRoi",
+            "mainRoiPolygonNorm",
+            "jointRoi",
+            "wrinklesRoi",
+            "pixelsToMm",
+            "maxShiftMm",
+            "maxRotationDeg",
+            "maxConcentricityMm",
+            "maxJointDefectMm",
+            "maxWrinklesScore",
+            "jointThreshold",
+            "threshold",
+            "main_roi",
+            "main_roi_polygon_norm",
+            "joint_roi",
+            "wrinkles_roi",
+            "pixels_to_mm",
+            "max_shift_mm",
+            "max_rotation_deg",
+            "max_concentricity_mm",
+            "max_joint_defect_mm",
+            "max_wrinkles_score"
+    );
 
     private final String name;
     private final String baseUrl;
@@ -177,6 +203,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             Map<String, Object> roiBody = new LinkedHashMap<>();
             roiBody.put("product_type", productType);
             roiBody.put("points", points);
+            appendAlgorithmParams(roiBody, header);
             HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
             if (roiResp.statusCode() / 100 != 2) {
                 return errorMessageToMsg(roiResp, "roi-polygon");
@@ -292,6 +319,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 Map<String, Object> roiBody = new LinkedHashMap<>();
                 roiBody.put("product_type", productType);
                 roiBody.put("points", points);
+                appendAlgorithmParams(roiBody, header);
                 HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
                 if (roiResp.statusCode() / 100 != 2) {
                     return errorMessageToMsg(roiResp, "roi-polygon");
@@ -461,7 +489,47 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (header.get("detector_id") != null) {
             body.put("detector_id", header.get("detector_id"));
         }
+        appendAlgorithmParams(body, header);
         return body;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void appendAlgorithmParams(Map<String, Object> body, Map<String, Object> header) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        Object explicit = header.get("algorithm_params");
+        if (explicit instanceof Map<?, ?> m) {
+            for (Map.Entry<?, ?> entry : m.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    params.put(String.valueOf(entry.getKey()), entry.getValue());
+                }
+            }
+        }
+        for (String key : ALGORITHM_PARAM_KEYS) {
+            Object value = header.get(key);
+            if (value != null) {
+                params.put(key, value);
+            }
+        }
+        if (params.isEmpty()) {
+            return;
+        }
+        body.put("algorithm_params", params);
+        // Backward compatibility: existing FastAPI handlers may still read flat keys.
+        Set<String> protectedKeys = new HashSet<>(Set.of(
+                "product_type",
+                "points",
+                "shm_name",
+                "width",
+                "height",
+                "stride",
+                "shm_offset",
+                "detector_id"
+        ));
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
+            if (!protectedKeys.contains(entry.getKey())) {
+                body.putIfAbsent(entry.getKey(), entry.getValue());
+            }
+        }
     }
 
     private static void copyIfPresent(Map<String, Object> to, Map<String, Object> from, String key) {
