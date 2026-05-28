@@ -60,6 +60,10 @@ export async function saveSettingData(form: SettingForm): Promise<SettingData> {
 
   return {
     ...nextData,
+    form: {
+      ...nextData.form,
+      brightnessPercent: normalizedForm.brightnessPercent,
+    },
     status: {
       state: "ready",
       text: "сохранено",

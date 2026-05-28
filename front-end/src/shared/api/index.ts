@@ -19,6 +19,7 @@ export type {
   JsonObject,
   JsonPrimitive,
   JsonValue,
+  LightBrightnessPercent,
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,

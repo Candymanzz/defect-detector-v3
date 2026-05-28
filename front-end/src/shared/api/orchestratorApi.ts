@@ -46,6 +46,10 @@ export const orchestratorApi = {
     return http.url(`/api/heatmap-artifact/${artifactId}`);
   },
 
+  streamMjpegUrl(cameraId: number) {
+    return http.url(`/api/camera/${cameraId}/stream.mjpeg`);
+  },
+
   async getHeatmap(cameraId: number) {
     return http.arrayBuffer(`/api/camera/${cameraId}/heatmap.u8`, {
       headers: {

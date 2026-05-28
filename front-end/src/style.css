@@ -242,6 +242,77 @@ h1 {
   font-weight: 800;
 }
 
+.modal-inspect-result {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.modal-inspect-result__header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-inspect-result__header h3 {
+  margin-bottom: 0;
+  color: #f4f7f5;
+  font-size: 1rem;
+}
+
+.modal-inspect-result__header span,
+.modal-inspect-result__empty {
+  color: #9aa8a4;
+  font-size: 0.9rem;
+}
+
+.modal-inspect-result__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.modal-inspect-result__field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.modal-inspect-result__field dt {
+  color: #9aa8a4;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.modal-inspect-result__field dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #f4f7f5;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-inspect-result__raw {
+  max-height: 190px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #c7d2ce;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 1180px) {
   .camera-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -258,6 +329,10 @@ h1 {
   }
 
   .modal__images {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-inspect-result__summary {
     grid-template-columns: 1fr;
   }
 }

@@ -91,6 +91,8 @@ export type LightEndpointBrightness = {
   mv_le_brightness: number;
 };
 
+export type LightBrightnessPercent = number | string;
+
 export type LightBrightnessSettings = {
   default_brightness_percent: number;
   endpoints: LightEndpointBrightness[];
@@ -103,14 +105,16 @@ export type LightBrightnessSettings = {
 
 export type LightEndpointBrightnessUpdate = {
   id: string;
-  brightness_percent?: number;
-  brightness?: number;
+  brightness_percent?: LightBrightnessPercent;
+  brightness?: LightBrightnessPercent;
 };
 
 export type LightBrightnessUpdateRequest = {
-  brightness_percent?: number;
-  default_brightness_percent?: number;
-  endpoints?: Record<string, number> | LightEndpointBrightnessUpdate[];
+  brightness_percent?: LightBrightnessPercent;
+  default_brightness_percent?: LightBrightnessPercent;
+  brightness?: LightBrightnessPercent | number[];
+  value?: LightBrightnessPercent;
+  endpoints?: Record<string, LightBrightnessPercent> | LightEndpointBrightnessUpdate[];
 };
 
 export type LightBrightnessUpdateResponse = {

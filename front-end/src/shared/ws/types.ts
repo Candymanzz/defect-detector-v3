@@ -6,13 +6,17 @@ export type ClientWsMessageType =
   | "client.reference_bundle"
   | "client.fp_zones_update"
   | "client.set_active_reference_view"
-  | "client.light_brightness";
+  | "client.light_brightness"
+  | "client.stream_start"
+  | "client.stream_stop";
 
 export type ServerWsMessageType =
   | "server.hello"
   | "server.state"
   | "server.inspect_result"
   | "server.preview_frame"
+  | "server.stream_started"
+  | "server.stream_stopped"
   | "server.reference_bundle_ack"
   | "server.fp_zones_ack"
   | "server.active_reference_view_ack"
@@ -58,6 +62,12 @@ export type ServerErrorCode =
   | "invalid_fp_point"
   | "fp_point_out_of_range"
   | "kopcheni_sync_failed"
+  | "light_disabled"
+  | "stream_disabled"
+  | "stream_already_active"
+  | "stream_start_failed"
+  | "handler_error"
+  | "unknown_type"
   | "error"
   | string;
 
@@ -94,6 +104,25 @@ export type ServerStateMessage = ServerWsEnvelope<
 export type ServerInspectResultMessage = ServerWsEnvelope<"server.inspect_result", InspectResultPayload>;
 
 export type ServerPreviewFrameMessage = ServerWsEnvelope<"server.preview_frame", PreviewFramePayload>;
+
+export type ServerStreamStartedMessage = ServerWsEnvelope<
+  "server.stream_started",
+  {
+    ok: boolean;
+    camera_id: number;
+    max_fps: number;
+    http_path?: string;
+    mjpeg_path?: string;
+  }
+>;
+
+export type ServerStreamStoppedMessage = ServerWsEnvelope<
+  "server.stream_stopped",
+  {
+    ok: boolean;
+    camera_id: number;
+  }
+>;
 
 export type ServerReferenceBundleAckMessage = ServerWsEnvelope<
   "server.reference_bundle_ack",
@@ -149,6 +178,8 @@ export type ServerWsMessage =
   | ServerStateMessage
   | ServerInspectResultMessage
   | ServerPreviewFrameMessage
+  | ServerStreamStartedMessage
+  | ServerStreamStoppedMessage
   | ServerReferenceBundleAckMessage
   | ServerFpZonesAckMessage
   | ServerActiveReferenceViewAckMessage
@@ -161,6 +192,8 @@ export type ServerWsPayloadByType = {
   "server.state": ServerStateMessage["payload"];
   "server.inspect_result": InspectResultPayload;
   "server.preview_frame": PreviewFramePayload;
+  "server.stream_started": ServerStreamStartedMessage["payload"];
+  "server.stream_stopped": ServerStreamStoppedMessage["payload"];
   "server.reference_bundle_ack": ServerReferenceBundleAckMessage["payload"];
   "server.fp_zones_ack": ServerFpZonesAckMessage["payload"];
   "server.active_reference_view_ack": ServerActiveReferenceViewAckMessage["payload"];
@@ -279,9 +312,22 @@ export type ClientSetActiveReferenceViewPayload = {
 };
 
 export type ClientLightBrightnessPayload = {
-  brightness_percent?: number;
-  default_brightness_percent?: number;
-  endpoints?: Record<string, number> | Array<{ id: string; brightness_percent?: number; brightness?: number }>;
+  brightness_percent?: number | string;
+  default_brightness_percent?: number | string;
+  brightness?: number | string | number[];
+  value?: number | string;
+  endpoints?:
+    | Record<string, number | string>
+    | Array<{ id: string; brightness_percent?: number | string; brightness?: number | string }>;
+};
+
+export type ClientStreamStartPayload = {
+  camera_id: number;
+  max_fps?: number;
+};
+
+export type ClientStreamStopPayload = {
+  camera_id: number;
 };
 
 export type ClientWsPayloadByType = {
@@ -289,10 +335,14 @@ export type ClientWsPayloadByType = {
   "client.fp_zones_update": ClientFpZonesUpdatePayload;
   "client.set_active_reference_view": ClientSetActiveReferenceViewPayload;
   "client.light_brightness": ClientLightBrightnessPayload;
+  "client.stream_start": ClientStreamStartPayload;
+  "client.stream_stop": ClientStreamStopPayload;
 };
 
 export type ClientWsMessage =
   | ClientWsEnvelope<"client.reference_bundle">
   | ClientWsEnvelope<"client.fp_zones_update">
   | ClientWsEnvelope<"client.set_active_reference_view">
-  | ClientWsEnvelope<"client.light_brightness">;
+  | ClientWsEnvelope<"client.light_brightness">
+  | ClientWsEnvelope<"client.stream_start">
+  | ClientWsEnvelope<"client.stream_stop">;

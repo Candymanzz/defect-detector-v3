@@ -13,6 +13,7 @@ import {
   loadMainOverviewData,
 } from "./MainController";
 import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type";
+import type { InspectResultPayload } from "../../shared/ws";
 import "./MainOverview.css";
 
 export function MainOverview() {
@@ -20,6 +21,7 @@ export function MainOverview() {
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
+  const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
 
   const backendReady = backendStatus.state === "ready";
   const cameraCards = createCameraCards(cameraIds, backendReady, imageUrlsByCameraId);
@@ -66,6 +68,15 @@ export function MainOverview() {
         ...prevImageUrls,
         [frame.camera_id]: imageUrl,
       }));
+
+      if (message.type === "server.inspect_result") {
+        const inspectResult = message.payload;
+
+        setInspectResultsByCameraId((prevInspectResults) => ({
+          ...prevInspectResults,
+          [inspectResult.camera_id]: inspectResult,
+        }));
+      }
     });
 
     return () => {
@@ -97,6 +108,7 @@ export function MainOverview() {
           isOpen
           cameraId={selectedCamera.cameraId}
           cameraImageUrl={modalCameraImageUrl}
+          inspectResult={inspectResultsByCameraId[selectedCamera.cameraId]}
           title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}
           onClose={() => setSelectedCamera(null)}
         />
