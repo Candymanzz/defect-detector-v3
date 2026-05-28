@@ -9,12 +9,16 @@ import {
   updateSettingField,
 } from "./SettingController";
 import { ReferenceSetup } from "../ReferenceSetup";
+import { ServerStream } from "../ServerStream";
 import type { SettingFieldName } from "./type";
 import "./SettingList.css";
+
+const SETTINGS_STREAM_CAMERA_ID = 0;
 
 export function SettingList() {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
+  const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
 
@@ -58,13 +62,19 @@ export function SettingList() {
   };
 
   return (
-    <aside className="setting-list" aria-label="Настройки">
+    <aside
+      className="setting-list"
+      aria-label="Настройки"
+    >
       <div className="setting-list__header">
         <h2>Настройки</h2>
         <strong data-status={settingData.status.state}>{settingData.status.text}</strong>
       </div>
 
-      <form className="setting-list__form" onSubmit={handleSubmit}>
+      <form
+        className="setting-list__form"
+        onSubmit={handleSubmit}
+      >
         <label className="setting-list__field">
           <span>Яркость света</span>
           <div className="setting-list__control-row">
@@ -103,7 +113,11 @@ export function SettingList() {
           />
         </label>
 
-        <button className="setting-list__submit" type="submit" disabled={isBusy}>
+        <button
+          className="setting-list__submit"
+          type="submit"
+          disabled={isBusy}
+        >
           Сохранить
         </button>
         <button
@@ -114,9 +128,25 @@ export function SettingList() {
         >
           Задать эталон
         </button>
+        <button
+          className="setting-list__submit setting-list__submit--secondary"
+          type="button"
+          disabled={isBusy}
+          onClick={() => setIsServerStreamOpen(true)}
+        >
+          Открыть стрим
+        </button>
       </form>
 
       {isReferenceSetupOpen && <ReferenceSetup onClose={() => setIsReferenceSetupOpen(false)} />}
+      {isServerStreamOpen && (
+        <ServerStream
+          isOpen
+          cameraId={SETTINGS_STREAM_CAMERA_ID}
+          title={`Camera ${SETTINGS_STREAM_CAMERA_ID}`}
+          onClose={() => setIsServerStreamOpen(false)}
+        />
+      )}
     </aside>
   );
 }

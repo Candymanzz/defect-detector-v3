@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
+import { ServerStream } from "../ServerStream";
 import { orchestratorWs } from "../../shared/ws";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import {
@@ -20,6 +21,7 @@ export function MainOverview() {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(INITIAL_BACKEND_STATUS);
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
+  const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
 
@@ -27,7 +29,7 @@ export function MainOverview() {
   const cameraCards = createCameraCards(cameraIds, backendReady, imageUrlsByCameraId);
   const modalCameraImageUrl =
     selectedCamera && backendReady
-      ? imageUrlsByCameraId[selectedCamera.cameraId] ?? getModalCameraImageUrl(selectedCamera, backendReady)
+      ? (imageUrlsByCameraId[selectedCamera.cameraId] ?? getModalCameraImageUrl(selectedCamera, backendReady))
       : undefined;
 
   useEffect(() => {
@@ -85,7 +87,10 @@ export function MainOverview() {
   }, [backendReady]);
 
   return (
-    <section className="camera-overview" aria-label="Camera frames">
+    <section
+      className="camera-overview"
+      aria-label="Camera frames"
+    >
       <div className="backend-status-row">
         <span>Backend</span>
         <strong data-status={backendStatus.state}>{backendStatus.text}</strong>
@@ -108,9 +113,27 @@ export function MainOverview() {
           isOpen
           cameraId={selectedCamera.cameraId}
           cameraImageUrl={modalCameraImageUrl}
+          headerActions={
+            <button
+              className="modal__action"
+              type="button"
+              onClick={() => setStreamCamera(selectedCamera)}
+            >
+              Открыть стрим
+            </button>
+          }
           inspectResult={inspectResultsByCameraId[selectedCamera.cameraId]}
           title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}
           onClose={() => setSelectedCamera(null)}
+        />
+      )}
+
+      {streamCamera && (
+        <ServerStream
+          isOpen
+          cameraId={streamCamera.cameraId}
+          title={`${streamCamera.objectName} / Camera ${streamCamera.cameraId}`}
+          onClose={() => setStreamCamera(null)}
         />
       )}
     </section>

@@ -39,10 +39,7 @@ export class OrchestratorWebSocketClient {
   }
 
   connect() {
-    if (
-      this.socket?.readyState === WebSocket.CONNECTING ||
-      this.socket?.readyState === WebSocket.OPEN
-    ) {
+    if (this.socket?.readyState === WebSocket.CONNECTING || this.socket?.readyState === WebSocket.OPEN) {
       return;
     }
 
