@@ -137,6 +137,12 @@
         <member name="M:LightServer.Services.LightControlService.ListSerialDevices(System.Collections.Generic.IReadOnlyList{System.String})">
             <param name="ports">Если null или пусто — из конфига SerialLight:EnumPorts.</param>
         </member>
+        <member name="M:LightServer.Services.LightControlService.ApplyBankOnSimultaneous(System.Collections.Generic.IReadOnlyList{LightServer.Services.LightControlService.ComPortFlashApply})">
+            <summary>Все COM: подготовка под lock, затем параллельный trigger/On.</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.ApplyBankOffSimultaneous(System.Collections.Generic.IReadOnlyList{LightServer.Services.LightControlService.ComPortFlashApply})">
+            <summary>Все COM → Off параллельно (broadcast).</summary>
+        </member>
         <member name="M:LightServer.Services.LightControlService.ApplyComPort(LightServer.Models.LightCommandRequestCom,System.Int32[])">
             <summary>Применить свет к COM (сессия из банка / InitializeComBank).</summary>
         </member>
@@ -177,6 +183,15 @@
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.ResolvePrimeSource(LightServer.Services.MvLeFlashSyncPlan)">
             <summary>Timer1 при Open / перед On — свет не горит до одного software trigger.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.PrepareGroupedFlash(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Int32@)">
+            <summary>Фаза 1 (банк COM): яркость + arm, без вспышки.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.FireGroupedFlash(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Boolean,System.Int32@,System.String@)">
+            <summary>Фаза 2 (банк COM): одновременный trigger / broadcast On.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.FireGroupedOff(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32@,System.String@)">
+            <summary>Выключить все каналы разом (broadcast или по каналам).</summary>
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.PrepareHardware(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Int32@)">
             <summary>Подготовка при Open: яркость (опционально) + Timer1/Off.</summary>

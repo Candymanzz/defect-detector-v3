@@ -167,6 +167,84 @@ public static class MvLeFlashSync
         return ApplyImmediateSource(device, syncRoot, plan, channels, brightness, source, writeBrightness, out failedChannel, out modeTag);
     }
 
+    /// <summary>Фаза 1 (банк COM): яркость + arm, без вспышки.</summary>
+    public static bool PrepareGroupedFlash(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        int[] brightness,
+        out int failedChannel)
+    {
+        failedChannel = 0;
+        if (plan.UseDirectImmediate)
+            return PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness, "Off", out failedChannel);
+
+        RefreshHoldPlan(device, plan);
+        return PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness, plan.TimerArmSource, out failedChannel);
+    }
+
+    /// <summary>Фаза 2 (банк COM): одновременный trigger / broadcast On.</summary>
+    public static bool FireGroupedFlash(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        int[] brightness,
+        bool sustainOnAfterTrigger,
+        out int failedChannel,
+        out string modeTag)
+    {
+        failedChannel = 0;
+        modeTag = "bank-fire";
+
+        if (plan.UseDirectImmediate)
+        {
+            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string broadcastVia))
+            {
+                modeTag = $"bank-broadcast-on:{broadcastVia}";
+                return true;
+            }
+
+            bool ok = PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "On", out failedChannel);
+            modeTag = ok ? "bank-direct-on" : "bank-direct-on-fail";
+            return ok;
+        }
+
+        return ApplyOnHold(
+            device,
+            syncRoot,
+            plan,
+            channels,
+            brightness,
+            writeBrightness: false,
+            hardwareTimerArmed: true,
+            sustainOnAfterTrigger,
+            out failedChannel,
+            out modeTag);
+    }
+
+    /// <summary>Выключить все каналы разом (broadcast или по каналам).</summary>
+    public static bool FireGroupedOff(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        out int failedChannel,
+        out string modeTag)
+    {
+        failedChannel = 0;
+        if (TryApplyBroadcastSource(device, syncRoot, plan, "Off", out failedChannel, out string broadcastVia))
+        {
+            modeTag = $"bank-broadcast-off:{broadcastVia}";
+            return true;
+        }
+
+        bool ok = PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "Off", out failedChannel);
+        modeTag = ok ? "bank-off" : "bank-off-fail";
+        return ok;
+    }
+
     /// <summary>Подготовка при Open: яркость (опционально) + Timer1/Off.</summary>
     public static bool PrepareHardware(
         IDevice device,

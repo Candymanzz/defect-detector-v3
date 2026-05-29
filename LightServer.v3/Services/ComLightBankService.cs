@@ -124,7 +124,40 @@ public sealed class ComLightBankService
             };
         }
 
-        var results = new List<ComLightApplyResultItem>();
+        List<LightControlService.ComPortFlashApply> flashCommands = BuildFlashCommands(percents);
+        var cmdByCom = flashCommands.ToDictionary(static c => c.ComPort, static c => c, StringComparer.OrdinalIgnoreCase);
+        var applied = _light.ApplyBankOnSimultaneous(flashCommands);
+        var results = applied.Select(r =>
+        {
+            cmdByCom.TryGetValue(r.ComPort, out LightControlService.ComPortFlashApply cmd);
+            return new ComLightApplyResultItem
+            {
+                ComPort = r.ComPort,
+                Success = r.Ok,
+                Message = r.Ok ? r.Message : null,
+                Error = r.Ok ? null : r.Message,
+                LightControllerSource = "On",
+                Channels = cmd.Channels,
+                Brightness = cmd.Brightness
+            };
+        }).ToList();
+
+        bool allOk = results.All(static r => r.Success);
+        string appliedCsv = string.Join(",", percents);
+        return new ComLightStateResponse
+        {
+            Success = allOk,
+            Message = allOk ? $"Все COM включены одновременно, яркость %: {appliedCsv}." : null,
+            Error = allOk ? null : "Часть COM не включилась.",
+            State = "on",
+            Brightness = appliedCsv,
+            Results = results
+        };
+    }
+
+    private List<LightControlService.ComPortFlashApply> BuildFlashCommands(int[] percents)
+    {
+        var commands = new List<LightControlService.ComPortFlashApply>(_uniqueDevices.Length);
         int idx = 0;
         foreach (ComLightDeviceEntry entry in _uniqueDevices)
         {
@@ -133,61 +166,28 @@ public sealed class ComLightBankService
             for (int i = 0; i < n; i++)
                 raw[i] = PercentToRaw255(percents[idx++]);
 
-            var cmd = new LightCommandRequestCom
-            {
-                ComPort = entry.ComPort,
-                LightControllerSource = "On",
-                Channels = entry.Channels,
-                Brightness = raw
-            };
-            var (ok, msg) = _light.ApplyComPort(cmd, entry.Channels);
-            results.Add(new ComLightApplyResultItem
-            {
-                ComPort = entry.ComPort,
-                Success = ok,
-                Message = ok ? msg : null,
-                Error = ok ? null : msg,
-                LightControllerSource = "On",
-                Channels = entry.Channels,
-                Brightness = raw
-            });
+            commands.Add(new LightControlService.ComPortFlashApply(entry.ComPort, entry.Channels, raw));
         }
 
-        bool allOk = results.All(static r => r.Success);
-        string applied = string.Join(",", percents);
-        return new ComLightStateResponse
-        {
-            Success = allOk,
-            Message = allOk ? $"Все COM включены, яркость %: {applied}." : null,
-            Error = allOk ? null : "Часть COM не включилась.",
-            State = "on",
-            Brightness = applied,
-            Results = results
-        };
+        return commands;
     }
 
     private ComLightApplyResponse ApplyAllOffInternal()
     {
-        var results = new List<ComLightApplyResultItem>();
-        foreach (ComLightDeviceEntry entry in _uniqueDevices)
+        var flashCommands = _uniqueDevices
+            .Select(d => new LightControlService.ComPortFlashApply(d.ComPort, d.Channels, []))
+            .ToList();
+        var cmdByCom = flashCommands.ToDictionary(static c => c.ComPort, static c => c, StringComparer.OrdinalIgnoreCase);
+        var applied = _light.ApplyBankOffSimultaneous(flashCommands);
+        var results = applied.Select(r => new ComLightApplyResultItem
         {
-            var cmd = new LightCommandRequestCom
-            {
-                ComPort = entry.ComPort,
-                LightControllerSource = "Off",
-                Channels = entry.Channels
-            };
-            var (ok, msg) = _light.ApplyComPort(cmd, entry.Channels);
-            results.Add(new ComLightApplyResultItem
-            {
-                ComPort = entry.ComPort,
-                Success = ok,
-                Message = ok ? msg : null,
-                Error = ok ? null : msg,
-                LightControllerSource = "Off",
-                Channels = entry.Channels
-            });
-        }
+            ComPort = r.ComPort,
+            Success = r.Ok,
+            Message = r.Ok ? r.Message : null,
+            Error = r.Ok ? null : r.Message,
+            LightControllerSource = "Off",
+            Channels = cmdByCom[r.ComPort].Channels
+        }).ToList();
 
         bool allOk = results.All(static r => r.Success);
         return new ComLightApplyResponse

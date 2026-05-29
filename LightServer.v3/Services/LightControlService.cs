@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using LightServer.Models;
@@ -189,6 +190,223 @@ public sealed class LightControlService
             result = (true, null);
         });
         return result;
+    }
+
+    public readonly record struct ComPortFlashApply(string ComPort, int[] Channels, int[] Brightness);
+
+    private sealed class ComPortFlashContext
+    {
+        public required string ComPort { get; init; }
+        public required IDevice Device { get; init; }
+        public required object SyncRoot { get; init; }
+        public required MvLeFlashSyncPlan FlashSync { get; init; }
+        public required int[] Channels { get; init; }
+        public required int[] Brightness { get; init; }
+        public MvLeSerialLightSessions.OpenSession? Session { get; init; }
+    }
+
+    /// <summary>Все COM: подготовка под lock, затем параллельный trigger/On.</summary>
+    public IReadOnlyList<(string ComPort, bool Ok, string? Message)> ApplyBankOnSimultaneous(
+        IReadOnlyList<ComPortFlashApply> commands)
+    {
+        if (commands.Count == 0)
+            return [];
+
+        var prepared = new List<ComPortFlashContext>();
+        var results = new ConcurrentDictionary<string, (bool Ok, string? Message)>(StringComparer.OrdinalIgnoreCase);
+
+        RunSdkLocked(() =>
+        {
+            string firstCom = commands[0].ComPort;
+            IReadOnlyList<string> portList = ResolveEnumerationPorts(firstCom);
+            var (enumOk, enumErr, list) = _serialSessions.GetSerialDeviceList(portList);
+            if (!enumOk || list == null)
+            {
+                string err = enumErr ?? "EnumDevices failed.";
+                foreach (ComPortFlashApply cmd in commands)
+                    results[cmd.ComPort] = (false, err);
+                return;
+            }
+
+            foreach (ComPortFlashApply cmd in commands)
+            {
+                string comPort = cmd.ComPort;
+                int idx = _serialSessions.ResolveDeviceIndex(list, comPort);
+                if (idx < 0)
+                {
+                    results[comPort] = (false, BuildComPortNotFoundMessage(comPort, list));
+                    continue;
+                }
+
+                var (device, openErr, _, _, caps, syncRoot) =
+                    _serialSessions.AcquireDevice(list, idx, comPort, keepOpen: true);
+                if (device == null)
+                {
+                    results[comPort] = (false, openErr);
+                    continue;
+                }
+
+                MvLeDeviceCapabilities deviceCaps = caps ?? new MvLeDeviceCapabilities(false, false);
+                if (!deviceCaps.HasLightController)
+                {
+                    results[comPort] = (false, "Устройство не поддерживает LightControllerSelector.");
+                    continue;
+                }
+
+                MvLeSerialLightSessions.OpenSession? session = _serialSessions.GetOpenSession(comPort);
+                MvLeFlashSyncPlan flashSync = session?.FlashSync
+                    ?? MvLeFlashSync.Probe(device, _serialDefaults.FlashSyncMode);
+                flashSync.UseSdkLock = false;
+
+                if (!MvLeFlashSync.PrepareGroupedFlash(device, syncRoot!, flashSync, cmd.Channels, cmd.Brightness, out int prepFail))
+                {
+                    results[comPort] = (false, $"Prepare failed on ch{prepFail}.");
+                    continue;
+                }
+
+                if (session != null && !flashSync.UseDirectImmediate)
+                    session.ApplyState.MarkArmed(cmd.Channels, cmd.Brightness, flashSync.TimerArmSource);
+
+                prepared.Add(new ComPortFlashContext
+                {
+                    ComPort = comPort,
+                    Device = device,
+                    SyncRoot = syncRoot!,
+                    FlashSync = flashSync,
+                    Channels = cmd.Channels,
+                    Brightness = cmd.Brightness,
+                    Session = session
+                });
+            }
+        });
+
+        Parallel.ForEach(prepared, ctx =>
+        {
+            lock (ctx.SyncRoot)
+            {
+                bool ok = MvLeFlashSync.FireGroupedFlash(
+                    ctx.Device,
+                    ctx.SyncRoot,
+                    ctx.FlashSync,
+                    ctx.Channels,
+                    ctx.Brightness,
+                    _serialDefaults.SustainOnAfterTrigger,
+                    out int failCh,
+                    out string modeTag);
+
+                if (ok && ctx.Session != null)
+                {
+                    if (ctx.FlashSync.UseDirectImmediate)
+                        ctx.Session.ApplyState.Update(ctx.Channels, "On", ctx.Brightness);
+                    else
+                        ctx.Session.ApplyState.MarkArmed(ctx.Channels, ctx.Brightness, ctx.FlashSync.TimerArmSource);
+                }
+
+                results[ctx.ComPort] = ok
+                    ? (true, modeTag)
+                    : (false, $"Fire failed on ch{failCh} ({modeTag}).");
+            }
+        });
+
+        return commands
+            .Select(cmd => results.TryGetValue(cmd.ComPort, out var r)
+                ? (cmd.ComPort, r.Ok, r.Message)
+                : (cmd.ComPort, false, (string?)"Не подготовлен."))
+            .ToList();
+    }
+
+    /// <summary>Все COM → Off параллельно (broadcast).</summary>
+    public IReadOnlyList<(string ComPort, bool Ok, string? Message)> ApplyBankOffSimultaneous(
+        IReadOnlyList<ComPortFlashApply> commands)
+    {
+        if (commands.Count == 0)
+            return [];
+
+        var contexts = new List<ComPortFlashContext>();
+        var results = new ConcurrentDictionary<string, (bool Ok, string? Message)>(StringComparer.OrdinalIgnoreCase);
+
+        RunSdkLocked(() =>
+        {
+            string firstCom = commands[0].ComPort;
+            IReadOnlyList<string> portList = ResolveEnumerationPorts(firstCom);
+            var (enumOk, enumErr, list) = _serialSessions.GetSerialDeviceList(portList);
+            if (!enumOk || list == null)
+            {
+                string err = enumErr ?? "EnumDevices failed.";
+                foreach (ComPortFlashApply cmd in commands)
+                    results[cmd.ComPort] = (false, err);
+                return;
+            }
+
+            foreach (ComPortFlashApply cmd in commands)
+            {
+                string comPort = cmd.ComPort;
+                int idx = _serialSessions.ResolveDeviceIndex(list, comPort);
+                if (idx < 0)
+                {
+                    results[comPort] = (false, BuildComPortNotFoundMessage(comPort, list));
+                    continue;
+                }
+
+                var (device, openErr, _, _, caps, syncRoot) =
+                    _serialSessions.AcquireDevice(list, idx, comPort, keepOpen: true);
+                if (device == null)
+                {
+                    results[comPort] = (false, openErr);
+                    continue;
+                }
+
+                MvLeDeviceCapabilities deviceCaps = caps ?? new MvLeDeviceCapabilities(false, false);
+                if (!deviceCaps.HasLightController)
+                {
+                    results[comPort] = (false, "Устройство не поддерживает LightControllerSelector.");
+                    continue;
+                }
+
+                MvLeSerialLightSessions.OpenSession? session = _serialSessions.GetOpenSession(comPort);
+                MvLeFlashSyncPlan flashSync = session?.FlashSync
+                    ?? MvLeFlashSync.Probe(device, _serialDefaults.FlashSyncMode);
+                flashSync.UseSdkLock = false;
+
+                contexts.Add(new ComPortFlashContext
+                {
+                    ComPort = comPort,
+                    Device = device,
+                    SyncRoot = syncRoot!,
+                    FlashSync = flashSync,
+                    Channels = cmd.Channels,
+                    Brightness = cmd.Brightness,
+                    Session = session
+                });
+            }
+        });
+
+        Parallel.ForEach(contexts, ctx =>
+        {
+            lock (ctx.SyncRoot)
+            {
+                bool ok = MvLeFlashSync.FireGroupedOff(
+                    ctx.Device,
+                    ctx.SyncRoot,
+                    ctx.FlashSync,
+                    ctx.Channels,
+                    out int failCh,
+                    out string modeTag);
+
+                if (ok && ctx.Session != null)
+                    ctx.Session.ApplyState.RecordOffKeepingArm(ctx.Channels);
+
+                results[ctx.ComPort] = ok
+                    ? (true, modeTag)
+                    : (false, $"Off failed on ch{failCh} ({modeTag}).");
+            }
+        });
+
+        return commands
+            .Select(cmd => results.TryGetValue(cmd.ComPort, out var r)
+                ? (cmd.ComPort, r.Ok, r.Message)
+                : (cmd.ComPort, false, (string?)"Не подготовлен."))
+            .ToList();
     }
 
     /// <summary>Применить свет к COM (сессия из банка / InitializeComBank).</summary>
