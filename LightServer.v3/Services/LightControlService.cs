@@ -35,16 +35,19 @@ public sealed class LightControlService
         | DeviceTLayerType.MvUsbDevice;
 
     private readonly SerialLightOptions _serialDefaults;
+    private readonly ComLightDevicesOptions _comDevices;
     private readonly MvLeSerialLightSessions _serialSessions;
     private readonly ILogger<LightControlService> _log;
     private readonly object _sdkLock = new();
 
     public LightControlService(
         IOptions<SerialLightOptions> serialOptions,
+        IOptions<ComLightDevicesOptions> comDevices,
         MvLeSerialLightSessions serialSessions,
         ILogger<LightControlService> log)
     {
         _serialDefaults = serialOptions.Value;
+        _comDevices = comDevices.Value;
         _serialSessions = serialSessions;
         _log = log;
         if (_serialDefaults.DisableSdkLock)
@@ -136,7 +139,60 @@ public sealed class LightControlService
         return ApplyLightToDevice(device, request, caps, new object(), alreadyOpen: false, leaveOpen: false);
     }
 
-    public (bool ok, string? error) SetLightSerial(LightCommandRequestCom request, IReadOnlyList<string>? enumPorts)
+    public (bool ok, string? error) InitializeComBank(IReadOnlyList<ComLightDeviceEntry> devices)
+    {
+        if (devices.Count == 0)
+            return (false, "ComLightDevices: список устройств пуст.");
+
+        var ports = devices
+            .Select(static d => NormalizeComPort(d.ComPort))
+            .Where(static p => p.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (ports.Count == 0)
+            return (false, "ComLightDevices: не указаны COM-порты.");
+
+        (bool ok, string? error) result = (false, "uninitialized");
+        RunSdkLocked(() =>
+        {
+            _serialSessions.PinEnumerationPorts(ports);
+            var (enumOk, enumErr, list) = _serialSessions.GetSerialDeviceList(ports);
+            if (!enumOk || list == null)
+            {
+                result = (false, enumErr);
+                return;
+            }
+
+            foreach (ComLightDeviceEntry dev in devices)
+            {
+                string com = NormalizeComPort(dev.ComPort);
+                if (com.Length == 0)
+                    continue;
+
+                int idx = _serialSessions.ResolveDeviceIndex(list, com);
+                if (idx < 0)
+                {
+                    result = (false, BuildComPortNotFoundMessage(com, list));
+                    return;
+                }
+
+                var (_, openErr, _, _, _, _) = _serialSessions.AcquireDevice(list, idx, com, keepOpen: true);
+                if (openErr != null)
+                {
+                    result = (false, $"{com}: {openErr}");
+                    return;
+                }
+            }
+
+            result = (true, null);
+        });
+        return result;
+    }
+
+    /// <summary>Применить свет к COM (сессия из банка / InitializeComBank).</summary>
+    public (bool ok, string? error) ApplyComPort(LightCommandRequestCom request, int[] defaultChannels)
     {
         string? comPort = NormalizeOptionalInput(request.ComPort);
         string source = NormalizeSource(request.LightControllerSource);
@@ -146,10 +202,46 @@ public sealed class LightControlService
         if (comPort == null)
             return (false, "Укажите comPort (например COM1).");
 
-        IReadOnlyList<string> portList = NormalizePortList(enumPorts);
-        if (portList.Count == 0)
-            return (false, "Для COM укажите порты перечисления: ?ports=COM1,COM3 или SerialLight:EnumPorts в appsettings.json.");
+        int[] channels = request.Channels is { Length: > 0 } ? request.Channels : defaultChannels;
+        var normalized = new LightCommandRequestCom
+        {
+            ComPort = comPort,
+            LightControllerSource = source,
+            Channels = channels,
+            Brightness = request.Brightness
+        };
 
+        IReadOnlyList<string> portList = ResolveEnumerationPorts(comPort);
+        if (portList.Count == 0)
+            return (false, "Нет COM-портов для перечисления (ComLightDevices или SerialLight:EnumPorts).");
+
+        return ApplyComPortCore(normalized, portList);
+    }
+
+    /// <summary>Legacy: POST /api/com/light?ports=…</summary>
+    public (bool ok, string? error) SetLightSerial(LightCommandRequestCom request, IReadOnlyList<string>? enumPorts)
+    {
+        string? comPort = NormalizeOptionalInput(request.ComPort);
+        if (comPort == null)
+            return (false, "Укажите comPort (например COM1).");
+
+        int[] defaults = _comDevices.Devices
+            .FirstOrDefault(d => string.Equals(d.ComPort, comPort, StringComparison.OrdinalIgnoreCase))
+            ?.Channels ?? [1, 2, 3, 4];
+
+        if (_serialSessions.GetPinnedPorts().Count == 0)
+        {
+            var ports = MergeEnumerationPorts(NormalizePortList(enumPorts), comPort);
+            _serialSessions.PinEnumerationPorts(ports);
+        }
+
+        return ApplyComPort(request, defaults);
+    }
+
+    private (bool ok, string? error) ApplyComPortCore(LightCommandRequestCom request, IReadOnlyList<string> portList)
+    {
+        string comPort = request.ComPort!;
+        string source = request.LightControllerSource;
 
         (bool ok, string? error) result = (false, "uninitialized");
         RunSdkLocked(() =>
@@ -235,9 +327,10 @@ public sealed class LightControlService
                 session.ApplyState.MarkArmed(primeChannels, [0, 0, 0, 0], flashSync.TimerArmSource);
             }
 
-            if (session?.ApplyState.IsRedundant(channels, source, appliedBrightness, writeBrightness) == true)
+            if (source.Equals("On", StringComparison.OrdinalIgnoreCase)
+                && session?.ApplyState.IsRedundant(channels, source, appliedBrightness, writeBrightness) == true)
             {
-                _log.LogDebug("SetLightSerial {ComPort} {Source} {ElapsedMs}ms (unchanged, skipped)", comPort, source, sw.ElapsedMilliseconds);
+                _log.LogDebug("ApplyComPort {ComPort} {Source} {ElapsedMs}ms (unchanged, skipped)", comPort, source, sw.ElapsedMilliseconds);
                 result = (true, $"Channels [{string.Join(", ", channels)}] -> {source} (unchanged, skipped){lockNote}.");
                 return;
             }
@@ -255,7 +348,7 @@ public sealed class LightControlService
                 if (!MvLeFlashSync.Apply(device, deviceLock, flashSync, channels, appliedBrightness, source,
                         writeBrightness, session.ApplyState.IsHardwareArmed, _serialDefaults.SustainOnAfterTrigger, out int failedChannel, out string armedSyncMode))
                 {
-                    _serialSessions.InvalidateOnDeviceError();
+                    _serialSessions.InvalidateOnDeviceError(comPort);
                     result = (false,
                         $"Simultaneous On failed (need MVS Timer trigger or broadcast). Channel {failedChannel}. Try FlashSyncMode or close MVS Client.");
                     return;
@@ -264,17 +357,21 @@ public sealed class LightControlService
                 if (keepOpen && session != null)
                     session.ApplyState.MarkArmed(channels, appliedBrightness, flashSync.TimerArmSource);
 
-                _log.LogDebug("SetLightSerial {ComPort} On sync={SyncMode} (armed, no per-channel On) {ElapsedMs}ms",
+                _log.LogDebug("ApplyComPort {ComPort} On sync={SyncMode} (armed, no per-channel On) {ElapsedMs}ms",
                     comPort, armedSyncMode, sw.ElapsedMilliseconds);
 
                 result = (true, $"Channels [{string.Join(", ", channels)}] -> On ({armedSyncMode}), brightness [{string.Join(", ", appliedBrightness)}]{lockNote}.");
                 return;
             }
 
-            if (!MvLeFlashSync.Apply(device, deviceLock, flashSync, channels, appliedBrightness, source,
+            MvLeFlashSyncPlan applyPlan = source.Equals("Off", StringComparison.OrdinalIgnoreCase)
+                ? new MvLeFlashSyncPlan { UseDeferredTimer = false, UseHoldTimerRise = false, UseSdkLock = flashSync.UseSdkLock }
+                : flashSync;
+
+            if (!MvLeFlashSync.Apply(device, deviceLock, applyPlan, channels, appliedBrightness, source,
                     writeBrightness, session?.ApplyState.IsHardwareArmed == true, _serialDefaults.SustainOnAfterTrigger, out int failedCh, out string syncMode))
             {
-                _serialSessions.InvalidateOnDeviceError();
+                _serialSessions.InvalidateOnDeviceError(comPort);
                 if (source.Equals("On", StringComparison.OrdinalIgnoreCase))
                 {
                     result = (false,
@@ -303,12 +400,35 @@ public sealed class LightControlService
                 }
             }
 
-            _log.LogDebug("SetLightSerial {ComPort} {Source} sync={SyncMode} writeBrightness={WriteBrightness} brightness=[{Brightness}] {ElapsedMs}ms",
+            _log.LogDebug("ApplyComPort {ComPort} {Source} sync={SyncMode} writeBrightness={WriteBrightness} brightness=[{Brightness}] {ElapsedMs}ms",
                 comPort, source, syncMode, writeBrightness, string.Join(", ", appliedBrightness), sw.ElapsedMilliseconds);
 
             result = (true, $"Channels [{string.Join(", ", channels)}] -> {source} ({syncMode}), brightness [{string.Join(", ", appliedBrightness)}]{lockNote}.");
         });
         return result;
+    }
+
+    private IReadOnlyList<string> ResolveEnumerationPorts(string comPort)
+    {
+        IReadOnlyList<string> pinned = _serialSessions.GetPinnedPorts();
+        if (pinned.Count > 0)
+            return pinned;
+
+        var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string p in _comDevices.Devices.Select(static d => NormalizeComPort(d.ComPort)))
+        {
+            if (p.Length > 0)
+                merged.Add(p);
+        }
+
+        foreach (string p in _serialDefaults.EnumPorts.Select(NormalizeComPort))
+        {
+            if (p.Length > 0)
+                merged.Add(p);
+        }
+
+        merged.Add(NormalizeComPort(comPort));
+        return merged.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static bool TryBuildChannelPlan(
@@ -425,6 +545,23 @@ public sealed class LightControlService
             .Where(static p => p.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private IReadOnlyList<string> MergeEnumerationPorts(IReadOnlyList<string> portList, string comPort)
+    {
+        var merged = new HashSet<string>(portList, StringComparer.OrdinalIgnoreCase);
+        merged.Add(NormalizeComPort(comPort));
+
+        foreach (string open in _serialSessions.GetOpenComPorts())
+            merged.Add(NormalizeComPort(open));
+
+        foreach (string p in _comDevices.Devices.Select(static d => NormalizeComPort(d.ComPort)))
+        {
+            if (p.Length > 0)
+                merged.Add(p);
+        }
+
+        return merged.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static string NormalizeComPort(string p)

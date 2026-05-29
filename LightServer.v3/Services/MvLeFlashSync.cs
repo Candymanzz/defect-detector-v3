@@ -20,6 +20,9 @@ public sealed class MvLeFlashSyncPlan
     public int TimerDurationHoldValue { get; set; } = 60_000;
     public List<string> TriggerCommandCandidates { get; } = [];
     public bool UseSdkLock { get; set; } = true;
+
+    /// <summary>Direct/Sequential: On/Off сразу по каналам, без Hold/Timer.</summary>
+    public bool UseDirectImmediate { get; set; }
 }
 
 public static class MvLeFlashSync
@@ -87,6 +90,7 @@ public static class MvLeFlashSync
             || mode.Equals("Sequential", StringComparison.OrdinalIgnoreCase))
         {
             plan.UseDeferredTimer = false;
+            plan.UseDirectImmediate = true;
             return plan;
         }
 
@@ -140,7 +144,10 @@ public static class MvLeFlashSync
         out string modeTag)
     {
         failedChannel = 0;
-        modeTag = plan.UseDeferredTimer ? "deferred" : "hold";
+        modeTag = plan.UseDirectImmediate ? "direct" : plan.UseDeferredTimer ? "deferred" : "hold";
+
+        if (plan.UseDirectImmediate)
+            return ApplyImmediateSource(device, syncRoot, plan, channels, brightness, source, writeBrightness, out failedChannel, out modeTag);
 
         if (!plan.UseDeferredTimer)
         {

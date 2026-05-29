@@ -15,7 +15,8 @@ public sealed class MvLeSerialLightSessions : IDisposable
     private bool _disposed;
 
     private CachedEnumeration? _enumeration;
-    private OpenSession? _openSession;
+    private readonly Dictionary<string, OpenSession> _openSessions = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<string>? _pinnedPorts;
 
     private const string BrightnessNode = "LightBrightness";
 
@@ -31,6 +32,20 @@ public sealed class MvLeSerialLightSessions : IDisposable
                 return (false, "MvLeSerialLightSessions остановлен.", null);
 
             string portsKey = BuildPortsKey(portList);
+            bool portsChanged = _enumeration == null
+                || !string.Equals(_enumeration.PortsKey, portsKey, StringComparison.OrdinalIgnoreCase);
+
+            if (portsChanged && _openSessions.Count > 0 && _pinnedPorts != null
+                && !string.Equals(BuildPortsKey(_pinnedPorts), portsKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return (false,
+                    "Нельзя сменить набор COM-портов при открытых сессиях. Используйте POST /api/com/light/apply или перезапустите сервер.",
+                    null);
+            }
+
+            if (portsChanged)
+                _enumeration = null;
+
             if (_enumeration != null
                 && _enumeration.PortsKey == portsKey
                 && !_enumeration.IsExpired(_options.EnumCacheSeconds))
@@ -87,15 +102,13 @@ public sealed class MvLeSerialLightSessions : IDisposable
                 return (null, "MvLeSerialLightSessions остановлен.", false, false, null, null);
 
             string comKey = NormalizeComKey(comPort);
-            if (_openSession != null
-                && _openSession.ComKey == comKey
-                && _openSession.DeviceIndex == deviceIndex)
+            if (_openSessions.TryGetValue(comKey, out OpenSession? existing)
+                && existing.DeviceIndex == deviceIndex)
             {
-                return (_openSession.Device, null, true, false, _openSession.Capabilities, _openSession.SyncRoot);
+                return (existing.Device, null, true, false, existing.Capabilities, existing.SyncRoot);
             }
 
-            _openSession?.Dispose();
-            _openSession = null;
+            ReleaseOpenSessionUnsafe(comKey);
 
             IDevice device = DeviceFactory.CreateDevice(list[deviceIndex]);
             int ret = device.Open();
@@ -108,22 +121,63 @@ public sealed class MvLeSerialLightSessions : IDisposable
 
             var caps = ProbeCapabilities(device);
             var flashSync = MvLeFlashSync.Probe(device, _options.FlashSyncMode);
-            _openSession = new OpenSession(comKey, deviceIndex, device, caps, flashSync);
-            return (device, null, true, true, caps, _openSession.SyncRoot);
+            var session = new OpenSession(comKey, deviceIndex, device, caps, flashSync);
+            _openSessions[comKey] = session;
+            return (device, null, true, true, caps, session.SyncRoot);
         }
+    }
+
+    /// <summary>Зафиксировать набор COM для перечисления (банк устройств при старте).</summary>
+    public void PinEnumerationPorts(IReadOnlyList<string> portList)
+    {
+        lock (_lock)
+            _pinnedPorts = portList
+                .Select(NormalizeComPort)
+                .Where(static p => p.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+    }
+
+    public IReadOnlyList<string> GetPinnedPorts()
+    {
+        lock (_lock)
+            return _pinnedPorts ?? [];
+    }
+
+    public IReadOnlyList<string> GetOpenComPorts()
+    {
+        lock (_lock)
+            return _openSessions.Keys.OrderBy(static k => k, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     public OpenSession? GetOpenSession(string comPort)
     {
         lock (_lock)
         {
-            if (_openSession == null)
-                return null;
-
-            return string.Equals(_openSession.ComKey, NormalizeComKey(comPort), StringComparison.OrdinalIgnoreCase)
-                ? _openSession
-                : null;
+            string comKey = NormalizeComKey(comPort);
+            return _openSessions.TryGetValue(comKey, out OpenSession? session) ? session : null;
         }
+    }
+
+    public void ReleaseOpenSessionUnless(string comPort)
+    {
+        // Совместимость со старым API: сессии по COM независимы, ничего не закрываем.
+    }
+
+    private void ReleaseOpenSessionUnsafe(string? comKey = null)
+    {
+        if (comKey == null)
+        {
+            foreach (OpenSession s in _openSessions.Values)
+                s.Dispose();
+            _openSessions.Clear();
+            return;
+        }
+
+        string key = NormalizeComKey(comKey);
+        if (_openSessions.Remove(key, out OpenSession? session))
+            session.Dispose();
     }
 
     public void RecordApplyState(string comPort, int[] channels, string source, int[] brightness)
@@ -146,13 +200,15 @@ public sealed class MvLeSerialLightSessions : IDisposable
             _enumeration = null;
     }
 
-    public void InvalidateOnDeviceError()
+    public void InvalidateOnDeviceError(string? comPort = null)
     {
         lock (_lock)
         {
             _enumeration = null;
-            _openSession?.Dispose();
-            _openSession = null;
+            if (comPort != null)
+                ReleaseOpenSessionUnsafe(comPort);
+            else
+                ReleaseOpenSessionUnsafe();
         }
     }
 
@@ -163,9 +219,9 @@ public sealed class MvLeSerialLightSessions : IDisposable
             if (_disposed)
                 return;
             _disposed = true;
-            _openSession?.Dispose();
-            _openSession = null;
+            ReleaseOpenSessionUnsafe();
             _enumeration = null;
+            _pinnedPorts = null;
         }
     }
 
@@ -347,14 +403,6 @@ public sealed class MvLeSerialLightSessions : IDisposable
                 return i;
 
             if (BuildDeviceSearchBlobQuick(d).Contains(marker, StringComparison.OrdinalIgnoreCase))
-                return i;
-        }
-
-        for (int i = 0; i < list.Count; i++)
-        {
-            string blob = BuildDeviceSearchBlobQuick(list[i]);
-            if (blob.Contains(com, StringComparison.OrdinalIgnoreCase)
-                && blob.Contains("MV-LE", StringComparison.OrdinalIgnoreCase))
                 return i;
         }
 

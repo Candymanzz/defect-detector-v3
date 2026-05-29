@@ -1,10 +1,13 @@
 using System.Reflection;
 using LightServer;
 using LightServer.Services;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<SerialLightOptions>(builder.Configuration.GetSection(SerialLightOptions.SectionName));
+builder.Services.Configure<ComLightDevicesOptions>(builder.Configuration.GetSection(ComLightDevicesOptions.SectionName));
+builder.Services.AddSingleton<IPostConfigureOptions<ComLightDevicesOptions>, ComLightDevicesOptionsPostConfigure>();
 builder.Services.Configure<IoControllerOptions>(builder.Configuration.GetSection(IoControllerOptions.SectionName));
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -14,7 +17,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "LightServer API",
         Version = "v1",
-        Description = "MV-LE: /api — по индексу сети; /api/com — по COM (SetEnumSerialPorts)."
+        Description = "COM-подсветка: POST /api/com/light { state: on|off, brightness: \"100,...\" }."
     });
 
     string xmlPath = Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
@@ -24,8 +27,10 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddSingleton<MvLeSerialLightSessions>();
 builder.Services.AddSingleton<LightControlService>();
+builder.Services.AddSingleton<ComLightBankService>();
 builder.Services.AddSingleton<IoControllerComService>();
 builder.Services.AddHostedService<MvsSdkLifetime>();
+builder.Services.AddHostedService<ComLightBankHostedService>();
 
 var app = builder.Build();
 

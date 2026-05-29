@@ -5,8 +5,8 @@ public sealed class SerialLightOptions
 {
     public const string SectionName = "SerialLight";
 
-    /// <summary>Например COM1, COM3. Используется по умолчанию для GET /api/com/devices.</summary>
-    public string[] EnumPorts { get; set; } = ["COM1", "COM3"];
+    /// <summary>Только из appsettings (без default — иначе порты дублируются при bind).</summary>
+    public string[] EnumPorts { get; set; } = [];
 
     /// <summary>Не закрывать MV-LE после каждого POST /api/com/light (On/Off быстрее).</summary>
     public bool KeepDeviceOpen { get; set; } = true;
@@ -18,7 +18,7 @@ public sealed class SerialLightOptions
     public bool PreconfigureBrightnessOnOpen { get; set; } = true;
 
     /// <summary>Hold: один trigger (зажигание) + broadcast sustain. Deferred: импульс. Direct: по каналам.</summary>
-    public string FlashSyncMode { get; set; } = "Hold";
+    public string FlashSyncMode { get; set; } = "Direct";
 
     /// <summary>После software trigger перевести каналы в On (удержание до POST Off), иначе импульс Timer1 ~500 ms.</summary>
     public bool SustainOnAfterTrigger { get; set; } = true;
