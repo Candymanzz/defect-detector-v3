@@ -32,6 +32,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
     private final String comPort;
     private final int[] channels;
     private final int[] brightnessRaw;
+    private final int[] cameraIds;
 
     public ComIoLightEndpoint(
             Logger log,
@@ -42,7 +43,8 @@ public final class ComIoLightEndpoint implements LightEndpoint {
             String comPortsQuery,
             int timeoutMs,
             int[] channels,
-            int[] brightnessRaw
+            int[] brightnessRaw,
+            int[] cameraIds
     ) {
         this.log = log;
         this.id = id;
@@ -55,6 +57,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         this.comPort = comPort == null || comPort.isBlank() ? "COM1" : comPort.trim();
         this.channels = channels == null || channels.length == 0 ? new int[]{1, 2, 3, 4} : channels.clone();
         this.brightnessRaw = brightnessRaw == null ? null : brightnessRaw.clone();
+        this.cameraIds = cameraIds == null ? new int[0] : cameraIds.clone();
     }
 
     private static String buildPortsQuery(String comPort, String comPortsQuery) {
@@ -91,8 +94,12 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        int[] brightness = resolveBrightness(brightnessPercent);
-        postLight("On", brightness);
+        int[] activeChannels = channelsForCamera(cameraId);
+        if (activeChannels == null || activeChannels.length == 0) {
+            return;
+        }
+        int[] brightness = resolveBrightness(brightnessPercent, activeChannels);
+        postLight("On", activeChannels, brightness);
         log.info("light {} COM On cam={} frame={} phase={} port={} brightness={}",
                 id, cameraId, frameId, phase, comPort, brightness);
     }
@@ -102,15 +109,27 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        postLight("Off", null);
+        postLight("Off", channels, null);
         log.info("light {} COM Off port={}", id, comPort);
     }
 
-    private void postLight(String source, int[] brightness) throws Exception {
+    public void turnOffForCamera(int cameraId) throws Exception {
+        if (!enabled) {
+            return;
+        }
+        int[] activeChannels = channelsForCamera(cameraId);
+        if (activeChannels == null || activeChannels.length == 0) {
+            return;
+        }
+        postLight("Off", activeChannels, null);
+        log.info("light {} COM Off cam={} port={}", id, cameraId, comPort);
+    }
+
+    private void postLight(String source, int[] activeChannels, int[] brightness) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("comPort", comPort);
         body.put("lightControllerSource", source);
-        body.put("channels", channels);
+        body.put("channels", activeChannels);
         if (brightness != null) {
             body.put("brightness", brightness);
         }
@@ -129,17 +148,36 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         }
     }
 
-    private int[] resolveBrightness(int brightnessPercent) {
-        if (brightnessRaw != null && brightnessRaw.length > 0) {
-            if (brightnessRaw.length >= channels.length) {
-                return brightnessRaw.clone();
+    private int[] channelsForCamera(int cameraId) {
+        if (cameraIds.length == 0) {
+            return channels;
+        }
+        for (int i = 0; i < cameraIds.length; i++) {
+            if (cameraIds[i] == cameraId) {
+                if (channels.length == cameraIds.length) {
+                    return new int[]{channels[i]};
+                }
+                return channels;
             }
-            int[] out = new int[channels.length];
-            for (int i = 0; i < channels.length; i++) {
+        }
+        return null;
+    }
+
+    private int[] resolveBrightness(int brightnessPercent, int[] activeChannels) {
+        if (brightnessRaw != null && brightnessRaw.length > 0) {
+            if (brightnessRaw.length >= activeChannels.length) {
+                int[] out = new int[activeChannels.length];
+                for (int i = 0; i < activeChannels.length; i++) {
+                    out[i] = brightnessRaw[i];
+                }
+                return out;
+            }
+            int[] out = new int[activeChannels.length];
+            for (int i = 0; i < activeChannels.length; i++) {
                 out[i] = brightnessRaw[Math.min(i, brightnessRaw.length - 1)];
             }
             return out;
         }
-        return LightBrightnessScale.mvLeBrightnessForChannels(brightnessPercent, channels);
+        return LightBrightnessScale.mvLeBrightnessForChannels(brightnessPercent, activeChannels);
     }
 }

@@ -21,7 +21,7 @@ public record LightServersConfig(
 ) {
 
     public enum EndpointType {
-        /** IO Box / COM: POST /api/com/light */
+        /** COM банк: POST /api/com/light { state, brightness } */
         COM_IO,
         /** MV-LE по сети: POST /api/light */
         MV_LE
@@ -37,7 +37,9 @@ public record LightServersConfig(
             int deviceIndex,
             int[] channels,
             int brightnessPercent,
-            int[] brightnessRaw
+            int[] brightnessRaw,
+            /** Пусто — endpoint для всех камер; иначе только перечисленные ID. */
+            int[] cameraIds
     ) {
     }
 
@@ -143,7 +145,8 @@ public record LightServersConfig(
             if (epRaw == null) {
                 epRaw = globalBrightnessRaw;
             }
-            out.add(new EndpointSpec(id, en, type, baseUrl, comPort, comPortsQuery, deviceIndex, channels, epBrightness, epRaw));
+            int[] cameraIds = parseCameraIds(m.get("camera_ids"));
+            out.add(new EndpointSpec(id, en, type, baseUrl, comPort, comPortsQuery, deviceIndex, channels, epBrightness, epRaw, cameraIds));
         }
         return List.copyOf(out);
     }
@@ -166,6 +169,17 @@ public record LightServersConfig(
             values[i] = Math.max(0, Math.min(255, YamlScalars.toInt(list.get(i), 0)));
         }
         return values;
+    }
+
+    private static int[] parseCameraIds(Object raw) {
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return new int[0];
+        }
+        int[] ids = new int[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            ids[i] = YamlScalars.toInt(list.get(i), -1);
+        }
+        return ids;
     }
 
     private static int[] parseChannels(Object raw) {

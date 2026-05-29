@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
@@ -70,11 +71,12 @@ public final class IntegrationBootstrap {
 
     public void start(Map<String, Object> root, Path projectRoot) {
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> cameras = (List<Map<String, Object>>) root.get("cameras");
-        if (cameras == null || cameras.isEmpty()) {
-            log.warn("No cameras in config; integration pipeline skipped");
+        List<Map<String, Object>> cameras = enabledCameras((List<Map<String, Object>>) root.get("cameras"));
+        if (cameras.isEmpty()) {
+            log.warn("No enabled cameras in config; integration pipeline skipped");
             return;
         }
+        log.info("configured cameras: {}", ConfiguredCameras.enabledIds(root));
 
         Path workerBin = CameraWorkerPaths.resolveCameraWorkerExecutable(projectRoot);
         @SuppressWarnings("unchecked")
@@ -447,5 +449,19 @@ public final class IntegrationBootstrap {
                     log
             ));
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> enabledCameras(List<Map<String, Object>> cameras) {
+        if (cameras == null || cameras.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> camera : cameras) {
+            if (YamlScalars.toBool(camera.get("enabled"), true)) {
+                out.add(camera);
+            }
+        }
+        return List.copyOf(out);
     }
 }

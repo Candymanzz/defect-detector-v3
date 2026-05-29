@@ -13,4 +13,9 @@ public interface LightEndpoint {
 
     /** Принудительно погасить все каналы (при остановке приложения). */
     void turnOffAll() throws Exception;
+
+    /** Погасить каналы, задействованные для данной камеры (после capture). */
+    default void turnOffForCamera(int cameraId) throws Exception {
+        turnOffAll();
+    }
 }

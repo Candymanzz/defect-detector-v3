@@ -13,17 +13,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class CameraPreviewHttpController implements HttpController {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final CameraPreviewStore store;
+    private final List<Integer> configuredCameraIds;
 
-    public CameraPreviewHttpController(CameraPreviewStore store) {
+    public CameraPreviewHttpController(CameraPreviewStore store, List<Integer> configuredCameraIds) {
         this.store = store;
+        this.configuredCameraIds = configuredCameraIds == null ? List.of() : List.copyOf(configuredCameraIds);
     }
 
     public void listCameras(HttpRequestContext ctx) throws IOException {
@@ -33,19 +37,12 @@ public final class CameraPreviewHttpController implements HttpController {
         }
         HttpResponses.corsJson(ctx.exchange());
         ArrayNode ids = JSON.createArrayNode();
-        List<Integer> keys = new ArrayList<>(store.latestByCamera().keySet());
+        Set<Integer> merged = new LinkedHashSet<>(configuredCameraIds);
+        merged.addAll(store.latestByCamera().keySet());
+        List<Integer> keys = new ArrayList<>(merged);
         Collections.sort(keys);
         for (int cam : keys) {
-            CameraPreviewStore.Latest l = store.latest(cam).orElse(null);
-            if (l == null) {
-                continue;
-            }
-            boolean hasCur = l.currentJpeg() != null && l.currentJpegWidth() > 0 && Files.isRegularFile(l.currentJpeg());
-            boolean hasHm = l.heatmapU8() != null && l.heatmapU8Width() > 0 && l.heatmapU8Height() > 0
-                    && Files.isRegularFile(l.heatmapU8());
-            if (hasCur || hasHm) {
-                ids.add(cam);
-            }
+            ids.add(cam);
         }
         ObjectNode root = JSON.createObjectNode();
         root.set("cameras", ids);

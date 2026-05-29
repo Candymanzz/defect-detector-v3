@@ -99,7 +99,10 @@ public final class HttpFrontController {
 
 
 
-        CameraPreviewHttpController camera = new CameraPreviewHttpController(ctx.cameraPreviewStore());
+        CameraPreviewHttpController camera = new CameraPreviewHttpController(
+                ctx.cameraPreviewStore(),
+                ctx.configuredCameraIds()
+        );
 
         router.register(HttpRoute.exact("GET", "/api/cameras", camera::listCameras));
 

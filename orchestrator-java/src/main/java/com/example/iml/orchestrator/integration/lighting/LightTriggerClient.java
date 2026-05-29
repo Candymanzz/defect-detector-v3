@@ -38,11 +38,25 @@ public final class LightTriggerClient {
         final LightEndpoint endpoint;
         volatile int brightnessPercent;
         final int[] brightnessRaw;
+        final int[] cameraIds;
 
-        EndpointRuntime(LightEndpoint endpoint, int brightnessPercent, int[] brightnessRaw) {
+        EndpointRuntime(LightEndpoint endpoint, int brightnessPercent, int[] brightnessRaw, int[] cameraIds) {
             this.endpoint = endpoint;
             this.brightnessPercent = brightnessPercent;
             this.brightnessRaw = brightnessRaw;
+            this.cameraIds = cameraIds == null ? new int[0] : cameraIds;
+        }
+
+        boolean appliesTo(int cameraId) {
+            if (cameraIds.length == 0) {
+                return true;
+            }
+            for (int id : cameraIds) {
+                if (id == cameraId) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -78,35 +92,55 @@ public final class LightTriggerClient {
 
     private static List<EndpointRuntime> buildEndpoints(LightServersConfig cfg) {
         List<EndpointRuntime> list = new ArrayList<>();
+        java.util.Map<String, List<LightServersConfig.EndpointSpec>> comByBase = new java.util.LinkedHashMap<>();
         for (LightServersConfig.EndpointSpec spec : cfg.endpoints()) {
             if (!spec.enabled()) {
                 continue;
             }
-            LightEndpoint ep = switch (spec.type()) {
-                case COM_IO -> new ComIoLightEndpoint(
-                        LOG,
-                        spec.id(),
-                        true,
-                        spec.baseUrl(),
-                        spec.comPort(),
-                        spec.comPortsQuery(),
-                        cfg.timeoutMs(),
-                        spec.channels(),
-                        spec.brightnessRaw()
-                );
-                case MV_LE -> new MvLeLightEndpoint(
-                        LOG,
-                        spec.id(),
-                        true,
-                        spec.baseUrl(),
-                        cfg.timeoutMs(),
-                        spec.deviceIndex(),
-                        spec.channels()
-                );
-            };
-            list.add(new EndpointRuntime(ep, spec.brightnessPercent(), spec.brightnessRaw()));
+            if (spec.type() == LightServersConfig.EndpointType.COM_IO) {
+                comByBase.computeIfAbsent(spec.baseUrl(), k -> new ArrayList<>()).add(spec);
+                continue;
+            }
+            LightEndpoint ep = new MvLeLightEndpoint(
+                    LOG,
+                    spec.id(),
+                    true,
+                    spec.baseUrl(),
+                    cfg.timeoutMs(),
+                    spec.deviceIndex(),
+                    spec.channels()
+            );
+            list.add(new EndpointRuntime(ep, spec.brightnessPercent(), spec.brightnessRaw(), spec.cameraIds()));
+        }
+        for (var entry : comByBase.entrySet()) {
+            list.add(buildComBankRuntime(entry.getValue(), cfg.timeoutMs()));
         }
         return List.copyOf(list);
+    }
+
+    /** Один POST /api/com/light на base_url — все COM из LightServer appsettings. */
+    private static EndpointRuntime buildComBankRuntime(List<LightServersConfig.EndpointSpec> specs, int timeoutMs) {
+        LightServersConfig.EndpointSpec first = specs.get(0);
+        String id = specs.size() == 1 ? first.id() : "com-bank";
+        int brightness = specs.stream().mapToInt(LightServersConfig.EndpointSpec::brightnessPercent).max().orElse(100);
+        int[] cameraIds = mergeCameraIds(specs);
+        LightEndpoint ep = new ComIoLightEndpoint(LOG, id, true, first.baseUrl(), timeoutMs);
+        return new EndpointRuntime(ep, brightness, null, cameraIds);
+    }
+
+    private static int[] mergeCameraIds(List<LightServersConfig.EndpointSpec> specs) {
+        boolean allCameras = false;
+        java.util.LinkedHashSet<Integer> ids = new java.util.LinkedHashSet<>();
+        for (LightServersConfig.EndpointSpec spec : specs) {
+            if (spec.cameraIds().length == 0) {
+                allCameras = true;
+                break;
+            }
+            for (int id : spec.cameraIds()) {
+                ids.add(id);
+            }
+        }
+        return allCameras ? new int[0] : ids.stream().mapToInt(Integer::intValue).toArray();
     }
 
     /** Яркость по умолчанию (глобальная из конфига / для всех endpoints). */
@@ -165,7 +199,7 @@ public final class LightTriggerClient {
     }
 
     /**
-     * Цикл съёмки: {@code POST ... lightControllerSource=On} → пауза → capture → {@code Off}.
+     * Цикл съёмки: {@code POST ... state=on} → пауза → capture → {@code state=off}.
      * Иначе MV-LE/COM остаются в On и подсветка горит постоянно.
      */
     public void runCaptureWithLighting(
@@ -202,7 +236,7 @@ public final class LightTriggerClient {
         void run() throws Exception;
     }
 
-    /** {@code lightControllerSource=On} на все enabled endpoints (LightServer.v3). */
+    /** {@code state=on} на все enabled endpoints (LightServer.v3). */
     public boolean lightOn(int cameraId, long frameId, String phase) {
         if (!enabled) {
             return false;
@@ -212,7 +246,7 @@ public final class LightTriggerClient {
         return runSourceWithRetries(cameraId, frameId, phase, true);
     }
 
-    /** {@code lightControllerSource=Off} — погасить после съёмки. */
+    /** {@code state=off} — погасить после съёмки. */
     public void lightOff(int cameraId, long frameId, String phase) {
         if (!enabled) {
             return;
@@ -240,7 +274,7 @@ public final class LightTriggerClient {
                     triggerAllParallel(cameraId, frameId, phase, durationMs);
                     sleepSettle();
                 } else {
-                    turnOffAllParallel();
+                    turnOffForCameraParallel(cameraId);
                 }
                 return true;
             } catch (RuntimeException e) {
@@ -265,14 +299,14 @@ public final class LightTriggerClient {
         return false;
     }
 
-    private void turnOffAllParallel() {
+    private void turnOffForCameraParallel(int cameraId) {
         List<Callable<Void>> tasks = new ArrayList<>();
         for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled()) {
+            if (!r.endpoint.enabled() || !r.appliesTo(cameraId)) {
                 continue;
             }
             tasks.add(() -> {
-                r.endpoint.turnOffAll();
+                r.endpoint.turnOffForCamera(cameraId);
                 return null;
             });
         }
@@ -302,7 +336,7 @@ public final class LightTriggerClient {
     private void triggerAllParallel(int cameraId, long frameId, String phase, int durationMs) {
         List<Callable<Void>> tasks = new ArrayList<>();
         for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled()) {
+            if (!r.endpoint.enabled() || !r.appliesTo(cameraId)) {
                 continue;
             }
             int brightness = r.brightnessPercent;
