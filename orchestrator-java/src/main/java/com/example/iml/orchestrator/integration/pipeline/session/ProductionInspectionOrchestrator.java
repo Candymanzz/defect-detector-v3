@@ -4,14 +4,14 @@ import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
+import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Обычный режим: ожидание внешнего триггера, непрерывный цикл или dev-заглушка с фиксированным интервалом.
+ * Обычный режим: стратегия ожидания триггера (таймер, UDP-шина, непрерывный цикл).
  */
 public final class ProductionInspectionOrchestrator {
 
@@ -21,107 +21,86 @@ public final class ProductionInspectionOrchestrator {
     public static void run(
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
-            IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection,
-            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub,
+            InspectionTriggerStrategy triggerStrategy,
+            IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             ReferenceSource referenceSource,
             Map<Integer, ReferenceSnapshot> referenceByCamera
     ) throws Exception {
         AtomicBoolean cycleInProgress = new AtomicBoolean(false);
         boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
-        if (devAutoTriggerStub.enabled()) {
-            if (continuousInspection.enabled()) {
-                svc.log().warn(
-                        "integration cam={}: dev_auto_trigger_stub takes precedence over continuous_inspection",
-                        in.cameraId()
-                );
-            }
-            if (referenceFromClient) {
-                svc.log().info(
-                        "integration cam={}: dev_auto_trigger_stub interval_ms={} — inspection only after "
-                                + "client.reference_bundle (live_preview unchanged)",
-                        in.cameraId(),
-                        devAutoTriggerStub.intervalMs()
-                );
-            } else {
-                svc.log().warn(
-                        "integration cam={}: dev_auto_trigger_stub enabled interval_ms={} "
-                                + "(временная заглушка вместо ожидания внешнего триггера)",
-                        in.cameraId(),
-                        devAutoTriggerStub.intervalMs()
-                );
-            }
-            runDevAutoTriggerStubLoop(svc, in, devAutoTriggerStub, cycleInProgress, referenceFromClient, referenceByCamera);
-            return;
-        }
-        if (continuousInspection.enabled()) {
-            runContinuousLoop(svc, in, continuousInspection, cycleInProgress, referenceFromClient, referenceByCamera);
-            return;
-        }
-        runExternalTriggerLoop(svc, in, cycleInProgress, referenceFromClient, referenceByCamera);
+        logTriggerMode(svc, in, triggerMode, triggerStrategy, referenceFromClient);
+        runTriggerDrivenLoop(
+                svc,
+                in,
+                triggerStrategy,
+                cycleInProgress,
+                referenceFromClient,
+                referenceByCamera
+        );
     }
 
-    private static void runDevAutoTriggerStubLoop(
+    private static void logTriggerMode(
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
-            IntegrationFeatureConfig.DevAutoTriggerStubConfig stub,
+            IntegrationFeatureConfig.InspectionTriggerMode mode,
+            InspectionTriggerStrategy strategy,
+            boolean referenceFromClient
+    ) {
+        int cameraId = in.cameraId();
+        switch (mode) {
+            case TIMER -> {
+                if (referenceFromClient) {
+                    svc.log().info(
+                            "integration cam={}: timer trigger — inspection only after client.reference_bundle",
+                            cameraId
+                    );
+                } else {
+                    svc.log().warn(
+                            "integration cam={}: dev_auto_trigger_stub (timer) — temporary stub instead of external trigger",
+                            cameraId
+                    );
+                }
+            }
+            case CONTINUOUS -> svc.log().info("integration cam={}: continuous_inspection enabled", cameraId);
+            case EXTERNAL -> {
+                if (referenceFromClient) {
+                    svc.log().info(
+                            "integration cam={}: waiting for external trigger (e.g. UDP) after client.reference_bundle",
+                            cameraId
+                    );
+                } else {
+                    svc.log().info("integration cam={}: waiting for external trigger (e.g. UDP)", cameraId);
+                }
+            }
+            default -> { }
+        }
+        if (strategy.postCycleDelayMs() > 0 && mode == IntegrationFeatureConfig.InspectionTriggerMode.CONTINUOUS) {
+            svc.log().debug("integration cam={}: post_cycle_delay_ms={}", cameraId, strategy.postCycleDelayMs());
+        }
+    }
+
+    private static void runTriggerDrivenLoop(
+            InspectionPipelineServices svc,
+            AsyncInspectionCycleInput in,
+            InspectionTriggerStrategy triggerStrategy,
             AtomicBoolean cycleInProgress,
             boolean referenceFromClient,
             Map<Integer, ReferenceSnapshot> referenceByCamera
     ) throws Exception {
         while (!Thread.currentThread().isInterrupted()) {
+            InspectionTriggerEvent event = triggerStrategy.awaitNext(in.cameraId());
             if (!cycleInProgress.get()) {
                 runCycle(svc, in, cycleInProgress, referenceFromClient, referenceByCamera);
+                int delay = triggerStrategy.postCycleDelayMs();
+                if (delay > 0) {
+                    sleepInterruptibly(delay);
+                }
             } else {
-                svc.log().debug("dev_auto_trigger_stub cam={}: skip tick, inspection still in progress", in.cameraId());
-            }
-            sleepInterruptibly(stub.intervalMs());
-        }
-    }
-
-    private static void runContinuousLoop(
-            InspectionPipelineServices svc,
-            AsyncInspectionCycleInput in,
-            IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection,
-            AtomicBoolean cycleInProgress,
-            boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera
-    ) throws Exception {
-        do {
-            runCycle(svc, in, cycleInProgress, referenceFromClient, referenceByCamera);
-            if (continuousInspection.cycleDelayMs() > 0) {
-                sleepInterruptibly(continuousInspection.cycleDelayMs());
-            }
-        } while (!Thread.currentThread().isInterrupted());
-    }
-
-    private static void runExternalTriggerLoop(
-            InspectionPipelineServices svc,
-            AsyncInspectionCycleInput in,
-            AtomicBoolean cycleInProgress,
-            boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera
-    ) throws Exception {
-        BlockingQueue<Object> externalTriggers = new LinkedBlockingQueue<>();
-        if (referenceFromClient) {
-            svc.log().info(
-                    "integration cam={}: reference_source=client — waiting for client.reference_bundle, "
-                            + "then external inspection trigger",
-                    in.cameraId()
-            );
-        } else {
-            svc.log().info("integration cam={}: waiting for external inspection trigger", in.cameraId());
-        }
-        while (!Thread.currentThread().isInterrupted()) {
-            try {
-                externalTriggers.take();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-            if (!cycleInProgress.get()) {
-                runCycle(svc, in, cycleInProgress, referenceFromClient, referenceByCamera);
-            } else {
-                svc.log().warn("integration cam={}: external trigger ignored, inspection in progress", in.cameraId());
+                svc.log().warn(
+                        "integration cam={}: trigger ignored (source={}), inspection in progress",
+                        in.cameraId(),
+                        event.source()
+                );
             }
         }
     }
@@ -139,6 +118,12 @@ public final class ProductionInspectionOrchestrator {
         try {
             AsyncInspectionCycleInput cycleIn = resolveCycleInput(in, referenceFromClient, referenceByCamera);
             if (cycleIn == null) {
+                if (referenceFromClient) {
+                    svc.log().debug(
+                            "integration cam={}: trigger skipped — no client.reference_bundle yet",
+                            in.cameraId()
+                    );
+                }
                 return;
             }
             AsyncInspectionCycleRunner.run(svc, cycleIn, null);

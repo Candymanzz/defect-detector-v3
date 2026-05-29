@@ -7,7 +7,25 @@ import java.util.Map;
  */
 public final class IntegrationFeatureConfig {
 
+    public enum InspectionTriggerMode {
+        TIMER,
+        CONTINUOUS,
+        EXTERNAL
+    }
+
     private IntegrationFeatureConfig() {
+    }
+
+    public static InspectionTriggerMode resolveInspectionTriggerMode(Map<String, Object> integration) {
+        DevAutoTriggerStubConfig devStub = parseDevAutoTriggerStub(integration);
+        ContinuousInspectionConfig continuous = parseContinuousInspection(integration);
+        if (devStub.enabled()) {
+            return InspectionTriggerMode.TIMER;
+        }
+        if (continuous.enabled()) {
+            return InspectionTriggerMode.CONTINUOUS;
+        }
+        return InspectionTriggerMode.EXTERNAL;
     }
 
     public record SingleFrameBenchmarkConfig(boolean enabled, int referenceRepeats, int inspectionRepeats) {

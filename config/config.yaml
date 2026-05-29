@@ -159,11 +159,20 @@ integration:
     enabled: false
     reference_repeats: 5
     inspection_repeats: 5
-  # Временная заглушка: цикл каждые N мс без внешнего триггера (пока в разработке). Выключить, когда появится сигнал с линии.
-  # После client.reference_bundle — периодический capture (текущие кадры на :8099 / WS inspect_result).
+  # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
   dev_auto_trigger_stub:
-    enabled: true
+    enabled: false
     interval_ms: 5000
+  # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
+  inspection_trigger:
+    udp:
+      enabled: true
+      bind_host: "0.0.0.0"
+      bind_port: 9100
+      format: json          # json | plain
+      default_camera_id: 0
+      debounce_ms: 100
+      # allowed_remote_hosts: ["192.168.1.50"]
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20
