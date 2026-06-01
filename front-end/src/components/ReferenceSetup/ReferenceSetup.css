@@ -24,8 +24,17 @@
   display: flex;
   flex-direction: column;
 }
-.reference-setup__image-container{
+
+.reference-setup__image-container {
   width: 300px;
   height: 300px;
   border: 1px solid #ccc;
+  overflow: hidden;
+}
+
+.reference-setup__image-container img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }

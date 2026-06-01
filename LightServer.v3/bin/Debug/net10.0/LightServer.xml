@@ -98,6 +98,12 @@
         <member name="P:LightServer.SerialLightOptions.FlashSyncMode">
             <summary>Hold: один trigger (зажигание) + broadcast sustain. Deferred: импульс. Direct: по каналам.</summary>
         </member>
+        <member name="P:LightServer.SerialLightOptions.BankFlashSyncMode">
+            <summary>Режим для POST /api/com/light (банк COM): Hold — вспышка разом по timer trigger.</summary>
+        </member>
+        <member name="P:LightServer.SerialLightOptions.PrearmBankOnInit">
+            <summary>При старте банка: яркость+Timer1 (свет не горит до POST on).</summary>
+        </member>
         <member name="P:LightServer.SerialLightOptions.SustainOnAfterTrigger">
             <summary>После software trigger перевести каналы в On (удержание до POST Off), иначе импульс Timer1 ~500 ms.</summary>
         </member>
@@ -143,6 +149,12 @@
         <member name="M:LightServer.Services.LightControlService.ApplyBankOffSimultaneous(System.Collections.Generic.IReadOnlyList{LightServer.Services.LightControlService.ComPortFlashApply})">
             <summary>Все COM → Off параллельно (broadcast).</summary>
         </member>
+        <member name="M:LightServer.Services.LightControlService.FireBankPulseBarrierAllAtOnce(System.Collections.Generic.List{LightServer.Services.LightControlService.ComPortFlashContext},System.Func{LightServer.Services.LightControlService.ComPortFlashContext,System.ValueTuple{System.Boolean,System.String}},System.Collections.Concurrent.ConcurrentDictionary{System.String,System.ValueTuple{System.Boolean,System.String}})">
+            <summary>Task.Run на каждый COM сразу + Barrier (не Parallel.ForEach с лимитом ~3 потока).</summary>
+        </member>
+        <member name="M:LightServer.Services.LightControlService.FireBankPulseBarrier(System.Collections.Generic.List{LightServer.Services.LightControlService.ComPortFlashContext},System.Func{LightServer.Services.LightControlService.ComPortFlashContext,System.ValueTuple{System.Boolean,System.String}},System.Collections.Concurrent.ConcurrentDictionary{System.String,System.ValueTuple{System.Boolean,System.String}})">
+            <summary>Все потоки ждут Barrier, затем одновременно шлют trigger (Off).</summary>
+        </member>
         <member name="M:LightServer.Services.LightControlService.ApplyComPort(LightServer.Models.LightCommandRequestCom,System.Int32[])">
             <summary>Применить свет к COM (сессия из банка / InitializeComBank).</summary>
         </member>
@@ -186,6 +198,21 @@
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.PrepareGroupedFlash(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Int32@)">
             <summary>Фаза 1 (банк COM): яркость + arm, без вспышки.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.FireBankSynchronizedTrigger(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32@,System.String@)">
+            <summary>Фаза 2 (barrier): только software trigger или broadcast On — без sustain и без fallback.</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.FireBankSynchronizedOn(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Boolean,System.Int32@,System.String@)">
+            <summary>Barrier: trigger + сразу broadcast sustain (без отдельной фазы 3 по волнам thread pool).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.SustainGroupedOn(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32@,System.String@)">
+            <summary>Фаза 3: удержание On после trigger (параллельно по COM, не в barrier).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.FireGroupedFlashPulse(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Boolean,System.Int32@,System.String@)">
+            <summary>Фаза 2 (банк COM): только trigger/broadcast On — без prepare (после Barrier).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.FireGroupedFlashWithFallback(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Boolean,System.Int32@,System.String@)">
+            <summary>Pulse → полный On; для COM без timer/broadcast.</summary>
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.FireGroupedFlash(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Boolean,System.Int32@,System.String@)">
             <summary>Фаза 2 (банк COM): одновременный trigger / broadcast On.</summary>

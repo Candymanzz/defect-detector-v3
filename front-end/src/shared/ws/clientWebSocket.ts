@@ -4,6 +4,8 @@ import type {
   ClientLightBrightnessPayload,
   ClientReferenceBundlePayload,
   ClientSetActiveReferenceViewPayload,
+  ClientStreamStartPayload,
+  ClientStreamStopPayload,
   ClientWsEnvelope,
   ClientWsPayloadByType,
   ServerWsMessage,
@@ -37,10 +39,7 @@ export class OrchestratorWebSocketClient {
   }
 
   connect() {
-    if (
-      this.socket?.readyState === WebSocket.CONNECTING ||
-      this.socket?.readyState === WebSocket.OPEN
-    ) {
+    if (this.socket?.readyState === WebSocket.CONNECTING || this.socket?.readyState === WebSocket.OPEN) {
       return;
     }
 
@@ -137,6 +136,14 @@ export class OrchestratorWebSocketClient {
 
   sendLightBrightness(payload: ClientLightBrightnessPayload) {
     return this.send("client.light_brightness", payload);
+  }
+
+  sendStreamStart(payload: ClientStreamStartPayload) {
+    return this.send("client.stream_start", payload);
+  }
+
+  sendStreamStop(payload: ClientStreamStopPayload) {
+    return this.send("client.stream_stop", payload);
   }
 
   send<TType extends keyof ClientWsPayloadByType>(type: TType, payload: ClientWsPayloadByType[TType]) {
@@ -242,6 +249,8 @@ function normalizeServerMessage(parsed: unknown): ServerWsMessage {
     candidate.type === "server.state" ||
     candidate.type === "server.inspect_result" ||
     candidate.type === "server.preview_frame" ||
+    candidate.type === "server.stream_started" ||
+    candidate.type === "server.stream_stopped" ||
     candidate.type === "server.reference_bundle_ack" ||
     candidate.type === "server.fp_zones_ack" ||
     candidate.type === "server.active_reference_view_ack" ||

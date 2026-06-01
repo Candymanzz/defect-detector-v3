@@ -48,8 +48,8 @@
 #define STREAM_FPS_MIN 1
 #define STREAM_FPS_MAX 30
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
-#define HIK_SHARED_MAP_NAME "Global\\iml_hik_shared_frame_v1"
-#define HIK_PRIMARY_MUTEX_NAME "Global\\iml_hik_primary_lock_v1"
+#define HIK_SHARED_MAP_FMT "Global\\iml_hik_shared_frame_cam_%d_v1"
+#define HIK_PRIMARY_MUTEX_FMT "Global\\iml_hik_primary_lock_cam_%d_v1"
 typedef struct {
     volatile LONG seq;
     uint32_t width;
@@ -504,11 +504,19 @@ static int parse_ipv4(const char *ip, unsigned int *out) {
     return 0;
 }
 
+static void hik_ipc_names(int camera_id, char *map_name, size_t map_len, char *mutex_name, size_t mutex_len) {
+    snprintf(map_name, map_len, HIK_SHARED_MAP_FMT, camera_id);
+    snprintf(mutex_name, mutex_len, HIK_PRIMARY_MUTEX_FMT, camera_id);
+}
+
 static int init_hik_shared(worker_state_t *st, char *err, size_t err_len) {
+    char map_name[96];
+    char mutex_name[96];
+    hik_ipc_names(st->camera_id, map_name, sizeof(map_name), mutex_name, sizeof(mutex_name));
     size_t total = sizeof(hik_shared_header_t) + st->frame_bytes;
     DWORD lo = (DWORD)(total & 0xFFFFFFFFu);
     DWORD hi = (DWORD)((total >> 32u) & 0xFFFFFFFFu);
-    st->hik_shared_map = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, hi, lo, HIK_SHARED_MAP_NAME);
+    st->hik_shared_map = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, hi, lo, map_name);
     if (!st->hik_shared_map) {
         snprintf(err, err_len, "CreateFileMapping failed: %lu", GetLastError());
         return -1;
@@ -521,7 +529,7 @@ static int init_hik_shared(worker_state_t *st, char *err, size_t err_len) {
         return -1;
     }
 
-    st->hik_primary_mutex = CreateMutexA(NULL, FALSE, HIK_PRIMARY_MUTEX_NAME);
+    st->hik_primary_mutex = CreateMutexA(NULL, FALSE, mutex_name);
     if (!st->hik_primary_mutex) {
         snprintf(err, err_len, "CreateMutex failed: %lu", GetLastError());
         UnmapViewOfFile(st->hik_shared_view);

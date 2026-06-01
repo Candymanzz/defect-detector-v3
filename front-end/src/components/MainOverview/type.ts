@@ -14,6 +14,8 @@ export type CameraCardData = {
   imageUrl?: string;
 };
 
+export type CameraImageUrlsById = Record<number, string>;
+
 export type MainOverviewData = {
   backendStatus: BackendStatus;
   cameraIds: number[];

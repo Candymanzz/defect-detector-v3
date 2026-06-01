@@ -46,6 +46,10 @@ export const orchestratorApi = {
     return http.url(`/api/heatmap-artifact/${artifactId}`);
   },
 
+  streamMjpegUrl(cameraId: number) {
+    return http.url(`/api/camera/${cameraId}/stream.mjpeg`);
+  },
+
   async getHeatmap(cameraId: number) {
     return http.arrayBuffer(`/api/camera/${cameraId}/heatmap.u8`, {
       headers: {
@@ -91,10 +95,13 @@ export const orchestratorApi = {
     return http.json<LightBrightnessSettings>(LIGHT_BRIGHTNESS_PATH);
   },
 
-  async setLightBrightness(brightnessPercent: number) {
-    const body: LightBrightnessUpdateRequest = {
-      brightness_percent: brightnessPercent,
-    };
+  async setLightBrightness(update: number | LightBrightnessUpdateRequest) {
+    const body: LightBrightnessUpdateRequest =
+      typeof update === "number"
+        ? {
+            brightness_percent: update,
+          }
+        : update;
 
     return http.json<LightBrightnessUpdateResponse>(LIGHT_BRIGHTNESS_PATH, {
       method: "PUT",

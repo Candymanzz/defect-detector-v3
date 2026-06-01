@@ -1,9 +1,10 @@
 import { orchestratorApi } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
-import type { BackendStatus, CameraCardData, MainOverviewData, SelectedCamera } from "./type";
+import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
+import type { BackendStatus, CameraCardData, CameraImageUrlsById, MainOverviewData, SelectedCamera } from "./type";
 
-const CAMERAS_PER_OBJECT = 5;
-const CAMERA_LIMIT = 10;
+const CAMERAS_PER_OBJECT = 4;
+const CAMERA_LIMIT = 4;
 
 export const FALLBACK_CAMERA_IDS = Array.from({ length: CAMERA_LIMIT }, (_, index) => index);
 export const INITIAL_BACKEND_STATUS: BackendStatus = {
@@ -34,8 +35,14 @@ export function createMainOverviewErrorData(error: unknown): MainOverviewData {
   };
 }
 
-export function createCameraCards(cameraIds: number[], backendReady: boolean): CameraCardData[] {
-  return cameraIds.map((cameraId, index) => createCameraCardData(cameraId, index, backendReady));
+export function createCameraCards(
+  cameraIds: number[],
+  backendReady: boolean,
+  imageUrlsByCameraId: CameraImageUrlsById = {},
+): CameraCardData[] {
+  return cameraIds.map((cameraId, index) =>
+    createCameraCardData(cameraId, index, backendReady, imageUrlsByCameraId),
+  );
 }
 
 export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
@@ -47,6 +54,16 @@ export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
 
 export function getModalCameraImageUrl(selectedCamera: SelectedCamera | null, backendReady: boolean) {
   return selectedCamera && backendReady ? orchestratorApi.currentFrameUrl(selectedCamera.cameraId) : undefined;
+}
+
+export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResultPayload) {
+  const imagePath = frame.http_path ?? frame.current.http_path;
+
+  if (imagePath) {
+    return orchestratorApi.imageUrl(imagePath, frame.frame_id);
+  }
+
+  return orchestratorApi.currentFrameUrl(frame.camera_id, frame.frame_id);
 }
 
 async function loadBackendHealth() {
@@ -64,11 +81,16 @@ function getCameraIdsOrFallback(cameraIds: number[]) {
   return backendCameraIds.length ? backendCameraIds : FALLBACK_CAMERA_IDS;
 }
 
-function createCameraCardData(cameraId: number, index: number, backendReady: boolean): CameraCardData {
+function createCameraCardData(
+  cameraId: number,
+  index: number,
+  backendReady: boolean,
+  imageUrlsByCameraId: CameraImageUrlsById,
+): CameraCardData {
   return {
     cameraId,
     objectName: getObjectName(index),
-    imageUrl: backendReady ? orchestratorApi.currentFrameUrl(cameraId) : undefined,
+    imageUrl: backendReady ? imageUrlsByCameraId[cameraId] ?? orchestratorApi.currentFrameUrl(cameraId) : undefined,
   };
 }
 
