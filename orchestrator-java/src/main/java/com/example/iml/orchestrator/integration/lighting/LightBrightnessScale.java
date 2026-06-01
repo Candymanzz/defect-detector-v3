@@ -26,4 +26,12 @@ public final class LightBrightnessScale {
         }
         return out;
     }
+
+    /** Значение из YAML: 0…100 (%) или 0…255 (legacy) → процент для POST /api/com/light. */
+    public static int toPercent(int value, int fallbackPercent) {
+        if (value <= 100) {
+            return clampPercent(value);
+        }
+        return clampPercent(Math.round(value * 100f / 255f));
+    }
 }

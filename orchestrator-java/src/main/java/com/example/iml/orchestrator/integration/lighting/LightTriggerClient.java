@@ -124,8 +124,24 @@ public final class LightTriggerClient {
         String id = specs.size() == 1 ? first.id() : "com-bank";
         int brightness = specs.stream().mapToInt(LightServersConfig.EndpointSpec::brightnessPercent).max().orElse(100);
         int[] cameraIds = mergeCameraIds(specs);
-        LightEndpoint ep = new ComIoLightEndpoint(LOG, id, true, first.baseUrl(), timeoutMs);
-        return new EndpointRuntime(ep, brightness, null, cameraIds);
+        int[] brightnessRaw = mergeBrightnessRaw(specs);
+        LightEndpoint ep = new ComIoLightEndpoint(LOG, id, true, first.baseUrl(), timeoutMs, brightnessRaw);
+        return new EndpointRuntime(ep, brightness, brightnessRaw, cameraIds);
+    }
+
+    private static int[] mergeBrightnessRaw(List<LightServersConfig.EndpointSpec> specs) {
+        int[] merged = null;
+        for (LightServersConfig.EndpointSpec spec : specs) {
+            if (spec.brightnessRaw() == null) {
+                continue;
+            }
+            if (merged == null) {
+                merged = spec.brightnessRaw();
+            } else if (!java.util.Arrays.equals(merged, spec.brightnessRaw())) {
+                return null;
+            }
+        }
+        return merged;
     }
 
     private static int[] mergeCameraIds(List<LightServersConfig.EndpointSpec> specs) {

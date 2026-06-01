@@ -8,10 +8,9 @@ import java.net.http.HttpResponse;
 /**
  * HTTP LightServer.v3 (Swagger v1, {@code /swagger/v1/swagger.json}).
  * <ul>
- *   <li>COM: {@code GET /api/com/devices?ports=...}, {@code POST /api/com/light?ports=...}</li>
- *   <li>Сеть MV-LE: {@code GET /api/devices}, {@code POST /api/light}</li>
+ *   <li>COM банк: {@code GET /api/com/devices?ports=...}, {@code POST /api/com/light} {@code { state, brightness }}</li>
+ *   <li>Сеть MV-LE: {@code GET /api/devices}, {@code POST /api/light} {@code { deviceIndex, lightControllerSource, channels, brightness }}</li>
  * </ul>
- * Тело POST — {@link LightCommandRequestCom} / network {@code deviceIndex} + channels + brightness (0…255).
  */
 public final class LightServerV3Http {
 

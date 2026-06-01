@@ -131,8 +131,8 @@ fanout:
     queue_size: 128
     artificial_delay_ms: 1200
 
-# Подсветка → LightServer.v3: COM = POST /api/com/light/apply (банк COM1/2/3, allOthersOff);
-# сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость в jar: 0…100% → brightness 0…255.
+# Подсветка → LightServer.v3: COM = POST /api/com/light { state: on|off, brightness: "80,..." } (банк COM из appsettings);
+# сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость оркестратора: 0…100%.
 light_servers:
   enabled: true
   fail_on_error: true
