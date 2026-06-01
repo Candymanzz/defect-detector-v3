@@ -1,5 +1,6 @@
 import { PreviewImage } from "../PreviewImage";
-
+import "./StatusCard.css";
+import { useState } from "react";
 type StatusCardProps = {
   cameraId: number;
   objectName: string;
@@ -8,8 +9,13 @@ type StatusCardProps = {
 };
 
 export function StatusCard({ cameraId, objectName, imageUrl, onClick }: StatusCardProps) {
+  const [selected, setSelected] = useState(false);
   return (
-    <button className="camera-card" type="button" onClick={onClick}>
+    <button
+      className={selected ? "camera-card selected" : "camera-card"}
+      type="button"
+      onClick={() => setSelected(!selected)}
+    >
       <div className="camera-card__image-wrap">
         <PreviewImage
           key={imageUrl ?? `camera-${cameraId}-offline`}
@@ -21,7 +27,12 @@ export function StatusCard({ cameraId, objectName, imageUrl, onClick }: StatusCa
       </div>
 
       <div className="camera-card__footer">
-        <span>{objectName}</span>
+        <button
+          className="footer-button"
+          onClick={onClick}
+        >
+          Открыть
+        </button>
         <strong>Camera {cameraId}</strong>
       </div>
     </button>
