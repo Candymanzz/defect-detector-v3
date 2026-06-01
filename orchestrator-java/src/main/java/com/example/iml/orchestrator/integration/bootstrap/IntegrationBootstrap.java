@@ -162,6 +162,10 @@ public final class IntegrationBootstrap {
             log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
+        if (lightClient.isEnabled()) {
+            log.info("waiting for LightServer COM bank (GET /api/com/light)...");
+            lightClient.awaitEndpointsReady();
+        }
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
         Map<Integer, String> detectorByCamera = new LinkedHashMap<>();
         for (Map<String, Object> camera : cameras) {

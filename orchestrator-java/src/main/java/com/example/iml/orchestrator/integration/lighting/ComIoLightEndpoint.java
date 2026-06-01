@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 
@@ -29,7 +30,9 @@ public final class ComIoLightEndpoint implements LightEndpoint {
     private final URI lightUri;
     private final HttpClient httpClient;
     private final Duration timeout;
+    private final Duration statusPollTimeout;
     private final int[] defaultBrightnessRaw;
+    private volatile boolean bankReadyLogged;
 
     public ComIoLightEndpoint(
             Logger log,
@@ -45,6 +48,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         String base = LightServerV3Http.normalizeBaseUrl(baseUrl);
         this.lightUri = URI.create(base + LightServerV3Http.PATH_COM_LIGHT);
         this.timeout = Duration.ofMillis(Math.max(100, timeoutMs));
+        this.statusPollTimeout = Duration.ofMillis(Math.min(3000, Math.max(500, timeoutMs / 5)));
         this.httpClient = HttpClient.newBuilder().connectTimeout(this.timeout).build();
         this.defaultBrightnessRaw = defaultBrightnessRaw == null ? null : defaultBrightnessRaw.clone();
     }
@@ -60,12 +64,54 @@ public final class ComIoLightEndpoint implements LightEndpoint {
     }
 
     /**
-     * Не вызываем GET /api/com/devices перед вспышкой: перечисление MVS занимает 7–15 с,
-     * держит {@code _sdkLock} в LightServer и мешает POST /api/com/light.
+     * Ждём {@code GET /api/com/light} → {@code initialized: true} (банк COM из appsettings LightServer).
+     * Не вызываем {@code GET /api/com/devices} — долгое MVS enum.
      */
     @Override
     public void ensureReady() {
-        // см. комментарий к методу — перечисление устройств не делаем
+        if (!enabled) {
+            return;
+        }
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadlineNanos) {
+            try {
+                if (pollBankInitialized()) {
+                    return;
+                }
+            } catch (Exception e) {
+                log.debug("light {} COM bank status poll: {}", id, e.getMessage());
+            }
+            try {
+                Thread.sleep(400L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.warn("light {} COM bank not initialized within {} ms — первый POST on может занять 8–12 s",
+                id, timeout.toMillis());
+    }
+
+    private boolean pollBankInitialized() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(lightUri)
+                .timeout(statusPollTimeout)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() / 100 != 2 || response.body() == null || response.body().isBlank()) {
+            return false;
+        }
+        JsonNode root = MAPPER.readTree(response.body());
+        if (!root.path("initialized").asBoolean(false)) {
+            return false;
+        }
+        if (!bankReadyLogged) {
+            bankReadyLogged = true;
+            log.info("light {} COM bank ready (initialized), devices={}", id, root.path("devices"));
+        }
+        return true;
     }
 
     @Override

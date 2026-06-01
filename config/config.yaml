@@ -136,15 +136,16 @@ fanout:
 light_servers:
   enabled: true
   fail_on_error: true
-  # COM: первый POST после старта LightServer может занять 8–12 s (MVS enum + trigger)
-  timeout_ms: 15000
+  # COM: первый POST может занять 8–12 s, если банк ещё не initialized (оркестратор ждёт GET /api/com/light)
+  timeout_ms: 20000
   brightness_percent: 80
   # 0…255 в POST; для теста как Swagger: [5,5,5,5]. Уберите строку — будет только brightness_percent.
   # brightness_raw: [5, 5, 5, 5]
   duration_ms: 500
   # Пауза после POST On, до software trigger камеры (см. capture_trigger_mode).
-  flash_lead_ms: 50
-  settle_delay_ms: 150
+  # Пауза после POST on (Hold/bank sync) до software trigger камеры
+  flash_lead_ms: 80
+  settle_delay_ms: 200
   endpoints:
     # COM1: 2 вспышки → LAN1 (cam 0), LAN3 (cam 1)
     - id: light-com1

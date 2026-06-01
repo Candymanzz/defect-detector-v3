@@ -183,6 +183,27 @@ public final class LightTriggerClient {
         return endpoints.stream().filter(r -> r.endpoint.enabled()).map(r -> r.endpoint.id()).toList();
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    /** Дождаться инициализации COM-банка в LightServer (после {@code light_server_startup_delay_ms}). */
+    public void awaitEndpointsReady() {
+        if (!enabled) {
+            return;
+        }
+        for (EndpointRuntime r : endpoints) {
+            if (!r.endpoint.enabled()) {
+                continue;
+            }
+            try {
+                r.endpoint.ensureReady();
+            } catch (Exception e) {
+                LOG.warn("light {} ensureReady: {}", r.endpoint.id(), e.getMessage());
+            }
+        }
+    }
+
     /** Установить одну яркость для всех enabled endpoints. */
     public void setBrightnessPercent(int percent) {
         int clamped = LightBrightnessScale.clampPercent(percent);
@@ -316,57 +337,65 @@ public final class LightTriggerClient {
     }
 
     private void turnOffForCameraParallel(int cameraId) {
-        List<Callable<Void>> tasks = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        List<Callable<Void>> async = new ArrayList<>();
         for (EndpointRuntime r : endpoints) {
             if (!r.endpoint.enabled() || !r.appliesTo(cameraId)) {
                 continue;
             }
-            tasks.add(() -> {
-                r.endpoint.turnOffForCamera(cameraId);
-                return null;
-            });
-        }
-        if (tasks.isEmpty()) {
-            return;
-        }
-        try {
-            List<Future<Void>> futures = triggerExecutor.invokeAll(tasks);
-            List<String> errors = new ArrayList<>();
-            for (Future<Void> f : futures) {
+            if (r.endpoint instanceof ComIoLightEndpoint com) {
                 try {
-                    f.get();
+                    com.turnOffForCamera(cameraId);
                 } catch (Exception e) {
-                    Throwable c = e.getCause() != null ? e.getCause() : e;
-                    errors.add(c.getMessage() != null ? c.getMessage() : c.toString());
+                    errors.add(e.getMessage() != null ? e.getMessage() : e.toString());
                 }
+            } else {
+                async.add(() -> {
+                    r.endpoint.turnOffForCamera(cameraId);
+                    return null;
+                });
             }
-            if (!errors.isEmpty()) {
-                throw new IllegalStateException("light Off failed: " + String.join("; ", errors));
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("light Off interrupted", e);
+        }
+        errors.addAll(invokeLightTasks(async));
+        if (!errors.isEmpty()) {
+            throw new IllegalStateException("light Off failed: " + String.join("; ", errors));
         }
     }
 
     private void triggerAllParallel(int cameraId, long frameId, String phase, int durationMs) {
-        List<Callable<Void>> tasks = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        List<Callable<Void>> async = new ArrayList<>();
         for (EndpointRuntime r : endpoints) {
             if (!r.endpoint.enabled() || !r.appliesTo(cameraId)) {
                 continue;
             }
             int brightness = r.brightnessPercent;
-            tasks.add(() -> {
-                r.endpoint.trigger(cameraId, frameId, phase, brightness, durationMs);
-                return null;
-            });
+            if (r.endpoint instanceof ComIoLightEndpoint com) {
+                try {
+                    com.trigger(cameraId, frameId, phase, brightness, durationMs);
+                } catch (Exception e) {
+                    errors.add(e.getMessage() != null ? e.getMessage() : e.toString());
+                }
+            } else {
+                async.add(() -> {
+                    r.endpoint.trigger(cameraId, frameId, phase, brightness, durationMs);
+                    return null;
+                });
+            }
         }
+        errors.addAll(invokeLightTasks(async));
+        if (!errors.isEmpty()) {
+            throw new IllegalStateException("light trigger failed: " + String.join("; ", errors));
+        }
+    }
+
+    private List<String> invokeLightTasks(List<Callable<Void>> tasks) {
         if (tasks.isEmpty()) {
-            return;
+            return List.of();
         }
+        List<String> errors = new ArrayList<>();
         try {
             List<Future<Void>> futures = triggerExecutor.invokeAll(tasks);
-            List<String> errors = new ArrayList<>();
             for (Future<Void> f : futures) {
                 try {
                     f.get();
@@ -375,13 +404,11 @@ public final class LightTriggerClient {
                     errors.add(c.getMessage() != null ? c.getMessage() : c.toString());
                 }
             }
-            if (!errors.isEmpty()) {
-                throw new IllegalStateException("light trigger failed: " + String.join("; ", errors));
-            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("light trigger interrupted", e);
+            throw new IllegalStateException("light command interrupted", e);
         }
+        return errors;
     }
 
     private EndpointRuntime find(String endpointId) {
