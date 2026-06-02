@@ -1,20 +1,35 @@
 import { PreviewImage } from "../PreviewImage";
 import "./StatusCard.css";
-import { useState } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 type StatusCardProps = {
   cameraId: number;
   objectName: string;
   imageUrl?: string;
-  onClick: () => void;
+  selected: boolean;
+  onSelect: () => void;
+  onOpen: () => void;
 };
 
-export function StatusCard({ cameraId, objectName, imageUrl, onClick }: StatusCardProps) {
-  const [selected, setSelected] = useState(false);
+export function StatusCard({ cameraId, objectName, imageUrl, selected, onSelect, onOpen }: StatusCardProps) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect();
+    }
+  };
+
+  const handleOpenClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onOpen();
+  };
+
   return (
-    <button
+    <div
       className={selected ? "camera-card selected" : "camera-card"}
-      type="button"
-      onClick={() => setSelected(!selected)}
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={handleKeyDown}
     >
       <div className="camera-card__image-wrap">
         <PreviewImage
@@ -29,12 +44,13 @@ export function StatusCard({ cameraId, objectName, imageUrl, onClick }: StatusCa
       <div className="camera-card__footer">
         <button
           className="footer-button"
-          onClick={onClick}
+          type="button"
+          onClick={handleOpenClick}
         >
           Открыть
         </button>
         <strong>Camera {cameraId}</strong>
       </div>
-    </button>
+    </div>
   );
 }

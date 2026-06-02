@@ -1,31 +1,41 @@
 import { useEffect, useRef, useState } from "react";
-import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import { commitReferenceBundleImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
-import type {
-  ClientReferenceBundlePayload,
-  InterestPointNorm,
-  PixelRoi,
-  PreviewFramePayload,
-  ReferenceViewSlot,
-  ServerWsMessage,
-  WsConnectionStatus,
-} from "../../shared/ws";
+import type { ClientReferenceBundlePayload, ServerWsMessage, WsConnectionStatus } from "../../shared/ws";
+import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
+import { useReferenceFrames } from "./useReferenceFrames";
+import { useReferenceRoi } from "./useReferenceRoi";
 
 const INITIAL_STATUS: WsConnectionStatus = {
   state: "idle",
   reconnectAttempt: 0,
 };
 
-export function useReferenceSetupController(onClose: () => void) {
+export function useReferenceSetupController(onClose: () => void, initialJointViewIndex: number | null = null) {
   const [status, setStatus] = useState<WsConnectionStatus>(INITIAL_STATUS);
-  const [message, setMessage] = useState("Ожидание сообщения...");
-  const [imageUrl, setImageUrl] = useState<string>();
-  const [lastPreviewFrame, setLastPreviewFrame] = useState<PreviewFramePayload>();
+  const [message, setMessage] = useState("Waiting for preview frames...");
   const pendingReferenceBundleRef = useRef<{
     messageId: string;
     payload: ClientReferenceBundlePayload;
   } | null>(null);
+  const referenceFrames = useReferenceFrames();
+  const referenceRoi = useReferenceRoi(initialJointViewIndex);
+  const { handlePreviewFrame } = referenceFrames;
+  const canSendReference = Boolean(
+    referenceFrames.hasAllReferenceFrames && referenceRoi.hasSelectedCameraRoi && status.state === "open",
+  );
+
+  const handleReferenceBundleAck = (message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
+    if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
+      if (message.payload.ok) {
+        commitReferenceBundleImages(pendingReferenceBundleRef.current.payload);
+      }
+
+      pendingReferenceBundleRef.current = null;
+    }
+
+    setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
+  };
 
   useEffect(() => {
     orchestratorWs.connect();
@@ -34,44 +44,23 @@ export function useReferenceSetupController(onClose: () => void) {
     const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
       switch (message.type) {
         case "server.hello":
-          setMessage("Соединение установлено");
+          setMessage("WebSocket connected");
           break;
         case "server.state":
-          setMessage(`Состояние: ${message.payload.session_state} ${message.payload.server_ts_ms}`);
+          setMessage(`State: ${message.payload.session_state} ${message.payload.server_ts_ms}`);
           break;
-        case "server.preview_frame": {
-          const nextPreviewFrame = message.payload;
-          const imagePath = nextPreviewFrame.http_path ?? nextPreviewFrame.current.http_path;
-
-          setLastPreviewFrame(nextPreviewFrame);
-
-          if (imagePath) {
-            setImageUrl(orchestratorApi.imageUrl(imagePath, nextPreviewFrame.frame_id));
-          }
-
-          setMessage(
-            `Камера ${nextPreviewFrame.camera_id}, кадр ${nextPreviewFrame.frame_id}, изображение: ${
-              imagePath ?? "нет"
-            }`,
-          );
+        case "server.preview_frame":
+          handlePreviewFrame(message.payload);
+          setMessage(`Camera ${message.payload.camera_id}, frame ${message.payload.frame_id}`);
           break;
-        }
         case "server.reference_bundle_ack":
-          if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
-            if (message.payload.ok) {
-              commitReferenceBundleImages(pendingReferenceBundleRef.current.payload);
-            }
-
-            pendingReferenceBundleRef.current = null;
-          }
-
-          setMessage(message.payload.ok ? "Пакет эталона принят" : "Пакет эталона отклонен");
+          handleReferenceBundleAck(message);
           break;
         case "server.error":
           setMessage(`${message.payload.code}: ${message.payload.message}`);
           break;
         default:
-          setMessage(`Неизвестное сообщение: ${message.type}`);
+          setMessage(`Unknown message: ${message.type}`);
           break;
       }
     });
@@ -80,7 +69,7 @@ export function useReferenceSetupController(onClose: () => void) {
       unsubscribeStatus();
       unsubscribeMessage();
     };
-  }, []);
+  }, [handlePreviewFrame]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -94,19 +83,29 @@ export function useReferenceSetupController(onClose: () => void) {
   }, [onClose]);
 
   const handleSendReference = () => {
-    if (!lastPreviewFrame) {
-      setMessage("Кадр еще не получен");
+    if (!referenceFrames.hasAllReferenceFrames) {
+      setMessage("Frames from all 5 cameras are required");
+      return;
+    }
+
+    if (!referenceRoi.hasSelectedCameraRoi) {
+      setMessage(`ROI contour for camera ${referenceRoi.selectedCameraId} is required`);
       return;
     }
 
     try {
-      const payload = createOneFrameReferenceBundle(lastPreviewFrame);
+      const payload = createReferenceBundleFromCameraFrames(
+        referenceFrames.framesByCameraId,
+        referenceRoi.jointViewIndex,
+        referenceRoi.selectedCameraId,
+        referenceRoi.roiPolygonsByCameraId,
+      );
       const messageId = orchestratorWs.sendReferenceBundle(payload);
       pendingReferenceBundleRef.current = {
         messageId,
         payload,
       };
-      setMessage("Пакет эталона отправлен");
+      setMessage("Reference bundle sent");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
@@ -115,78 +114,9 @@ export function useReferenceSetupController(onClose: () => void) {
   return {
     status,
     message,
-    imageUrl,
-    canSendReference: Boolean(lastPreviewFrame && status.state === "open"),
+    ...referenceFrames,
+    ...referenceRoi,
+    canSendReference,
     handleSendReference,
   };
-}
-
-export function createOneFrameReferenceBundle(previewFrame: PreviewFramePayload): ClientReferenceBundlePayload {
-  const roi = createFullRoi(previewFrame);
-  const jointViewIndex = clampViewIndex(previewFrame.camera_id);
-  const productType = previewFrame.detector.product_type || `camera-${previewFrame.camera_id}`;
-  const views = Array.from({ length: 5 }, (_, index) =>
-    createReferenceView(previewFrame, roi, index === jointViewIndex ? roi : null),
-  ) as ClientReferenceBundlePayload["views"];
-
-  return {
-    product_type: productType,
-    joint_view_index: jointViewIndex,
-    heatmap_width: previewFrame.current.width,
-    heatmap_height: previewFrame.current.height,
-    views,
-    fp_zones: [],
-  };
-}
-
-export function createFullRoi(frame: PreviewFramePayload): PixelRoi {
-  return {
-    x: 0,
-    y: 0,
-    width: frame.current.width,
-    height: frame.current.height,
-  };
-}
-
-function createReferenceView(
-  previewFrame: PreviewFramePayload,
-  interestRoi: PixelRoi,
-  jointRoi: PixelRoi | null,
-): ReferenceViewSlot {
-  return {
-    frame: previewFrame.current,
-    interest_roi: interestRoi,
-    interest_polygon_norm: createRoiPolygonNorm(interestRoi, previewFrame.current.width, previewFrame.current.height),
-    joint_roi: jointRoi,
-  };
-}
-
-function createRoiPolygonNorm(
-  roi: PixelRoi,
-  frameWidth: number,
-  frameHeight: number,
-): [InterestPointNorm, InterestPointNorm, InterestPointNorm, InterestPointNorm] {
-  const left = normalizeRoiCoordinate(roi.x, frameWidth);
-  const top = normalizeRoiCoordinate(roi.y, frameHeight);
-  const right = normalizeRoiCoordinate(roi.x + roi.width, frameWidth);
-  const bottom = normalizeRoiCoordinate(roi.y + roi.height, frameHeight);
-
-  return [
-    { x: left, y: top },
-    { x: right, y: top },
-    { x: right, y: bottom },
-    { x: left, y: bottom },
-  ];
-}
-
-function normalizeRoiCoordinate(value: number, size: number) {
-  if (!Number.isFinite(value) || !Number.isFinite(size) || size <= 0) {
-    return 0;
-  }
-
-  return Math.min(1, Math.max(0, value / size));
-}
-
-function clampViewIndex(cameraId: number) {
-  return Math.min(Math.max(cameraId, 0), 4);
 }

@@ -15,6 +15,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
       cameraId,
       enabled: isOpen,
     });
+  const streamTitle = title ?? `Стрим камеры ${cameraId}`;
 
   useEffect(() => {
     if (!isOpen) {
@@ -41,7 +42,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
       onMouseDown={onClose}
     >
       <section
-        aria-label={title ?? `Стрим камеры ${cameraId}`}
+        aria-label={streamTitle}
         aria-modal="true"
         className="server-stream__modal"
         role="dialog"
@@ -49,7 +50,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
       >
         <header className="server-stream__header">
           <div>
-            <h2>{title ?? `Стрим камеры ${cameraId}`}</h2>
+            <h2>{streamTitle}</h2>
             <span
               className="server-stream__connection"
               data-state={status.state}
@@ -71,7 +72,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
           {mjpegUrl ? (
             <img
               key={mjpegUrl}
-              alt={`Стрим камеры ${cameraId}`}
+              alt={streamTitle}
               className="server-stream__image"
               src={mjpegUrl}
             />

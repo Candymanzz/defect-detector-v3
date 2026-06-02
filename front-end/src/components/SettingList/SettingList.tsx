@@ -15,17 +15,22 @@ import "./SettingList.css";
 
 const SETTINGS_STREAM_CAMERA_ID = 0;
 
-export function SettingList() {
+type SettingListProps = {
+  selectedCameraId: number | null;
+};
+
+export function SettingList({ selectedCameraId }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
+  const brightnessScopeText = selectedCameraId === null ? "All cameras" : `Camera ${selectedCameraId}`;
 
   useEffect(() => {
     let isActive = true;
 
-    loadSettingData()
+    loadSettingData(selectedCameraId)
       .catch(createSettingErrorData)
       .then((nextSettingData) => {
         if (!isActive) {
@@ -38,7 +43,7 @@ export function SettingList() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [selectedCameraId]);
 
   const handleFieldChange = (fieldName: SettingFieldName) => (event: ChangeEvent<HTMLInputElement>) => {
     setSettingData((currentSettingData) => ({
@@ -56,7 +61,7 @@ export function SettingList() {
       status: SAVING_SETTING_STATUS,
     }));
 
-    saveSettingData(formToSave)
+    saveSettingData(formToSave, selectedCameraId)
       .catch((error) => createSettingErrorData(error, formToSave))
       .then(setSettingData);
   };
@@ -77,6 +82,7 @@ export function SettingList() {
       >
         <label className="setting-list__field">
           <span>Яркость света</span>
+          <strong className="setting-list__scope">{brightnessScopeText}</strong>
           <div className="setting-list__control-row">
             <input
               type="range"
@@ -138,7 +144,12 @@ export function SettingList() {
         </button>
       </form>
 
-      {isReferenceSetupOpen && <ReferenceSetup onClose={() => setIsReferenceSetupOpen(false)} />}
+      {isReferenceSetupOpen && (
+        <ReferenceSetup
+          initialJointViewIndex={selectedCameraId}
+          onClose={() => setIsReferenceSetupOpen(false)}
+        />
+      )}
       {isServerStreamOpen && (
         <ServerStream
           isOpen

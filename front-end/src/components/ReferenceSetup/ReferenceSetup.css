@@ -38,3 +38,69 @@
   height: 100%;
   object-fit: contain;
 }
+.reference-setup__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.reference-setup__toolbar label {
+  display: grid;
+  gap: 6px;
+  color: #f2f5f7;
+  font-size: 14px;
+}
+
+.reference-setup__toolbar select {
+  height: 34px;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  background: #111827;
+  color: #f2f5f7;
+  padding: 0 8px;
+}
+
+.reference-setup__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.reference-setup__slot {
+  display: grid;
+  gap: 8px;
+  min-height: 170px;
+  padding: 8px;
+  border: 1px solid #4b5563;
+  border-radius: 8px;
+  background: #111827;
+  color: #f2f5f7;
+  cursor: pointer;
+  text-align: left;
+}
+
+.reference-setup__slot--active {
+  border-color: #00ff00;
+}
+
+.reference-setup__slot span {
+  color: #9aa8a4;
+  font-size: 12px;
+}
+
+.reference-setup__slot img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #05070a;
+}
+
+.reference-setup__roi-status {
+  margin: 10px 0 0;
+  color: #9aa8a4;
+  font-size: 13px;
+  line-height: 1.4;
+}

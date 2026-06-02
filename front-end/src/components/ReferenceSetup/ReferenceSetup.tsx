@@ -1,16 +1,35 @@
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
+import { RoiContourEditor } from "../RoiContourEditor";
 import { useReferenceSetupController } from "./ReferenceController";
 
 type ReferenceSetupProps = {
+  initialJointViewIndex: number | null;
   onClose: () => void;
 };
 
-export function ReferenceSetup({ onClose }: ReferenceSetupProps) {
-  const { status, message, imageUrl, canSendReference, handleSendReference } = useReferenceSetupController(onClose);
+export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetupProps) {
+  const {
+    status,
+    message,
+    cameraSlots,
+    jointViewIndex,
+    hasSelectedCameraRoi,
+    canSendReference,
+    setJointViewIndex,
+    handleSendReference,
+    selectedCameraId,
+    roiPolygonsByCameraId,
+    setRoiPolygonForCamera,
+    setSelectedCameraId,
+  } = useReferenceSetupController(onClose, initialJointViewIndex);
+  const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={onClose}
+    >
       <section
         aria-label="Задание эталона"
         aria-modal="true"
@@ -20,28 +39,92 @@ export function ReferenceSetup({ onClose }: ReferenceSetupProps) {
       >
         <header className="modal__header">
           <h2>Задание эталона</h2>
-          <button aria-label="Закрыть" className="modal__close" type="button" onClick={onClose}>
+          <button
+            aria-label="Закрыть"
+            className="modal__close"
+            type="button"
+            onClick={onClose}
+          >
             x
           </button>
         </header>
 
         <div className="reference-setup__body">
-          <button type="button" disabled={!canSendReference} onClick={handleSendReference}>
+          <div className="reference-setup__toolbar">
+            <label>
+              Основной ракурс
+              <select
+                value={jointViewIndex}
+                onChange={(event) => setJointViewIndex(Number(event.target.value))}
+              >
+                {cameraSlots.map((slot) => (
+                  <option
+                    key={slot.cameraId}
+                    value={slot.cameraId}
+                  >
+                    Камера {slot.cameraId}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <button
+            type="button"
+            disabled={!canSendReference}
+            onClick={handleSendReference}
+          >
             Задать эталон
           </button>
 
-          <p className="reference-setup__hint">
-            Здесь будет настройка ракурсов и отправка пакета эталона на оркестратор.
-            <br />
-            Статус: {status.state}
-            <br />
-            {message}
-          </p>
+          {selectedSlot?.imageUrl && (
+            <RoiContourEditor
+              imageUrl={selectedSlot.imageUrl}
+              points={roiPolygonsByCameraId[selectedCameraId] ?? []}
+              onChange={(points) => setRoiPolygonForCamera(selectedCameraId, points)}
+            />
+          )}
 
-          <div className="reference-setup__image-container">
-            {imageUrl && <img src={imageUrl} alt="Кадр предпросмотра" />}
-          </div>
+          <p className="reference-setup__roi-status">
+            {hasSelectedCameraRoi
+              ? `ROI задан для Camera ${selectedCameraId}`
+              : `Задайте ROI-контур для Camera ${selectedCameraId}: минимум 3 точки`}
+          </p>
         </div>
+
+        <div className="reference-setup__grid">
+          {cameraSlots.map((slot) => (
+            <button
+              key={slot.cameraId}
+              className={
+                slot.cameraId === selectedCameraId
+                  ? "reference-setup__slot reference-setup__slot--active"
+                  : "reference-setup__slot"
+              }
+              type="button"
+              onClick={() => setSelectedCameraId(slot.cameraId)}
+            >
+              <strong>Camera {slot.cameraId}</strong>
+              <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
+              <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
+
+              {slot.imageUrl && (
+                <img
+                  src={slot.imageUrl}
+                  alt={`Camera ${slot.cameraId}`}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <p className="reference-setup__hint">
+          Здесь будет настройка ракурсов и отправка пакета эталона на оркестратор.
+          <br />
+          Статус: {status.state}
+          <br />
+          {message}
+        </p>
       </section>
     </div>
   );

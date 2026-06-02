@@ -1,5 +1,5 @@
 import { orchestratorApi } from "../../shared/api";
-import type { GeometryRuntimeConfig, LightBrightnessSettings } from "../../shared/api";
+import type { GeometryRuntimeConfig, LightBrightnessSettings, LightEndpointBrightness } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import type { SettingData, SettingFieldName, SettingForm, SettingStatus } from "./type";
 
@@ -29,7 +29,7 @@ export const SAVING_SETTING_STATUS: SettingStatus = {
   text: "сохранение",
 };
 
-export async function loadSettingData(): Promise<SettingData> {
+export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
   const [lightBrightness, geometryRuntime] = await Promise.all([
     orchestratorApi.getLightBrightness(),
     orchestratorApi.getGeometryRuntime(),
@@ -41,22 +41,27 @@ export async function loadSettingData(): Promise<SettingData> {
       text: "загружено",
     },
     form: {
-      brightnessPercent: readBrightnessPercent(lightBrightness),
+      brightnessPercent: readBrightnessPercent(lightBrightness, selectedCameraId),
       maxShiftMm: readMaxShiftMm(geometryRuntime),
     },
   };
 }
 
-export async function saveSettingData(form: SettingForm): Promise<SettingData> {
+export async function saveSettingData(form: SettingForm, selectedCameraId: number | null = null): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
-  const geometryRuntime = await orchestratorApi.getGeometryRuntime();
+  const [geometryRuntime, lightBrightness] = await Promise.all([
+    orchestratorApi.getGeometryRuntime(),
+    orchestratorApi.getLightBrightness(),
+  ]);
 
   await Promise.all([
-    orchestratorApi.setLightBrightness(normalizedForm.brightnessPercent),
+    orchestratorApi.setLightBrightness(
+      createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedForm.brightnessPercent),
+    ),
     orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm)),
   ]);
 
-  const nextData = await loadSettingData();
+  const nextData = await loadSettingData(selectedCameraId);
 
   return {
     ...nextData,
@@ -98,7 +103,13 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
   };
 }
 
-function readBrightnessPercent(lightBrightness: LightBrightnessSettings) {
+function readBrightnessPercent(lightBrightness: LightBrightnessSettings, selectedCameraId: number | null) {
+  const cameraEndpoint = resolveCameraBrightnessEndpoint(lightBrightness, selectedCameraId);
+
+  if (cameraEndpoint) {
+    return clampBrightness(cameraEndpoint.brightness_percent);
+  }
+
   return clampBrightness(
     firstFiniteNumber(
       [
@@ -109,6 +120,53 @@ function readBrightnessPercent(lightBrightness: LightBrightnessSettings) {
       0,
     ),
   );
+}
+
+function createBrightnessUpdate(
+  lightBrightness: LightBrightnessSettings,
+  selectedCameraId: number | null,
+  brightnessPercent: number,
+) {
+  const cameraEndpoint = resolveCameraBrightnessEndpoint(lightBrightness, selectedCameraId);
+
+  if (selectedCameraId === null) {
+    return brightnessPercent;
+  }
+
+  if (!cameraEndpoint) {
+    throw new Error(`Light endpoint for camera ${selectedCameraId} was not found`);
+  }
+
+  return {
+    endpoints: {
+      [cameraEndpoint.id]: brightnessPercent,
+    },
+  };
+}
+
+function resolveCameraBrightnessEndpoint(
+  lightBrightness: LightBrightnessSettings,
+  selectedCameraId: number | null,
+): LightEndpointBrightness | undefined {
+  if (selectedCameraId === null) {
+    return undefined;
+  }
+
+  const endpoints = lightBrightness.endpoints ?? [];
+  const cameraIdText = String(selectedCameraId);
+  const expectedIds = new Set([
+    cameraIdText,
+    `camera-${cameraIdText}`,
+    `camera_${cameraIdText}`,
+    `cam-${cameraIdText}`,
+    `cam_${cameraIdText}`,
+    `light-${cameraIdText}`,
+    `light_${cameraIdText}`,
+    `light-camera-${cameraIdText}`,
+    `light_camera_${cameraIdText}`,
+  ]);
+
+  return endpoints.find((endpoint) => expectedIds.has(endpoint.id)) ?? endpoints[selectedCameraId];
 }
 
 function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {

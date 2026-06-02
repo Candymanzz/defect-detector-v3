@@ -9,17 +9,24 @@ export type StreamState = "idle" | "starting" | "playing" | "stopping" | "error"
 type UseStreamControllerOptions = {
   cameraId: number;
   enabled: boolean;
+  autoStart?: boolean;
   maxFps?: number;
 };
 
 const DEFAULT_MAX_FPS = 20;
 
-export function useStreamController({ cameraId, enabled, maxFps = DEFAULT_MAX_FPS }: UseStreamControllerOptions) {
+export function useStreamController({
+  cameraId,
+  enabled,
+  autoStart = true,
+  maxFps = DEFAULT_MAX_FPS,
+}: UseStreamControllerOptions) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [message, setMessage] = useState("Стрим остановлен");
   const [mjpegUrl, setMjpegUrl] = useState<string>();
   const [status, setStatus] = useState<WsConnectionStatus>(orchestratorWs.snapshot);
   const streamStateRef = useRef(streamState);
+  const autoStartAttemptedRef = useRef(false);
 
   useEffect(() => {
     streamStateRef.current = streamState;
@@ -39,9 +46,9 @@ export function useStreamController({ cameraId, enabled, maxFps = DEFAULT_MAX_FP
           return;
         }
 
-        const streamPath = wsMessage.payload.mjpeg_path ?? `/api/camera/${cameraId}/stream.mjpeg`;
+        const streamPath = wsMessage.payload.mjpeg_path ?? wsMessage.payload.http_path;
 
-        setMjpegUrl(orchestratorApi.url(streamPath));
+        setMjpegUrl(streamPath ? orchestratorApi.url(streamPath) : orchestratorApi.streamMjpegUrl(cameraId));
         setStreamState("playing");
         setMessage(`Стрим запущен: ${wsMessage.payload.max_fps} FPS`);
         return;
@@ -59,6 +66,10 @@ export function useStreamController({ cameraId, enabled, maxFps = DEFAULT_MAX_FP
       }
 
       if (wsMessage.type === "server.error") {
+        if (streamStateRef.current !== "starting" && streamStateRef.current !== "stopping") {
+          return;
+        }
+
         setMjpegUrl(undefined);
         setStreamState("error");
         setMessage(`${wsMessage.payload.code}: ${wsMessage.payload.message}`);
@@ -121,6 +132,15 @@ export function useStreamController({ cameraId, enabled, maxFps = DEFAULT_MAX_FP
   const isPlaying = streamState === "playing";
   const isBusy = streamState === "starting" || streamState === "stopping";
   const isSocketOpen = status.state === "open";
+
+  useEffect(() => {
+    if (!autoStart || !enabled || !isSocketOpen || autoStartAttemptedRef.current || streamState !== "idle") {
+      return;
+    }
+
+    autoStartAttemptedRef.current = true;
+    startStream();
+  }, [autoStart, enabled, isSocketOpen, startStream, streamState]);
 
   return {
     status,
