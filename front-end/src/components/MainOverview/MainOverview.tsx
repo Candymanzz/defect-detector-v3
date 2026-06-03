@@ -24,9 +24,8 @@ export function MainOverview() {
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
 
-  const backendReady = backendStatus.state === "ready";
-  const cameraCards = createCameraCards(cameraIds, backendReady, imageUrlsByCameraId);
-  const modalCameraImageUrl = selectedCamera && backendReady ? imageUrlsByCameraId[selectedCamera.cameraId] : undefined;
+  const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId);
+  const modalCameraImageUrl = selectedCamera ? imageUrlsByCameraId[selectedCamera.cameraId] : undefined;
 
   useEffect(() => {
     let isActive = true;
@@ -48,12 +47,6 @@ export function MainOverview() {
   }, []);
 
   useEffect(() => {
-    if (!backendReady) {
-      return;
-    }
-
-    orchestratorWs.connect();
-
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
       if (message.type !== "server.preview_frame" && message.type !== "server.inspect_result") {
         return;
@@ -79,10 +72,12 @@ export function MainOverview() {
       }
     });
 
+    orchestratorWs.connect();
+
     return () => {
       unsubscribeMessage();
     };
-  }, [backendReady]);
+  }, []);
 
   return (
     <section

@@ -37,10 +37,9 @@ export function createMainOverviewErrorData(error: unknown): MainOverviewData {
 
 export function createCameraCards(
   cameraIds: number[],
-  backendReady: boolean,
   imageUrlsByCameraId: CameraImageUrlsById = {},
 ): CameraCardData[] {
-  return cameraIds.map((cameraId, index) => createCameraCardData(cameraId, index, backendReady, imageUrlsByCameraId));
+  return cameraIds.map((cameraId, index) => createCameraCardData(cameraId, index, imageUrlsByCameraId));
 }
 
 export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
@@ -78,13 +77,12 @@ function getCameraIdsOrFallback(cameraIds: number[]) {
 function createCameraCardData(
   cameraId: number,
   index: number,
-  backendReady: boolean,
   imageUrlsByCameraId: CameraImageUrlsById,
 ): CameraCardData {
   return {
     cameraId,
     objectName: getObjectName(index),
-    imageUrl: backendReady ? imageUrlsByCameraId[cameraId] : undefined,
+    imageUrl: imageUrlsByCameraId[cameraId],
   };
 }
 
