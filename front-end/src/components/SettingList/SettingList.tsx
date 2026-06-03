@@ -26,6 +26,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
   const brightnessScopeText = selectedCameraId === null ? "All cameras" : `Camera ${selectedCameraId}`;
+  const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
 
   useEffect(() => {
     let isActive = true;
@@ -153,8 +154,8 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       {isServerStreamOpen && (
         <ServerStream
           isOpen
-          cameraId={SETTINGS_STREAM_CAMERA_ID}
-          title={`Camera ${SETTINGS_STREAM_CAMERA_ID}`}
+          cameraId={streamCameraId}
+          title={`Camera ${streamCameraId}`}
           onClose={() => setIsServerStreamOpen(false)}
         />
       )}
