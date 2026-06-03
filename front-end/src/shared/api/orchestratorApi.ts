@@ -3,6 +3,7 @@ import { HttpClient } from "./httpClient";
 import type {
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
+  InspectTriggerResponse,
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
@@ -76,6 +77,15 @@ export const orchestratorApi = {
 
   async getGeometryRuntime() {
     return http.json<GeometryRuntimeConfig>("/api/client/geometry-runtime");
+  },
+
+  async triggerInspection(cameraId: number) {
+    return http.json<InspectTriggerResponse>("/api/orchestrator/inspect/trigger", {
+      method: "POST",
+      body: {
+        cameraId,
+      },
+    });
   },
 
   async replaceGeometryRuntime(overrides: Record<string, unknown>) {

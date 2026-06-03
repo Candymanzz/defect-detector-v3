@@ -83,15 +83,15 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               Задать эталон
             </button>
           </div>
-
-          {selectedSlot?.imageUrl && (
-            <RoiContourEditor
-              imageUrl={selectedSlot.imageUrl}
-              points={roiPolygonsByCameraId[selectedCameraId] ?? []}
-              onChange={(points) => setRoiPolygonForCamera(selectedCameraId, points)}
-            />
-          )}
-
+          <div className="reference-setup__images">
+            {selectedSlot?.imageUrl && (
+              <RoiContourEditor
+                imageUrl={selectedSlot.imageUrl}
+                points={roiPolygonsByCameraId[selectedCameraId] ?? []}
+                onChange={(points) => setRoiPolygonForCamera(selectedCameraId, points)}
+              />
+            )}
+          </div>
           <p className="reference-setup__roi-status">
             {hasSelectedCameraRoi
               ? `ROI задан для Camera ${selectedCameraId}`
@@ -114,20 +114,11 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               <strong>Camera {slot.cameraId}</strong>
               <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
               <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
-
-              {slot.imageUrl && (
-                <img
-                  src={slot.imageUrl}
-                  alt={`Camera ${slot.cameraId}`}
-                />
-              )}
             </button>
           ))}
         </div>
 
         <p className="reference-setup__hint">
-          Здесь будет настройка ракурсов и отправка пакета эталона на оркестратор.
-          <br />
           Статус: {status.state}
           <br />
           {message}

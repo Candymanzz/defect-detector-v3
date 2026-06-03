@@ -327,13 +327,16 @@ public final class IntegrationBootstrap {
                     IntegrationFeatureConfig.parseContinuousInspection(integration);
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
                     IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
-            triggerRuntime = InspectionTriggerRuntime.start(
-                    log,
-                    integration,
-                    workersByCamera.keySet(),
-                    triggerMode
-            );
-            InspectionTriggerStrategy sharedTriggerStrategy = InspectionTriggerStrategyFactory.create(
+        triggerRuntime = InspectionTriggerRuntime.start(
+                log,
+                integration,
+                workersByCamera.keySet(),
+                triggerMode
+        );
+        if (uiServer != null) {
+            uiServer.attachInspectionTriggerBus(triggerRuntime.bus());
+        }
+        InspectionTriggerStrategy sharedTriggerStrategy = InspectionTriggerStrategyFactory.create(
                     triggerMode,
                     triggerRuntime.bus(),
                     devAutoTriggerStub,

@@ -43,7 +43,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
 }
 
 .reference-setup__toolbar label {
@@ -66,13 +65,11 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(120px, 1fr));
   gap: 10px;
-  margin-bottom: 16px;
 }
 
 .reference-setup__slot {
   display: grid;
   gap: 8px;
-  min-height: 170px;
   padding: 8px;
   border: 1px solid #4b5563;
   border-radius: 8px;
@@ -97,7 +94,11 @@
   object-fit: contain;
   background: #05070a;
 }
-
+.reference-setup__images {
+  width: 50%;
+  height: 70%;
+  border: #00ff00 2px dashed;
+}
 .reference-setup__roi-status {
   margin: 10px 0 0;
   color: #9aa8a4;

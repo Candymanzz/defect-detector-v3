@@ -25,11 +25,14 @@ export function commitReferenceBundleImages(
     if (imageUrl) {
       const referenceImage = {
         imageUrl,
-        roiPoints: view.interest_polygon_norm,
+        roiPoints: copyRoiPoints(view.interest_polygon_norm),
       };
 
-      referenceImagesByCameraId.set(view.frame.camera_id, referenceImage);
       referenceImagesByCameraId.set(viewIndex, referenceImage);
+
+      if (view.frame.camera_id === viewIndex || !referenceImagesByCameraId.has(view.frame.camera_id)) {
+        referenceImagesByCameraId.set(view.frame.camera_id, referenceImage);
+      }
     }
   });
 
@@ -49,6 +52,13 @@ export function subscribeReferenceImages(listener: ReferenceImageListener) {
   return () => {
     listeners.delete(listener);
   };
+}
+
+function copyRoiPoints(points: InterestPointNorm[]) {
+  return points.map((point) => ({
+    x: point.x,
+    y: point.y,
+  }));
 }
 
 function createFrameImageUrl(frame: ShmFrameRefData) {

@@ -5,6 +5,8 @@ import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./reference
 
 export function useReferenceFrames() {
   const [imageUrl, setImageUrl] = useState<string>();
+  const [liveFramesByCameraId, setLiveFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
+  const [liveImageUrlsByCameraId, setLiveImageUrlsByCameraId] = useState<Record<number, string>>({});
   const [framesByCameraId, setFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<Record<number, string>>({});
   const cameraSlots = REFERENCE_CAMERA_IDS.map((cameraId) => ({
@@ -14,46 +16,44 @@ export function useReferenceFrames() {
   }));
   const hasRequiredReferenceFrames = REFERENCE_REQUIRED_CAMERA_IDS.every((cameraId) => framesByCameraId[cameraId]);
 
-  const loadLatestImage = useCallback(async (cameraId: number) => {
-    try {
-      const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
+  const refreshLatestImages = useCallback(async () => {
+    const nextFramesByCameraId: Record<number, PreviewFramePayload> = {};
+    const nextImageUrlsByCameraId: Record<number, string> = {};
 
-      if (!snapshot.hasCurrent) {
-        return false;
+    for (const cameraId of REFERENCE_CAMERA_IDS) {
+      const liveFrame = liveFramesByCameraId[cameraId];
+      const liveImageUrl = liveImageUrlsByCameraId[cameraId];
+
+      if (liveFrame && liveImageUrl) {
+        nextFramesByCameraId[cameraId] = liveFrame;
+        nextImageUrlsByCameraId[cameraId] = liveImageUrl;
       }
+    }
 
-      const nextImageUrl = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
-
-      setImageUrlsByCameraId((prevImageUrls) => ({
-        ...prevImageUrls,
-        [cameraId]: nextImageUrl,
-      }));
-      setImageUrl(nextImageUrl);
-      return true;
-    } catch {
+    if (Object.keys(nextFramesByCameraId).length === 0) {
       return false;
     }
-  }, []);
 
-  const refreshLatestImages = useCallback(async () => {
-    const results = await Promise.all(REFERENCE_CAMERA_IDS.map((cameraId) => loadLatestImage(cameraId)));
-    return results.some(Boolean);
-  }, [loadLatestImage]);
+    setFramesByCameraId(nextFramesByCameraId);
+    setImageUrlsByCameraId(nextImageUrlsByCameraId);
+    setImageUrl(nextImageUrlsByCameraId[REFERENCE_CAMERA_IDS[0]]);
+
+    return true;
+  }, [liveFramesByCameraId, liveImageUrlsByCameraId]);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
     const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
 
-    setFramesByCameraId((prevFrames) => ({
+    setLiveFramesByCameraId((prevFrames) => ({
       ...prevFrames,
       [previewFrame.camera_id]: previewFrame,
     }));
     if (nextImageUrl) {
-      setImageUrlsByCameraId((prevImageUrls) => ({
+      setLiveImageUrlsByCameraId((prevImageUrls) => ({
         ...prevImageUrls,
         [previewFrame.camera_id]: nextImageUrl,
       }));
-      setImageUrl(nextImageUrl);
     }
   }, []);
 
