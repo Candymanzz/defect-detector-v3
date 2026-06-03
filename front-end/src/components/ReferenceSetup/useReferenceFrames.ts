@@ -59,6 +59,7 @@ export function useReferenceFrames() {
 
   return {
     imageUrl,
+    imageUrlsByCameraId,
     framesByCameraId,
     cameraSlots,
     hasRequiredReferenceFrames,
