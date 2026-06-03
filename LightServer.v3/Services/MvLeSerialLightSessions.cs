@@ -285,24 +285,7 @@ public sealed class MvLeSerialLightSessions : IDisposable
         return com.Length > 0 ? com : comPort.Trim().ToUpperInvariant();
     }
 
-    private static string NormalizeComPort(string p)
-    {
-        p = p.Trim();
-        if (p.Length == 0)
-            return "";
-
-        if (p.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
-        {
-            string tail = p.Length > 3 ? p[3..] : "";
-            if (int.TryParse(tail, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int n) && n > 0)
-                return "COM" + n;
-        }
-
-        if (int.TryParse(p, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int num) && num > 0)
-            return "COM" + num;
-
-        return p;
-    }
+    private static string NormalizeComPort(string p) => MvsComPortEnumerator.NormalizeComPort(p);
 
     private sealed class CachedEnumeration
     {
@@ -326,21 +309,18 @@ public sealed class MvLeSerialLightSessions : IDisposable
         public bool IsExpired(int cacheSeconds) =>
             cacheSeconds <= 0 || DateTime.UtcNow - CachedAt > TimeSpan.FromSeconds(cacheSeconds);
 
+        /// <summary>Только PortID камеры — blob мог содержать чужие COM_Port# и ломать COM2/COM3.</summary>
         private static Dictionary<string, int> BuildComIndexMap(List<IDeviceInfo> list)
         {
             var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < list.Count; i++)
             {
-                if (list[i] is ICamlDeviceInfo caml)
-                {
-                    string port = NormalizeComPort(caml.PortID);
-                    if (port.Length > 0)
-                        map.TryAdd(port, i);
-                }
+                if (list[i] is not ICamlDeviceInfo caml)
+                    continue;
 
-                string blob = BuildDeviceSearchBlob(list[i]);
-                foreach (var match in ExtractComPortsFromBlob(blob))
-                    map.TryAdd(match, i);
+                string port = NormalizeComPort(caml.PortID);
+                if (port.Length > 0)
+                    map[port] = i;
             }
 
             return map;

@@ -27,6 +27,7 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddSingleton<MvLeSerialLightSessions>();
 builder.Services.AddSingleton<LightControlService>();
+builder.Services.AddSingleton<ComLightIsolatedBank>();
 builder.Services.AddSingleton<ComLightBankService>();
 builder.Services.AddSingleton<IoControllerComService>();
 builder.Services.AddHostedService<MvsSdkLifetime>();

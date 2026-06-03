@@ -20,14 +20,16 @@ public sealed class SerialLightOptions
     /// <summary>Hold: один trigger (зажигание) + broadcast sustain. Deferred: импульс. Direct: по каналам.</summary>
     public string FlashSyncMode { get; set; } = "Direct";
 
-    /// <summary>Режим для POST /api/com/light (банк COM): Hold — вспышка разом по timer trigger.</summary>
-    public string BankFlashSyncMode { get; set; } = "Hold";
-
-    /// <summary>При старте банка: яркость+Timer1 (свет не горит до POST on).</summary>
-    public bool PrearmBankOnInit { get; set; } = true;
-
-    /// <summary>После software trigger перевести каналы в On (удержание до POST Off), иначе импульс Timer1 ~500 ms.</summary>
     public bool SustainOnAfterTrigger { get; set; } = true;
+
+    /// <summary>Банк POST /api/com/light: On = broadcast On (все каналы разом), Trigger = Timer+software trigger.</summary>
+    public string BankFlashMode { get; set; } = "On";
+
+    /// <summary>Только для BankFlashMode=Trigger: после trigger оставить On.</summary>
+    public bool BankSustainOnAfterTrigger { get; set; }
+
+    /// <summary>Только для BankFlashMode=Trigger без sustain: длительность импульса (мс).</summary>
+    public int BankFlashDurationMs { get; set; } = 500;
 
     /// <summary>Эксперимент: не брать lock на SDK/COM (возможны гонки и сбои; не для продакшена).</summary>
     public bool DisableSdkLock { get; set; }

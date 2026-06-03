@@ -120,11 +120,83 @@ public static class MvLeFlashSync
         if (holdLike)
         {
             plan.UseHoldTimerRise = plan.TriggerCommandCandidates.Count > 0;
+            ProbeTimerArmSource(device, plan);
             ProbeTimerDurationNode(device, plan);
         }
 
         return plan;
     }
+
+    /// <summary>Timer1 если есть, иначе Timer с макс. номером (напр. Timer5 на MV-VC).</summary>
+    public static void ProbeTimerArmSource(IDevice device, MvLeFlashSyncPlan plan, string? configuredOverride = null)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredOverride))
+        {
+            plan.TimerArmSource = configuredOverride.Trim();
+            return;
+        }
+
+        var timers = new List<string>();
+        if (device.Parameters.GetEnumValue(SourceNode, out IEnumValue? ev) == MvError.MV_OK
+            && ev?.SupportEnumEntries != null)
+        {
+            foreach (IEnumEntry entry in ev.SupportEnumEntries)
+            {
+                string sym = entry.Symbolic?.Trim() ?? "";
+                if (sym.StartsWith("Timer", StringComparison.OrdinalIgnoreCase))
+                    timers.Add(sym);
+            }
+        }
+
+        if (timers.Count == 0)
+            return;
+
+        string? timer1 = timers.FirstOrDefault(static t => t.Equals("Timer1", StringComparison.OrdinalIgnoreCase));
+        if (timer1 != null)
+        {
+            plan.TimerArmSource = timer1;
+            return;
+        }
+
+        plan.TimerArmSource = timers
+            .OrderByDescending(ParseTimerIndex)
+            .First();
+    }
+
+    private static int ParseTimerIndex(string timerName)
+    {
+        string tail = timerName.Length > 5 ? timerName[5..] : "";
+        return int.TryParse(tail, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) ? n : 0;
+    }
+
+    /// <summary>
+    /// POST /api/com/light (все COM): Direct/Sequential зажигают каналы по очереди —
+    /// для банка предпочитаем Hold/Auto (один trigger или broadcast).
+    /// </summary>
+    public static MvLeFlashSyncPlan ResolveBankFlashPlan(IDevice device, string configuredMode)
+    {
+        string mode = configuredMode.Trim();
+        if (!IsDirectOrSequentialMode(mode))
+            return Probe(device, mode);
+
+        MvLeFlashSyncPlan hold = Probe(device, "Hold");
+        if (CanGroupedFlash(hold))
+            return hold;
+
+        MvLeFlashSyncPlan auto = Probe(device, "Auto");
+        if (CanGroupedFlash(auto))
+            return auto;
+
+        return Probe(device, mode);
+    }
+
+    private static bool IsDirectOrSequentialMode(string mode) =>
+        mode.Equals("Direct", StringComparison.OrdinalIgnoreCase)
+        || mode.Equals("Sequential", StringComparison.OrdinalIgnoreCase);
+
+    private static bool CanGroupedFlash(MvLeFlashSyncPlan plan) =>
+        !plan.UseDirectImmediate
+        && (plan.UseHoldTimerRise || plan.UseBroadcast || plan.TriggerCommandCandidates.Count > 0);
 
     /// <summary>Timer1 при Open / перед On — свет не горит до одного software trigger.</summary>
     public static string ResolvePrimeSource(MvLeFlashSyncPlan plan) =>
@@ -167,7 +239,146 @@ public static class MvLeFlashSync
         return ApplyImmediateSource(device, syncRoot, plan, channels, brightness, source, writeBrightness, out failedChannel, out modeTag);
     }
 
-    /// <summary>Фаза 1 (банк COM): яркость + arm, без вспышки.</summary>
+    public static bool IsBankDirectOnMode(string bankFlashMode) =>
+        bankFlashMode.Trim().Equals("On", StringComparison.OrdinalIgnoreCase)
+        || bankFlashMode.Trim().Equals("Direct", StringComparison.OrdinalIgnoreCase)
+        || bankFlashMode.Trim().Equals("Broadcast", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Банк: один broadcast On/Off, без Timer (рекомендуется для COM1–COM3).</summary>
+    public static MvLeFlashSyncPlan CreateBankDirectPlan(IDevice device)
+    {
+        var plan = new MvLeFlashSyncPlan
+        {
+            UseDirectImmediate = true,
+            UseDeferredTimer = false,
+            UseHoldTimerRise = false,
+            UseSdkLock = false
+        };
+        CollectBroadcastSelectors(device, plan);
+        return plan;
+    }
+
+    /// <summary>Фаза 1 (On): яркость + broadcast Off (свет не горит до fire).</summary>
+    public static bool PrepareBankDirect(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        int[] brightness,
+        out int failedChannel)
+    {
+        failedChannel = 0;
+        CollectBroadcastSelectors(device, plan);
+
+        if (!WriteChannelsBrightnessOnly(device, syncRoot, plan.UseSdkLock, channels, brightness, out failedChannel))
+            return false;
+
+        if (TryApplyBroadcastSource(device, syncRoot, plan, "Off", out failedChannel, out _))
+            return true;
+
+        return PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "Off", out failedChannel);
+    }
+
+    /// <summary>Фаза 2 (On): один broadcast On на все каналы.</summary>
+    public static bool FireBankDirectOn(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        out int failedChannel,
+        out string modeTag)
+    {
+        failedChannel = 0;
+        modeTag = "bank-direct";
+        CollectBroadcastSelectors(device, plan);
+
+        if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string via))
+        {
+            modeTag = $"bank-broadcast-on:{via}";
+            return true;
+        }
+
+        if (PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "On", out failedChannel))
+        {
+            modeTag = "bank-seq-on";
+            return true;
+        }
+
+        modeTag = "bank-on-fail";
+        return false;
+    }
+
+    /// <summary>Фаза 1 (Trigger): яркость, arm Timer через broadcast (без поочерёного On).</summary>
+    public static bool PrepareBankFlash(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        int[] brightness,
+        out int failedChannel)
+    {
+        failedChannel = 0;
+        RefreshHoldPlan(device, plan);
+
+        if (!WriteChannelsBrightnessOnly(device, syncRoot, plan.UseSdkLock, channels, brightness, out failedChannel))
+            return false;
+
+        if (TryApplyBroadcastSource(device, syncRoot, plan, plan.TimerArmSource, out failedChannel, out _))
+        {
+            TryApplyTimerHoldDuration(device, syncRoot, plan, channels, out _);
+            return true;
+        }
+
+        if (!PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, plan.TimerArmSource, out failedChannel))
+            return false;
+
+        TryApplyTimerHoldDuration(device, syncRoot, plan, channels, out _);
+        return true;
+    }
+
+    /// <summary>Фаза 2 (банк): один software trigger; sustain — только broadcast On (без seq-On).</summary>
+    public static bool FireBankFlash(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        bool sustainOnAfterTrigger,
+        out int failedChannel,
+        out string modeTag)
+    {
+        failedChannel = 0;
+        modeTag = "bank-fire";
+        RefreshHoldPlan(device, plan);
+
+        if (!TryFireHoldTrigger(device, syncRoot, plan, out string triggerCmd))
+        {
+            if (sustainOnAfterTrigger
+                && TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string broadcastVia))
+            {
+                modeTag = $"bank-broadcast-on:{broadcastVia}";
+                return true;
+            }
+
+            modeTag = "bank-trigger-miss";
+            return false;
+        }
+
+        modeTag = $"bank-trigger:{triggerCmd}";
+
+        if (!sustainOnAfterTrigger)
+            return true;
+
+        if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string sustainVia))
+        {
+            modeTag = $"{modeTag}+sustain:{sustainVia}";
+            return true;
+        }
+
+        modeTag = $"{modeTag}+sustain-fail";
+        return false;
+    }
+
+    /// <summary>Legacy / одиночный путь.</summary>
     public static bool PrepareGroupedFlash(
         IDevice device,
         object syncRoot,
@@ -181,7 +392,6 @@ public static class MvLeFlashSync
             return PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness, "Off", out failedChannel);
 
         RefreshHoldPlan(device, plan);
-        CollectBroadcastSelectors(device, plan);
         if (!PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness, plan.TimerArmSource, out failedChannel))
             return false;
 
@@ -189,237 +399,6 @@ public static class MvLeFlashSync
         return true;
     }
 
-    /// <summary>Фаза 2 (barrier): только software trigger или broadcast On — без sustain и без fallback.</summary>
-    public static bool FireBankSynchronizedTrigger(
-        IDevice device,
-        object syncRoot,
-        MvLeFlashSyncPlan plan,
-        int[] channels,
-        out int failedChannel,
-        out string modeTag)
-    {
-        failedChannel = 0;
-        modeTag = "sync";
-
-        if (plan.UseDirectImmediate)
-        {
-            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string broadcastVia))
-            {
-                modeTag = $"sync-broadcast-on:{broadcastVia}";
-                return true;
-            }
-
-            failedChannel = channels.Length > 0 ? channels[0] : 1;
-            modeTag = "sync-broadcast-miss";
-            return false;
-        }
-
-        RefreshHoldPlan(device, plan);
-        if (!TryFireHoldTrigger(device, syncRoot, plan, out string triggerCmd))
-        {
-            failedChannel = channels.Length > 0 ? channels[0] : 1;
-            modeTag = "sync-trigger-miss";
-            return false;
-        }
-
-        modeTag = $"sync-trigger:{triggerCmd}";
-        return true;
-    }
-
-    /// <summary>Barrier: trigger + сразу broadcast sustain (без отдельной фазы 3 по волнам thread pool).</summary>
-    public static bool FireBankSynchronizedOn(
-        IDevice device,
-        object syncRoot,
-        MvLeFlashSyncPlan plan,
-        int[] channels,
-        bool sustainOnAfterTrigger,
-        out int failedChannel,
-        out string modeTag)
-    {
-        failedChannel = 0;
-        modeTag = "sync";
-
-        if (plan.UseDirectImmediate)
-        {
-            CollectBroadcastSelectors(device, plan);
-            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string broadcastVia))
-            {
-                modeTag = $"sync-direct-on:{broadcastVia}";
-                return true;
-            }
-
-            failedChannel = channels.Length > 0 ? channels[0] : 1;
-            modeTag = "sync-direct-miss";
-            return false;
-        }
-
-        if (!FireBankSynchronizedTrigger(device, syncRoot, plan, channels, out failedChannel, out string triggerTag))
-        {
-            modeTag = triggerTag;
-            return false;
-        }
-
-        modeTag = triggerTag;
-        if (!sustainOnAfterTrigger)
-            return true;
-
-        RefreshHoldPlan(device, plan);
-        if (plan.TimerDurationNode != null)
-        {
-            modeTag += "+timer-hold";
-            return true;
-        }
-
-        CollectBroadcastSelectors(device, plan);
-        if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string sustainVia))
-        {
-            modeTag += $"+{sustainVia}";
-            return true;
-        }
-
-        if (PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "On", out failedChannel))
-        {
-            modeTag += "+sustain-seq-on";
-            return true;
-        }
-
-        modeTag += "+sustain-fail";
-        return false;
-    }
-
-    /// <summary>Фаза 3: удержание On после trigger (параллельно по COM, не в barrier).</summary>
-    public static bool SustainGroupedOn(
-        IDevice device,
-        object syncRoot,
-        MvLeFlashSyncPlan plan,
-        int[] channels,
-        out int failedChannel,
-        out string modeTag)
-    {
-        failedChannel = 0;
-        if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string sustainVia))
-        {
-            modeTag = $"sustain-broadcast:{sustainVia}";
-            return true;
-        }
-
-        if (PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "On", out failedChannel))
-        {
-            modeTag = "sustain-seq-on";
-            return true;
-        }
-
-        modeTag = "sustain-fail";
-        return false;
-    }
-
-    /// <summary>Фаза 2 (банк COM): только trigger/broadcast On — без prepare (после Barrier).</summary>
-    public static bool FireGroupedFlashPulse(
-        IDevice device,
-        object syncRoot,
-        MvLeFlashSyncPlan plan,
-        int[] channels,
-        bool sustainOnAfterTrigger,
-        out int failedChannel,
-        out string modeTag)
-    {
-        failedChannel = 0;
-        modeTag = "pulse";
-
-        if (plan.UseDirectImmediate)
-        {
-            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string broadcastVia))
-            {
-                modeTag = $"pulse-broadcast:{broadcastVia}";
-                return true;
-            }
-
-            failedChannel = channels.Length > 0 ? channels[0] : 1;
-            modeTag = "pulse-no-broadcast";
-            return false;
-        }
-
-        RefreshHoldPlan(device, plan);
-        TryApplyTimerHoldDuration(device, syncRoot, plan, channels, out string durationVia);
-
-        if (!TryFireHoldTrigger(device, syncRoot, plan, out string triggerCmd))
-        {
-            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string broadcastVia))
-            {
-                modeTag = $"pulse-broadcast-fallback:{broadcastVia}";
-                return true;
-            }
-
-            failedChannel = channels.Length > 0 ? channels[0] : 1;
-            modeTag = "pulse-trigger-miss";
-            return false;
-        }
-
-        modeTag = $"pulse-trigger:{triggerCmd}";
-        if (!string.IsNullOrEmpty(durationVia))
-            modeTag += $"+{durationVia}";
-
-        if (sustainOnAfterTrigger)
-        {
-            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string sustainVia))
-            {
-                modeTag += $"+sustain:{sustainVia}";
-                return true;
-            }
-
-            if (PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "On", out failedChannel))
-            {
-                modeTag += "+sustain-seq-on";
-                return true;
-            }
-
-            modeTag += "+sustain-fail";
-            return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>Pulse → полный On; для COM без timer/broadcast.</summary>
-    public static bool FireGroupedFlashWithFallback(
-        IDevice device,
-        object syncRoot,
-        MvLeFlashSyncPlan plan,
-        int[] channels,
-        int[] brightness,
-        bool sustainOnAfterTrigger,
-        out int failedChannel,
-        out string modeTag)
-    {
-        if (FireGroupedFlashPulse(device, syncRoot, plan, channels, sustainOnAfterTrigger, out failedChannel, out modeTag))
-            return true;
-
-        string pulseTag = modeTag;
-        if (FireGroupedFlash(device, syncRoot, plan, channels, brightness, sustainOnAfterTrigger, out failedChannel, out string fullTag))
-        {
-            modeTag = $"{pulseTag}|fallback:{fullTag}";
-            return true;
-        }
-
-        if (plan.UseDirectImmediate)
-        {
-            modeTag = $"{pulseTag}|{fullTag}";
-            return false;
-        }
-
-        var direct = new MvLeFlashSyncPlan { UseDirectImmediate = true, UseSdkLock = plan.UseSdkLock };
-        CollectBroadcastSelectors(device, direct);
-        if (FireGroupedFlash(device, syncRoot, direct, channels, brightness, sustainOnAfterTrigger: true, out failedChannel, out string directTag))
-        {
-            modeTag = $"{pulseTag}|direct:{directTag}";
-            return true;
-        }
-
-        modeTag = $"{pulseTag}|{fullTag}|direct:{directTag}";
-        return false;
-    }
-
-    /// <summary>Фаза 2 (банк COM): одновременный trigger / broadcast On.</summary>
     public static bool FireGroupedFlash(
         IDevice device,
         object syncRoot,
@@ -428,36 +407,8 @@ public static class MvLeFlashSync
         int[] brightness,
         bool sustainOnAfterTrigger,
         out int failedChannel,
-        out string modeTag)
-    {
-        failedChannel = 0;
-        modeTag = "bank-fire";
-
-        if (plan.UseDirectImmediate)
-        {
-            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string broadcastVia))
-            {
-                modeTag = $"bank-broadcast-on:{broadcastVia}";
-                return true;
-            }
-
-            bool ok = PrepareChannels(device, syncRoot, plan.UseSdkLock, channels, brightness: null, "On", out failedChannel);
-            modeTag = ok ? "bank-direct-on" : "bank-direct-on-fail";
-            return ok;
-        }
-
-        return ApplyOnHold(
-            device,
-            syncRoot,
-            plan,
-            channels,
-            brightness,
-            writeBrightness: false,
-            hardwareTimerArmed: true,
-            sustainOnAfterTrigger,
-            out failedChannel,
-            out modeTag);
-    }
+        out string modeTag) =>
+        FireBankFlash(device, syncRoot, plan, channels, sustainOnAfterTrigger, out failedChannel, out modeTag);
 
     /// <summary>Выключить все каналы разом (broadcast или по каналам).</summary>
     public static bool FireGroupedOff(
@@ -469,6 +420,9 @@ public static class MvLeFlashSync
         out string modeTag)
     {
         failedChannel = 0;
+        if (!plan.UseDirectImmediate)
+            RefreshHoldPlan(device, plan);
+
         if (TryApplyBroadcastSource(device, syncRoot, plan, "Off", out failedChannel, out string broadcastVia))
         {
             modeTag = $"bank-broadcast-off:{broadcastVia}";
@@ -557,7 +511,7 @@ public static class MvLeFlashSync
             return true;
         }
 
-        if (plan.TimerDurationNode != null)
+        if (plan.TimerDurationNode != null && !sustainOnAfterTrigger)
         {
             modeTag = string.IsNullOrEmpty(durationVia)
                 ? $"{modeTag}+timer-hold"
@@ -677,7 +631,7 @@ public static class MvLeFlashSync
     }
 
     /// <summary>Кэш плана при Open мог быть пустым — перечитываем trigger/broadcast перед On.</summary>
-    public static void RefreshHoldPlan(IDevice device, MvLeFlashSyncPlan plan)
+    private static void RefreshHoldPlan(IDevice device, MvLeFlashSyncPlan plan)
     {
         if (plan.TriggerCommandCandidates.Count == 0)
         {
@@ -692,6 +646,7 @@ public static class MvLeFlashSync
         }
 
         plan.UseHoldTimerRise = plan.TriggerCommandCandidates.Count > 0;
+        ProbeTimerArmSource(device, plan);
         ProbeTimerDurationNode(device, plan);
 
         if (!plan.UseBroadcast || plan.BroadcastSelectorCandidates.Count == 0)
@@ -702,21 +657,53 @@ public static class MvLeFlashSync
         TryFireTimerTrigger(device, syncRoot, plan, timerOnly: true, out usedCommand)
         || TryFireTimerTrigger(device, syncRoot, plan, timerOnly: false, out usedCommand);
 
-    private static void ProbeTimerDurationNode(IDevice device, MvLeFlashSyncPlan plan)
+    public static void ProbeTimerDurationNode(IDevice device, MvLeFlashSyncPlan plan)
     {
+        if (!string.IsNullOrEmpty(plan.TimerArmSource))
+        {
+            string arm = plan.TimerArmSource;
+            string[] armSpecific =
+            [
+                arm + "Duration",
+                arm + "PulseWidth",
+                arm + "OnDuration",
+                "Timer" + ParseTimerIndex(arm) + "Duration"
+            ];
+            foreach (string node in armSpecific)
+            {
+                if (device.Parameters.GetIntValue(node, out IIntValue? v) == MvError.MV_OK && v != null)
+                {
+                    plan.TimerDurationNode = node;
+                    plan.TimerDurationHoldValue = ClampDurationMax(v);
+                    return;
+                }
+            }
+        }
+
         foreach (string node in TimerDurationNodeCandidates)
         {
             if (device.Parameters.GetIntValue(node, out IIntValue? value) != MvError.MV_OK || value == null)
                 continue;
 
             plan.TimerDurationNode = node;
-            long max = value.Max;
-            plan.TimerDurationHoldValue = max > 0 && max <= int.MaxValue
-                ? (int)max
-                : 60_000;
+            plan.TimerDurationHoldValue = ClampDurationMax(value);
             return;
         }
     }
+
+    private static int ClampDurationMax(IIntValue value)
+    {
+        long max = value.Max;
+        return max > 0 && max <= int.MaxValue ? (int)max : 60_000;
+    }
+
+    /// <summary>Только trigger (фаза 2 банка).</summary>
+    public static bool FireBankTriggerOnly(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        out string modeTag) =>
+        TryFireHoldTrigger(device, syncRoot, plan, out modeTag);
 
     private static bool TryApplyTimerHoldDuration(
         IDevice device,
@@ -753,7 +740,7 @@ public static class MvLeFlashSync
         return ok;
     }
 
-    public static void CollectBroadcastSelectors(IDevice device, MvLeFlashSyncPlan plan)
+    private static void CollectBroadcastSelectors(IDevice device, MvLeFlashSyncPlan plan)
     {
         plan.BroadcastSelectorCandidates.Clear();
 
@@ -1093,6 +1080,7 @@ public static class MvLeFlashSync
             case "TIMER2": value = 15; return true;
             case "TIMER3": value = 16; return true;
             case "TIMER4": value = 17; return true;
+            case "TIMER5": value = 18; return true;
             default: return false;
         }
     }
