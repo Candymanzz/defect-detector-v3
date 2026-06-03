@@ -16,19 +16,19 @@ export function useReferenceFrames() {
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
-    const nextImageUrl = imagePath
-      ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id)
-      : orchestratorApi.currentFrameUrl(previewFrame.camera_id, previewFrame.frame_id);
+    const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
 
     setFramesByCameraId((prevFrames) => ({
       ...prevFrames,
       [previewFrame.camera_id]: previewFrame,
     }));
-    setImageUrlsByCameraId((prevImageUrls) => ({
-      ...prevImageUrls,
-      [previewFrame.camera_id]: nextImageUrl,
-    }));
-    setImageUrl(nextImageUrl);
+    if (nextImageUrl) {
+      setImageUrlsByCameraId((prevImageUrls) => ({
+        ...prevImageUrls,
+        [previewFrame.camera_id]: nextImageUrl,
+      }));
+      setImageUrl(nextImageUrl);
+    }
   }, []);
 
   return {

@@ -50,10 +50,6 @@ export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
   };
 }
 
-export function getModalCameraImageUrl(selectedCamera: SelectedCamera | null, backendReady: boolean) {
-  return selectedCamera && backendReady ? orchestratorApi.currentFrameUrl(selectedCamera.cameraId) : undefined;
-}
-
 export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResultPayload) {
   const imagePath = frame.http_path ?? frame.current.http_path;
 
@@ -61,7 +57,7 @@ export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResult
     return orchestratorApi.imageUrl(imagePath, frame.frame_id);
   }
 
-  return orchestratorApi.currentFrameUrl(frame.camera_id, frame.frame_id);
+  return undefined;
 }
 
 async function loadBackendHealth() {
@@ -88,7 +84,7 @@ function createCameraCardData(
   return {
     cameraId,
     objectName: getObjectName(index),
-    imageUrl: backendReady ? (imageUrlsByCameraId[cameraId] ?? orchestratorApi.currentFrameUrl(cameraId)) : undefined,
+    imageUrl: backendReady ? imageUrlsByCameraId[cameraId] : undefined,
   };
 }
 

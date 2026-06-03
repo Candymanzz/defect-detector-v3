@@ -38,7 +38,7 @@ function createFrameImageUrl(frame: ShmFrameRefData) {
     return orchestratorApi.imageUrl(imagePath, frame.frame_id);
   }
 
-  return orchestratorApi.currentFrameUrl(frame.camera_id, frame.frame_id);
+  return undefined;
 }
 
 function emitReferenceImageChange() {

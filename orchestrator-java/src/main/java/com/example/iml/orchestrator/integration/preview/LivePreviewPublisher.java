@@ -199,7 +199,9 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 );
             }
 
-            String httpPath = "/api/camera/" + cameraId + "/current.jpg";
+            String httpPath = jpeg.path != null && Files.isRegularFile(jpeg.path)
+                    ? "/api/camera/" + cameraId + "/current.jpg"
+                    : null;
             if (clientWs != null) {
                 clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
             }

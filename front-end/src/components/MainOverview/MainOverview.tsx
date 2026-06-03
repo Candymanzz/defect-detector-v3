@@ -9,7 +9,6 @@ import {
   createSelectedCamera,
   createWsFrameImageUrl,
   FALLBACK_CAMERA_IDS,
-  getModalCameraImageUrl,
   INITIAL_BACKEND_STATUS,
   loadMainOverviewData,
 } from "./MainController";
@@ -32,10 +31,7 @@ export function MainOverview({ selectedCameraId, onSelectedCameraIdChange }: Mai
 
   const backendReady = backendStatus.state === "ready";
   const cameraCards = createCameraCards(cameraIds, backendReady, imageUrlsByCameraId);
-  const modalCameraImageUrl =
-    selectedCamera && backendReady
-      ? (imageUrlsByCameraId[selectedCamera.cameraId] ?? getModalCameraImageUrl(selectedCamera, backendReady))
-      : undefined;
+  const modalCameraImageUrl = selectedCamera && backendReady ? imageUrlsByCameraId[selectedCamera.cameraId] : undefined;
 
   useEffect(() => {
     let isActive = true;
@@ -71,10 +67,12 @@ export function MainOverview({ selectedCameraId, onSelectedCameraIdChange }: Mai
       const frame = message.payload;
       const imageUrl = createWsFrameImageUrl(frame);
 
-      setImageUrlsByCameraId((prevImageUrls) => ({
-        ...prevImageUrls,
-        [frame.camera_id]: imageUrl,
-      }));
+      if (imageUrl) {
+        setImageUrlsByCameraId((prevImageUrls) => ({
+          ...prevImageUrls,
+          [frame.camera_id]: imageUrl,
+        }));
+      }
 
       if (message.type === "server.inspect_result") {
         const inspectResult = message.payload;
