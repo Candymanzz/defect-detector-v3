@@ -107,7 +107,10 @@ public final class HttpFrontController {
         router.register(HttpRoute.exact("GET", "/api/cameras", camera::listCameras));
 
         if (ctx.cameraStreamEnabled()) {
-            CameraMjpegHttpController mjpeg = new CameraMjpegHttpController(ctx.cameraStreamHolder());
+            CameraMjpegHttpController mjpeg = new CameraMjpegHttpController(
+                    ctx.cameraStreamHolder(),
+                    ctx.cameraPreviewStore()
+            );
             router.register(HttpRoute.regex("GET", Pattern.compile("^/api/camera/\\d+/stream\\.mjpeg$"), mjpeg));
         }
 
