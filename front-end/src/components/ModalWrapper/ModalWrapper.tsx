@@ -1,8 +1,8 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { getReferenceImageUrl, subscribeReferenceImages } from "../../shared/referenceImages";
+import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
-import type { InspectResultPayload } from "../../shared/ws";
+import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
 import "./ModalWrapper.css";
 
@@ -27,12 +27,13 @@ export function ModalWrapper({
   headerActions,
   onClose,
 }: ModalWrapperProps) {
-  const storedReferenceImageUrl = useSyncExternalStore(
+  const storedReferenceImage = useSyncExternalStore(
     subscribeReferenceImages,
-    () => getReferenceImageUrl(cameraId),
+    () => getReferenceImage(cameraId),
     () => undefined,
   );
-  const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImageUrl;
+  const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImage?.imageUrl;
+  const displayedReferenceRoiPoints = referenceImageUrl ? undefined : storedReferenceImage?.roiPoints;
 
   useEffect(() => {
     if (!isOpen) {
@@ -84,6 +85,7 @@ export function ModalWrapper({
           <ImagePanel
             imageUrl={displayedReferenceImageUrl}
             label="Эталон"
+            roiPoints={displayedReferenceRoiPoints}
           />
           <ImagePanel
             imageUrl={cameraImageUrl}
@@ -104,7 +106,9 @@ export function ModalWrapper({
   );
 }
 
-function ImagePanel({ label, imageUrl }: { label: string; imageUrl?: string }) {
+function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: string; roiPoints?: InterestPointNorm[] }) {
+  const svgPoints = roiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
+
   return (
     <figure className="modal-image-panel">
       <div className="modal-image-panel__image-wrap">
@@ -115,6 +119,16 @@ function ImagePanel({ label, imageUrl }: { label: string; imageUrl?: string }) {
           placeholderClassName="modal-image-panel__placeholder"
           src={imageUrl}
         />
+        {imageUrl && svgPoints && roiPoints && roiPoints.length >= 3 && (
+          <svg
+            aria-hidden="true"
+            className="modal-image-panel__roi-overlay"
+            preserveAspectRatio="none"
+            viewBox="0 0 1 1"
+          >
+            <polygon points={svgPoints} />
+          </svg>
+        )}
       </div>
       <figcaption>{label}</figcaption>
     </figure>

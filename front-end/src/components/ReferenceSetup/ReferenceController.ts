@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { commitReferenceBundleImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { ClientReferenceBundlePayload, ServerWsMessage, WsConnectionStatus } from "../../shared/ws";
@@ -15,22 +15,22 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   } | null>(null);
   const referenceFrames = useReferenceFrames();
   const referenceRoi = useReferenceRoi(initialJointViewIndex);
-  const { handlePreviewFrame, refreshLatestImages } = referenceFrames;
+  const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
   const canSendReference = Boolean(
     referenceFrames.hasRequiredReferenceFrames && referenceRoi.hasSelectedCameraRoi && status.state === "open",
   );
 
-  const handleReferenceBundleAck = (message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
+  const handleReferenceBundleAck = useCallback((message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
     if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
       if (message.payload.ok) {
-        commitReferenceBundleImages(pendingReferenceBundleRef.current.payload);
+        commitReferenceBundleImages(pendingReferenceBundleRef.current.payload, imageUrlsByCameraId);
       }
 
       pendingReferenceBundleRef.current = null;
     }
 
     setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
-  };
+  }, [imageUrlsByCameraId]);
 
   useEffect(() => {
     const unsubscribeStatus = orchestratorWs.onStatus(setStatus);
@@ -64,7 +64,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
       unsubscribeStatus();
       unsubscribeMessage();
     };
-  }, [handlePreviewFrame]);
+  }, [handlePreviewFrame, handleReferenceBundleAck]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

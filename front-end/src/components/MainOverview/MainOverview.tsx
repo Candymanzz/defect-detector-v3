@@ -10,6 +10,7 @@ import {
   createWsFrameImageUrl,
   FALLBACK_CAMERA_IDS,
   INITIAL_BACKEND_STATUS,
+  loadLatestCameraImageUrl,
   loadMainOverviewData,
 } from "./MainController";
 import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type";
@@ -88,6 +89,33 @@ export function MainOverview({ selectedCameraId, onSelectedCameraIdChange }: Mai
       unsubscribeMessage();
     };
   }, [backendReady]);
+
+  useEffect(() => {
+    if (!backendReady || !selectedCamera || imageUrlsByCameraId[selectedCamera.cameraId]) {
+      return;
+    }
+
+    let isActive = true;
+
+    loadLatestCameraImageUrl(selectedCamera.cameraId)
+      .then((imageUrl) => {
+        if (!isActive || !imageUrl) {
+          return;
+        }
+
+        setImageUrlsByCameraId((prevImageUrls) => ({
+          ...prevImageUrls,
+          [selectedCamera.cameraId]: imageUrl,
+        }));
+      })
+      .catch(() => {
+        // Latest snapshot is a convenience fallback; WS frames remain the primary source.
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [backendReady, imageUrlsByCameraId, selectedCamera]);
 
   return (
     <section
