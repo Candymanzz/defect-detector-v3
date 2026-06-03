@@ -14,6 +14,30 @@ export function useReferenceFrames() {
   }));
   const hasRequiredReferenceFrames = REFERENCE_REQUIRED_CAMERA_IDS.every((cameraId) => framesByCameraId[cameraId]);
 
+  const loadLatestImage = useCallback(async (cameraId: number) => {
+    try {
+      const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
+
+      if (!snapshot.hasCurrent) {
+        return;
+      }
+
+      const nextImageUrl = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
+
+      setImageUrlsByCameraId((prevImageUrls) => ({
+        ...prevImageUrls,
+        [cameraId]: nextImageUrl,
+      }));
+      setImageUrl(nextImageUrl);
+    } catch {
+      // The modal can still receive an image from the next preview_frame.
+    }
+  }, []);
+
+  const refreshLatestImages = useCallback(async () => {
+    await Promise.all(REFERENCE_CAMERA_IDS.map((cameraId) => loadLatestImage(cameraId)));
+  }, [loadLatestImage]);
+
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
     const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
@@ -28,8 +52,10 @@ export function useReferenceFrames() {
         [previewFrame.camera_id]: nextImageUrl,
       }));
       setImageUrl(nextImageUrl);
+    } else {
+      void loadLatestImage(previewFrame.camera_id);
     }
-  }, []);
+  }, [loadLatestImage]);
 
   return {
     imageUrl,
@@ -37,5 +63,6 @@ export function useReferenceFrames() {
     cameraSlots,
     hasRequiredReferenceFrames,
     handlePreviewFrame,
+    refreshLatestImages,
   };
 }

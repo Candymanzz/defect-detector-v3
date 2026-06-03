@@ -235,7 +235,9 @@ public final class CameraStreamService implements AutoCloseable {
                     log.debug("client_stream mjpeg publish camera={}: {}", cameraId, e.getMessage());
                 }
             }
-            String httpPath = "/api/camera/" + cameraId + "/current.jpg";
+            String httpPath = jpeg.path != null && Files.isRegularFile(jpeg.path)
+                    ? "/api/camera/" + cameraId + "/current.jpg"
+                    : null;
             if (clientWs != null) {
                 clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
             }

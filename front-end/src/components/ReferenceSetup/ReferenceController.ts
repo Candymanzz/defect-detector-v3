@@ -6,13 +6,8 @@ import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
 import { useReferenceFrames } from "./useReferenceFrames";
 import { useReferenceRoi } from "./useReferenceRoi";
 
-const INITIAL_STATUS: WsConnectionStatus = {
-  state: "idle",
-  reconnectAttempt: 0,
-};
-
 export function useReferenceSetupController(onClose: () => void, initialJointViewIndex: number | null = null) {
-  const [status, setStatus] = useState<WsConnectionStatus>(INITIAL_STATUS);
+  const [status, setStatus] = useState<WsConnectionStatus>(orchestratorWs.snapshot);
   const [message, setMessage] = useState("Waiting for preview frames...");
   const pendingReferenceBundleRef = useRef<{
     messageId: string;
@@ -20,7 +15,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   } | null>(null);
   const referenceFrames = useReferenceFrames();
   const referenceRoi = useReferenceRoi(initialJointViewIndex);
-  const { handlePreviewFrame } = referenceFrames;
+  const { handlePreviewFrame, refreshLatestImages } = referenceFrames;
   const canSendReference = Boolean(
     referenceFrames.hasRequiredReferenceFrames && referenceRoi.hasSelectedCameraRoi && status.state === "open",
   );
@@ -38,8 +33,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   };
 
   useEffect(() => {
-    orchestratorWs.connect();
-
     const unsubscribeStatus = orchestratorWs.onStatus(setStatus);
     const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
       switch (message.type) {
@@ -65,11 +58,17 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
       }
     });
 
+    orchestratorWs.connect();
+
     return () => {
       unsubscribeStatus();
       unsubscribeMessage();
     };
   }, [handlePreviewFrame]);
+
+  useEffect(() => {
+    void refreshLatestImages();
+  }, [refreshLatestImages]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
