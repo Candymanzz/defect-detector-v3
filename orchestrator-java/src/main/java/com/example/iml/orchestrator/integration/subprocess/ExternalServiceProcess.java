@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -23,8 +24,24 @@ public final class ExternalServiceProcess implements AutoCloseable {
     }
 
     public static ExternalServiceProcess start(String name, List<String> command, Path workingDir) throws IOException {
+        return start(name, command, workingDir, Map.of());
+    }
+
+    public static ExternalServiceProcess start(
+            String name,
+            List<String> command,
+            Path workingDir,
+            Map<String, String> extraEnv
+    ) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workingDir.toFile());
+        if (extraEnv != null) {
+            for (Map.Entry<String, String> entry : extraEnv.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    pb.environment().put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         Process process = pb.start();
