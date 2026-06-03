@@ -16,7 +16,7 @@ const configuredApiBaseUrl = normalizeUrl(
 
 export const appEnv: AppEnv = Object.freeze({
   apiBaseUrl: configuredApiBaseUrl,
-  apiRequestBaseUrl: resolveApiRequestBaseUrl(configuredApiBaseUrl),
+  apiRequestBaseUrl: configuredApiBaseUrl,
   wsUrl: normalizeUrl(readEnv(import.meta.env.VITE_WS_URL, DEFAULT_WS_URL), ["ws:", "wss:"]),
   mode: import.meta.env.MODE,
   isDev: import.meta.env.DEV,
@@ -25,14 +25,6 @@ export const appEnv: AppEnv = Object.freeze({
 
 function readEnv(value: string | undefined, fallback: string) {
   return value && value.trim() ? value : fallback;
-}
-
-function resolveApiRequestBaseUrl(apiBaseUrl: string) {
-  if (import.meta.env.DEV && globalThis.location?.origin) {
-    return globalThis.location.origin;
-  }
-
-  return apiBaseUrl;
 }
 
 function normalizeUrl(value: string, allowedProtocols: string[]) {

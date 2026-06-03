@@ -24,10 +24,14 @@ export class HttpError extends Error {
 }
 
 export class HttpClient {
-  constructor(private readonly baseUrl: string) {}
+  private readonly normalizedBaseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  }
 
   url(path: string, query?: RequestOptions["query"]) {
-    const url = new URL(normalizePath(path), `${this.baseUrl}/`);
+    const url = new URL(normalizePath(path), `${this.normalizedBaseUrl}/`);
 
     if (query) {
       for (const [key, value] of Object.entries(query)) {
@@ -106,5 +110,5 @@ async function safeReadText(response: Response) {
 }
 
 function normalizePath(path: string) {
-  return path.startsWith("/") ? path.slice(1) : path;
+  return path.replace(/^\/+/, "");
 }
