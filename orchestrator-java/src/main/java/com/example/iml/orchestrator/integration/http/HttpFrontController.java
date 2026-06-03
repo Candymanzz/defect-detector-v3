@@ -11,8 +11,6 @@ import com.example.iml.orchestrator.integration.http.controller.GeometryHttpCont
 
 import com.example.iml.orchestrator.integration.http.controller.HealthHttpController;
 
-import com.example.iml.orchestrator.integration.http.controller.InspectionTriggerHttpController;
-
 import com.example.iml.orchestrator.integration.http.controller.LightHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorFpZonesHttpController;
@@ -150,16 +148,6 @@ public final class HttpFrontController {
             router.register(HttpRoute.exact("POST", "/api/orchestrator/light/brightness", light::handleBrightness));
 
         }
-
-        if (ctx.inspectionTriggerEnabled()) {
-
-            InspectionTriggerHttpController inspectTrigger = new InspectionTriggerHttpController(ctx.inspectionTriggerBusHolder());
-
-            router.register(HttpRoute.exact("POST", "/api/orchestrator/inspect/trigger", inspectTrigger));
-
-        }
-
-
 
         OrchestratorFpZonesHttpController fpZones = new OrchestratorFpZonesHttpController(ctx.analisSurfaceBaseUrl());
 

@@ -333,9 +333,6 @@ public final class IntegrationBootstrap {
                 workersByCamera.keySet(),
                 triggerMode
         );
-        if (uiServer != null) {
-            uiServer.attachInspectionTriggerBus(triggerRuntime.bus());
-        }
         InspectionTriggerStrategy sharedTriggerStrategy = InspectionTriggerStrategyFactory.create(
                     triggerMode,
                     triggerRuntime.bus(),

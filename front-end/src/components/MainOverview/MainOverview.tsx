@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { ServerStream } from "../ServerStream";
-import { orchestratorApi } from "../../shared/api";
 import { orchestratorWs } from "../../shared/ws";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import {
@@ -24,7 +23,6 @@ export function MainOverview() {
   const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
-  const [inspectTriggerStatusByCameraId, setInspectTriggerStatusByCameraId] = useState<Record<number, string>>({});
 
   const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId);
   const modalCameraImageUrl = selectedCamera ? imageUrlsByCameraId[selectedCamera.cameraId] : undefined;
@@ -71,10 +69,6 @@ export function MainOverview() {
           ...prevInspectResults,
           [inspectResult.camera_id]: inspectResult,
         }));
-        setInspectTriggerStatusByCameraId((prevStatuses) => ({
-          ...prevStatuses,
-          [inspectResult.camera_id]: "Проверка завершена",
-        }));
       }
     });
 
@@ -84,28 +78,6 @@ export function MainOverview() {
       unsubscribeMessage();
     };
   }, []);
-
-  const handleInspectCamera = (cameraId: number) => {
-    setInspectTriggerStatusByCameraId((prevStatuses) => ({
-      ...prevStatuses,
-      [cameraId]: "Проверка поставлена в очередь...",
-    }));
-
-    orchestratorApi
-      .triggerInspection(cameraId)
-      .then(() => {
-        setInspectTriggerStatusByCameraId((prevStatuses) => ({
-          ...prevStatuses,
-          [cameraId]: "Ожидание результата проверки...",
-        }));
-      })
-      .catch((error) => {
-        setInspectTriggerStatusByCameraId((prevStatuses) => ({
-          ...prevStatuses,
-          [cameraId]: error instanceof Error ? error.message : String(error),
-        }));
-      });
-  };
 
   return (
     <section
@@ -143,9 +115,7 @@ export function MainOverview() {
               Открыть стрим
             </button>
           }
-          inspectTriggerStatus={inspectTriggerStatusByCameraId[selectedCamera.cameraId]}
           inspectResult={inspectResultsByCameraId[selectedCamera.cameraId]}
-          onInspect={() => handleInspectCamera(selectedCamera.cameraId)}
           title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}
           onClose={() => setSelectedCamera(null)}
         />

@@ -6,7 +6,6 @@ import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.stream.CameraStreamServiceHolder;
-import com.example.iml.orchestrator.integration.trigger.InspectionTriggerBusHolder;
 import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
 
@@ -21,7 +20,6 @@ public record HttpApplicationContext(
         LightServersConfig lightServersConfig,
         String analisSurfaceBaseUrl,
         CameraStreamServiceHolder cameraStreamHolder,
-        InspectionTriggerBusHolder inspectionTriggerBusHolder,
         java.util.List<Integer> configuredCameraIds
 ) {
     public boolean geometryEnabled() {
@@ -38,10 +36,6 @@ public record HttpApplicationContext(
 
     public boolean cameraStreamEnabled() {
         return cameraStreamHolder != null;
-    }
-
-    public boolean inspectionTriggerEnabled() {
-        return inspectionTriggerBusHolder != null;
     }
 
     public LightServersConfig lightServersConfig() {
@@ -66,7 +60,6 @@ public record HttpApplicationContext(
                 lightCfg,
                 base,
                 new CameraStreamServiceHolder(),
-                new InspectionTriggerBusHolder(),
                 ConfiguredCameras.enabledIds(rootYaml)
         );
     }

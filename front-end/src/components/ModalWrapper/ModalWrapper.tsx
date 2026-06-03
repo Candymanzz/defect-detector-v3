@@ -14,8 +14,6 @@ type ModalWrapperProps = {
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
   headerActions?: ReactNode;
-  inspectTriggerStatus?: string;
-  onInspect?: () => void;
   onClose: () => void;
 };
 
@@ -27,8 +25,6 @@ export function ModalWrapper({
   inspectResult,
   referenceImageUrl,
   headerActions,
-  inspectTriggerStatus,
-  onInspect,
   onClose,
 }: ModalWrapperProps) {
   const storedReferenceImage = useSyncExternalStore(
@@ -74,15 +70,6 @@ export function ModalWrapper({
           <h2>{title}</h2>
           <div className="modal__header-actions">
             {headerActions}
-            {onInspect && (
-              <button
-                className="modal__action"
-                type="button"
-                onClick={onInspect}
-              >
-                Проверить
-              </button>
-            )}
             <button
               aria-label="Close modal"
               className="modal__close"
@@ -114,7 +101,6 @@ export function ModalWrapper({
         </div>
 
         <InspectResultPanel inspectResult={inspectResult} />
-        {inspectTriggerStatus && <div className="modal-inspect-result__empty">{inspectTriggerStatus}</div>}
       </section>
     </div>
   );

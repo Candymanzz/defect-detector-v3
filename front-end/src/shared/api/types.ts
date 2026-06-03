@@ -44,12 +44,6 @@ export type UiLatestSnapshot = {
   heatmapU8: UiImageArtifact;
 };
 
-export type InspectTriggerResponse = {
-  ok: true;
-  cameraId: CameraId;
-  source: string;
-};
-
 export type GeometryLatestSnapshot = {
   cameraId: CameraId;
   frameId: FrameId;
