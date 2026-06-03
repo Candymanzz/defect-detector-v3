@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class CameraStreamService implements AutoCloseable {
 
+    private static final long STREAM_POLL_INITIAL_DELAY_MS = 150L;
+
     private final Logger log;
     private final ClientStreamConfig cfg;
     private final Map<Integer, WorkerProcessSupervisor> workersByCamera;
@@ -124,9 +126,10 @@ public final class CameraStreamService implements AutoCloseable {
             sessions.remove(cameraId);
             throw new RuntimeException("start_stream failed: " + e.getMessage(), e);
         }
+        // Дать worker stream_thread время снять первый кадр (stream_poll иначе no_stream_frame_yet).
         session.future = scheduler.scheduleAtFixedRate(
                 () -> pollAndPublish(cameraId),
-                0L,
+                STREAM_POLL_INITIAL_DELAY_MS,
                 intervalMs,
                 TimeUnit.MILLISECONDS
         );
@@ -194,10 +197,18 @@ public final class CameraStreamService implements AutoCloseable {
             synchronized (worker) {
                 capture = worker.command(Map.of("op", "stream_poll"));
             }
-            if (capture == null || capture.header() == null) {
+            if (capture == null) {
+                return;
+            }
+            if (capture.type() == BinaryProtocol.MSG_ERROR) {
+                session.notePollError(log, cameraId, formatWorkerError(capture));
+                return;
+            }
+            if (capture.header() == null) {
                 return;
             }
             Map<String, Object> header = capture.header();
+            session.pollErrors.set(0);
             long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
             if (frameId < 0) {
                 return;
@@ -240,10 +251,21 @@ public final class CameraStreamService implements AutoCloseable {
                 clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
             }
         } catch (Exception e) {
-            log.debug("client_stream poll camera={}: {}", cameraId, e.getMessage());
+            session.notePollError(log, cameraId, e.getMessage());
         } finally {
             session.tickInProgress.set(false);
         }
+    }
+
+    private static String formatWorkerError(BinaryProtocol.Message capture) {
+        if (capture.payload() != null && capture.payload().length > 0) {
+            try {
+                return new String(capture.payload(), java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        return capture.header() == null ? "worker_error" : String.valueOf(capture.header());
     }
 
     private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride) {
@@ -271,15 +293,25 @@ public final class CameraStreamService implements AutoCloseable {
     }
 
     private static final class StreamSession {
+        private static final int POLL_ERROR_LOG_EVERY = 20;
+
         final WebSocket connection;
         final int fps;
         final AtomicBoolean running = new AtomicBoolean(true);
         final AtomicBoolean tickInProgress = new AtomicBoolean(false);
+        final java.util.concurrent.atomic.AtomicInteger pollErrors = new java.util.concurrent.atomic.AtomicInteger();
         volatile ScheduledFuture<?> future;
 
         StreamSession(WebSocket connection, int fps) {
             this.connection = connection;
             this.fps = fps;
+        }
+
+        void notePollError(Logger log, int cameraId, String reason) {
+            int n = pollErrors.incrementAndGet();
+            if (n == 1 || n % POLL_ERROR_LOG_EVERY == 0) {
+                log.warn("client_stream poll camera={} fail #{}: {}", cameraId, n, reason);
+            }
         }
     }
 
