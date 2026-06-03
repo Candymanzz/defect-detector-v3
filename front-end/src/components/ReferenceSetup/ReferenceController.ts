@@ -22,7 +22,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   const referenceRoi = useReferenceRoi(initialJointViewIndex);
   const { handlePreviewFrame } = referenceFrames;
   const canSendReference = Boolean(
-    referenceFrames.hasAllReferenceFrames && referenceRoi.hasSelectedCameraRoi && status.state === "open",
+    referenceFrames.hasRequiredReferenceFrames && referenceRoi.hasSelectedCameraRoi && status.state === "open",
   );
 
   const handleReferenceBundleAck = (message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
@@ -83,8 +83,8 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   }, [onClose]);
 
   const handleSendReference = () => {
-    if (!referenceFrames.hasAllReferenceFrames) {
-      setMessage("Frames from all 5 cameras are required");
+    if (!referenceFrames.hasRequiredReferenceFrames) {
+      setMessage("Reference frame for camera 0 is required");
       return;
     }
 

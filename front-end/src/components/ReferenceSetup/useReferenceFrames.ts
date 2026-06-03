@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { PreviewFramePayload } from "../../shared/ws";
-import { REFERENCE_CAMERA_IDS } from "./referenceConstants";
+import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
 
 export function useReferenceFrames() {
   const [imageUrl, setImageUrl] = useState<string>();
@@ -12,7 +12,7 @@ export function useReferenceFrames() {
     frame: framesByCameraId[cameraId],
     imageUrl: imageUrlsByCameraId[cameraId],
   }));
-  const hasAllReferenceFrames = REFERENCE_CAMERA_IDS.every((cameraId) => framesByCameraId[cameraId]);
+  const hasRequiredReferenceFrames = REFERENCE_REQUIRED_CAMERA_IDS.every((cameraId) => framesByCameraId[cameraId]);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
@@ -35,7 +35,7 @@ export function useReferenceFrames() {
     imageUrl,
     framesByCameraId,
     cameraSlots,
-    hasAllReferenceFrames,
+    hasRequiredReferenceFrames,
     handlePreviewFrame,
   };
 }

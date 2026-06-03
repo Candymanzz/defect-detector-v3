@@ -14,14 +14,14 @@ export function createReferenceBundleFromCameraFrames(
   selectedCameraId: number,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
 ): ClientReferenceBundlePayload {
+  const fallbackFrame = framesByCameraId[0];
+
+  if (!fallbackFrame) {
+    throw new Error("Reference frame for camera 0 is missing");
+  }
+
   const frames = REFERENCE_CAMERA_IDS.map((cameraId) => {
-    const frame = framesByCameraId[cameraId];
-
-    if (!frame) {
-      throw new Error(`Reference frame for camera ${cameraId} is missing`);
-    }
-
-    return frame;
+    return framesByCameraId[cameraId] ?? fallbackFrame;
   });
   const firstFrame = frames[0];
   const productType = firstFrame.detector.product_type || "reference-product";
