@@ -18,4 +18,7 @@ public sealed class ComLightDeviceEntry
 
     /// <summary>Только из JSON (без default — иначе [1,2] превращается в [1,2,3,4,1,2]).</summary>
     public int[] Channels { get; set; } = [];
+
+    /// <summary>Arm для вспышки: Timer1, Timer5… Пусто — из enum устройства (Timer1 или первый Timer*).</summary>
+    public string? TimerArmSource { get; set; }
 }

@@ -22,6 +22,15 @@ public sealed class SerialLightOptions
 
     public bool SustainOnAfterTrigger { get; set; } = true;
 
+    /// <summary>Банк POST /api/com/light: On = broadcast On (все каналы разом), Trigger = Timer+software trigger.</summary>
+    public string BankFlashMode { get; set; } = "On";
+
+    /// <summary>Только для BankFlashMode=Trigger: после trigger оставить On.</summary>
+    public bool BankSustainOnAfterTrigger { get; set; }
+
+    /// <summary>Только для BankFlashMode=Trigger без sustain: длительность импульса (мс).</summary>
+    public int BankFlashDurationMs { get; set; } = 500;
+
     /// <summary>Эксперимент: не брать lock на SDK/COM (возможны гонки и сбои; не для продакшена).</summary>
     public bool DisableSdkLock { get; set; }
 }

@@ -9,7 +9,7 @@ namespace LightServer.Services;
 public sealed class ComLightBankService
 {
     private readonly ComLightDevicesOptions _devices;
-    private readonly LightControlService _light;
+    private readonly ComLightIsolatedBank _isolatedBank;
     private readonly ILogger<ComLightBankService> _log;
     private readonly object _initLock = new();
     private bool _initialized;
@@ -19,12 +19,12 @@ public sealed class ComLightBankService
 
     public ComLightBankService(
         IOptions<ComLightDevicesOptions> devices,
-        LightControlService light,
+        ComLightIsolatedBank isolatedBank,
         ILogger<ComLightBankService> log)
     {
         _devices = devices.Value;
         _uniqueDevices = DeduplicateDevices(_devices.Devices);
-        _light = light;
+        _isolatedBank = isolatedBank;
         _log = log;
     }
 
@@ -49,7 +49,7 @@ public sealed class ComLightBankService
                 return (false, _initError);
             }
 
-            var (ok, err) = _light.InitializeComBank(_uniqueDevices);
+            var (ok, err) = _isolatedBank.InitializeAll();
             _initError = err;
             _initialized = ok;
             if (ok)
@@ -124,12 +124,12 @@ public sealed class ComLightBankService
             };
         }
 
-        List<LightControlService.ComPortFlashApply> flashCommands = BuildFlashCommands(percents);
+        List<ComPortFlashCommand> flashCommands = BuildFlashCommands(percents);
         var cmdByCom = flashCommands.ToDictionary(static c => c.ComPort, static c => c, StringComparer.OrdinalIgnoreCase);
-        var applied = _light.ApplyBankOnSimultaneous(flashCommands);
+        var applied = _isolatedBank.ApplyAllOn(flashCommands);
         var results = applied.Select(r =>
         {
-            cmdByCom.TryGetValue(r.ComPort, out LightControlService.ComPortFlashApply cmd);
+            cmdByCom.TryGetValue(r.ComPort, out ComPortFlashCommand cmd);
             return new ComLightApplyResultItem
             {
                 ComPort = r.ComPort,
@@ -155,9 +155,9 @@ public sealed class ComLightBankService
         };
     }
 
-    private List<LightControlService.ComPortFlashApply> BuildFlashCommands(int[] percents)
+    private List<ComPortFlashCommand> BuildFlashCommands(int[] percents)
     {
-        var commands = new List<LightControlService.ComPortFlashApply>(_uniqueDevices.Length);
+        var commands = new List<ComPortFlashCommand>(_uniqueDevices.Length);
         int idx = 0;
         foreach (ComLightDeviceEntry entry in _uniqueDevices)
         {
@@ -166,7 +166,7 @@ public sealed class ComLightBankService
             for (int i = 0; i < n; i++)
                 raw[i] = PercentToRaw255(percents[idx++]);
 
-            commands.Add(new LightControlService.ComPortFlashApply(entry.ComPort, entry.Channels, raw));
+            commands.Add(new ComPortFlashCommand(entry.ComPort, entry.Channels, raw));
         }
 
         return commands;
@@ -175,10 +175,10 @@ public sealed class ComLightBankService
     private ComLightApplyResponse ApplyAllOffInternal()
     {
         var flashCommands = _uniqueDevices
-            .Select(d => new LightControlService.ComPortFlashApply(d.ComPort, d.Channels, []))
+            .Select(d => new ComPortFlashCommand(d.ComPort, d.Channels, []))
             .ToList();
         var cmdByCom = flashCommands.ToDictionary(static c => c.ComPort, static c => c, StringComparer.OrdinalIgnoreCase);
-        var applied = _light.ApplyBankOffSimultaneous(flashCommands);
+        var applied = _isolatedBank.ApplyAllOff(flashCommands);
         var results = applied.Select(r => new ComLightApplyResultItem
         {
             ComPort = r.ComPort,
@@ -254,7 +254,8 @@ public sealed class ComLightBankService
             list.Add(new ComLightDeviceEntry
             {
                 ComPort = NormalizeComPort(com),
-                Channels = NormalizeChannels(d.Channels, com)
+                Channels = NormalizeChannels(d.Channels, com),
+                TimerArmSource = d.TimerArmSource
             });
         }
 
@@ -282,19 +283,5 @@ public sealed class ComLightBankService
             : [1, 2, 3, 4];
     }
 
-    private static string NormalizeComPort(string raw)
-    {
-        string p = raw.Trim();
-        if (p.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
-        {
-            string tail = p.Length > 3 ? p[3..] : "";
-            if (int.TryParse(tail, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n > 0)
-                return "COM" + n;
-        }
-
-        if (int.TryParse(p, NumberStyles.Integer, CultureInfo.InvariantCulture, out int num) && num > 0)
-            return "COM" + num;
-
-        return p.ToUpperInvariant();
-    }
+    private static string NormalizeComPort(string raw) => MvsComPortEnumerator.NormalizeComPort(raw);
 }
