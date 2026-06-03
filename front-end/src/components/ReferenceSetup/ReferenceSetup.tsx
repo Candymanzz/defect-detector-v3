@@ -68,22 +68,21 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
                 ))}
               </select>
             </label>
+            <button
+              type="button"
+              onClick={handleRefreshLatestImage}
+            >
+              Получить последнее изображение
+            </button>
+
+            <button
+              type="button"
+              disabled={!canSendReference}
+              onClick={handleSendReference}
+            >
+              Задать эталон
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={handleRefreshLatestImage}
-          >
-            Получить последнее изображение
-          </button>
-
-          <button
-            type="button"
-            disabled={!canSendReference}
-            onClick={handleSendReference}
-          >
-            Задать эталон
-          </button>
 
           {selectedSlot?.imageUrl && (
             <RoiContourEditor

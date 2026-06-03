@@ -60,16 +60,6 @@ export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResult
   return undefined;
 }
 
-export async function loadLatestCameraImageUrl(cameraId: number) {
-  const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
-
-  if (!snapshot.hasCurrent) {
-    return undefined;
-  }
-
-  return orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
-}
-
 async function loadBackendHealth() {
   const health = await orchestratorApi.health();
   return health.trim() || "ok";

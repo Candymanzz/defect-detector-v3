@@ -1,12 +1,9 @@
-import { useState } from "react";
 import { MainOverview } from "../components/MainOverview";
 import { SettingList } from "../components/SettingList";
 import logo from "../shared/assets/images/savt_logo_white.png";
 import "./App.css";
 
 export function App() {
-  const [selectedCameraId, setSelectedCameraId] = useState<number | null>(null);
-
   return (
     <main className="app-shell">
       <header className="app-header" >
@@ -19,11 +16,8 @@ export function App() {
           </div>
       </header>
       <div className="app-content">
-        <MainOverview
-          selectedCameraId={selectedCameraId}
-          onSelectedCameraIdChange={setSelectedCameraId}
-        />
-        <SettingList selectedCameraId={selectedCameraId} />
+        <MainOverview />
+        <SettingList selectedCameraId={null} />
       </div>
       
     </main>
