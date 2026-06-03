@@ -64,6 +64,11 @@ public final class CameraPreviewHttpController implements HttpController {
             int cam = Integer.parseInt(parts[3]);
             CameraPreviewStore.Latest l = store.latest(cam).orElse(null);
             if (l == null) {
+                if (uri.endsWith("/latest.json") && configuredCameraIds.contains(cam)) {
+                    HttpResponses.corsJson(ctx.exchange());
+                    HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(emptyLatestJson(cam)));
+                    return;
+                }
                 HttpResponses.sendText(ctx, 404, "no data\n");
                 return;
             }
@@ -150,6 +155,30 @@ public final class CameraPreviewHttpController implements HttpController {
         ObjectNode hm = root.putObject("heatmapU8");
         hm.put("width", l.heatmapU8Width());
         hm.put("height", l.heatmapU8Height());
+        hm.put("path", "/api/camera/" + cameraId + "/heatmap.u8");
+        return root;
+    }
+
+    private static ObjectNode emptyLatestJson(int cameraId) {
+        ObjectNode root = JSON.createObjectNode();
+        root.put("cameraId", cameraId);
+        root.put("frameId", -1);
+        root.put("productType", "");
+        root.put("detectorId", "");
+        root.put("shmName", "");
+        root.put("updatedAtMs", 0);
+        root.put("hasCurrent", false);
+        root.put("hasHeatmap", false);
+        ObjectNode cap = root.putObject("capture");
+        cap.put("width", 0);
+        cap.put("height", 0);
+        ObjectNode cur = root.putObject("currentJpeg");
+        cur.put("width", 0);
+        cur.put("height", 0);
+        cur.put("path", "/api/camera/" + cameraId + "/current.jpg");
+        ObjectNode hm = root.putObject("heatmapU8");
+        hm.put("width", 0);
+        hm.put("height", 0);
         hm.put("path", "/api/camera/" + cameraId + "/heatmap.u8");
         return root;
     }

@@ -14,6 +14,7 @@ type UseStreamControllerOptions = {
 };
 
 const DEFAULT_MAX_FPS = 20;
+const FIRST_FRAME_TIMEOUT_MS = 5000;
 
 export function useStreamController({
   cameraId,
@@ -22,15 +23,23 @@ export function useStreamController({
   maxFps = DEFAULT_MAX_FPS,
 }: UseStreamControllerOptions) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
-  const [message, setMessage] = useState("Стрим остановлен");
+  const [message, setMessage] = useState("Stream stopped");
   const [mjpegUrl, setMjpegUrl] = useState<string>();
   const [status, setStatus] = useState<WsConnectionStatus>(orchestratorWs.snapshot);
   const streamStateRef = useRef(streamState);
   const autoStartAttemptedRef = useRef(false);
+  const firstFrameTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     streamStateRef.current = streamState;
   }, [streamState]);
+
+  const clearFirstFrameTimer = useCallback(() => {
+    if (firstFrameTimerRef.current !== null) {
+      window.clearTimeout(firstFrameTimerRef.current);
+      firstFrameTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -41,38 +50,61 @@ export function useStreamController({
 
     const unsubscribeStatus = orchestratorWs.onStatus(setStatus);
     const unsubscribeMessage = orchestratorWs.onMessage((wsMessage) => {
-      if (wsMessage.type === "server.stream_started") {
-        if (wsMessage.payload.camera_id !== cameraId) {
+      switch (wsMessage.type) {
+        case "server.stream_started": {
+          if (wsMessage.payload.camera_id !== cameraId) {
+            return;
+          }
+
+          const streamPath = wsMessage.payload.mjpeg_path;
+
+          setMjpegUrl(streamPath ? orchestratorApi.url(streamPath) : orchestratorApi.streamMjpegUrl(cameraId));
+          setStreamState("playing");
+          setMessage(`Stream started: ${wsMessage.payload.max_fps} FPS`);
+          clearFirstFrameTimer();
+          firstFrameTimerRef.current = window.setTimeout(() => {
+            if (streamStateRef.current === "playing") {
+              setMjpegUrl(undefined);
+              setStreamState("error");
+              setMessage("Stream started, but no camera frames were received");
+            }
+          }, FIRST_FRAME_TIMEOUT_MS);
           return;
         }
 
-        const streamPath = wsMessage.payload.mjpeg_path ?? wsMessage.payload.http_path;
+        case "server.preview_frame":
+          if (wsMessage.payload.camera_id !== cameraId || streamStateRef.current !== "playing") {
+            return;
+          }
 
-        setMjpegUrl(streamPath ? orchestratorApi.url(streamPath) : orchestratorApi.streamMjpegUrl(cameraId));
-        setStreamState("playing");
-        setMessage(`Стрим запущен: ${wsMessage.payload.max_fps} FPS`);
-        return;
-      }
-
-      if (wsMessage.type === "server.stream_stopped") {
-        if (wsMessage.payload.camera_id !== cameraId) {
+          clearFirstFrameTimer();
+          setMessage(`Stream active, frame ${wsMessage.payload.frame_id}`);
           return;
-        }
 
-        setMjpegUrl(undefined);
-        setStreamState("idle");
-        setMessage("Стрим остановлен");
-        return;
-      }
+        case "server.stream_stopped":
+          if (wsMessage.payload.camera_id !== cameraId) {
+            return;
+          }
 
-      if (wsMessage.type === "server.error") {
-        if (streamStateRef.current !== "starting" && streamStateRef.current !== "stopping") {
+          clearFirstFrameTimer();
+          setMjpegUrl(undefined);
+          setStreamState("idle");
+          setMessage("Stream stopped");
           return;
-        }
 
-        setMjpegUrl(undefined);
-        setStreamState("error");
-        setMessage(`${wsMessage.payload.code}: ${wsMessage.payload.message}`);
+        case "server.error":
+          if (streamStateRef.current !== "starting" && streamStateRef.current !== "stopping") {
+            return;
+          }
+
+          clearFirstFrameTimer();
+          setMjpegUrl(undefined);
+          setStreamState("error");
+          setMessage(`${wsMessage.payload.code}: ${wsMessage.payload.message}`);
+          return;
+
+        default:
+          return;
       }
     });
 
@@ -87,19 +119,22 @@ export function useStreamController({
           // The socket may already be closed while the modal is unmounting.
         }
       }
+      clearFirstFrameTimer();
     };
-  }, [cameraId, enabled]);
+  }, [cameraId, clearFirstFrameTimer, enabled]);
 
   const startStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
       setStreamState("error");
-      setMessage("WebSocket еще не подключен");
+      setMessage("WebSocket is not open yet");
       return;
     }
 
     try {
+      clearFirstFrameTimer();
+      setMjpegUrl(undefined);
       setStreamState("starting");
-      setMessage("Запускаем стрим...");
+      setMessage("Starting stream...");
       orchestratorWs.sendStreamStart({
         camera_id: cameraId,
         max_fps: maxFps,
@@ -108,18 +143,26 @@ export function useStreamController({
       setStreamState("error");
       setMessage(errorMessage(error));
     }
-  }, [cameraId, maxFps]);
+  }, [cameraId, clearFirstFrameTimer, maxFps]);
+
+  const handleStreamImageError = useCallback(() => {
+    clearFirstFrameTimer();
+    setMjpegUrl(undefined);
+    setStreamState("error");
+    setMessage("MJPEG stream image failed to load");
+  }, [clearFirstFrameTimer]);
 
   const stopStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
       setStreamState("error");
-      setMessage("WebSocket еще не подключен");
+      setMessage("WebSocket is not open yet");
       return;
     }
 
     try {
+      clearFirstFrameTimer();
       setStreamState("stopping");
-      setMessage("Останавливаем стрим...");
+      setMessage("Stopping stream...");
       orchestratorWs.sendStreamStop({
         camera_id: cameraId,
       });
@@ -127,7 +170,7 @@ export function useStreamController({
       setStreamState("error");
       setMessage(errorMessage(error));
     }
-  }, [cameraId]);
+  }, [cameraId, clearFirstFrameTimer]);
 
   const isPlaying = streamState === "playing";
   const isBusy = streamState === "starting" || streamState === "stopping";
@@ -153,5 +196,6 @@ export function useStreamController({
     canStop: enabled && isSocketOpen && (isPlaying || streamState === "starting"),
     startStream,
     stopStream,
+    handleStreamImageError,
   };
 }

@@ -19,7 +19,7 @@ export function useReferenceFrames() {
       const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
 
       if (!snapshot.hasCurrent) {
-        return;
+        return false;
       }
 
       const nextImageUrl = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
@@ -29,13 +29,15 @@ export function useReferenceFrames() {
         [cameraId]: nextImageUrl,
       }));
       setImageUrl(nextImageUrl);
+      return true;
     } catch {
-      // The modal can still receive an image from the next preview_frame.
+      return false;
     }
   }, []);
 
   const refreshLatestImages = useCallback(async () => {
-    await Promise.all(REFERENCE_CAMERA_IDS.map((cameraId) => loadLatestImage(cameraId)));
+    const results = await Promise.all(REFERENCE_CAMERA_IDS.map((cameraId) => loadLatestImage(cameraId)));
+    return results.some(Boolean);
   }, [loadLatestImage]);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
@@ -52,10 +54,8 @@ export function useReferenceFrames() {
         [previewFrame.camera_id]: nextImageUrl,
       }));
       setImageUrl(nextImageUrl);
-    } else {
-      void loadLatestImage(previewFrame.camera_id);
     }
-  }, [loadLatestImage]);
+  }, []);
 
   return {
     imageUrl,

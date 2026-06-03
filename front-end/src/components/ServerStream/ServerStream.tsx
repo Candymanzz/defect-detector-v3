@@ -10,7 +10,18 @@ type ServerStreamProps = {
 };
 
 export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamProps) {
-  const { status, streamState, message, mjpegUrl, isPlaying, canStart, canStop, startStream, stopStream } =
+  const {
+    status,
+    streamState,
+    message,
+    mjpegUrl,
+    isPlaying,
+    canStart,
+    canStop,
+    startStream,
+    stopStream,
+    handleStreamImageError,
+  } =
     useStreamController({
       cameraId,
       enabled: isOpen,
@@ -75,6 +86,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
               alt={streamTitle}
               className="server-stream__image"
               src={mjpegUrl}
+              onError={handleStreamImageError}
             />
           ) : (
             <div

@@ -145,7 +145,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (uiServer == null || uiArtifactsExecutor == null) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, false);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, null, false);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no ui pool) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -157,7 +157,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!storeCurrent && !storeHeatmapU8) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, false);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, null, false);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no store flags) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -258,6 +258,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             hmToken = uiServer.registerHeatmapArtifact(cameraId, heatmapU8);
                         }
                         boolean filePathInWs = hasHm && hmToken == null;
+                        String currentHttpPath = hasCur ? "/api/camera/" + cameraId + "/current.jpg" : null;
                         ws.notifyInspectResult(
                                 cameraId,
                                 productType,
@@ -266,6 +267,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 hasHm ? heatmapU8 : null,
                                 hasHm ? uw : 0,
                                 hasHm ? uh : 0,
+                                currentHttpPath,
                                 hmToken,
                                 filePathInWs
                         );

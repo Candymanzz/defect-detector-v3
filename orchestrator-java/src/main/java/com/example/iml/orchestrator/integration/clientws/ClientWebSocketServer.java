@@ -162,6 +162,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             Path heatmapU8Path,
             int heatmapW,
             int heatmapH,
+            String currentHttpPath,
             String heatmapArtifactTokenOrNull,
             boolean includeHeatmapFilePathInWs
     ) {
@@ -198,6 +199,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 heatmapU8Path,
                 heatmapW,
                 heatmapH,
+                currentHttpPath,
                 heatmapArtifactTokenOrNull,
                 includeHeatmapFilePathInWs
         );

@@ -99,6 +99,7 @@ public final class WsOutboundMessenger {
             Path heatmapU8Path,
             int heatmapW,
             int heatmapH,
+            String currentHttpPath,
             String heatmapArtifactTokenOrNull,
             boolean includeHeatmapFilePathInWs
     ) {
@@ -113,6 +114,7 @@ public final class WsOutboundMessenger {
                     heatmapU8Path,
                     heatmapW,
                     heatmapH,
+                    currentHttpPath,
                     heatmapArtifactTokenOrNull,
                     includeHeatmapFilePathInWs
             );
@@ -339,12 +341,15 @@ public final class WsOutboundMessenger {
             Path heatmapU8Path,
             int heatmapW,
             int heatmapH,
+            String currentHttpPath,
             String heatmapArtifactTokenOrNull,
             boolean includeHeatmapFilePathInWs
     ) throws ClientWsJsonSerializationException, ClientWsInvalidCaptureDescriptorException {
         ObjectNode current = buildCurrentShmObjectNode(cameraId, captureHeader, frameIdLong, shmName);
-        String previewHttpPath = "/api/camera/" + cameraId + "/current.jpg";
-        current.put("http_path", previewHttpPath);
+        String previewHttpPath = currentHttpPath == null ? "" : currentHttpPath.trim();
+        if (!previewHttpPath.isEmpty()) {
+            current.put("http_path", previewHttpPath);
+        }
         ObjectNode root = JSON.createObjectNode();
         root.put("type", WsMessageTypes.SERVER_INSPECT_RESULT);
         root.put("protocol_version", cfg.protocolVersion());
@@ -354,7 +359,9 @@ public final class WsOutboundMessenger {
         payload.put("frame_id", Long.toString(frameIdLong));
         payload.put("session_state", sessionState.get().name());
         payload.set("current", current);
-        payload.put("http_path", previewHttpPath);
+        if (!previewHttpPath.isEmpty()) {
+            payload.put("http_path", previewHttpPath);
+        }
         boolean hasHm = heatmapU8Path != null
                 && heatmapW > 0
                 && heatmapH > 0

@@ -214,21 +214,23 @@ public final class CameraStreamService implements AutoCloseable {
             String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
             PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride);
             if (jpeg.path != null && Files.isRegularFile(jpeg.path)) {
-                uiServer.update(
-                        cameraId,
-                        frameId,
-                        productType,
-                        detectorId,
-                        shmName,
-                        width,
-                        height,
-                        jpeg.path,
-                        jpeg.width,
-                        jpeg.height,
-                        null,
-                        0,
-                        0
-                );
+                if (uiServer != null) {
+                    uiServer.update(
+                            cameraId,
+                            frameId,
+                            productType,
+                            detectorId,
+                            shmName,
+                            width,
+                            height,
+                            jpeg.path,
+                            jpeg.width,
+                            jpeg.height,
+                            null,
+                            0,
+                            0
+                    );
+                }
                 try {
                     mjpegHub.publish(cameraId, Files.readAllBytes(jpeg.path));
                 } catch (IOException e) {

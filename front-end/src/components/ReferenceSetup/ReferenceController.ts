@@ -67,10 +67,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   }, [handlePreviewFrame]);
 
   useEffect(() => {
-    void refreshLatestImages();
-  }, [refreshLatestImages]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
@@ -110,6 +106,12 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     }
   };
 
+  const handleRefreshLatestImage = async () => {
+    setMessage("Loading latest camera image...");
+    const ok = await refreshLatestImages();
+    setMessage(ok ? "Latest camera image loaded" : "Latest camera image is not available yet");
+  };
+
   return {
     status,
     message,
@@ -117,5 +119,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     ...referenceRoi,
     canSendReference,
     handleSendReference,
+    handleRefreshLatestImage,
   };
 }

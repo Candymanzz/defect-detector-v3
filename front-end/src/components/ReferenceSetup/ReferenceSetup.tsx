@@ -18,6 +18,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
     canSendReference,
     setJointViewIndex,
     handleSendReference,
+    handleRefreshLatestImage,
     selectedCameraId,
     roiPolygonsByCameraId,
     setRoiPolygonForCamera,
@@ -68,6 +69,13 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               </select>
             </label>
           </div>
+
+          <button
+            type="button"
+            onClick={handleRefreshLatestImage}
+          >
+            Получить последнее изображение
+          </button>
 
           <button
             type="button"
