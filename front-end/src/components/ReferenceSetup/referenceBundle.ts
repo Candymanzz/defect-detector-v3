@@ -5,7 +5,7 @@ import type {
   PreviewFramePayload,
   ReferenceViewSlot,
 } from "../../shared/ws";
-import { REFERENCE_CAMERA_IDS } from "./referenceConstants";
+import { REFERENCE_BUNDLE_VIEW_CAMERA_IDS } from "./referenceConstants";
 import { createFullRoi, createFullRoiPolygonNorm, createRoiFromPolygon, isValidRoiPolygon } from "./referenceRoi";
 
 export function createReferenceBundleFromCameraFrames(
@@ -20,13 +20,13 @@ export function createReferenceBundleFromCameraFrames(
     throw new Error("Reference frame for camera 0 is missing");
   }
 
-  const frames = REFERENCE_CAMERA_IDS.map((cameraId) => {
+  const frames = REFERENCE_BUNDLE_VIEW_CAMERA_IDS.map((cameraId) => {
     return framesByCameraId[cameraId] ?? fallbackFrame;
   });
   const firstFrame = frames[0];
   const productType = firstFrame.detector.product_type || "reference-product";
-  const views = frames.map((previewFrame) =>
-    createReferenceViewForFrame(previewFrame, jointViewIndex, selectedCameraId, roiPolygonsByCameraId),
+  const views = frames.map((previewFrame, viewIndex) =>
+    createReferenceViewForFrame(previewFrame, viewIndex, jointViewIndex, selectedCameraId, roiPolygonsByCameraId),
   ) as ClientReferenceBundlePayload["views"];
 
   return {
@@ -41,12 +41,13 @@ export function createReferenceBundleFromCameraFrames(
 
 function createReferenceViewForFrame(
   previewFrame: PreviewFramePayload,
+  viewIndex: number,
   jointViewIndex: number,
   selectedCameraId: number,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
 ) {
-  const selectedRoiPolygon = roiPolygonsByCameraId[previewFrame.camera_id];
-  const shouldUseSelectedRoi = previewFrame.camera_id === selectedCameraId && isValidRoiPolygon(selectedRoiPolygon);
+  const selectedRoiPolygon = roiPolygonsByCameraId[viewIndex];
+  const shouldUseSelectedRoi = viewIndex === selectedCameraId && isValidRoiPolygon(selectedRoiPolygon);
   const interestPolygonNorm = shouldUseSelectedRoi
     ? selectedRoiPolygon
     : createFullRoiPolygonNorm(previewFrame.current.width, previewFrame.current.height);
@@ -54,7 +55,7 @@ function createReferenceViewForFrame(
     ? createRoiFromPolygon(selectedRoiPolygon, previewFrame.current.width, previewFrame.current.height)
     : createFullRoi(previewFrame);
 
-  return createReferenceView(previewFrame, roi, interestPolygonNorm, previewFrame.camera_id === jointViewIndex ? roi : null);
+  return createReferenceView(previewFrame, roi, interestPolygonNorm, viewIndex === jointViewIndex ? roi : null);
 }
 
 function createReferenceView(
