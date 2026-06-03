@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { getReferenceImageUrl, subscribeReferenceImages } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload } from "../../shared/ws";
+import { HeatmapViewer } from "../HeatmapViewer";
 import "./ModalWrapper.css";
 
 type ModalWrapperProps = {
@@ -88,6 +89,13 @@ export function ModalWrapper({
             imageUrl={cameraImageUrl}
             label="Проверка камеры"
           />
+          {cameraId !== undefined && inspectResult?.heatmap && (
+            <HeatmapViewer
+              cameraId={cameraId}
+              heatmap={inspectResult.heatmap}
+              backgroundImageUrl={cameraImageUrl}
+            />
+          )}
         </div>
 
         <InspectResultPanel inspectResult={inspectResult} />
