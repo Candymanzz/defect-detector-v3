@@ -38,9 +38,19 @@ public final class MjpegStreamHub {
      * Блокирует вызывающий поток до закрытия соединения или {@link #closeAll()}.
      */
     public void serve(int cameraId, OutputStream out, Runnable onClosed) throws IOException {
+        serve(cameraId, out, null, onClosed);
+    }
+
+    /**
+     * @param bootstrapJpeg последний известный кадр — сразу в поток (браузер не ждёт первого poll).
+     */
+    public void serve(int cameraId, OutputStream out, byte[] bootstrapJpeg, Runnable onClosed) throws IOException {
         Subscriber sub = new Subscriber(cameraId, out);
         subscribers.add(sub);
         try {
+            if (bootstrapJpeg != null && bootstrapJpeg.length > 0) {
+                sub.writePart(bootstrapJpeg);
+            }
             sub.runLoop();
         } finally {
             subscribers.remove(sub);
@@ -131,7 +141,7 @@ public final class MjpegStreamHub {
             }
         }
 
-        private void writePart(byte[] jpeg) throws IOException {
+        void writePart(byte[] jpeg) throws IOException {
             synchronized (out) {
                 out.write(BOUNDARY_LINE);
                 out.write(PART_HEADER_PREFIX);
