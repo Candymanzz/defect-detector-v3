@@ -131,7 +131,7 @@ fanout:
     queue_size: 128
     artificial_delay_ms: 1200
 
-# Подсветка → LightServer.v3: COM = POST /api/com/light { state: on|off, brightness: "80,..." } (банк COM из appsettings);
+# Подсветка → LightServer.v3: COM = POST /api/com/light { state: On|Off, brightness: "80,..." } (банк COM из appsettings);
 # сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость оркестратора: 0…100%.
 light_servers:
   enabled: true

@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 
 /**
  * LightServer.v3 ComLightApply: {@code POST /api/com/light} с телом
- * {@code { "state": "on"|"off", "brightness": "100" }} — яркость в % через запятую по всем каналам банка
+ * {@code { "state": "On"|"Off", "brightness": "100" }} — яркость в % через запятую по всем каналам банка
  * (COM1…COM3 из appsettings LightServer).
  * {@code GET /api/com/devices?ports=...} не вызываем перед вспышкой (долгое MVS enum).
  */
@@ -120,7 +120,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
             return;
         }
         String brightness = formatBrightnessCsv(brightnessPercent, defaultBrightnessRaw);
-        postState("on", brightness);
+        postState("On", brightness);
         log.info("light {} COM bank on cam={} frame={} phase={} brightness={}",
                 id, cameraId, frameId, phase, brightness);
     }
@@ -130,7 +130,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        postState("off", null);
+        postState("Off", null);
         log.info("light {} COM bank off", id);
     }
 
@@ -139,7 +139,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        postState("off", null);
+        postState("Off", null);
         log.info("light {} COM bank off cam={}", id, cameraId);
     }
 
