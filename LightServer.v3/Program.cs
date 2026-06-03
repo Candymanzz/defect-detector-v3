@@ -11,13 +11,21 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
-string logsDir = FileLogPaths.ResolveLogsDirectory(builder.Configuration, builder.Environment.ContentRootPath);
-Directory.CreateDirectory(logsDir);
-string logFilePath = FileLogPaths.CreateSessionLogFilePath(logsDir);
-builder.Logging.AddProvider(new FileSessionLoggerProvider(logFilePath, builder.Configuration));
-
-// Оркестратор наследует stdout — путь к логу виден сразу в его консоли.
-Console.WriteLine($"[LightServer] file log: {logFilePath}");
+bool logEnabled = LightServerLogging.IsEnabled(builder.Configuration);
+string? logFilePath = null;
+if (logEnabled)
+{
+    string logsDir = FileLogPaths.ResolveLogsDirectory(builder.Configuration, builder.Environment.ContentRootPath);
+    Directory.CreateDirectory(logsDir);
+    logFilePath = FileLogPaths.CreateSessionLogFilePath(logsDir);
+    builder.Logging.AddProvider(new FileSessionLoggerProvider(logFilePath, builder.Configuration));
+    // Оркестратор наследует stdout — путь к логу виден сразу в его консоли.
+    Console.WriteLine($"[LightServer] file log: {logFilePath}");
+}
+else
+{
+    builder.Logging.AddFilter(_ => false);
+}
 
 builder.Services.Configure<SerialLightOptions>(builder.Configuration.GetSection(SerialLightOptions.SectionName));
 builder.Services.Configure<ComLightDevicesOptions>(builder.Configuration.GetSection(ComLightDevicesOptions.SectionName));
@@ -49,16 +57,19 @@ builder.Services.AddHostedService<ComLightBankHostedService>();
 
 var app = builder.Build();
 
-ComLightDevicesOptions comDevices = app.Services.GetRequiredService<IOptions<ComLightDevicesOptions>>().Value;
-app.Logger.LogInformation(
-    "Content root: {ContentRoot}, ComLightDevices: {DeviceCount}, файл лога: {LogFile}",
-    app.Environment.ContentRootPath,
-    comDevices.Devices.Length,
-    logFilePath);
-if (comDevices.Devices.Length == 0)
-    app.Logger.LogWarning("ComLightDevices:Devices пуст — проверьте appsettings.json рядом с {DllDir}", AppContext.BaseDirectory);
+if (logEnabled)
+{
+    ComLightDevicesOptions comDevices = app.Services.GetRequiredService<IOptions<ComLightDevicesOptions>>().Value;
+    app.Logger.LogInformation(
+        "Content root: {ContentRoot}, ComLightDevices: {DeviceCount}, файл лога: {LogFile}",
+        app.Environment.ContentRootPath,
+        comDevices.Devices.Length,
+        logFilePath);
+    if (comDevices.Devices.Length == 0)
+        app.Logger.LogWarning("ComLightDevices:Devices пуст — проверьте appsettings.json рядом с {DllDir}", AppContext.BaseDirectory);
 
-app.UseMiddleware<HttpExchangeLoggingMiddleware>();
+    app.UseMiddleware<HttpExchangeLoggingMiddleware>();
+}
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -70,4 +81,13 @@ app.UseSwaggerUI(options =>
 app.UseAuthorization();
 app.MapControllers();
 
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    string urls = app.Urls.Count > 0
+        ? string.Join(", ", app.Urls)
+        : (app.Configuration["ASPNETCORE_URLS"] ?? "http://localhost:5080");
+    Console.WriteLine($"[LightServer] HTTP готов: {urls}  (swagger: /swagger)");
+});
+
+Console.WriteLine("[LightServer] Запуск Kestrel…");
 app.Run();

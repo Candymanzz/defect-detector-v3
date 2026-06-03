@@ -23,6 +23,11 @@ public sealed class MvLeFlashSyncPlan
 
     /// <summary>Direct/Sequential: On/Off сразу по каналам, без Hold/Timer.</summary>
     public bool UseDirectImmediate { get; set; }
+
+    /// <summary>Имя селектора broadcast (например All), найденное при открытии — без перебора на каждый On.</summary>
+    public string? CachedBroadcastSelectorName { get; set; }
+
+    public uint? CachedBroadcastSelectorValue { get; set; }
 }
 
 public static class MvLeFlashSync
@@ -255,7 +260,75 @@ public static class MvLeFlashSync
             UseSdkLock = false
         };
         CollectBroadcastSelectors(device, plan);
+        ProbeBankDirectBroadcastSelector(device, plan);
         return plan;
+    }
+
+    /// <summary>Быстрый On: яркость + включение за один проход SDK (без prep Off + fire).</summary>
+    public static bool ApplyBankDirectOn(
+        IDevice device,
+        object syncRoot,
+        MvLeFlashSyncPlan plan,
+        int[] channels,
+        int[] brightness,
+        bool writeBrightness,
+        out int failedChannel,
+        out string modeTag)
+    {
+        failedChannel = 0;
+        modeTag = "bank-direct";
+        bool ok = true;
+        int failCh = 0;
+        string via = "";
+
+        WithSdkLock(syncRoot, plan.UseSdkLock, () =>
+        {
+            if (writeBrightness
+                && !WriteChannelsBrightnessOnly(device, syncRoot, useSdkLock: false, channels, brightness, out failCh))
+            {
+                ok = false;
+                return;
+            }
+
+            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failCh, out via))
+                return;
+
+            for (int i = 0; i < channels.Length; i++)
+            {
+                int ch = channels[i];
+                if (!SelectChannel(device, ch))
+                {
+                    failCh = ch;
+                    ok = false;
+                    return;
+                }
+
+                if (writeBrightness
+                    && device.Parameters.SetIntValue(BrightnessNode, brightness[i]) != MvError.MV_OK)
+                {
+                    failCh = ch;
+                    ok = false;
+                    return;
+                }
+
+                if (!SetSource(device, "On"))
+                {
+                    failCh = ch;
+                    ok = false;
+                    return;
+                }
+            }
+        });
+
+        if (!ok)
+        {
+            failedChannel = failCh;
+            modeTag = "bank-on-fail";
+            return false;
+        }
+
+        modeTag = via.Length > 0 ? $"bank-broadcast-on:{via}" : "bank-seq-on";
+        return true;
     }
 
     /// <summary>Фаза 1 (On): яркость + broadcast Off (свет не горит до fire).</summary>
@@ -268,7 +341,8 @@ public static class MvLeFlashSync
         out int failedChannel)
     {
         failedChannel = 0;
-        CollectBroadcastSelectors(device, plan);
+        if (plan.BroadcastSelectorCandidates.Count == 0)
+            CollectBroadcastSelectors(device, plan);
 
         if (!WriteChannelsBrightnessOnly(device, syncRoot, plan.UseSdkLock, channels, brightness, out failedChannel))
             return false;
@@ -290,7 +364,6 @@ public static class MvLeFlashSync
     {
         failedChannel = 0;
         modeTag = "bank-direct";
-        CollectBroadcastSelectors(device, plan);
 
         if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failedChannel, out string via))
         {
@@ -776,6 +849,12 @@ public static class MvLeFlashSync
 
         WithSdkLock(syncRoot, plan.UseSdkLock, () =>
         {
+            if (TryApplyCachedBroadcastSelector(device, plan, source, out viaHit))
+            {
+                found = true;
+                return;
+            }
+
             foreach (string name in BroadcastSelectorNames)
             {
                 if (device.Parameters.SetEnumValueByString(SelectorNode, name) != MvError.MV_OK)
@@ -785,6 +864,8 @@ public static class MvLeFlashSync
                     continue;
 
                 viaHit = name;
+                plan.CachedBroadcastSelectorName = name;
+                plan.CachedBroadcastSelectorValue = null;
                 plan.UseBroadcast = true;
                 found = true;
                 return;
@@ -799,6 +880,8 @@ public static class MvLeFlashSync
                     continue;
 
                 viaHit = $"sel:{selector}";
+                plan.CachedBroadcastSelectorName = viaHit;
+                plan.CachedBroadcastSelectorValue = selector;
                 plan.UseBroadcast = true;
                 plan.BroadcastSelectorValue = selector;
                 found = true;
@@ -810,6 +893,8 @@ public static class MvLeFlashSync
                 && SetSource(device, source))
             {
                 viaHit = $"probe:{sel}";
+                plan.CachedBroadcastSelectorName = viaHit;
+                plan.CachedBroadcastSelectorValue = sel;
                 plan.UseBroadcast = true;
                 plan.BroadcastSelectorValue = sel;
                 if (!plan.BroadcastSelectorCandidates.Contains(sel))
@@ -824,12 +909,72 @@ public static class MvLeFlashSync
         return found;
     }
 
+    private static void ProbeBankDirectBroadcastSelector(IDevice device, MvLeFlashSyncPlan plan)
+    {
+        foreach (string name in BroadcastSelectorNames)
+        {
+            if (device.Parameters.SetEnumValueByString(SelectorNode, name) != MvError.MV_OK)
+                continue;
+
+            if (!SetSource(device, "Off"))
+                continue;
+
+            plan.CachedBroadcastSelectorName = name;
+            plan.CachedBroadcastSelectorValue = null;
+            return;
+        }
+
+        foreach (uint selector in plan.BroadcastSelectorCandidates)
+        {
+            if (device.Parameters.SetEnumValue(SelectorNode, selector) != MvError.MV_OK)
+                continue;
+
+            if (!SetSource(device, "Off"))
+                continue;
+
+            plan.CachedBroadcastSelectorValue = selector;
+            plan.CachedBroadcastSelectorName = $"sel:{selector}";
+            return;
+        }
+    }
+
+    private static bool TryApplyCachedBroadcastSelector(
+        IDevice device,
+        MvLeFlashSyncPlan plan,
+        string source,
+        out string via)
+    {
+        via = "";
+        if (!string.IsNullOrEmpty(plan.CachedBroadcastSelectorName)
+            && !plan.CachedBroadcastSelectorName.StartsWith("sel:", StringComparison.Ordinal))
+        {
+            if (device.Parameters.SetEnumValueByString(SelectorNode, plan.CachedBroadcastSelectorName) != MvError.MV_OK
+                || !SetSource(device, source))
+            {
+                return false;
+            }
+
+            via = plan.CachedBroadcastSelectorName;
+            return true;
+        }
+
+        if (plan.CachedBroadcastSelectorValue is uint selector
+            && device.Parameters.SetEnumValue(SelectorNode, selector) == MvError.MV_OK
+            && SetSource(device, source))
+        {
+            via = plan.CachedBroadcastSelectorName ?? $"sel:{selector}";
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool IsBroadcastSymbol(string sym) =>
         sym.Equals("All", StringComparison.OrdinalIgnoreCase)
         || sym.Equals("ChannelAll", StringComparison.OrdinalIgnoreCase)
         || sym.Contains("All", StringComparison.OrdinalIgnoreCase);
 
-    private static bool WriteChannelsBrightnessOnly(
+    public static bool WriteChannelsBrightnessOnly(
         IDevice device,
         object syncRoot,
         bool useSdkLock,

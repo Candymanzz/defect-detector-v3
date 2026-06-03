@@ -12,6 +12,7 @@ namespace LightServer.Services;
 public sealed class ComLightIsolatedBank : IDisposable
 {
     private readonly IReadOnlyDictionary<string, IsolatedComPortLight> _ports;
+    private readonly SerialLightOptions _serialOptions;
     private readonly ILogger<ComLightIsolatedBank> _log;
     private readonly object _initLock = new();
     private bool _initialized;
@@ -23,6 +24,7 @@ public sealed class ComLightIsolatedBank : IDisposable
         IOptions<SerialLightOptions> serial,
         ILoggerFactory loggerFactory)
     {
+        _serialOptions = serial.Value;
         _log = loggerFactory.CreateLogger<ComLightIsolatedBank>();
         ComLightDeviceEntry[] unique = ComLightBankService.DeduplicateDevicesForOptions(devices.Value.Devices);
         var map = new Dictionary<string, IsolatedComPortLight>(StringComparer.OrdinalIgnoreCase);
@@ -107,6 +109,40 @@ public sealed class ComLightIsolatedBank : IDisposable
     }
 
     public IReadOnlyList<(string ComPort, bool Ok, string? Message)> ApplyAllOn(
+        IReadOnlyList<ComPortFlashCommand> commands)
+    {
+        if (MvLeFlashSync.IsBankDirectOnMode(_serialOptions.BankFlashMode))
+            return ApplyAllOnDirect(commands);
+
+        return ApplyAllOnTwoPhase(commands);
+    }
+
+    private IReadOnlyList<(string ComPort, bool Ok, string? Message)> ApplyAllOnDirect(
+        IReadOnlyList<ComPortFlashCommand> commands)
+    {
+        var results = new ConcurrentDictionary<string, (bool Ok, string? Message)>(StringComparer.OrdinalIgnoreCase);
+        var sw = Stopwatch.StartNew();
+
+        Parallel.ForEach(commands, cmd =>
+        {
+            if (!_ports.TryGetValue(cmd.ComPort, out IsolatedComPortLight? port))
+            {
+                results[cmd.ComPort] = (false, "COM не в конфиге isolated bank.");
+                return;
+            }
+
+            (bool ok, string? msg) = port.ApplyDirectOn(cmd.Brightness);
+            results[cmd.ComPort] = ok ? (true, msg) : (false, msg);
+            if (!ok)
+                _log.LogWarning("Bank on fail {ComPort}: {Msg}", cmd.ComPort, msg);
+        });
+
+        sw.Stop();
+        _log.LogInformation("Bank direct-on {Count} COM in {Ms} ms (parallel)", commands.Count, sw.ElapsedMilliseconds);
+        return BuildResults(commands, results);
+    }
+
+    private IReadOnlyList<(string ComPort, bool Ok, string? Message)> ApplyAllOnTwoPhase(
         IReadOnlyList<ComPortFlashCommand> commands)
     {
         var results = new ConcurrentDictionary<string, (bool Ok, string? Message)>(StringComparer.OrdinalIgnoreCase);
