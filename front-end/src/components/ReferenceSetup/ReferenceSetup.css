@@ -20,6 +20,13 @@
   line-height: 1.5;
 }
 
+.reference-setup__reference-status {
+  margin-bottom: 10px;
+  color: #9becbd;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .reference-setup.modal {
   display: flex;
   flex-direction: column;

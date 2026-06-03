@@ -100,6 +100,9 @@ export function ModalWrapper({
           )}
         </div>
 
+        <div className="modal-inspect-result__empty">
+          {storedReferenceImage ? "Эталон задан" : "Эталон ещё не задан"}
+        </div>
         <InspectResultPanel inspectResult={inspectResult} />
       </section>
     </div>

@@ -1,6 +1,8 @@
+import { useSyncExternalStore } from "react";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
+import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { useReferenceSetupController } from "./ReferenceController";
 
 type ReferenceSetupProps = {
@@ -25,6 +27,11 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
     setSelectedCameraId,
   } = useReferenceSetupController(onClose, initialJointViewIndex);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
+  const storedReferenceImage = useSyncExternalStore(
+    subscribeReferenceImages,
+    () => getReferenceImage(selectedCameraId),
+    () => undefined,
+  );
 
   return (
     <div
@@ -51,6 +58,9 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
         </header>
 
         <div className="reference-setup__body">
+          <div className="reference-setup__reference-status">
+            {storedReferenceImage ? `Эталон задан для Camera ${selectedCameraId}` : "Эталон ещё не задан"}
+          </div>
           <div className="reference-setup__toolbar">
             <label>
               Основной ракурс
