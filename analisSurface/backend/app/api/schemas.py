@@ -116,6 +116,7 @@ class ShmFrameRequest(BaseModel):
     shm_offset: int = 0
     threshold: Optional[float] = None
     detector_id: Optional[str] = None
+    algorithm_params: Optional[dict] = None
 
 
 class ShmVisualsRequest(ShmFrameRequest):
@@ -142,6 +143,7 @@ class RoiPoint(BaseModel):
 class RoiPolygonRequest(BaseModel):
     product_type: str
     points: list[RoiPoint]
+    algorithm_params: Optional[dict] = None
 
 
 class RoiPolygonResponse(BaseModel):

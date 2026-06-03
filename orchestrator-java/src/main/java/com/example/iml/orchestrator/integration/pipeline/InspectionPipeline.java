@@ -14,6 +14,7 @@ import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspection
 import com.example.iml.orchestrator.integration.pipeline.session.ConveyorBenchmarkOrchestrator;
 import com.example.iml.orchestrator.integration.pipeline.session.ProductionInspectionOrchestrator;
 import com.example.iml.orchestrator.integration.pipeline.session.SingleFrameBenchmarkOrchestrator;
+import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
 import java.nio.file.Path;
@@ -62,7 +63,8 @@ public final class InspectionPipeline {
             IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark,
             IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark,
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection,
-            IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub,
+            InspectionTriggerStrategy triggerStrategy,
+            IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
             int flashLeadMs,
             PipelineStagesLog pipelineStagesLog
@@ -187,8 +189,8 @@ public final class InspectionPipeline {
         ProductionInspectionOrchestrator.run(
                 svc,
                 in,
-                continuousInspection,
-                devAutoTriggerStub,
+                triggerStrategy,
+                triggerMode,
                 referenceSource,
                 referenceByCamera
         );

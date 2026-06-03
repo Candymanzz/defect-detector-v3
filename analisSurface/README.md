@@ -7,11 +7,10 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
-<<<<<<< Updated upstream:analisSurface/README.md
 ## Java-оркестратор (HTTP)
 
 Оркестратор вызывает этот API по `python_detector.base_url` в `config/config.yaml` (по умолчанию `http://127.0.0.1:8000`). Перед стартом оркестратора поднимите FastAPI (см. раздел выше).
-=======
+
 Windows (PowerShell):
 
 ```powershell
@@ -40,7 +39,6 @@ Per-`product_type` inspection tuning (defaults always apply for unset fields):
 - `DELETE /analysis-settings/{product_type}` — reset to defaults
 
 Full parameter reference (what each knob does, increase/decrease effects): [docs/ANALYSIS_SETTINGS.md](docs/ANALYSIS_SETTINGS.md)
->>>>>>> Stashed changes:README.md
 
 ## Python camera server (RTSP/USB capture)
 

@@ -29,3 +29,8 @@ LightServer/obj/
 /megaOrchestratoraue228-main
 c_capture/camera_server
 /test-pr-ph
+LightServer.v3/bin/Debug/net10.0/appsettings.json
+LightServer.v3/bin/Debug/net10.0/LightServer.dll
+LightServer.v3/bin/Debug/net10.0/LightServer.exe
+LightServer.v3/bin/Debug/net10.0/LightServer.pdb
+LightServer.v3/bin/Debug/net10.0/LightServer.xml

@@ -233,6 +233,7 @@ class InspectionService:
         include_visuals: bool = True,
         detector_id: Optional[str] = None,
     ) -> InspectionResult:
+        settings = self.get_analysis_settings(product_type)
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")

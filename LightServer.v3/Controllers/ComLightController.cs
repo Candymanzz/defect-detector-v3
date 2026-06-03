@@ -9,12 +9,8 @@ namespace LightServer.Controllers;
 public sealed class ComLightController : ControllerBase
 {
     private readonly LightControlService _light;
-    private readonly IoControllerComService _ioCom;
-    public ComLightController(LightControlService light, IoControllerComService ioCom)
-    {
-        _light = light;
-        _ioCom = ioCom;
-    }
+
+    public ComLightController(LightControlService light) => _light = light;
 
     /// <summary>Список устройств на указанных COM-портах. Порты: ?ports=COM1,COM3 или из appsettings SerialLight:EnumPorts.</summary>
     [HttpGet("devices")]
@@ -52,40 +48,6 @@ public sealed class ComLightController : ControllerBase
 
         data = new DeviceListResponse { Count = merged.Count, Devices = merged };
         return Ok(data);
-    }
-
-    /// <summary>Управление подсветкой по COM: укажите comPort.</summary>
-    [HttpPost("light")]
-    public ActionResult<LightCommandResponse> SetLightSerial([FromBody] LightCommandRequestCom request, [FromQuery] string? ports)
-    {
-        var portList = ParsePortsQuery(ports);
-        // MV-LE — MvCameraControl; IoCom только если MvCamera не смог (иначе IoCom держит COM2 и ломает следующий On).
-        var (ok, message) = _light.SetLightSerial(request, portList);
-        if (!ok)
-        {
-            var (ioOk, ioMsg) = _ioCom.SetLight(request);
-            if (ioOk)
-            {
-                ok = true;
-                message = $"MvCameraControl: {message} | {ioMsg}";
-            }
-            else
-            {
-                message = ioMsg ?? message;
-            }
-        }
-
-        var response = new LightCommandResponse
-        {
-            Success = ok,
-            Message = ok ? message : null,
-            Error = ok ? null : message,
-            ComPort = request.ComPort,
-            LightControllerSource = request.LightControllerSource,
-            Channels = request.Channels,
-            Brightness = request.Brightness
-        };
-        return ok ? Ok(response) : BadRequest(response);
     }
 
     private static List<string>? ParsePortsQuery(string? ports)

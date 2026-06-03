@@ -1,23 +1,24 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
- * LightServer.v3 ComLight (Swagger): {@code POST /api/com/light?ports=COMx} с телом
- * {@code { comPort, lightControllerSource, channels, brightness }}.
- * Опционально {@code GET /api/com/devices?ports=...} — не вызываем перед вспышкой (долгое MVS enum).
- * При {@code IoController:FlashMode=Hold} IO box держит свет до {@code Off}; Trigger — только короткий импульс.
+ * LightServer.v3 ComLightApply: {@code POST /api/com/light} с телом
+ * {@code { "state": "on"|"off", "brightness": "100" }} — яркость в % через запятую по всем каналам банка
+ * (COM1…COM3 из appsettings LightServer).
+ * {@code GET /api/com/devices?ports=...} не вызываем перед вспышкой (долгое MVS enum).
  */
 public final class ComIoLightEndpoint implements LightEndpoint {
 
@@ -29,42 +30,27 @@ public final class ComIoLightEndpoint implements LightEndpoint {
     private final URI lightUri;
     private final HttpClient httpClient;
     private final Duration timeout;
-    private final String comPort;
-    private final int[] channels;
-    private final int[] brightnessRaw;
+    private final Duration statusPollTimeout;
+    private final int[] defaultBrightnessRaw;
+    private volatile boolean bankReadyLogged;
 
     public ComIoLightEndpoint(
             Logger log,
             String id,
             boolean enabled,
             String baseUrl,
-            String comPort,
-            String comPortsQuery,
             int timeoutMs,
-            int[] channels,
-            int[] brightnessRaw
+            int[] defaultBrightnessRaw
     ) {
         this.log = log;
         this.id = id;
         this.enabled = enabled;
         String base = LightServerV3Http.normalizeBaseUrl(baseUrl);
-        String portsQuery = buildPortsQuery(comPort, comPortsQuery);
-        this.lightUri = URI.create(base + LightServerV3Http.PATH_COM_LIGHT + portsQuery);
+        this.lightUri = URI.create(base + LightServerV3Http.PATH_COM_LIGHT);
         this.timeout = Duration.ofMillis(Math.max(100, timeoutMs));
+        this.statusPollTimeout = Duration.ofMillis(Math.min(3000, Math.max(500, timeoutMs / 5)));
         this.httpClient = HttpClient.newBuilder().connectTimeout(this.timeout).build();
-        this.comPort = comPort == null || comPort.isBlank() ? "COM1" : comPort.trim();
-        this.channels = channels == null || channels.length == 0 ? new int[]{1, 2, 3, 4} : channels.clone();
-        this.brightnessRaw = brightnessRaw == null ? null : brightnessRaw.clone();
-    }
-
-    private static String buildPortsQuery(String comPort, String comPortsQuery) {
-        String ports = comPortsQuery != null && !comPortsQuery.isBlank()
-                ? comPortsQuery.trim()
-                : comPort;
-        if (ports == null || ports.isBlank()) {
-            return "";
-        }
-        return "?ports=" + URLEncoder.encode(ports, StandardCharsets.UTF_8);
+        this.defaultBrightnessRaw = defaultBrightnessRaw == null ? null : defaultBrightnessRaw.clone();
     }
 
     @Override
@@ -78,12 +64,54 @@ public final class ComIoLightEndpoint implements LightEndpoint {
     }
 
     /**
-     * Не вызываем GET /api/com/devices перед вспышкой: перечисление MVS занимает 7–15 с,
-     * держит {@code _sdkLock} в LightServer и мешает POST /api/com/light (IoCom fallback).
+     * Ждём {@code GET /api/com/light} → {@code initialized: true} (банк COM из appsettings LightServer).
+     * Не вызываем {@code GET /api/com/devices} — долгое MVS enum.
      */
     @Override
     public void ensureReady() {
-        // см. комментарий к методу — перечисление устройств не делаем
+        if (!enabled) {
+            return;
+        }
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadlineNanos) {
+            try {
+                if (pollBankInitialized()) {
+                    return;
+                }
+            } catch (Exception e) {
+                log.debug("light {} COM bank status poll: {}", id, e.getMessage());
+            }
+            try {
+                Thread.sleep(400L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.warn("light {} COM bank not initialized within {} ms — первый POST on может занять 8–12 s",
+                id, timeout.toMillis());
+    }
+
+    private boolean pollBankInitialized() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(lightUri)
+                .timeout(statusPollTimeout)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() / 100 != 2 || response.body() == null || response.body().isBlank()) {
+            return false;
+        }
+        JsonNode root = MAPPER.readTree(response.body());
+        if (!root.path("initialized").asBoolean(false)) {
+            return false;
+        }
+        if (!bankReadyLogged) {
+            bankReadyLogged = true;
+            log.info("light {} COM bank ready (initialized), devices={}", id, root.path("devices"));
+        }
+        return true;
     }
 
     @Override
@@ -91,10 +119,10 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        int[] brightness = resolveBrightness(brightnessPercent);
-        postLight("On", brightness);
-        log.info("light {} COM On cam={} frame={} phase={} port={} brightness={}",
-                id, cameraId, frameId, phase, comPort, brightness);
+        String brightness = formatBrightnessCsv(brightnessPercent, defaultBrightnessRaw);
+        postState("on", brightness);
+        log.info("light {} COM bank on cam={} frame={} phase={} brightness={}",
+                id, cameraId, frameId, phase, brightness);
     }
 
     @Override
@@ -102,17 +130,24 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        postLight("Off", null);
-        log.info("light {} COM Off port={}", id, comPort);
+        postState("off", null);
+        log.info("light {} COM bank off", id);
     }
 
-    private void postLight(String source, int[] brightness) throws Exception {
+    @Override
+    public void turnOffForCamera(int cameraId) throws Exception {
+        if (!enabled) {
+            return;
+        }
+        postState("off", null);
+        log.info("light {} COM bank off cam={}", id, cameraId);
+    }
+
+    private void postState(String state, String brightnessCsv) throws Exception {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("comPort", comPort);
-        body.put("lightControllerSource", source);
-        body.put("channels", channels);
-        if (brightness != null) {
-            body.put("brightness", brightness);
+        body.put("state", state);
+        if (brightnessCsv != null && !brightnessCsv.isBlank()) {
+            body.put("brightness", brightnessCsv);
         }
         byte[] json = MAPPER.writeValueAsBytes(body);
         HttpRequest request = HttpRequest.newBuilder()
@@ -125,21 +160,17 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         LightServerV3Http.requireLightCommandSuccess(id, "POST", LightServerV3Http.PATH_COM_LIGHT, response);
         if (response.body() != null && !response.body().isBlank()) {
-            log.info("light {} COM {} port={} -> {}", id, source, comPort, response.body());
+            log.info("light {} COM {} -> {}", id, state, response.body());
         }
     }
 
-    private int[] resolveBrightness(int brightnessPercent) {
-        if (brightnessRaw != null && brightnessRaw.length > 0) {
-            if (brightnessRaw.length >= channels.length) {
-                return brightnessRaw.clone();
-            }
-            int[] out = new int[channels.length];
-            for (int i = 0; i < channels.length; i++) {
-                out[i] = brightnessRaw[Math.min(i, brightnessRaw.length - 1)];
-            }
-            return out;
+    static String formatBrightnessCsv(int brightnessPercent, int[] brightnessRaw) {
+        int percent = LightBrightnessScale.clampPercent(brightnessPercent);
+        if (brightnessRaw == null || brightnessRaw.length == 0) {
+            return Integer.toString(percent);
         }
-        return LightBrightnessScale.mvLeBrightnessForChannels(brightnessPercent, channels);
+        return IntStream.of(brightnessRaw)
+                .mapToObj(v -> Integer.toString(LightBrightnessScale.toPercent(v, percent)))
+                .collect(Collectors.joining(","));
     }
 }

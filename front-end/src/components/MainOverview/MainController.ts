@@ -40,9 +40,7 @@ export function createCameraCards(
   backendReady: boolean,
   imageUrlsByCameraId: CameraImageUrlsById = {},
 ): CameraCardData[] {
-  return cameraIds.map((cameraId, index) =>
-    createCameraCardData(cameraId, index, backendReady, imageUrlsByCameraId),
-  );
+  return cameraIds.map((cameraId, index) => createCameraCardData(cameraId, index, backendReady, imageUrlsByCameraId));
 }
 
 export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
@@ -90,7 +88,7 @@ function createCameraCardData(
   return {
     cameraId,
     objectName: getObjectName(index),
-    imageUrl: backendReady ? imageUrlsByCameraId[cameraId] ?? orchestratorApi.currentFrameUrl(cameraId) : undefined,
+    imageUrl: backendReady ? (imageUrlsByCameraId[cameraId] ?? orchestratorApi.currentFrameUrl(cameraId)) : undefined,
   };
 }
 

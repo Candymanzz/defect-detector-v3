@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
@@ -30,6 +31,10 @@ import com.example.iml.orchestrator.integration.pipeline.stages.InspectGeometryE
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPythonExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
 import com.example.iml.orchestrator.integration.pipeline.telemetry.PipelineInspectionTelemetry;
+import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
+import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
+import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
+import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
@@ -66,11 +71,12 @@ public final class IntegrationBootstrap {
 
     public void start(Map<String, Object> root, Path projectRoot) {
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> cameras = (List<Map<String, Object>>) root.get("cameras");
-        if (cameras == null || cameras.isEmpty()) {
-            log.warn("No cameras in config; integration pipeline skipped");
+        List<Map<String, Object>> cameras = enabledCameras((List<Map<String, Object>>) root.get("cameras"));
+        if (cameras.isEmpty()) {
+            log.warn("No enabled cameras in config; integration pipeline skipped");
             return;
         }
+        log.info("configured cameras: {}", ConfiguredCameras.enabledIds(root));
 
         Path workerBin = CameraWorkerPaths.resolveCameraWorkerExecutable(projectRoot);
         @SuppressWarnings("unchecked")
@@ -156,6 +162,10 @@ public final class IntegrationBootstrap {
             log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
+        if (lightClient.isEnabled()) {
+            log.info("waiting for LightServer COM bank (GET /api/com/light)...");
+            lightClient.awaitEndpointsReady();
+        }
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
         Map<Integer, String> detectorByCamera = new LinkedHashMap<>();
         for (Map<String, Object> camera : cameras) {
@@ -215,6 +225,7 @@ public final class IntegrationBootstrap {
 
         LivePreviewPublisher livePreview = null;
         CameraStreamService cameraStreamService = null;
+        InspectionTriggerRuntime triggerRuntime = null;
         try {
             IntegrationFeatureConfig.TimingStagesLogConfig timingStagesLogCfg = IntegrationFeatureConfig.parseTimingStagesLog(integration);
             if (timingStagesLogCfg.enabled()) {
@@ -312,7 +323,22 @@ public final class IntegrationBootstrap {
             AtomicInteger pythonRoundRobin = new AtomicInteger(0);
             IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark = IntegrationFeatureConfig.parseSingleFrameBenchmark(integration);
             IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark = IntegrationFeatureConfig.parseConveyorBenchmark(integration);
-            IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection = IntegrationFeatureConfig.parseContinuousInspection(integration);
+            IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection =
+                    IntegrationFeatureConfig.parseContinuousInspection(integration);
+            IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
+                    IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
+            triggerRuntime = InspectionTriggerRuntime.start(
+                    log,
+                    integration,
+                    workersByCamera.keySet(),
+                    triggerMode
+            );
+            InspectionTriggerStrategy sharedTriggerStrategy = InspectionTriggerStrategyFactory.create(
+                    triggerMode,
+                    triggerRuntime.bus(),
+                    devAutoTriggerStub,
+                    continuousInspection
+            );
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures = IntegrationFeatureConfig.parseSaveCaptures(integration);
             if (saveCaptures.enabled()) {
                 log.info("save_captures enabled dir={} (от корня проекта)", saveCaptures.relativeDir());
@@ -331,6 +357,18 @@ public final class IntegrationBootstrap {
                 log.info("dev_auto_trigger_stub enabled interval_ms={}", devAutoTriggerStub.intervalMs());
             } else if (continuousInspection.enabled()) {
                 log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
+            } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
+                InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
+                if (triggerCfg.udp().enabled()) {
+                    log.info(
+                            "inspection_trigger external udp {}:{} format={}",
+                            triggerCfg.udp().bindHost(),
+                            triggerCfg.udp().bindPort(),
+                            triggerCfg.udp().format()
+                    );
+                } else {
+                    log.warn("inspection_trigger external mode but udp.enabled=false");
+                }
             }
             List<Callable<Void>> tasks = new ArrayList<>();
             for (Map<String, Object> camera : cameras) {
@@ -368,7 +406,8 @@ public final class IntegrationBootstrap {
                             singleFrameBenchmark,
                             conveyorBenchmark,
                             continuousInspection,
-                            devAutoTriggerStub,
+                            sharedTriggerStrategy,
+                            triggerMode,
                             saveCaptures,
                             flashLeadMs,
                             pipelineStagesLog
@@ -388,6 +427,9 @@ public final class IntegrationBootstrap {
             }
             if (cameraStreamService != null) {
                 cameraStreamService.close();
+            }
+            if (triggerRuntime != null) {
+                triggerRuntime.close();
             }
             IntegrationShutdownCoordinator.shutdownAll(new IntegrationShutdownCoordinator.ShutdownResources(
                     pipelineStagesLogMutable,
@@ -411,5 +453,19 @@ public final class IntegrationBootstrap {
                     log
             ));
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> enabledCameras(List<Map<String, Object>> cameras) {
+        if (cameras == null || cameras.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> camera : cameras) {
+            if (YamlScalars.toBool(camera.get("enabled"), true)) {
+                out.add(camera);
+            }
+        }
+        return List.copyOf(out);
     }
 }

@@ -109,9 +109,7 @@ export function MainOverview({ selectedCameraId, onSelectedCameraIdChange }: Mai
             objectName={camera.objectName}
             imageUrl={camera.imageUrl}
             selected={selectedCameraId === camera.cameraId}
-            onSelect={() =>
-              onSelectedCameraIdChange(selectedCameraId === camera.cameraId ? null : camera.cameraId)
-            }
+            onSelect={() => onSelectedCameraIdChange(selectedCameraId === camera.cameraId ? null : camera.cameraId)}
             onOpen={() => setSelectedCamera(createSelectedCamera(camera))}
           />
         ))}
