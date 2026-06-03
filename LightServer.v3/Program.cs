@@ -1,9 +1,23 @@
 using System.Reflection;
 using LightServer;
+using LightServer.Logging;
 using LightServer.Services;
 using Microsoft.Extensions.Options;
 
-var builder = WebApplication.CreateBuilder(args);
+// Оркестратор: cwd = корень репо, dotnet exec …/LightServer.dll — без этого appsettings читается не из bin/.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+});
+
+string logsDir = FileLogPaths.ResolveLogsDirectory(builder.Configuration, builder.Environment.ContentRootPath);
+Directory.CreateDirectory(logsDir);
+string logFilePath = FileLogPaths.CreateSessionLogFilePath(logsDir);
+builder.Logging.AddProvider(new FileSessionLoggerProvider(logFilePath, builder.Configuration));
+
+// Оркестратор наследует stdout — путь к логу виден сразу в его консоли.
+Console.WriteLine($"[LightServer] file log: {logFilePath}");
 
 builder.Services.Configure<SerialLightOptions>(builder.Configuration.GetSection(SerialLightOptions.SectionName));
 builder.Services.Configure<ComLightDevicesOptions>(builder.Configuration.GetSection(ComLightDevicesOptions.SectionName));
@@ -34,6 +48,17 @@ builder.Services.AddHostedService<MvsSdkLifetime>();
 builder.Services.AddHostedService<ComLightBankHostedService>();
 
 var app = builder.Build();
+
+ComLightDevicesOptions comDevices = app.Services.GetRequiredService<IOptions<ComLightDevicesOptions>>().Value;
+app.Logger.LogInformation(
+    "Content root: {ContentRoot}, ComLightDevices: {DeviceCount}, файл лога: {LogFile}",
+    app.Environment.ContentRootPath,
+    comDevices.Devices.Length,
+    logFilePath);
+if (comDevices.Devices.Length == 0)
+    app.Logger.LogWarning("ComLightDevices:Devices пуст — проверьте appsettings.json рядом с {DllDir}", AppContext.BaseDirectory);
+
+app.UseMiddleware<HttpExchangeLoggingMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>

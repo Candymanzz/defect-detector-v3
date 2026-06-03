@@ -60,6 +60,12 @@
         <member name="P:LightServer.IoControllerOptions.KeepComSessionOpen">
             <summary>Не закрывать COM после каждого запроса (как рабочий LightService).</summary>
         </member>
+        <member name="T:LightServer.Logging.FileSessionLoggerProvider">
+            <summary>Один файл на запуск приложения: logs/yyyy-MM-dd_HH-mm-ss.log</summary>
+        </member>
+        <member name="T:LightServer.Logging.HttpExchangeLoggingMiddleware">
+            <summary>Логирует тело запроса и ответа для API (в тот же файл, что и остальные логи).</summary>
+        </member>
         <member name="P:LightServer.Models.DeviceInfoDto.ComPort">
             <summary>Для Camera Link (COM) — из ICamlDeviceInfo.PortID.</summary>
         </member>
