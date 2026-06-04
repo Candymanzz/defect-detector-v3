@@ -43,15 +43,12 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
           setMessage("WebSocket connected");
           break;
         case "server.state":
-          setMessage(`State: ${message.payload.session_state} ${message.payload.server_ts_ms}`);
           break;
         case "server.preview_frame":
           handlePreviewFrame(message.payload);
-          setMessage(`Camera ${message.payload.camera_id}, frame ${message.payload.frame_id}`);
           break;
         case "server.stream_started":
           ownedStreamCameraIdsRef.current.add(message.payload.camera_id);
-          setMessage(`Stream active for camera ${message.payload.camera_id}`);
           break;
         case "server.stream_stopped":
           ownedStreamCameraIdsRef.current.delete(message.payload.camera_id);
