@@ -83,7 +83,7 @@ ui_http:
   enabled: true
   host: "127.0.0.1"
   port: 8099
-  visuals_async_enabled: false
+  visuals_async_enabled: true
   visuals_queue_size: 8
   store_current_jpeg: true
   store_heatmap_u8: true

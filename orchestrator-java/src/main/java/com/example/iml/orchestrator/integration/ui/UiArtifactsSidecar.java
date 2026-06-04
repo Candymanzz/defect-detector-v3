@@ -275,7 +275,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.debug("ui artifacts publish failed cam={} frame={}: {}", cameraId, frameId, e.getMessage());
             }
         });
     }

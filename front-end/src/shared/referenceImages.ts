@@ -9,22 +9,24 @@ export type StoredReferenceImage = {
 
 const referenceImagesByCameraId = new Map<number, StoredReferenceImage>();
 const listeners = new Set<ReferenceImageListener>();
+let referenceImageVersion = 0;
 
 export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,
   fallbackImageUrlsByCameraId: Record<number, string> = {},
 ) {
   referenceImagesByCameraId.clear();
+  referenceImageVersion += 1;
 
   bundle.views.forEach((view, viewIndex) => {
-    const imageUrl =
+    const baseImageUrl =
       createFrameImageUrl(view.frame) ??
       fallbackImageUrlsByCameraId[view.frame.camera_id] ??
       fallbackImageUrlsByCameraId[viewIndex];
 
-    if (imageUrl) {
+    if (baseImageUrl) {
       const referenceImage = {
-        imageUrl,
+        imageUrl: versionReferenceImageUrl(baseImageUrl, referenceImageVersion),
         roiPoints: copyRoiPoints(view.interest_polygon_norm),
       };
 
@@ -69,6 +71,11 @@ function createFrameImageUrl(frame: ShmFrameRefData) {
   }
 
   return undefined;
+}
+
+function versionReferenceImageUrl(imageUrl: string, version: number) {
+  const separator = imageUrl.includes("?") ? "&" : "?";
+  return `${imageUrl}${separator}reference_ts=${version}`;
 }
 
 function emitReferenceImageChange() {
