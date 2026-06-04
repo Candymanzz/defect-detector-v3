@@ -34,6 +34,17 @@ export function createReferenceBundleFromCameraFrames(
   });
   const firstFrame = frames[0];
   const productType = firstFrame.detector.product_type || "reference-product";
+
+  for (const frame of frames) {
+    if (frame.current.width !== firstFrame.current.width || frame.current.height !== firstFrame.current.height) {
+      throw new Error("Reference frames for cameras 0-3 must have the same resolution");
+    }
+
+    if ((frame.detector.product_type || productType) !== productType) {
+      throw new Error("Reference frames for cameras 0-3 must have the same product type");
+    }
+  }
+
   const views = frames.map((previewFrame, viewIndex) =>
     createReferenceViewForFrame(
       previewFrame,

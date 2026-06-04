@@ -3,6 +3,7 @@ import { commitReferenceBundleImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { ClientReferenceBundlePayload, ServerWsMessage, WsConnectionStatus } from "../../shared/ws";
 import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
+import { REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
 import { useReferenceFrames } from "./useReferenceFrames";
 import { useReferenceRoi } from "./useReferenceRoi";
 
@@ -13,6 +14,8 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     messageId: string;
     payload: ClientReferenceBundlePayload;
   } | null>(null);
+  const requestedStreamCameraIdsRef = useRef<Set<number>>(new Set());
+  const ownedStreamCameraIdsRef = useRef<Set<number>>(new Set());
   const referenceFrames = useReferenceFrames();
   const referenceRoi = useReferenceRoi(initialJointViewIndex);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
@@ -46,6 +49,13 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
           handlePreviewFrame(message.payload);
           setMessage(`Camera ${message.payload.camera_id}, frame ${message.payload.frame_id}`);
           break;
+        case "server.stream_started":
+          ownedStreamCameraIdsRef.current.add(message.payload.camera_id);
+          setMessage(`Stream active for camera ${message.payload.camera_id}`);
+          break;
+        case "server.stream_stopped":
+          ownedStreamCameraIdsRef.current.delete(message.payload.camera_id);
+          break;
         case "server.reference_bundle_ack":
           handleReferenceBundleAck(message);
           break;
@@ -65,6 +75,46 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
       unsubscribeMessage();
     };
   }, [handlePreviewFrame, handleReferenceBundleAck]);
+
+  useEffect(() => {
+    if (status.state !== "open") {
+      return;
+    }
+
+    const nextRequested = new Set(requestedStreamCameraIdsRef.current);
+
+    for (const cameraId of REFERENCE_REQUIRED_CAMERA_IDS) {
+      if (nextRequested.has(cameraId)) {
+        continue;
+      }
+
+      try {
+        orchestratorWs.sendStreamStart({
+          camera_id: cameraId,
+          max_fps: 1,
+        });
+        nextRequested.add(cameraId);
+      } catch {
+        return;
+      }
+    }
+
+    requestedStreamCameraIdsRef.current = nextRequested;
+  }, [status.state]);
+
+  useEffect(() => {
+    const ownedStreamCameraIdsRefValue = ownedStreamCameraIdsRef;
+
+    return () => {
+      for (const cameraId of ownedStreamCameraIdsRefValue.current) {
+        try {
+          orchestratorWs.sendStreamStop({ camera_id: cameraId });
+        } catch {
+          // The socket may already be closed while the modal is unmounting.
+        }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -107,9 +157,13 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
 
   const handleSelectCamera = async (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
-    setMessage(`Loading latest image for camera ${cameraId}...`);
-    const ok = await refreshLatestImages(cameraId);
-    setMessage(ok ? `Latest image loaded for camera ${cameraId}` : `Latest image is not available for camera ${cameraId}`);
+    setMessage(`Waiting for live frame from camera ${cameraId}...`);
+    const { loadedCameraIds } = await refreshLatestImages(cameraId);
+    setMessage(
+      loadedCameraIds.length > 0
+        ? `Latest image loaded for camera ${cameraId}`
+        : `Live frame has not arrived for camera ${cameraId} yet`,
+    );
   };
 
   return {

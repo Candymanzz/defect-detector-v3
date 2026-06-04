@@ -4,7 +4,6 @@ import type { PreviewFramePayload } from "../../shared/ws";
 import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
 
 export function useReferenceFrames() {
-  const [imageUrl, setImageUrl] = useState<string>();
   const [liveFramesByCameraId, setLiveFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [liveImageUrlsByCameraId, setLiveImageUrlsByCameraId] = useState<Record<number, string>>({});
   const [framesByCameraId, setFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
@@ -18,48 +17,48 @@ export function useReferenceFrames() {
 
   const refreshLatestImages = useCallback(async (cameraId?: number) => {
     if (cameraId !== undefined) {
-      const liveFrame = liveFramesByCameraId[cameraId];
-      const liveImageUrl = liveImageUrlsByCameraId[cameraId];
+      const loaded = commitLiveReferenceFrame(
+        cameraId,
+        liveFramesByCameraId[cameraId],
+        liveImageUrlsByCameraId[cameraId],
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+      );
 
-      if (!liveFrame || !liveImageUrl) {
-        return false;
-      }
-
-      setFramesByCameraId((prevFrames) => ({
-        ...prevFrames,
-        [cameraId]: liveFrame,
-      }));
-      setImageUrlsByCameraId((prevImageUrls) => ({
-        ...prevImageUrls,
-        [cameraId]: liveImageUrl,
-      }));
-      setImageUrl(liveImageUrl);
-
-      return true;
+      return loaded
+        ? {
+            loadedCameraIds: [cameraId],
+            missingCameraIds: [],
+          }
+        : {
+            loadedCameraIds: [],
+            missingCameraIds: [cameraId],
+          };
     }
 
-    const nextFramesByCameraId: Record<number, PreviewFramePayload> = {};
-    const nextImageUrlsByCameraId: Record<number, string> = {};
+    const loadedCameraIds: number[] = [];
+    const missingCameraIds: number[] = [];
 
     for (const cameraId of REFERENCE_CAMERA_IDS) {
-      const liveFrame = liveFramesByCameraId[cameraId];
-      const liveImageUrl = liveImageUrlsByCameraId[cameraId];
+      const loaded = commitLiveReferenceFrame(
+        cameraId,
+        liveFramesByCameraId[cameraId],
+        liveImageUrlsByCameraId[cameraId],
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+      );
 
-      if (liveFrame && liveImageUrl) {
-        nextFramesByCameraId[cameraId] = liveFrame;
-        nextImageUrlsByCameraId[cameraId] = liveImageUrl;
+      if (loaded) {
+        loadedCameraIds.push(cameraId);
+      } else {
+        missingCameraIds.push(cameraId);
       }
     }
 
-    if (Object.keys(nextFramesByCameraId).length === 0) {
-      return false;
-    }
-
-    setFramesByCameraId(nextFramesByCameraId);
-    setImageUrlsByCameraId(nextImageUrlsByCameraId);
-    setImageUrl(nextImageUrlsByCameraId[REFERENCE_CAMERA_IDS[0]]);
-
-    return true;
+    return {
+      loadedCameraIds,
+      missingCameraIds,
+    };
   }, [liveFramesByCameraId, liveImageUrlsByCameraId]);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
@@ -76,10 +75,19 @@ export function useReferenceFrames() {
         [previewFrame.camera_id]: nextImageUrl,
       }));
     }
+
+    if (nextImageUrl && REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
+      commitLiveReferenceFrame(
+        previewFrame.camera_id,
+        previewFrame,
+        nextImageUrl,
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+      );
+    }
   }, []);
 
   return {
-    imageUrl,
     imageUrlsByCameraId,
     framesByCameraId,
     cameraSlots,
@@ -87,4 +95,27 @@ export function useReferenceFrames() {
     handlePreviewFrame,
     refreshLatestImages,
   };
+}
+
+function commitLiveReferenceFrame(
+  cameraId: number,
+  liveFrame: PreviewFramePayload | undefined,
+  liveImageUrl: string | undefined,
+  setFramesByCameraId: React.Dispatch<React.SetStateAction<Record<number, PreviewFramePayload>>>,
+  setImageUrlsByCameraId: React.Dispatch<React.SetStateAction<Record<number, string>>>,
+) {
+  if (!liveFrame || !liveImageUrl) {
+    return false;
+  }
+
+  setFramesByCameraId((prevFrames) => ({
+    ...prevFrames,
+    [cameraId]: liveFrame,
+  }));
+  setImageUrlsByCameraId((prevImageUrls) => ({
+    ...prevImageUrls,
+    [cameraId]: liveImageUrl,
+  }));
+
+  return true;
 }

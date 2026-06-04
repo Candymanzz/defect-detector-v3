@@ -23,13 +23,11 @@ export function useReferenceRoi(initialJointViewIndex: number | null = null) {
   const setSelectedCameraId = (cameraId: number) => {
     const nextCameraId = clampReferenceCameraId(cameraId);
     setSelectedCameraIdState(nextCameraId);
-    setJointViewIndexState(nextCameraId);
   };
 
   const setJointViewIndex = (cameraId: number) => {
     const nextCameraId = clampReferenceCameraId(cameraId);
     setJointViewIndexState(nextCameraId);
-    setSelectedCameraIdState(nextCameraId);
   };
 
   return {
