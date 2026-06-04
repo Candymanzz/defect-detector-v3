@@ -60,6 +60,11 @@
         <member name="P:LightServer.IoControllerOptions.KeepComSessionOpen">
             <summary>Не закрывать COM после каждого запроса (как рабочий LightService).</summary>
         </member>
+        <member name="M:LightServer.Logging.FileLogPaths.ResolveLogsDirectory(Microsoft.Extensions.Configuration.IConfiguration,System.String)">
+            <summary>
+            Папка логов: FileLogging:Directory → env → LightServer.v3/logs (если найден .csproj вверх от bin) → logs рядом с dll.
+            </summary>
+        </member>
         <member name="T:LightServer.Logging.FileSessionLoggerProvider">
             <summary>Один файл на запуск приложения: logs/yyyy-MM-dd_HH-mm-ss.log</summary>
         </member>
@@ -149,6 +154,9 @@
         <member name="M:LightServer.Services.IsolatedComPortLight.OpenFromBankEnumeration(System.Collections.Generic.List{MvCameraControl.IDeviceInfo},System.Int32)">
             <summary>Открыть по индексу из общего EnumDevices(все COM) — рекомендуемый путь банка.</summary>
         </member>
+        <member name="M:LightServer.Services.IsolatedComPortLight.ApplyDirectOn(System.Int32[])">
+            <summary>Быстрый On (один проход SDK) для BankFlashMode On/Direct/Broadcast.</summary>
+        </member>
         <member name="F:LightServer.Services.LightControlService.NetworkLayers">
             <summary>Как в Test.exe — сеть/USB/GenTL, без Camera Link (COM перечисляется отдельно).</summary>
         </member>
@@ -205,6 +213,9 @@
         <member name="P:LightServer.Services.MvLeFlashSyncPlan.UseDirectImmediate">
             <summary>Direct/Sequential: On/Off сразу по каналам, без Hold/Timer.</summary>
         </member>
+        <member name="P:LightServer.Services.MvLeFlashSyncPlan.CachedBroadcastSelectorName">
+            <summary>Имя селектора broadcast (например All), найденное при открытии — без перебора на каждый On.</summary>
+        </member>
         <member name="M:LightServer.Services.MvLeFlashSync.ProbeTimerArmSource(MvCameraControl.IDevice,LightServer.Services.MvLeFlashSyncPlan,System.String)">
             <summary>Timer1 если есть, иначе Timer с макс. номером (напр. Timer5 на MV-VC).</summary>
         </member>
@@ -219,6 +230,9 @@
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.CreateBankDirectPlan(MvCameraControl.IDevice)">
             <summary>Банк: один broadcast On/Off, без Timer (рекомендуется для COM1–COM3).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.ApplyBankDirectOn(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Boolean,System.Int32@,System.String@)">
+            <summary>Быстрый On: яркость + включение за один проход SDK (без prep Off + fire).</summary>
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.PrepareBankDirect(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Int32@)">
             <summary>Фаза 1 (On): яркость + broadcast Off (свет не горит до fire).</summary>

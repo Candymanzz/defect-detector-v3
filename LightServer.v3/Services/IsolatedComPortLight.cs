@@ -12,11 +12,13 @@ public sealed class IsolatedComPortLight : IDisposable
     private readonly string? _timerArmOverride;
     private readonly ILogger<IsolatedComPortLight> _log;
 
+    private readonly object _portSync = new();
     private IDevice? _device;
     private MvLeFlashSyncPlan? _flashPlan;
     private List<IDeviceInfo>? _bankDeviceList;
     private int _bankDeviceIndex = -1;
     private bool _disposed;
+    private int[]? _lastAppliedBrightness;
 
     private const int OpenRetryCount = 3;
     private const int OpenRetryDelayMs = 150;
@@ -116,6 +118,16 @@ public sealed class IsolatedComPortLight : IDisposable
             MvLeFlashSync.ProbeTimerDurationNode(device, _flashPlan);
         }
 
+        if (UseBankDirectOn() && _options.PreconfigureBrightnessOnOpen)
+        {
+            int[] prime = new int[Channels.Length];
+            Array.Fill(prime, 255);
+            var primePlan = ClonePlan(_flashPlan);
+            primePlan.UseSdkLock = !_options.DisableSdkLock;
+            MvLeFlashSync.WriteChannelsBrightnessOnly(_device!, _portSync, primePlan.UseSdkLock, Channels, prime, out _);
+            _lastAppliedBrightness = (int[])prime.Clone();
+        }
+
         string modeTag = UseBankDirectOn() ? "bank-On" : $"bank-Trigger:{_flashPlan.TimerArmSource}";
         _log.LogInformation("{ComPort}: открыт idx={Idx}/{Count} mode={Mode} {Device}", ComPort, idx, list.Count, modeTag, devDesc);
         return (true, null);
@@ -130,10 +142,11 @@ public sealed class IsolatedComPortLight : IDisposable
             return (false, readyErr);
 
         MvLeFlashSyncPlan plan = ClonePlan(_flashPlan!);
+        plan.UseSdkLock = !_options.DisableSdkLock;
 
         if (UseBankDirectOn())
         {
-            if (!MvLeFlashSync.PrepareBankDirect(_device!, SyncRoot, plan, Channels, brightness, out int directPrepFail))
+            if (!MvLeFlashSync.PrepareBankDirect(_device!, _portSync, plan, Channels, brightness, out int directPrepFail))
             {
                 _log.LogWarning("{ComPort}: direct prep failed ch{Ch}", ComPort, directPrepFail);
                 return (false, $"{ComPort}: direct prep ch{directPrepFail}");
@@ -144,7 +157,7 @@ public sealed class IsolatedComPortLight : IDisposable
 
         ApplyBankFlashTiming(plan);
 
-        if (!MvLeFlashSync.PrepareBankFlash(_device!, SyncRoot, plan, Channels, brightness, out int prepFail))
+        if (!MvLeFlashSync.PrepareBankFlash(_device!, _portSync, plan, Channels, brightness, out int prepFail))
         {
             _log.LogWarning("{ComPort}: trigger prep failed ch{Ch} arm={Arm}", ComPort, prepFail, plan.TimerArmSource);
             return (false, $"{ComPort}: prepare ch{prepFail} arm={plan.TimerArmSource}");
@@ -159,10 +172,11 @@ public sealed class IsolatedComPortLight : IDisposable
             return (false, $"{ComPort}: не открыт");
 
         MvLeFlashSyncPlan plan = ClonePlan(_flashPlan);
+        plan.UseSdkLock = !_options.DisableSdkLock;
 
         if (UseBankDirectOn())
         {
-            if (!MvLeFlashSync.FireBankDirectOn(_device, SyncRoot, plan, Channels, out int failCh, out string mode))
+            if (!MvLeFlashSync.FireBankDirectOn(_device, _portSync, plan, Channels, out int failCh, out string mode))
             {
                 _log.LogWarning("{ComPort}: direct on failed ch{Ch} {Mode}", ComPort, failCh, mode);
                 return (false, $"{ComPort}: {mode} ch{failCh}");
@@ -174,7 +188,7 @@ public sealed class IsolatedComPortLight : IDisposable
 
         ApplyBankFlashTiming(plan);
 
-        if (!MvLeFlashSync.FireBankTriggerOnly(_device, SyncRoot, plan, out string triggerCmd))
+        if (!MvLeFlashSync.FireBankTriggerOnly(_device, _portSync, plan, out string triggerCmd))
         {
             _log.LogWarning("{ComPort}: trigger failed arm={Arm}", ComPort, plan.TimerArmSource);
             return (false, $"{ComPort}: trigger miss arm={plan.TimerArmSource}");
@@ -185,14 +199,64 @@ public sealed class IsolatedComPortLight : IDisposable
         return (true, triggerMode);
     }
 
-    private static object SyncRoot { get; } = new();
+    /// <summary>Быстрый On (один проход SDK) для BankFlashMode On/Direct/Broadcast.</summary>
+    public (bool ok, string? message) ApplyDirectOn(int[] brightness)
+    {
+        var (ready, readyErr) = EnsureOpenCore();
+        if (!ready)
+            return (false, readyErr);
+
+        if (_device == null || _flashPlan == null)
+            return (false, $"{ComPort}: не открыт");
+
+        MvLeFlashSyncPlan plan = ClonePlan(_flashPlan);
+        plan.UseSdkLock = !_options.DisableSdkLock;
+        bool writeBrightness = !BrightnessMatchesLast(brightness);
+
+        if (!MvLeFlashSync.ApplyBankDirectOn(
+                _device,
+                _portSync,
+                plan,
+                Channels,
+                brightness,
+                writeBrightness,
+                out int failCh,
+                out string mode))
+        {
+            _log.LogWarning("{ComPort}: direct on failed ch{Ch} {Mode}", ComPort, failCh, mode);
+            return (false, $"{ComPort}: {mode} ch{failCh}");
+        }
+
+        if (writeBrightness)
+            _lastAppliedBrightness = (int[])brightness.Clone();
+
+        _log.LogInformation("{ComPort}: On {Mode}", ComPort, mode);
+        return (true, mode);
+    }
 
     public (bool ok, string? message) ApplyOn(int[] brightness)
     {
+        if (UseBankDirectOn())
+            return ApplyDirectOn(brightness);
+
         var (prepOk, prepMsg) = PrepareFlash(brightness);
         if (!prepOk)
             return (false, prepMsg);
         return FireFlash();
+    }
+
+    private bool BrightnessMatchesLast(int[] brightness)
+    {
+        if (_lastAppliedBrightness == null || _lastAppliedBrightness.Length != brightness.Length)
+            return false;
+
+        for (int i = 0; i < brightness.Length; i++)
+        {
+            if (_lastAppliedBrightness[i] != brightness[i])
+                return false;
+        }
+
+        return true;
     }
 
     public (bool ok, string? message) ApplyOff()
@@ -201,7 +265,8 @@ public sealed class IsolatedComPortLight : IDisposable
             return (true, "already-off");
 
         MvLeFlashSyncPlan plan = ClonePlan(_flashPlan!);
-        if (!MvLeFlashSync.FireGroupedOff(_device, SyncRoot, plan, Channels, out int failCh, out string mode))
+        plan.UseSdkLock = !_options.DisableSdkLock;
+        if (!MvLeFlashSync.FireGroupedOff(_device, _portSync, plan, Channels, out int failCh, out string mode))
             return (false, $"{ComPort}: off ch{failCh} ({mode})");
 
         _log.LogInformation("{ComPort}: Off {Mode}", ComPort, mode);
@@ -232,7 +297,9 @@ public sealed class IsolatedComPortLight : IDisposable
             TimerDurationNode = source.TimerDurationNode,
             TimerDurationHoldValue = source.TimerDurationHoldValue,
             UseSdkLock = false,
-            UseDirectImmediate = source.UseDirectImmediate
+            UseDirectImmediate = source.UseDirectImmediate,
+            CachedBroadcastSelectorName = source.CachedBroadcastSelectorName,
+            CachedBroadcastSelectorValue = source.CachedBroadcastSelectorValue
         };
         plan.BroadcastSelectorCandidates.AddRange(source.BroadcastSelectorCandidates);
         plan.TriggerCommandCandidates.AddRange(source.TriggerCommandCandidates);

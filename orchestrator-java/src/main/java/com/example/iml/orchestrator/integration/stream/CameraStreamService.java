@@ -133,10 +133,7 @@ public final class CameraStreamService implements AutoCloseable {
                 intervalMs,
                 TimeUnit.MILLISECONDS
         );
-        log.info("client_stream started camera={} fps={} interval_ms={}", cameraId, fps, intervalMs);
-        if (outbound != null && wsNotify != null && wsNotify.isOpen()) {
-            outbound.sendStreamStarted(wsNotify, cameraId, fps, httpPath, mjpegPath);
-        }
+        log.info("client_stream started camera={} fps={} interval_ms={} (ws notify after first frame)", cameraId, fps, intervalMs);
         return new StreamStartResult(cameraId, fps, httpPath, mjpegPath);
     }
 
@@ -243,7 +240,9 @@ public final class CameraStreamService implements AutoCloseable {
                     );
                 }
                 try {
-                    mjpegHub.publish(cameraId, Files.readAllBytes(jpeg.path));
+                    byte[] jpegBytes = Files.readAllBytes(jpeg.path);
+                    mjpegHub.publish(cameraId, jpegBytes);
+                    maybeNotifyStreamStarted(session, cameraId);
                 } catch (IOException e) {
                     log.debug("client_stream mjpeg publish camera={}: {}", cameraId, e.getMessage());
                 }
@@ -259,6 +258,18 @@ public final class CameraStreamService implements AutoCloseable {
         } finally {
             session.tickInProgress.set(false);
         }
+    }
+
+    private void maybeNotifyStreamStarted(StreamSession session, int cameraId) {
+        if (!session.wsStartedSent.compareAndSet(false, true)) {
+            return;
+        }
+        if (outbound == null || session.connection == null || !session.connection.isOpen()) {
+            return;
+        }
+        String httpPath = "/api/camera/" + cameraId + "/current.jpg";
+        outbound.sendStreamStarted(session.connection, cameraId, session.fps, httpPath, mjpegPath(cameraId));
+        log.info("client_stream ws stream_started camera={} after first published frame", cameraId);
     }
 
     private static String formatWorkerError(BinaryProtocol.Message capture) {
@@ -303,6 +314,7 @@ public final class CameraStreamService implements AutoCloseable {
         final int fps;
         final AtomicBoolean running = new AtomicBoolean(true);
         final AtomicBoolean tickInProgress = new AtomicBoolean(false);
+        final AtomicBoolean wsStartedSent = new AtomicBoolean(false);
         final java.util.concurrent.atomic.AtomicInteger pollErrors = new java.util.concurrent.atomic.AtomicInteger();
         volatile ScheduledFuture<?> future;
 
