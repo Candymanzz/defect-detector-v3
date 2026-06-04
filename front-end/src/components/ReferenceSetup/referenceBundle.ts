@@ -32,16 +32,12 @@ export function createReferenceBundleFromCameraFrames(
 
     return frame;
   });
-  const firstFrame = frames[0];
-  const productType = firstFrame.detector.product_type || "reference-product";
+  const jointFrame = frames[jointViewIndex] ?? frames[0];
+  const productType = jointFrame.detector.product_type || "reference-product";
 
   for (const frame of frames) {
-    if (frame.current.width !== firstFrame.current.width || frame.current.height !== firstFrame.current.height) {
+    if (frame.current.width !== jointFrame.current.width || frame.current.height !== jointFrame.current.height) {
       throw new Error("Reference frames for cameras 0-3 must have the same resolution");
-    }
-
-    if ((frame.detector.product_type || productType) !== productType) {
-      throw new Error("Reference frames for cameras 0-3 must have the same product type");
     }
   }
 
@@ -58,8 +54,8 @@ export function createReferenceBundleFromCameraFrames(
   return {
     product_type: productType,
     joint_view_index: jointViewIndex,
-    heatmap_width: firstFrame.current.width,
-    heatmap_height: firstFrame.current.height,
+    heatmap_width: jointFrame.current.width,
+    heatmap_height: jointFrame.current.height,
     views,
     fp_zones: [],
   };
