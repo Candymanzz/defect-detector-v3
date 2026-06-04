@@ -71,7 +71,7 @@ export function ModalWrapper({
           <div className="modal__header-actions">
             {headerActions}
             <button
-              aria-label="Close modal"
+              aria-label="Закрыть"
               className="modal__close"
               type="button"
               onClick={onClose}
@@ -81,7 +81,7 @@ export function ModalWrapper({
           </div>
         </header>
 
-        <div className="modal__images">
+        <div className="modal__media-grid">
           <ImagePanel
             imageUrl={displayedReferenceImageUrl}
             label="Эталон"
@@ -91,18 +91,13 @@ export function ModalWrapper({
             imageUrl={cameraImageUrl}
             label="Проверка камеры"
           />
-          {cameraId !== undefined && inspectResult && (
-            <HeatmapViewer
-              cameraId={cameraId}
-              heatmap={inspectResult.heatmap}
-              backgroundImageUrl={cameraImageUrl}
-            />
-          )}
+          <HeatmapPanel
+            cameraId={cameraId}
+            cameraImageUrl={cameraImageUrl}
+            inspectResult={inspectResult}
+          />
         </div>
 
-        <div className="modal-inspect-result__empty">
-          {storedReferenceImage ? "Эталон задан" : "Эталон ещё не задан"}
-        </div>
         <InspectResultPanel inspectResult={inspectResult} />
       </section>
     </div>
@@ -114,6 +109,7 @@ function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: 
 
   return (
     <figure className="modal-image-panel">
+      <figcaption>{label}</figcaption>
       <div className="modal-image-panel__image-wrap">
         <PreviewImage
           key={imageUrl ?? `${label}-offline`}
@@ -133,7 +129,33 @@ function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: 
           </svg>
         )}
       </div>
-      <figcaption>{label}</figcaption>
+    </figure>
+  );
+}
+
+function HeatmapPanel({
+  cameraId,
+  cameraImageUrl,
+  inspectResult,
+}: {
+  cameraId?: number;
+  cameraImageUrl?: string;
+  inspectResult?: InspectResultPayload;
+}) {
+  return (
+    <figure className="modal-image-panel">
+      <figcaption>Heatmap</figcaption>
+      {cameraId !== undefined && inspectResult ? (
+        <HeatmapViewer
+          cameraId={cameraId}
+          heatmap={inspectResult.heatmap}
+          backgroundImageUrl={cameraImageUrl}
+        />
+      ) : (
+        <div className="modal-image-panel__image-wrap">
+          <div className="modal-image-panel__placeholder">No inspect result yet</div>
+        </div>
+      )}
     </figure>
   );
 }

@@ -5,28 +5,43 @@ import type {
   PreviewFramePayload,
   ReferenceViewSlot,
 } from "../../shared/ws";
-import { REFERENCE_BUNDLE_VIEW_CAMERA_IDS } from "./referenceConstants";
-import { createFullRoi, createFullRoiPolygonNorm, createRoiFromPolygon, isValidRoiPolygon } from "./referenceRoi";
+import { REFERENCE_BUNDLE_VIEW_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
+import { createRoiFromPolygon, isValidRoiPolygon } from "./referenceRoi";
 
 export function createReferenceBundleFromCameraFrames(
   framesByCameraId: Record<number, PreviewFramePayload>,
   jointViewIndex: number,
-  selectedCameraId: number,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
 ): ClientReferenceBundlePayload {
-  const fallbackFrame = framesByCameraId[0];
+  for (const cameraId of REFERENCE_REQUIRED_CAMERA_IDS) {
+    if (!framesByCameraId[cameraId]) {
+      throw new Error(`Reference frame for camera ${cameraId} is missing`);
+    }
 
-  if (!fallbackFrame) {
-    throw new Error("Reference frame for camera 0 is missing");
+    if (!isValidRoiPolygon(roiPolygonsByCameraId[cameraId])) {
+      throw new Error(`ROI contour for camera ${cameraId} is missing`);
+    }
   }
 
   const frames = REFERENCE_BUNDLE_VIEW_CAMERA_IDS.map((cameraId) => {
-    return framesByCameraId[cameraId] ?? fallbackFrame;
+    const frame = framesByCameraId[cameraId];
+
+    if (!frame) {
+      throw new Error(`Reference frame for camera ${cameraId} is missing`);
+    }
+
+    return frame;
   });
   const firstFrame = frames[0];
   const productType = firstFrame.detector.product_type || "reference-product";
   const views = frames.map((previewFrame, viewIndex) =>
-    createReferenceViewForFrame(previewFrame, viewIndex, jointViewIndex, selectedCameraId, roiPolygonsByCameraId),
+    createReferenceViewForFrame(
+      previewFrame,
+      REFERENCE_BUNDLE_VIEW_CAMERA_IDS[viewIndex],
+      viewIndex,
+      jointViewIndex,
+      roiPolygonsByCameraId,
+    ),
   ) as ClientReferenceBundlePayload["views"];
 
   return {
@@ -41,19 +56,19 @@ export function createReferenceBundleFromCameraFrames(
 
 function createReferenceViewForFrame(
   previewFrame: PreviewFramePayload,
+  cameraId: number,
   viewIndex: number,
   jointViewIndex: number,
-  selectedCameraId: number,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
 ) {
-  const selectedRoiPolygon = roiPolygonsByCameraId[viewIndex];
-  const shouldUseSelectedRoi = viewIndex === selectedCameraId && isValidRoiPolygon(selectedRoiPolygon);
-  const interestPolygonNorm = shouldUseSelectedRoi
-    ? selectedRoiPolygon
-    : createFullRoiPolygonNorm(previewFrame.current.width, previewFrame.current.height);
-  const roi = shouldUseSelectedRoi
-    ? createRoiFromPolygon(selectedRoiPolygon, previewFrame.current.width, previewFrame.current.height)
-    : createFullRoi(previewFrame);
+  const roiPolygon = roiPolygonsByCameraId[cameraId];
+
+  if (!isValidRoiPolygon(roiPolygon)) {
+    throw new Error(`ROI contour for camera ${cameraId} is missing`);
+  }
+
+  const interestPolygonNorm = roiPolygon;
+  const roi = createRoiFromPolygon(roiPolygon, previewFrame.current.width, previewFrame.current.height);
 
   return createReferenceView(previewFrame, roi, interestPolygonNorm, viewIndex === jointViewIndex ? roi : null);
 }

@@ -35,8 +35,8 @@ public final class SetActiveReferenceViewWsHandler implements WsMessageHandler {
             return;
         }
         int viewIndex = payload.path("view_index").asInt(-1);
-        if (viewIndex < 0 || viewIndex > 4) {
-            app.outbound().sendError(ctx.connection(), "invalid_view_index", "view_index must be 0..4");
+        if (viewIndex < 0 || viewIndex > 3) {
+            app.outbound().sendError(ctx.connection(), "invalid_view_index", "view_index must be 0..3");
             return;
         }
         String productType = app.referenceContext().snapshot().map(ReferenceBundleSnapshot::productType).orElse("");

@@ -1,102 +1,139 @@
-.reference-setup__body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.reference-setup__hint {
-  margin: 0;
-  color: #c5cdd6;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.reference-setup__message {
-  margin: 16px 0 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: #e8edf4;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.reference-setup__reference-status {
-  margin-bottom: 10px;
-  color: #9becbd;
-  font-size: 14px;
-  font-weight: 700;
-}
-
 .reference-setup.modal {
   display: flex;
   flex-direction: column;
 }
 
-.reference-setup__image-container {
-  width: 300px;
-  height: 300px;
-  border: 1px solid #ccc;
-  overflow: hidden;
+.reference-setup__body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
-.reference-setup__image-container img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+.reference-setup__reference-status,
+.reference-setup__roi-status,
+.reference-setup__hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
 }
+
+.reference-setup__reference-status {
+  color: #9becbd;
+  font-weight: 800;
+}
+
+.reference-setup__roi-status,
+.reference-setup__hint {
+  color: #c5cdd6;
+}
+
 .reference-setup__toolbar {
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 12px;
+  align-items: end;
 }
-.reference-setup__block{
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-}
-.reference-setup__toolbar label {
+
+.reference-setup__field {
   display: grid;
   gap: 6px;
   color: #f2f5f7;
   font-size: 14px;
+  font-weight: 700;
 }
 
-.reference-setup__toolbar select {
-  height: 34px;
-  border: 1px solid #4b5563;
-  border-radius: 6px;
-  background: #111827;
+.reference-setup__field select {
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
   color: #f2f5f7;
-  padding: 0 8px;
+  padding: 0 10px;
+  font: inherit;
 }
-.reference-setup__container{
+
+.reference-setup__button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #f4f7f5;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.reference-setup__button--primary {
+  background: rgba(34, 197, 94, 0.22);
+}
+
+.reference-setup__button:hover,
+.reference-setup__button:focus-visible,
+.reference-setup__field select:focus-visible {
+  border-color: rgba(158, 216, 200, 0.55);
+  outline: none;
+}
+
+.reference-setup__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.reference-setup__workspace {
   display: flex;
-  flex-direction: row;
+  justify-content: center;
+  gap: 14px;
+  align-items: flex-start;
+  min-height: 0;
 }
-.reference-setup__grid {
-  height: 10%;
+
+.reference-setup__editor {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.reference-setup__camera-list {
   display: grid;
-  grid-template-columns: repeat(5, 120px);
+  grid-template-columns: repeat(1, minmax(120px, 160px));
   gap: 10px;
+  align-content: start;
+  flex: 0 0 auto;
+}
+
+.reference-setup__info {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
 }
 
 .reference-setup__slot {
   display: grid;
   gap: 8px;
-  padding: 8px;
-  border: 1px solid #4b5563;
+  min-height: 82px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  background: #111827;
+  background: rgba(255, 255, 255, 0.08);
   color: #f2f5f7;
   cursor: pointer;
   text-align: left;
 }
 
+.reference-setup__slot:hover,
+.reference-setup__slot:focus-visible {
+  border-color: rgba(158, 216, 200, 0.55);
+  outline: none;
+}
+
 .reference-setup__slot--active {
-  border-color: #00ff00;
+  border-color: #9becbd;
+  background: rgba(34, 197, 94, 0.14);
 }
 
 .reference-setup__slot span {
@@ -104,19 +141,13 @@
   font-size: 12px;
 }
 
-.reference-setup__slot img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: contain;
-  background: #05070a;
-}
-.reference-setup__images {
-  width: 50%;
-  height: 70%;
-}
-.reference-setup__roi-status {
-  margin: 10px 0 0;
-  color: #9aa8a4;
-  font-size: 13px;
-  line-height: 1.4;
+@media (max-width: 980px) {
+  .reference-setup__workspace {
+    flex-direction: column;
+  }
+
+  .reference-setup__camera-list {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    width: 100%;
+  }
 }

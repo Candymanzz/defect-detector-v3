@@ -164,7 +164,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
      */
     private BinaryProtocol.Message syncClientReferenceBundle(Map<String, Object> header) throws IOException {
         String productType = String.valueOf(header.get("product_type"));
-        int activeIdx = Math.max(0, Math.min(4, YamlScalars.toInt(header.get("active_reference_view_index"), 0)));
+        int activeIdx = Math.max(0, Math.min(3, YamlScalars.toInt(header.get("active_reference_view_index"), 0)));
         Map<String, Object> view = findViewByIndex(header.get("views"), activeIdx);
         if (view == null) {
             return new BinaryProtocol.Message(

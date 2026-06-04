@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { InterestPointNorm } from "../../shared/ws";
-import { REFERENCE_ACTIVE_CAMERA_ID } from "./referenceConstants";
+import { REFERENCE_ACTIVE_CAMERA_ID, REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
 import { clampViewIndex, isValidRoiPolygon } from "./referenceRoi";
 
 export function useReferenceRoi(initialJointViewIndex: number | null = null) {
@@ -9,6 +9,9 @@ export function useReferenceRoi(initialJointViewIndex: number | null = null) {
   const [roiPolygonsByCameraId, setRoiPolygonsByCameraId] = useState<Record<number, InterestPointNorm[]>>({});
   const [selectedCameraId, setSelectedCameraIdState] = useState(initialCameraId);
   const hasSelectedCameraRoi = isValidRoiPolygon(roiPolygonsByCameraId[selectedCameraId]);
+  const hasRequiredCameraRois = REFERENCE_REQUIRED_CAMERA_IDS.every((cameraId) =>
+    isValidRoiPolygon(roiPolygonsByCameraId[cameraId]),
+  );
 
   const setRoiPolygonForCamera = (cameraId: number, points: InterestPointNorm[]) => {
     setRoiPolygonsByCameraId((prev) => ({
@@ -32,6 +35,7 @@ export function useReferenceRoi(initialJointViewIndex: number | null = null) {
   return {
     jointViewIndex,
     hasSelectedCameraRoi,
+    hasRequiredCameraRois,
     roiPolygonsByCameraId,
     selectedCameraId,
     setJointViewIndex,
@@ -42,5 +46,7 @@ export function useReferenceRoi(initialJointViewIndex: number | null = null) {
 
 function clampReferenceCameraId(cameraId: number) {
   const nextCameraId = clampViewIndex(cameraId);
-  return nextCameraId === REFERENCE_ACTIVE_CAMERA_ID ? nextCameraId : REFERENCE_ACTIVE_CAMERA_ID;
+  return REFERENCE_CAMERA_IDS.includes(nextCameraId as (typeof REFERENCE_CAMERA_IDS)[number])
+    ? nextCameraId
+    : REFERENCE_ACTIVE_CAMERA_ID;
 }

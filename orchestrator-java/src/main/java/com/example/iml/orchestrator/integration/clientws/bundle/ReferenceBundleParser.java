@@ -54,8 +54,8 @@ public final class ReferenceBundleParser {
             throw new BundleParseException("invalid_product_type", "product_type required");
         }
         int jointViewIndex = payload.path("joint_view_index").asInt(-1);
-        if (jointViewIndex < 0 || jointViewIndex > 4) {
-            throw new BundleParseException("invalid_joint_view_index", "joint_view_index must be 0..4");
+        if (jointViewIndex < 0 || jointViewIndex > 3) {
+            throw new BundleParseException("invalid_joint_view_index", "joint_view_index must be 0..3");
         }
         int heatmapW = payload.path("heatmap_width").asInt(0);
         int heatmapH = payload.path("heatmap_height").asInt(0);
@@ -63,11 +63,11 @@ public final class ReferenceBundleParser {
             throw new BundleParseException("invalid_heatmap_size", "heatmap_width and heatmap_height must be positive");
         }
         JsonNode viewsNode = payload.path("views");
-        if (!viewsNode.isArray() || viewsNode.size() != 5) {
-            throw new BundleParseException("invalid_views", "views must be array of length 5");
+        if (!viewsNode.isArray() || viewsNode.size() != 4) {
+            throw new BundleParseException("invalid_views", "views must be array of length 4");
         }
-        List<ReferenceViewSlot> views = new ArrayList<>(5);
-        for (int i = 0; i < 5; i++) {
+        List<ReferenceViewSlot> views = new ArrayList<>(4);
+        for (int i = 0; i < 4; i++) {
             views.add(parseViewSlot(viewsNode.get(i), i, jointViewIndex));
         }
         List<FpZoneNorm> fpZones = parseFpZones(payload.path("fp_zones"));
@@ -120,8 +120,8 @@ public final class ReferenceBundleParser {
             throw new BundleParseException("invalid_frame", ctx + " must be object");
         }
         int cameraId = n.path("camera_id").asInt(-1);
-        if (cameraId < 0 || cameraId > 4) {
-            throw new BundleParseException("invalid_camera_id", ctx + ".camera_id must be 0..4");
+        if (cameraId < 0 || cameraId > 3) {
+            throw new BundleParseException("invalid_camera_id", ctx + ".camera_id must be 0..3");
         }
         String frameId = textNonEmpty(n, "frame_id");
         if (frameId == null) {

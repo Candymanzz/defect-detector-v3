@@ -60,7 +60,7 @@ public final class ClientWsReferenceContext {
     }
 
     public void setActiveReferenceViewIndex(int index) {
-        if (index >= 0 && index < 5) {
+        if (index >= 0 && index < 4) {
             activeReferenceViewIndex.set(index);
         }
     }

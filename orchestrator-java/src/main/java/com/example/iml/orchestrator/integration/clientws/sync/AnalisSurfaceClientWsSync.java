@@ -27,11 +27,11 @@ public final class AnalisSurfaceClientWsSync {
         h.put("product_type", snap.productType());
         h.put("heatmap_width", snap.heatmapWidth());
         h.put("heatmap_height", snap.heatmapHeight());
-        h.put("active_reference_view_index", Math.max(0, Math.min(4, activeReferenceViewIndex)));
+        h.put("active_reference_view_index", Math.max(0, Math.min(3, activeReferenceViewIndex)));
         h.put("fp_zones", fpZonesToJsonList(snap.fpZones()));
-        List<Map<String, Object>> views = new ArrayList<>(5);
-        List<Map<String, Object>> interestRois = new ArrayList<>(5);
-        List<Map<String, Object>> interestPolygonsNorm = new ArrayList<>(5);
+        List<Map<String, Object>> views = new ArrayList<>(4);
+        List<Map<String, Object>> interestRois = new ArrayList<>(4);
+        List<Map<String, Object>> interestPolygonsNorm = new ArrayList<>(4);
         for (int i = 0; i < snap.views().size(); i++) {
             ReferenceViewSlot slot = snap.views().get(i);
             ShmFrameRefData f = slot.frame();
@@ -96,7 +96,7 @@ public final class AnalisSurfaceClientWsSync {
         Map<String, Object> h = new HashMap<>();
         h.put("op", "set_active_reference_view");
         h.put("product_type", productType);
-        h.put("view_index", Math.max(0, Math.min(4, viewIndex)));
+        h.put("view_index", Math.max(0, Math.min(3, viewIndex)));
         return h;
     }
 

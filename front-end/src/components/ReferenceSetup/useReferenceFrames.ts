@@ -16,7 +16,28 @@ export function useReferenceFrames() {
   }));
   const hasRequiredReferenceFrames = REFERENCE_REQUIRED_CAMERA_IDS.every((cameraId) => framesByCameraId[cameraId]);
 
-  const refreshLatestImages = useCallback(async () => {
+  const refreshLatestImages = useCallback(async (cameraId?: number) => {
+    if (cameraId !== undefined) {
+      const liveFrame = liveFramesByCameraId[cameraId];
+      const liveImageUrl = liveImageUrlsByCameraId[cameraId];
+
+      if (!liveFrame || !liveImageUrl) {
+        return false;
+      }
+
+      setFramesByCameraId((prevFrames) => ({
+        ...prevFrames,
+        [cameraId]: liveFrame,
+      }));
+      setImageUrlsByCameraId((prevImageUrls) => ({
+        ...prevImageUrls,
+        [cameraId]: liveImageUrl,
+      }));
+      setImageUrl(liveImageUrl);
+
+      return true;
+    }
+
     const nextFramesByCameraId: Record<number, PreviewFramePayload> = {};
     const nextImageUrlsByCameraId: Record<number, string> = {};
 

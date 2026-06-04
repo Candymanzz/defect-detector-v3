@@ -17,7 +17,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   const referenceRoi = useReferenceRoi(initialJointViewIndex);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
   const canSendReference = Boolean(
-    referenceFrames.hasRequiredReferenceFrames && referenceRoi.hasSelectedCameraRoi && status.state === "open",
+    referenceFrames.hasRequiredReferenceFrames && referenceRoi.hasRequiredCameraRois && status.state === "open",
   );
 
   const handleReferenceBundleAck = useCallback((message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
@@ -79,12 +79,12 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
 
   const handleSendReference = () => {
     if (!referenceFrames.hasRequiredReferenceFrames) {
-      setMessage("Reference frame for camera 0 is required");
+      setMessage("Reference frames for cameras 0-3 are required");
       return;
     }
 
-    if (!referenceRoi.hasSelectedCameraRoi) {
-      setMessage(`ROI contour for camera ${referenceRoi.selectedCameraId} is required`);
+    if (!referenceRoi.hasRequiredCameraRois) {
+      setMessage("ROI contours for cameras 0-3 are required");
       return;
     }
 
@@ -92,7 +92,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
       const payload = createReferenceBundleFromCameraFrames(
         referenceFrames.framesByCameraId,
         referenceRoi.jointViewIndex,
-        referenceRoi.selectedCameraId,
         referenceRoi.roiPolygonsByCameraId,
       );
       const messageId = orchestratorWs.sendReferenceBundle(payload);
@@ -106,10 +105,11 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     }
   };
 
-  const handleRefreshLatestImage = async () => {
-    setMessage("Loading latest camera image...");
-    const ok = await refreshLatestImages();
-    setMessage(ok ? "Latest camera image loaded" : "Latest camera image is not available yet");
+  const handleSelectCamera = async (cameraId: number) => {
+    referenceRoi.setSelectedCameraId(cameraId);
+    setMessage(`Loading latest image for camera ${cameraId}...`);
+    const ok = await refreshLatestImages(cameraId);
+    setMessage(ok ? `Latest image loaded for camera ${cameraId}` : `Latest image is not available for camera ${cameraId}`);
   };
 
   return {
@@ -119,6 +119,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     ...referenceRoi,
     canSendReference,
     handleSendReference,
-    handleRefreshLatestImage,
+    handleSelectCamera,
   };
 }
