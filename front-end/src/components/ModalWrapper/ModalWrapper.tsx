@@ -265,7 +265,7 @@ function getInspectResultSyncState(inspectResult: InspectResultPayload | undefin
   if (inspectResultImageUrl && hasHeatmapSource(inspectResult)) {
     return {
       state: "synced" as const,
-      label: `Current image and heatmap are aligned to frame ${inspectResult.frame_id}`,
+      label: `Current image is fixed to frame ${inspectResult.frame_id}; heatmap loaded from inspect-result source`,
     };
   }
 

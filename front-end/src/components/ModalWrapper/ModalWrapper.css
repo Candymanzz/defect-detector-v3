@@ -5,8 +5,8 @@
 }
 
 .modal {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) minmax(180px, 260px);
+  display: flex;
+  flex-direction: column;
   gap: 18px;
   position: absolute;
   top: 50%;
@@ -27,6 +27,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   min-height: 0;
+  height: 80%;
 }
 
 .modal-image-panel {
@@ -117,10 +118,8 @@
 }
 
 .modal-inspect-result {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 50%;
   gap: 12px;
-  min-height: 0;
   padding: 14px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);

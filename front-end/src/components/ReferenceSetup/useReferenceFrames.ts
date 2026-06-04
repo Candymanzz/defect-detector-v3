@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { PreviewFramePayload } from "../../shared/ws";
 import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
@@ -74,16 +75,16 @@ export function useReferenceFrames() {
         ...prevImageUrls,
         [previewFrame.camera_id]: nextImageUrl,
       }));
-    }
 
-    if (nextImageUrl && REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
-      commitLiveReferenceFrame(
-        previewFrame.camera_id,
-        previewFrame,
-        nextImageUrl,
-        setFramesByCameraId,
-        setImageUrlsByCameraId,
-      );
+      if (REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
+        lockInitialReferenceFrame(
+          previewFrame.camera_id,
+          previewFrame,
+          nextImageUrl,
+          setFramesByCameraId,
+          setImageUrlsByCameraId,
+        );
+      }
     }
   }, []);
 
@@ -101,8 +102,8 @@ function commitLiveReferenceFrame(
   cameraId: number,
   liveFrame: PreviewFramePayload | undefined,
   liveImageUrl: string | undefined,
-  setFramesByCameraId: React.Dispatch<React.SetStateAction<Record<number, PreviewFramePayload>>>,
-  setImageUrlsByCameraId: React.Dispatch<React.SetStateAction<Record<number, string>>>,
+  setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
+  setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
 ) {
   if (!liveFrame || !liveImageUrl) {
     return false;
@@ -118,4 +119,33 @@ function commitLiveReferenceFrame(
   }));
 
   return true;
+}
+
+function lockInitialReferenceFrame(
+  cameraId: number,
+  previewFrame: PreviewFramePayload,
+  imageUrl: string,
+  setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
+  setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
+) {
+  setFramesByCameraId((prevFrames) => {
+    if (prevFrames[cameraId]) {
+      return prevFrames;
+    }
+
+    return {
+      ...prevFrames,
+      [cameraId]: previewFrame,
+    };
+  });
+  setImageUrlsByCameraId((prevImageUrls) => {
+    if (prevImageUrls[cameraId]) {
+      return prevImageUrls;
+    }
+
+    return {
+      ...prevImageUrls,
+      [cameraId]: imageUrl,
+    };
+  });
 }
