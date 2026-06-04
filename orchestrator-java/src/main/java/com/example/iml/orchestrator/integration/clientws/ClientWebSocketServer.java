@@ -30,6 +30,7 @@ import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Collection;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -144,14 +145,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         if (captureHeader == null || cameraId < 0) {
             return;
         }
-        WebSocket c;
-        synchronized (sessionLock) {
-            c = activeClient;
-        }
-        if (c == null || !c.isOpen()) {
-            return;
-        }
-        outbound.sendPreviewFrame(c, cameraId, productType, detectorId, captureHeader, httpPath);
+        broadcastOpenClients(conn -> outbound.sendPreviewFrame(conn, cameraId, productType, detectorId, captureHeader, httpPath));
     }
 
     public void notifyInspectResult(
@@ -181,15 +175,8 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         if (frameId < 0) {
             return;
         }
-        WebSocket c;
-        synchronized (sessionLock) {
-            c = activeClient;
-        }
-        if (c == null || !c.isOpen()) {
-            return;
-        }
-        outbound.sendInspectResult(
-                c,
+        broadcastOpenClients(conn -> outbound.sendInspectResult(
+                conn,
                 cameraId,
                 productType,
                 detectorId,
@@ -202,7 +189,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 currentHttpPath,
                 heatmapArtifactTokenOrNull,
                 includeHeatmapFilePathInWs
-        );
+        ));
     }
 
     @Override
@@ -225,8 +212,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             activeClient = conn;
         }
         if (previous != null && previous.isOpen() && previous != conn) {
-            log.info("client_ws closing previous session (replaced by new client)");
-            previous.close(1000, "replaced_by_new_session");
+            log.info("client_ws accepted additional session (multi-client broadcast enabled)");
         }
         lastClientActivityEpochMs = System.currentTimeMillis();
         outbound.sendHello(conn);
@@ -236,11 +222,11 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         synchronized (sessionLock) {
             if (activeClient == conn) {
-                activeClient = null;
+                activeClient = firstOpenClient();
             }
         }
         CameraStreamService streams = cameraStreamService;
-        if (streams != null) {
+        if (streams != null && getConnections().isEmpty()) {
             streams.stopAll();
         }
         log.info("client_ws closed code={} reason={} remote={}", code, reason, remote);
@@ -327,5 +313,26 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     private boolean idleExceeded() {
         return System.currentTimeMillis() - lastClientActivityEpochMs > cfg.readIdleTimeoutMs();
+    }
+
+    private void broadcastOpenClients(java.util.function.Consumer<WebSocket> sender) {
+        Collection<WebSocket> conns = getConnections();
+        if (conns.isEmpty()) {
+            return;
+        }
+        for (WebSocket conn : conns) {
+            if (conn != null && conn.isOpen()) {
+                sender.accept(conn);
+            }
+        }
+    }
+
+    private WebSocket firstOpenClient() {
+        for (WebSocket conn : getConnections()) {
+            if (conn != null && conn.isOpen()) {
+                return conn;
+            }
+        }
+        return null;
     }
 }

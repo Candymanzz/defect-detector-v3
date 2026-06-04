@@ -539,7 +539,11 @@ static int init_hik_shared(worker_state_t *st, char *err, size_t err_len) {
         return -1;
     }
     DWORD wait = WaitForSingleObject(st->hik_primary_mutex, 0);
-    st->hik_is_primary = (wait == WAIT_OBJECT_0);
+    /*
+     * WAIT_ABANDONED means previous owner died; this process now owns the mutex
+     * and must act as primary publisher for this camera mapping.
+     */
+    st->hik_is_primary = (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED);
     return 0;
 }
 

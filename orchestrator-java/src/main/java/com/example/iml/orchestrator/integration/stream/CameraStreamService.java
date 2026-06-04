@@ -214,13 +214,14 @@ public final class CameraStreamService implements AutoCloseable {
             int width = YamlScalars.toInt(header.get("width"), 0);
             int height = YamlScalars.toInt(header.get("height"), 0);
             int stride = YamlScalars.toInt(header.get("stride"), 0);
+            long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
             if (shmName.isBlank() || width <= 0 || height <= 0) {
                 return;
             }
 
             String productType = productTypeByCamera.getOrDefault(cameraId, "camera-" + cameraId);
             String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
-            PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride);
+            PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
             if (jpeg.path != null && Files.isRegularFile(jpeg.path)) {
                 if (uiServer != null) {
                     uiServer.update(
@@ -283,13 +284,13 @@ public final class CameraStreamService implements AutoCloseable {
         return capture.header() == null ? "worker_error" : String.valueOf(capture.header());
     }
 
-    private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride) {
+    private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride, long shmOffset) {
         int previewMaxW = YamlScalars.toInt(uiCfg.get("client_preview_max_width"), 0);
         int qualPct = YamlScalars.toInt(uiCfg.get("client_preview_jpeg_quality"), 58);
         qualPct = Math.min(100, Math.max(5, qualPct));
         float q = qualPct / 100f;
         UiHttpServer.ClientPreviewArtifact art = UiHttpServer.writeCurrentJpegFromBgrShm(
-                shmName, width, height, stride, previewMaxW, q, cameraId);
+                shmName, width, height, stride, shmOffset, previewMaxW, q, cameraId);
         return new PathHolder(art.path(), art.width(), art.height());
     }
 

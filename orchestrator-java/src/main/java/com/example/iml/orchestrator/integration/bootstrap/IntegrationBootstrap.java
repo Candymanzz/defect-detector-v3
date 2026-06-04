@@ -241,6 +241,7 @@ public final class IntegrationBootstrap {
             FanOutCoordinator activeFanOut = FanOutCoordinator.fromConfig(root);
             fanOut = activeFanOut;
             log.info("integration parallel settings: camera_parallelism={} geometry_pool_size={}", cfg.cameraParallelism(), geometryPool.size());
+            List<Map<String, Object>> activeCameras = new ArrayList<>();
             for (Map<String, Object> camera : cameras) {
                 int cameraId = ((Number) camera.get("id")).intValue();
                 List<String> cmd = new ArrayList<>();
@@ -254,15 +255,29 @@ public final class IntegrationBootstrap {
                     cmd.add(String.format(cfg.workerPipeTemplate(), cameraId));
                 }
                 String workerPipePath = String.format(cfg.workerPipeTemplate(), cameraId);
-                WorkerProcessSupervisor worker = new WorkerProcessSupervisor(
-                        cameraId, cmd, projectRoot, cfg.workerIpcMode(), workerPipePath, cfg.workerPipeConnectTimeoutMs(), cfg.workerCommandTimeoutMs());
-                worker.start();
-                BinaryProtocol.Message health = worker.health();
-                log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
-                workersByCamera.put(cameraId, worker);
+                try {
+                    WorkerProcessSupervisor worker = new WorkerProcessSupervisor(
+                            cameraId, cmd, projectRoot, cfg.workerIpcMode(), workerPipePath, cfg.workerPipeConnectTimeoutMs(), cfg.workerCommandTimeoutMs());
+                    worker.start();
+                    BinaryProtocol.Message health = worker.health();
+                    log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
+                    workersByCamera.put(cameraId, worker);
+                    activeCameras.add(camera);
+                } catch (Exception e) {
+                    log.error(
+                            "worker cam={} failed to start/health; skipping this camera and continuing with others: {}",
+                            cameraId,
+                            e.getMessage()
+                    );
+                    log.debug("worker start failure details cam={}", cameraId, e);
+                }
+            }
+            if (workersByCamera.isEmpty()) {
+                log.error("No camera workers started successfully; integration pipeline skipped.");
+                return;
             }
             Map<Integer, String> productTypeByCamera = new LinkedHashMap<>();
-            for (Map<String, Object> camera : cameras) {
+            for (Map<String, Object> camera : activeCameras) {
                 int cameraId = ((Number) camera.get("id")).intValue();
                 productTypeByCamera.put(cameraId, String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId)));
             }
@@ -291,7 +306,7 @@ public final class IntegrationBootstrap {
             livePreview = LivePreviewPublisher.start(
                     log,
                     root,
-                    cameras,
+                    activeCameras,
                     workersByCamera,
                     lightClient,
                     uiServer,
@@ -371,12 +386,13 @@ public final class IntegrationBootstrap {
                 }
             }
             List<Callable<Void>> tasks = new ArrayList<>();
-            for (Map<String, Object> camera : cameras) {
+            for (Map<String, Object> camera : activeCameras) {
                 tasks.add(() -> {
                     int cameraId = ((Number) camera.get("id")).intValue();
                     WorkerProcessSupervisor worker = workersByCamera.get(cameraId);
                     if (worker == null) {
-                        throw new IllegalStateException("worker not initialized for camera " + cameraId);
+                        log.warn("camera task skipped: worker not initialized for camera {}", cameraId);
+                        return null;
                     }
                     inspectionPipeline.processCamera(
                             projectRoot,

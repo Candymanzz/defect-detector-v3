@@ -169,13 +169,26 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     public static ClientPreviewArtifact writeCurrentJpegFromBgrShm(
             String shmName, int width, int height, int stride, int previewMaxWidth, float quality
     ) {
-        return writeCurrentJpegFromBgrShm(shmName, width, height, stride, previewMaxWidth, quality, -1);
+        return writeCurrentJpegFromBgrShm(shmName, width, height, stride, 0L, previewMaxWidth, quality, -1);
     }
 
     public static ClientPreviewArtifact writeCurrentJpegFromBgrShm(
             String shmName, int width, int height, int stride, int previewMaxWidth, float quality, int cameraId
     ) {
-        if (width <= 0 || height <= 0 || stride < width * 3) {
+        return writeCurrentJpegFromBgrShm(shmName, width, height, stride, 0L, previewMaxWidth, quality, cameraId);
+    }
+
+    public static ClientPreviewArtifact writeCurrentJpegFromBgrShm(
+            String shmName,
+            int width,
+            int height,
+            int stride,
+            long shmOffset,
+            int previewMaxWidth,
+            float quality,
+            int cameraId
+    ) {
+        if (width <= 0 || height <= 0 || stride < width * 3 || shmOffset < 0) {
             return new ClientPreviewArtifact(null, 0, 0);
         }
         Path shmPath = FrameJpegWriter.resolveShmPath(shmName, cameraId);
@@ -184,11 +197,11 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         }
         long need = (long) stride * (long) height;
         try (FileChannel ch = FileChannel.open(shmPath, StandardOpenOption.READ)) {
-            long mapLen = Math.min(need, Math.max(0, ch.size()));
-            if (mapLen < (long) width * 3L * height) {
+            long fileSize = Math.max(0, ch.size());
+            if (fileSize < shmOffset + need || need < (long) width * 3L * height) {
                 return new ClientPreviewArtifact(null, 0, 0);
             }
-            MappedByteBuffer buf = ch.map(FileChannel.MapMode.READ_ONLY, 0, mapLen);
+            MappedByteBuffer buf = ch.map(FileChannel.MapMode.READ_ONLY, shmOffset, need);
             byte[] bgr = new byte[width * height * 3];
             for (int y = 0; y < height; y++) {
                 buf.position(y * stride);

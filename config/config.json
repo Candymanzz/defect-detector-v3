@@ -46,7 +46,7 @@
     {
       "id": 3,
       "enabled": true,
-      "ip": "169.254.183.253",
+      "ip": "169.254.105.1",
       "product_type": "bench-lan5",
       "exposure_us": 12000,
       "detector": "v1",
@@ -200,3 +200,4 @@
     ]
   }
 }
+

@@ -47,7 +47,7 @@ cameras:
     pipe_command_linux: "/tmp/camera-2-cmd.sock"
   - id: 3
     enabled: true
-    ip: "169.254.183.253"
+    ip: "169.254.105.1"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -291,3 +291,4 @@ integration:
     - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
     - "--urls"
     - "http://127.0.0.1:5080"
+

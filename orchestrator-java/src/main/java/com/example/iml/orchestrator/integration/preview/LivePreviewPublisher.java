@@ -180,7 +180,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 return;
             }
 
-            PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride);
+            long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
+            PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
             if (jpeg.path != null && Files.isRegularFile(jpeg.path)) {
                 uiServer.update(
                         cameraId,
@@ -212,13 +213,13 @@ public final class LivePreviewPublisher implements AutoCloseable {
         }
     }
 
-    private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride) {
+    private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride, long shmOffset) {
         int previewMaxW = YamlScalars.toInt(uiCfg.get("client_preview_max_width"), 0);
         int qualPct = YamlScalars.toInt(uiCfg.get("client_preview_jpeg_quality"), 58);
         qualPct = Math.min(100, Math.max(5, qualPct));
         float q = qualPct / 100f;
         UiHttpServer.ClientPreviewArtifact art = UiHttpServer.writeCurrentJpegFromBgrShm(
-                shmName, width, height, stride, previewMaxW, q, cameraId);
+                shmName, width, height, stride, shmOffset, previewMaxW, q, cameraId);
         return new PathHolder(art.path(), art.width(), art.height());
     }
 
