@@ -91,7 +91,7 @@ export function ModalWrapper({
             imageUrl={cameraImageUrl}
             label="Проверка камеры"
           />
-          {cameraId !== undefined && inspectResult?.heatmap && (
+          {cameraId !== undefined && inspectResult && (
             <HeatmapViewer
               cameraId={cameraId}
               heatmap={inspectResult.heatmap}
