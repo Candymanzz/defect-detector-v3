@@ -20,7 +20,7 @@ def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[s
     requested = {
         "aligned_image": (payload.aligned_image_u8_output_path, result.aligned_image),
         "diff_map": (payload.diff_map_u8_output_path, result.diff_map),
-        "heatmap": (payload.heatmap_u8_output_path, result.heatmap),
+        "heatmap": (payload.heatmap_u8_output_path, result.heatmap_u8),
         "segmentation_mask": (payload.segmentation_mask_u8_output_path, result.segmentation_mask),
     }
     outputs: dict[str, ShmImageOutputInfo] = {}

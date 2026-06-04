@@ -28,7 +28,9 @@ class InspectionResult:
     sub_zone_scores: list[RoiSubZoneScore] = field(default_factory=list)
     aligned_image: Optional[np.ndarray] = None
     diff_map: Optional[np.ndarray] = None
+    # BGR colormap for API/base64; UI SHM expects gray_u8 (see heatmap_u8).
     heatmap: Optional[np.ndarray] = None
+    heatmap_u8: Optional[np.ndarray] = None
     segmentation_mask: Optional[np.ndarray] = None
 
 

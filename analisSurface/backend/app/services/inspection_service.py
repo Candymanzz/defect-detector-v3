@@ -288,7 +288,8 @@ class InspectionService:
         sub_failed = any(entry.status == "БРАК" for entry in sub_zone_scores)
         status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
 
-        heatmap = self._build_heatmap(segmentation_mask, diff_map) if include_visuals else None
+        heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map) if include_visuals else None
+        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if heatmap_u8 is not None else None
         if include_visuals and heatmap is not None:
             heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
             heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
@@ -308,6 +309,7 @@ class InspectionService:
             aligned_image=aligned if include_visuals else None,
             diff_map=diff_map if include_visuals else None,
             heatmap=heatmap if include_visuals else None,
+            heatmap_u8=heatmap_u8 if include_visuals else None,
             segmentation_mask=segmentation_mask if include_visuals else None,
         )
 
@@ -957,22 +959,23 @@ class InspectionService:
 
         return heuristic_score, heuristic_mask
 
-    def _build_heatmap(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
+    def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
+        """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET)."""
         mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         if diff_map is None:
-            return cv2.applyColorMap(mask_gray, cv2.COLORMAP_JET)
+            return mask_gray
 
-        # Make heatmap explainable: combine model/anomaly mask with raw difference energy.
-        # This guarantees that thin scratches visible on diff_map are also visible on heatmap.
+        # Combine model/anomaly mask with raw difference energy so thin scratches stay visible.
         diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
         combined = cv2.max(mask_gray, diff_norm)
         combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
         combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
-        combined = np.clip(combined_gamma, 0, 255).astype(np.uint8)
-        heatmap = cv2.applyColorMap(combined, cv2.COLORMAP_JET)
+        return np.clip(combined_gamma, 0, 255).astype(np.uint8)
 
-        # Brighten detected defects so they pop in red while background remains darker.
+    def _colorize_heatmap(self, heatmap_gray: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        heatmap = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)
+        mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
         boosted = heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float)
         return np.clip(boosted, 0, 255).astype(np.uint8)
