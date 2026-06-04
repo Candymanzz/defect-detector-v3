@@ -4,6 +4,8 @@ import com.example.iml.orchestrator.integration.clientws.application.ClientWsApp
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsException;
 import com.example.iml.orchestrator.integration.clientws.handler.FpZonesUpdateWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.LightBrightnessWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.PreviewPauseWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.PreviewResumeWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.ReferenceBundleWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.SetActiveReferenceViewWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.StreamStartWsHandler;
@@ -31,17 +33,25 @@ public final class WsFrontController {
     }
 
     public void dispatch(WebSocket connection, JsonNode envelope, String messageType) {
-        application.log().info("client_ws inbound type={}", messageType);
-        Optional<WsMessageHandler> handler = router.match(messageType);
+        String normalizedType = messageType == null ? "" : messageType.trim();
+        application.log().info("client_ws inbound type={}", normalizedType);
+        Optional<WsMessageHandler> handler = router.match(normalizedType);
+        if (handler.isEmpty()) {
+            if (WsMessageTypes.CLIENT_PREVIEW_PAUSE.equalsIgnoreCase(normalizedType)) {
+                handler = Optional.of(new PreviewPauseWsHandler());
+            } else if (WsMessageTypes.CLIENT_PREVIEW_RESUME.equalsIgnoreCase(normalizedType)) {
+                handler = Optional.of(new PreviewResumeWsHandler());
+            }
+        }
         if (handler.isEmpty()) {
             application.outbound().sendError(connection, "unknown_type", "unsupported message type: " + messageType);
             return;
         }
-        WsMessageContext ctx = new WsMessageContext(connection, envelope, messageType, application);
+        WsMessageContext ctx = new WsMessageContext(connection, envelope, normalizedType, application);
         try {
             handler.get().handle(ctx);
         } catch (ClientWsException e) {
-            application.log().warn("client_ws handler {}: {}", messageType, e.getMessage());
+            application.log().warn("client_ws handler {}: {}", normalizedType, e.getMessage());
             application.outbound().sendError(
                     connection,
                     "handler_error",
@@ -56,6 +66,8 @@ public final class WsFrontController {
         router.register(new WsRoute(WsMessageTypes.CLIENT_FP_ZONES_UPDATE, new FpZonesUpdateWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_SET_ACTIVE_REFERENCE_VIEW, new SetActiveReferenceViewWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_LIGHT_BRIGHTNESS, new LightBrightnessWsHandler()));
+        router.register(new WsRoute(WsMessageTypes.CLIENT_PREVIEW_PAUSE, new PreviewPauseWsHandler()));
+        router.register(new WsRoute(WsMessageTypes.CLIENT_PREVIEW_RESUME, new PreviewResumeWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_STREAM_START, new StreamStartWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_STREAM_STOP, new StreamStopWsHandler()));
         return router;

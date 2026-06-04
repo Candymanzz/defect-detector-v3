@@ -16,10 +16,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Периодический capture + JPEG на ui_http + {@code server.preview_frame} по WebSocket.
@@ -39,7 +43,12 @@ public final class LivePreviewPublisher implements AutoCloseable {
     private final IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub;
     private final ScheduledExecutorService scheduler;
     private final CameraStreamService cameraStreamService;
+    private final LivePreviewGate previewGate;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicBoolean cycleInProgress = new AtomicBoolean(false);
+    private final ConcurrentHashMap<Integer, AtomicBoolean> tickInProgressByCamera = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, PreviewMetrics> metricsByCamera = new ConcurrentHashMap<>();
+    private final List<CameraPreviewTarget> previewTargets;
 
     private LivePreviewPublisher(
             Logger log,
@@ -53,7 +62,9 @@ public final class LivePreviewPublisher implements AutoCloseable {
             PipelineReferenceRegistry referenceRegistry,
             IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub,
             ScheduledExecutorService scheduler,
-            CameraStreamService cameraStreamService
+            CameraStreamService cameraStreamService,
+            LivePreviewGate previewGate,
+            List<CameraPreviewTarget> previewTargets
     ) {
         this.log = log;
         this.cfg = cfg;
@@ -69,6 +80,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 : devAutoStub;
         this.scheduler = scheduler;
         this.cameraStreamService = cameraStreamService;
+        this.previewGate = previewGate;
+        this.previewTargets = previewTargets == null ? List.of() : List.copyOf(previewTargets);
     }
 
     public static LivePreviewPublisher start(
@@ -84,7 +97,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
             ReferenceSource referenceSource,
             PipelineReferenceRegistry referenceRegistry,
             IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub,
-            CameraStreamService cameraStreamService
+            CameraStreamService cameraStreamService,
+            LivePreviewGate previewGate
     ) {
         LivePreviewConfig cfg = LivePreviewConfig.fromRootYaml(rootYaml);
         if (!cfg.enabled() || uiServer == null || workersByCamera == null || workersByCamera.isEmpty()) {
@@ -98,13 +112,29 @@ public final class LivePreviewPublisher implements AutoCloseable {
             return null;
         }
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(
-                Math.max(1, workersByCamera.size()),
+                Math.max(2, workersByCamera.size() + 1),
                 r -> {
                     Thread t = new Thread(r, "live-preview");
                     t.setDaemon(true);
                     return t;
                 }
         );
+        List<CameraPreviewTarget> targets = new ArrayList<>();
+        int intervalMs = cfg.tickIntervalMs();
+        for (Map<String, Object> camera : cameras) {
+            int cameraId = ((Number) camera.get("id")).intValue();
+            WorkerProcessSupervisor worker = workersByCamera.get(cameraId);
+            if (worker == null) {
+                continue;
+            }
+            String productType = String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId));
+            String detectorId = String.valueOf(camera.getOrDefault("detector", "v1"));
+            targets.add(new CameraPreviewTarget(cameraId, productType, detectorId, worker));
+        }
+        if (targets.isEmpty()) {
+            scheduler.shutdownNow();
+            return null;
+        }
         LivePreviewPublisher publisher = new LivePreviewPublisher(
                 log,
                 cfg,
@@ -117,23 +147,14 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 referenceRegistry,
                 devAutoStub,
                 scheduler,
-                cameraStreamService
+                cameraStreamService,
+                previewGate,
+                targets
         );
-        int intervalMs = cfg.tickIntervalMs();
-        for (Map<String, Object> camera : cameras) {
-            int cameraId = ((Number) camera.get("id")).intValue();
-            WorkerProcessSupervisor worker = workersByCamera.get(cameraId);
-            if (worker == null) {
-                continue;
-            }
-            String productType = String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId));
-            String detectorId = String.valueOf(camera.getOrDefault("detector", "v1"));
-            scheduler.scheduleWithFixedDelay(
-                    () -> publisher.tick(cameraId, productType, detectorId, worker),
-                    500L,
-                    intervalMs,
-                    TimeUnit.MILLISECONDS
-            );
+        for (CameraPreviewTarget target : targets) {
+            int cameraId = target.cameraId();
+            publisher.tickInProgressByCamera.putIfAbsent(cameraId, new AtomicBoolean(false));
+            publisher.metricsByCamera.putIfAbsent(cameraId, new PreviewMetrics());
             publisher.log.info(
                     "live_preview cam={} interval_ms={} flash_on_tick={} (independent of reference; inspection needs reference_bundle)",
                     cameraId,
@@ -141,11 +162,59 @@ public final class LivePreviewPublisher implements AutoCloseable {
                     cfg.flashOnTick()
             );
         }
+        scheduler.scheduleAtFixedRate(
+                publisher::tickAllGuarded,
+                500L,
+                intervalMs,
+                TimeUnit.MILLISECONDS
+        );
         return publisher;
     }
 
-    private void tick(int cameraId, String productType, String detectorId, WorkerProcessSupervisor worker) {
+    private void tickAllGuarded() {
         if (closed.get()) {
+            return;
+        }
+        if (!cycleInProgress.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            for (CameraPreviewTarget target : previewTargets) {
+                scheduler.execute(
+                        () -> tickGuarded(
+                                target.cameraId(),
+                                target.productType(),
+                                target.detectorId(),
+                                target.worker()
+                        )
+                );
+            }
+        } finally {
+            cycleInProgress.set(false);
+        }
+    }
+
+    private void tickGuarded(int cameraId, String productType, String detectorId, WorkerProcessSupervisor worker) {
+        AtomicBoolean inProgress = tickInProgressByCamera.computeIfAbsent(cameraId, ignored -> new AtomicBoolean(false));
+        PreviewMetrics metrics = metricsByCamera.computeIfAbsent(cameraId, ignored -> new PreviewMetrics());
+        if (!inProgress.compareAndSet(false, true)) {
+            metrics.droppedTicks.increment();
+            metrics.maybeLog(log, cameraId);
+            return;
+        }
+        try {
+            tick(cameraId, productType, detectorId, worker, metrics);
+        } finally {
+            inProgress.set(false);
+            metrics.maybeLog(log, cameraId);
+        }
+    }
+
+    private void tick(int cameraId, String productType, String detectorId, WorkerProcessSupervisor worker, PreviewMetrics metrics) {
+        if (closed.get()) {
+            return;
+        }
+        if (previewGate != null && previewGate.isPaused()) {
             return;
         }
         if (cameraStreamService != null && cameraStreamService.isStreaming(cameraId)) {
@@ -181,7 +250,9 @@ public final class LivePreviewPublisher implements AutoCloseable {
             }
 
             long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
+            long encodeStarted = System.nanoTime();
             PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
+            metrics.encodeNs.add(System.nanoTime() - encodeStarted);
             if (jpeg.path != null && Files.isRegularFile(jpeg.path)) {
                 uiServer.update(
                         cameraId,
@@ -204,7 +275,10 @@ public final class LivePreviewPublisher implements AutoCloseable {
                     ? "/api/camera/" + cameraId + "/current.jpg"
                     : null;
             if (clientWs != null) {
+                long wsStarted = System.nanoTime();
                 clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
+                metrics.wsNs.add(System.nanoTime() - wsStarted);
+                metrics.frames.increment();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -224,6 +298,51 @@ public final class LivePreviewPublisher implements AutoCloseable {
     }
 
     private record PathHolder(Path path, int width, int height) {
+    }
+
+    private record CameraPreviewTarget(
+            int cameraId,
+            String productType,
+            String detectorId,
+            WorkerProcessSupervisor worker
+    ) {
+    }
+
+    private static final class PreviewMetrics {
+        private static final long LOG_EVERY_MS = 10_000L;
+
+        final LongAdder frames = new LongAdder();
+        final LongAdder droppedTicks = new LongAdder();
+        final LongAdder encodeNs = new LongAdder();
+        final LongAdder wsNs = new LongAdder();
+        final AtomicLong lastLogAtMs = new AtomicLong(System.currentTimeMillis());
+
+        void maybeLog(Logger log, int cameraId) {
+            long now = System.currentTimeMillis();
+            long prev = lastLogAtMs.get();
+            if (now - prev < LOG_EVERY_MS) {
+                return;
+            }
+            if (!lastLogAtMs.compareAndSet(prev, now)) {
+                return;
+            }
+            long frameCount = frames.sumThenReset();
+            long dropped = droppedTicks.sumThenReset();
+            long encodeTotalNs = encodeNs.sumThenReset();
+            long wsTotalNs = wsNs.sumThenReset();
+            double sec = LOG_EVERY_MS / 1000.0;
+            double fps = frameCount / sec;
+            double avgEncodeMs = frameCount == 0 ? 0.0 : (encodeTotalNs / 1_000_000.0) / frameCount;
+            double avgWsMs = frameCount == 0 ? 0.0 : (wsTotalNs / 1_000_000.0) / frameCount;
+            log.info(
+                    "live_preview_stats camera={} fps={} dropped_ticks={} avg_encode_ms={} avg_ws_send_ms={}",
+                    cameraId,
+                    String.format("%.2f", fps),
+                    dropped,
+                    String.format("%.2f", avgEncodeMs),
+                    String.format("%.2f", avgWsMs)
+            );
+        }
     }
 
     @Override

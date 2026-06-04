@@ -12,6 +12,7 @@ import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceBoot
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceLogStyle;
 import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspectionCycleInput;
 import com.example.iml.orchestrator.integration.pipeline.session.ConveyorBenchmarkOrchestrator;
+import com.example.iml.orchestrator.integration.pipeline.session.GlobalInspectionCycleCoordinator;
 import com.example.iml.orchestrator.integration.pipeline.session.ProductionInspectionOrchestrator;
 import com.example.iml.orchestrator.integration.pipeline.session.SingleFrameBenchmarkOrchestrator;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
@@ -67,7 +68,8 @@ public final class InspectionPipeline {
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
             int flashLeadMs,
-            PipelineStagesLog pipelineStagesLog
+            PipelineStagesLog pipelineStagesLog,
+            GlobalInspectionCycleCoordinator cycleCoordinator
     ) throws Exception {
         int cameraId = ((Number) camera.get("id")).intValue();
         String productType = String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId));
@@ -192,7 +194,8 @@ public final class InspectionPipeline {
                 triggerStrategy,
                 triggerMode,
                 referenceSource,
-                referenceByCamera
+                referenceByCamera,
+                cycleCoordinator
         );
     }
 }

@@ -47,6 +47,26 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         if (pythonPool.isEmpty()) {
             return state;
         }
+        if (!hasValidCaptureFrame(state)) {
+            BinaryProtocol.Message pyError = new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of(
+                            "status", "ERROR",
+                            "error", "python inspect skipped: invalid capture frame header",
+                            "camera_id", cameraId,
+                            "product_type", productType
+                    ),
+                    new byte[0]
+            );
+            return new PipelineState(
+                    state.capture(),
+                    pyError,
+                    state.geom(),
+                    state.captureMs(),
+                    0L,
+                    state.geometryMs()
+            );
+        }
         BinaryRpcSupervisor python = pythonPool.get(Math.floorMod(pythonRoundRobin.getAndIncrement(), pythonPool.size()));
         try {
             long t0 = System.nanoTime();
@@ -75,5 +95,16 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static boolean hasValidCaptureFrame(PipelineState state) {
+        if (state == null || state.capture() == null || state.capture().header() == null) {
+            return false;
+        }
+        Map<String, Object> h = state.capture().header();
+        String shmName = String.valueOf(h.getOrDefault("shm_name", "")).trim();
+        int width = YamlScalars.toInt(h.get("width"), 0);
+        int height = YamlScalars.toInt(h.get("height"), 0);
+        return !shmName.isEmpty() && width > 0 && height > 0;
     }
 }

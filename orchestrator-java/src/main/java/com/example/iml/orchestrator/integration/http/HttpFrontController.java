@@ -13,6 +13,8 @@ import com.example.iml.orchestrator.integration.http.controller.HealthHttpContro
 
 import com.example.iml.orchestrator.integration.http.controller.LightHttpController;
 
+import com.example.iml.orchestrator.integration.http.controller.OrchestratorAnalysisSettingsHttpController;
+
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorFpZonesHttpController;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -155,6 +157,16 @@ public final class HttpFrontController {
         OrchestratorFpZonesHttpController fpZones = new OrchestratorFpZonesHttpController(ctx.analisSurfaceBaseUrl());
 
         router.register(HttpRoute.regex("*", Pattern.compile("^/api/orchestrator/fp-zones(/.*)?$"), fpZones));
+
+        OrchestratorAnalysisSettingsHttpController analysisSettings = new OrchestratorAnalysisSettingsHttpController(
+                ctx.analisSurfaceBaseUrl()
+        );
+
+        router.register(HttpRoute.regex(
+                "*",
+                Pattern.compile("^/api/orchestrator/analysis-settings(/.*)?$"),
+                analysisSettings
+        ));
 
 
 

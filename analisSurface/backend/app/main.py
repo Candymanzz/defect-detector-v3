@@ -1,10 +1,15 @@
 import json
+import logging
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import router
 from app.runtime import get_application_id
+
+LOG = logging.getLogger("uvicorn.error")
 
 
 app = FastAPI(title="Defect Detector API", version="0.1.0")
@@ -17,6 +22,26 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    raw_body = await request.body()
+    body_text = ""
+    if raw_body:
+        try:
+            body_text = raw_body.decode("utf-8", errors="replace")
+        except Exception:
+            body_text = str(raw_body)
+    if len(body_text) > 4000:
+        body_text = body_text[:4000] + "..."
+    LOG.error(
+        "validation_422 path=%s detail=%s body=%s",
+        request.url.path,
+        exc.errors(),
+        body_text,
+    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 @app.middleware("http")

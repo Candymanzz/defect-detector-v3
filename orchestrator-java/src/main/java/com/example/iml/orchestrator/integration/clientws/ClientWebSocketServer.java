@@ -14,6 +14,7 @@ import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferen
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
@@ -125,6 +126,10 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     public void setClientStreamConfig(ClientStreamConfig clientStreamConfig) {
         application.setClientStreamConfig(clientStreamConfig);
+    }
+
+    public void setLivePreviewGate(LivePreviewGate livePreviewGate) {
+        application.setLivePreviewGate(livePreviewGate);
     }
 
     public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws ClientWsKopcheniSyncException {

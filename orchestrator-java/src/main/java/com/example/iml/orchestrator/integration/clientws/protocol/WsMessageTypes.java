@@ -11,6 +11,8 @@ public final class WsMessageTypes {
     public static final String CLIENT_LIGHT_BRIGHTNESS = "client.light_brightness";
     public static final String CLIENT_STREAM_START = "client.stream_start";
     public static final String CLIENT_STREAM_STOP = "client.stream_stop";
+    public static final String CLIENT_PREVIEW_PAUSE = "client.preview_pause";
+    public static final String CLIENT_PREVIEW_RESUME = "client.preview_resume";
 
     public static final String SERVER_HELLO = "server.hello";
     public static final String SERVER_INSPECT_RESULT = "server.inspect_result";

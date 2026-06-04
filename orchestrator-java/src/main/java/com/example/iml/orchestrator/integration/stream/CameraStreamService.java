@@ -19,6 +19,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Клиентский видеопоток: worker {@code start_stream} (continuous MVS) + {@code stream_poll} + JPEG на UI/WS.
@@ -39,6 +41,7 @@ public final class CameraStreamService implements AutoCloseable {
     private final ScheduledExecutorService scheduler;
     private final ConcurrentHashMap<Integer, StreamSession> sessions = new ConcurrentHashMap<>();
     private final MjpegStreamHub mjpegHub;
+    private final ConcurrentHashMap<Integer, StreamMetrics> metricsByCamera = new ConcurrentHashMap<>();
     private volatile WsOutboundMessenger outbound;
 
     public CameraStreamService(
@@ -114,6 +117,7 @@ public final class CameraStreamService implements AutoCloseable {
         String httpPath = "/api/camera/" + cameraId + "/current.jpg";
         String mjpegPath = mjpegPath(cameraId);
         StreamSession session = new StreamSession(wsNotify, fps);
+        metricsByCamera.putIfAbsent(cameraId, new StreamMetrics());
         StreamSession prev = sessions.putIfAbsent(cameraId, session);
         if (prev != null) {
             throw new IllegalStateException("stream already active for camera " + cameraId);
@@ -147,6 +151,7 @@ public final class CameraStreamService implements AutoCloseable {
 
     public void stop(int cameraId) {
         StreamSession session = sessions.remove(cameraId);
+        metricsByCamera.remove(cameraId);
         if (session == null) {
             return;
         }
@@ -191,6 +196,7 @@ public final class CameraStreamService implements AutoCloseable {
                 return;
             }
             BinaryProtocol.Message capture;
+            StreamMetrics metrics = metricsByCamera.computeIfAbsent(cameraId, ignored -> new StreamMetrics());
             synchronized (worker) {
                 capture = worker.command(Map.of("op", "stream_poll"));
             }
@@ -221,7 +227,9 @@ public final class CameraStreamService implements AutoCloseable {
 
             String productType = productTypeByCamera.getOrDefault(cameraId, "camera-" + cameraId);
             String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
+            long encodeStarted = System.nanoTime();
             PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
+            metrics.encodeNs.add(System.nanoTime() - encodeStarted);
             if (jpeg.path != null && Files.isRegularFile(jpeg.path)) {
                 if (uiServer != null) {
                     uiServer.update(
@@ -252,8 +260,12 @@ public final class CameraStreamService implements AutoCloseable {
                     ? "/api/camera/" + cameraId + "/current.jpg"
                     : null;
             if (clientWs != null) {
+                long wsStarted = System.nanoTime();
                 clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
+                metrics.wsNs.add(System.nanoTime() - wsStarted);
+                metrics.frames.increment();
             }
+            metrics.maybeLog(log, cameraId);
         } catch (Exception e) {
             session.notePollError(log, cameraId, e.getMessage());
         } finally {
@@ -333,5 +345,39 @@ public final class CameraStreamService implements AutoCloseable {
     }
 
     private record PathHolder(Path path, int width, int height) {
+    }
+
+    private static final class StreamMetrics {
+        private static final long LOG_EVERY_MS = 10_000L;
+
+        final LongAdder frames = new LongAdder();
+        final LongAdder encodeNs = new LongAdder();
+        final LongAdder wsNs = new LongAdder();
+        final AtomicLong lastLogAtMs = new AtomicLong(System.currentTimeMillis());
+
+        void maybeLog(Logger log, int cameraId) {
+            long now = System.currentTimeMillis();
+            long prev = lastLogAtMs.get();
+            if (now - prev < LOG_EVERY_MS) {
+                return;
+            }
+            if (!lastLogAtMs.compareAndSet(prev, now)) {
+                return;
+            }
+            long frameCount = frames.sumThenReset();
+            long encodeTotalNs = encodeNs.sumThenReset();
+            long wsTotalNs = wsNs.sumThenReset();
+            double sec = LOG_EVERY_MS / 1000.0;
+            double fps = frameCount / sec;
+            double avgEncodeMs = frameCount == 0 ? 0.0 : (encodeTotalNs / 1_000_000.0) / frameCount;
+            double avgWsMs = frameCount == 0 ? 0.0 : (wsTotalNs / 1_000_000.0) / frameCount;
+            log.info(
+                    "client_stream_stats camera={} fps={} avg_encode_ms={} avg_ws_send_ms={}",
+                    cameraId,
+                    String.format("%.2f", fps),
+                    String.format("%.2f", avgEncodeMs),
+                    String.format("%.2f", avgWsMs)
+            );
+        }
     }
 }

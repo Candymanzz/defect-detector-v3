@@ -8,8 +8,8 @@ frame:
   format: BGR8
 
 capture_source: "hik"
-# software — кадр только после TriggerSoftware (синхрон с вспышкой); continuous — свободный поток.
-capture_trigger_mode: "software"
+# No external trigger yet: run in continuous mode.
+capture_trigger_mode: "continuous"
 frame_timeout_ms: 4000
 
 orchestrator:
@@ -22,7 +22,7 @@ cameras:
     enabled: true
     ip: "192.168.1.13"
     exposure_us: 12000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-0-cmd"
     product_type: "bench-lan1"
@@ -31,7 +31,7 @@ cameras:
     enabled: true
     ip: "169.254.79.219"
     exposure_us: 12000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-1-cmd"
     product_type: "bench-lan3"
@@ -40,7 +40,7 @@ cameras:
     enabled: true
     ip: "169.254.100.219"
     exposure_us: 12000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-2-cmd"
     product_type: "bench-lan4"
@@ -49,7 +49,7 @@ cameras:
     enabled: true
     ip: "169.254.105.1"
     exposure_us: 12000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-3-cmd"
     product_type: "bench-lan5"
@@ -134,7 +134,7 @@ fanout:
 # Подсветка → LightServer.v3: COM = POST /api/com/light { state: On|Off, brightness: "80,..." } (банк COM из appsettings);
 # сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость оркестратора: 0…100%.
 light_servers:
-  enabled: true
+  enabled: false
   fail_on_error: true
   # COM: первый POST может занять 8–12 s, если банк ещё не initialized (оркестратор ждёт GET /api/com/light)
   timeout_ms: 20000
@@ -191,7 +191,7 @@ integration:
   # Preview + вспышка On/Off по таймеру — всегда, без эталона. Инспекция — только после reference_bundle.
   live_preview:
     enabled: true
-    flash_on_tick: true
+    flash_on_tick: false
     interval_ms: 5000
   camera_parallelism: 4
   geometry_pool_size: 2

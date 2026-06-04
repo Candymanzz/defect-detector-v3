@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.clientws.service.ClientWsKopchen
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferenceContext;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
@@ -30,6 +31,7 @@ public final class ClientWsApplicationContext {
     private volatile LightTriggerClient lightTriggerClient;
     private volatile CameraStreamService cameraStreamService;
     private volatile ClientStreamConfig clientStreamConfig = ClientStreamConfig.defaults();
+    private volatile LivePreviewGate livePreviewGate;
 
     public ClientWsApplicationContext(
             Logger log,
@@ -110,5 +112,13 @@ public final class ClientWsApplicationContext {
 
     public ClientStreamConfig clientStreamConfig() {
         return clientStreamConfig;
+    }
+
+    public void setLivePreviewGate(LivePreviewGate livePreviewGate) {
+        this.livePreviewGate = livePreviewGate;
+    }
+
+    public LivePreviewGate livePreviewGate() {
+        return livePreviewGate;
     }
 }

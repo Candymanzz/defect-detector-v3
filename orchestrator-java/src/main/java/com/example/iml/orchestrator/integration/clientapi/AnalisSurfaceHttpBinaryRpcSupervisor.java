@@ -297,6 +297,14 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private BinaryProtocol.Message uploadRefShm(Map<String, Object> header) throws IOException {
         Map<String, Object> body = shmFrameJson(header);
+        String invalid = validateRequiredShmFrameFields(body, "upload-ref-shm");
+        if (invalid != null) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of("error", invalid, "op", "set_reference_shm"),
+                    new byte[0]
+            );
+        }
         HttpResponse<byte[]> resp = httpPostJson("/upload-ref-shm", body);
         if (resp.statusCode() / 100 != 2) {
             throw new IOException(errorMessage("upload-ref-shm", resp));
@@ -327,6 +335,14 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             }
         }
         Map<String, Object> body = shmFrameJson(header);
+        String invalid = validateRequiredShmFrameFields(body, "inspect-shm");
+        if (invalid != null) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of("error", invalid, "op", "inspect_shm"),
+                    new byte[0]
+            );
+        }
         HttpResponse<byte[]> resp = httpPostJson("/inspect-shm", body);
         if (resp.statusCode() / 100 != 2) {
             return errorMessageToMsg(resp, "inspect-shm");
@@ -337,6 +353,14 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private BinaryProtocol.Message inspectShmVisuals(Map<String, Object> header) throws IOException {
         Map<String, Object> body = shmFrameJson(header);
+        String invalid = validateRequiredShmFrameFields(body, "inspect-shm-visuals");
+        if (invalid != null) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of("error", invalid, "op", "inspect_shm"),
+                    new byte[0]
+            );
+        }
         Object heatmapPath = header.get("heatmap_u8_output_path");
         if (heatmapPath != null) {
             body.put("heatmap_u8_output_path", String.valueOf(heatmapPath));
@@ -621,7 +645,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 .header("Accept", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(json))
                 .build();
-        return send(req);
+        HttpResponse<byte[]> resp = send(req);
+        if (resp.statusCode() / 100 != 2) {
+            logHttpFailure(path, jsonBody, resp);
+        }
+        return resp;
     }
 
     private HttpResponse<byte[]> send(HttpRequest req) throws IOException {
@@ -664,5 +692,70 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return Map.of();
         }
         return MAPPER.readValue(body, new TypeReference<>() {});
+    }
+
+    private void logHttpFailure(String path, Map<String, Object> requestBody, HttpResponse<byte[]> resp) {
+        String req = safeJson(requestBody, 3000);
+        String body = safeResponseBody(resp.body(), 3000);
+        LOG.warn(
+                "{} HTTP POST {} failed status={} request={} response={}",
+                name,
+                path,
+                resp.statusCode(),
+                req,
+                body
+        );
+    }
+
+    private static String safeJson(Map<String, Object> body, int maxLen) {
+        try {
+            return truncate(MAPPER.writeValueAsString(body), maxLen);
+        } catch (Exception e) {
+            return "<json_serialize_failed:" + e.getMessage() + ">";
+        }
+    }
+
+    private static String safeResponseBody(byte[] body, int maxLen) {
+        if (body == null || body.length == 0) {
+            return "";
+        }
+        return truncate(new String(body, StandardCharsets.UTF_8), maxLen);
+    }
+
+    private static String truncate(String value, int maxLen) {
+        if (value == null) {
+            return "";
+        }
+        if (maxLen <= 0 || value.length() <= maxLen) {
+            return value;
+        }
+        return value.substring(0, maxLen) + "...";
+    }
+
+    private String validateRequiredShmFrameFields(Map<String, Object> body, String op) {
+        List<String> missing = new ArrayList<>();
+        String productType = String.valueOf(body.getOrDefault("product_type", "")).trim();
+        String shmName = String.valueOf(body.getOrDefault("shm_name", "")).trim();
+        int width = YamlScalars.toInt(body.get("width"), 0);
+        int height = YamlScalars.toInt(body.get("height"), 0);
+        if (productType.isEmpty()) {
+            missing.add("product_type");
+        }
+        if (shmName.isEmpty()) {
+            missing.add("shm_name");
+        }
+        if (width <= 0) {
+            missing.add("width");
+        }
+        if (height <= 0) {
+            missing.add("height");
+        }
+        if (missing.isEmpty()) {
+            return null;
+        }
+        String payload = safeJson(body, 1200);
+        String msg = op + " skipped: missing/invalid required fields " + missing + " payload=" + payload;
+        LOG.warn("{} {}", name, msg);
+        return msg;
     }
 }

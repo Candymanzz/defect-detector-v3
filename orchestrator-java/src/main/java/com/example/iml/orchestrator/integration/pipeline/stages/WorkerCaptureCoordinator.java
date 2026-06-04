@@ -98,6 +98,14 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                 captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
             });
             BinaryProtocol.Message capture = captureHolder[0];
+            if (!hasUsableCaptureHeader(capture)) {
+                // Some worker/backends can return an ACK-like response for sync capture in continuous mode.
+                // Fallback to regular capture to obtain shm_name/width/height needed by geometry/python stages.
+                capture = worker.command(Map.of("op", "capture"));
+                if (log.isDebugEnabled()) {
+                    log.debug("worker cam={} fallback capture (sync response had no usable frame header)", cameraId);
+                }
+            }
             jpegWriter.saveCapturedFrame(projectRoot, saveCaptures, capture.header(), "cap");
             if (log.isDebugEnabled()) {
                 log.debug("worker cam={} {} header={}", cameraId, debugLogSuffix, capture.header());
@@ -109,5 +117,16 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static boolean hasUsableCaptureHeader(BinaryProtocol.Message capture) {
+        if (capture == null || capture.header() == null) {
+            return false;
+        }
+        Map<String, Object> h = capture.header();
+        String shmName = String.valueOf(h.getOrDefault("shm_name", "")).trim();
+        int width = YamlScalars.toInt(h.get("width"), 0);
+        int height = YamlScalars.toInt(h.get("height"), 0);
+        return !shmName.isEmpty() && width > 0 && height > 0;
     }
 }

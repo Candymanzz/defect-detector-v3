@@ -6,7 +6,7 @@
     "format": "BGR8"
   },
   "capture_source": "hik",
-  "capture_trigger_mode": "software",
+  "capture_trigger_mode": "continuous",
   "frame_timeout_ms": 4000,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",

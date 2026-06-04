@@ -91,7 +91,7 @@ typedef struct {
     char capture_source[32];
     int frame_timeout_ms;
     int exposure_us;
-    int software_trigger;
+    int trigger_mode;
     uint64_t started_ns;
     int capture_backend_ready;
     char capture_backend_info[128];
@@ -106,7 +106,7 @@ typedef struct {
 #endif
     volatile int stream_active;
     int stream_fps;
-    int stream_restore_software_trigger;
+    int stream_restore_trigger_mode;
     uint64_t stream_last_timestamp_ns;
 #ifdef _WIN32
     HANDLE stream_thread;
@@ -237,18 +237,55 @@ static int json_find_int(const char *js, int jslen, const char *key, int *out) {
 typedef struct {
     char ip[64];
     int exposure_us;
-    int software_trigger;
+    int trigger_mode;
 } worker_camera_config_t;
 
-static int trigger_mode_is_software(const char *mode) {
+enum {
+    TRIGGER_MODE_CONTINUOUS = 0,
+    TRIGGER_MODE_SOFTWARE = 1,
+    TRIGGER_MODE_LINE0 = 2,
+    TRIGGER_MODE_LINE1 = 3
+};
+
+static int parse_trigger_mode(const char *mode) {
     if (!mode || mode[0] == '\0') {
-        return 0;
+        return TRIGGER_MODE_CONTINUOUS;
     }
 #ifdef _WIN32
-    return _stricmp(mode, "software") == 0 || _stricmp(mode, "sync") == 0;
+    if (_stricmp(mode, "software") == 0 || _stricmp(mode, "sync") == 0) {
+        return TRIGGER_MODE_SOFTWARE;
+    }
+    if (_stricmp(mode, "line0") == 0 || _stricmp(mode, "line") == 0 || _stricmp(mode, "hardware") == 0) {
+        return TRIGGER_MODE_LINE0;
+    }
+    if (_stricmp(mode, "line1") == 0) {
+        return TRIGGER_MODE_LINE1;
+    }
 #else
-    return strcasecmp(mode, "software") == 0 || strcasecmp(mode, "sync") == 0;
+    if (strcasecmp(mode, "software") == 0 || strcasecmp(mode, "sync") == 0) {
+        return TRIGGER_MODE_SOFTWARE;
+    }
+    if (strcasecmp(mode, "line0") == 0 || strcasecmp(mode, "line") == 0 || strcasecmp(mode, "hardware") == 0) {
+        return TRIGGER_MODE_LINE0;
+    }
+    if (strcasecmp(mode, "line1") == 0) {
+        return TRIGGER_MODE_LINE1;
+    }
 #endif
+    return TRIGGER_MODE_CONTINUOUS;
+}
+
+static const char *trigger_mode_name(int trigger_mode) {
+    switch (trigger_mode) {
+        case TRIGGER_MODE_SOFTWARE:
+            return "software";
+        case TRIGGER_MODE_LINE0:
+            return "line0";
+        case TRIGGER_MODE_LINE1:
+            return "line1";
+        default:
+            return "continuous";
+    }
 }
 
 static int json_copy_token_string(const char *js, const jsmntok_t *tok, char *out, size_t out_len) {
@@ -268,7 +305,7 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
 
     char mode[32] = {0};
     if (json_find_string(js, jslen, "capture_trigger_mode", mode, sizeof(mode)) == 0) {
-        cfg->software_trigger = trigger_mode_is_software(mode);
+        cfg->trigger_mode = parse_trigger_mode(mode);
     }
     int exposure = 0;
     if (json_find_int(js, jslen, "exposure_us", &exposure) == 0 && exposure > 0) {
@@ -340,7 +377,7 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
             snprintf(cfg->ip, sizeof(cfg->ip), "%s", ip_buf);
         }
         if (cam_mode[0] != '\0') {
-            cfg->software_trigger = trigger_mode_is_software(cam_mode);
+            cfg->trigger_mode = parse_trigger_mode(cam_mode);
         }
         if (cam_exp > 0) {
             cfg->exposure_us = cam_exp;
@@ -617,10 +654,19 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
     if (!st->hik_handle || !st->hik_is_primary) {
         return;
     }
-    if (st->software_trigger) {
+    if (st->trigger_mode == TRIGGER_MODE_SOFTWARE) {
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
         (void)MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", "Software");
         fprintf(stderr, "hik: TriggerMode=On TriggerSource=Software (sync with flash)\n");
+    } else if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
+        (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
+        (void)MV_CC_SetEnumValueByString(
+                st->hik_handle,
+                "TriggerSource",
+                st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0"
+        );
+        fprintf(stderr, "hik: TriggerMode=On TriggerSource=%s (hardware)\n",
+                st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0");
     } else {
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 0);
         fprintf(stderr, "hik: TriggerMode=Off (continuous)\n");
@@ -930,7 +976,7 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
         if (!st->hik_is_primary) {
             return read_hik_frame_clone(st, frame, frame_id, err, err_len);
         }
-        int use_sync = sync_capture || st->software_trigger;
+        int use_sync = sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE;
         MV_FRAME_OUT_INFO_EX info;
         memset(&info, 0, sizeof(info));
         int nRet;
@@ -1111,12 +1157,12 @@ static void stop_stream_internal(worker_state_t *st) {
         memset(&st->stream_thread, 0, sizeof(st->stream_thread));
     }
 #endif
-    st->software_trigger = st->stream_restore_software_trigger;
+    st->trigger_mode = st->stream_restore_trigger_mode;
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
     hik_configure_trigger_mode(st);
 #endif
     fprintf(stderr, "stream stopped camera=%d trigger_restored=%s\n", st->camera_id,
-            st->software_trigger ? "software" : "continuous");
+            trigger_mode_name(st->trigger_mode));
 }
 
 #ifdef _WIN32
@@ -1166,8 +1212,8 @@ static int start_stream_internal(worker_state_t *st, int fps, char *err, size_t 
         fps = STREAM_FPS_MAX;
     }
     st->stream_fps = fps;
-    st->stream_restore_software_trigger = st->software_trigger;
-    st->software_trigger = 0;
+    st->stream_restore_trigger_mode = st->trigger_mode;
+    st->trigger_mode = TRIGGER_MODE_CONTINUOUS;
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
     hik_configure_trigger_mode(st);
 #endif
@@ -1176,14 +1222,14 @@ static int start_stream_internal(worker_state_t *st, int fps, char *err, size_t 
     st->stream_thread = CreateThread(NULL, 0, stream_thread_proc, st, 0, NULL);
     if (!st->stream_thread) {
         st->stream_active = 0;
-        st->software_trigger = st->stream_restore_software_trigger;
+        st->trigger_mode = st->stream_restore_trigger_mode;
         snprintf(err, err_len, "CreateThread failed: %lu", GetLastError());
         return -1;
     }
 #else
     if (pthread_create(&st->stream_thread, NULL, stream_thread_proc, st) != 0) {
         st->stream_active = 0;
-        st->software_trigger = st->stream_restore_software_trigger;
+        st->trigger_mode = st->stream_restore_trigger_mode;
         snprintf(err, err_len, "pthread_create failed");
         return -1;
     }
@@ -1203,7 +1249,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
         snprintf(st->ip, sizeof(st->ip), "127.0.0.1");
     }
     st->exposure_us = cam_cfg ? cam_cfg->exposure_us : 0;
-    st->software_trigger = cam_cfg ? cam_cfg->software_trigger : 0;
+    st->trigger_mode = cam_cfg ? cam_cfg->trigger_mode : TRIGGER_MODE_CONTINUOUS;
     st->width = 2448;
     st->height = 2048;
     st->stride = st->width * 3;
@@ -1222,7 +1268,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->started_ns = now_ns();
     st->stream_active = 0;
     st->stream_fps = STREAM_FPS_DEFAULT;
-    st->stream_restore_software_trigger = 0;
+    st->stream_restore_trigger_mode = TRIGGER_MODE_CONTINUOUS;
     st->stream_last_timestamp_ns = 0;
     stream_lock_init(st);
     st->capture_backend_ready = 0;
@@ -1707,7 +1753,7 @@ int main(int argc, char **argv) {
     fprintf(stderr,
             "capture source=%s frame_timeout_ms=%d ip=%s exposure_us=%d trigger=%s (detection via analisSurface)\n",
             capture_source, frame_timeout_ms, cam_cfg.ip, cam_cfg.exposure_us,
-            cam_cfg.software_trigger ? "software" : "continuous");
+            trigger_mode_name(cam_cfg.trigger_mode));
 
     free(js);
 

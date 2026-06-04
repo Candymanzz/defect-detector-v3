@@ -57,6 +57,25 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         if (geometryPool.isEmpty()) {
             return state;
         }
+        if (!hasValidCaptureFrame(state)) {
+            BinaryProtocol.Message geomError = new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of(
+                            "status", "ERROR",
+                            "error", "geometry skipped: invalid capture frame header",
+                            "camera_id", cameraId
+                    ),
+                    new byte[0]
+            );
+            return new PipelineState(
+                    state.capture(),
+                    state.py(),
+                    geomError,
+                    state.captureMs(),
+                    state.pythonMs(),
+                    0L
+            );
+        }
         BinaryRpcSupervisor geometry = geometryPool.get(Math.floorMod(geometryRoundRobin.getAndIncrement(), geometryPool.size()));
         try {
             long t0 = System.nanoTime();
@@ -90,5 +109,16 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static boolean hasValidCaptureFrame(PipelineState state) {
+        if (state == null || state.capture() == null || state.capture().header() == null) {
+            return false;
+        }
+        Map<String, Object> h = state.capture().header();
+        String shmName = String.valueOf(h.getOrDefault("shm_name", "")).trim();
+        int width = YamlScalars.toInt(h.get("width"), 0);
+        int height = YamlScalars.toInt(h.get("height"), 0);
+        return !shmName.isEmpty() && width > 0 && height > 0;
     }
 }

@@ -24,7 +24,8 @@ public final class ProductionInspectionOrchestrator {
             InspectionTriggerStrategy triggerStrategy,
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             ReferenceSource referenceSource,
-            Map<Integer, ReferenceSnapshot> referenceByCamera
+            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            GlobalInspectionCycleCoordinator cycleCoordinator
     ) throws Exception {
         AtomicBoolean cycleInProgress = new AtomicBoolean(false);
         boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
@@ -35,7 +36,8 @@ public final class ProductionInspectionOrchestrator {
                 triggerStrategy,
                 cycleInProgress,
                 referenceFromClient,
-                referenceByCamera
+                referenceByCamera,
+                cycleCoordinator
         );
     }
 
@@ -85,12 +87,13 @@ public final class ProductionInspectionOrchestrator {
             InspectionTriggerStrategy triggerStrategy,
             AtomicBoolean cycleInProgress,
             boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera
+            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            GlobalInspectionCycleCoordinator cycleCoordinator
     ) throws Exception {
         while (!Thread.currentThread().isInterrupted()) {
             InspectionTriggerEvent event = triggerStrategy.awaitNext(in.cameraId());
             if (!cycleInProgress.get()) {
-                runCycle(svc, in, cycleInProgress, referenceFromClient, referenceByCamera);
+                runCycle(svc, in, cycleInProgress, referenceFromClient, referenceByCamera, cycleCoordinator);
                 int delay = triggerStrategy.postCycleDelayMs();
                 if (delay > 0) {
                     sleepInterruptibly(delay);
@@ -110,12 +113,16 @@ public final class ProductionInspectionOrchestrator {
             AsyncInspectionCycleInput in,
             AtomicBoolean cycleInProgress,
             boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera
+            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            GlobalInspectionCycleCoordinator cycleCoordinator
     ) {
         if (!cycleInProgress.compareAndSet(false, true)) {
             return;
         }
         try {
+            if (cycleCoordinator != null) {
+                cycleCoordinator.awaitCycleStart();
+            }
             AsyncInspectionCycleInput cycleIn = resolveCycleInput(in, referenceFromClient, referenceByCamera);
             if (cycleIn == null) {
                 if (referenceFromClient) {
@@ -135,6 +142,9 @@ public final class ProductionInspectionOrchestrator {
             );
             svc.log().debug("inspection cycle error", e);
         } finally {
+            if (cycleCoordinator != null) {
+                cycleCoordinator.awaitCycleFinish();
+            }
             cycleInProgress.set(false);
         }
     }

@@ -21,6 +21,7 @@ import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.preview.LivePreviewPublisher;
+import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
@@ -31,6 +32,7 @@ import com.example.iml.orchestrator.integration.pipeline.stages.InspectGeometryE
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPythonExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
 import com.example.iml.orchestrator.integration.pipeline.telemetry.PipelineInspectionTelemetry;
+import com.example.iml.orchestrator.integration.pipeline.session.GlobalInspectionCycleCoordinator;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
@@ -224,6 +226,7 @@ public final class IntegrationBootstrap {
         }
 
         LivePreviewPublisher livePreview = null;
+        LivePreviewGate livePreviewGate = new LivePreviewGate();
         CameraStreamService cameraStreamService = null;
         InspectionTriggerRuntime triggerRuntime = null;
         try {
@@ -297,6 +300,7 @@ public final class IntegrationBootstrap {
                 if (clientWsServer != null) {
                     clientWsServer.setCameraStreamService(cameraStreamService);
                     clientWsServer.setClientStreamConfig(clientStreamCfg);
+                    clientWsServer.setLivePreviewGate(livePreviewGate);
                 }
                 uiServer.attachCameraStreamService(cameraStreamService);
                 log.info("client_stream ready default_max_fps={} cap={}", clientStreamCfg.defaultMaxFps(), clientStreamCfg.maxFpsCap());
@@ -316,7 +320,8 @@ public final class IntegrationBootstrap {
                     cfg.referenceSource(),
                     pipelineReferenceRegistry,
                     devAutoTriggerStub,
-                    cameraStreamService
+                    cameraStreamService,
+                    livePreviewGate
             );
             cameraExecutor = Executors.newFixedThreadPool(cfg.cameraParallelism(), r -> {
                 Thread t = new Thread(r, "camera-flow");
@@ -386,6 +391,8 @@ public final class IntegrationBootstrap {
                 }
             }
             List<Callable<Void>> tasks = new ArrayList<>();
+            GlobalInspectionCycleCoordinator cycleCoordinator =
+                    new GlobalInspectionCycleCoordinator(workersByCamera.keySet());
             for (Map<String, Object> camera : activeCameras) {
                 tasks.add(() -> {
                     int cameraId = ((Number) camera.get("id")).intValue();
@@ -426,7 +433,8 @@ public final class IntegrationBootstrap {
                             triggerMode,
                             saveCaptures,
                             flashLeadMs,
-                            pipelineStagesLog
+                            pipelineStagesLog,
+                            cycleCoordinator
                     );
                     return null;
                 });

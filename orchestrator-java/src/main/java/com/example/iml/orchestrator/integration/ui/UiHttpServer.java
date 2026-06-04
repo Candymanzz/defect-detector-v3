@@ -24,6 +24,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.Map;
@@ -35,6 +36,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Маршрутизация — {@link HttpFrontController} (паттерн Front Controller).
  */
 public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
+    private static final Path PREVIEW_OUTPUT_DIR = Path.of(
+            System.getProperty("java.io.tmpdir"),
+            "iml-ui-current"
+    );
 
     public record ClientPreviewArtifact(Path path, int width, int height) {
     }
@@ -202,14 +207,12 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                 return new ClientPreviewArtifact(null, 0, 0);
             }
             MappedByteBuffer buf = ch.map(FileChannel.MapMode.READ_ONLY, shmOffset, need);
-            byte[] bgr = new byte[width * height * 3];
-            for (int y = 0; y < height; y++) {
-                buf.position(y * stride);
-                buf.get(bgr, y * width * 3, width * 3);
-            }
             BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
             byte[] dst = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
-            System.arraycopy(bgr, 0, dst, 0, bgr.length);
+            for (int y = 0; y < height; y++) {
+                buf.position(y * stride);
+                buf.get(dst, y * width * 3, width * 3);
+            }
 
             int outW = width;
             int outH = height;
@@ -224,27 +227,86 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                 img = scaled;
             }
 
-            Path out = Files.createTempFile("iml-ui-current-", ".jpg");
-            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
-            if (!writers.hasNext()) {
+            Path out = cameraId >= 0
+                    ? writeStablePreviewJpeg(cameraId, img, quality)
+                    : writeTempPreviewJpeg(img, quality);
+            if (out == null) {
                 return new ClientPreviewArtifact(null, 0, 0);
-            }
-            ImageWriter writer = writers.next();
-            float q = Math.min(1f, Math.max(0.05f, quality));
-            try (ImageOutputStream ios = ImageIO.createImageOutputStream(out.toFile())) {
-                writer.setOutput(ios);
-                ImageWriteParam p = writer.getDefaultWriteParam();
-                if (p.canWriteCompressed()) {
-                    p.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                    p.setCompressionQuality(q);
-                }
-                writer.write(null, new IIOImage(img, null, null), p);
-            } finally {
-                writer.dispose();
             }
             return new ClientPreviewArtifact(out, outW, outH);
         } catch (Exception e) {
             return new ClientPreviewArtifact(null, 0, 0);
+        }
+    }
+
+    private static Path writeTempPreviewJpeg(BufferedImage image, float quality) throws IOException {
+        Path out = Files.createTempFile("iml-ui-current-", ".jpg");
+        if (!encodeJpeg(image, out, quality)) {
+            try {
+                Files.deleteIfExists(out);
+            } catch (IOException ignored) {
+                // best effort
+            }
+            return null;
+        }
+        return out;
+    }
+
+    private static Path writeStablePreviewJpeg(int cameraId, BufferedImage image, float quality) throws IOException {
+        Files.createDirectories(PREVIEW_OUTPUT_DIR);
+        Path target = PREVIEW_OUTPUT_DIR.resolve("camera-" + cameraId + "-current.jpg");
+        Path tmp = Files.createTempFile(PREVIEW_OUTPUT_DIR, "camera-" + cameraId + "-", ".jpg.tmp");
+        boolean encoded = false;
+        try {
+            encoded = encodeJpeg(image, tmp, quality);
+            if (!encoded) {
+                return null;
+            }
+            try {
+                Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                return target;
+            } catch (IOException e) {
+                try {
+                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+                    return target;
+                } catch (IOException moveFail) {
+                    // Windows can transiently lock target while frontend reads it.
+                    // Fallback to direct rewrite to keep preview frames flowing.
+                    if (encodeJpeg(image, target, quality)) {
+                        return target;
+                    }
+                    return null;
+                }
+            }
+        } finally {
+            if (!encoded || Files.exists(tmp)) {
+                try {
+                    Files.deleteIfExists(tmp);
+                } catch (IOException ignored) {
+                    // best effort
+                }
+            }
+        }
+    }
+
+    private static boolean encodeJpeg(BufferedImage image, Path out, float quality) throws IOException {
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+        if (!writers.hasNext()) {
+            return false;
+        }
+        ImageWriter writer = writers.next();
+        float q = Math.min(1f, Math.max(0.05f, quality));
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(out.toFile())) {
+            writer.setOutput(ios);
+            ImageWriteParam p = writer.getDefaultWriteParam();
+            if (p.canWriteCompressed()) {
+                p.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                p.setCompressionQuality(q);
+            }
+            writer.write(null, new IIOImage(image, null, null), p);
+            return true;
+        } finally {
+            writer.dispose();
         }
     }
 }
