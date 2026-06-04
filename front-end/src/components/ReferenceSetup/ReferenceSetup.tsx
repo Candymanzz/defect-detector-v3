@@ -93,6 +93,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               Задать эталон
             </button>
           </div>
+          <div className="reference-setup__block">
           <div className="reference-setup__images">
             {selectedSlot?.imageUrl && (
               <RoiContourEditor
@@ -102,14 +103,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               />
             )}
           </div>
-          <p className="reference-setup__roi-status">
-            {hasSelectedCameraRoi
-              ? `ROI задан для Camera ${selectedCameraId}`
-              : `Задайте ROI-контур для Camera ${selectedCameraId}: минимум 3 точки`}
-          </p>
-        </div>
-
-        <div className="reference-setup__grid">
+               <div className="reference-setup__grid">
           {cameraSlots.map((slot) => (
             <button
               key={slot.cameraId}
@@ -127,6 +121,16 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
             </button>
           ))}
         </div>
+          </div>
+          <p className="reference-setup__roi-status">
+            {hasSelectedCameraRoi
+              ? `ROI задан для Camera ${selectedCameraId}`
+              : `Задайте ROI-контур для Camera ${selectedCameraId}: минимум 3 точки`}
+          </p>
+          
+        </div>
+
+   
 
         <p className="reference-setup__hint">
           Статус: {status.state}

@@ -48,10 +48,15 @@
 .reference-setup__toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
 }
-
+.reference-setup__block{
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+}
 .reference-setup__toolbar label {
   display: grid;
   gap: 6px;
@@ -67,10 +72,14 @@
   color: #f2f5f7;
   padding: 0 8px;
 }
-
+.reference-setup__container{
+  display: flex;
+  flex-direction: row;
+}
 .reference-setup__grid {
+  height: 10%;
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(5, 120px);
   gap: 10px;
 }
 
@@ -104,7 +113,6 @@
 .reference-setup__images {
   width: 50%;
   height: 70%;
-  border: #00ff00 2px dashed;
 }
 .reference-setup__roi-status {
   margin: 10px 0 0;
