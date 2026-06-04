@@ -9,10 +9,11 @@ export function useReferenceFrames() {
   const [liveImageUrlsByCameraId, setLiveImageUrlsByCameraId] = useState<Record<number, string>>({});
   const [framesByCameraId, setFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<Record<number, string>>({});
+  const [snapshotImageUrlsByCameraId, setSnapshotImageUrlsByCameraId] = useState<Record<number, string>>({});
   const cameraSlots = REFERENCE_CAMERA_IDS.map((cameraId) => ({
     cameraId,
     frame: framesByCameraId[cameraId],
-    imageUrl: imageUrlsByCameraId[cameraId],
+    imageUrl: imageUrlsByCameraId[cameraId] ?? snapshotImageUrlsByCameraId[cameraId],
   }));
   const hasRequiredReferenceFrames = REFERENCE_REQUIRED_CAMERA_IDS.every((cameraId) => framesByCameraId[cameraId]);
 
@@ -26,18 +27,31 @@ export function useReferenceFrames() {
         setImageUrlsByCameraId,
       );
 
-      return loaded
+      if (loaded) {
+        return {
+          loadedCameraIds: [cameraId],
+          snapshotCameraIds: [],
+          missingCameraIds: [],
+        };
+      }
+
+      const snapshotLoaded = await loadSnapshotImage(cameraId, setSnapshotImageUrlsByCameraId);
+
+      return snapshotLoaded
         ? {
-            loadedCameraIds: [cameraId],
+            loadedCameraIds: [],
+            snapshotCameraIds: [cameraId],
             missingCameraIds: [],
           }
         : {
             loadedCameraIds: [],
+            snapshotCameraIds: [],
             missingCameraIds: [cameraId],
           };
     }
 
     const loadedCameraIds: number[] = [];
+    const snapshotCameraIds: number[] = [];
     const missingCameraIds: number[] = [];
 
     for (const cameraId of REFERENCE_CAMERA_IDS) {
@@ -52,12 +66,19 @@ export function useReferenceFrames() {
       if (loaded) {
         loadedCameraIds.push(cameraId);
       } else {
-        missingCameraIds.push(cameraId);
+        const snapshotLoaded = await loadSnapshotImage(cameraId, setSnapshotImageUrlsByCameraId);
+
+        if (snapshotLoaded) {
+          snapshotCameraIds.push(cameraId);
+        } else {
+          missingCameraIds.push(cameraId);
+        }
       }
     }
 
     return {
       loadedCameraIds,
+      snapshotCameraIds,
       missingCameraIds,
     };
   }, [liveFramesByCameraId, liveImageUrlsByCameraId]);
@@ -119,6 +140,30 @@ function commitLiveReferenceFrame(
   }));
 
   return true;
+}
+
+async function loadSnapshotImage(
+  cameraId: number,
+  setSnapshotImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
+) {
+  try {
+    const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
+
+    if (!snapshot.hasCurrent || !snapshot.currentJpeg?.path) {
+      return false;
+    }
+
+    const imageUrl = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
+
+    setSnapshotImageUrlsByCameraId((prevImageUrls) => ({
+      ...prevImageUrls,
+      [cameraId]: imageUrl,
+    }));
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function lockInitialReferenceFrame(

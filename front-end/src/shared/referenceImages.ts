@@ -15,8 +15,8 @@ export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,
   fallbackImageUrlsByCameraId: Record<number, string> = {},
 ) {
-  referenceImagesByCameraId.clear();
-  referenceImageVersion += 1;
+  const nextReferenceImagesByCameraId = new Map<number, StoredReferenceImage>();
+  const nextReferenceImageVersion = referenceImageVersion + 1;
 
   bundle.views.forEach((view, viewIndex) => {
     const baseImageUrl =
@@ -26,17 +26,27 @@ export function commitReferenceBundleImages(
 
     if (baseImageUrl) {
       const referenceImage = {
-        imageUrl: versionReferenceImageUrl(baseImageUrl, referenceImageVersion),
+        imageUrl: versionReferenceImageUrl(baseImageUrl, nextReferenceImageVersion),
         roiPoints: copyRoiPoints(view.interest_polygon_norm),
       };
 
-      referenceImagesByCameraId.set(viewIndex, referenceImage);
+      nextReferenceImagesByCameraId.set(viewIndex, referenceImage);
 
-      if (view.frame.camera_id === viewIndex || !referenceImagesByCameraId.has(view.frame.camera_id)) {
-        referenceImagesByCameraId.set(view.frame.camera_id, referenceImage);
+      if (view.frame.camera_id === viewIndex || !nextReferenceImagesByCameraId.has(view.frame.camera_id)) {
+        nextReferenceImagesByCameraId.set(view.frame.camera_id, referenceImage);
       }
     }
   });
+
+  if (nextReferenceImagesByCameraId.size === 0) {
+    return;
+  }
+
+  referenceImagesByCameraId.clear();
+  nextReferenceImagesByCameraId.forEach((referenceImage, cameraId) => {
+    referenceImagesByCameraId.set(cameraId, referenceImage);
+  });
+  referenceImageVersion = nextReferenceImageVersion;
 
   emitReferenceImageChange();
 }
