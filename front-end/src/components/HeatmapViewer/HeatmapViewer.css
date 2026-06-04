@@ -1,5 +1,7 @@
 .heatmap-viewer {
-  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
   margin: 0;
 }
 

@@ -91,23 +91,36 @@ export function drawGrayU8Heatmap(canvas: HTMLCanvasElement | null, heatmap: Hea
 }
 
 function heatmapColor(value: number) {
-  if (value < 20) {
-    return { r: 0, g: 0, b: 0, a: 0 };
-  }
-
-  if (value < 128) {
-    return {
-      r: 255,
-      g: Math.round((value / 128) * 220),
-      b: 0,
-      a: 120,
-    };
-  }
+  const ratio = Math.min(1, Math.max(0, value / 255));
+  const color = interpolateHeatmapColor(ratio);
 
   return {
-    r: 255,
-    g: Math.max(0, 255 - value),
-    b: 0,
-    a: 180,
+    ...color,
+    a: Math.round(70 + 120 * ratio),
   };
+}
+
+function interpolateHeatmapColor(ratio: number) {
+  const stops = [
+    { at: 0, r: 0, g: 102, b: 255 },
+    { at: 0.45, r: 0, g: 180, b: 255 },
+    { at: 0.68, r: 255, g: 230, b: 0 },
+    { at: 0.85, r: 255, g: 128, b: 0 },
+    { at: 1, r: 255, g: 0, b: 0 },
+  ];
+
+  const nextStopIndex = stops.findIndex((stop) => ratio <= stop.at);
+  const nextStop = stops[Math.max(1, nextStopIndex)];
+  const prevStop = stops[stops.indexOf(nextStop) - 1];
+  const localRatio = (ratio - prevStop.at) / (nextStop.at - prevStop.at);
+
+  return {
+    r: interpolateChannel(prevStop.r, nextStop.r, localRatio),
+    g: interpolateChannel(prevStop.g, nextStop.g, localRatio),
+    b: interpolateChannel(prevStop.b, nextStop.b, localRatio),
+  };
+}
+
+function interpolateChannel(from: number, to: number, ratio: number) {
+  return Math.round(from + (to - from) * ratio);
 }
