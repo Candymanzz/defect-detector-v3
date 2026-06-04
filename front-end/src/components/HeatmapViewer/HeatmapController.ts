@@ -75,9 +75,10 @@ export function drawGrayU8Heatmap(canvas: HTMLCanvasElement | null, heatmap: Hea
   }
 
   const imageData = ctx.createImageData(heatmap.width, heatmap.height);
+  const values = normalizeHeatmapBytes(bytes, expectedSize);
 
   for (let index = 0; index < expectedSize; index += 1) {
-    const value = bytes[index];
+    const value = values[index];
     const pixelIndex = index * 4;
     const color = heatmapColor(value);
 
@@ -90,27 +91,54 @@ export function drawGrayU8Heatmap(canvas: HTMLCanvasElement | null, heatmap: Hea
   ctx.putImageData(imageData, 0, 0);
 }
 
+function normalizeHeatmapBytes(bytes: Uint8Array, size: number) {
+  let min = 255;
+  let max = 0;
+
+  for (let index = 0; index < size; index += 1) {
+    const value = bytes[index];
+    min = Math.min(min, value);
+    max = Math.max(max, value);
+  }
+
+  if (max <= min) {
+    return new Uint8Array(size);
+  }
+
+  const normalized = new Uint8Array(size);
+  const range = max - min;
+
+  for (let index = 0; index < size; index += 1) {
+    const ratio = (bytes[index] - min) / range;
+    normalized[index] = Math.round(Math.pow(ratio, 0.8) * 255);
+  }
+
+  return normalized;
+}
+
 function heatmapColor(value: number) {
   const ratio = Math.min(1, Math.max(0, value / 255));
-  const color = interpolateHeatmapColor(ratio);
+  const color = jetHeatmapColor(ratio);
 
   return {
     ...color,
-    a: Math.round(70 + 120 * ratio),
+    a: Math.round(95 + 110 * ratio),
   };
 }
 
-function interpolateHeatmapColor(ratio: number) {
+function jetHeatmapColor(ratio: number) {
   const stops = [
-    { at: 0, r: 0, g: 102, b: 255 },
-    { at: 0.45, r: 0, g: 180, b: 255 },
-    { at: 0.68, r: 255, g: 230, b: 0 },
-    { at: 0.85, r: 255, g: 128, b: 0 },
-    { at: 1, r: 255, g: 0, b: 0 },
+    { at: 0, r: 0, g: 0, b: 150 },
+    { at: 0.2, r: 0, g: 95, b: 255 },
+    { at: 0.42, r: 0, g: 255, b: 255 },
+    { at: 0.62, r: 80, g: 255, b: 80 },
+    { at: 0.78, r: 255, g: 235, b: 0 },
+    { at: 0.9, r: 255, g: 120, b: 0 },
+    { at: 1, r: 190, g: 0, b: 0 },
   ];
 
   const nextStopIndex = stops.findIndex((stop) => ratio <= stop.at);
-  const nextStop = stops[Math.max(1, nextStopIndex)];
+  const nextStop = stops[Math.max(1, nextStopIndex === -1 ? stops.length - 1 : nextStopIndex)];
   const prevStop = stops[stops.indexOf(nextStop) - 1];
   const localRatio = (ratio - prevStop.at) / (nextStop.at - prevStop.at);
 
