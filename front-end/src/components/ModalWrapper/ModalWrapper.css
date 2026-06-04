@@ -96,6 +96,26 @@
   display: none;
 }
 
+.modal__frame-sync {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #d7deea;
+  font-size: 0.85rem;
+}
+
+.modal__frame-sync[data-state="synced"] {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #d1fae5;
+}
+
+.modal__frame-sync[data-state="partial"] {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+}
+
 .modal-inspect-result {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);

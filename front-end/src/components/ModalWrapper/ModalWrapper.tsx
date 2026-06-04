@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { orchestratorApi } from "../../shared/api";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
@@ -34,6 +35,9 @@ export function ModalWrapper({
   );
   const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImage?.imageUrl;
   const displayedReferenceRoiPoints = referenceImageUrl ? undefined : storedReferenceImage?.roiPoints;
+  const inspectResultImageUrl = inspectResult ? createInspectResultImageUrl(inspectResult) : undefined;
+  const displayedCurrentImageUrl = inspectResultImageUrl ?? cameraImageUrl;
+  const inspectResultSyncState = getInspectResultSyncState(inspectResult, inspectResultImageUrl);
 
   useEffect(() => {
     if (!isOpen) {
@@ -88,15 +92,24 @@ export function ModalWrapper({
             roiPoints={displayedReferenceRoiPoints}
           />
           <ImagePanel
-            imageUrl={cameraImageUrl}
+            imageUrl={displayedCurrentImageUrl}
             label="Проверка камеры"
           />
           <HeatmapPanel
             cameraId={cameraId}
-            cameraImageUrl={cameraImageUrl}
+            cameraImageUrl={displayedCurrentImageUrl}
             inspectResult={inspectResult}
           />
         </div>
+
+        {inspectResultSyncState && (
+          <div
+            className="modal__frame-sync"
+            data-state={inspectResultSyncState.state}
+          >
+            {inspectResultSyncState.label}
+          </div>
+        )}
 
         <InspectResultPanel inspectResult={inspectResult} />
       </section>
@@ -232,4 +245,43 @@ function formatServerTime(serverTsMs: number) {
   }
 
   return new Date(serverTsMs).toLocaleTimeString();
+}
+
+function createInspectResultImageUrl(inspectResult: InspectResultPayload) {
+  const imagePath = inspectResult.http_path ?? inspectResult.current.http_path;
+
+  if (!imagePath) {
+    return undefined;
+  }
+
+  return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
+}
+
+function getInspectResultSyncState(inspectResult: InspectResultPayload | undefined, inspectResultImageUrl?: string) {
+  if (!inspectResult) {
+    return null;
+  }
+
+  if (inspectResultImageUrl && hasHeatmapSource(inspectResult)) {
+    return {
+      state: "synced" as const,
+      label: `Current image and heatmap are aligned to frame ${inspectResult.frame_id}`,
+    };
+  }
+
+  if (inspectResultImageUrl) {
+    return {
+      state: "partial" as const,
+      label: `Current image is fixed to frame ${inspectResult.frame_id}, but heatmap source is incomplete`,
+    };
+  }
+
+  return {
+    state: "partial" as const,
+    label: `Inspect result for frame ${inspectResult.frame_id} has no dedicated preview image`,
+  };
+}
+
+function hasHeatmapSource(inspectResult: InspectResultPayload) {
+  return Boolean(inspectResult.heatmap?.http_path || inspectResult.heatmap?.artifact_id);
 }

@@ -1,10 +1,10 @@
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { HeatmapDescriptor } from "../../shared/ws";
 
-export async function loadHeatmapForCamera(cameraId: number, heatmap: HeatmapDescriptor) {
+export async function loadHeatmapForCamera(heatmap: HeatmapDescriptor) {
   validateHeatmap(heatmap);
 
-  const buffer = await loadHeatmapBuffer(cameraId, heatmap);
+  const buffer = await loadHeatmapBuffer(heatmap);
   return new Uint8Array(buffer);
 }
 
@@ -18,7 +18,7 @@ export function clearHeatmapCanvas(canvas: HTMLCanvasElement | null) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-async function loadHeatmapBuffer(cameraId: number, heatmap: HeatmapDescriptor) {
+async function loadHeatmapBuffer(heatmap: HeatmapDescriptor) {
   if (heatmap.http_path) {
     const response = await fetch(orchestratorApi.url(heatmap.http_path), {
       headers: {
@@ -37,7 +37,7 @@ async function loadHeatmapBuffer(cameraId: number, heatmap: HeatmapDescriptor) {
     return orchestratorApi.getHeatmapArtifact(heatmap.artifact_id);
   }
 
-  return orchestratorApi.getHeatmap(cameraId);
+  throw new Error("Heatmap source is missing for the selected inspect result");
 }
 
 function validateHeatmap(heatmap: HeatmapDescriptor) {

@@ -27,7 +27,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
       try {
         setStatus("loading");
         setError(null);
-        const bytes = await loadHeatmapForCamera(cameraId, currentHeatmap);
+        const bytes = await loadHeatmapForCamera(currentHeatmap);
 
         if (cancelled) {
           return;
