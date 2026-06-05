@@ -7,6 +7,8 @@ export type ClientWsMessageType =
   | "client.fp_zones_update"
   | "client.set_active_reference_view"
   | "client.light_brightness"
+  | "client.preview_pause"
+  | "client.preview_resume"
   | "client.stream_start"
   | "client.stream_stop";
 
@@ -341,6 +343,8 @@ export type ClientWsPayloadByType = {
   "client.fp_zones_update": ClientFpZonesUpdatePayload;
   "client.set_active_reference_view": ClientSetActiveReferenceViewPayload;
   "client.light_brightness": ClientLightBrightnessPayload;
+  "client.preview_pause": Record<string, never>;
+  "client.preview_resume": Record<string, never>;
   "client.stream_start": ClientStreamStartPayload;
   "client.stream_stop": ClientStreamStopPayload;
 };
@@ -350,5 +354,7 @@ export type ClientWsMessage =
   | ClientWsEnvelope<"client.fp_zones_update">
   | ClientWsEnvelope<"client.set_active_reference_view">
   | ClientWsEnvelope<"client.light_brightness">
+  | ClientWsEnvelope<"client.preview_pause">
+  | ClientWsEnvelope<"client.preview_resume">
   | ClientWsEnvelope<"client.stream_start">
   | ClientWsEnvelope<"client.stream_stop">;

@@ -138,6 +138,14 @@ export class OrchestratorWebSocketClient {
     return this.send("client.light_brightness", payload);
   }
 
+  sendPreviewPause() {
+    return this.send("client.preview_pause", {});
+  }
+
+  sendPreviewResume() {
+    return this.send("client.preview_resume", {});
+  }
+
   sendStreamStart(payload: ClientStreamStartPayload) {
     return this.send("client.stream_start", payload);
   }

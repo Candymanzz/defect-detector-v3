@@ -166,3 +166,20 @@ export type FpZonesResponse = {
 export type FpZonesUpdateRequest = {
   fp_zones: FpZone[];
 };
+
+export type AnalysisSettings = {
+  max_shift_mm: number;
+  max_rotation_deg: number;
+  max_concentricity_mm: number;
+  max_joint_defect_mm: number;
+  max_wrinkles_score: number;
+};
+
+export type AnalysisSettingsResponse = {
+  product_type: string;
+  defaults: AnalysisSettings;
+  overrides: Partial<AnalysisSettings>;
+  effective: AnalysisSettings;
+};
+
+export type AnalysisSettingsUpdateRequest = Partial<AnalysisSettings>;

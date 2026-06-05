@@ -1,6 +1,8 @@
 import { appEnv } from "../config/env";
 import { HttpClient } from "./httpClient";
 import type {
+  AnalysisSettingsResponse,
+  AnalysisSettingsUpdateRequest,
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
   LightBrightnessSettings,
@@ -12,6 +14,7 @@ import type {
 
 const http = new HttpClient(appEnv.apiRequestBaseUrl);
 const LIGHT_BRIGHTNESS_PATH = "/api/orchestrator/light/brightness";
+const ANALYSIS_SETTINGS_PATH = "/api/orchestrator/analysis-settings";
 
 export const orchestratorApi = {
   url: (path: string) => http.url(path),
@@ -106,6 +109,27 @@ export const orchestratorApi = {
     return http.json<LightBrightnessUpdateResponse>(LIGHT_BRIGHTNESS_PATH, {
       method: "PUT",
       body,
+    });
+  },
+
+  async getAnalysisSettings(productType: string) {
+    return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}`);
+  },
+
+  async getDefaultAnalysisSettings() {
+    return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/defaults`);
+  },
+
+  async setAnalysisSettings(productType: string, update: AnalysisSettingsUpdateRequest) {
+    return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}`, {
+      method: "PUT",
+      body: update,
+    });
+  },
+
+  async resetAnalysisSettings(productType: string) {
+    return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}`, {
+      method: "DELETE",
     });
   },
 

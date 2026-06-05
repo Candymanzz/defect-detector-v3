@@ -68,11 +68,36 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     });
 
     orchestratorWs.connect();
+    if (orchestratorWs.snapshot.state === "open") {
+      try {
+        orchestratorWs.sendPreviewPause();
+      } catch {
+        // best effort; socket can still be reconnecting
+      }
+    }
 
     return () => {
+      if (orchestratorWs.snapshot.state === "open") {
+        try {
+          orchestratorWs.sendPreviewResume();
+        } catch {
+          // best effort on unmount
+        }
+      }
       unsubscribeMessage();
     };
   }, [handlePreviewFrame, handleReferenceBundleAck]);
+
+  useEffect(() => {
+    if (status.state !== "open") {
+      return;
+    }
+    try {
+      orchestratorWs.sendPreviewPause();
+    } catch {
+      // best effort after reconnect
+    }
+  }, [status.state]);
 
   useEffect(() => {
     let cancelled = false;

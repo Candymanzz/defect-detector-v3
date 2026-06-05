@@ -1,6 +1,9 @@
 export { orchestratorApi } from "./orchestratorApi";
 export { HttpClient, HttpError } from "./httpClient";
 export type {
+  AnalysisSettings,
+  AnalysisSettingsResponse,
+  AnalysisSettingsUpdateRequest,
   ApiOk,
   ApiErrorResponse,
   CameraId,
