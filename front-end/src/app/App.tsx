@@ -1,9 +1,16 @@
+import { useState } from "react";
 import { MainOverview } from "../components/MainOverview";
 import { SettingList } from "../components/SettingList";
 import logo from "../shared/assets/images/savt_logo_white.png";
 import "./App.css";
 
 export function App() {
+  const [selectedSettingsCameraId, setSelectedSettingsCameraId] = useState<number | null>(null);
+
+  const handleSettingsCameraToggle = (cameraId: number) => {
+    setSelectedSettingsCameraId((currentCameraId) => (currentCameraId === cameraId ? null : cameraId));
+  };
+
   return (
     <main className="app-shell">
       <header className="app-header" >
@@ -16,8 +23,11 @@ export function App() {
           </div>
       </header>
       <div className="app-content">
-        <MainOverview />
-        <SettingList selectedCameraId={null} />
+        <MainOverview
+          selectedSettingsCameraId={selectedSettingsCameraId}
+          onSettingsCameraToggle={handleSettingsCameraToggle}
+        />
+        <SettingList selectedCameraId={selectedSettingsCameraId} />
       </div>
       
     </main>

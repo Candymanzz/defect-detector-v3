@@ -11,8 +11,13 @@
 }
 .camera-card:hover,
 .camera-card:focus-visible {
-  border-color: rgba(158, 216, 200, 0.55);
+  border-color: rgba(248, 244, 9, 0.55);
   outline: none;
+}
+
+.camera-card--selected {
+  border-color: #f3f735;
+  background: rgba(217, 230, 38, 0.14);
 }
 
 .camera-card__image-wrap {
@@ -39,7 +44,7 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   min-height: 46px;
   padding: 10px 12px;
 }
@@ -53,4 +58,24 @@
   color: #ffffff;
   font-size: 0.9rem;
   text-align: right;
+}
+
+.camera-card__open {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #00ff00;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #00ff00;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.camera-card__open:hover,
+.camera-card__open:focus-visible {
+  border-color: #3b8f3b;
+  color: #3b8f3b;
+  outline: none;
 }

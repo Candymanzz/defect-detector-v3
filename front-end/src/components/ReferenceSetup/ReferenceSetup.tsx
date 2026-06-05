@@ -17,15 +17,21 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
     cameraSlots,
     jointViewIndex,
     hasSelectedCameraRoi,
+    hasRequiredJointRoi,
     canSendReference,
-    setJointViewIndex,
     handleSendReference,
     handleSelectCamera,
+    handleSelectJointRoi,
     selectedCameraId,
+    selectedRoiMode,
+    jointRoiPolygon,
     roiPolygonsByCameraId,
+    setJointRoiPolygon,
     setRoiPolygonForCamera,
   } = useReferenceSetupController(onClose, initialJointViewIndex);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
+  const selectedEditorPoints =
+    selectedRoiMode === "joint" ? jointRoiPolygon : (roiPolygonsByCameraId[selectedCameraId] ?? []);
   const storedReferenceImage = useSyncExternalStore(
     subscribeReferenceImages,
     () => getReferenceImage(selectedCameraId),
@@ -59,20 +65,8 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
         <div className="reference-setup__body">
           <div className="reference-setup__toolbar">
             <label className="reference-setup__field">
-              <span>Основной ракурс</span>
-              <select
-                value={jointViewIndex}
-                onChange={(event) => setJointViewIndex(Number(event.target.value))}
-              >
-                {cameraSlots.map((slot) => (
-                  <option
-                    key={slot.cameraId}
-                    value={slot.cameraId}
-                  >
-                    Камера {slot.cameraId}
-                  </option>
-                ))}
-              </select>
+              <span>Камера joint ROI</span>
+              <span className="reference-setup__readonly">Camera {jointViewIndex}</span>
             </label>
 
             <button
@@ -90,28 +84,54 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               {selectedSlot?.imageUrl && (
                 <RoiContourEditor
                   imageUrl={selectedSlot.imageUrl}
-                  points={roiPolygonsByCameraId[selectedCameraId] ?? []}
-                  onChange={(points) => setRoiPolygonForCamera(selectedCameraId, points)}
+                  points={selectedEditorPoints}
+                  onChange={(points) => {
+                    if (selectedRoiMode === "joint") {
+                      setJointRoiPolygon(points);
+                      return;
+                    }
+
+                    setRoiPolygonForCamera(selectedCameraId, points);
+                  }}
                 />
               )}
             </div>
 
             <div className="reference-setup__camera-list">
               {cameraSlots.map((slot) => (
-                <button
+                <div
                   key={slot.cameraId}
-                  className={
-                    slot.cameraId === selectedCameraId
-                      ? "reference-setup__slot reference-setup__slot--active"
-                      : "reference-setup__slot"
-                  }
-                  type="button"
-                  onClick={() => handleSelectCamera(slot.cameraId)}
+                  className="reference-setup__camera-row"
                 >
-                  <strong>Camera {slot.cameraId}</strong>
-                  <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
-                  <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
-                </button>
+                  <button
+                    className={
+                      slot.cameraId === selectedCameraId && selectedRoiMode === "interest"
+                        ? "reference-setup__slot reference-setup__slot--active"
+                        : "reference-setup__slot"
+                    }
+                    type="button"
+                    onClick={() => handleSelectCamera(slot.cameraId)}
+                  >
+                    <strong>Camera {slot.cameraId}</strong>
+                    <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
+                    <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
+                  </button>
+
+                  {slot.cameraId === 0 && (
+                    <button
+                      className={
+                        selectedRoiMode === "joint"
+                          ? "reference-setup__joint-trigger reference-setup__joint-trigger--active"
+                          : "reference-setup__joint-trigger"
+                      }
+                      type="button"
+                      onClick={handleSelectJointRoi}
+                    >
+                      Joint
+                      <span>{hasRequiredJointRoi ? "ROI задан" : "ROI не задан"}</span>
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -124,6 +144,13 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               {hasSelectedCameraRoi
                 ? `ROI задан для Camera ${selectedCameraId}`
                 : `Задайте ROI-контур для Camera ${selectedCameraId}: минимум 3 точки`}
+            </p>
+            <p className="reference-setup__roi-status">
+              {selectedRoiMode === "joint"
+                ? "Редактируется joint ROI для Camera 0"
+                : hasRequiredJointRoi
+                  ? "Joint ROI задан для Camera 0"
+                  : "Joint ROI для Camera 0 обязателен"}
             </p>
             <p className="reference-setup__hint">
               Статус: {status.state}

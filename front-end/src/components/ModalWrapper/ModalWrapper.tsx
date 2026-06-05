@@ -221,6 +221,10 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
             />
           </dl>
 
+          <div className="modal-inspect-result__decision">
+            {formatInspectDecisionLine(inspectResult)}
+          </div>
+
           <pre className="modal-inspect-result__raw">{JSON.stringify(inspectResult, null, 2)}</pre>
         </>
       ) : (
@@ -237,6 +241,24 @@ function InspectResultField({ label, value }: { label: string; value?: string | 
       <dd>{value ?? "-"}</dd>
     </div>
   );
+}
+
+function formatInspectDecisionLine(inspectResult: InspectResultPayload) {
+  return [
+    `overall_pass: ${formatOptionalValue(inspectResult.overall_pass)}`,
+    `action: ${formatOptionalValue(inspectResult.action)}`,
+    `anomaly_score: ${formatOptionalValue(inspectResult.anomaly_score)}`,
+    `python_status: ${formatOptionalValue(inspectResult.python_status)}`,
+    `geometry_status: ${formatOptionalValue(inspectResult.geometry_status)}`,
+  ].join(" | ");
+}
+
+function formatOptionalValue(value: string | number | boolean | undefined) {
+  if (value === undefined) {
+    return "-";
+  }
+
+  return String(value);
 }
 
 function formatServerTime(serverTsMs: number) {

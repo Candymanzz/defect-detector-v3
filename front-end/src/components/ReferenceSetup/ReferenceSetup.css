@@ -45,7 +45,8 @@
   font-weight: 700;
 }
 
-.reference-setup__field select {
+.reference-setup__field select,
+.reference-setup__readonly {
   min-height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
@@ -53,6 +54,11 @@
   color: #f2f5f7;
   padding: 0 10px;
   font: inherit;
+}
+
+.reference-setup__readonly {
+  display: inline-flex;
+  align-items: center;
 }
 
 .reference-setup__button {
@@ -91,16 +97,25 @@
 }
 
 .reference-setup__editor {
+  width: 50%;
+  height: 100%;
   flex: 0 1 auto;
   min-width: 0;
 }
 
 .reference-setup__camera-list {
   display: grid;
-  grid-template-columns: repeat(1, minmax(120px, 160px));
+  grid-template-columns: minmax(220px, 280px);
   gap: 10px;
   align-content: start;
   flex: 0 0 auto;
+}
+
+.reference-setup__camera-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(90px, 120px);
+  gap: 8px;
+  align-items: stretch;
 }
 
 .reference-setup__info {
@@ -125,8 +140,26 @@
   text-align: left;
 }
 
+.reference-setup__joint-trigger {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  min-height: 82px;
+  padding: 10px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(96, 165, 250, 0.12);
+  color: #f2f5f7;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+}
+
 .reference-setup__slot:hover,
-.reference-setup__slot:focus-visible {
+.reference-setup__slot:focus-visible,
+.reference-setup__joint-trigger:hover,
+.reference-setup__joint-trigger:focus-visible {
   border-color: rgba(158, 216, 200, 0.55);
   outline: none;
 }
@@ -136,9 +169,16 @@
   background: rgba(34, 197, 94, 0.14);
 }
 
-.reference-setup__slot span {
+.reference-setup__joint-trigger--active {
+  border-color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.22);
+}
+
+.reference-setup__slot span,
+.reference-setup__joint-trigger span {
   color: #9aa8a4;
   font-size: 12px;
+  font-weight: 700;
 }
 
 @media (max-width: 980px) {
@@ -149,5 +189,9 @@
   .reference-setup__camera-list {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     width: 100%;
+  }
+
+  .reference-setup__camera-row {
+    grid-template-columns: minmax(120px, 1fr);
   }
 }

@@ -175,6 +175,16 @@
   white-space: nowrap;
 }
 
+.modal-inspect-result__decision {
+  margin: 10px 0;
+  overflow: hidden;
+  color: #d7deea;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .modal-inspect-result__raw {
   min-height: 0;
   margin: 0;

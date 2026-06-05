@@ -16,7 +16,12 @@ import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type"
 import type { InspectResultPayload } from "../../shared/ws";
 import "./MainOverview.css";
 
-export function MainOverview() {
+type MainOverviewProps = {
+  selectedSettingsCameraId: number | null;
+  onSettingsCameraToggle: (cameraId: number) => void;
+};
+
+export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(INITIAL_BACKEND_STATUS);
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
@@ -96,7 +101,9 @@ export function MainOverview() {
             cameraId={camera.cameraId}
             objectName={camera.objectName}
             imageUrl={camera.imageUrl}
+            isSelected={selectedSettingsCameraId === camera.cameraId}
             onOpen={() => setSelectedCamera(createSelectedCamera(camera))}
+            onSelect={() => onSettingsCameraToggle(camera.cameraId)}
           />
         ))}
       </div>

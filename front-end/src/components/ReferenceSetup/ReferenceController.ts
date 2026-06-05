@@ -22,7 +22,10 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   const referenceRoi = useReferenceRoi(initialJointViewIndex);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
   const canSendReference = Boolean(
-    referenceFrames.hasRequiredReferenceFrames && referenceRoi.hasRequiredCameraRois && status.state === "open",
+    referenceFrames.hasRequiredReferenceFrames &&
+      referenceRoi.hasRequiredCameraRois &&
+      referenceRoi.hasRequiredJointRoi &&
+      status.state === "open",
   );
 
   const handleReferenceBundleAck = useCallback((message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
@@ -145,11 +148,16 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
       return;
     }
 
+    if (!referenceRoi.hasRequiredJointRoi) {
+      setMessage("Joint ROI contour for camera 0 is required");
+      return;
+    }
+
     try {
       const payload = createReferenceBundleFromCameraFrames(
         referenceFrames.framesByCameraId,
-        referenceRoi.jointViewIndex,
         referenceRoi.roiPolygonsByCameraId,
+        referenceRoi.jointRoiPolygon,
       );
       const messageId = orchestratorWs.sendReferenceBundle(payload);
       pendingReferenceBundleRef.current = {
@@ -181,6 +189,24 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     setMessage(`Live frame has not arrived for camera ${cameraId} yet`);
   };
 
+  const handleSelectJointRoi = async () => {
+    referenceRoi.selectJointRoi();
+    setMessage("Waiting for live frame from camera 0 to edit joint ROI...");
+    const { loadedCameraIds, snapshotCameraIds } = await refreshLatestImages(0);
+
+    if (loadedCameraIds.length > 0) {
+      setMessage("Live frame loaded for camera 0. Editing joint ROI.");
+      return;
+    }
+
+    if (snapshotCameraIds.length > 0) {
+      setMessage("Latest snapshot loaded for camera 0. Editing joint ROI while waiting for live frame.");
+      return;
+    }
+
+    setMessage("Live frame has not arrived for camera 0 yet");
+  };
+
   return {
     status,
     message,
@@ -189,5 +215,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     canSendReference,
     handleSendReference,
     handleSelectCamera,
+    handleSelectJointRoi,
   };
 }

@@ -5,13 +5,17 @@ import type {
   PreviewFramePayload,
   ReferenceViewSlot,
 } from "../../shared/ws";
-import { REFERENCE_BUNDLE_VIEW_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
+import {
+  REFERENCE_BUNDLE_VIEW_CAMERA_IDS,
+  REFERENCE_JOINT_ROI_CAMERA_ID,
+  REFERENCE_REQUIRED_CAMERA_IDS,
+} from "./referenceConstants";
 import { createRoiFromPolygon, isValidRoiPolygon } from "./referenceRoi";
 
 export function createReferenceBundleFromCameraFrames(
   framesByCameraId: Record<number, PreviewFramePayload>,
-  jointViewIndex: number,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
+  jointRoiPolygon: InterestPointNorm[],
 ): ClientReferenceBundlePayload {
   for (const cameraId of REFERENCE_REQUIRED_CAMERA_IDS) {
     if (!framesByCameraId[cameraId]) {
@@ -23,6 +27,10 @@ export function createReferenceBundleFromCameraFrames(
     }
   }
 
+  if (!isValidRoiPolygon(jointRoiPolygon)) {
+    throw new Error(`Joint ROI contour for camera ${REFERENCE_JOINT_ROI_CAMERA_ID} is missing`);
+  }
+
   const frames = REFERENCE_BUNDLE_VIEW_CAMERA_IDS.map((cameraId) => {
     const frame = framesByCameraId[cameraId];
 
@@ -32,6 +40,7 @@ export function createReferenceBundleFromCameraFrames(
 
     return frame;
   });
+  const jointViewIndex = REFERENCE_JOINT_ROI_CAMERA_ID;
   const jointFrame = frames[jointViewIndex] ?? frames[0];
   const productType = jointFrame.detector.product_type || "reference-product";
 
@@ -48,6 +57,7 @@ export function createReferenceBundleFromCameraFrames(
       viewIndex,
       jointViewIndex,
       roiPolygonsByCameraId,
+      jointRoiPolygon,
     ),
   ) as ClientReferenceBundlePayload["views"];
 
@@ -67,6 +77,7 @@ function createReferenceViewForFrame(
   viewIndex: number,
   jointViewIndex: number,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
+  jointRoiPolygon: InterestPointNorm[],
 ) {
   const roiPolygon = roiPolygonsByCameraId[cameraId];
 
@@ -76,8 +87,12 @@ function createReferenceViewForFrame(
 
   const interestPolygonNorm = roiPolygon;
   const roi = createRoiFromPolygon(roiPolygon, previewFrame.current.width, previewFrame.current.height);
+  const jointRoi =
+    viewIndex === jointViewIndex
+      ? createRoiFromPolygon(jointRoiPolygon, previewFrame.current.width, previewFrame.current.height)
+      : null;
 
-  return createReferenceView(previewFrame, roi, interestPolygonNorm, viewIndex === jointViewIndex ? roi : null);
+  return createReferenceView(previewFrame, roi, interestPolygonNorm, jointRoi);
 }
 
 function createReferenceView(

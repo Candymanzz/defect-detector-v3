@@ -218,6 +218,11 @@ export type InspectResultPayload = {
     detector_id?: string;
     product_type?: string;
   };
+  overall_pass?: boolean;
+  action?: InspectionAction | string;
+  anomaly_score?: number;
+  python_status?: InspectionStageStatus | string;
+  geometry_status?: InspectionStageStatus | string;
   fp_zones: FpZoneNorm[];
   fp_coordinate_space?: {
     heatmap_width: number;
@@ -225,6 +230,10 @@ export type InspectResultPayload = {
   };
   server_ts_ms: number;
 };
+
+export type InspectionAction = "ACCEPT" | "REJECT";
+
+export type InspectionStageStatus = "PASS" | "FAIL" | "SKIP" | "ERROR" | "UNKNOWN";
 
 export type PreviewFramePayload = {
   camera_id: number;

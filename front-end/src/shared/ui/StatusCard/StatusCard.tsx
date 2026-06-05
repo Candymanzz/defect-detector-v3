@@ -6,23 +6,25 @@ type StatusCardProps = {
   cameraId: number;
   objectName: string;
   imageUrl?: string;
+  isSelected?: boolean;
   onOpen: () => void;
+  onSelect: () => void;
 };
 
-export function StatusCard({ cameraId, objectName, imageUrl, onOpen }: StatusCardProps) {
+export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false, onOpen, onSelect }: StatusCardProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      onOpen();
+      onSelect();
     }
   };
 
   return (
     <div
-      className="camera-card"
-      role="button"
+      className={isSelected ? "camera-card camera-card--selected" : "camera-card"}
       tabIndex={0}
-      onClick={onOpen}
+      aria-pressed={isSelected}
+      onClick={onSelect}
       onKeyDown={handleKeyDown}
     >
       <div className="camera-card__image-wrap">
@@ -37,6 +39,16 @@ export function StatusCard({ cameraId, objectName, imageUrl, onOpen }: StatusCar
 
       <div className="camera-card__footer">
         <strong>Camera {cameraId}</strong>
+        <button
+          className="camera-card__open"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+        >
+          Открыть
+        </button>
       </div>
     </div>
   );
