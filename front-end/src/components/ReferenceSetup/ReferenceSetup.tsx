@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { Button } from "../../shared/ui/Button";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
@@ -52,14 +53,15 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
       >
         <header className="modal__header">
           <h2>Задание эталона</h2>
-          <button
+          <Button
             aria-label="Закрыть"
             className="modal__close"
             type="button"
+            variant="ghost"
             onClick={onClose}
           >
             x
-          </button>
+          </Button>
         </header>
 
         <div className="reference-setup__body">
@@ -69,14 +71,14 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
               <span className="reference-setup__readonly">Camera {jointViewIndex}</span>
             </label>
 
-            <button
-              className="reference-setup__button reference-setup__button--primary"
+            <Button
               type="button"
               disabled={!canSendReference}
+              variant="primary"
               onClick={handleSendReference}
             >
               Задать эталон
-            </button>
+            </Button>
           </div>
 
           <div className="reference-setup__workspace">
@@ -138,7 +140,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
 
           <div className="reference-setup__info">
             <p className="reference-setup__reference-status">
-              {storedReferenceImage ? `Эталон задан для Camera ${selectedCameraId}` : "Эталон ещё не задан"}
+              {storedReferenceImage ? `Эталон задан для Camera ${selectedCameraId}` : "Эталон еще не задан"}
             </p>
             <p className="reference-setup__roi-status">
               {hasSelectedCameraRoi

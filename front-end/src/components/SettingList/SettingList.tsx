@@ -11,6 +11,7 @@ import {
 } from "./SettingController";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
+import { Button } from "../../shared/ui/Button";
 import type { AnalysisSettingFieldName, SettingFieldName } from "./type";
 import "./SettingList.css";
 
@@ -55,7 +56,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
-  const analysisScopeText = selectedCameraId === null ? "All camera products" : `Camera ${selectedCameraId} product`;
+  const analysisScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
 
   useEffect(() => {
@@ -194,29 +195,32 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           </div>
         </section>
 
-        <button
-          className="setting-list__submit"
+        <Button
           type="submit"
           disabled={isBusy}
+          fullWidth
+          variant="primary"
         >
-          Сохранить
-        </button>
-        <button
-          className="setting-list__submit setting-list__submit--secondary"
+          Сохранить настройки
+        </Button>
+        <Button
           type="button"
           disabled={isBusy}
+          fullWidth
+          variant="ghost"
           onClick={() => setIsReferenceSetupOpen(true)}
         >
           Задать эталон
-        </button>
-        <button
-          className="setting-list__submit setting-list__submit--secondary"
+        </Button>
+        <Button
           type="button"
           disabled={isBusy}
+          fullWidth
+          variant="ghost"
           onClick={() => setIsServerStreamOpen(true)}
         >
           Открыть стрим
-        </button>
+        </Button>
       </form>
 
       {isReferenceSetupOpen && (

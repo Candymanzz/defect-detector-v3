@@ -1,6 +1,9 @@
-import type { KeyboardEvent } from "react";
+import { Button } from "../Button";
 import { PreviewImage } from "../PreviewImage";
+import { StatusPill } from "../StatusPill";
 import "./StatusCard.css";
+
+type SignalState = "success" | "danger";
 
 type StatusCardProps = {
   cameraId: number;
@@ -12,44 +15,40 @@ type StatusCardProps = {
 };
 
 export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false, onOpen, onSelect }: StatusCardProps) {
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      onSelect();
-    }
-  };
+  const signalState: SignalState = imageUrl ? "success" : "danger";
+  const signalText = imageUrl ? "Online" : "No signal";
 
   return (
-    <div
-      className={isSelected ? "camera-card camera-card--selected" : "camera-card"}
-      tabIndex={0}
-      aria-pressed={isSelected}
-      onClick={onSelect}
-      onKeyDown={handleKeyDown}
-    >
-      <div className="camera-card__image-wrap">
+    <article className={isSelected ? "camera-card camera-card--selected" : "camera-card"}>
+      <button
+        className="camera-card__select"
+        type="button"
+        aria-pressed={isSelected}
+        onClick={onSelect}
+      >
         <PreviewImage
           key={imageUrl ?? `camera-${cameraId}-offline`}
-          alt={`${objectName}, камера ${cameraId}`}
+          alt={`${objectName}, camera ${cameraId}`}
           className="camera-card__image"
           placeholderClassName="camera-card__image-placeholder"
           src={imageUrl}
         />
-      </div>
+      </button>
 
       <div className="camera-card__footer">
-        <strong>Camera {cameraId}</strong>
-        <button
+        <div className="camera-card__meta">
+          <strong>Camera {cameraId}</strong>
+          <StatusPill state={signalState}>{signalText}</StatusPill>
+        </div>
+        <Button
           className="camera-card__open"
           type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen();
-          }}
+          variant="ghost"
+          onClick={onOpen}
         >
           Открыть
-        </button>
+        </Button>
       </div>
-    </div>
+    </article>
   );
 }

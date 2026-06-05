@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { Button } from "../../shared/ui/Button";
+import "../ModalWrapper/ModalWrapper.css";
 import { useStreamController } from "./StreamController";
 import "./ServerStream.css";
 
@@ -21,11 +23,10 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
     startStream,
     stopStream,
     handleStreamImageError,
-  } =
-    useStreamController({
-      cameraId,
-      enabled: isOpen,
-    });
+  } = useStreamController({
+    cameraId,
+    enabled: isOpen,
+  });
   const streamTitle = title ?? `Стрим камеры ${cameraId}`;
 
   useEffect(() => {
@@ -49,17 +50,17 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
 
   return (
     <div
-      className="server-stream"
+      className="modal-backdrop server-stream"
       onMouseDown={onClose}
     >
       <section
         aria-label={streamTitle}
         aria-modal="true"
-        className="server-stream__modal"
+        className="modal server-stream__modal"
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="server-stream__header">
+        <header className="modal__header server-stream__header">
           <div>
             <h2>{streamTitle}</h2>
             <span
@@ -69,14 +70,15 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
               WS: {status.state}
             </span>
           </div>
-          <button
+          <Button
             aria-label="Закрыть стрим"
-            className="server-stream__close"
+            className="modal__close"
             type="button"
+            variant="ghost"
             onClick={onClose}
           >
             x
-          </button>
+          </Button>
         </header>
 
         <div className="server-stream__player">
@@ -107,22 +109,22 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
           </span>
 
           <div className="server-stream__controls">
-            <button
-              className="server-stream__button server-stream__button--start"
+            <Button
               disabled={!canStart}
               type="button"
+              variant="primary"
               onClick={startStream}
             >
               Пуск стрима
-            </button>
-            <button
-              className="server-stream__button server-stream__button--stop"
+            </Button>
+            <Button
               disabled={!canStop}
               type="button"
+              variant="ghost"
               onClick={stopStream}
             >
               Стоп стрим
-            </button>
+            </Button>
           </div>
         </footer>
       </section>

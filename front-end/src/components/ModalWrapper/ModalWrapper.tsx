@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
+import { Button } from "../../shared/ui/Button";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
@@ -74,14 +75,15 @@ export function ModalWrapper({
           <h2>{title}</h2>
           <div className="modal__header-actions">
             {headerActions}
-            <button
+            <Button
               aria-label="Закрыть"
               className="modal__close"
               type="button"
+              variant="ghost"
               onClick={onClose}
             >
               x
-            </button>
+            </Button>
           </div>
         </header>
 

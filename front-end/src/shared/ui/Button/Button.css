@@ -1,0 +1,57 @@
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid rgba(116, 139, 158, 0.46);
+  border-radius: 8px;
+  background: rgba(17, 29, 41, 0.78);
+  color: #f4f7f5;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.ui-button:hover,
+.ui-button:focus-visible {
+  border-color: rgba(45, 212, 132, 0.78);
+  outline: none;
+}
+
+.ui-button:active {
+  transform: translateY(1px);
+}
+
+.ui-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.ui-button--primary {
+  border-color: rgba(45, 212, 132, 0.92);
+  background: linear-gradient(135deg, #2bc877, #1ca75e);
+  color: #07140e;
+}
+
+.ui-button--primary:hover,
+.ui-button--primary:focus-visible {
+  border-color: rgba(110, 255, 183, 0.95);
+  background: linear-gradient(135deg, #36da87, #20b86a);
+}
+
+.ui-button--ghost {
+  background: transparent;
+  color: #dbe7e2;
+}
+
+.ui-button--full {
+  width: 100%;
+}

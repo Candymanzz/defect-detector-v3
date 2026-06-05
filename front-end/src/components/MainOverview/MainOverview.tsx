@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { ServerStream } from "../ServerStream";
 import { orchestratorWs } from "../../shared/ws";
+import { Button } from "../../shared/ui/Button";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import {
   createMainOverviewErrorData,
@@ -12,6 +13,8 @@ import {
   INITIAL_BACKEND_STATUS,
   loadMainOverviewData,
 } from "./MainController";
+import { OverviewStat } from "./OverviewStat";
+import { createOverviewStats } from "./overviewStats";
 import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type";
 import type { InspectResultPayload } from "../../shared/ws";
 import "./MainOverview.css";
@@ -31,6 +34,18 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
   const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId);
   const modalCameraImageUrl = selectedCamera ? imageUrlsByCameraId[selectedCamera.cameraId] : undefined;
+  const onlineCameraCount = cameraCards.filter((camera) => Boolean(camera.imageUrl)).length;
+  const errorCameraCount = cameraCards.length - onlineCameraCount;
+  const lastInspectResult = Object.values(inspectResultsByCameraId).sort(
+    (left, right) => right.server_ts_ms - left.server_ts_ms,
+  )[0];
+  const overviewStats = createOverviewStats({
+    backendStatus,
+    cameraCount: cameraCards.length,
+    errorCameraCount,
+    lastInspectResult,
+    onlineCameraCount,
+  });
 
   useEffect(() => {
     let isActive = true;
@@ -89,23 +104,33 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       className="camera-overview"
       aria-label="Camera frames"
     >
-      <div className="backend-status-row">
-        <span>Backend</span>
-        <strong data-status={backendStatus.state}>{backendStatus.text}</strong>
-      </div>
-
-      <div className="camera-grid">
-        {cameraCards.map((camera) => (
-          <StatusCard
-            key={camera.cameraId}
-            cameraId={camera.cameraId}
-            objectName={camera.objectName}
-            imageUrl={camera.imageUrl}
-            isSelected={selectedSettingsCameraId === camera.cameraId}
-            onOpen={() => setSelectedCamera(createSelectedCamera(camera))}
-            onSelect={() => onSettingsCameraToggle(camera.cameraId)}
+      <div className="overview-stats">
+        {overviewStats.map((item) => (
+          <OverviewStat
+            key={item.id}
+            item={item}
           />
         ))}
+      </div>
+
+      <div className="camera-panel">
+        <div className="camera-panel__header">
+          <h2>Камеры</h2>
+        </div>
+
+        <div className="camera-grid">
+          {cameraCards.map((camera) => (
+            <StatusCard
+              key={camera.cameraId}
+              cameraId={camera.cameraId}
+              objectName={camera.objectName}
+              imageUrl={camera.imageUrl}
+              isSelected={selectedSettingsCameraId === camera.cameraId}
+              onOpen={() => setSelectedCamera(createSelectedCamera(camera))}
+              onSelect={() => onSettingsCameraToggle(camera.cameraId)}
+            />
+          ))}
+        </div>
       </div>
 
       {selectedCamera && (
@@ -114,13 +139,13 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           cameraId={selectedCamera.cameraId}
           cameraImageUrl={modalCameraImageUrl}
           headerActions={
-            <button
-              className="modal__action"
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setStreamCamera(selectedCamera)}
             >
               Открыть стрим
-            </button>
+            </Button>
           }
           inspectResult={inspectResultsByCameraId[selectedCamera.cameraId]}
           title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}

@@ -1,7 +1,124 @@
 .camera-overview {
-  width: 80%;
-  height: 50%;
-  border: 1px solid #fff;
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  height: 15%;
+}
+
+.overview-stat {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
   padding: 10px;
+  border: 1px solid rgba(116, 139, 158, 0.18);
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(24, 39, 55, 0.72), rgba(12, 22, 32, 0.9));
+}
+
+.overview-stat__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: rgba(45, 212, 132, 0.18);
+}
+
+.overview-stat[data-tone="cyan"] .overview-stat__icon {
+  background: rgba(103, 213, 244, 0.18);
+}
+
+.overview-stat[data-tone="amber"] .overview-stat__icon {
+  background: rgba(248, 184, 78, 0.2);
+}
+
+.overview-stat[data-tone="violet"] .overview-stat__icon {
+  background: rgba(185, 125, 255, 0.2);
+}
+
+.overview-stat span,
+.overview-stat p {
+  color: #b7c3be;
+  font-size: 14px;
+}
+
+.overview-stat strong {
+  display: block;
+  margin: 5px 0;
+  color: #ffffff;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.overview-stat p {
+  margin: 0;
+}
+
+.camera-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid rgba(116, 139, 158, 0.26);
+  border-radius: 8px;
+  background: rgba(8, 17, 26, 0.66);
+}
+
+.camera-panel__header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.camera-panel__header h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+}
+.camera-panel__select {
+  width: 180px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(116, 139, 158, 0.38);
+  border-radius: 8px;
+  background: rgba(10, 18, 27, 0.8);
+  color: #f4f7f5;
+  font: inherit;
+  font-weight: 700;
+}
+
+.camera-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1180px) {
+  .overview-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .camera-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .overview-stats,
+  .camera-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .camera-panel__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }

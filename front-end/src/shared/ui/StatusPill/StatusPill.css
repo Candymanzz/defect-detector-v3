@@ -1,0 +1,42 @@
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 4px 9px;
+  overflow: hidden;
+  border: 1px solid rgba(116, 139, 158, 0.3);
+  border-radius: 7px;
+  background: rgba(7, 13, 19, 0.54);
+  color: #c7d2ce;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-pill::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.status-pill--danger {
+  color: #ff5b5b;
+}
+
+.status-pill--success {
+  color: #2dd484;
+}
+
+.status-pill--warning {
+  color: #f8b84e;
+}
+
+.status-pill--neutral {
+  color: #b8c2bd;
+}

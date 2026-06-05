@@ -1,5 +1,6 @@
 import type { MouseEvent } from "react";
 import { useRef } from "react";
+import { Button } from "../../shared/ui/Button";
 import "./RoiContourEditor.css";
 
 export type NormPoint = {
@@ -98,14 +99,15 @@ export function RoiContourEditor({ imageUrl, points, disabled = false, onChange 
 
       <div className="roi-editor__actions">
         {actionButtons.map((button) => (
-          <button
+          <Button
             key={button.title}
             type="button"
             disabled={button.disabled}
+            variant="ghost"
             onClick={button.onClick}
           >
             {button.title}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
