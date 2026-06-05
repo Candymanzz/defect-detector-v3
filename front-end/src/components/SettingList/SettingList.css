@@ -48,13 +48,42 @@
   gap: 14px;
 }
 
+.setting-list__section-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-list__section-header h3 {
+  margin: 0;
+  color: #f2f5f7;
+  font-size: 16px;
+}
+
+.setting-list__section-header strong {
+  color: #9aa8a4;
+  font-size: 12px;
+  text-align: right;
+}
+
 .setting-list__field {
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+  font-size: 14px;
+  color: #f2f5f7;
+}
+.setting-list__field-light {
   display: grid;
   gap: 8px;
   font-size: 14px;
   color: #f2f5f7;
 }
 
+.setting-list__field-light input {
+  width: 100%;
+}
 .setting-list__scope {
   width: fit-content;
   max-width: 100%;
@@ -78,7 +107,7 @@
 }
 
 .setting-list input {
-  width: 100%;
+  width: 50%;
   min-width: 0;
   box-sizing: border-box;
 }
@@ -90,6 +119,32 @@
   background: #111827;
   color: #f2f5f7;
   padding: 0 8px;
+}
+
+.setting-list input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.setting-list__analysis {
+  display: grid;
+  gap: 10px;
+  max-height: 360px;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid #2f3540;
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.42);
+}
+
+.setting-list__analysis-grid {
+  display: grid;
+  gap: 5px;
+}
+
+.setting-list__field--checkbox {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
 }
 
 .setting-list__number {

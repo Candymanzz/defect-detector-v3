@@ -168,18 +168,31 @@ export type FpZonesUpdateRequest = {
 };
 
 export type AnalysisSettings = {
-  max_shift_mm: number;
-  max_rotation_deg: number;
-  max_concentricity_mm: number;
-  max_joint_defect_mm: number;
-  max_wrinkles_score: number;
+  default_threshold: number;
+  use_patchcore: boolean;
+  min_defect_area: number;
+  min_scratch_aspect: number;
+  min_diff_signal: number;
+  diff_percentile: number;
+  scratch_score_floor: number;
+  scratch_aspect_floor: number;
+  edge_suppress_factor: number;
+  text_min_contrast: number;
+  text_structure_threshold: number;
+  contrast_loss_boost: number;
+  contrast_loss_ref_grad: number;
+  contrast_loss_cur_grad: number;
+  enable_clahe: boolean;
+  clahe_clip_limit: number;
+  fp_recheck_enabled: boolean;
+  fp_trigger_diff_q90: number;
 };
 
 export type AnalysisSettingsResponse = {
   product_type: string;
+  settings: AnalysisSettings;
   defaults: AnalysisSettings;
   overrides: Partial<AnalysisSettings>;
-  effective: AnalysisSettings;
 };
 
 export type AnalysisSettingsUpdateRequest = Partial<AnalysisSettings>;

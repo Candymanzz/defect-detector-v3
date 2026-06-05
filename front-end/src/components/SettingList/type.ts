@@ -1,3 +1,5 @@
+import type { AnalysisSettings } from "../../shared/api";
+
 export type SettingStatus = {
   state: "loading" | "ready" | "saving" | "error";
   text: string;
@@ -6,11 +8,14 @@ export type SettingStatus = {
 export type SettingForm = {
   brightnessPercent: number;
   maxShiftMm: number;
+  analysisSettings: AnalysisSettings;
 };
 
-export type SettingFieldName = keyof SettingForm;
+export type SettingFieldName = "brightnessPercent" | "maxShiftMm";
+export type AnalysisSettingFieldName = keyof AnalysisSettings;
 
 export type SettingData = {
   status: SettingStatus;
   form: SettingForm;
+  analysisProductTypes: string[];
 };
