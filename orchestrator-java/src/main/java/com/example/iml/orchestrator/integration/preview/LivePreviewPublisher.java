@@ -267,7 +267,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
                         jpeg.height,
                         null,
                         0,
-                        0
+                        0,
+                        null
                 );
             }
 

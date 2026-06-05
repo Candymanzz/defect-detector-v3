@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +24,11 @@ public interface CameraPreviewStore {
             Path heatmapU8,
             int heatmapU8Width,
             int heatmapU8Height,
+            Boolean overallPass,
+            String action,
+            Double anomalyScore,
+            String pythonStatus,
+            String geometryStatus,
             long updatedAtEpochMs
     ) {
     }
@@ -48,6 +55,7 @@ public interface CameraPreviewStore {
             int currentJpegH,
             Path heatmapU8,
             int heatmapU8W,
-            int heatmapU8H
+            int heatmapU8H,
+            InspectionDecision decision
     );
 }

@@ -38,6 +38,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     private final Logger log;
     private volatile ClientWebSocketServer clientWebSocketServer;
+    private final java.util.concurrent.atomic.LongAdder droppedUiPublishTasks = new java.util.concurrent.atomic.LongAdder();
 
     public UiArtifactsSidecar(Logger log) {
         this.log = log;
@@ -120,7 +121,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     t.setDaemon(true);
                     return t;
                 },
-                new ThreadPoolExecutor.DiscardPolicy()
+                new ThreadPoolExecutor.CallerRunsPolicy()
         );
         executor.allowCoreThreadTimeOut(false);
         return executor;
@@ -175,7 +176,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
         Object homography = geomResp == null ? null : geomResp.header().get("homographyRefToCurrent");
 
-        uiArtifactsExecutor.execute(() -> {
+        try {
+            uiArtifactsExecutor.execute(() -> {
             try {
                 Path heatmapU8 = null;
                 int uw = 0;
@@ -250,7 +252,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             hasCur ? currentJpegH : 0,
                             hasHm ? heatmapU8 : null,
                             hasHm ? uw : 0,
-                            hasHm ? uh : 0
+                            hasHm ? uh : 0,
+                            decision
                     );
                 }
                 if (ws != null) {
@@ -280,7 +283,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             } catch (Exception ignored) {
             }
-        });
+            });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            droppedUiPublishTasks.increment();
+            log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
+            if (ws != null) {
+                try {
+                    // Fallback: still deliver inspect_result so UI state remains synchronized.
+                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
+                } catch (Exception notifyEx) {
+                    log.debug("client_ws inspect_result fallback cam={}: {}", cameraId, notifyEx.getMessage());
+                }
+            }
+        }
     }
 
     /**

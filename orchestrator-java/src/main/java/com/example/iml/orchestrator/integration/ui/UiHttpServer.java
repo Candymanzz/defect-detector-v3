@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.ui;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.http.HttpApplicationContext;
+import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.http.HttpFrontController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -123,8 +124,21 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             int currentJpegH,
             Path heatmapU8,
             int heatmapU8W,
-            int heatmapU8H
+            int heatmapU8H,
+            InspectionDecision decision
     ) {
+        Boolean overallPass = null;
+        String action = null;
+        Double anomalyScore = null;
+        String pythonStatus = null;
+        String geometryStatus = null;
+        if (decision != null) {
+            overallPass = decision.overallPass();
+            action = decision.action();
+            anomalyScore = decision.anomalyScore();
+            pythonStatus = decision.pythonStatus();
+            geometryStatus = decision.geometryStatus();
+        }
         latestByCamera.put(
                 cameraId,
                 new Latest(
@@ -140,6 +154,11 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                         heatmapU8,
                         heatmapU8W,
                         heatmapU8H,
+                        overallPass,
+                        action,
+                        anomalyScore,
+                        pythonStatus,
+                        geometryStatus,
                         System.currentTimeMillis()
                 )
         );

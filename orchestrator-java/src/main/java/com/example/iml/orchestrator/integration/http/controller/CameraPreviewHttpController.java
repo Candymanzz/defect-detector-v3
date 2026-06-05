@@ -143,6 +143,31 @@ public final class CameraPreviewHttpController implements HttpController {
         root.put("detectorId", l.detectorId() == null ? "" : l.detectorId());
         root.put("shmName", l.shmName() == null ? "" : l.shmName());
         root.put("updatedAtMs", l.updatedAtEpochMs());
+        if (l.overallPass() != null) {
+            root.put("overall_pass", l.overallPass());
+        } else {
+            root.putNull("overall_pass");
+        }
+        if (l.action() != null) {
+            root.put("action", l.action());
+        } else {
+            root.putNull("action");
+        }
+        if (l.anomalyScore() != null) {
+            root.put("anomaly_score", l.anomalyScore());
+        } else {
+            root.putNull("anomaly_score");
+        }
+        if (l.pythonStatus() != null) {
+            root.put("python_status", l.pythonStatus());
+        } else {
+            root.putNull("python_status");
+        }
+        if (l.geometryStatus() != null) {
+            root.put("geometry_status", l.geometryStatus());
+        } else {
+            root.putNull("geometry_status");
+        }
         root.put("hasCurrent", hasCur);
         root.put("hasHeatmap", hasHm);
         ObjectNode cap = root.putObject("capture");
@@ -167,6 +192,11 @@ public final class CameraPreviewHttpController implements HttpController {
         root.put("detectorId", "");
         root.put("shmName", "");
         root.put("updatedAtMs", 0);
+        root.putNull("overall_pass");
+        root.putNull("action");
+        root.putNull("anomaly_score");
+        root.putNull("python_status");
+        root.putNull("geometry_status");
         root.put("hasCurrent", false);
         root.put("hasHeatmap", false);
         ObjectNode cap = root.putObject("capture");
