@@ -106,6 +106,9 @@ public final class WsOutboundMessenger {
             boolean includeHeatmapFilePathInWs
     ) {
         try {
+            if (decision == null) {
+                log.warn("client_ws inspect_result missing decision: camera_id={} frame_id={}", cameraId, frameId);
+            }
             String json = buildInspectResultJson(
                     cameraId,
                     productType,
@@ -403,6 +406,13 @@ public final class WsOutboundMessenger {
             payload.put("anomaly_score", decision.anomalyScore());
             payload.put("python_status", decision.pythonStatus());
             payload.put("geometry_status", decision.geometryStatus());
+        } else {
+            // Keep payload schema stable for UI even if decision aggregation failed upstream.
+            payload.put("overall_pass", false);
+            payload.put("action", "REJECT");
+            payload.put("anomaly_score", 0.0);
+            payload.put("python_status", "UNKNOWN");
+            payload.put("geometry_status", "UNKNOWN");
         }
         payload.set("fp_zones", fpZonesJsonArray());
         int hmw = referenceContext.effectiveHeatmapWidth();

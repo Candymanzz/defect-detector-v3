@@ -65,7 +65,8 @@ java_geometry:
   max_concentricity_mm: 0.2
   max_joint_defect_mm: 0.3
   # Совпадает с python_detector.fallback_threshold, если не задан runtime threshold с фронта.
-  max_wrinkles_score: 0.25
+  # 0.45 снижает ложный брак на стабильных одинаковых кадрах.
+  max_wrinkles_score: 0.45
 
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
@@ -76,7 +77,8 @@ python_detector:
       y: 0
       width: 2448
       height: 2048
-  fallback_threshold: 0.25
+  # Более безопасный рабочий порог: меньше ложных REJECT при микро-шуме/свете.
+  fallback_threshold: 0.45
   include_visuals: false
 
 ui_http:
