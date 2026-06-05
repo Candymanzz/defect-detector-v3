@@ -10,6 +10,7 @@ import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferen
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,6 +94,7 @@ public final class WsOutboundMessenger {
             int cameraId,
             String productType,
             String detectorId,
+            InspectionDecision decision,
             Map<String, Object> captureHeader,
             long frameId,
             String shmName,
@@ -108,6 +110,7 @@ public final class WsOutboundMessenger {
                     cameraId,
                     productType,
                     detectorId,
+                    decision,
                     captureHeader,
                     frameId,
                     shmName,
@@ -335,6 +338,7 @@ public final class WsOutboundMessenger {
             int cameraId,
             String productType,
             String detectorId,
+            InspectionDecision decision,
             Map<String, Object> captureHeader,
             long frameIdLong,
             String shmName,
@@ -393,6 +397,13 @@ public final class WsOutboundMessenger {
             det.put("product_type", productType);
         }
         payload.set("detector", det);
+        if (decision != null) {
+            payload.put("overall_pass", decision.overallPass());
+            payload.put("action", decision.action());
+            payload.put("anomaly_score", decision.anomalyScore());
+            payload.put("python_status", decision.pythonStatus());
+            payload.put("geometry_status", decision.geometryStatus());
+        }
         payload.set("fp_zones", fpZonesJsonArray());
         int hmw = referenceContext.effectiveHeatmapWidth();
         int hmh = referenceContext.effectiveHeatmapHeight();

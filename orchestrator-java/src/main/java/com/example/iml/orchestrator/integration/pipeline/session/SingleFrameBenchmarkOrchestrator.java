@@ -80,6 +80,7 @@ public final class SingleFrameBenchmarkOrchestrator {
                     cameraId,
                     in.productType(),
                     in.detectorId(),
+                    decision,
                     afterPy.capture(),
                     afterPy.geom()
             );

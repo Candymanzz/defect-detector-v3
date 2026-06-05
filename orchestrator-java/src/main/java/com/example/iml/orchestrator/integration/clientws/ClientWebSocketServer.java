@@ -17,6 +17,7 @@ import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
+import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -157,6 +158,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             int cameraId,
             String productType,
             String detectorId,
+            InspectionDecision decision,
             Map<String, Object> captureHeader,
             Path heatmapU8Path,
             int heatmapW,
@@ -185,6 +187,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 cameraId,
                 productType,
                 detectorId,
+                decision,
                 captureHeader,
                 frameId,
                 shmName,

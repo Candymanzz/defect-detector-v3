@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -134,6 +135,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             int cameraId,
             String productType,
             String detectorId,
+            InspectionDecision decision,
             BinaryProtocol.Message capture,
             BinaryProtocol.Message geomResp
     ) {
@@ -145,7 +147,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (uiServer == null || uiArtifactsExecutor == null) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, null, false);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no ui pool) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -157,7 +159,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!storeCurrent && !storeHeatmapU8) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, cap, null, 0, 0, null, null, false);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no store flags) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -263,6 +265,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 cameraId,
                                 productType,
                                 detectorId,
+                                decision,
                                 cap,
                                 hasHm ? heatmapU8 : null,
                                 hasHm ? uw : 0,
