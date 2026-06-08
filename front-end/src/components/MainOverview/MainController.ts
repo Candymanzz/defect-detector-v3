@@ -1,10 +1,17 @@
 import { orchestratorApi } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
-import type { BackendStatus, CameraCardData, CameraImageUrlsById, MainOverviewData, SelectedCamera } from "./type";
+import type {
+  BackendStatus,
+  CameraCardData,
+  CameraFrameTimesById,
+  CameraImageUrlsById,
+  SelectedCamera,
+} from "./type";
 
 const CAMERAS_PER_OBJECT = 5;
 const CAMERA_LIMIT = 5;
+export const CAMERA_FRAME_STALE_MS = 15000;
 
 export const FALLBACK_CAMERA_IDS = Array.from({ length: CAMERA_LIMIT }, (_, index) => index);
 export const INITIAL_BACKEND_STATUS: BackendStatus = {
@@ -12,34 +19,36 @@ export const INITIAL_BACKEND_STATUS: BackendStatus = {
   text: "checking",
 };
 
-export async function loadMainOverviewData(): Promise<MainOverviewData> {
-  const backendHealth = await loadBackendHealth();
-  const backendCameraIds = await loadBackendCameraIds();
-
+export async function loadBackendStatus(): Promise<BackendStatus> {
+  const health = await orchestratorApi.health();
   return {
-    backendStatus: {
-      state: "ready",
-      text: backendHealth,
-    },
-    cameraIds: backendCameraIds,
+    state: "ready",
+    text: health.trim() || "ok",
   };
 }
 
-export function createMainOverviewErrorData(error: unknown): MainOverviewData {
+export function createBackendErrorStatus(error: unknown): BackendStatus {
   return {
-    backendStatus: {
-      state: "error",
-      text: errorMessage(error),
-    },
-    cameraIds: FALLBACK_CAMERA_IDS,
+    state: "error",
+    text: errorMessage(error),
   };
+}
+
+export async function loadBackendCameraIds() {
+  const cameraList = await orchestratorApi.listCameras();
+  return getCameraIdsOrFallback(cameraList.cameras);
 }
 
 export function createCameraCards(
   cameraIds: number[],
   imageUrlsByCameraId: CameraImageUrlsById = {},
+  frameTimesByCameraId: CameraFrameTimesById = {},
+  nowMs = Date.now(),
+  monitoringStartedAtMs = nowMs,
 ): CameraCardData[] {
-  return cameraIds.map((cameraId, index) => createCameraCardData(cameraId, index, imageUrlsByCameraId));
+  return cameraIds.map((cameraId, index) =>
+    createCameraCardData(cameraId, index, imageUrlsByCameraId, frameTimesByCameraId, nowMs, monitoringStartedAtMs),
+  );
 }
 
 export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
@@ -59,16 +68,6 @@ export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResult
   return undefined;
 }
 
-async function loadBackendHealth() {
-  const health = await orchestratorApi.health();
-  return health.trim() || "ok";
-}
-
-async function loadBackendCameraIds() {
-  const cameraList = await orchestratorApi.listCameras();
-  return getCameraIdsOrFallback(cameraList.cameras);
-}
-
 function getCameraIdsOrFallback(cameraIds: number[]) {
   const backendCameraIds = cameraIds.slice(0, CAMERA_LIMIT);
   return backendCameraIds.length ? backendCameraIds : FALLBACK_CAMERA_IDS;
@@ -78,11 +77,25 @@ function createCameraCardData(
   cameraId: number,
   index: number,
   imageUrlsByCameraId: CameraImageUrlsById,
+  frameTimesByCameraId: CameraFrameTimesById,
+  nowMs: number,
+  monitoringStartedAtMs: number,
 ): CameraCardData {
+  const lastFrameAtMs = frameTimesByCameraId[cameraId];
+  const signalState =
+    lastFrameAtMs === undefined
+      ? nowMs - monitoringStartedAtMs <= CAMERA_FRAME_STALE_MS
+        ? "waiting"
+        : "offline"
+      : nowMs - lastFrameAtMs <= CAMERA_FRAME_STALE_MS
+        ? "online"
+        : "offline";
+
   return {
     cameraId,
     objectName: getObjectName(index),
-    imageUrl: imageUrlsByCameraId[cameraId],
+    imageUrl: signalState === "online" ? imageUrlsByCameraId[cameraId] : undefined,
+    signalState,
   };
 }
 

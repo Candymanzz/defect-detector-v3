@@ -6,7 +6,11 @@
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
   color: inherit;
 }
-
+.camera-card:hover,
+.camera-card:focus-within {
+  outline: 1px solid rgba(195, 212, 45, 0.55);
+  outline-offset: -1px;
+}
 .camera-card--selected {
   border-color: rgba(220, 223, 39, 0.82);
   box-shadow:
@@ -27,12 +31,6 @@
   color: inherit;
   cursor: pointer;
   font: inherit;
-}
-
-.camera-card__select:hover,
-.camera-card__select:focus-visible {
-  outline: 1px solid rgba(195, 212, 45, 0.55);
-  outline-offset: -1px;
 }
 
 .camera-card__select .status-pill {

@@ -5,18 +5,23 @@ import type { OverviewStatItem } from "./OverviewStat";
 type CreateOverviewStatsParams = {
   backendStatus: BackendStatus;
   cameraCount: number;
-  errorCameraCount: number;
+  offlineCameraCount: number;
   lastInspectResult?: InspectResultPayload;
   onlineCameraCount: number;
+  waitingCameraCount: number;
 };
 
 export function createOverviewStats({
   backendStatus,
   cameraCount,
-  errorCameraCount,
+  offlineCameraCount,
   lastInspectResult,
   onlineCameraCount,
+  waitingCameraCount,
 }: CreateOverviewStatsParams): OverviewStatItem[] {
+  const backendErrorCount = backendStatus.state === "error" ? 1 : 0;
+  const totalErrorCount = offlineCameraCount + backendErrorCount;
+
   return [
     {
       id: "cameras",
@@ -35,8 +40,15 @@ export function createOverviewStats({
     {
       id: "errors",
       label: "Ошибки",
-      value: errorCameraCount,
-      caption: backendStatus.state === "ready" ? "Backend online" : backendStatus.text,
+      value: totalErrorCount,
+      caption:
+        backendStatus.state === "error"
+          ? `Backend offline; cameras offline: ${offlineCameraCount}`
+          : backendStatus.state === "ready"
+          ? waitingCameraCount > 0
+            ? `Waiting for frames: ${waitingCameraCount}`
+            : "No stale cameras"
+          : backendStatus.text,
       tone: "amber",
     },
     {

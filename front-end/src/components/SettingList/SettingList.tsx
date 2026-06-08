@@ -47,9 +47,10 @@ const ANALYSIS_SETTING_FIELDS: Array<{
 
 type SettingListProps = {
   selectedCameraId: number | null;
+  onPreviewPauseChange?: (isPaused: boolean) => void;
 };
 
-export function SettingList({ selectedCameraId }: SettingListProps) {
+export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
@@ -58,6 +59,10 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
+
+  useEffect(() => {
+    return () => onPreviewPauseChange?.(false);
+  }, [onPreviewPauseChange]);
 
   useEffect(() => {
     let isActive = true;
@@ -208,7 +213,10 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           disabled={isBusy}
           fullWidth
           variant="ghost"
-          onClick={() => setIsReferenceSetupOpen(true)}
+          onClick={() => {
+            setIsReferenceSetupOpen(true);
+            onPreviewPauseChange?.(true);
+          }}
         >
           Задать эталон
         </Button>
@@ -226,7 +234,10 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       {isReferenceSetupOpen && (
         <ReferenceSetup
           initialJointViewIndex={selectedCameraId}
-          onClose={() => setIsReferenceSetupOpen(false)}
+          onClose={() => {
+            setIsReferenceSetupOpen(false);
+            onPreviewPauseChange?.(false);
+          }}
         />
       )}
       {isServerStreamOpen && (

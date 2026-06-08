@@ -12,11 +12,8 @@ export type CameraCardData = {
   cameraId: number;
   objectName: string;
   imageUrl?: string;
+  signalState: "waiting" | "online" | "offline";
 };
 
 export type CameraImageUrlsById = Record<number, string>;
-
-export type MainOverviewData = {
-  backendStatus: BackendStatus;
-  cameraIds: number[];
-};
+export type CameraFrameTimesById = Record<number, number>;

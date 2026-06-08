@@ -3,20 +3,26 @@ import { PreviewImage } from "../PreviewImage";
 import { StatusPill } from "../StatusPill";
 import "./StatusCard.css";
 
-type SignalState = "success" | "danger";
-
 type StatusCardProps = {
   cameraId: number;
   objectName: string;
   imageUrl?: string;
   isSelected?: boolean;
+  signalState: "waiting" | "online" | "offline";
   onOpen: () => void;
   onSelect: () => void;
 };
 
-export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false, onOpen, onSelect }: StatusCardProps) {
-  const signalState: SignalState = imageUrl ? "success" : "danger";
-  const signalText = imageUrl ? "Online" : "No signal";
+export function StatusCard({
+  cameraId,
+  objectName,
+  imageUrl,
+  isSelected = false,
+  signalState,
+  onOpen,
+  onSelect,
+}: StatusCardProps) {
+  const signal = getSignalPresentation(signalState);
 
   return (
     <article className={isSelected ? "camera-card camera-card--selected" : "camera-card"}>
@@ -38,7 +44,7 @@ export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false,
       <div className="camera-card__footer">
         <div className="camera-card__meta">
           <strong>Camera {cameraId}</strong>
-          <StatusPill state={signalState}>{signalText}</StatusPill>
+          <StatusPill state={signal.pillState}>{signal.text}</StatusPill>
         </div>
         <Button
           className="camera-card__open"
@@ -51,4 +57,16 @@ export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false,
       </div>
     </article>
   );
+}
+
+function getSignalPresentation(signalState: StatusCardProps["signalState"]) {
+  if (signalState === "online") {
+    return { pillState: "success" as const, text: "Online" };
+  }
+
+  if (signalState === "offline") {
+    return { pillState: "danger" as const, text: "No signal" };
+  }
+
+  return { pillState: "warning" as const, text: "Waiting" };
 }
