@@ -1,18 +1,15 @@
 import { orchestratorApi } from "../../shared/api";
-import type { UiLatestSnapshot } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import type {
   BackendStatus,
   CameraCardData,
-  CameraFrameTimesById,
   CameraImageUrlsById,
   SelectedCamera,
 } from "./type";
 
 const CAMERAS_PER_OBJECT = 5;
 const CAMERA_LIMIT = 5;
-export const CAMERA_FRAME_STALE_MS = 30000;
 
 export const FALLBACK_CAMERA_IDS = Array.from({ length: CAMERA_LIMIT }, (_, index) => index);
 export const INITIAL_BACKEND_STATUS: BackendStatus = {
@@ -40,29 +37,11 @@ export async function loadBackendCameraIds() {
   return getCameraIdsOrFallback(cameraList.cameras);
 }
 
-export async function loadBackendCameraSnapshots(cameraIds: number[]) {
-  const results = await Promise.allSettled(cameraIds.map((cameraId) => orchestratorApi.getLatestSnapshot(cameraId)));
-  return results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
-}
-
-export function createSnapshotImageUrl(snapshot: UiLatestSnapshot) {
-  if (!snapshot.hasCurrent || snapshot.frameId < 0 || !snapshot.currentJpeg?.path) {
-    return undefined;
-  }
-
-  return orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
-}
-
 export function createCameraCards(
   cameraIds: number[],
   imageUrlsByCameraId: CameraImageUrlsById = {},
-  frameTimesByCameraId: CameraFrameTimesById = {},
-  nowMs = Date.now(),
-  monitoringStartedAtMs = nowMs,
 ): CameraCardData[] {
-  return cameraIds.map((cameraId, index) =>
-    createCameraCardData(cameraId, index, imageUrlsByCameraId, frameTimesByCameraId, nowMs, monitoringStartedAtMs),
-  );
+  return cameraIds.map((cameraId, index) => createCameraCardData(cameraId, index, imageUrlsByCameraId));
 }
 
 export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
@@ -138,25 +117,14 @@ function createCameraCardData(
   cameraId: number,
   index: number,
   imageUrlsByCameraId: CameraImageUrlsById,
-  frameTimesByCameraId: CameraFrameTimesById,
-  nowMs: number,
-  monitoringStartedAtMs: number,
 ): CameraCardData {
-  const lastFrameAtMs = frameTimesByCameraId[cameraId];
-  const signalState =
-    lastFrameAtMs === undefined
-      ? nowMs - monitoringStartedAtMs <= CAMERA_FRAME_STALE_MS
-        ? "waiting"
-        : "offline"
-      : nowMs - lastFrameAtMs <= CAMERA_FRAME_STALE_MS
-        ? "online"
-        : "offline";
+  const imageUrl = imageUrlsByCameraId[cameraId];
 
   return {
     cameraId,
     objectName: getObjectName(index),
-    imageUrl: signalState === "online" ? imageUrlsByCameraId[cameraId] : undefined,
-    signalState,
+    imageUrl,
+    signalState: imageUrl ? "online" : "waiting",
   };
 }
 

@@ -8,7 +8,6 @@ import {
   createBackendErrorStatus,
   createCameraCards,
   createSelectedCamera,
-  createSnapshotImageUrl,
   createWsFrameImageUrl,
   FALLBACK_CAMERA_IDS,
   INITIAL_BACKEND_STATUS,
@@ -16,20 +15,17 @@ import {
   isFramePayloadConsistent,
   isIncomingFrameNewer,
   loadBackendCameraIds,
-  loadBackendCameraSnapshots,
   loadBackendStatus,
   readNumericFrameId,
 } from "./MainController";
 import { OverviewStat } from "./OverviewStat";
 import { createOverviewStats } from "./overviewStats";
-import type { BackendStatus, CameraFrameTimesById, CameraImageUrlsById, SelectedCamera } from "./type";
+import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type";
 import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import "./MainOverview.css";
 
 const BACKEND_HEALTH_POLL_MS = 5000;
 const CAMERA_LIST_POLL_MS = 10000;
-const CAMERA_SNAPSHOT_POLL_MS = 5000;
-const CAMERA_FRESHNESS_TICK_MS = 1000;
 
 type FrameGenerationGuard = {
   currentMaxFrameId: bigint;
@@ -54,22 +50,16 @@ export function MainOverview({
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
   const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
-  const [frameTimesByCameraId, setFrameTimesByCameraId] = useState<CameraFrameTimesById>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
-  const [freshnessNowMs, setFreshnessNowMs] = useState(0);
-  const freshnessNowRef = useRef(0);
-  const lastFreshnessTickRef = useRef(0);
   const backendRequestInFlightRef = useRef(false);
   const cameraListRequestInFlightRef = useRef(false);
-  const cameraSnapshotRequestInFlightRef = useRef(false);
-  const snapshotVersionByCameraIdRef = useRef<Record<number, string>>({});
   const isPreviewPausedRef = useRef(isPreviewPaused);
   const latestVisualFramesRef = useRef<Record<number, PreviewFramePayload | InspectResultPayload>>({});
   const latestPreviewFramesRef = useRef<Record<number, PreviewFramePayload>>({});
   const latestInspectResultsRef = useRef<Record<number, InspectResultPayload>>({});
   const frameGenerationGuardsRef = useRef<Record<number, FrameGenerationGuard>>({});
 
-  const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId, frameTimesByCameraId, freshnessNowMs, 0);
+  const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId);
   const modalCameraImageUrl = selectedCamera
     ? cameraCards.find((camera) => camera.cameraId === selectedCamera.cameraId)?.imageUrl
     : undefined;
@@ -157,93 +147,7 @@ export function MainOverview({
   }, []);
 
   useEffect(() => {
-    let isActive = true;
-
-    const refreshCameraSnapshots = () => {
-      if (cameraSnapshotRequestInFlightRef.current || isPreviewPausedRef.current) {
-        return;
-      }
-
-      cameraSnapshotRequestInFlightRef.current = true;
-      loadBackendCameraSnapshots(cameraIds)
-        .then((snapshots) => {
-          if (!isActive) {
-            return;
-          }
-
-          const changedSnapshots = snapshots.filter((snapshot) => {
-            if (!snapshot.hasCurrent || snapshot.frameId < 0) {
-              return false;
-            }
-
-            const currentFrameId = readNumericFrameId(latestVisualFramesRef.current[snapshot.cameraId]);
-            if (currentFrameId !== null && BigInt(snapshot.frameId) < currentFrameId) {
-              return false;
-            }
-
-            const version = `${snapshot.frameId}:${snapshot.updatedAtMs}`;
-            if (snapshotVersionByCameraIdRef.current[snapshot.cameraId] === version) {
-              return false;
-            }
-
-            snapshotVersionByCameraIdRef.current[snapshot.cameraId] = version;
-            return true;
-          });
-
-          if (changedSnapshots.length === 0) {
-            return;
-          }
-
-          setImageUrlsByCameraId((currentUrls) => {
-            const nextUrls = { ...currentUrls };
-            for (const snapshot of changedSnapshots) {
-              const imageUrl = createSnapshotImageUrl(snapshot);
-              if (imageUrl) {
-                nextUrls[snapshot.cameraId] = imageUrl;
-              }
-            }
-            return nextUrls;
-          });
-          setFrameTimesByCameraId((currentTimes) => {
-            const nextTimes = { ...currentTimes };
-            for (const snapshot of changedSnapshots) {
-              nextTimes[snapshot.cameraId] = freshnessNowRef.current;
-            }
-            return nextTimes;
-          });
-        })
-        .finally(() => {
-          cameraSnapshotRequestInFlightRef.current = false;
-        });
-    };
-
-    refreshCameraSnapshots();
-    const intervalId = window.setInterval(refreshCameraSnapshots, CAMERA_SNAPSHOT_POLL_MS);
-
-    return () => {
-      isActive = false;
-      window.clearInterval(intervalId);
-    };
-  }, [cameraIds]);
-
-  useEffect(() => {
     isPreviewPausedRef.current = isPreviewPaused;
-    lastFreshnessTickRef.current = Date.now();
-
-    const intervalId = window.setInterval(() => {
-      const tickAtMs = Date.now();
-      const elapsedMs = tickAtMs - lastFreshnessTickRef.current;
-      lastFreshnessTickRef.current = tickAtMs;
-
-      if (isPreviewPaused) {
-        return;
-      }
-
-      freshnessNowRef.current += elapsedMs;
-      setFreshnessNowMs(freshnessNowRef.current);
-    }, CAMERA_FRESHNESS_TICK_MS);
-
-    return () => window.clearInterval(intervalId);
   }, [isPreviewPaused]);
 
   useEffect(() => {
@@ -275,8 +179,6 @@ export function MainOverview({
       const currentPreviewFrame = latestPreviewFramesRef.current[frame.camera_id];
       const sequenceReset =
         message.type === "server.preview_frame" && isFrameSequenceReset(message.payload, currentPreviewFrame);
-      let acceptedVisualFrame = false;
-      let acceptedInspectResult = false;
 
       if (sequenceReset) {
         const previousFrameIds = [
@@ -311,7 +213,6 @@ export function MainOverview({
 
       if (belongsToCurrentGeneration && (sequenceReset || isIncomingFrameNewer(frame, currentVisualFrame))) {
         latestVisualFramesRef.current[frame.camera_id] = frame;
-        acceptedVisualFrame = true;
         const imageUrl = createWsFrameImageUrl(frame);
 
         setImageUrlsByCameraId((prevImageUrls) => {
@@ -336,7 +237,6 @@ export function MainOverview({
 
         if (belongsToCurrentGeneration && isIncomingFrameNewer(inspectResult, currentInspectResult)) {
           latestInspectResultsRef.current[inspectResult.camera_id] = inspectResult;
-          acceptedInspectResult = true;
           setInspectResultsByCameraId((prevInspectResults) => ({
             ...prevInspectResults,
             [inspectResult.camera_id]: inspectResult,
@@ -344,12 +244,6 @@ export function MainOverview({
         }
       }
 
-      if (acceptedVisualFrame || acceptedInspectResult) {
-        setFrameTimesByCameraId((prevFrameTimes) => ({
-          ...prevFrameTimes,
-          [frame.camera_id]: freshnessNowRef.current,
-        }));
-      }
     });
 
     orchestratorWs.connect();

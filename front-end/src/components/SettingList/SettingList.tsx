@@ -3,6 +3,7 @@ import type { ChangeEvent } from "react";
 import {
   createSettingErrorData,
   INITIAL_SETTING_DATA,
+  INITIAL_SETTING_STATUS,
   loadSettingData,
   saveAnalysisSettingData,
   saveBrightnessSetting,
@@ -55,12 +56,15 @@ type SettingListProps = {
 
 export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
+  const [loadedCameraId, setLoadedCameraId] = useState<number | null | undefined>(undefined);
   const [savingSection, setSavingSection] = useState<SavingSection | null>(null);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
   const settingsRequestIdRef = useRef(0);
 
-  const isBusy = settingData.status.state === "loading" || savingSection !== null;
+  const isLoadingCamera = loadedCameraId !== selectedCameraId;
+  const displayedStatus = isLoadingCamera ? INITIAL_SETTING_STATUS : settingData.status;
+  const isBusy = isLoadingCamera || savingSection !== null;
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
@@ -81,6 +85,7 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
         }
 
         setSavingSection(null);
+        setLoadedCameraId(selectedCameraId);
         setSettingData(nextSettingData);
       });
 
@@ -161,7 +166,7 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
     >
       <div className="setting-list__header">
         <h2>Настройки</h2>
-        <strong data-status={settingData.status.state}>{settingData.status.text}</strong>
+        <strong data-status={displayedStatus.state}>{displayedStatus.text}</strong>
       </div>
 
       <form

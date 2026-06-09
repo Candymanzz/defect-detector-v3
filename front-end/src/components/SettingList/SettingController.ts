@@ -1,4 +1,4 @@
-import { orchestratorApi } from "../../shared/api";
+import { HttpError, orchestratorApi } from "../../shared/api";
 import type { AnalysisSettings, GeometryRuntimeConfig, LightBrightnessSettings, LightEndpointBrightness } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import type { AnalysisSettingFieldName, SettingData, SettingFieldName, SettingForm, SettingStatus } from "./type";
@@ -55,10 +55,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
     loadAnalysisProductTypes(),
   ]);
   const analysisProductType = await resolveAnalysisProductType(selectedCameraId, analysisProductTypes);
-  const analysisSettings = await orchestratorApi
-    .getAnalysisSettings(analysisProductType)
-    .then((response) => response.settings)
-    .catch(() => DEFAULT_ANALYSIS_SETTINGS);
+  const analysisSettings = await loadAnalysisSettings(analysisProductType);
 
   return {
     status: {
@@ -310,16 +307,26 @@ async function loadAnalysisProductTypes() {
   }
 }
 
+async function loadAnalysisSettings(productType: string) {
+  try {
+    return (await orchestratorApi.getAnalysisSettings(productType)).settings;
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      return (await orchestratorApi.getDefaultAnalysisSettings()).settings;
+    }
+
+    throw error;
+  }
+}
+
 async function resolveAnalysisProductType(selectedCameraId: number | null, fallbackProductTypes: string[]) {
   if (selectedCameraId !== null) {
-    try {
-      const snapshot = await orchestratorApi.getLatestSnapshot(selectedCameraId);
-      if (snapshot.productType.trim()) {
-        return snapshot.productType;
-      }
-    } catch {
-      // fall through to shared fallback
+    const snapshot = await orchestratorApi.getLatestSnapshot(selectedCameraId);
+    if (!snapshot.productType.trim()) {
+      throw new Error(`Product type for camera ${selectedCameraId} is unavailable`);
     }
+
+    return snapshot.productType;
   }
 
   return fallbackProductTypes[0] ?? FALLBACK_ANALYSIS_PRODUCT_TYPE;
