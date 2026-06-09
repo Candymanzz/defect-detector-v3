@@ -58,7 +58,7 @@ export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResult
     return orchestratorApi.imageUrl(imagePath, frame.frame_id);
   }
 
-  return undefined;
+  return orchestratorApi.currentFrameUrl(frame.camera_id, frame.frame_id);
 }
 
 export function isIncomingFrameNewer(
