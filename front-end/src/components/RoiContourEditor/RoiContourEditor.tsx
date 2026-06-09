@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import { useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../../shared/ui/Button";
 import "./RoiContourEditor.css";
 
@@ -15,9 +15,52 @@ type RoiContourEditorProps = {
   onChange: (points: NormPoint[]) => void;
 };
 
+type ImageBounds = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 export function RoiContourEditor({ imageUrl, points, disabled = false, onChange }: RoiContourEditorProps) {
+  const canvasRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const svgPoints = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const [imageBounds, setImageBounds] = useState<ImageBounds | null>(null);
+  const svgPoints = imageBounds
+    ? points.map((point) => `${point.x * imageBounds.width},${point.y * imageBounds.height}`).join(" ")
+    : "";
+
+  const updateImageBounds = useCallback(() => {
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    const imageRect = imageRef.current?.getBoundingClientRect();
+
+    if (!canvasRect || !imageRect || imageRect.width <= 0 || imageRect.height <= 0) {
+      setImageBounds(null);
+      return;
+    }
+
+    setImageBounds({
+      left: imageRect.left - canvasRect.left,
+      top: imageRect.top - canvasRect.top,
+      width: imageRect.width,
+      height: imageRect.height,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const image = imageRef.current;
+    if (!canvas || !image) {
+      return;
+    }
+
+    const observer = new ResizeObserver(updateImageBounds);
+    observer.observe(canvas);
+    observer.observe(image);
+    updateImageBounds();
+
+    return () => observer.disconnect();
+  }, [imageUrl, updateImageBounds]);
 
   const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
     if (disabled) {
@@ -27,6 +70,15 @@ export function RoiContourEditor({ imageUrl, points, disabled = false, onChange 
     const rect = imageRef.current?.getBoundingClientRect();
 
     if (!rect || rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    ) {
       return;
     }
 
@@ -71,6 +123,7 @@ export function RoiContourEditor({ imageUrl, points, disabled = false, onChange 
   return (
     <div className="roi-editor">
       <div
+        ref={canvasRef}
         className="roi-editor__canvas"
         onClick={handleCanvasClick}
       >
@@ -78,23 +131,31 @@ export function RoiContourEditor({ imageUrl, points, disabled = false, onChange 
           ref={imageRef}
           src={imageUrl}
           alt="ROI"
+          onLoad={updateImageBounds}
         />
-        <svg
-          className="roi-editor__overlay"
-          viewBox="0 0 1 1"
-          preserveAspectRatio="none"
-        >
-          {points.length >= 3 && <polygon points={svgPoints} />}
-          {points.length >= 2 && <polyline points={svgPoints} />}
-          {points.map((point, index) => (
-            <circle
-              key={`${point.x}-${point.y}-${index}`}
-              cx={point.x}
-              cy={point.y}
-              r="0.012"
-            />
-          ))}
-        </svg>
+        {imageBounds && (
+          <svg
+            className="roi-editor__overlay"
+            style={{
+              left: imageBounds.left,
+              top: imageBounds.top,
+              width: imageBounds.width,
+              height: imageBounds.height,
+            }}
+            viewBox={`0 0 ${imageBounds.width} ${imageBounds.height}`}
+          >
+            {points.length >= 3 && <polygon points={svgPoints} />}
+            {points.length >= 2 && <polyline points={svgPoints} />}
+            {points.map((point, index) => (
+              <circle
+                key={`${point.x}-${point.y}-${index}`}
+                cx={point.x * imageBounds.width}
+                cy={point.y * imageBounds.height}
+                r="6"
+              />
+            ))}
+          </svg>
+        )}
       </div>
 
       <div className="roi-editor__actions">
