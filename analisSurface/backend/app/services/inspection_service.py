@@ -932,12 +932,17 @@ class InspectionService:
 
         filtered = cv2.dilate(filtered, np.ones((3, 3), dtype=np.uint8), iterations=1)
 
-        # Brightest tail statistics: more robust for narrow defects than plain mean.
-        flat = gray_blur.reshape(-1)
-        k = max(1, int(flat.size * 0.01))  # top 1% brightest pixels
-        top_mean = float(np.mean(np.partition(flat, -k)[-k:])) / 255.0
+        # Brightest tail statistics should be computed only on detected anomaly pixels.
+        # Using the full frame can saturate score to 1.0 even on visually stable images.
+        anomaly_pixels = filtered > 0
+        if np.any(anomaly_pixels):
+            active_values = gray_blur[anomaly_pixels]
+            k = max(1, int(active_values.size * 0.02))  # top 2% inside anomaly regions
+            top_mean = float(np.mean(np.partition(active_values, -k)[-k:])) / 255.0
+        else:
+            top_mean = 0.0
 
-        heuristic_score = float(np.clip(max_object_score + (top_mean * 1.5), 0.0, 1.0))
+        heuristic_score = float(np.clip((max_object_score * 0.85) + (top_mean * 0.55), 0.0, 1.0))
         if max_aspect > settings.scratch_aspect_floor:
             heuristic_score = max(heuristic_score, settings.scratch_score_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
