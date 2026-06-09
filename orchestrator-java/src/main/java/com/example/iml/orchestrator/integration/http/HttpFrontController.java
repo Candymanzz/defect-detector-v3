@@ -103,7 +103,8 @@ public final class HttpFrontController {
 
         CameraPreviewHttpController camera = new CameraPreviewHttpController(
                 ctx.cameraPreviewStore(),
-                ctx.configuredCameraIds()
+                ctx.configuredCameraIds(),
+                ctx.productTypeByCamera()
         );
 
         router.register(HttpRoute.exact("GET", "/api/cameras", camera::listCameras));
@@ -159,7 +160,8 @@ public final class HttpFrontController {
         router.register(HttpRoute.regex("*", Pattern.compile("^/api/orchestrator/fp-zones(/.*)?$"), fpZones));
 
         OrchestratorAnalysisSettingsHttpController analysisSettings = new OrchestratorAnalysisSettingsHttpController(
-                ctx.analisSurfaceBaseUrl()
+                ctx.analisSurfaceBaseUrl(),
+                ctx.productTypeByCamera()
         );
 
         router.register(HttpRoute.regex(
