@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
@@ -9,12 +10,9 @@ import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceBootstrapOutcome;
-import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceLogStyle;
 import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspectionCycleInput;
-import com.example.iml.orchestrator.integration.pipeline.session.ConveyorBenchmarkOrchestrator;
-import com.example.iml.orchestrator.integration.pipeline.session.GlobalInspectionCycleCoordinator;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.pipeline.session.ProductionInspectionOrchestrator;
-import com.example.iml.orchestrator.integration.pipeline.session.SingleFrameBenchmarkOrchestrator;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
@@ -61,18 +59,16 @@ public final class InspectionPipeline {
             UiHttpServer uiServer,
             BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
-            IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark,
-            IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark,
-            IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection,
             InspectionTriggerStrategy triggerStrategy,
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
             int flashLeadMs,
             PipelineStagesLog pipelineStagesLog,
-            GlobalInspectionCycleCoordinator cycleCoordinator
+            PerCameraInspectionGate inspectionGate,
+            long inspectionCycleTimeoutMs
     ) throws Exception {
         int cameraId = ((Number) camera.get("id")).intValue();
-        String productType = String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId));
+        String productType = ConfiguredCameras.analysisProfileForCamera(camera, cameraId);
         String detectorId = String.valueOf(camera.getOrDefault("detector", "v1"));
         boolean reloadReferenceLocal = YamlScalars.toBool(camera.get("reload_reference"), false);
         long tCameraStartNanos = System.nanoTime();
@@ -109,26 +105,11 @@ public final class InspectionPipeline {
                 pipelineStagesLog
         );
 
-        if (conveyorBenchmark.enabled()) {
-            ConveyorBenchmarkOrchestrator.run(
-                    svc,
-                    shared,
-                    conveyorBenchmark,
-                    referenceByCamera,
-                    reloadReferenceGlobal,
-                    reloadReferenceLocal,
-                    singleFrameBenchmark,
-                    continuousInspection
-            );
-            return;
-        }
-
         ReferenceSnapshot referenceSnapshot = referenceByCamera.get(cameraId);
         boolean needReference = referenceSnapshot == null
                 || !productType.equals(referenceSnapshot.productType())
                 || reloadReferenceGlobal
                 || reloadReferenceLocal;
-        int referenceRepeatCount = singleFrameBenchmark.enabled() ? singleFrameBenchmark.referenceRepeats() : 1;
         long referenceMsFinal = 0L;
         ReferenceSnapshot activeReference = referenceSnapshot;
         boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
@@ -154,11 +135,10 @@ public final class InspectionPipeline {
                         lightClient,
                         pythonPool,
                         uiVisualsPython,
-                        referenceRepeatCount,
+                        1,
                         referenceByCamera,
                         pipelineStagesLog,
                         null,
-                        ReferenceLogStyle.STANDARD,
                         true
                 );
                 activeReference = refMain.snapshot();
@@ -176,18 +156,6 @@ public final class InspectionPipeline {
 
         AsyncInspectionCycleInput in = shared.withPerCycleIdentity(productType, activeReference, referenceMsFinal);
 
-        if (singleFrameBenchmark.enabled()) {
-            SingleFrameBenchmarkOrchestrator.run(
-                    svc,
-                    in,
-                    singleFrameBenchmark,
-                    tCameraStartNanos,
-                    referenceMsFinal,
-                    activeReference
-            );
-            return;
-        }
-
         ProductionInspectionOrchestrator.run(
                 svc,
                 in,
@@ -195,7 +163,8 @@ public final class InspectionPipeline {
                 triggerMode,
                 referenceSource,
                 referenceByCamera,
-                cycleCoordinator
+                inspectionGate,
+                inspectionCycleTimeoutMs
         );
     }
 }

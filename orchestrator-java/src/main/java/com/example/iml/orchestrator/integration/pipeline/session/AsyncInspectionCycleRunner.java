@@ -7,6 +7,9 @@ import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Один полный асинхронный цикл инспекции (capture → geometry → python → решение → fan-out → логи).
@@ -19,8 +22,9 @@ public final class AsyncInspectionCycleRunner {
     public static void run(
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
-            Map<String, Object> timingExtras
-    ) {
+            Map<String, Object> timingExtras,
+            long timeoutMs
+    ) throws TimeoutException {
         CompletableFuture<PipelineState> captureFuture = svc.captureStage().scheduleCapture(
                 in.projectRoot(),
                 in.saveCaptures(),
@@ -109,6 +113,21 @@ public final class AsyncInspectionCycleRunner {
             );
         }, in.decisionStageExecutor());
 
-        decisionFuture.join();
+        if (timeoutMs > 0) {
+            try {
+                decisionFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause() == null ? e : e.getCause();
+                if (cause instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new RuntimeException(cause);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        } else {
+            decisionFuture.join();
+        }
     }
 }

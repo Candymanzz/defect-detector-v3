@@ -8,7 +8,7 @@ import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Обычный режим: стратегия ожидания триггера (таймер, UDP-шина, непрерывный цикл).
@@ -25,19 +25,19 @@ public final class ProductionInspectionOrchestrator {
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             ReferenceSource referenceSource,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
-            GlobalInspectionCycleCoordinator cycleCoordinator
+            PerCameraInspectionGate inspectionGate,
+            long inspectionCycleTimeoutMs
     ) throws Exception {
-        AtomicBoolean cycleInProgress = new AtomicBoolean(false);
         boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
         logTriggerMode(svc, in, triggerMode, triggerStrategy, referenceFromClient);
         runTriggerDrivenLoop(
                 svc,
                 in,
                 triggerStrategy,
-                cycleInProgress,
                 referenceFromClient,
                 referenceByCamera,
-                cycleCoordinator
+                inspectionGate,
+                inspectionCycleTimeoutMs
         );
     }
 
@@ -85,25 +85,25 @@ public final class ProductionInspectionOrchestrator {
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
             InspectionTriggerStrategy triggerStrategy,
-            AtomicBoolean cycleInProgress,
             boolean referenceFromClient,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
-            GlobalInspectionCycleCoordinator cycleCoordinator
+            PerCameraInspectionGate inspectionGate,
+            long inspectionCycleTimeoutMs
     ) throws Exception {
         while (!Thread.currentThread().isInterrupted()) {
             InspectionTriggerEvent event = triggerStrategy.awaitNext(in.cameraId());
-            if (!cycleInProgress.get()) {
-                runCycle(svc, in, cycleInProgress, referenceFromClient, referenceByCamera, cycleCoordinator);
-                int delay = triggerStrategy.postCycleDelayMs();
-                if (delay > 0) {
-                    sleepInterruptibly(delay);
-                }
-            } else {
-                svc.log().warn(
-                        "integration cam={}: trigger ignored (source={}), inspection in progress",
-                        in.cameraId(),
-                        event.source()
-                );
+            runCycle(
+                    svc,
+                    in,
+                    referenceFromClient,
+                    referenceByCamera,
+                    inspectionGate,
+                    inspectionCycleTimeoutMs,
+                    event
+            );
+            int delay = triggerStrategy.postCycleDelayMs();
+            if (delay > 0) {
+                sleepInterruptibly(delay);
             }
         }
     }
@@ -111,18 +111,30 @@ public final class ProductionInspectionOrchestrator {
     private static void runCycle(
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
-            AtomicBoolean cycleInProgress,
             boolean referenceFromClient,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
-            GlobalInspectionCycleCoordinator cycleCoordinator
+            PerCameraInspectionGate inspectionGate,
+            long inspectionCycleTimeoutMs,
+            InspectionTriggerEvent event
     ) {
-        if (!cycleInProgress.compareAndSet(false, true)) {
+        PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId());
+        if (begin == PerCameraInspectionGate.BeginResult.DISABLED) {
+            svc.log().debug(
+                    "integration cam={}: trigger skipped — inspection disabled (source={})",
+                    in.cameraId(),
+                    event.source()
+            );
+            return;
+        }
+        if (begin == PerCameraInspectionGate.BeginResult.IN_FLIGHT) {
+            svc.log().warn(
+                    "integration cam={}: trigger skipped — previous inspection still in flight (source={})",
+                    in.cameraId(),
+                    event.source()
+            );
             return;
         }
         try {
-            if (cycleCoordinator != null) {
-                cycleCoordinator.awaitCycleStart();
-            }
             AsyncInspectionCycleInput cycleIn = resolveCycleInput(in, referenceFromClient, referenceByCamera);
             if (cycleIn == null) {
                 if (referenceFromClient) {
@@ -133,7 +145,14 @@ public final class ProductionInspectionOrchestrator {
                 }
                 return;
             }
-            AsyncInspectionCycleRunner.run(svc, cycleIn, null);
+            AsyncInspectionCycleRunner.run(svc, cycleIn, null, inspectionCycleTimeoutMs);
+        } catch (TimeoutException e) {
+            svc.log().warn(
+                    "integration cam={}: inspection cycle timeout after {} ms (source={})",
+                    in.cameraId(),
+                    inspectionCycleTimeoutMs,
+                    event.source()
+            );
         } catch (Exception e) {
             svc.log().warn(
                     "integration cam={}: inspection cycle failed (next tick continues): {}",
@@ -142,10 +161,7 @@ public final class ProductionInspectionOrchestrator {
             );
             svc.log().debug("inspection cycle error", e);
         } finally {
-            if (cycleCoordinator != null) {
-                cycleCoordinator.awaitCycleFinish();
-            }
-            cycleInProgress.set(false);
+            inspectionGate.endInspection(in.cameraId());
         }
     }
 

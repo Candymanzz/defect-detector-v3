@@ -1,5 +1,5 @@
 # Оркестратор читает YAML; camera-worker — config/config.json (должен совпадать по capture_source и integration.*).
-# capture_source: fake | aravis | hik. Aravis — Linux + pkg-config arv-0.8. Hik — Windows + MVS SDK: у каждой камеры свой GigE (ip) и свой primary-процесс worker.
+# capture_source: fake | aravis | hik. Aravis — Linux + pkg-config arv-0.8. Hik — Windows + MVS SDK: у каждой камеры свой GigE (ip) и свой worker.
 version: 1
 
 frame:
@@ -20,39 +20,43 @@ cameras:
   # id в ПО ↔ LAN на линии. IP должны совпадать в config.json.
   - id: 0
     enabled: true
+    inspection_enabled: true
     ip: "192.168.1.13"
     exposure_us: 12000
     capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-0-cmd"
-    product_type: "bench-lan1"
+    analysis_profile: "bench-lan1"
     pipe_command_linux: "/tmp/camera-0-cmd.sock"
   - id: 1
     enabled: true
+    inspection_enabled: true
     ip: "169.254.79.219"
     exposure_us: 12000
     capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-1-cmd"
-    product_type: "bench-lan3"
+    analysis_profile: "bench-lan3"
     pipe_command_linux: "/tmp/camera-1-cmd.sock"
   - id: 2
     enabled: true
+    inspection_enabled: true
     ip: "169.254.100.219"
     exposure_us: 12000
     capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-2-cmd"
-    product_type: "bench-lan4"
+    analysis_profile: "bench-lan4"
     pipe_command_linux: "/tmp/camera-2-cmd.sock"
   - id: 3
     enabled: true
+    inspection_enabled: true
     ip: "169.254.105.1"
     exposure_us: 12000
     capture_trigger_mode: "continuous"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-3-cmd"
-    product_type: "bench-lan5"
+    analysis_profile: "bench-lan5"
     pipe_command_linux: "/tmp/camera-3-cmd.sock"
 
 java_geometry:
@@ -205,14 +209,11 @@ integration:
   worker_named_pipe_connect_timeout_ms: 3000
   # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
   light_server_startup_delay_ms: 8000
-  # Один кадр с камеры: N раз выставить эталон в Python из того же SHM, затем один capture и M прогонов geometry+python+решение на тех же пикселях.
-  single_frame_benchmark:
-    enabled: false
-    reference_repeats: 5
-    inspection_repeats: 5
+  # Макс. длительность одного цикла инспекции на камеру (capture→fanout); при превышении — сброс in-flight.
+  inspection_cycle_timeout_ms: 4000
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
   dev_auto_trigger_stub:
-    enabled: true
+    enabled: false
     interval_ms: 5000
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
@@ -220,8 +221,8 @@ integration:
       enabled: true
       bind_host: "0.0.0.0"
       bind_port: 9100
-      format: json          # json | plain
-      default_camera_id: 0
+      # discrete: UDP 0x01 или "1" — общий триггер на все камеры; 0x00/"0" — без действия
+      format: discrete
       debounce_ms: 100
       # allowed_remote_hosts: ["192.168.1.50"]
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
@@ -230,16 +231,8 @@ integration:
     max_fps_cap: 30
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
-    enabled: true
-    cycle_delay_ms: 400
-  # Симуляция конвейера (100 вёдер × N снимков): см. config/conveyor-benchmark.yaml
-  conveyor_benchmark:
     enabled: false
-    buckets: 100
-    photos_per_bucket: 5
-    reference_repeats: 5
     cycle_delay_ms: 400
-    product_type_prefix: "conv-bucket-"
   timing_stages_log:
     enabled: false
     file: "logs/pipeline-stages.jsonl"

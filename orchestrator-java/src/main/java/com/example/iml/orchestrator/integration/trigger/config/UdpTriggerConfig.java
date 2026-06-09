@@ -12,6 +12,6 @@ public record UdpTriggerConfig(
         List<String> allowedRemoteHosts
 ) {
     public static UdpTriggerConfig defaults() {
-        return new UdpTriggerConfig(true, "0.0.0.0", 9100, "json", 0, 100, List.of());
+        return new UdpTriggerConfig(true, "0.0.0.0", 9100, "discrete", 0, 100, List.of());
     }
 }

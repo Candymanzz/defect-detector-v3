@@ -24,16 +24,16 @@ public final class CameraPreviewHttpController implements HttpController {
 
     private final CameraPreviewStore store;
     private final List<Integer> configuredCameraIds;
-    private final Map<Integer, String> productTypeByCamera;
+    private final Map<Integer, String> analysisProfileByCamera;
 
     public CameraPreviewHttpController(
             CameraPreviewStore store,
             List<Integer> configuredCameraIds,
-            Map<Integer, String> productTypeByCamera
+            Map<Integer, String> analysisProfileByCamera
     ) {
         this.store = store;
         this.configuredCameraIds = configuredCameraIds == null ? List.of() : List.copyOf(configuredCameraIds);
-        this.productTypeByCamera = productTypeByCamera == null ? Map.of() : Map.copyOf(productTypeByCamera);
+        this.analysisProfileByCamera = analysisProfileByCamera == null ? Map.of() : Map.copyOf(analysisProfileByCamera);
     }
 
     public void listCameras(HttpRequestContext ctx) throws IOException {
@@ -52,9 +52,9 @@ public final class CameraPreviewHttpController implements HttpController {
         }
         ObjectNode root = JSON.createObjectNode();
         root.set("cameras", ids);
-        ObjectNode products = root.putObject("productTypeByCamera");
+        ObjectNode profiles = root.putObject("analysisProfileByCamera");
         for (int cam : keys) {
-            products.put(String.valueOf(cam), configuredProductType(cam));
+            profiles.put(String.valueOf(cam), configuredAnalysisProfile(cam));
         }
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }
@@ -198,7 +198,7 @@ public final class CameraPreviewHttpController implements HttpController {
         ObjectNode root = JSON.createObjectNode();
         root.put("cameraId", cameraId);
         root.put("frameId", -1);
-        root.put("productType", configuredProductType(cameraId));
+        root.put("productType", configuredAnalysisProfile(cameraId));
         root.put("detectorId", "");
         root.put("shmName", "");
         root.put("updatedAtMs", 0);
@@ -223,7 +223,7 @@ public final class CameraPreviewHttpController implements HttpController {
         return root;
     }
 
-    private String configuredProductType(int cameraId) {
-        return productTypeByCamera.getOrDefault(cameraId, "camera-" + cameraId);
+    private String configuredAnalysisProfile(int cameraId) {
+        return analysisProfileByCamera.getOrDefault(cameraId, "camera-" + cameraId);
     }
 }

@@ -21,11 +21,11 @@ def to_analysis_settings_values(settings: AnalysisSettings) -> AnalysisSettingsV
     return AnalysisSettingsValues(**payload)
 
 
-def to_analysis_settings_response(product_type: str, overrides: dict) -> AnalysisSettingsResponse:
+def to_analysis_settings_response(analysis_profile: str, overrides: dict) -> AnalysisSettingsResponse:
     effective = AnalysisSettings.from_overrides(overrides)
     defaults = AnalysisSettings.defaults()
     return AnalysisSettingsResponse(
-        product_type=product_type,
+        analysis_profile=analysis_profile,
         settings=to_analysis_settings_values(effective),
         defaults=to_analysis_settings_values(defaults),
         overrides=overrides,

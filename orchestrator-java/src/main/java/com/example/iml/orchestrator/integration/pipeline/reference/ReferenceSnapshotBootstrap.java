@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Захват эталона в SHM и рассылка заголовка в python/UI-visuals (единая точка для conveyor и обычного режима).
+ * Захват эталона в SHM и рассылка заголовка в python/UI-visuals.
  */
 public final class ReferenceSnapshotBootstrap {
 
@@ -33,7 +33,7 @@ public final class ReferenceSnapshotBootstrap {
     }
 
     /**
-     * @param logReuseDebug если true и эталон не переснимался — debug про reuse (как в основном режиме без conveyor).
+     * @param logReuseDebug если true и эталон не переснимался — debug про reuse.
      */
     public ReferenceBootstrapOutcome ensure(
             Path projectRoot,
@@ -52,7 +52,6 @@ public final class ReferenceSnapshotBootstrap {
             Map<Integer, ReferenceSnapshot> referenceByCamera,
             PipelineStagesLog pipelineStagesLog,
             Map<String, Object> telemetryExtras,
-            ReferenceLogStyle logStyle,
             boolean logReuseDebug
     ) throws Exception {
         if (!needCapture) {
@@ -68,11 +67,7 @@ public final class ReferenceSnapshotBootstrap {
             captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
         });
         BinaryProtocol.Message referenceCapture = captureHolder[0];
-        if (logStyle == ReferenceLogStyle.CONVEYOR_BUCKET) {
-            log.info("worker cam={} reference capture header={} (conveyor)", cameraId, referenceCapture.header());
-        } else {
-            log.info("worker cam={} reference capture header={}", cameraId, referenceCapture.header());
-        }
+        log.info("worker cam={} reference capture header={}", cameraId, referenceCapture.header());
         capture.saveReferenceCapture(projectRoot, saveCaptures, referenceCapture);
         ReferenceSnapshot snapshot = new ReferenceSnapshot(shmProductType, Map.copyOf(referenceCapture.header()));
         referenceByCamera.put(cameraId, snapshot);

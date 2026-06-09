@@ -104,7 +104,7 @@ public final class HttpFrontController {
         CameraPreviewHttpController camera = new CameraPreviewHttpController(
                 ctx.cameraPreviewStore(),
                 ctx.configuredCameraIds(),
-                ctx.productTypeByCamera()
+                ctx.analysisProfileByCamera()
         );
 
         router.register(HttpRoute.exact("GET", "/api/cameras", camera::listCameras));
@@ -161,7 +161,7 @@ public final class HttpFrontController {
 
         OrchestratorAnalysisSettingsHttpController analysisSettings = new OrchestratorAnalysisSettingsHttpController(
                 ctx.analisSurfaceBaseUrl(),
-                ctx.productTypeByCamera()
+                ctx.analysisProfileByCamera()
         );
 
         router.register(HttpRoute.regex(

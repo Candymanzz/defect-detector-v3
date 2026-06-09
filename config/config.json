@@ -17,7 +17,7 @@
       "id": 0,
       "enabled": true,
       "ip": "192.168.1.13",
-      "product_type": "bench-lan1",
+      "analysis_profile": "bench-lan1",
       "exposure_us": 12000,
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-0-cmd",
@@ -27,7 +27,7 @@
       "id": 1,
       "enabled": true,
       "ip": "169.254.79.219",
-      "product_type": "bench-lan3",
+      "analysis_profile": "bench-lan3",
       "exposure_us": 12000,
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-1-cmd",
@@ -37,7 +37,7 @@
       "id": 2,
       "enabled": true,
       "ip": "169.254.100.219",
-      "product_type": "bench-lan4",
+      "analysis_profile": "bench-lan4",
       "exposure_us": 12000,
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-2-cmd",
@@ -47,7 +47,7 @@
       "id": 3,
       "enabled": true,
       "ip": "169.254.105.1",
-      "product_type": "bench-lan5",
+      "analysis_profile": "bench-lan5",
       "exposure_us": 12000,
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-3-cmd",
@@ -160,11 +160,6 @@
     "worker_named_pipe_template_linux": "/tmp/iml-camera-%d.pipe",
     "worker_named_pipe_connect_timeout_ms": 3000,
     "light_server_startup_delay_ms": 5000,
-    "single_frame_benchmark": {
-      "enabled": false,
-      "reference_repeats": 5,
-      "inspection_repeats": 5
-    },
     "continuous_inspection": {
       "enabled": false,
       "cycle_delay_ms": 400

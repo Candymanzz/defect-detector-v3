@@ -95,7 +95,7 @@ class AnalysisSettingsUpdateRequest(BaseModel):
 
 
 class AnalysisSettingsResponse(BaseModel):
-    product_type: str
+    analysis_profile: str
     settings: AnalysisSettingsValues
     defaults: AnalysisSettingsValues
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)

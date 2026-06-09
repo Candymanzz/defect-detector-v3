@@ -40,8 +40,28 @@ public final class ConfiguredCameras {
         return List.copyOf(ids);
     }
 
+    /**
+     * Ключ профиля настроек анализа для камеры ({@code analysis_profile} в YAML).
+     * Legacy {@code product_type} читается как fallback.
+     */
     @SuppressWarnings("unchecked")
-    public static Map<Integer, String> productTypeByCameraId(Map<String, Object> root) {
+    public static String analysisProfileForCamera(Map<String, Object> camera, int cameraId) {
+        if (camera == null) {
+            return "camera-" + cameraId;
+        }
+        String profile = readNonBlankString(camera.get("analysis_profile"));
+        if (profile != null) {
+            return profile;
+        }
+        String legacy = readNonBlankString(camera.get("product_type"));
+        if (legacy != null) {
+            return legacy;
+        }
+        return "camera-" + cameraId;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<Integer, String> analysisProfileByCameraId(Map<String, Object> root) {
         if (root == null) {
             return Map.of();
         }
@@ -63,8 +83,22 @@ public final class ConfiguredCameras {
                 continue;
             }
             int cameraId = n.intValue();
-            byCamera.put(cameraId, String.valueOf(cam.getOrDefault("product_type", "camera-" + cameraId)));
+            byCamera.put(cameraId, analysisProfileForCamera(cam, cameraId));
         }
         return Map.copyOf(byCamera);
+    }
+
+    /** @deprecated use {@link #analysisProfileByCameraId} */
+    @Deprecated
+    public static Map<Integer, String> productTypeByCameraId(Map<String, Object> root) {
+        return analysisProfileByCameraId(root);
+    }
+
+    private static String readNonBlankString(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = String.valueOf(raw).trim();
+        return value.isEmpty() ? null : value;
     }
 }

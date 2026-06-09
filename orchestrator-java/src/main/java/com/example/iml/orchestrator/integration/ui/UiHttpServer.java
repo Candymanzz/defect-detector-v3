@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.http.HttpApplicationContext;
@@ -37,12 +39,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * Маршрутизация — {@link HttpFrontController} (паттерн Front Controller).
  */
 public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
+    private static final Logger LOG = LogManager.getLogger(UiHttpServer.class);
     private static final Path PREVIEW_OUTPUT_DIR = Path.of(
             System.getProperty("java.io.tmpdir"),
             "iml-ui-current"
     );
 
-    public record ClientPreviewArtifact(Path path, int width, int height) {
+    public record ClientPreviewArtifact(Path path, int width, int height, String error) {
+        public static ClientPreviewArtifact ok(Path path, int width, int height) {
+            return new ClientPreviewArtifact(path, width, height, null);
+        }
+
+        public static ClientPreviewArtifact failed(String error) {
+            return new ClientPreviewArtifact(null, 0, 0, error);
+        }
     }
 
     private final HttpServer httpServer;
@@ -213,17 +223,22 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             int cameraId
     ) {
         if (width <= 0 || height <= 0 || stride < width * 3 || shmOffset < 0) {
-            return new ClientPreviewArtifact(null, 0, 0);
+            return previewJpegFailed(
+                    "invalid frame geometry width=" + width + " height=" + height + " stride=" + stride
+                            + " shmOffset=" + shmOffset
+            );
         }
         Path shmPath = FrameJpegWriter.resolveShmPath(shmName, cameraId);
         if (shmPath == null || !Files.isRegularFile(shmPath)) {
-            return new ClientPreviewArtifact(null, 0, 0);
+            return previewJpegFailed("shm not readable shmName=" + shmName + " path=" + shmPath);
         }
         long need = (long) stride * (long) height;
         try (FileChannel ch = FileChannel.open(shmPath, StandardOpenOption.READ)) {
             long fileSize = Math.max(0, ch.size());
             if (fileSize < shmOffset + need || need < (long) width * 3L * height) {
-                return new ClientPreviewArtifact(null, 0, 0);
+                return previewJpegFailed(
+                        "shm size mismatch fileSize=" + fileSize + " need=" + need + " shmOffset=" + shmOffset
+                );
             }
             MappedByteBuffer buf = ch.map(FileChannel.MapMode.READ_ONLY, shmOffset, need);
             BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
@@ -250,12 +265,17 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                     ? writeStablePreviewJpeg(cameraId, img, quality)
                     : writeTempPreviewJpeg(img, quality);
             if (out == null) {
-                return new ClientPreviewArtifact(null, 0, 0);
+                return previewJpegFailed("jpeg encode failed cameraId=" + cameraId);
             }
-            return new ClientPreviewArtifact(out, outW, outH);
+            return ClientPreviewArtifact.ok(out, outW, outH);
         } catch (Exception e) {
-            return new ClientPreviewArtifact(null, 0, 0);
+            return previewJpegFailed("exception: " + e.getMessage());
         }
+    }
+
+    private static ClientPreviewArtifact previewJpegFailed(String reason) {
+        LOG.debug("preview jpeg failed: {}", reason);
+        return ClientPreviewArtifact.failed(reason);
     }
 
     private static Path writeTempPreviewJpeg(BufferedImage image, float quality) throws IOException {

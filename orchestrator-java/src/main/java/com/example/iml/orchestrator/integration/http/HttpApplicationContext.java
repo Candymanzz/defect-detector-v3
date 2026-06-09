@@ -21,7 +21,7 @@ public record HttpApplicationContext(
         String analisSurfaceBaseUrl,
         CameraStreamServiceHolder cameraStreamHolder,
         java.util.List<Integer> configuredCameraIds,
-        java.util.Map<Integer, String> productTypeByCamera
+        java.util.Map<Integer, String> analysisProfileByCamera
 ) {
     public boolean geometryEnabled() {
         return geometrySnapshotCache != null;
@@ -62,7 +62,7 @@ public record HttpApplicationContext(
                 base,
                 new CameraStreamServiceHolder(),
                 ConfiguredCameras.enabledIds(rootYaml),
-                ConfiguredCameras.productTypeByCameraId(rootYaml)
+                ConfiguredCameras.analysisProfileByCameraId(rootYaml)
         );
     }
 }

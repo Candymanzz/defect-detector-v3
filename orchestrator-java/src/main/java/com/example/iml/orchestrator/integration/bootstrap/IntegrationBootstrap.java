@@ -32,7 +32,7 @@ import com.example.iml.orchestrator.integration.pipeline.stages.InspectGeometryE
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPythonExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
 import com.example.iml.orchestrator.integration.pipeline.telemetry.PipelineInspectionTelemetry;
-import com.example.iml.orchestrator.integration.pipeline.session.GlobalInspectionCycleCoordinator;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
@@ -279,10 +279,10 @@ public final class IntegrationBootstrap {
                 log.error("No camera workers started successfully; integration pipeline skipped.");
                 return;
             }
-            Map<Integer, String> productTypeByCamera = new LinkedHashMap<>();
+            Map<Integer, String> analysisProfileByCamera = new LinkedHashMap<>();
             for (Map<String, Object> camera : activeCameras) {
                 int cameraId = ((Number) camera.get("id")).intValue();
-                productTypeByCamera.put(cameraId, String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId)));
+                analysisProfileByCamera.put(cameraId, ConfiguredCameras.analysisProfileForCamera(camera, cameraId));
             }
             ClientStreamConfig clientStreamCfg = ClientStreamConfig.fromRootYaml(root);
             if (uiServer != null && !workersByCamera.isEmpty()) {
@@ -290,7 +290,7 @@ public final class IntegrationBootstrap {
                         log,
                         clientStreamCfg,
                         workersByCamera,
-                        productTypeByCamera,
+                        analysisProfileByCamera,
                         detectorByCamera,
                         uiServer,
                         clientWsServer,
@@ -341,8 +341,6 @@ public final class IntegrationBootstrap {
             Semaphore pythonSlots = new Semaphore(Math.max(1, pythonPool.size()));
             AtomicInteger geometryRoundRobin = new AtomicInteger(0);
             AtomicInteger pythonRoundRobin = new AtomicInteger(0);
-            IntegrationFeatureConfig.SingleFrameBenchmarkConfig singleFrameBenchmark = IntegrationFeatureConfig.parseSingleFrameBenchmark(integration);
-            IntegrationFeatureConfig.ConveyorBenchmarkConfig conveyorBenchmark = IntegrationFeatureConfig.parseConveyorBenchmark(integration);
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection =
                     IntegrationFeatureConfig.parseContinuousInspection(integration);
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
@@ -363,17 +361,7 @@ public final class IntegrationBootstrap {
             if (saveCaptures.enabled()) {
                 log.info("save_captures enabled dir={} (от корня проекта)", saveCaptures.relativeDir());
             }
-            if (conveyorBenchmark.enabled()) {
-                log.info("conveyor_benchmark enabled buckets={} photos_per_bucket={} reference_repeats={} cycle_delay_ms={} prefix={}",
-                        conveyorBenchmark.buckets(),
-                        conveyorBenchmark.photosPerBucket(),
-                        conveyorBenchmark.referenceRepeats(),
-                        conveyorBenchmark.cycleDelayMs(),
-                        conveyorBenchmark.productTypePrefix());
-            } else if (singleFrameBenchmark.enabled()) {
-                log.info("single_frame_benchmark enabled reference_repeats={} inspection_repeats={}",
-                        singleFrameBenchmark.referenceRepeats(), singleFrameBenchmark.inspectionRepeats());
-            } else if (devAutoTriggerStub.enabled()) {
+            if (devAutoTriggerStub.enabled()) {
                 log.info("dev_auto_trigger_stub enabled interval_ms={}", devAutoTriggerStub.intervalMs());
             } else if (continuousInspection.enabled()) {
                 log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
@@ -390,9 +378,14 @@ public final class IntegrationBootstrap {
                     log.warn("inspection_trigger external mode but udp.enabled=false");
                 }
             }
+            int inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(integration);
+            PerCameraInspectionGate inspectionGate = PerCameraInspectionGate.fromCameras(activeCameras);
+            log.info(
+                    "inspection gate per-camera in-flight enabled timeout_ms={} cameras={}",
+                    inspectionCycleTimeoutMs,
+                    workersByCamera.keySet()
+            );
             List<Callable<Void>> tasks = new ArrayList<>();
-            GlobalInspectionCycleCoordinator cycleCoordinator =
-                    new GlobalInspectionCycleCoordinator(workersByCamera.keySet());
             for (Map<String, Object> camera : activeCameras) {
                 tasks.add(() -> {
                     int cameraId = ((Number) camera.get("id")).intValue();
@@ -426,15 +419,13 @@ public final class IntegrationBootstrap {
                             uiServer,
                             uiVisualsPython,
                             uiArtifactsExecutor,
-                            singleFrameBenchmark,
-                            conveyorBenchmark,
-                            continuousInspection,
                             sharedTriggerStrategy,
                             triggerMode,
                             saveCaptures,
                             flashLeadMs,
                             pipelineStagesLog,
-                            cycleCoordinator
+                            inspectionGate,
+                            inspectionCycleTimeoutMs
                     );
                     return null;
                 });

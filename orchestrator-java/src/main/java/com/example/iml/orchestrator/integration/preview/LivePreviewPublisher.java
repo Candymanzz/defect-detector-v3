@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.preview;
 
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
@@ -127,7 +128,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
             if (worker == null) {
                 continue;
             }
-            String productType = String.valueOf(camera.getOrDefault("product_type", "camera-" + cameraId));
+            String productType = ConfiguredCameras.analysisProfileForCamera(camera, cameraId);
             String detectorId = String.valueOf(camera.getOrDefault("detector", "v1"));
             targets.add(new CameraPreviewTarget(cameraId, productType, detectorId, worker));
         }
@@ -253,31 +254,37 @@ public final class LivePreviewPublisher implements AutoCloseable {
             long encodeStarted = System.nanoTime();
             PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
             metrics.encodeNs.add(System.nanoTime() - encodeStarted);
-            if (jpeg.path != null && Files.isRegularFile(jpeg.path)) {
-                uiServer.update(
-                        cameraId,
-                        frameId,
-                        productType,
-                        detectorId,
-                        shmName,
-                        width,
-                        height,
-                        jpeg.path,
-                        jpeg.width,
-                        jpeg.height,
-                        null,
-                        0,
-                        0,
-                        null
-                );
+            if (jpeg.path == null || !Files.isRegularFile(jpeg.path)) {
+                if (jpeg.error != null) {
+                    log.warn("live_preview cam={} frame={}: {}", cameraId, frameId, jpeg.error);
+                }
+                return;
             }
-
-            String httpPath = jpeg.path != null && Files.isRegularFile(jpeg.path)
-                    ? "/api/camera/" + cameraId + "/current.jpg"
-                    : null;
+            uiServer.update(
+                    cameraId,
+                    frameId,
+                    productType,
+                    detectorId,
+                    shmName,
+                    width,
+                    height,
+                    jpeg.path,
+                    jpeg.width,
+                    jpeg.height,
+                    null,
+                    0,
+                    0,
+                    null
+            );
             if (clientWs != null) {
                 long wsStarted = System.nanoTime();
-                clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
+                clientWs.notifyPreviewFrame(
+                        cameraId,
+                        productType,
+                        detectorId,
+                        header,
+                        "/api/camera/" + cameraId + "/current.jpg"
+                );
                 metrics.wsNs.add(System.nanoTime() - wsStarted);
                 metrics.frames.increment();
             }
@@ -295,10 +302,10 @@ public final class LivePreviewPublisher implements AutoCloseable {
         float q = qualPct / 100f;
         UiHttpServer.ClientPreviewArtifact art = UiHttpServer.writeCurrentJpegFromBgrShm(
                 shmName, width, height, stride, shmOffset, previewMaxW, q, cameraId);
-        return new PathHolder(art.path(), art.width(), art.height());
+        return new PathHolder(art.path(), art.width(), art.height(), art.error());
     }
 
-    private record PathHolder(Path path, int width, int height) {
+    private record PathHolder(Path path, int width, int height, String error) {
     }
 
     private record CameraPreviewTarget(

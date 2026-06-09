@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.trigger.transport;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerBus;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
+import com.example.iml.orchestrator.integration.trigger.parse.DiscreteUdpTriggerMessageParser;
 import com.example.iml.orchestrator.integration.trigger.parse.JsonUdpTriggerMessageParser;
 import com.example.iml.orchestrator.integration.trigger.parse.PlainUdpTriggerMessageParser;
 import com.example.iml.orchestrator.integration.trigger.parse.UdpTriggerMessageParser;
@@ -24,6 +25,8 @@ public final class UdpTriggerTransport implements TriggerTransport {
     private final InspectionTriggerBus bus;
     private final UdpTriggerMessageParser parser;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private static final int BROADCAST_DEBOUNCE_KEY = -1;
+
     private final Map<Integer, Long> lastTriggerMsByCamera = new ConcurrentHashMap<>();
     private Thread listenerThread;
     private DatagramSocket socket;
@@ -32,9 +35,7 @@ public final class UdpTriggerTransport implements TriggerTransport {
         this.log = log;
         this.config = config;
         this.bus = bus;
-        this.parser = "plain".equalsIgnoreCase(config.format())
-                ? new PlainUdpTriggerMessageParser()
-                : new JsonUdpTriggerMessageParser();
+        this.parser = selectParser(config.format());
     }
 
     @Override
@@ -94,22 +95,51 @@ public final class UdpTriggerTransport implements TriggerTransport {
     }
 
     private void publishDebounced(InspectionTriggerEvent event) {
+        if (event.broadcast()) {
+            if (isDebounced(BROADCAST_DEBOUNCE_KEY)) {
+                log.debug("udp_trigger debounced line broadcast");
+                return;
+            }
+            int published = bus.publishBroadcast(event);
+            if (published > 0) {
+                log.info("udp_trigger line broadcast cameras={} (source={})", published, event.source());
+            }
+            return;
+        }
         if (!bus.hasCamera(event.cameraId())) {
             log.warn("udp_trigger unknown camera_id={} from {}", event.cameraId(), event.source());
             return;
         }
-        if (config.debounceMs() > 0) {
-            long now = System.currentTimeMillis();
-            Long last = lastTriggerMsByCamera.get(event.cameraId());
-            if (last != null && now - last < config.debounceMs()) {
-                log.debug("udp_trigger debounced cam={}", event.cameraId());
-                return;
-            }
-            lastTriggerMsByCamera.put(event.cameraId(), now);
+        if (isDebounced(event.cameraId())) {
+            log.debug("udp_trigger debounced cam={}", event.cameraId());
+            return;
         }
         if (bus.publish(event)) {
             log.info("udp_trigger cam={} seq pending (source={})", event.cameraId(), event.source());
         }
+    }
+
+    private boolean isDebounced(int debounceKey) {
+        if (config.debounceMs() <= 0) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        Long last = lastTriggerMsByCamera.get(debounceKey);
+        if (last != null && now - last < config.debounceMs()) {
+            return true;
+        }
+        lastTriggerMsByCamera.put(debounceKey, now);
+        return false;
+    }
+
+    private static UdpTriggerMessageParser selectParser(String format) {
+        if ("discrete".equalsIgnoreCase(format)) {
+            return new DiscreteUdpTriggerMessageParser();
+        }
+        if ("plain".equalsIgnoreCase(format)) {
+            return new PlainUdpTriggerMessageParser();
+        }
+        return new JsonUdpTriggerMessageParser();
     }
 
     @Override

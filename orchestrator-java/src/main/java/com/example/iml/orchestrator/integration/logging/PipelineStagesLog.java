@@ -63,13 +63,6 @@ public final class PipelineStagesLog implements AutoCloseable {
             sb.append(" | cam=").append(row.get("camera_id"));
             sb.append(" frame=").append(row.get("frame_id"));
             sb.append(" product=").append(row.get("product_type"));
-            if (row.get("conveyor_bucket_index") != null) {
-                sb.append(" bucket=").append(row.get("conveyor_bucket_index"));
-                if (row.get("conveyor_buckets_total") != null) {
-                    sb.append("/").append(row.get("conveyor_buckets_total"));
-                }
-                sb.append(" photo=").append(row.get("conveyor_photo_index"));
-            }
             sb.append(" | capture=").append(fmtSec(row.get("capture_s")));
             sb.append(" geom=").append(fmtSec(row.get("geometry_s")));
             sb.append(" py=").append(fmtSec(row.get("python_worker_s")));
@@ -90,9 +83,6 @@ public final class PipelineStagesLog implements AutoCloseable {
         } else if ("reference_capture".equals(event)) {
             sb.append(" | cam=").append(row.get("camera_id"));
             sb.append(" product=").append(row.get("product_type"));
-            if (row.get("conveyor_bucket_index") != null) {
-                sb.append(" bucket=").append(row.get("conveyor_bucket_index"));
-            }
             sb.append(" | reference_wall=").append(fmtSec(row.get("reference_wall_s")));
             sb.append(" set_ref_repeats=").append(row.get("reference_repeats_applied"));
         }

@@ -7,7 +7,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
 
-/** Единая строка stage_timing (раньше дублировалась в benchmark и async-решении). */
+/** Единая строка stage_timing для async-решения. */
 public final class InspectionStageTimingLogger {
 
     private InspectionStageTimingLogger() {

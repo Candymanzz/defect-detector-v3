@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.trigger;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -25,18 +26,33 @@ public final class InspectionTriggerBus {
         return perCamera.containsKey(cameraId);
     }
 
-    /** Публикует событие; неизвестная камера — false. */
+    /** Публикует событие; broadcast — во все очереди; неизвестная камера — false. */
     public boolean publish(InspectionTriggerEvent raw) {
-        BlockingQueue<InspectionTriggerEvent> queue = perCamera.get(raw.cameraId());
+        if (raw.broadcast()) {
+            return publishBroadcast(raw) > 0;
+        }
+        return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
+    }
+
+    /** Рассылка одного триггера на все активные камеры (общая {@code sequence}). */
+    public int publishBroadcast(InspectionTriggerEvent raw) {
+        long seq = sequence.incrementAndGet();
+        Instant receivedAt = raw.receivedAt() == null ? java.time.Instant.now() : raw.receivedAt();
+        int published = 0;
+        for (Integer cameraId : perCamera.keySet()) {
+            if (offerToCamera(cameraId, receivedAt, raw.source(), seq)) {
+                published++;
+            }
+        }
+        return published;
+    }
+
+    private boolean offerToCamera(int cameraId, Instant receivedAt, String source, long seq) {
+        BlockingQueue<InspectionTriggerEvent> queue = perCamera.get(cameraId);
         if (queue == null) {
             return false;
         }
-        InspectionTriggerEvent event = new InspectionTriggerEvent(
-                raw.cameraId(),
-                sequence.incrementAndGet(),
-                raw.receivedAt(),
-                raw.source()
-        );
+        InspectionTriggerEvent event = new InspectionTriggerEvent(cameraId, seq, receivedAt, source, false);
         return queue.offer(event);
     }
 

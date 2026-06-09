@@ -47,19 +47,6 @@
 #define STREAM_FPS_DEFAULT 20
 #define STREAM_FPS_MIN 1
 #define STREAM_FPS_MAX 30
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
-#define HIK_SHARED_MAP_FMT "Global\\iml_hik_shared_frame_cam_%d_v1"
-#define HIK_PRIMARY_MUTEX_FMT "Global\\iml_hik_primary_lock_cam_%d_v1"
-typedef struct {
-    volatile LONG seq;
-    uint32_t width;
-    uint32_t height;
-    uint32_t stride;
-    uint32_t frame_bytes;
-    uint64_t frame_id;
-} hik_shared_header_t;
-#endif
-
 typedef struct {
     int camera_id;
     const char *detector;
@@ -99,10 +86,6 @@ typedef struct {
     void *hik_handle;
     unsigned char *hik_raw_frame;
     unsigned int hik_raw_capacity;
-    HANDLE hik_shared_map;
-    HANDLE hik_primary_mutex;
-    uint8_t *hik_shared_view;
-    int hik_is_primary;
 #endif
     volatile int stream_active;
     int stream_fps;
@@ -541,98 +524,6 @@ static int parse_ipv4(const char *ip, unsigned int *out) {
     return 0;
 }
 
-static void hik_ipc_names(int camera_id, char *map_name, size_t map_len, char *mutex_name, size_t mutex_len) {
-    snprintf(map_name, map_len, HIK_SHARED_MAP_FMT, camera_id);
-    snprintf(mutex_name, mutex_len, HIK_PRIMARY_MUTEX_FMT, camera_id);
-}
-
-static int init_hik_shared(worker_state_t *st, char *err, size_t err_len) {
-    char map_name[96];
-    char mutex_name[96];
-    hik_ipc_names(st->camera_id, map_name, sizeof(map_name), mutex_name, sizeof(mutex_name));
-    size_t total = sizeof(hik_shared_header_t) + st->frame_bytes;
-    DWORD lo = (DWORD)(total & 0xFFFFFFFFu);
-    DWORD hi = (DWORD)((total >> 32u) & 0xFFFFFFFFu);
-    st->hik_shared_map = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, hi, lo, map_name);
-    if (!st->hik_shared_map) {
-        snprintf(err, err_len, "CreateFileMapping failed: %lu", GetLastError());
-        return -1;
-    }
-    st->hik_shared_view = (uint8_t *)MapViewOfFile(st->hik_shared_map, FILE_MAP_ALL_ACCESS, 0, 0, total);
-    if (!st->hik_shared_view) {
-        snprintf(err, err_len, "MapViewOfFile failed: %lu", GetLastError());
-        CloseHandle(st->hik_shared_map);
-        st->hik_shared_map = NULL;
-        return -1;
-    }
-
-    st->hik_primary_mutex = CreateMutexA(NULL, FALSE, mutex_name);
-    if (!st->hik_primary_mutex) {
-        snprintf(err, err_len, "CreateMutex failed: %lu", GetLastError());
-        UnmapViewOfFile(st->hik_shared_view);
-        st->hik_shared_view = NULL;
-        CloseHandle(st->hik_shared_map);
-        st->hik_shared_map = NULL;
-        return -1;
-    }
-    DWORD wait = WaitForSingleObject(st->hik_primary_mutex, 0);
-    /*
-     * WAIT_ABANDONED means previous owner died; this process now owns the mutex
-     * and must act as primary publisher for this camera mapping.
-     */
-    st->hik_is_primary = (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED);
-    return 0;
-}
-
-static void publish_hik_frame(worker_state_t *st, const uint8_t *frame, uint64_t frame_id) {
-    if (!st->hik_shared_view || !frame) return;
-    hik_shared_header_t *h = (hik_shared_header_t *)st->hik_shared_view;
-    uint8_t *dst = st->hik_shared_view + sizeof(hik_shared_header_t);
-    InterlockedIncrement(&h->seq);
-    h->width = (uint32_t)st->width;
-    h->height = (uint32_t)st->height;
-    h->stride = (uint32_t)st->stride;
-    h->frame_bytes = (uint32_t)st->frame_bytes;
-    h->frame_id = frame_id;
-    memcpy(dst, frame, st->frame_bytes);
-    MemoryBarrier();
-    InterlockedIncrement(&h->seq);
-}
-
-static int read_hik_frame_clone(worker_state_t *st, uint8_t *frame, uint64_t frame_id, char *err, size_t err_len) {
-    (void)frame_id;
-    if (!st->hik_shared_view) {
-        snprintf(err, err_len, "hik clone map not available");
-        return -1;
-    }
-    hik_shared_header_t *h = (hik_shared_header_t *)st->hik_shared_view;
-    uint8_t *src = st->hik_shared_view + sizeof(hik_shared_header_t);
-    uint64_t deadline = now_ns() + (uint64_t)(st->frame_timeout_ms <= 0 ? 1000 : st->frame_timeout_ms) * 1000000ull;
-    for (;;) {
-        LONG s1 = InterlockedCompareExchange((volatile LONG *)&h->seq, 0, 0);
-        if ((s1 & 1) == 0 && s1 != 0) {
-            if ((int)h->frame_bytes == (int)st->frame_bytes && (int)h->width == st->width && (int)h->height == st->height &&
-                (int)h->stride == st->stride) {
-                memcpy(frame, src, st->frame_bytes);
-                MemoryBarrier();
-                LONG s2 = InterlockedCompareExchange((volatile LONG *)&h->seq, 0, 0);
-                if (s1 == s2 && (s2 & 1) == 0) {
-                    return 0;
-                }
-            } else {
-                snprintf(err, err_len, "hik clone dims mismatch");
-                return -1;
-            }
-        }
-        if (now_ns() > deadline) {
-            snprintf(err, err_len, "hik clone timeout waiting primary");
-            return -1;
-        }
-        Sleep(1);
-    }
-}
-
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
 static void hik_apply_exposure(void *handle, int exposure_us) {
     if (exposure_us <= 0) {
         return;
@@ -651,7 +542,7 @@ static void hik_apply_exposure(void *handle, int exposure_us) {
 }
 
 static void hik_configure_trigger_mode(worker_state_t *st) {
-    if (!st->hik_handle || !st->hik_is_primary) {
+    if (!st->hik_handle) {
         return;
     }
     if (st->trigger_mode == TRIGGER_MODE_SOFTWARE) {
@@ -742,15 +633,6 @@ static void hik_disable_auto_white_balance(void *handle) {
 }
 
 static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
-    if (init_hik_shared(st, err, err_len) != 0) {
-        return -1;
-    }
-    if (!st->hik_is_primary) {
-        st->capture_backend_ready = 1;
-        snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "hik_clone");
-        return 0;
-    }
-
     int nRet = MV_CC_Initialize();
     if (nRet != MV_OK) {
         snprintf(err, err_len, "MV_CC_Initialize failed: 0x%x", nRet);
@@ -857,7 +739,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     }
 
     st->capture_backend_ready = 1;
-    snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "hik_mvs_primary");
+    snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "hik_mvs");
     return 0;
 }
 
@@ -867,31 +749,13 @@ static void shutdown_hik_mvs(worker_state_t *st) {
         (void)MV_CC_CloseDevice(st->hik_handle);
         (void)MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
+        (void)MV_CC_Finalize();
     }
     if (st->hik_raw_frame) {
         free(st->hik_raw_frame);
         st->hik_raw_frame = NULL;
     }
     st->hik_raw_capacity = 0;
-    if (st->hik_is_primary) {
-        (void)MV_CC_Finalize();
-    }
-    if (st->hik_primary_mutex) {
-        if (st->hik_is_primary) {
-            ReleaseMutex(st->hik_primary_mutex);
-        }
-        CloseHandle(st->hik_primary_mutex);
-        st->hik_primary_mutex = NULL;
-    }
-    if (st->hik_shared_view) {
-        UnmapViewOfFile(st->hik_shared_view);
-        st->hik_shared_view = NULL;
-    }
-    if (st->hik_shared_map) {
-        CloseHandle(st->hik_shared_map);
-        st->hik_shared_map = NULL;
-    }
-    st->hik_is_primary = 0;
 }
 #endif /* _WIN32 && HAVE_HIK_MVS */
 
@@ -973,9 +837,6 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                                size_t err_len) {
     if (strcmp(st->capture_source, "hik") == 0) {
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
-        if (!st->hik_is_primary) {
-            return read_hik_frame_clone(st, frame, frame_id, err, err_len);
-        }
         int use_sync = sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE;
         MV_FRAME_OUT_INFO_EX info;
         memset(&info, 0, sizeof(info));
@@ -1002,7 +863,7 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             snprintf(err, err_len, "hik unsupported pixel type: 0x%x", info.enPixelType);
             return -1;
         }
-        publish_hik_frame(st, frame, frame_id);
+        (void)frame_id;
         return 0;
 #else
         snprintf(err, err_len, "hik source requested but camera-worker built without MVS SDK (Windows)");

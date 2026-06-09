@@ -140,27 +140,27 @@ class InspectionService:
                 return True
         return False
 
-    def get_analysis_settings(self, product_type: str) -> AnalysisSettings:
-        overrides = self._analysis_settings_overrides.get(product_type, {})
+    def get_analysis_settings(self, analysis_profile: str) -> AnalysisSettings:
+        overrides = self._analysis_settings_overrides.get(analysis_profile, {})
         return AnalysisSettings.from_overrides(overrides)
 
-    def get_analysis_settings_overrides(self, product_type: str) -> dict[str, object]:
-        return dict(self._analysis_settings_overrides.get(product_type, {}))
+    def get_analysis_settings_overrides(self, analysis_profile: str) -> dict[str, object]:
+        return dict(self._analysis_settings_overrides.get(analysis_profile, {}))
 
-    def update_analysis_settings(self, product_type: str, partial: dict[str, object]) -> dict[str, object]:
-        current = dict(self._analysis_settings_overrides.get(product_type, {}))
+    def update_analysis_settings(self, analysis_profile: str, partial: dict[str, object]) -> dict[str, object]:
+        current = dict(self._analysis_settings_overrides.get(analysis_profile, {}))
         allowed = AnalysisSettings.field_names()
         for key, value in partial.items():
             if key not in allowed:
                 raise ValueError(f"Unknown analysis setting: {key}")
             current[key] = value
         AnalysisSettings.from_overrides(current)
-        self._analysis_settings_overrides[product_type] = current
+        self._analysis_settings_overrides[analysis_profile] = current
         self._save_analysis_settings()
         return dict(current)
 
-    def reset_analysis_settings(self, product_type: str) -> dict[str, object]:
-        self._analysis_settings_overrides.pop(product_type, None)
+    def reset_analysis_settings(self, analysis_profile: str) -> dict[str, object]:
+        self._analysis_settings_overrides.pop(analysis_profile, None)
         self._save_analysis_settings()
         return {}
 
@@ -321,8 +321,10 @@ class InspectionService:
             raw_payload = json.loads(self._analysis_settings_file.read_text(encoding="utf-8"))
             entries = raw_payload if isinstance(raw_payload, list) else []
             for entry in entries:
-                product_type = str(entry.get("product_type", "")).strip()
-                if not product_type:
+                analysis_profile = str(
+                    entry.get("analysis_profile", entry.get("product_type", ""))
+                ).strip()
+                if not analysis_profile:
                     continue
                 overrides = entry.get("overrides", {})
                 if not isinstance(overrides, dict):
@@ -333,15 +335,15 @@ class InspectionService:
                     if key in AnalysisSettings.field_names()
                 }
                 if filtered:
-                    self._analysis_settings_overrides[product_type] = filtered
+                    self._analysis_settings_overrides[analysis_profile] = filtered
         except Exception:
             self._analysis_settings_overrides = {}
 
     def _save_analysis_settings(self) -> None:
         self._analysis_settings_file.parent.mkdir(parents=True, exist_ok=True)
         entries = [
-            {"product_type": product_type, "overrides": overrides}
-            for product_type, overrides in self._analysis_settings_overrides.items()
+            {"analysis_profile": analysis_profile, "overrides": overrides}
+            for analysis_profile, overrides in self._analysis_settings_overrides.items()
         ]
         self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
 
