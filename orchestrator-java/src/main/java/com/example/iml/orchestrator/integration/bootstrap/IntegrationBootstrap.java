@@ -275,6 +275,9 @@ public final class IntegrationBootstrap {
                     log.debug("worker start failure details cam={}", cameraId, e);
                 }
             }
+            if (uiServer != null) {
+                uiServer.setActiveCameraIds(workersByCamera.keySet());
+            }
             if (workersByCamera.isEmpty()) {
                 log.error("No camera workers started successfully; integration pipeline skipped.");
                 return;

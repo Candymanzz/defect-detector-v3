@@ -170,6 +170,12 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         }
     }
 
+    public void setActiveCameraIds(java.util.Collection<Integer> cameraIds) {
+        if (httpContext != null && httpContext.activeCameraIds() != null) {
+            httpContext.activeCameraIds().set(cameraIds);
+        }
+    }
+
     @Override
     public void close() {
         httpServer.stop(0);

@@ -109,8 +109,7 @@ function parseFrameId(frameId: string) {
 }
 
 function getCameraIdsOrFallback(cameraIds: number[]) {
-  const backendCameraIds = cameraIds.slice(0, CAMERA_LIMIT);
-  return backendCameraIds.length ? backendCameraIds : FALLBACK_CAMERA_IDS;
+  return Array.from(new Set(cameraIds));
 }
 
 function createCameraCardData(

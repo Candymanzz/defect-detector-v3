@@ -108,6 +108,7 @@ typedef struct {
     int stream_fps;
     int stream_restore_trigger_mode;
     uint64_t stream_last_timestamp_ns;
+    uint64_t hik_clone_last_source_frame_id;
 #ifdef _WIN32
     HANDLE stream_thread;
     CRITICAL_SECTION stream_lock;
@@ -610,13 +611,15 @@ static int read_hik_frame_clone(worker_state_t *st, uint8_t *frame, uint64_t fra
     uint64_t deadline = now_ns() + (uint64_t)(st->frame_timeout_ms <= 0 ? 1000 : st->frame_timeout_ms) * 1000000ull;
     for (;;) {
         LONG s1 = InterlockedCompareExchange((volatile LONG *)&h->seq, 0, 0);
-        if ((s1 & 1) == 0 && s1 != 0) {
+        if ((s1 & 1) == 0 && s1 != 0 && h->frame_id != st->hik_clone_last_source_frame_id) {
             if ((int)h->frame_bytes == (int)st->frame_bytes && (int)h->width == st->width && (int)h->height == st->height &&
                 (int)h->stride == st->stride) {
+                uint64_t source_frame_id = h->frame_id;
                 memcpy(frame, src, st->frame_bytes);
                 MemoryBarrier();
                 LONG s2 = InterlockedCompareExchange((volatile LONG *)&h->seq, 0, 0);
-                if (s1 == s2 && (s2 & 1) == 0) {
+                if (s1 == s2 && (s2 & 1) == 0 && h->frame_id == source_frame_id) {
+                    st->hik_clone_last_source_frame_id = source_frame_id;
                     return 0;
                 }
             } else {
@@ -625,7 +628,7 @@ static int read_hik_frame_clone(worker_state_t *st, uint8_t *frame, uint64_t fra
             }
         }
         if (now_ns() > deadline) {
-            snprintf(err, err_len, "hik clone timeout waiting primary");
+            snprintf(err, err_len, "hik clone timeout waiting new frame from primary");
             return -1;
         }
         Sleep(1);
@@ -1270,6 +1273,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->stream_fps = STREAM_FPS_DEFAULT;
     st->stream_restore_trigger_mode = TRIGGER_MODE_CONTINUOUS;
     st->stream_last_timestamp_ns = 0;
+    st->hik_clone_last_source_frame_id = 0;
     stream_lock_init(st);
     st->capture_backend_ready = 0;
     snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "not_initialized");

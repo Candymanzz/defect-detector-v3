@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -233,12 +234,22 @@ public final class LivePreviewPublisher implements AutoCloseable {
                     capture = worker.command(Map.of("op", "capture"));
                 }
             }
-            if (capture == null || capture.header() == null) {
+            if (capture == null) {
+                metrics.noteFailure(log, cameraId, "worker returned no response");
+                return;
+            }
+            if (capture.type() == BinaryProtocol.MSG_ERROR) {
+                metrics.noteFailure(log, cameraId, "worker error: " + capture.header());
+                return;
+            }
+            if (capture.header() == null) {
+                metrics.noteFailure(log, cameraId, "worker response has no header");
                 return;
             }
             Map<String, Object> header = capture.header();
             long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
             if (frameId < 0) {
+                metrics.noteFailure(log, cameraId, "worker response has no frame_id: " + header);
                 return;
             }
             String shmName = String.valueOf(header.get("shm_name"));
@@ -246,6 +257,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
             int height = YamlScalars.toInt(header.get("height"), 0);
             int stride = YamlScalars.toInt(header.get("stride"), 0);
             if (shmName.isBlank() || width <= 0 || height <= 0) {
+                metrics.noteFailure(log, cameraId, "invalid capture descriptor: " + header);
                 return;
             }
 
@@ -253,38 +265,46 @@ public final class LivePreviewPublisher implements AutoCloseable {
             long encodeStarted = System.nanoTime();
             PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
             metrics.encodeNs.add(System.nanoTime() - encodeStarted);
-            if (jpeg.path != null && Files.isRegularFile(jpeg.path)) {
-                uiServer.update(
+            if (jpeg.path == null || !Files.isRegularFile(jpeg.path)) {
+                metrics.noteFailure(
+                        log,
                         cameraId,
-                        frameId,
-                        productType,
-                        detectorId,
-                        shmName,
-                        width,
-                        height,
-                        jpeg.path,
-                        jpeg.width,
-                        jpeg.height,
-                        null,
-                        0,
-                        0,
-                        null
+                        "JPEG publish failed: shm_name=" + shmName
+                                + " offset=" + shmOffset
+                                + " size=" + width + "x" + height
+                                + " stride=" + stride
                 );
+                return;
             }
+            uiServer.update(
+                    cameraId,
+                    frameId,
+                    productType,
+                    detectorId,
+                    shmName,
+                    width,
+                    height,
+                    jpeg.path,
+                    jpeg.width,
+                    jpeg.height,
+                    null,
+                    0,
+                    0,
+                    null
+            );
 
-            String httpPath = jpeg.path != null && Files.isRegularFile(jpeg.path)
-                    ? "/api/camera/" + cameraId + "/current.jpg"
-                    : null;
+            String httpPath = "/api/camera/" + cameraId + "/current.jpg";
             if (clientWs != null) {
                 long wsStarted = System.nanoTime();
                 clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
                 metrics.wsNs.add(System.nanoTime() - wsStarted);
                 metrics.frames.increment();
             }
+            metrics.markSuccess();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
-            log.debug("live_preview cam={}: {}", cameraId, e.getMessage());
+            metrics.noteFailure(log, cameraId, e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
@@ -317,6 +337,18 @@ public final class LivePreviewPublisher implements AutoCloseable {
         final LongAdder encodeNs = new LongAdder();
         final LongAdder wsNs = new LongAdder();
         final AtomicLong lastLogAtMs = new AtomicLong(System.currentTimeMillis());
+        final AtomicInteger consecutiveFailures = new AtomicInteger();
+
+        void markSuccess() {
+            consecutiveFailures.set(0);
+        }
+
+        void noteFailure(Logger log, int cameraId, String reason) {
+            int count = consecutiveFailures.incrementAndGet();
+            if (count == 1 || count % 20 == 0) {
+                log.warn("live_preview camera={} consecutive_failures={} reason={}", cameraId, count, reason);
+            }
+        }
 
         void maybeLog(Logger log, int cameraId) {
             long now = System.currentTimeMillis();

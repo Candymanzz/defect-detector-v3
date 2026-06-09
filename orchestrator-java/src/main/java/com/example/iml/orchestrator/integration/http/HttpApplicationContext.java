@@ -20,7 +20,7 @@ public record HttpApplicationContext(
         LightServersConfig lightServersConfig,
         String analisSurfaceBaseUrl,
         CameraStreamServiceHolder cameraStreamHolder,
-        java.util.List<Integer> configuredCameraIds
+        ActiveCameraIdsHolder activeCameraIds
 ) {
     public boolean geometryEnabled() {
         return geometrySnapshotCache != null;
@@ -60,7 +60,7 @@ public record HttpApplicationContext(
                 lightCfg,
                 base,
                 new CameraStreamServiceHolder(),
-                ConfiguredCameras.enabledIds(rootYaml)
+                new ActiveCameraIdsHolder(ConfiguredCameras.enabledIds(rootYaml))
         );
     }
 }

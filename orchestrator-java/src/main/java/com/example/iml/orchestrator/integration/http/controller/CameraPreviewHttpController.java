@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.http.controller;
 
 import com.example.iml.orchestrator.integration.http.HttpController;
+import com.example.iml.orchestrator.integration.http.ActiveCameraIdsHolder;
 import com.example.iml.orchestrator.integration.http.HttpRequestContext;
 import com.example.iml.orchestrator.integration.http.HttpResponses;
 import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
@@ -23,11 +24,11 @@ public final class CameraPreviewHttpController implements HttpController {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final CameraPreviewStore store;
-    private final List<Integer> configuredCameraIds;
+    private final ActiveCameraIdsHolder activeCameraIds;
 
-    public CameraPreviewHttpController(CameraPreviewStore store, List<Integer> configuredCameraIds) {
+    public CameraPreviewHttpController(CameraPreviewStore store, ActiveCameraIdsHolder activeCameraIds) {
         this.store = store;
-        this.configuredCameraIds = configuredCameraIds == null ? List.of() : List.copyOf(configuredCameraIds);
+        this.activeCameraIds = activeCameraIds == null ? new ActiveCameraIdsHolder(List.of()) : activeCameraIds;
     }
 
     public void listCameras(HttpRequestContext ctx) throws IOException {
@@ -37,9 +38,8 @@ public final class CameraPreviewHttpController implements HttpController {
         }
         HttpResponses.corsJson(ctx.exchange());
         ArrayNode ids = JSON.createArrayNode();
-        Set<Integer> merged = new LinkedHashSet<>(configuredCameraIds);
-        merged.addAll(store.latestByCamera().keySet());
-        List<Integer> keys = new ArrayList<>(merged);
+        Set<Integer> available = new LinkedHashSet<>(activeCameraIds.get());
+        List<Integer> keys = new ArrayList<>(available);
         Collections.sort(keys);
         for (int cam : keys) {
             ids.add(cam);
@@ -64,7 +64,7 @@ public final class CameraPreviewHttpController implements HttpController {
             int cam = Integer.parseInt(parts[3]);
             CameraPreviewStore.Latest l = store.latest(cam).orElse(null);
             if (l == null) {
-                if (uri.endsWith("/latest.json") && configuredCameraIds.contains(cam)) {
+                if (uri.endsWith("/latest.json") && activeCameraIds.get().contains(cam)) {
                     HttpResponses.corsJson(ctx.exchange());
                     HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(emptyLatestJson(cam)));
                     return;
