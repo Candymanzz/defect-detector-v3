@@ -116,6 +116,10 @@ export const orchestratorApi = {
     return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}`);
   },
 
+  async getCameraAnalysisSettings(cameraId: number) {
+    return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}`);
+  },
+
   async getDefaultAnalysisSettings() {
     return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/defaults`);
   },
@@ -127,8 +131,21 @@ export const orchestratorApi = {
     });
   },
 
+  async setCameraAnalysisSettings(cameraId: number, update: AnalysisSettingsUpdateRequest) {
+    return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}`, {
+      method: "PUT",
+      body: update,
+    });
+  },
+
   async resetAnalysisSettings(productType: string) {
     return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}`, {
+      method: "DELETE",
+    });
+  },
+
+  async resetCameraAnalysisSettings(cameraId: number) {
+    return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}`, {
       method: "DELETE",
     });
   },
