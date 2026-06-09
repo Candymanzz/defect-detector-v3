@@ -14,7 +14,6 @@ type UseStreamControllerOptions = {
 };
 
 const DEFAULT_MAX_FPS = 20;
-const FIRST_FRAME_TIMEOUT_MS = 5000;
 
 export function useStreamController({
   cameraId,
@@ -28,7 +27,6 @@ export function useStreamController({
   const [status, setStatus] = useState<WsConnectionStatus>(orchestratorWs.snapshot);
   const streamStateRef = useRef(streamState);
   const autoStartAttemptedRef = useRef(false);
-  const firstFrameTimerRef = useRef<number | null>(null);
   const cleanupStopTimerRef = useRef<number | null>(null);
 
   const updateStreamState = useCallback((nextState: StreamState) => {
@@ -39,13 +37,6 @@ export function useStreamController({
   useEffect(() => {
     streamStateRef.current = streamState;
   }, [streamState]);
-
-  const clearFirstFrameTimer = useCallback(() => {
-    if (firstFrameTimerRef.current !== null) {
-      window.clearTimeout(firstFrameTimerRef.current);
-      firstFrameTimerRef.current = null;
-    }
-  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -71,14 +62,6 @@ export function useStreamController({
           setMjpegUrl(streamPath ? orchestratorApi.url(streamPath) : orchestratorApi.streamMjpegUrl(cameraId));
           updateStreamState("playing");
           setMessage(`Stream started: ${wsMessage.payload.max_fps} FPS`);
-          clearFirstFrameTimer();
-          firstFrameTimerRef.current = window.setTimeout(() => {
-            if (streamStateRef.current === "playing") {
-              setMjpegUrl(undefined);
-              updateStreamState("error");
-              setMessage("Stream started, but no camera frames were received");
-            }
-          }, FIRST_FRAME_TIMEOUT_MS);
           return;
         }
 
@@ -95,7 +78,6 @@ export function useStreamController({
             return;
           }
 
-          clearFirstFrameTimer();
           setMjpegUrl(undefined);
           updateStreamState("idle");
           setMessage("Stream stopped");
@@ -109,7 +91,6 @@ export function useStreamController({
             return;
           }
 
-          clearFirstFrameTimer();
           setMjpegUrl(undefined);
           updateStreamState("error");
           setMessage(`${wsMessage.payload.code}: ${wsMessage.payload.message}`);
@@ -130,9 +111,8 @@ export function useStreamController({
           orchestratorWs.stopStreamWhenPossible(cameraId);
         }, 0);
       }
-      clearFirstFrameTimer();
     };
-  }, [cameraId, clearFirstFrameTimer, enabled, updateStreamState]);
+  }, [cameraId, enabled, updateStreamState]);
 
   const startStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
@@ -142,7 +122,6 @@ export function useStreamController({
     }
 
     try {
-      clearFirstFrameTimer();
       setMjpegUrl(undefined);
       updateStreamState("starting");
       setMessage("Starting stream...");
@@ -154,19 +133,17 @@ export function useStreamController({
       updateStreamState("error");
       setMessage(errorMessage(error));
     }
-  }, [cameraId, clearFirstFrameTimer, maxFps, updateStreamState]);
+  }, [cameraId, maxFps, updateStreamState]);
 
   const handleStreamImageError = useCallback(() => {
-    clearFirstFrameTimer();
     setMjpegUrl(undefined);
     updateStreamState("error");
     setMessage("MJPEG stream image failed to load");
-  }, [clearFirstFrameTimer, updateStreamState]);
+  }, [updateStreamState]);
 
   const handleStreamImageLoad = useCallback(() => {
-    clearFirstFrameTimer();
     setMessage("Stream active");
-  }, [clearFirstFrameTimer]);
+  }, []);
 
   const stopStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
@@ -176,7 +153,6 @@ export function useStreamController({
     }
 
     try {
-      clearFirstFrameTimer();
       updateStreamState("stopping");
       setMessage("Stopping stream...");
       orchestratorWs.sendStreamStop({
@@ -186,7 +162,7 @@ export function useStreamController({
       updateStreamState("error");
       setMessage(errorMessage(error));
     }
-  }, [cameraId, clearFirstFrameTimer, updateStreamState]);
+  }, [cameraId, updateStreamState]);
 
   const isPlaying = streamState === "playing";
   const isBusy = streamState === "starting" || streamState === "stopping";

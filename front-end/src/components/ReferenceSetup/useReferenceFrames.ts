@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
-import type { UiLatestSnapshot } from "../../shared/api/types";
 import type { PreviewFramePayload } from "../../shared/ws";
 import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
 
@@ -41,8 +40,6 @@ export function useReferenceFrames() {
       const snapshotLoaded = await loadSnapshotImage(
         cameraId,
         setSnapshotImageUrlsByCameraId,
-        setFramesByCameraId,
-        setImageUrlsByCameraId,
       );
 
       return snapshotLoaded
@@ -77,8 +74,6 @@ export function useReferenceFrames() {
         const snapshotLoaded = await loadSnapshotImage(
           cameraId,
           setSnapshotImageUrlsByCameraId,
-          setFramesByCameraId,
-          setImageUrlsByCameraId,
         );
 
         if (snapshotLoaded) {
@@ -98,7 +93,9 @@ export function useReferenceFrames() {
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
-    const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
+    const nextImageUrl = imagePath
+      ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id)
+      : orchestratorApi.currentFrameUrl(previewFrame.camera_id, previewFrame.frame_id);
 
     const nextLiveFrames = {
       ...liveFramesByCameraIdRef.current,
@@ -106,23 +103,21 @@ export function useReferenceFrames() {
     };
     liveFramesByCameraIdRef.current = nextLiveFrames;
     setLiveFramesByCameraId(nextLiveFrames);
-    if (nextImageUrl) {
-      const nextLiveImageUrls = {
-        ...liveImageUrlsByCameraIdRef.current,
-        [previewFrame.camera_id]: nextImageUrl,
-      };
-      liveImageUrlsByCameraIdRef.current = nextLiveImageUrls;
-      setLiveImageUrlsByCameraId(nextLiveImageUrls);
+    const nextLiveImageUrls = {
+      ...liveImageUrlsByCameraIdRef.current,
+      [previewFrame.camera_id]: nextImageUrl,
+    };
+    liveImageUrlsByCameraIdRef.current = nextLiveImageUrls;
+    setLiveImageUrlsByCameraId(nextLiveImageUrls);
 
-      if (REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
-        lockInitialReferenceFrame(
-          previewFrame.camera_id,
-          previewFrame,
-          nextImageUrl,
-          setFramesByCameraId,
-          setImageUrlsByCameraId,
-        );
-      }
+    if (REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
+      updateReferenceFrame(
+        previewFrame.camera_id,
+        previewFrame,
+        nextImageUrl,
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+      );
     }
   }, []);
 
@@ -162,8 +157,6 @@ function commitLiveReferenceFrame(
 async function loadSnapshotImage(
   cameraId: number,
   setSnapshotImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
-  setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
-  setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
 ) {
   try {
     const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
@@ -178,16 +171,6 @@ async function loadSnapshotImage(
       ...prevImageUrls,
       [cameraId]: imageUrl,
     }));
-    // Snapshot fallback is also used as a valid reference frame source.
-    const snapshotFrame = snapshotToPreviewFrame(snapshot);
-    setFramesByCameraId((prevFrames) => ({
-      ...prevFrames,
-      [cameraId]: snapshotFrame,
-    }));
-    setImageUrlsByCameraId((prevImageUrls) => ({
-      ...prevImageUrls,
-      [cameraId]: imageUrl,
-    }));
 
     return true;
   } catch {
@@ -195,57 +178,19 @@ async function loadSnapshotImage(
   }
 }
 
-function snapshotToPreviewFrame(snapshot: UiLatestSnapshot): PreviewFramePayload {
-  return {
-    camera_id: snapshot.cameraId,
-    frame_id: String(snapshot.frameId),
-    session_state: "NO_REFERENCE",
-    current: {
-      camera_id: snapshot.cameraId,
-      frame_id: snapshot.frameId,
-      shm_name: snapshot.shmName,
-      width: snapshot.capture.width,
-      height: snapshot.capture.height,
-      stride: snapshot.capture.width * 3,
-      shm_offset: 0,
-      pixel_format: "bgr_u8",
-      channels: 3,
-      http_path: snapshot.currentJpeg.path,
-    },
-    http_path: snapshot.currentJpeg.path,
-    detector: {
-      detector_id: snapshot.detectorId,
-      product_type: snapshot.productType,
-    },
-    server_ts_ms: snapshot.updatedAtMs,
-  };
-}
-
-function lockInitialReferenceFrame(
+function updateReferenceFrame(
   cameraId: number,
   previewFrame: PreviewFramePayload,
   imageUrl: string,
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
 ) {
-  setFramesByCameraId((prevFrames) => {
-    if (prevFrames[cameraId]) {
-      return prevFrames;
-    }
-
-    return {
-      ...prevFrames,
-      [cameraId]: previewFrame,
-    };
-  });
-  setImageUrlsByCameraId((prevImageUrls) => {
-    if (prevImageUrls[cameraId]) {
-      return prevImageUrls;
-    }
-
-    return {
-      ...prevImageUrls,
-      [cameraId]: imageUrl,
-    };
-  });
+  setFramesByCameraId((prevFrames) => ({
+    ...prevFrames,
+    [cameraId]: previewFrame,
+  }));
+  setImageUrlsByCameraId((prevImageUrls) => ({
+    ...prevImageUrls,
+    [cameraId]: imageUrl,
+  }));
 }

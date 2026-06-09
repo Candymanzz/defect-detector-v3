@@ -46,7 +46,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   }, []);
 
   useEffect(() => {
-    const releasePreviewPause = orchestratorWs.acquirePreviewPause();
     const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
       switch (message.type) {
         case "server.hello":
@@ -76,7 +75,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     orchestratorWs.connect();
 
     return () => {
-      releasePreviewPause();
       unsubscribeMessage();
     };
   }, [handlePreviewFrame, handleReferenceBundleAck]);
