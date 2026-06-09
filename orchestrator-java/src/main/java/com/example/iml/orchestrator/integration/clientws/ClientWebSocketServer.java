@@ -237,6 +237,9 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         if (streams != null && getConnections().isEmpty()) {
             streams.stopAll();
         }
+        if (getConnections().isEmpty() && application.livePreviewGate() != null) {
+            application.livePreviewGate().setPaused(false);
+        }
         log.info("client_ws closed code={} reason={} remote={}", code, reason, remote);
     }
 

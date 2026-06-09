@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   createSettingErrorData,
@@ -54,6 +54,7 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
+  const settingsRequestIdRef = useRef(0);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
@@ -66,11 +67,12 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
 
   useEffect(() => {
     let isActive = true;
+    const requestId = ++settingsRequestIdRef.current;
 
     loadSettingData(selectedCameraId)
       .catch(createSettingErrorData)
       .then((nextSettingData) => {
-        if (!isActive) {
+        if (!isActive || requestId !== settingsRequestIdRef.current) {
           return;
         }
 
@@ -104,6 +106,7 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
     event.preventDefault();
 
     const formToSave = settingData.form;
+    const requestId = ++settingsRequestIdRef.current;
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       status: SAVING_SETTING_STATUS,
@@ -111,7 +114,11 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
 
     saveSettingData(formToSave, selectedCameraId)
       .catch((error) => createSettingErrorData(error, formToSave))
-      .then(setSettingData);
+      .then((nextSettingData) => {
+        if (requestId === settingsRequestIdRef.current) {
+          setSettingData(nextSettingData);
+        }
+      });
   };
 
   return (

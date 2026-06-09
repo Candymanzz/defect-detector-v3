@@ -4,7 +4,7 @@ import { orchestratorApi } from "../../shared/api";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
-import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
+import type { HeatmapDescriptor, InspectResultPayload, InterestPointNorm } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
 import "./ModalWrapper.css";
 
@@ -37,8 +37,9 @@ export function ModalWrapper({
   const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImage?.imageUrl;
   const displayedReferenceRoiPoints = referenceImageUrl ? undefined : storedReferenceImage?.roiPoints;
   const inspectResultImageUrl = inspectResult ? createInspectResultImageUrl(inspectResult) : undefined;
-  const displayedCurrentImageUrl = inspectResultImageUrl ?? cameraImageUrl;
-  const inspectResultSyncState = getInspectResultSyncState(inspectResult, inspectResultImageUrl);
+  const synchronizedHeatmap = inspectResult ? getSynchronizedHeatmap(inspectResult) : null;
+  const displayedCurrentImageUrl = inspectResult ? inspectResultImageUrl : cameraImageUrl;
+  const inspectResultSyncState = getInspectResultSyncState(inspectResult, inspectResultImageUrl, synchronizedHeatmap);
 
   useEffect(() => {
     if (!isOpen) {
@@ -96,11 +97,13 @@ export function ModalWrapper({
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
             label="Проверка камеры"
+            emptyLabel={inspectResult ? `Exact image for frame ${inspectResult.frame_id} is unavailable` : undefined}
           />
           <HeatmapPanel
             cameraId={cameraId}
             cameraImageUrl={displayedCurrentImageUrl}
             inspectResult={inspectResult}
+            heatmap={synchronizedHeatmap}
           />
         </div>
 
@@ -119,7 +122,17 @@ export function ModalWrapper({
   );
 }
 
-function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: string; roiPoints?: InterestPointNorm[] }) {
+function ImagePanel({
+  label,
+  imageUrl,
+  roiPoints,
+  emptyLabel,
+}: {
+  label: string;
+  imageUrl?: string;
+  roiPoints?: InterestPointNorm[];
+  emptyLabel?: string;
+}) {
   const svgPoints = roiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
@@ -132,6 +145,7 @@ function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: 
           className="modal-image-panel__image"
           placeholderClassName="modal-image-panel__placeholder"
           src={imageUrl}
+          emptyLabel={emptyLabel}
         />
         {imageUrl && svgPoints && roiPoints && roiPoints.length >= 3 && (
           <svg
@@ -152,10 +166,12 @@ function HeatmapPanel({
   cameraId,
   cameraImageUrl,
   inspectResult,
+  heatmap,
 }: {
   cameraId?: number;
   cameraImageUrl?: string;
   inspectResult?: InspectResultPayload;
+  heatmap: HeatmapDescriptor | null;
 }) {
   return (
     <figure className="modal-image-panel">
@@ -163,7 +179,7 @@ function HeatmapPanel({
       {cameraId !== undefined && inspectResult ? (
         <HeatmapViewer
           cameraId={cameraId}
-          heatmap={inspectResult.heatmap}
+          heatmap={heatmap}
           backgroundImageUrl={cameraImageUrl}
         />
       ) : (
@@ -274,29 +290,41 @@ function formatServerTime(serverTsMs: number) {
 function createInspectResultImageUrl(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current.http_path;
 
-  if (!imagePath) {
+  if (!imagePath || isMutableCurrentImagePath(imagePath)) {
     return undefined;
   }
 
   return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
 }
 
-function getInspectResultSyncState(inspectResult: InspectResultPayload | undefined, inspectResultImageUrl?: string) {
+function getInspectResultSyncState(
+  inspectResult: InspectResultPayload | undefined,
+  inspectResultImageUrl: string | undefined,
+  heatmap: HeatmapDescriptor | null,
+) {
   if (!inspectResult) {
     return null;
   }
 
-  if (inspectResultImageUrl && hasHeatmapSource(inspectResult)) {
+  if (inspectResultImageUrl && heatmap) {
     return {
       state: "synced" as const,
-      label: `Current image is fixed to frame ${inspectResult.frame_id}; heatmap loaded from inspect-result source`,
+      label: `Image, result and heatmap are fixed to frame ${inspectResult.frame_id}`,
     };
   }
 
   if (inspectResultImageUrl) {
     return {
       state: "partial" as const,
-      label: `Current image is fixed to frame ${inspectResult.frame_id}, but heatmap source is incomplete`,
+      label: `Image and result are fixed to frame ${inspectResult.frame_id}, but heatmap source is incomplete`,
+    };
+  }
+
+  const imagePath = inspectResult.http_path ?? inspectResult.current.http_path;
+  if (imagePath && isMutableCurrentImagePath(imagePath)) {
+    return {
+      state: "partial" as const,
+      label: `Frame ${inspectResult.frame_id} result received, but its image source is live; image overlay is disabled to prevent mismatch`,
     };
   }
 
@@ -306,6 +334,31 @@ function getInspectResultSyncState(inspectResult: InspectResultPayload | undefin
   };
 }
 
-function hasHeatmapSource(inspectResult: InspectResultPayload) {
-  return Boolean(inspectResult.heatmap?.http_path || inspectResult.heatmap?.artifact_id);
+function isMutableCurrentImagePath(imagePath: string) {
+  return /^\/api\/camera\/\d+\/current\.jpg$/.test(readUrlPathname(imagePath));
+}
+
+function getSynchronizedHeatmap(inspectResult: InspectResultPayload) {
+  const heatmap = inspectResult.heatmap;
+  if (!heatmap) {
+    return null;
+  }
+
+  if (heatmap.artifact_id) {
+    return heatmap;
+  }
+
+  return heatmap.http_path && !isMutableHeatmapPath(heatmap.http_path) ? heatmap : null;
+}
+
+function isMutableHeatmapPath(heatmapPath: string) {
+  return /^\/api\/camera\/\d+\/heatmap\.u8$/.test(readUrlPathname(heatmapPath));
+}
+
+function readUrlPathname(value: string) {
+  try {
+    return new URL(value, "http://localhost").pathname;
+  } catch {
+    return value.split(/[?#]/, 1)[0];
+  }
 }

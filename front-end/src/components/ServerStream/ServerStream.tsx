@@ -22,6 +22,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
     canStop,
     startStream,
     stopStream,
+    handleStreamImageLoad,
     handleStreamImageError,
   } = useStreamController({
     cameraId,
@@ -88,6 +89,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
               alt={streamTitle}
               className="server-stream__image"
               src={mjpegUrl}
+              onLoad={handleStreamImageLoad}
               onError={handleStreamImageError}
             />
           ) : (

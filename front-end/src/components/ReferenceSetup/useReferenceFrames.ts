@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { UiLatestSnapshot } from "../../shared/api/types";
@@ -8,6 +8,8 @@ import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./reference
 export function useReferenceFrames() {
   const [liveFramesByCameraId, setLiveFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [liveImageUrlsByCameraId, setLiveImageUrlsByCameraId] = useState<Record<number, string>>({});
+  const liveFramesByCameraIdRef = useRef(liveFramesByCameraId);
+  const liveImageUrlsByCameraIdRef = useRef(liveImageUrlsByCameraId);
   const [framesByCameraId, setFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<Record<number, string>>({});
   const [snapshotImageUrlsByCameraId, setSnapshotImageUrlsByCameraId] = useState<Record<number, string>>({});
@@ -22,8 +24,8 @@ export function useReferenceFrames() {
     if (cameraId !== undefined) {
       const loaded = commitLiveReferenceFrame(
         cameraId,
-        liveFramesByCameraId[cameraId],
-        liveImageUrlsByCameraId[cameraId],
+        liveFramesByCameraIdRef.current[cameraId],
+        liveImageUrlsByCameraIdRef.current[cameraId],
         setFramesByCameraId,
         setImageUrlsByCameraId,
       );
@@ -63,8 +65,8 @@ export function useReferenceFrames() {
     for (const cameraId of REFERENCE_CAMERA_IDS) {
       const loaded = commitLiveReferenceFrame(
         cameraId,
-        liveFramesByCameraId[cameraId],
-        liveImageUrlsByCameraId[cameraId],
+        liveFramesByCameraIdRef.current[cameraId],
+        liveImageUrlsByCameraIdRef.current[cameraId],
         setFramesByCameraId,
         setImageUrlsByCameraId,
       );
@@ -92,21 +94,25 @@ export function useReferenceFrames() {
       snapshotCameraIds,
       missingCameraIds,
     };
-  }, [liveFramesByCameraId, liveImageUrlsByCameraId]);
+  }, []);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
     const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
 
-    setLiveFramesByCameraId((prevFrames) => ({
-      ...prevFrames,
+    const nextLiveFrames = {
+      ...liveFramesByCameraIdRef.current,
       [previewFrame.camera_id]: previewFrame,
-    }));
+    };
+    liveFramesByCameraIdRef.current = nextLiveFrames;
+    setLiveFramesByCameraId(nextLiveFrames);
     if (nextImageUrl) {
-      setLiveImageUrlsByCameraId((prevImageUrls) => ({
-        ...prevImageUrls,
+      const nextLiveImageUrls = {
+        ...liveImageUrlsByCameraIdRef.current,
         [previewFrame.camera_id]: nextImageUrl,
-      }));
+      };
+      liveImageUrlsByCameraIdRef.current = nextLiveImageUrls;
+      setLiveImageUrlsByCameraId(nextLiveImageUrls);
 
       if (REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
         lockInitialReferenceFrame(

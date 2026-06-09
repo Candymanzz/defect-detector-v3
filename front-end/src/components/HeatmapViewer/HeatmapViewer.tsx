@@ -20,23 +20,24 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     const currentHeatmap = heatmap;
 
     async function loadAndDrawHeatmap() {
       try {
+        clearHeatmapCanvas(canvasRef.current);
         setStatus("loading");
         setError(null);
-        const bytes = await loadHeatmapForCamera(currentHeatmap);
+        const bytes = await loadHeatmapForCamera(currentHeatmap, controller.signal);
 
-        if (cancelled) {
+        if (controller.signal.aborted) {
           return;
         }
 
         drawGrayU8Heatmap(canvasRef.current, currentHeatmap, bytes);
         setStatus("ready");
       } catch (nextError) {
-        if (cancelled) {
+        if (controller.signal.aborted) {
           return;
         }
 
@@ -49,7 +50,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
     loadAndDrawHeatmap();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [cameraId, heatmap]);
 
@@ -65,6 +66,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
       >
         {backgroundImageUrl && (
           <img
+            key={backgroundImageUrl}
             className="heatmap-viewer__image"
             src={backgroundImageUrl}
             alt=""

@@ -18,6 +18,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     payload: ClientReferenceBundlePayload;
     imageUrlsByCameraId: Record<number, string>;
   } | null>(null);
+  const imageRefreshRequestIdRef = useRef(0);
   const referenceFrames = useReferenceFrames();
   const referenceRoi = useReferenceRoi(initialJointViewIndex);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
@@ -29,21 +30,23 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   );
 
   const handleReferenceBundleAck = useCallback((message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
-    if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
-      if (message.payload.ok) {
-        commitReferenceBundleImages(
-          pendingReferenceBundleRef.current.payload,
-          pendingReferenceBundleRef.current.imageUrlsByCameraId,
-        );
-      }
-
-      pendingReferenceBundleRef.current = null;
+    if (pendingReferenceBundleRef.current?.messageId !== message.message_id) {
+      return;
     }
 
+    if (message.payload.ok) {
+      commitReferenceBundleImages(
+        pendingReferenceBundleRef.current.payload,
+        pendingReferenceBundleRef.current.imageUrlsByCameraId,
+      );
+    }
+
+    pendingReferenceBundleRef.current = null;
     setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
   }, []);
 
   useEffect(() => {
+    const releasePreviewPause = orchestratorWs.acquirePreviewPause();
     const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
       switch (message.type) {
         case "server.hello":
@@ -71,42 +74,19 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     });
 
     orchestratorWs.connect();
-    if (orchestratorWs.snapshot.state === "open") {
-      try {
-        orchestratorWs.sendPreviewPause();
-      } catch {
-        // best effort; socket can still be reconnecting
-      }
-    }
 
     return () => {
-      if (orchestratorWs.snapshot.state === "open") {
-        try {
-          orchestratorWs.sendPreviewResume();
-        } catch {
-          // best effort on unmount
-        }
-      }
+      releasePreviewPause();
       unsubscribeMessage();
     };
   }, [handlePreviewFrame, handleReferenceBundleAck]);
 
   useEffect(() => {
-    if (status.state !== "open") {
-      return;
-    }
-    try {
-      orchestratorWs.sendPreviewPause();
-    } catch {
-      // best effort after reconnect
-    }
-  }, [status.state]);
-
-  useEffect(() => {
     let cancelled = false;
+    const requestId = ++imageRefreshRequestIdRef.current;
 
     refreshLatestImages().then(({ loadedCameraIds, snapshotCameraIds }) => {
-      if (cancelled) {
+      if (cancelled || requestId !== imageRefreshRequestIdRef.current) {
         return;
       }
 
@@ -122,6 +102,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
 
     return () => {
       cancelled = true;
+      imageRefreshRequestIdRef.current += 1;
       pendingReferenceBundleRef.current = null;
     };
   }, [refreshLatestImages]);
@@ -172,9 +153,14 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   };
 
   const handleSelectCamera = async (cameraId: number) => {
+    const requestId = ++imageRefreshRequestIdRef.current;
     referenceRoi.setSelectedCameraId(cameraId);
     setMessage(`Waiting for live frame from camera ${cameraId}...`);
     const { loadedCameraIds, snapshotCameraIds } = await refreshLatestImages(cameraId);
+
+    if (requestId !== imageRefreshRequestIdRef.current) {
+      return;
+    }
 
     if (loadedCameraIds.length > 0) {
       setMessage(`Live frame loaded for camera ${cameraId}`);
@@ -190,9 +176,14 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   };
 
   const handleSelectJointRoi = async () => {
+    const requestId = ++imageRefreshRequestIdRef.current;
     referenceRoi.selectJointRoi();
     setMessage("Waiting for live frame from camera 0 to edit joint ROI...");
     const { loadedCameraIds, snapshotCameraIds } = await refreshLatestImages(0);
+
+    if (requestId !== imageRefreshRequestIdRef.current) {
+      return;
+    }
 
     if (loadedCameraIds.length > 0) {
       setMessage("Live frame loaded for camera 0. Editing joint ROI.");

@@ -29,6 +29,12 @@ export function useStreamController({
   const streamStateRef = useRef(streamState);
   const autoStartAttemptedRef = useRef(false);
   const firstFrameTimerRef = useRef<number | null>(null);
+  const cleanupStopTimerRef = useRef<number | null>(null);
+
+  const updateStreamState = useCallback((nextState: StreamState) => {
+    streamStateRef.current = nextState;
+    setStreamState(nextState);
+  }, []);
 
   useEffect(() => {
     streamStateRef.current = streamState;
@@ -46,6 +52,10 @@ export function useStreamController({
       return;
     }
 
+    if (cleanupStopTimerRef.current !== null) {
+      window.clearTimeout(cleanupStopTimerRef.current);
+      cleanupStopTimerRef.current = null;
+    }
     orchestratorWs.connect();
 
     const unsubscribeStatus = orchestratorWs.onStatus(setStatus);
@@ -59,13 +69,13 @@ export function useStreamController({
           const streamPath = wsMessage.payload.mjpeg_path;
 
           setMjpegUrl(streamPath ? orchestratorApi.url(streamPath) : orchestratorApi.streamMjpegUrl(cameraId));
-          setStreamState("playing");
+          updateStreamState("playing");
           setMessage(`Stream started: ${wsMessage.payload.max_fps} FPS`);
           clearFirstFrameTimer();
           firstFrameTimerRef.current = window.setTimeout(() => {
             if (streamStateRef.current === "playing") {
               setMjpegUrl(undefined);
-              setStreamState("error");
+              updateStreamState("error");
               setMessage("Stream started, but no camera frames were received");
             }
           }, FIRST_FRAME_TIMEOUT_MS);
@@ -77,7 +87,6 @@ export function useStreamController({
             return;
           }
 
-          clearFirstFrameTimer();
           setMessage(`Stream active, frame ${wsMessage.payload.frame_id}`);
           return;
 
@@ -88,7 +97,7 @@ export function useStreamController({
 
           clearFirstFrameTimer();
           setMjpegUrl(undefined);
-          setStreamState("idle");
+          updateStreamState("idle");
           setMessage("Stream stopped");
           return;
 
@@ -96,10 +105,13 @@ export function useStreamController({
           if (streamStateRef.current !== "starting" && streamStateRef.current !== "stopping") {
             return;
           }
+          if (!isStreamErrorCode(wsMessage.payload.code)) {
+            return;
+          }
 
           clearFirstFrameTimer();
           setMjpegUrl(undefined);
-          setStreamState("error");
+          updateStreamState("error");
           setMessage(`${wsMessage.payload.code}: ${wsMessage.payload.message}`);
           return;
 
@@ -113,19 +125,18 @@ export function useStreamController({
       unsubscribeMessage();
 
       if (streamStateRef.current === "starting" || streamStateRef.current === "playing") {
-        try {
-          orchestratorWs.sendStreamStop({ camera_id: cameraId });
-        } catch {
-          // The socket may already be closed while the modal is unmounting.
-        }
+        cleanupStopTimerRef.current = window.setTimeout(() => {
+          cleanupStopTimerRef.current = null;
+          orchestratorWs.stopStreamWhenPossible(cameraId);
+        }, 0);
       }
       clearFirstFrameTimer();
     };
-  }, [cameraId, clearFirstFrameTimer, enabled]);
+  }, [cameraId, clearFirstFrameTimer, enabled, updateStreamState]);
 
   const startStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
-      setStreamState("error");
+      updateStreamState("error");
       setMessage("WebSocket is not open yet");
       return;
     }
@@ -133,44 +144,49 @@ export function useStreamController({
     try {
       clearFirstFrameTimer();
       setMjpegUrl(undefined);
-      setStreamState("starting");
+      updateStreamState("starting");
       setMessage("Starting stream...");
       orchestratorWs.sendStreamStart({
         camera_id: cameraId,
         max_fps: maxFps,
       });
     } catch (error) {
-      setStreamState("error");
+      updateStreamState("error");
       setMessage(errorMessage(error));
     }
-  }, [cameraId, clearFirstFrameTimer, maxFps]);
+  }, [cameraId, clearFirstFrameTimer, maxFps, updateStreamState]);
 
   const handleStreamImageError = useCallback(() => {
     clearFirstFrameTimer();
     setMjpegUrl(undefined);
-    setStreamState("error");
+    updateStreamState("error");
     setMessage("MJPEG stream image failed to load");
+  }, [clearFirstFrameTimer, updateStreamState]);
+
+  const handleStreamImageLoad = useCallback(() => {
+    clearFirstFrameTimer();
+    setMessage("Stream active");
   }, [clearFirstFrameTimer]);
 
   const stopStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
-      setStreamState("error");
+      updateStreamState("error");
       setMessage("WebSocket is not open yet");
       return;
     }
 
     try {
       clearFirstFrameTimer();
-      setStreamState("stopping");
+      updateStreamState("stopping");
       setMessage("Stopping stream...");
       orchestratorWs.sendStreamStop({
         camera_id: cameraId,
       });
     } catch (error) {
-      setStreamState("error");
+      updateStreamState("error");
       setMessage(errorMessage(error));
     }
-  }, [cameraId, clearFirstFrameTimer]);
+  }, [cameraId, clearFirstFrameTimer, updateStreamState]);
 
   const isPlaying = streamState === "playing";
   const isBusy = streamState === "starting" || streamState === "stopping";
@@ -196,6 +212,11 @@ export function useStreamController({
     canStop: enabled && isSocketOpen && (isPlaying || streamState === "starting"),
     startStream,
     stopStream,
+    handleStreamImageLoad,
     handleStreamImageError,
   };
+}
+
+function isStreamErrorCode(code: string) {
+  return code === "stream_disabled" || code === "stream_already_active" || code === "stream_start_failed";
 }

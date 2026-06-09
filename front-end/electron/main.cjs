@@ -18,6 +18,15 @@ function createMainWindow() {
       nodeIntegration: false,
     },
   });
+  mainWindow.setAutoHideMenuBar(true);
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+    const currentUrl = mainWindow.webContents.getURL();
+
+    if (currentUrl && new URL(navigationUrl).origin !== new URL(currentUrl).origin) {
+      event.preventDefault();
+    }
+  });
 
   if (isDev) {
     mainWindow.loadURL(rendererUrl);

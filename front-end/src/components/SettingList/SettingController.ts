@@ -191,6 +191,11 @@ function readBrightnessPercent(lightBrightness: LightBrightnessSettings, selecte
     return clampBrightness(cameraEndpoint.brightness_percent);
   }
 
+  const commonEndpointBrightness = readCommonEndpointBrightness(lightBrightness.endpoints ?? []);
+  if (selectedCameraId === null && commonEndpointBrightness !== undefined) {
+    return clampBrightness(commonEndpointBrightness);
+  }
+
   return clampBrightness(
     firstFiniteNumber(
       [
@@ -247,7 +252,19 @@ function resolveCameraBrightnessEndpoint(
     `light_camera_${cameraIdText}`,
   ]);
 
-  return endpoints.find((endpoint) => expectedIds.has(endpoint.id)) ?? endpoints[selectedCameraId];
+  return endpoints.find((endpoint) => expectedIds.has(endpoint.id));
+}
+
+function readCommonEndpointBrightness(endpoints: LightEndpointBrightness[]) {
+  const brightnessValues = endpoints
+    .map((endpoint) => endpoint.brightness_percent)
+    .filter((value) => Number.isFinite(value));
+
+  if (brightnessValues.length === 0) {
+    return undefined;
+  }
+
+  return brightnessValues.every((value) => value === brightnessValues[0]) ? brightnessValues[0] : undefined;
 }
 
 function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {

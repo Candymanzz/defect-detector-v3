@@ -19,8 +19,12 @@ const PROTOCOL_VERSION = 1;
 export class OrchestratorWebSocketClient {
   private socket: WebSocket | null = null;
   private reconnectTimerId: number | null = null;
+  private previewResumeTimerId: number | null = null;
   private reconnectAttempt = 0;
   private manuallyClosed = false;
+  private previewPauseLeaseCount = 0;
+  private previewPauseWasManaged = false;
+  private readonly pendingStreamStops = new Set<number>();
   private readonly messageHandlers = new Set<WsMessageHandler>();
   private readonly statusHandlers = new Set<WsStatusHandler>();
   private status: WsConnectionStatus = {
@@ -54,18 +58,32 @@ export class OrchestratorWebSocketClient {
     this.socket = socket;
 
     socket.addEventListener("open", () => {
+      if (this.socket !== socket) {
+        return;
+      }
+
       this.reconnectAttempt = 0;
       this.setStatus({
         state: "open",
         reconnectAttempt: 0,
       });
+      this.syncPreviewPauseState();
+      this.flushPendingStreamStops();
     });
 
     socket.addEventListener("message", (event) => {
+      if (this.socket !== socket) {
+        return;
+      }
+
       this.handleMessage(event.data);
     });
 
     socket.addEventListener("error", () => {
+      if (this.socket !== socket) {
+        return;
+      }
+
       this.setStatus({
         state: "error",
         reconnectAttempt: this.reconnectAttempt,
@@ -74,9 +92,11 @@ export class OrchestratorWebSocketClient {
     });
 
     socket.addEventListener("close", (event) => {
-      if (this.socket === socket) {
-        this.socket = null;
+      if (this.socket !== socket) {
+        return;
       }
+
+      this.socket = null;
 
       if (this.manuallyClosed) {
         this.setStatus({
@@ -146,12 +166,47 @@ export class OrchestratorWebSocketClient {
     return this.send("client.preview_resume", {});
   }
 
+  acquirePreviewPause() {
+    let released = false;
+    this.previewPauseWasManaged = true;
+    this.previewPauseLeaseCount += 1;
+    const resumeWasPending = this.previewResumeTimerId !== null;
+    this.clearPreviewResumeTimer();
+
+    if (this.previewPauseLeaseCount === 1 && this.isOpen && !resumeWasPending) {
+      this.sendPreviewPause();
+    }
+
+    return () => {
+      if (released) {
+        return;
+      }
+
+      released = true;
+      this.previewPauseLeaseCount = Math.max(0, this.previewPauseLeaseCount - 1);
+      if (this.previewPauseLeaseCount === 0) {
+        this.schedulePreviewResume();
+      }
+    };
+  }
+
   sendStreamStart(payload: ClientStreamStartPayload) {
+    this.pendingStreamStops.delete(payload.camera_id);
     return this.send("client.stream_start", payload);
   }
 
   sendStreamStop(payload: ClientStreamStopPayload) {
+    this.pendingStreamStops.delete(payload.camera_id);
     return this.send("client.stream_stop", payload);
+  }
+
+  stopStreamWhenPossible(cameraId: number) {
+    if (this.isOpen) {
+      this.sendStreamStop({ camera_id: cameraId });
+      return;
+    }
+
+    this.pendingStreamStops.add(cameraId);
   }
 
   send<TType extends keyof ClientWsPayloadByType>(type: TType, payload: ClientWsPayloadByType[TType]) {
@@ -221,6 +276,41 @@ export class OrchestratorWebSocketClient {
     if (this.reconnectTimerId !== null) {
       window.clearTimeout(this.reconnectTimerId);
       this.reconnectTimerId = null;
+    }
+  }
+
+  private schedulePreviewResume() {
+    this.clearPreviewResumeTimer();
+    this.previewResumeTimerId = window.setTimeout(() => {
+      this.previewResumeTimerId = null;
+      if (this.previewPauseLeaseCount === 0 && this.isOpen) {
+        this.sendPreviewResume();
+      }
+    }, 0);
+  }
+
+  private clearPreviewResumeTimer() {
+    if (this.previewResumeTimerId !== null) {
+      window.clearTimeout(this.previewResumeTimerId);
+      this.previewResumeTimerId = null;
+    }
+  }
+
+  private syncPreviewPauseState() {
+    if (!this.previewPauseWasManaged) {
+      return;
+    }
+
+    if (this.previewPauseLeaseCount > 0) {
+      this.sendPreviewPause();
+    } else {
+      this.sendPreviewResume();
+    }
+  }
+
+  private flushPendingStreamStops() {
+    for (const cameraId of Array.from(this.pendingStreamStops)) {
+      this.sendStreamStop({ camera_id: cameraId });
     }
   }
 

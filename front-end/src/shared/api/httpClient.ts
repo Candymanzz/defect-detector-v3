@@ -79,7 +79,11 @@ export class HttpClient {
     }
 
     const abortListener = () => controller.abort();
-    options.signal?.addEventListener("abort", abortListener, { once: true });
+    if (options.signal?.aborted) {
+      controller.abort();
+    } else {
+      options.signal?.addEventListener("abort", abortListener, { once: true });
+    }
 
     try {
       const response = await fetch(this.url(path, options.query), {

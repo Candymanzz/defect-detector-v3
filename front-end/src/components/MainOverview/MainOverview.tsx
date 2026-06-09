@@ -11,18 +11,27 @@ import {
   createWsFrameImageUrl,
   FALLBACK_CAMERA_IDS,
   INITIAL_BACKEND_STATUS,
+  isFrameSequenceReset,
+  isFramePayloadConsistent,
+  isIncomingFrameNewer,
   loadBackendCameraIds,
   loadBackendStatus,
+  readNumericFrameId,
 } from "./MainController";
 import { OverviewStat } from "./OverviewStat";
 import { createOverviewStats } from "./overviewStats";
 import type { BackendStatus, CameraFrameTimesById, CameraImageUrlsById, SelectedCamera } from "./type";
-import type { InspectResultPayload } from "../../shared/ws";
+import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import "./MainOverview.css";
 
 const BACKEND_HEALTH_POLL_MS = 5000;
 const CAMERA_LIST_POLL_MS = 10000;
 const CAMERA_FRESHNESS_TICK_MS = 1000;
+
+type FrameGenerationGuard = {
+  currentMaxFrameId: bigint;
+  previousMaxFrameId: bigint;
+};
 
 type MainOverviewProps = {
   isPreviewPaused?: boolean;
@@ -49,6 +58,11 @@ export function MainOverview({
   const lastFreshnessTickRef = useRef(0);
   const backendRequestInFlightRef = useRef(false);
   const cameraListRequestInFlightRef = useRef(false);
+  const isPreviewPausedRef = useRef(isPreviewPaused);
+  const latestVisualFramesRef = useRef<Record<number, PreviewFramePayload | InspectResultPayload>>({});
+  const latestPreviewFramesRef = useRef<Record<number, PreviewFramePayload>>({});
+  const latestInspectResultsRef = useRef<Record<number, InspectResultPayload>>({});
+  const frameGenerationGuardsRef = useRef<Record<number, FrameGenerationGuard>>({});
 
   const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId, frameTimesByCameraId, freshnessNowMs, 0);
   const modalCameraImageUrl = selectedCamera
@@ -57,9 +71,10 @@ export function MainOverview({
   const onlineCameraCount = cameraCards.filter((camera) => camera.signalState === "online").length;
   const offlineCameraCount = cameraCards.filter((camera) => camera.signalState === "offline").length;
   const waitingCameraCount = cameraCards.filter((camera) => camera.signalState === "waiting").length;
-  const lastInspectResult = Object.values(inspectResultsByCameraId).sort(
-    (left, right) => right.server_ts_ms - left.server_ts_ms,
-  )[0];
+  const lastInspectResult = Object.values(inspectResultsByCameraId).reduce<InspectResultPayload | undefined>(
+    (latest, result) => (!latest || result.server_ts_ms > latest.server_ts_ms ? result : latest),
+    undefined,
+  );
   const overviewStats = createOverviewStats({
     backendStatus,
     cameraCount: cameraCards.length,
@@ -137,6 +152,7 @@ export function MainOverview({
   }, []);
 
   useEffect(() => {
+    isPreviewPausedRef.current = isPreviewPaused;
     lastFreshnessTickRef.current = Date.now();
 
     const intervalId = window.setInterval(() => {
@@ -156,31 +172,107 @@ export function MainOverview({
   }, [isPreviewPaused]);
 
   useEffect(() => {
+    let wasOpen = false;
+    const unsubscribeStatus = orchestratorWs.onStatus((status) => {
+      if (status.state === "open" && !wasOpen) {
+        latestVisualFramesRef.current = {};
+        latestPreviewFramesRef.current = {};
+        latestInspectResultsRef.current = {};
+        frameGenerationGuardsRef.current = {};
+      }
+      wasOpen = status.state === "open";
+    });
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
       if (message.type !== "server.preview_frame" && message.type !== "server.inspect_result") {
         return;
       }
 
-      const frame = message.payload;
-      const imageUrl = createWsFrameImageUrl(frame);
+      if (isPreviewPausedRef.current) {
+        return;
+      }
 
-      if (imageUrl) {
-        setImageUrlsByCameraId((prevImageUrls) => ({
-          ...prevImageUrls,
-          [frame.camera_id]: imageUrl,
-        }));
-        setFrameTimesByCameraId((prevFrameTimes) => ({
-          ...prevFrameTimes,
-          [frame.camera_id]: freshnessNowRef.current,
-        }));
+      const frame = message.payload;
+      if (!isFramePayloadConsistent(frame)) {
+        return;
+      }
+
+      const currentVisualFrame = latestVisualFramesRef.current[frame.camera_id];
+      const currentPreviewFrame = latestPreviewFramesRef.current[frame.camera_id];
+      const sequenceReset =
+        message.type === "server.preview_frame" && isFrameSequenceReset(message.payload, currentPreviewFrame);
+      let acceptedVisualFrame = false;
+      let acceptedInspectResult = false;
+
+      if (sequenceReset) {
+        const previousFrameIds = [
+          readNumericFrameId(currentVisualFrame),
+          readNumericFrameId(currentPreviewFrame),
+          readNumericFrameId(latestInspectResultsRef.current[frame.camera_id]),
+        ].filter((frameId): frameId is bigint => frameId !== null);
+        const incomingFrameId = readNumericFrameId(message.payload);
+        const previousMaxFrameId = previousFrameIds.reduce(
+          (maxFrameId, frameId) => (frameId > maxFrameId ? frameId : maxFrameId),
+          0n,
+        );
+
+        if (incomingFrameId !== null && previousMaxFrameId > incomingFrameId) {
+          frameGenerationGuardsRef.current[frame.camera_id] = {
+            currentMaxFrameId: incomingFrameId,
+            previousMaxFrameId,
+          };
+        }
+        delete latestVisualFramesRef.current[frame.camera_id];
+        delete latestInspectResultsRef.current[frame.camera_id];
+        setInspectResultsByCameraId((prevInspectResults) => {
+          const nextInspectResults = { ...prevInspectResults };
+          delete nextInspectResults[frame.camera_id];
+          return nextInspectResults;
+        });
+      }
+
+      const belongsToCurrentGeneration =
+        message.type === "server.preview_frame" ||
+        belongsToCurrentFrameGeneration(frameGenerationGuardsRef.current[frame.camera_id], message.payload);
+
+      if (belongsToCurrentGeneration && (sequenceReset || isIncomingFrameNewer(frame, currentVisualFrame))) {
+        latestVisualFramesRef.current[frame.camera_id] = frame;
+        acceptedVisualFrame = true;
+        const imageUrl = createWsFrameImageUrl(frame);
+
+        setImageUrlsByCameraId((prevImageUrls) => {
+          const nextImageUrls = { ...prevImageUrls };
+          if (imageUrl) {
+            nextImageUrls[frame.camera_id] = imageUrl;
+          } else {
+            delete nextImageUrls[frame.camera_id];
+          }
+          return nextImageUrls;
+        });
+      }
+
+      if (message.type === "server.preview_frame") {
+        latestPreviewFramesRef.current[frame.camera_id] = message.payload;
+        updateFrameGenerationGuard(frameGenerationGuardsRef.current, message.payload);
       }
 
       if (message.type === "server.inspect_result") {
         const inspectResult = message.payload;
+        const currentInspectResult = latestInspectResultsRef.current[inspectResult.camera_id];
 
-        setInspectResultsByCameraId((prevInspectResults) => ({
-          ...prevInspectResults,
-          [inspectResult.camera_id]: inspectResult,
+        if (belongsToCurrentGeneration && isIncomingFrameNewer(inspectResult, currentInspectResult)) {
+          latestInspectResultsRef.current[inspectResult.camera_id] = inspectResult;
+          acceptedInspectResult = true;
+          setInspectResultsByCameraId((prevInspectResults) => ({
+            ...prevInspectResults,
+            [inspectResult.camera_id]: inspectResult,
+          }));
+        }
+      }
+
+      if (acceptedVisualFrame || acceptedInspectResult) {
+        setFrameTimesByCameraId((prevFrameTimes) => ({
+          ...prevFrameTimes,
+          [frame.camera_id]: freshnessNowRef.current,
         }));
       }
     });
@@ -188,6 +280,7 @@ export function MainOverview({
     orchestratorWs.connect();
 
     return () => {
+      unsubscribeStatus();
       unsubscribeMessage();
     };
   }, []);
@@ -257,4 +350,33 @@ export function MainOverview({
       )}
     </section>
   );
+}
+
+function updateFrameGenerationGuard(
+  guards: Record<number, FrameGenerationGuard>,
+  previewFrame: PreviewFramePayload,
+) {
+  const guard = guards[previewFrame.camera_id];
+  const frameId = readNumericFrameId(previewFrame);
+  if (!guard || frameId === null) {
+    return;
+  }
+
+  guard.currentMaxFrameId = frameId > guard.currentMaxFrameId ? frameId : guard.currentMaxFrameId;
+  if (guard.currentMaxFrameId >= guard.previousMaxFrameId) {
+    delete guards[previewFrame.camera_id];
+  }
+}
+
+function belongsToCurrentFrameGeneration(
+  guard: FrameGenerationGuard | undefined,
+  inspectResult: InspectResultPayload,
+) {
+  const frameId = readNumericFrameId(inspectResult);
+  if (!guard || frameId === null) {
+    return true;
+  }
+
+  const generationBoundary = (guard.currentMaxFrameId + guard.previousMaxFrameId) / 2n;
+  return frameId <= generationBoundary;
 }
