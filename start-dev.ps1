@@ -50,6 +50,22 @@ function Save-Pids([hashtable]$Pids) {
     $Pids | ConvertTo-Json | Set-Content -Path $PidFile -Encoding UTF8
 }
 
+function Stop-StaleWorkspaceCameraWorkers {
+    $CameraWorkerRoot = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot "camera-worker"))
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -like "camera_worker*" -and
+            $_.ExecutablePath -and
+            [System.IO.Path]::GetFullPath($_.ExecutablePath).StartsWith(
+                $CameraWorkerRoot,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )
+        } |
+        ForEach-Object {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+}
+
 Write-Step "Проверка инструментов"
 Test-Command "java"
 Test-Command "python"
@@ -57,8 +73,10 @@ if ($Build) { Test-Command "mvn" }
 if ($WithFrontend) { Test-Command "npm" }
 
 if (-not (Test-Path $ConfigPath)) {
-    throw "Конфиг не найден: $ConfigPath"
+    throw "Config not found: $ConfigPath"
 }
+
+Stop-StaleWorkspaceCameraWorkers
 
 if ($Setup) {
     Write-Step "Python venv + pip"
@@ -119,18 +137,18 @@ if ($WithFrontend -and -not $OrchestratorOnly) {
 
 Save-Pids $stack
 
-Write-Host "`nГотово к запуску оркестратора." -ForegroundColor Green
+Write-Host "`nReady to start orchestrator." -ForegroundColor Green
 Write-Host "  Python    : http://127.0.0.1:8000  (PID $($stack.python))"
 if ($stack.frontend) {
-    Write-Host "  Front-end : http://localhost:5173  (отдельное окно)"
+    Write-Host "  Front-end : http://localhost:5173  (separate window)"
 }
-Write-Host "  Далее jar поднимет LightServer, camera-worker, geometry, :8099, :8765"
-Write-Host "`nОстановка: Ctrl+C в этом окне или .\stop-dev.ps1`n"
+Write-Host "  The jar will start LightServer, camera-worker, geometry, :8099 and :8765"
+Write-Host "`nStop with Ctrl+C in this window or run .\stop-dev.ps1`n"
 
-Write-Step "Запуск оркестратора (логи ниже, Ctrl+C = стоп всего стека)"
+Write-Step "Starting orchestrator (Ctrl+C stops the stack)"
 try {
     & java -jar $OrchestratorJar $ConfigPath
 } finally {
-    Write-Step "Остановка стека"
+    Write-Step "Stopping stack"
     & (Join-Path $RepoRoot "stop-dev.ps1") -Quiet
 }

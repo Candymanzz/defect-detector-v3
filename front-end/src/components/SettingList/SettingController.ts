@@ -48,11 +48,6 @@ export const INITIAL_SETTING_DATA: SettingData = {
   analysisProductTypes: [],
 };
 
-export const SAVING_SETTING_STATUS: SettingStatus = {
-  state: "saving",
-  text: "сохранение",
-};
-
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
   const [lightBrightness, geometryRuntime, analysisProductTypes] = await Promise.all([
     orchestratorApi.getLightBrightness(),
@@ -79,39 +74,45 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
   };
 }
 
-export async function saveSettingData(form: SettingForm, selectedCameraId: number | null = null): Promise<SettingData> {
-  const normalizedForm = normalizeSettingForm(form);
-  const [geometryRuntime, lightBrightness, analysisProductTypes] = await Promise.all([
-    orchestratorApi.getGeometryRuntime(),
-    orchestratorApi.getLightBrightness(),
-    loadAnalysisProductTypes(),
-  ]);
+export async function saveBrightnessSetting(brightnessPercent: number, selectedCameraId: number | null = null) {
+  const normalizedBrightness = clampBrightness(brightnessPercent);
+  const lightBrightness = await orchestratorApi.getLightBrightness();
+
+  await orchestratorApi.setLightBrightness(
+    createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedBrightness),
+  );
+
+  return normalizedBrightness;
+}
+
+export async function saveGeometrySetting(maxShiftMm: number) {
+  const normalizedMaxShift = clampMaxShiftMm(maxShiftMm);
+  const geometryRuntime = await orchestratorApi.getGeometryRuntime();
+
+  await orchestratorApi.replaceGeometryRuntime(
+    createGeometryRuntimeOverrides(geometryRuntime, normalizedMaxShift),
+  );
+
+  return normalizedMaxShift;
+}
+
+export async function saveAnalysisSettingData(
+  analysisSettings: AnalysisSettings,
+  selectedCameraId: number | null = null,
+) {
+  const normalizedSettings = normalizeAnalysisSettings(analysisSettings);
+  const analysisProductTypes = await loadAnalysisProductTypes();
   const productTypesToSave = await resolveAnalysisProductTypesToSave(selectedCameraId, analysisProductTypes);
 
-  await Promise.all([
-    orchestratorApi.setLightBrightness(
-      createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedForm.brightnessPercent),
+  await Promise.all(
+    productTypesToSave.map((productType) =>
+      orchestratorApi.setAnalysisSettings(productType, normalizedSettings),
     ),
-    orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm)),
-    ...productTypesToSave.map((productType) =>
-      orchestratorApi.setAnalysisSettings(productType, normalizedForm.analysisSettings),
-    ),
-  ]);
-
-  const nextData = await loadSettingData(selectedCameraId);
+  );
 
   return {
-    ...nextData,
-    form: {
-      ...nextData.form,
-      brightnessPercent: normalizedForm.brightnessPercent,
-      analysisSettings: normalizedForm.analysisSettings,
-    },
+    analysisSettings: normalizedSettings,
     analysisProductTypes: productTypesToSave,
-    status: {
-      state: "ready",
-      text: "сохранено",
-    },
   };
 }
 

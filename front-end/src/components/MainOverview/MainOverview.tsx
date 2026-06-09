@@ -8,6 +8,7 @@ import {
   createBackendErrorStatus,
   createCameraCards,
   createSelectedCamera,
+  createSnapshotImageUrl,
   createWsFrameImageUrl,
   FALLBACK_CAMERA_IDS,
   INITIAL_BACKEND_STATUS,
@@ -15,6 +16,7 @@ import {
   isFramePayloadConsistent,
   isIncomingFrameNewer,
   loadBackendCameraIds,
+  loadBackendCameraSnapshots,
   loadBackendStatus,
   readNumericFrameId,
 } from "./MainController";
@@ -26,6 +28,7 @@ import "./MainOverview.css";
 
 const BACKEND_HEALTH_POLL_MS = 5000;
 const CAMERA_LIST_POLL_MS = 10000;
+const CAMERA_SNAPSHOT_POLL_MS = 5000;
 const CAMERA_FRESHNESS_TICK_MS = 1000;
 
 type FrameGenerationGuard = {
@@ -58,6 +61,8 @@ export function MainOverview({
   const lastFreshnessTickRef = useRef(0);
   const backendRequestInFlightRef = useRef(false);
   const cameraListRequestInFlightRef = useRef(false);
+  const cameraSnapshotRequestInFlightRef = useRef(false);
+  const snapshotVersionByCameraIdRef = useRef<Record<number, string>>({});
   const isPreviewPausedRef = useRef(isPreviewPaused);
   const latestVisualFramesRef = useRef<Record<number, PreviewFramePayload | InspectResultPayload>>({});
   const latestPreviewFramesRef = useRef<Record<number, PreviewFramePayload>>({});
@@ -150,6 +155,76 @@ export function MainOverview({
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const refreshCameraSnapshots = () => {
+      if (cameraSnapshotRequestInFlightRef.current || isPreviewPausedRef.current) {
+        return;
+      }
+
+      cameraSnapshotRequestInFlightRef.current = true;
+      loadBackendCameraSnapshots(cameraIds)
+        .then((snapshots) => {
+          if (!isActive) {
+            return;
+          }
+
+          const changedSnapshots = snapshots.filter((snapshot) => {
+            if (!snapshot.hasCurrent || snapshot.frameId < 0) {
+              return false;
+            }
+
+            const currentFrameId = readNumericFrameId(latestVisualFramesRef.current[snapshot.cameraId]);
+            if (currentFrameId !== null && BigInt(snapshot.frameId) < currentFrameId) {
+              return false;
+            }
+
+            const version = `${snapshot.frameId}:${snapshot.updatedAtMs}`;
+            if (snapshotVersionByCameraIdRef.current[snapshot.cameraId] === version) {
+              return false;
+            }
+
+            snapshotVersionByCameraIdRef.current[snapshot.cameraId] = version;
+            return true;
+          });
+
+          if (changedSnapshots.length === 0) {
+            return;
+          }
+
+          setImageUrlsByCameraId((currentUrls) => {
+            const nextUrls = { ...currentUrls };
+            for (const snapshot of changedSnapshots) {
+              const imageUrl = createSnapshotImageUrl(snapshot);
+              if (imageUrl) {
+                nextUrls[snapshot.cameraId] = imageUrl;
+              }
+            }
+            return nextUrls;
+          });
+          setFrameTimesByCameraId((currentTimes) => {
+            const nextTimes = { ...currentTimes };
+            for (const snapshot of changedSnapshots) {
+              nextTimes[snapshot.cameraId] = freshnessNowRef.current;
+            }
+            return nextTimes;
+          });
+        })
+        .finally(() => {
+          cameraSnapshotRequestInFlightRef.current = false;
+        });
+    };
+
+    refreshCameraSnapshots();
+    const intervalId = window.setInterval(refreshCameraSnapshots, CAMERA_SNAPSHOT_POLL_MS);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [cameraIds]);
 
   useEffect(() => {
     isPreviewPausedRef.current = isPreviewPaused;

@@ -203,6 +203,7 @@ integration:
   worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
   worker_named_pipe_connect_timeout_ms: 3000
+  worker_command_timeout_ms: 7000
   # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
   light_server_startup_delay_ms: 8000
   # Один кадр с камеры: N раз выставить эталон в Python из того же SHM, затем один capture и M прогонов geometry+python+решение на тех же пикселях.

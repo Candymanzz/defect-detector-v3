@@ -12,6 +12,20 @@ function Stop-PidSafe([int]$ProcessId) {
     }
 }
 
+function Stop-WorkspaceCameraWorkers {
+    $CameraWorkerRoot = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot "camera-worker"))
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -like "camera_worker*" -and
+            $_.ExecutablePath -and
+            [System.IO.Path]::GetFullPath($_.ExecutablePath).StartsWith(
+                $CameraWorkerRoot,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )
+        } |
+        ForEach-Object { Stop-PidSafe $_.ProcessId }
+}
+
 if (Test-Path $PidFile) {
     $pids = Get-Content $PidFile -Raw | ConvertFrom-Json
     Stop-PidSafe $pids.python
@@ -25,6 +39,8 @@ foreach ($port in @(8000, 8099, 8765, 5173, 5079, 5080, 8088)) {
     Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
         ForEach-Object { Stop-PidSafe $_.OwningProcess }
 }
+
+Stop-WorkspaceCameraWorkers
 
 if (-not $Quiet) {
     Write-Host "Dev-стек остановлен." -ForegroundColor Green

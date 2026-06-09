@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent } from "react";
 import {
   createSettingErrorData,
   INITIAL_SETTING_DATA,
   loadSettingData,
-  saveSettingData,
-  SAVING_SETTING_STATUS,
+  saveAnalysisSettingData,
+  saveBrightnessSetting,
+  saveGeometrySetting,
   updateAnalysisSettingField,
   updateSettingField,
 } from "./SettingController";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
 import { Button } from "../../shared/ui/Button";
-import type { AnalysisSettingFieldName, SettingFieldName } from "./type";
+import { errorMessage } from "../../shared/lib/errors";
+import type { AnalysisSettingFieldName, SettingData, SettingFieldName } from "./type";
 import "./SettingList.css";
 
 const SETTINGS_STREAM_CAMERA_ID = 0;
+type SavingSection = "brightness" | "geometry" | "analysis";
 
 const ANALYSIS_SETTING_FIELDS: Array<{
   name: AnalysisSettingFieldName;
@@ -52,11 +55,12 @@ type SettingListProps = {
 
 export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
+  const [savingSection, setSavingSection] = useState<SavingSection | null>(null);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
   const settingsRequestIdRef = useRef(0);
 
-  const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
+  const isBusy = settingData.status.state === "loading" || savingSection !== null;
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
@@ -76,6 +80,7 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
           return;
         }
 
+        setSavingSection(null);
         setSettingData(nextSettingData);
       });
 
@@ -102,21 +107,49 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
     }));
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const formToSave = settingData.form;
+  const runSave = <T,>(
+    section: SavingSection,
+    operation: () => Promise<T>,
+    applyResult: (currentSettingData: SettingData, result: T) => SettingData,
+  ) => {
     const requestId = ++settingsRequestIdRef.current;
+    setSavingSection(section);
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
-      status: SAVING_SETTING_STATUS,
+      status: {
+        state: "saving",
+        text: "сохранение",
+      },
     }));
 
-    saveSettingData(formToSave, selectedCameraId)
-      .catch((error) => createSettingErrorData(error, formToSave))
-      .then((nextSettingData) => {
+    operation()
+      .then((result) => {
+        if (requestId !== settingsRequestIdRef.current) {
+          return;
+        }
+        setSettingData((currentSettingData) => ({
+          ...applyResult(currentSettingData, result),
+          status: {
+            state: "ready",
+            text: "сохранено",
+          },
+        }));
+      })
+      .catch((error) => {
+        if (requestId !== settingsRequestIdRef.current) {
+          return;
+        }
+        setSettingData((currentSettingData) => ({
+          ...currentSettingData,
+          status: {
+            state: "error",
+            text: errorMessage(error),
+          },
+        }));
+      })
+      .finally(() => {
         if (requestId === settingsRequestIdRef.current) {
-          setSettingData(nextSettingData);
+          setSavingSection(null);
         }
       });
   };
@@ -133,7 +166,7 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
 
       <form
         className="setting-list__form"
-        onSubmit={handleSubmit}
+        onSubmit={(event) => event.preventDefault()}
       >
         <label className="setting-list__field-light">
           <span>Яркость света</span>
@@ -160,6 +193,27 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
             />
           </div>
         </label>
+        <Button
+          type="button"
+          disabled={isBusy}
+          fullWidth
+          variant="primary"
+          onClick={() =>
+            runSave(
+              "brightness",
+              () => saveBrightnessSetting(settingData.form.brightnessPercent, selectedCameraId),
+              (currentSettingData, brightnessPercent) => ({
+                ...currentSettingData,
+                form: {
+                  ...currentSettingData.form,
+                  brightnessPercent,
+                },
+              }),
+            )
+          }
+        >
+          {savingSection === "brightness" ? "Сохранение..." : "Сохранить яркость"}
+        </Button>
 
         <label className="setting-list__field">
           <span>Макс. смещение, мм</span>
@@ -173,6 +227,27 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
             onChange={handleFieldChange("maxShiftMm")}
           />
         </label>
+        <Button
+          type="button"
+          disabled={isBusy}
+          fullWidth
+          variant="primary"
+          onClick={() =>
+            runSave(
+              "geometry",
+              () => saveGeometrySetting(settingData.form.maxShiftMm),
+              (currentSettingData, maxShiftMm) => ({
+                ...currentSettingData,
+                form: {
+                  ...currentSettingData.form,
+                  maxShiftMm,
+                },
+              }),
+            )
+          }
+        >
+          {savingSection === "geometry" ? "Сохранение..." : "Сохранить геометрию"}
+        </Button>
 
         <section className="setting-list__analysis">
           <div className="setting-list__section-header">
@@ -205,16 +280,30 @@ export function SettingList({ selectedCameraId, onPreviewPauseChange }: SettingL
               </label>
             ))}
           </div>
+          <Button
+            type="button"
+            disabled={isBusy}
+            fullWidth
+            variant="primary"
+            onClick={() =>
+              runSave(
+                "analysis",
+                () => saveAnalysisSettingData(settingData.form.analysisSettings, selectedCameraId),
+                (currentSettingData, result) => ({
+                  ...currentSettingData,
+                  form: {
+                    ...currentSettingData.form,
+                    analysisSettings: result.analysisSettings,
+                  },
+                  analysisProductTypes: result.analysisProductTypes,
+                }),
+              )
+            }
+          >
+            {savingSection === "analysis" ? "Сохранение..." : "Сохранить настройки анализа"}
+          </Button>
         </section>
 
-        <Button
-          type="submit"
-          disabled={isBusy}
-          fullWidth
-          variant="primary"
-        >
-          Сохранить настройки
-        </Button>
         <Button
           type="button"
           disabled={isBusy}
