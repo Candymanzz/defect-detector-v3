@@ -59,11 +59,12 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
     orchestratorApi.getGeometryRuntime(),
     loadAnalysisProductTypes(),
   ]);
-  const analysisProductType = await resolveAnalysisProductType(selectedCameraId, analysisProductTypes);
-  const analysisSettings = await orchestratorApi
-    .getAnalysisSettings(analysisProductType)
-    .then((response) => response.settings)
+  const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes)
     .catch(() => DEFAULT_ANALYSIS_SETTINGS);
+  const analysisSettings =
+    "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;
+  const resolvedProductTypes =
+    "product_type" in analysisResponse ? [analysisResponse.product_type] : analysisProductTypes;
 
   return {
     status: {
@@ -75,7 +76,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       maxShiftMm: readMaxShiftMm(geometryRuntime),
       analysisSettings,
     },
-    analysisProductTypes,
+    analysisProductTypes: resolvedProductTypes,
   };
 }
 
@@ -86,16 +87,19 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
     orchestratorApi.getLightBrightness(),
     loadAnalysisProductTypes(),
   ]);
-  const productTypesToSave = await resolveAnalysisProductTypesToSave(selectedCameraId, analysisProductTypes);
+  const analysisSaveRequests =
+    selectedCameraId === null
+      ? resolveAnalysisProductTypesToSave(analysisProductTypes).map((productType) =>
+          orchestratorApi.setAnalysisSettings(productType, normalizedForm.analysisSettings),
+        )
+      : [orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings)];
 
   await Promise.all([
     orchestratorApi.setLightBrightness(
       createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedForm.brightnessPercent),
     ),
     orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm)),
-    ...productTypesToSave.map((productType) =>
-      orchestratorApi.setAnalysisSettings(productType, normalizedForm.analysisSettings),
-    ),
+    ...analysisSaveRequests,
   ]);
 
   const nextData = await loadSettingData(selectedCameraId);
@@ -107,12 +111,19 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
       brightnessPercent: normalizedForm.brightnessPercent,
       analysisSettings: normalizedForm.analysisSettings,
     },
-    analysisProductTypes: productTypesToSave,
     status: {
       state: "ready",
       text: "сохранено",
     },
   };
+}
+
+function loadAnalysisSettings(selectedCameraId: number | null, fallbackProductTypes: string[]) {
+  if (selectedCameraId !== null) {
+    return orchestratorApi.getCameraAnalysisSettings(selectedCameraId);
+  }
+
+  return orchestratorApi.getAnalysisSettings(fallbackProductTypes[0] ?? FALLBACK_ANALYSIS_PRODUCT_TYPE);
 }
 
 export function createSettingErrorData(error: unknown, form: SettingForm = INITIAL_SETTING_FORM): SettingData {
@@ -292,26 +303,7 @@ async function loadAnalysisProductTypes() {
   }
 }
 
-async function resolveAnalysisProductType(selectedCameraId: number | null, fallbackProductTypes: string[]) {
-  if (selectedCameraId !== null) {
-    try {
-      const snapshot = await orchestratorApi.getLatestSnapshot(selectedCameraId);
-      if (snapshot.productType.trim()) {
-        return snapshot.productType;
-      }
-    } catch {
-      // fall through to shared fallback
-    }
-  }
-
-  return fallbackProductTypes[0] ?? FALLBACK_ANALYSIS_PRODUCT_TYPE;
-}
-
-async function resolveAnalysisProductTypesToSave(selectedCameraId: number | null, fallbackProductTypes: string[]) {
-  if (selectedCameraId !== null) {
-    return [await resolveAnalysisProductType(selectedCameraId, fallbackProductTypes)];
-  }
-
+function resolveAnalysisProductTypesToSave(fallbackProductTypes: string[]) {
   return fallbackProductTypes.length > 0 ? fallbackProductTypes : [FALLBACK_ANALYSIS_PRODUCT_TYPE];
 }
 
