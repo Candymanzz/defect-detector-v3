@@ -24,10 +24,16 @@ export function useReferenceRoi(initialJointViewIndex: number | null = null) {
   const hasRequiredJointRoi = isValidRoiPolygon(jointRoiPolygon);
 
   const setRoiPolygonForCamera = (cameraId: number, points: InterestPointNorm[]) => {
+    const targetCameraId = clampReferenceCameraId(cameraId);
+
     setRoiPolygonsByCameraId((prev) => ({
       ...prev,
-      [cameraId]: points,
+      [targetCameraId]: copyRoiPolygon(points),
     }));
+  };
+
+  const setJointRoi = (points: InterestPointNorm[]) => {
+    setJointRoiPolygon(copyRoiPolygon(points));
   };
 
   const setSelectedCameraId = (cameraId: number) => {
@@ -51,10 +57,17 @@ export function useReferenceRoi(initialJointViewIndex: number | null = null) {
     selectedCameraId,
     selectedRoiMode,
     selectJointRoi,
-    setJointRoiPolygon,
+    setJointRoiPolygon: setJointRoi,
     setRoiPolygonForCamera,
     setSelectedCameraId,
   };
+}
+
+function copyRoiPolygon(points: InterestPointNorm[]) {
+  return points.map((point) => ({
+    x: point.x,
+    y: point.y,
+  }));
 }
 
 function clampReferenceCameraId(cameraId: number) {

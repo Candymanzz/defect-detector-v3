@@ -30,6 +30,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
     setRoiPolygonForCamera,
   } = useReferenceSetupController(onClose, initialJointViewIndex);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
+  const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
     selectedRoiMode === "joint" ? jointRoiPolygon : (roiPolygonsByCameraId[selectedCameraId] ?? []);
   const storedReferenceImage = useSyncExternalStore(
@@ -83,6 +84,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
             <div className="reference-setup__editor">
               {selectedSlot?.imageUrl && (
                 <RoiContourEditor
+                  key={editorKey}
                   imageUrl={selectedSlot.imageUrl}
                   points={selectedEditorPoints}
                   onChange={(points) => {
@@ -91,7 +93,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
                       return;
                     }
 
-                    setRoiPolygonForCamera(selectedCameraId, points);
+                    setRoiPolygonForCamera(selectedSlot.cameraId, points);
                   }}
                 />
               )}
