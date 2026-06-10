@@ -56,6 +56,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   const requestIdRef = useRef(0);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
+  const canEditSettings = settingData.status.state === "ready";
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "All camera products" : `Camera ${selectedCameraId} product`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
@@ -108,6 +109,10 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (!canEditSettings) {
+      return;
+    }
+
     const formToSave = settingData.form;
     const requestId = ++requestIdRef.current;
     setSettingData((currentSettingData) => ({
@@ -125,6 +130,10 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   };
 
   const handleBrightnessSave = () => {
+    if (!canEditSettings) {
+      return;
+    }
+
     const { form, analysisProductTypes } = settingData;
     const requestId = ++requestIdRef.current;
     setSettingData((currentSettingData) => ({
@@ -171,7 +180,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
               max="100"
               step="1"
               value={settingData.form.brightnessPercent}
-              disabled={isBusy}
+              disabled={!canEditSettings}
               onChange={handleFieldChange("brightnessPercent")}
             />
             <input
@@ -181,14 +190,14 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
               max="100"
               step="1"
               value={settingData.form.brightnessPercent}
-              disabled={isBusy}
+              disabled={!canEditSettings}
               onChange={handleFieldChange("brightnessPercent")}
             />
           </label>
           <button
             className="setting-list__brightness-save"
             type="button"
-            disabled={isBusy}
+            disabled={!canEditSettings}
             onClick={handleBrightnessSave}
           >
             Сохранить яркость
@@ -203,7 +212,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
             max="100"
             step="0.01"
             value={settingData.form.maxShiftMm}
-            disabled={isBusy}
+            disabled={!canEditSettings}
             onChange={handleFieldChange("maxShiftMm")}
           />
         </label>
@@ -233,7 +242,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
                     field.type === "checkbox" ? Boolean(settingData.form.analysisSettings[field.name]) : undefined
                   }
                   value={field.type === "number" ? Number(settingData.form.analysisSettings[field.name]) : undefined}
-                  disabled={isBusy}
+                  disabled={!canEditSettings}
                   onChange={handleAnalysisFieldChange(field.name)}
                 />
               </label>
@@ -245,7 +254,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           <button
             className="setting-list__submit"
             type="submit"
-            disabled={isBusy}
+            disabled={!canEditSettings}
           >
             Сохранить настройки
           </button>

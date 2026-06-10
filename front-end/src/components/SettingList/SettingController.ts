@@ -84,8 +84,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
     orchestratorApi.getGeometryRuntime(),
     loadAnalysisProductTypes(),
   ]);
-  const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes)
-    .catch(() => DEFAULT_ANALYSIS_SETTINGS);
+  const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
   const analysisSettings =
     "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;
   const resolvedProductTypes =
