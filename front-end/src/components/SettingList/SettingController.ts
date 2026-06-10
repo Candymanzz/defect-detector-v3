@@ -53,6 +53,31 @@ export const SAVING_SETTING_STATUS: SettingStatus = {
   text: "сохранение",
 };
 
+export async function saveBrightnessData(
+  form: SettingForm,
+  analysisProductTypes: string[],
+  selectedCameraId: number | null = null,
+): Promise<SettingData> {
+  const brightnessPercent = clampBrightness(form.brightnessPercent);
+  const lightBrightness = await orchestratorApi.getLightBrightness();
+
+  await orchestratorApi.setLightBrightness(
+    createBrightnessUpdate(lightBrightness, selectedCameraId, brightnessPercent),
+  );
+
+  return {
+    status: {
+      state: "ready",
+      text: "яркость сохранена",
+    },
+    form: {
+      ...form,
+      brightnessPercent,
+    },
+    analysisProductTypes,
+  };
+}
+
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
   const [lightBrightness, geometryRuntime, analysisProductTypes] = await Promise.all([
     orchestratorApi.getLightBrightness(),
@@ -82,9 +107,8 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
 
 export async function saveSettingData(form: SettingForm, selectedCameraId: number | null = null): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
-  const [geometryRuntime, lightBrightness, analysisProductTypes] = await Promise.all([
+  const [geometryRuntime, analysisProductTypes] = await Promise.all([
     orchestratorApi.getGeometryRuntime(),
-    orchestratorApi.getLightBrightness(),
     loadAnalysisProductTypes(),
   ]);
   const analysisSaveRequests =
@@ -95,9 +119,6 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
       : [orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings)];
 
   await Promise.all([
-    orchestratorApi.setLightBrightness(
-      createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedForm.brightnessPercent),
-    ),
     orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm)),
     ...analysisSaveRequests,
   ]);

@@ -26,11 +26,10 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
   const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
-  const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
+  const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
 
-  const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId);
-  const modalCameraImageUrl = selectedCamera ? imageUrlsByCameraId[selectedCamera.cameraId] : undefined;
+  const cameraCards = createCameraCards(cameraIds, previewImageUrlsByCameraId);
 
   useEffect(() => {
     let isActive = true;
@@ -53,18 +52,18 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
   useEffect(() => {
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
-      if (message.type !== "server.preview_frame" && message.type !== "server.inspect_result") {
+      if (message.type === "server.preview_frame") {
+        const previewFrame = message.payload;
+        const imageUrl = createWsFrameImageUrl(previewFrame);
+
+        if (imageUrl) {
+          setPreviewImageUrlsByCameraId((previousImageUrls) => ({
+            ...previousImageUrls,
+            [previewFrame.camera_id]: imageUrl,
+          }));
+        }
+
         return;
-      }
-
-      const frame = message.payload;
-      const imageUrl = createWsFrameImageUrl(frame);
-
-      if (imageUrl) {
-        setImageUrlsByCameraId((prevImageUrls) => ({
-          ...prevImageUrls,
-          [frame.camera_id]: imageUrl,
-        }));
       }
 
       if (message.type === "server.inspect_result") {
@@ -90,7 +89,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       aria-label="Camera frames"
     >
       <div className="backend-status-row">
-        <span>Backend</span>
+        <span>Status</span>
         <strong data-status={backendStatus.state}>{backendStatus.text}</strong>
       </div>
 
@@ -112,7 +111,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         <ModalWrapper
           isOpen
           cameraId={selectedCamera.cameraId}
-          cameraImageUrl={modalCameraImageUrl}
           headerActions={
             <button
               className="modal__action"

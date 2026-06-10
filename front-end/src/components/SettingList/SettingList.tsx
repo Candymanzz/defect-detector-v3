@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   createSettingErrorData,
   INITIAL_SETTING_DATA,
   loadSettingData,
+  saveBrightnessData,
   saveSettingData,
   SAVING_SETTING_STATUS,
   updateAnalysisSettingField,
@@ -52,19 +53,29 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
+  const requestIdRef = useRef(0);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "All camera products" : `Camera ${selectedCameraId} product`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
 
+  useLayoutEffect(() => {
+    requestIdRef.current += 1;
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [selectedCameraId]);
+
   useEffect(() => {
     let isActive = true;
+    const requestId = requestIdRef.current;
 
     loadSettingData(selectedCameraId)
       .catch(createSettingErrorData)
       .then((nextSettingData) => {
-        if (!isActive) {
+        if (!isActive || requestId !== requestIdRef.current) {
           return;
         }
 
@@ -98,6 +109,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
     event.preventDefault();
 
     const formToSave = settingData.form;
+    const requestId = ++requestIdRef.current;
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       status: SAVING_SETTING_STATUS,
@@ -105,7 +117,31 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
     saveSettingData(formToSave, selectedCameraId)
       .catch((error) => createSettingErrorData(error, formToSave))
-      .then(setSettingData);
+      .then((nextSettingData) => {
+        if (requestId === requestIdRef.current) {
+          setSettingData(nextSettingData);
+        }
+      });
+  };
+
+  const handleBrightnessSave = () => {
+    const { form, analysisProductTypes } = settingData;
+    const requestId = ++requestIdRef.current;
+    setSettingData((currentSettingData) => ({
+      ...currentSettingData,
+      status: SAVING_SETTING_STATUS,
+    }));
+
+    saveBrightnessData(form, analysisProductTypes, selectedCameraId)
+      .catch((error) => ({
+        ...createSettingErrorData(error, form),
+        analysisProductTypes,
+      }))
+      .then((nextSettingData) => {
+        if (requestId === requestIdRef.current) {
+          setSettingData(nextSettingData);
+        }
+      });
   };
 
   return (
@@ -122,10 +158,13 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
         className="setting-list__form"
         onSubmit={handleSubmit}
       >
-        <label className="setting-list__field-light">
-          <span>Яркость света</span>
-          <strong className="setting-list__scope">{brightnessScopeText}</strong>
-          <div className="setting-list__control-row">
+        <section className="setting-list__card setting-list__brightness">
+          <div className="setting-list__card-header">
+            <span>Яркость света</span>
+            <strong className="setting-list__scope">{brightnessScopeText}</strong>
+          </div>
+          <label className="setting-list__control-row">
+            <span className="setting-list__visually-hidden">Уровень яркости</span>
             <input
               type="range"
               min="0"
@@ -145,10 +184,18 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
               disabled={isBusy}
               onChange={handleFieldChange("brightnessPercent")}
             />
-          </div>
-        </label>
+          </label>
+          <button
+            className="setting-list__brightness-save"
+            type="button"
+            disabled={isBusy}
+            onClick={handleBrightnessSave}
+          >
+            Сохранить яркость
+          </button>
+        </section>
 
-        <label className="setting-list__field">
+        <label className="setting-list__field setting-list__card">
           <span>Макс. смещение, мм</span>
           <input
             type="number"
@@ -194,29 +241,31 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           </div>
         </section>
 
-        <button
-          className="setting-list__submit"
-          type="submit"
-          disabled={isBusy}
-        >
-          Сохранить
-        </button>
-        <button
-          className="setting-list__submit setting-list__submit--secondary"
-          type="button"
-          disabled={isBusy}
-          onClick={() => setIsReferenceSetupOpen(true)}
-        >
-          Задать эталон
-        </button>
-        <button
-          className="setting-list__submit setting-list__submit--secondary"
-          type="button"
-          disabled={isBusy}
-          onClick={() => setIsServerStreamOpen(true)}
-        >
-          Открыть стрим
-        </button>
+        <div className="setting-list__actions">
+          <button
+            className="setting-list__submit"
+            type="submit"
+            disabled={isBusy}
+          >
+            Сохранить настройки
+          </button>
+          <button
+            className="setting-list__submit setting-list__submit--secondary"
+            type="button"
+            disabled={isBusy}
+            onClick={() => setIsReferenceSetupOpen(true)}
+          >
+            Задать эталон
+          </button>
+          <button
+            className="setting-list__submit setting-list__submit--secondary"
+            type="button"
+            disabled={isBusy}
+            onClick={() => setIsServerStreamOpen(true)}
+          >
+            Открыть стрим
+          </button>
+        </div>
       </form>
 
       {isReferenceSetupOpen && (
