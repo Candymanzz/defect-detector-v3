@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { UiLatestSnapshot } from "../../shared/api/types";
 import type { PreviewFramePayload } from "../../shared/ws";
@@ -8,6 +8,8 @@ import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./reference
 export function useReferenceFrames() {
   const liveFramesByCameraIdRef = useRef<Record<number, PreviewFramePayload>>({});
   const liveImageUrlsByCameraIdRef = useRef<Record<number, string>>({});
+  const lockedCameraIdsRef = useRef<Record<number, boolean>>({});
+  const pendingCameraIdsRef = useRef<Record<number, boolean>>({});
   const [framesByCameraId, setFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<Record<number, string>>({});
   const [snapshotImageUrlsByCameraId, setSnapshotImageUrlsByCameraId] = useState<Record<number, string>>({});
@@ -41,6 +43,8 @@ export function useReferenceFrames() {
         setSnapshotImageUrlsByCameraId,
         setFramesByCameraId,
         setImageUrlsByCameraId,
+        lockedCameraIdsRef,
+        pendingCameraIdsRef,
       );
 
       return snapshotLoaded
@@ -77,6 +81,8 @@ export function useReferenceFrames() {
           setSnapshotImageUrlsByCameraId,
           setFramesByCameraId,
           setImageUrlsByCameraId,
+          lockedCameraIdsRef,
+          pendingCameraIdsRef,
         );
 
         if (snapshotLoaded) {
@@ -102,21 +108,45 @@ export function useReferenceFrames() {
       ...liveFramesByCameraIdRef.current,
       [previewFrame.camera_id]: previewFrame,
     };
-    if (nextImageUrl) {
-      liveImageUrlsByCameraIdRef.current = {
-        ...liveImageUrlsByCameraIdRef.current,
-        [previewFrame.camera_id]: nextImageUrl,
-      };
+    const cameraId = previewFrame.camera_id;
+    const isRequiredCamera = REFERENCE_REQUIRED_CAMERA_IDS.includes(
+      cameraId as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number],
+    );
 
-      if (REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
-        lockInitialReferenceFrame(
-          previewFrame.camera_id,
-          previewFrame,
-          nextImageUrl,
-          setFramesByCameraId,
-          setImageUrlsByCameraId,
-        );
-      }
+    if (
+      nextImageUrl &&
+      isRequiredCamera &&
+      !lockedCameraIdsRef.current[cameraId] &&
+      !pendingCameraIdsRef.current[cameraId]
+    ) {
+      pendingCameraIdsRef.current[cameraId] = true;
+
+      void freezeImageUrl(nextImageUrl)
+        .then((frozenImageUrl) => {
+          if (lockedCameraIdsRef.current[cameraId]) {
+            URL.revokeObjectURL(frozenImageUrl);
+            return;
+          }
+
+          liveImageUrlsByCameraIdRef.current = {
+            ...liveImageUrlsByCameraIdRef.current,
+            [cameraId]: frozenImageUrl,
+          };
+          lockInitialReferenceFrame(
+            cameraId,
+            previewFrame,
+            frozenImageUrl,
+            setFramesByCameraId,
+            setImageUrlsByCameraId,
+          );
+          lockedCameraIdsRef.current[cameraId] = true;
+        })
+        .catch(() => {
+          // A snapshot fallback can still provide a reference frame.
+        })
+        .finally(() => {
+          delete pendingCameraIdsRef.current[cameraId];
+        });
     }
   }, []);
 
@@ -163,7 +193,15 @@ async function loadSnapshotImage(
   setSnapshotImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
+  lockedCameraIdsRef: MutableRefObject<Record<number, boolean>>,
+  pendingCameraIdsRef: MutableRefObject<Record<number, boolean>>,
 ) {
+  if (lockedCameraIdsRef.current[cameraId] || pendingCameraIdsRef.current[cameraId]) {
+    return false;
+  }
+
+  pendingCameraIdsRef.current[cameraId] = true;
+
   try {
     const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
 
@@ -171,8 +209,15 @@ async function loadSnapshotImage(
       return false;
     }
 
-    const imageUrl = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
+    const sourceImageUrl = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
+    const imageUrl = await freezeImageUrl(sourceImageUrl);
 
+    if (lockedCameraIdsRef.current[cameraId]) {
+      URL.revokeObjectURL(imageUrl);
+      return false;
+    }
+
+    lockedCameraIdsRef.current[cameraId] = true;
     setSnapshotImageUrlsByCameraId((prevImageUrls) => ({
       ...prevImageUrls,
       [cameraId]: imageUrl,
@@ -191,6 +236,8 @@ async function loadSnapshotImage(
     return true;
   } catch {
     return false;
+  } finally {
+    delete pendingCameraIdsRef.current[cameraId];
   }
 }
 
@@ -247,4 +294,16 @@ function lockInitialReferenceFrame(
       [cameraId]: imageUrl,
     };
   });
+}
+
+async function freezeImageUrl(imageUrl: string) {
+  const response = await fetch(imageUrl, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to freeze reference image: HTTP ${response.status}`);
+  }
+
+  return URL.createObjectURL(await response.blob());
 }

@@ -21,8 +21,8 @@ export function commitReferenceBundleImages(
   bundle.views.forEach((view) => {
     const cameraId = view.frame.camera_id;
     const baseImageUrl =
-      createFrameImageUrl(view.frame) ??
-      fallbackImageUrlsByCameraId[cameraId];
+      fallbackImageUrlsByCameraId[cameraId] ??
+      createFrameImageUrl(view.frame);
 
     if (baseImageUrl) {
       const referenceImage = {
@@ -38,6 +38,16 @@ export function commitReferenceBundleImages(
     return;
   }
 
+  referenceImagesByCameraId.forEach((referenceImage) => {
+    if (
+      referenceImage.imageUrl.startsWith("blob:") &&
+      !Array.from(nextReferenceImagesByCameraId.values()).some(
+        (nextReferenceImage) => nextReferenceImage.imageUrl.startsWith(referenceImage.imageUrl),
+      )
+    ) {
+      URL.revokeObjectURL(referenceImage.imageUrl.split("?")[0]);
+    }
+  });
   referenceImagesByCameraId.clear();
   nextReferenceImagesByCameraId.forEach((referenceImage, cameraId) => {
     referenceImagesByCameraId.set(cameraId, referenceImage);
@@ -80,6 +90,10 @@ function createFrameImageUrl(frame: ShmFrameRefData) {
 }
 
 function versionReferenceImageUrl(imageUrl: string, version: number) {
+  if (imageUrl.startsWith("blob:")) {
+    return imageUrl;
+  }
+
   const separator = imageUrl.includes("?") ? "&" : "?";
   return `${imageUrl}${separator}reference_ts=${version}`;
 }
