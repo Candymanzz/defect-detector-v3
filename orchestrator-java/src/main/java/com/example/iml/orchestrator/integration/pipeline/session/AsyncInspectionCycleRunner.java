@@ -147,7 +147,14 @@ public final class AsyncInspectionCycleRunner {
 
         if (timeoutMs > 0) {
             try {
-                decisionFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
+                // SLA timeout applies only until python stage completion.
+                pythonFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
+                // Decision/fan-out stays outside timeout window.
+                decisionFuture.join();
+            } catch (TimeoutException e) {
+                pythonFuture.cancel(true);
+                decisionFuture.cancel(true);
+                throw e;
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause() == null ? e : e.getCause();
                 if (cause instanceof RuntimeException runtime) {

@@ -177,8 +177,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                     new byte[0]
             );
         }
+        int cameraId = YamlScalars.toInt(view.get("camera_id"), YamlScalars.toInt(header.get("camera_id"), -1));
+        String scopedProductType = scopedProductType(productType, cameraId);
         Map<String, Object> refHdr = new LinkedHashMap<>(view);
-        refHdr.put("product_type", productType);
+        refHdr.put("product_type", scopedProductType);
+        refHdr.put("camera_id", cameraId);
         BinaryProtocol.Message refResp = uploadRefShm(refHdr);
         if (refResp.type() == BinaryProtocol.MSG_ERROR) {
             return refResp;
@@ -204,12 +207,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             }
         }
         if (points != null && points.size() >= 3) {
-            int cameraId = YamlScalars.toInt(view.get("camera_id"), YamlScalars.toInt(header.get("camera_id"), -1));
             String roiKey = runtimeKey(productType, cameraId);
             String signature = roiSignature(points);
             if (!signature.equals(lastRoiSignatureByKey.get(roiKey))) {
                 Map<String, Object> roiBody = new LinkedHashMap<>();
-                roiBody.put("product_type", productType);
+                roiBody.put("product_type", scopedProductType);
                 roiBody.put("points", points);
                 appendAlgorithmParams(roiBody, header);
                 HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
@@ -223,6 +225,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (fp instanceof List<?> list && !list.isEmpty()) {
             Map<String, Object> fpHdr = new LinkedHashMap<>(header);
             fpHdr.put("op", "replace_fp_zones");
+            fpHdr.put("product_type", scopedProductType);
+            fpHdr.put("camera_id", cameraId);
             BinaryProtocol.Message fpResp = replaceFpZones(fpHdr);
             if (fpResp.type() == BinaryProtocol.MSG_ERROR) {
                 return fpResp;
@@ -336,17 +340,18 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (referenceResponse != null && referenceResponse.type() == BinaryProtocol.MSG_ERROR) {
             return referenceResponse;
         }
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String originalProductType = String.valueOf(header.get("product_type"));
+        String scopedProductType = scopedProductType(originalProductType, cameraId);
         Object poly = header.get("roi_polygon_norm");
         if (poly instanceof List<?> list && list.size() >= 3) {
-            String productType = String.valueOf(header.get("product_type"));
-            int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
-            String roiKey = runtimeKey(productType, cameraId);
+            String roiKey = runtimeKey(originalProductType, cameraId);
             List<Map<String, Object>> points = normalizeRoiPoints(list);
             if (points.size() >= 3) {
                 String signature = roiSignature(points);
                 if (!signature.equals(lastRoiSignatureByKey.get(roiKey))) {
                     Map<String, Object> roiBody = new LinkedHashMap<>();
-                    roiBody.put("product_type", productType);
+                    roiBody.put("product_type", scopedProductType);
                     roiBody.put("points", points);
                     appendAlgorithmParams(roiBody, header);
                     HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
@@ -375,7 +380,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return errorMessageToMsg(resp, "inspect-shm");
         }
         Map<String, Object> json = readJson(resp.body());
-        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, inspectJsonToStdioHeader(json), new byte[0]);
+        Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
+        pyHeader.put("product_type", originalProductType);
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
     }
 
     private BinaryProtocol.Message uploadInspectionReference(Map<String, Object> header) throws IOException {
@@ -385,6 +392,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         String productType = String.valueOf(header.get("product_type"));
         int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String scopedProductType = scopedProductType(productType, cameraId);
         String expectedSignature = referenceSignature(
                 String.valueOf(referenceShmName),
                 header.get("reference_shm_offset"),
@@ -398,7 +406,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
 
         Map<String, Object> referenceHeader = new LinkedHashMap<>();
-        referenceHeader.put("product_type", productType);
+        referenceHeader.put("product_type", scopedProductType);
         referenceHeader.put("detector_id", header.get("detector_id"));
         referenceHeader.put("camera_id", cameraId);
         referenceHeader.put("shm_name", referenceShmName);
@@ -558,11 +566,12 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private Map<String, Object> shmFrameJson(Map<String, Object> header) {
         Map<String, Object> body = new LinkedHashMap<>();
-        copyIfPresent(body, header, "product_type");
+        String productType = String.valueOf(header.getOrDefault("product_type", ""));
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        body.put("product_type", scopedProductType(productType, cameraId));
         Object shmName = header.get("shm_name");
         if (shmName != null) {
-            int cam = YamlScalars.toInt(header.get("camera_id"), -1);
-            String logical = logicalShmNameForHttp(String.valueOf(shmName), cam);
+            String logical = logicalShmNameForHttp(String.valueOf(shmName), cameraId);
             body.put("shm_name", logical);
         }
         copyIfPresent(body, header, "width");
@@ -813,7 +822,22 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private static String runtimeKey(String productType, int cameraId) {
         String normalizedProductType = productType == null ? "" : productType.trim();
+        if (normalizedProductType.contains("#cam=")) {
+            return normalizedProductType;
+        }
         return normalizedProductType + "#cam=" + cameraId;
+    }
+
+    private static String scopedProductType(String productType, int cameraId) {
+        String normalized = productType == null ? "" : productType.trim();
+        if (normalized.isEmpty() || cameraId < 0) {
+            return normalized;
+        }
+        String suffix = "#cam=" + cameraId;
+        if (normalized.endsWith(suffix)) {
+            return normalized;
+        }
+        return normalized + suffix;
     }
 
     private static String referenceSignature(
