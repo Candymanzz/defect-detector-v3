@@ -208,7 +208,7 @@ integration:
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
   worker_named_pipe_connect_timeout_ms: 3000
   # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
-  light_server_startup_delay_ms: 8000
+  # light_server_startup_delay_ms: 8000
   # Макс. длительность одного цикла инспекции на камеру (capture→fanout); при превышении — сброс in-flight.
   inspection_cycle_timeout_ms: 4000
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
@@ -274,16 +274,16 @@ integration:
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
   # LightServer.v3 — COM IO + MV-LE на одном порту.
-  light_server_command_windows:
-    - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5080"
-  light_server_command_linux:
-    - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5080"
+  # light_server_command_windows:
+  #   - "dotnet"
+  #   - "exec"
+  #   - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
+  #   - "--urls"
+  #   - "http://127.0.0.1:5080"
+  # light_server_command_linux:
+  #   - "dotnet"
+  #   - "exec"
+  #   - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
+  #   - "--urls"
+  #   - "http://127.0.0.1:5080"
 
