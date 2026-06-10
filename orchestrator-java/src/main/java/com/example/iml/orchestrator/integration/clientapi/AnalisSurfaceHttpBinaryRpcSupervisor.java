@@ -18,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,6 +66,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private final String name;
     private final String baseUrl;
     private final int commandTimeoutMs;
+    private final ConcurrentHashMap<String, String> lastReferenceSignatureByKey = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> lastRoiSignatureByKey = new ConcurrentHashMap<>();
     private int restartCount;
 
     public AnalisSurfaceHttpBinaryRpcSupervisor(String name, String baseUrl, int commandTimeoutMs) {
@@ -201,13 +204,19 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             }
         }
         if (points != null && points.size() >= 3) {
-            Map<String, Object> roiBody = new LinkedHashMap<>();
-            roiBody.put("product_type", productType);
-            roiBody.put("points", points);
-            appendAlgorithmParams(roiBody, header);
-            HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
-            if (roiResp.statusCode() / 100 != 2) {
-                return errorMessageToMsg(roiResp, "roi-polygon");
+            int cameraId = YamlScalars.toInt(view.get("camera_id"), YamlScalars.toInt(header.get("camera_id"), -1));
+            String roiKey = runtimeKey(productType, cameraId);
+            String signature = roiSignature(points);
+            if (!signature.equals(lastRoiSignatureByKey.get(roiKey))) {
+                Map<String, Object> roiBody = new LinkedHashMap<>();
+                roiBody.put("product_type", productType);
+                roiBody.put("points", points);
+                appendAlgorithmParams(roiBody, header);
+                HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
+                if (roiResp.statusCode() / 100 != 2) {
+                    return errorMessageToMsg(roiResp, "roi-polygon");
+                }
+                lastRoiSignatureByKey.put(roiKey, signature);
             }
         }
         Object fp = header.get("fp_zones");
@@ -312,6 +321,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         Map<String, Object> h = readJson(resp.body());
         h.put("status", "ok");
+        rememberReferenceSignature(header);
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, h, new byte[0]);
     }
 
@@ -329,15 +339,21 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         Object poly = header.get("roi_polygon_norm");
         if (poly instanceof List<?> list && list.size() >= 3) {
             String productType = String.valueOf(header.get("product_type"));
+            int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+            String roiKey = runtimeKey(productType, cameraId);
             List<Map<String, Object>> points = normalizeRoiPoints(list);
             if (points.size() >= 3) {
-                Map<String, Object> roiBody = new LinkedHashMap<>();
-                roiBody.put("product_type", productType);
-                roiBody.put("points", points);
-                appendAlgorithmParams(roiBody, header);
-                HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
-                if (roiResp.statusCode() / 100 != 2) {
-                    return errorMessageToMsg(roiResp, "roi-polygon");
+                String signature = roiSignature(points);
+                if (!signature.equals(lastRoiSignatureByKey.get(roiKey))) {
+                    Map<String, Object> roiBody = new LinkedHashMap<>();
+                    roiBody.put("product_type", productType);
+                    roiBody.put("points", points);
+                    appendAlgorithmParams(roiBody, header);
+                    HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
+                    if (roiResp.statusCode() / 100 != 2) {
+                        return errorMessageToMsg(roiResp, "roi-polygon");
+                    }
+                    lastRoiSignatureByKey.put(roiKey, signature);
                 }
             }
         }
@@ -367,17 +383,34 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (referenceShmName == null || String.valueOf(referenceShmName).isBlank()) {
             return null;
         }
+        String productType = String.valueOf(header.get("product_type"));
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String expectedSignature = referenceSignature(
+                String.valueOf(referenceShmName),
+                header.get("reference_shm_offset"),
+                header.get("reference_width"),
+                header.get("reference_height"),
+                header.get("reference_stride")
+        );
+        String cacheKey = runtimeKey(productType, cameraId);
+        if (expectedSignature.equals(lastReferenceSignatureByKey.get(cacheKey))) {
+            return null;
+        }
 
         Map<String, Object> referenceHeader = new LinkedHashMap<>();
-        referenceHeader.put("product_type", header.get("product_type"));
+        referenceHeader.put("product_type", productType);
         referenceHeader.put("detector_id", header.get("detector_id"));
-        referenceHeader.put("camera_id", header.get("camera_id"));
+        referenceHeader.put("camera_id", cameraId);
         referenceHeader.put("shm_name", referenceShmName);
         referenceHeader.put("shm_offset", header.get("reference_shm_offset"));
         referenceHeader.put("width", header.get("reference_width"));
         referenceHeader.put("height", header.get("reference_height"));
         referenceHeader.put("stride", header.get("reference_stride"));
-        return uploadRefShm(referenceHeader);
+        BinaryProtocol.Message response = uploadRefShm(referenceHeader);
+        if (response.type() != BinaryProtocol.MSG_ERROR) {
+            lastReferenceSignatureByKey.put(cacheKey, expectedSignature);
+        }
+        return response;
     }
 
     private BinaryProtocol.Message inspectShmVisuals(Map<String, Object> header) throws IOException {
@@ -759,6 +792,53 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return value;
         }
         return value.substring(0, maxLen) + "...";
+    }
+
+    private void rememberReferenceSignature(Map<String, Object> header) {
+        String productType = String.valueOf(header.get("product_type"));
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String shmName = String.valueOf(header.getOrDefault("shm_name", ""));
+        if (productType.isBlank() || shmName.isBlank()) {
+            return;
+        }
+        String signature = referenceSignature(
+                shmName,
+                header.get("shm_offset"),
+                header.get("width"),
+                header.get("height"),
+                header.get("stride")
+        );
+        lastReferenceSignatureByKey.put(runtimeKey(productType, cameraId), signature);
+    }
+
+    private static String runtimeKey(String productType, int cameraId) {
+        String normalizedProductType = productType == null ? "" : productType.trim();
+        return normalizedProductType + "#cam=" + cameraId;
+    }
+
+    private static String referenceSignature(
+            String shmName,
+            Object shmOffset,
+            Object width,
+            Object height,
+            Object stride
+    ) {
+        return String.join(
+                "|",
+                shmName == null ? "" : shmName.trim(),
+                String.valueOf(shmOffset),
+                String.valueOf(width),
+                String.valueOf(height),
+                String.valueOf(stride)
+        );
+    }
+
+    private static String roiSignature(List<Map<String, Object>> points) {
+        try {
+            return MAPPER.writeValueAsString(points);
+        } catch (Exception e) {
+            return String.valueOf(points);
+        }
     }
 
     private String validateRequiredShmFrameFields(Map<String, Object> body, String op) {

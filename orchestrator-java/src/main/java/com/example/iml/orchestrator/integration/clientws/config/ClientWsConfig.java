@@ -15,13 +15,14 @@ public record ClientWsConfig(
         boolean replaceExistingSession,
         int pingIntervalMs,
         int readIdleTimeoutMs,
-        boolean kopcheniBundleSyncEnabled
+        boolean kopcheniBundleSyncEnabled,
+        double inspectScale
 ) {
 
     private static final int PROTOCOL_VERSION = 1;
 
     public static ClientWsConfig disabled() {
-        return new ClientWsConfig(false, "127.0.0.1", 8765, "/", true, 20_000, 90_000, false);
+        return new ClientWsConfig(false, "127.0.0.1", 8765, "/", true, 20_000, 90_000, false, 1.0d);
     }
 
     public static ClientWsConfig fromRootYaml(Map<String, Object> root) {
@@ -60,7 +61,15 @@ public record ClientWsConfig(
         int ping = Math.max(5_000, YamlScalars.toInt(m.get("ping_interval_ms"), 20_000));
         int idle = Math.max(10_000, YamlScalars.toInt(m.get("read_idle_timeout_ms"), 90_000));
         boolean kopSync = YamlScalars.toBool(m.get("kopcheni_bundle_sync_enabled"), false);
-        return new ClientWsConfig(true, host, port, path, replace, ping, idle, kopSync);
+        double inspectScale = 1.0d;
+        Object pyRaw = root.get("python_detector");
+        if (pyRaw instanceof Map<?, ?> pyMap) {
+            inspectScale = YamlScalars.toDouble(pyMap.get("inspect_scale"), 1.0d);
+        }
+        if (!Double.isFinite(inspectScale) || inspectScale <= 0.0d) {
+            inspectScale = 1.0d;
+        }
+        return new ClientWsConfig(true, host, port, path, replace, ping, idle, kopSync, inspectScale);
     }
 
     public int protocolVersion() {

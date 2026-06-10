@@ -47,6 +47,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
     public PipelineState apply(
             PipelineState state,
             int cameraId,
+            String productType,
             ReferenceSnapshot activeReference,
             Map<String, Object> geometryCfg,
             Map<String, Object> pythonCfg,
@@ -82,7 +83,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             Map<String, Object> gHeader = BinaryInspectHeaders.geometryInspectHeader(
                     cameraId, state.capture(), activeReference, geometryCfg, pythonCfg);
             if (geometryRuntimeConfig != null) {
-                geometryRuntimeConfig.applyToGeometryHeader(gHeader);
+                geometryRuntimeConfig.applyToGeometryHeader(gHeader, productType);
             }
             BinaryInspectHeaders.applyMainRoiFromPolygon(gHeader, state.capture(), activeReference);
             geometrySlots.acquire();

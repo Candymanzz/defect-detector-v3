@@ -22,7 +22,11 @@ public final class ReferenceBundleWsHandler implements WsMessageHandler {
             ctx.application().outbound().sendError(ctx.connection(), err.code(), err.message());
             return;
         }
-        ReferenceBundleSnapshot snap = ((ReferenceBundleParser.Result.Ok) r).snapshot();
+        ReferenceBundleSnapshot parsed = ((ReferenceBundleParser.Result.Ok) r).snapshot();
+        ReferenceBundleSnapshot snap = normalizeHeatmapSpaceForInspectScale(
+                parsed,
+                ctx.application().cfg().inspectScale()
+        );
         try {
             ReferenceBundleLifecycleService.acceptBundle(ctx.application(), ctx.connection(), snap, ctx.envelope());
         } catch (ClientWsKopcheniSyncException e) {
@@ -33,5 +37,30 @@ public final class ReferenceBundleWsHandler implements WsMessageHandler {
                     com.example.iml.orchestrator.integration.clientws.util.WsTextUtil.truncate(e.getMessage(), 400)
             );
         }
+    }
+
+    private static ReferenceBundleSnapshot normalizeHeatmapSpaceForInspectScale(
+            ReferenceBundleSnapshot snapshot,
+            double inspectScale
+    ) {
+        if (!Double.isFinite(inspectScale) || inspectScale <= 0.0d || Math.abs(inspectScale - 1.0d) < 1e-6d) {
+            return snapshot;
+        }
+        if (snapshot.views() == null || snapshot.views().isEmpty()) {
+            return snapshot;
+        }
+        int baseW = Math.max(1, snapshot.views().get(0).frame().width());
+        int baseH = Math.max(1, snapshot.views().get(0).frame().height());
+        int scaledW = Math.max(1, (int) Math.round(baseW * inspectScale));
+        int scaledH = Math.max(1, (int) Math.round(baseH * inspectScale));
+        return new ReferenceBundleSnapshot(
+                snapshot.productType(),
+                snapshot.views(),
+                snapshot.jointViewIndex(),
+                scaledW,
+                scaledH,
+                snapshot.fpZones(),
+                snapshot.acceptedAtEpochMs()
+        );
     }
 }

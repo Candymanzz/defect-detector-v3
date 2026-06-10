@@ -75,6 +75,8 @@ java_geometry:
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
   base_url: "http://127.0.0.1:8000"
+  # Downscale кадров перед inspect_shm (1.0 = без масштабирования).
+  inspect_scale: 0.3
   rois:
     - name: main
       x: 0
@@ -135,7 +137,7 @@ fanout:
     host: "127.0.0.1"
     port: 8088
     queue_size: 128
-    artificial_delay_ms: 1200
+    artificial_delay_ms: 0
 
 # Подсветка → LightServer.v3: COM = POST /api/com/light { state: On|Off, brightness: "80,..." } (банк COM из appsettings);
 # сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость оркестратора: 0…100%.
@@ -200,9 +202,9 @@ integration:
     flash_on_tick: false
     interval_ms: 5000
   camera_parallelism: 4
-  geometry_pool_size: 2
-  python_parallelism: 1
-  stage_queue_size: 16
+  geometry_pool_size: 4
+  python_parallelism: 4
+  stage_queue_size: 1
   worker_ipc_mode: "stdio"
   worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
@@ -210,7 +212,7 @@ integration:
   # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
   light_server_startup_delay_ms: 8000
   # Макс. длительность одного цикла инспекции на камеру (capture→fanout); при превышении — сброс in-flight.
-  inspection_cycle_timeout_ms: 4000
+  inspection_cycle_timeout_ms: 3500
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
   dev_auto_trigger_stub:
     enabled: false
@@ -232,13 +234,13 @@ integration:
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
     enabled: true
-    cycle_delay_ms: 400
+    cycle_delay_ms: 1200
   timing_stages_log:
-    enabled: false
+    enabled: true
     file: "logs/pipeline-stages.jsonl"
   # JPEG кадров из SHM в каталог относительно корня репозитория (эталон: ref_*, инспекция: cap_*).
   save_captures:
-    enabled: true
+    enabled: false
     directory: "testimage"
     jpeg_quality: 0.92
   # Автозапуск uvicorn (как LightServer). Один раз: pip install в analisSurface/backend/.venv

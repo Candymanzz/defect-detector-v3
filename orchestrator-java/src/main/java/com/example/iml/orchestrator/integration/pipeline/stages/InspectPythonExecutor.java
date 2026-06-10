@@ -72,8 +72,15 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             long t0 = System.nanoTime();
             Map<String, Object> pyHeader = BinaryInspectHeaders.pythonInspectHeader(
                     cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
+            double inspectScale = YamlScalars.toDouble(
+                    pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                    1.0
+            );
+            if (inspectScale < 0.999d) {
+                PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
+            }
             if (inspectionRuntimeConfig != null) {
-                inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg);
+                inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, productType);
             }
             pythonSlots.acquire();
             try {

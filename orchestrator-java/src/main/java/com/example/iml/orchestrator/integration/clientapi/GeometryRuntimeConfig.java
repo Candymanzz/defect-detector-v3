@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Runtime ROI и пороги: {@code inspect_shm} java-geometry и {@code threshold} python-детектора.
  */
 public final class GeometryRuntimeConfig {
+    private static final String DEFAULT_PROFILE = "__default__";
 
     private static final Set<String> HEADER_KEYS = Set.of(
             "mainRoi",
@@ -28,10 +29,14 @@ public final class GeometryRuntimeConfig {
             "jointThreshold"
     );
 
-    private final ConcurrentHashMap<String, Object> overrides = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, Object>> overridesByProfile = new ConcurrentHashMap<>();
 
     public void clear() {
-        overrides.clear();
+        overridesByProfile.clear();
+    }
+
+    public void clear(String analysisProfile) {
+        overridesByProfile.remove(normalizeProfile(analysisProfile));
     }
 
     /**
@@ -39,28 +44,48 @@ public final class GeometryRuntimeConfig {
      * или snake_case: main_roi, max_shift_mm — нормализуются).
      */
     public void replaceAllFromClient(Map<String, Object> body) {
-        overrides.clear();
+        replaceAllFromClient(null, body);
+    }
+
+    public void replaceAllFromClient(String analysisProfile, Map<String, Object> body) {
+        String profileKey = normalizeProfile(analysisProfile);
+        ConcurrentHashMap<String, Object> profileOverrides = new ConcurrentHashMap<>();
         if (body == null) {
+            overridesByProfile.put(profileKey, profileOverrides);
             return;
         }
         for (Map.Entry<String, Object> e : body.entrySet()) {
             String key = normalizeKey(e.getKey());
             if (key != null && e.getValue() != null) {
-                overrides.put(key, e.getValue());
+                profileOverrides.put(key, e.getValue());
             }
         }
+        overridesByProfile.put(profileKey, profileOverrides);
     }
 
     public Map<String, Object> overridesCopy() {
-        return new HashMap<>(overrides);
+        return overridesCopy(null);
+    }
+
+    public Map<String, Object> overridesCopy(String analysisProfile) {
+        return new HashMap<>(profileOverrides(analysisProfile));
     }
 
     public void applyToGeometryHeader(Map<String, Object> header) {
-        overrides.forEach((key, value) -> applyGeometryEntry(header, key, value));
+        applyToGeometryHeader(header, null);
+    }
+
+    public void applyToGeometryHeader(Map<String, Object> header, String analysisProfile) {
+        profileOverrides(analysisProfile).forEach((key, value) -> applyGeometryEntry(header, key, value));
     }
 
     /** Порог чувствительности для python {@code inspect_shm} (поверх {@code python_detector.fallback_threshold}). */
     public void applyToPythonHeader(Map<String, Object> header, Map<String, Object> pythonYaml) {
+        applyToPythonHeader(header, pythonYaml, null);
+    }
+
+    public void applyToPythonHeader(Map<String, Object> header, Map<String, Object> pythonYaml, String analysisProfile) {
+        Map<String, Object> overrides = profileOverrides(analysisProfile);
         if (overrides.containsKey("threshold")) {
             header.put("threshold", YamlScalars.toDouble(overrides.get("threshold"), defaultPythonThreshold(pythonYaml)));
         }
@@ -86,6 +111,11 @@ public final class GeometryRuntimeConfig {
     }
 
     public double resolvePythonThreshold(Map<String, Object> pythonYaml) {
+        return resolvePythonThreshold(pythonYaml, null);
+    }
+
+    public double resolvePythonThreshold(Map<String, Object> pythonYaml, String analysisProfile) {
+        Map<String, Object> overrides = profileOverrides(analysisProfile);
         if (overrides.containsKey("threshold")) {
             return YamlScalars.toDouble(overrides.get("threshold"), defaultPythonThreshold(pythonYaml));
         }
@@ -96,6 +126,14 @@ public final class GeometryRuntimeConfig {
      * Сводка полей для GET {@code /api/client/geometry-runtime} (YAML + runtime overrides).
      */
     public Map<String, Object> effectiveForDisplay(Map<String, Object> yamlGeometry, Map<String, Object> pythonYaml) {
+        return effectiveForDisplay(yamlGeometry, pythonYaml, null);
+    }
+
+    public Map<String, Object> effectiveForDisplay(
+            Map<String, Object> yamlGeometry,
+            Map<String, Object> pythonYaml,
+            String analysisProfile
+    ) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("mainRoi", yamlGeometry != null && yamlGeometry.get("main_roi") != null ? yamlGeometry.get("main_roi") : Map.of("x", 0, "y", 0, "width", 2448, "height", 2048));
         m.put("jointRoi", yamlGeometry == null ? null : yamlGeometry.get("joint_roi"));
@@ -110,7 +148,7 @@ public final class GeometryRuntimeConfig {
         double thresholdDefault = defaultPythonThreshold(pythonYaml);
         m.put("threshold", thresholdDefault);
         m.put("maxWrinklesScore", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_wrinkles_score"), thresholdDefault));
-        applyToGeometryHeader(m);
+        applyToGeometryHeader(m, analysisProfile);
         return m;
     }
 
@@ -160,6 +198,18 @@ public final class GeometryRuntimeConfig {
             case "fallback_threshold", "inspection_threshold", "sensitivity" -> "threshold";
             default -> null;
         };
+    }
+
+    private Map<String, Object> profileOverrides(String analysisProfile) {
+        return overridesByProfile.getOrDefault(normalizeProfile(analysisProfile), new ConcurrentHashMap<>());
+    }
+
+    private static String normalizeProfile(String analysisProfile) {
+        if (analysisProfile == null) {
+            return DEFAULT_PROFILE;
+        }
+        String trimmed = analysisProfile.trim();
+        return trimmed.isEmpty() ? DEFAULT_PROFILE : trimmed;
     }
 
     private static void putIfPresent(Map<String, Object> source, Map<String, Object> target, String sourceKey, String targetKey) {

@@ -15,6 +15,7 @@ public interface GeometryInspectStage {
     PipelineState apply(
             PipelineState state,
             int cameraId,
+            String productType,
             ReferenceSnapshot activeReference,
             Map<String, Object> geometryCfg,
             Map<String, Object> pythonCfg,

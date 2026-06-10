@@ -80,6 +80,9 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
         row.put("capture_ms", state.captureMs());
         row.put("python_ms", state.pythonMs());
         row.put("geometry_ms", state.geometryMs());
+        row.put("capture_s", state.captureMs() / 1000.0);
+        row.put("geometry_s", state.geometryMs() / 1000.0);
+        row.put("python_worker_s", state.pythonMs() / 1000.0);
         row.put("decision_ms", decisionMs);
         row.put("decision_s", decisionMs / 1000.0);
         row.put("fanout_ms", fanoutMs);
@@ -115,5 +118,53 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
             row.put("python_service_status", String.valueOf(ph.getOrDefault("status", "")));
         }
         pipelineStagesLog.append(row);
+        appendInspectionTimingEvent(
+                pipelineStagesLog,
+                cameraId,
+                productType,
+                detectorId,
+                decision.frameId(),
+                timingExtras
+        );
+    }
+
+    private static void appendInspectionTimingEvent(
+            PipelineStagesLog pipelineStagesLog,
+            int cameraId,
+            String productType,
+            String detectorId,
+            long frameId,
+            Map<String, Object> timingExtras
+    ) {
+        if (timingExtras == null || timingExtras.isEmpty()) {
+            return;
+        }
+        if (!timingExtras.containsKey("capture_to_geometry_done_ms")
+                && !timingExtras.containsKey("capture_to_python_done_ms")
+                && !timingExtras.containsKey("capture_frame_to_inspection_end_ms")) {
+            return;
+        }
+        LinkedHashMap<String, Object> timingRow = new LinkedHashMap<>();
+        timingRow.put("event", "inspection_timing");
+        timingRow.put("camera_id", cameraId);
+        timingRow.put("product_type", productType);
+        timingRow.put("detector_id", detectorId);
+        timingRow.put("frame_id", frameId);
+        if (timingExtras.containsKey("capture_to_geometry_done_ms")) {
+            Object v = timingExtras.get("capture_to_geometry_done_ms");
+            timingRow.put("capture_to_geometry_done_ms", v);
+            timingRow.put("capture_to_geometry_done_s", YamlScalars.toDouble(v, 0.0) / 1000.0);
+        }
+        if (timingExtras.containsKey("capture_to_python_done_ms")) {
+            Object v = timingExtras.get("capture_to_python_done_ms");
+            timingRow.put("capture_to_python_done_ms", v);
+            timingRow.put("capture_to_python_done_s", YamlScalars.toDouble(v, 0.0) / 1000.0);
+        }
+        if (timingExtras.containsKey("capture_frame_to_inspection_end_ms")) {
+            Object v = timingExtras.get("capture_frame_to_inspection_end_ms");
+            timingRow.put("capture_frame_to_inspection_end_ms", v);
+            timingRow.put("capture_frame_to_inspection_end_s", YamlScalars.toDouble(v, 0.0) / 1000.0);
+        }
+        pipelineStagesLog.append(timingRow);
     }
 }

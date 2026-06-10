@@ -80,6 +80,13 @@ public final class PipelineStagesLog implements AutoCloseable {
             sb.append(" py=").append(row.get("python_status"));
             sb.append(" geom=").append(row.get("geometry_status"));
             sb.append(" score=").append(row.get("anomaly_score"));
+        } else if ("inspection_timing".equals(event)) {
+            sb.append(" | cam=").append(row.get("camera_id"));
+            sb.append(" frame=").append(row.get("frame_id"));
+            sb.append(" product=").append(row.get("product_type"));
+            sb.append(" | capture_to_geom_ms=").append(row.get("capture_to_geometry_done_ms"));
+            sb.append(" capture_to_py_ms=").append(row.get("capture_to_python_done_ms"));
+            sb.append(" capture_to_end_ms=").append(row.getOrDefault("capture_frame_to_inspection_end_ms", "unknown"));
         } else if ("reference_capture".equals(event)) {
             sb.append(" | cam=").append(row.get("camera_id"));
             sb.append(" product=").append(row.get("product_type"));

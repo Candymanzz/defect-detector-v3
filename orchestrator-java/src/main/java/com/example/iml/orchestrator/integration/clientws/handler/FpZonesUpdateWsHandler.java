@@ -45,6 +45,8 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
             app.outbound().sendError(ctx.connection(), "invalid_heatmap_size", "heatmap_width and heatmap_height must be positive");
             return;
         }
+        int normalizedHw = normalizeDimForInspectScale(hw, app.cfg().inspectScale());
+        int normalizedHh = normalizeDimForInspectScale(hh, app.cfg().inspectScale());
         List<FpZoneNorm> zones;
         try {
             zones = ReferenceBundleParser.parseFpZonesPayload(payload.path("fp_zones"));
@@ -58,13 +60,25 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
             return;
         }
         try {
-            app.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.replaceFpZones(productType, hw, hh, zones));
+            app.kopcheniBroadcaster().broadcast(
+                    AnalisSurfaceClientWsSync.replaceFpZones(productType, normalizedHw, normalizedHh, zones)
+            );
         } catch (ClientWsKopcheniSyncException e) {
             app.log().warn("client_ws kopcheni replace_fp_zones failed: {}", e.getMessage());
             app.outbound().sendError(ctx.connection(), "kopcheni_sync_failed", WsTextUtil.truncate(e.getMessage(), 400));
             return;
         }
-        app.referenceContext().applyFpZonesHotUpdate(hw, hh, zones);
+        app.referenceContext().applyFpZonesHotUpdate(normalizedHw, normalizedHh, zones);
         app.outbound().sendFpZonesAck(ctx.connection(), ctx.envelope(), true);
+    }
+
+    private static int normalizeDimForInspectScale(int dim, double inspectScale) {
+        if (dim <= 0) {
+            return 0;
+        }
+        if (!Double.isFinite(inspectScale) || inspectScale <= 0.0d || Math.abs(inspectScale - 1.0d) < 1e-6d) {
+            return dim;
+        }
+        return Math.max(1, (int) Math.round(dim * inspectScale));
     }
 }

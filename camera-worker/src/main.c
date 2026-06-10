@@ -72,6 +72,8 @@ typedef struct {
     uint64_t latency_ns_min;
     uint64_t latency_ns_max;
     uint64_t latency_ns_sum;
+    uint64_t last_capture_started_ns;
+    uint64_t last_capture_latency_ns;
     uint64_t last_frame_id;
     int last_slot_index;
     FILE *metrics_log_file;
@@ -617,8 +619,6 @@ static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info,
     }
     return -1;
 }
-#endif
-
 /** Автобаланс белого выключает «плывущий» цвет между кадрами (GenICam BalanceWhiteAuto). */
 static void hik_disable_auto_white_balance(void *handle) {
     int r = MV_CC_SetEnumValueByString(handle, "BalanceWhiteAuto", "Off");
@@ -968,8 +968,11 @@ static int capture_frame_to_shm(worker_state_t *st, int sync_capture, char *err,
     FlushViewOfFile(frame, st->frame_bytes);
 #endif
     uint64_t timestamp_ns = now_ns();
-    update_latency(st, timestamp_ns - capture_started_ns);
+    uint64_t capture_latency_ns = timestamp_ns - capture_started_ns;
+    update_latency(st, capture_latency_ns);
     st->capture_total++;
+    st->last_capture_started_ns = capture_started_ns;
+    st->last_capture_latency_ns = capture_latency_ns;
     st->last_frame_id = frame_id;
     st->last_slot_index = slot_index;
     st->stream_last_timestamp_ns = timestamp_ns;
@@ -986,7 +989,7 @@ static void format_capture_json(const worker_state_t *st, char *out, size_t out_
     snprintf(out, out_len,
              "{\"camera_id\":%d,\"frame_id\":%llu,\"slot_index\":%d,\"width\":%d,\"height\":%d,\"stride\":%d,"
              "\"format\":\"BGR8\",\"timestamp_ns\":%llu,\"shm_name\":\"%s\",\"shm_offset\":%zu,\"frame_bytes\":%zu,"
-             "\"ring_slots\":%d,\"streaming\":%s}",
+             "\"ring_slots\":%d,\"streaming\":%s,\"capture_started_ns\":%llu,\"capture_latency_ns\":%llu}",
              st->camera_id,
              (unsigned long long)st->last_frame_id,
              slot_index,
@@ -998,7 +1001,9 @@ static void format_capture_json(const worker_state_t *st, char *out, size_t out_
              slot_offset,
              st->frame_bytes,
              st->ring_slots,
-             st->stream_active ? "true" : "false");
+             st->stream_active ? "true" : "false",
+             (unsigned long long)st->last_capture_started_ns,
+             (unsigned long long)st->last_capture_latency_ns);
 }
 
 static void stop_stream_internal(worker_state_t *st) {

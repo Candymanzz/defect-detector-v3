@@ -12,10 +12,11 @@ public record ClientApiMount(
         GeometryRuntimeConfig geometryRuntime,
         String kopcheniBaseUrl,
         Map<String, Object> javaGeometryYaml,
-        Map<String, Object> pythonDetectorYaml
+        Map<String, Object> pythonDetectorYaml,
+        Map<Integer, String> analysisProfileByCamera
 ) {
     public static ClientApiMount disabled() {
-        return new ClientApiMount(false, null, "", null, null);
+        return new ClientApiMount(false, null, "", null, null, Map.of());
     }
 
     @SuppressWarnings("unchecked")
@@ -49,7 +50,14 @@ public record ClientApiMount(
         if (pyo instanceof Map<?, ?> pym) {
             py = (Map<String, Object>) pym;
         }
-        return new ClientApiMount(true, geometryRuntime, url, jg, py);
+        return new ClientApiMount(
+                true,
+                geometryRuntime,
+                url,
+                jg,
+                py,
+                com.example.iml.orchestrator.integration.config.ConfiguredCameras.analysisProfileByCameraId(root)
+        );
     }
 
     public boolean kopcheniConfigured() {

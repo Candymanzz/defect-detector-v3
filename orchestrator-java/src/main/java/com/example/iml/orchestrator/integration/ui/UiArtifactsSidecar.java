@@ -86,12 +86,21 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
      * Heatmap/visuals через тот же FastAPI-пул, что и пайплайн ({@code POST /inspect-shm-visuals}).
      */
     public BinaryRpcSupervisor resolveVisualsDetector(Map<String, Object> uiCfg, BinaryRpcSupervisor pythonHttp) {
-        boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false)
-                && YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("visuals_async_enabled"), false);
+        boolean uiEnabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false);
+        boolean visualsAsyncEnabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("visuals_async_enabled"), false);
+        boolean storeHeatmapU8 = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_heatmap_u8"), true);
+        // Keep visuals RPC enabled whenever heatmap storage is requested, even if visuals_async_enabled
+        // was accidentally disabled in YAML. This prevents silent heatmap loss after config drift.
+        boolean enabled = uiEnabled && (visualsAsyncEnabled || storeHeatmapU8);
         if (!enabled || pythonHttp == null) {
             return null;
         }
-        log.info("ui visuals use analisSurface HTTP ({})", pythonHttp.supervisorLabel());
+        log.info(
+                "ui visuals use analisSurface HTTP ({}) async_enabled={} store_heatmap_u8={}",
+                pythonHttp.supervisorLabel(),
+                visualsAsyncEnabled,
+                storeHeatmapU8
+        );
         return pythonHttp;
     }
 
@@ -216,7 +225,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             pyHeader.put("roi_polygon_norm", points);
                         }
                         String base = (shmName.startsWith("/") ? shmName.substring(1) : shmName);
-                        Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(base + ".heatmap.u8");
+                        // Use per-frame heatmap path to avoid race/overwrite between consecutive frames.
+                        Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
+                                base + ".f" + frameId + ".heatmap.u8"
+                        );
                         pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
                         BinaryProtocol.Message pyResp = uiVisualsPython.command(pyHeader);
                         if (pyResp.type() != BinaryProtocol.MSG_ERROR) {
@@ -224,8 +236,28 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             heatmapU8 = hm.path();
                             uw = hm.width();
                             uh = hm.height();
+                        } else {
+                            log.warn(
+                                    "ui visuals failed cam={} frame={} op=inspect_shm_visuals error={}",
+                                    cameraId,
+                                    frameId,
+                                    pyResp.header() == null ? "unknown" : pyResp.header().get("error")
+                            );
                         }
+                    } else {
+                        log.info(
+                                "ui visuals skipped cam={} frame={} reason=reference_not_synced product_type={}",
+                                cameraId,
+                                frameId,
+                                productType
+                        );
                     }
+                } else if (storeHeatmapU8) {
+                    log.info(
+                            "ui visuals skipped cam={} frame={} reason=visuals_supervisor_unavailable",
+                            cameraId,
+                            frameId
+                    );
                 }
                 Path currentJpeg = null;
                 int currentJpegW = 0;

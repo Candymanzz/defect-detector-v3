@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -41,6 +42,7 @@ public final class AsyncInspectionCycleRunner {
                 state -> svc.geometryStage().apply(
                         state,
                         in.cameraId(),
+                        in.productType(),
                         in.activeReference(),
                         in.geometryCfg(),
                         in.pythonCfg(),
@@ -68,6 +70,14 @@ public final class AsyncInspectionCycleRunner {
 
         CompletableFuture<Void> decisionFuture = pythonFuture.thenAcceptAsync(state -> {
             long tDecision0 = System.nanoTime();
+            long captureFrameTimestampNs = YamlScalars.toLong(
+                    state.capture() == null || state.capture().header() == null
+                            ? null
+                            : state.capture().header().get("timestamp_ns"),
+                    -1L
+            );
+            long captureToGeometryDoneMs = YamlScalars.nanosToMs(state.captureMs() + state.geometryMs());
+            long captureToPythonDoneMs = YamlScalars.nanosToMs(state.captureMs() + state.geometryMs() + state.pythonMs());
             InspectionDecision decision = svc.decisionPolicy().decide(
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
@@ -87,6 +97,27 @@ public final class AsyncInspectionCycleRunner {
             in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
             long tFanoutDone = System.nanoTime();
             long totalMs = YamlScalars.nanosToMs(tFanoutDone - in.tCameraStartNanos());
+            long captureFrameToInspectionEndMs = captureFrameTimestampNs > 0
+                    ? YamlScalars.nanosToMs(System.nanoTime() - captureFrameTimestampNs)
+                    : -1L;
+            svc.log().info(
+                    "inspection_timing cam={} frame={} capture_to_geometry_done_ms={} capture_to_python_done_ms={} capture_frame_to_inspection_end_ms={}",
+                    in.cameraId(),
+                    decision.frameId(),
+                    captureToGeometryDoneMs,
+                    captureToPythonDoneMs,
+                    captureFrameToInspectionEndMs >= 0 ? captureFrameToInspectionEndMs : "unknown"
+            );
+            Map<String, Object> telemetryExtras = new LinkedHashMap<>();
+            if (timingExtras != null && !timingExtras.isEmpty()) {
+                telemetryExtras.putAll(timingExtras);
+            }
+            telemetryExtras.put("capture_to_geometry_done_ms", captureToGeometryDoneMs);
+            telemetryExtras.put("capture_to_python_done_ms", captureToPythonDoneMs);
+            if (captureFrameToInspectionEndMs >= 0) {
+                telemetryExtras.put("capture_frame_to_inspection_end_ms", captureFrameToInspectionEndMs);
+                telemetryExtras.put("capture_frame_to_inspection_end_s", captureFrameToInspectionEndMs / 1000.0);
+            }
             InspectionStageTimingLogger.logStageTiming(
                     svc.log(),
                     in.cameraId(),
@@ -100,7 +131,7 @@ public final class AsyncInspectionCycleRunner {
             );
             svc.pipelineTelemetry().logInspectionCycle(
                     in.pipelineStagesLog(),
-                    timingExtras,
+                    telemetryExtras,
                     in.cameraId(),
                     in.productType(),
                     in.detectorId(),
