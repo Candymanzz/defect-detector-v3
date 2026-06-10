@@ -88,7 +88,7 @@ export function ModalWrapper({
         <div className="modal__media-grid">
           <ImagePanel
             imageUrl={displayedReferenceImageUrl}
-            label="Эталон"
+            label="Эталон!"
             roiPoints={displayedReferenceRoiPoints}
           />
           <ImagePanel
@@ -117,7 +117,15 @@ export function ModalWrapper({
   );
 }
 
-function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: string; roiPoints?: InterestPointNorm[] }) {
+function ImagePanel({
+  label,
+  imageUrl,
+  roiPoints,
+}: {
+  label: string;
+  imageUrl?: string;
+  roiPoints?: InterestPointNorm[];
+}) {
   const svgPoints = roiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
@@ -228,9 +236,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
             />
           </dl>
 
-          <div className="modal-inspect-result__decision">
-            {formatInspectDecisionLine(inspectResult)}
-          </div>
+          <div className="modal-inspect-result__decision">{formatInspectDecisionLine(inspectResult)}</div>
 
           <pre className="modal-inspect-result__raw">{JSON.stringify(inspectResult, null, 2)}</pre>
         </>
