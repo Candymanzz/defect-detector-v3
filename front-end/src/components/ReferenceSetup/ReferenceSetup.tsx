@@ -16,6 +16,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
     message,
     cameraSlots,
     jointViewIndex,
+    hasSelectedCameraRoi,
     hasRequiredJointRoi,
     canSendReference,
     handleSendReference,
@@ -29,17 +30,12 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
     setRoiPolygonForCamera,
   } = useReferenceSetupController(onClose, initialJointViewIndex);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
-  const editorCameraId = selectedSlot?.cameraId;
-  const editorKey = `${selectedRoiMode}-${editorCameraId ?? "missing"}-${selectedSlot?.frame?.frame_id ?? "no-frame"}`;
+  const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
-    selectedRoiMode === "joint" || editorCameraId === undefined
-      ? jointRoiPolygon
-      : (roiPolygonsByCameraId[editorCameraId] ?? []);
-  const hasEditorCameraRoi =
-    editorCameraId !== undefined && (roiPolygonsByCameraId[editorCameraId]?.length ?? 0) >= 3;
+    selectedRoiMode === "joint" ? jointRoiPolygon : (roiPolygonsByCameraId[selectedCameraId] ?? []);
   const storedReferenceImage = useSyncExternalStore(
     subscribeReferenceImages,
-    () => getReferenceImage(editorCameraId),
+    () => getReferenceImage(selectedCameraId),
     () => undefined,
   );
 
@@ -144,21 +140,19 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
 
           <div className="reference-setup__info">
             <p className="reference-setup__reference-status">
-              {storedReferenceImage && editorCameraId !== undefined
-                ? `Эталон задан для Camera ${editorCameraId}`
-                : "Эталон ещё не задан"}
+              {storedReferenceImage ? `Эталон задан для Camera ${selectedCameraId}` : "Эталон ещё не задан"}
             </p>
             <p className="reference-setup__roi-status">
-              {hasEditorCameraRoi && editorCameraId !== undefined
-                ? `ROI задан для Camera ${editorCameraId}`
-                : `Задайте ROI-контур для Camera ${editorCameraId ?? selectedCameraId}: минимум 3 точки`}
+              {hasSelectedCameraRoi
+                ? `ROI задан для Camera ${selectedCameraId}`
+                : `Задайте ROI-контур для Camera ${selectedCameraId}: минимум 3 точки`}
             </p>
             <p className="reference-setup__roi-status">
               {selectedRoiMode === "joint"
                 ? "Редактируется joint ROI для Camera 0"
                 : hasRequiredJointRoi
                   ? "Joint ROI задан для Camera 0"
-                  : "Joint ROI не задан (необязательно)"}
+                  : "Joint ROI для Camera 0 обязателен"}
             </p>
             <p className="reference-setup__hint">
               Статус: {status.state}

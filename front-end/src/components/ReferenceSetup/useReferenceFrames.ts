@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { UiLatestSnapshot } from "../../shared/api/types";
 import type { PreviewFramePayload } from "../../shared/ws";
@@ -8,7 +8,6 @@ import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./reference
 export function useReferenceFrames() {
   const liveFramesByCameraIdRef = useRef<Record<number, PreviewFramePayload>>({});
   const liveImageUrlsByCameraIdRef = useRef<Record<number, string>>({});
-  const lockedCameraIdsRef = useRef<Record<number, boolean>>({});
   const [framesByCameraId, setFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<Record<number, string>>({});
   const [snapshotImageUrlsByCameraId, setSnapshotImageUrlsByCameraId] = useState<Record<number, string>>({});
@@ -27,7 +26,6 @@ export function useReferenceFrames() {
         liveImageUrlsByCameraIdRef.current[cameraId],
         setFramesByCameraId,
         setImageUrlsByCameraId,
-        lockedCameraIdsRef,
       );
 
       if (loaded) {
@@ -43,7 +41,6 @@ export function useReferenceFrames() {
         setSnapshotImageUrlsByCameraId,
         setFramesByCameraId,
         setImageUrlsByCameraId,
-        lockedCameraIdsRef,
       );
 
       return snapshotLoaded
@@ -70,7 +67,6 @@ export function useReferenceFrames() {
         liveImageUrlsByCameraIdRef.current[cameraId],
         setFramesByCameraId,
         setImageUrlsByCameraId,
-        lockedCameraIdsRef,
       );
 
       if (loaded) {
@@ -81,7 +77,6 @@ export function useReferenceFrames() {
           setSnapshotImageUrlsByCameraId,
           setFramesByCameraId,
           setImageUrlsByCameraId,
-          lockedCameraIdsRef,
         );
 
         if (snapshotLoaded) {
@@ -120,7 +115,6 @@ export function useReferenceFrames() {
           nextImageUrl,
           setFramesByCameraId,
           setImageUrlsByCameraId,
-          lockedCameraIdsRef,
         );
       }
     }
@@ -142,7 +136,6 @@ function commitLiveReferenceFrame(
   liveImageUrl: string | undefined,
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
-  lockedCameraIdsRef: MutableRefObject<Record<number, boolean>>,
 ) {
   if (
     !liveFrame ||
@@ -153,7 +146,6 @@ function commitLiveReferenceFrame(
     return false;
   }
 
-  lockedCameraIdsRef.current[cameraId] = true;
   setFramesByCameraId((prevFrames) => ({
     ...prevFrames,
     [cameraId]: liveFrame,
@@ -171,23 +163,16 @@ async function loadSnapshotImage(
   setSnapshotImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
-  lockedCameraIdsRef: MutableRefObject<Record<number, boolean>>,
 ) {
   try {
     const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
 
-    if (
-      !snapshot.hasCurrent ||
-      !snapshot.currentJpeg?.path ||
-      snapshot.cameraId !== cameraId ||
-      lockedCameraIdsRef.current[cameraId]
-    ) {
+    if (!snapshot.hasCurrent || !snapshot.currentJpeg?.path || snapshot.cameraId !== cameraId) {
       return false;
     }
 
     const imageUrl = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
 
-    lockedCameraIdsRef.current[cameraId] = true;
     setSnapshotImageUrlsByCameraId((prevImageUrls) => ({
       ...prevImageUrls,
       [cameraId]: imageUrl,
@@ -241,13 +226,7 @@ function lockInitialReferenceFrame(
   imageUrl: string,
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
-  lockedCameraIdsRef: MutableRefObject<Record<number, boolean>>,
 ) {
-  if (lockedCameraIdsRef.current[cameraId]) {
-    return;
-  }
-
-  lockedCameraIdsRef.current[cameraId] = true;
   setFramesByCameraId((prevFrames) => {
     if (prevFrames[cameraId]) {
       return prevFrames;

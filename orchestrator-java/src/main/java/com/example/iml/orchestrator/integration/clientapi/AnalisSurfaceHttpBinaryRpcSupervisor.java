@@ -33,7 +33,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private static final Logger LOG = LogManager.getLogger(AnalisSurfaceHttpBinaryRpcSupervisor.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Object REFERENCE_INSPECTION_LOCK = new Object();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
@@ -316,64 +315,40 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private BinaryProtocol.Message inspectShm(Map<String, Object> header) throws IOException {
-        synchronized (REFERENCE_INSPECTION_LOCK) {
-            BinaryProtocol.Message referenceResponse = uploadInspectionReference(header);
-            if (referenceResponse != null && referenceResponse.type() == BinaryProtocol.MSG_ERROR) {
-                return referenceResponse;
-            }
-            Object heatmapOut = header.get("heatmap_u8_output_path");
-            if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
-                return inspectShmVisuals(header);
-            }
-            Object poly = header.get("roi_polygon_norm");
-            if (poly instanceof List<?> list && list.size() >= 3) {
-                String productType = String.valueOf(header.get("product_type"));
-                List<Map<String, Object>> points = normalizeRoiPoints(list);
-                if (points.size() >= 3) {
-                    Map<String, Object> roiBody = new LinkedHashMap<>();
-                    roiBody.put("product_type", productType);
-                    roiBody.put("points", points);
-                    appendAlgorithmParams(roiBody, header);
-                    HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
-                    if (roiResp.statusCode() / 100 != 2) {
-                        return errorMessageToMsg(roiResp, "roi-polygon");
-                    }
+        Object heatmapOut = header.get("heatmap_u8_output_path");
+        if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
+            return inspectShmVisuals(header);
+        }
+        Object poly = header.get("roi_polygon_norm");
+        if (poly instanceof List<?> list && list.size() >= 3) {
+            String productType = String.valueOf(header.get("product_type"));
+            List<Map<String, Object>> points = normalizeRoiPoints(list);
+            if (points.size() >= 3) {
+                Map<String, Object> roiBody = new LinkedHashMap<>();
+                roiBody.put("product_type", productType);
+                roiBody.put("points", points);
+                appendAlgorithmParams(roiBody, header);
+                HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
+                if (roiResp.statusCode() / 100 != 2) {
+                    return errorMessageToMsg(roiResp, "roi-polygon");
                 }
             }
-            Map<String, Object> body = shmFrameJson(header);
-            String invalid = validateRequiredShmFrameFields(body, "inspect-shm");
-            if (invalid != null) {
-                return new BinaryProtocol.Message(
-                        BinaryProtocol.MSG_ERROR,
-                        Map.of("error", invalid, "op", "inspect_shm"),
-                        new byte[0]
-                );
-            }
-            HttpResponse<byte[]> resp = httpPostJson("/inspect-shm", body);
-            if (resp.statusCode() / 100 != 2) {
-                return errorMessageToMsg(resp, "inspect-shm");
-            }
-            Map<String, Object> json = readJson(resp.body());
-            return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, inspectJsonToStdioHeader(json), new byte[0]);
         }
-    }
-
-    private BinaryProtocol.Message uploadInspectionReference(Map<String, Object> header) throws IOException {
-        Object referenceShmName = header.get("reference_shm_name");
-        if (referenceShmName == null || String.valueOf(referenceShmName).isBlank()) {
-            return null;
+        Map<String, Object> body = shmFrameJson(header);
+        String invalid = validateRequiredShmFrameFields(body, "inspect-shm");
+        if (invalid != null) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of("error", invalid, "op", "inspect_shm"),
+                    new byte[0]
+            );
         }
-
-        Map<String, Object> referenceHeader = new LinkedHashMap<>();
-        referenceHeader.put("product_type", header.get("product_type"));
-        referenceHeader.put("detector_id", header.get("detector_id"));
-        referenceHeader.put("camera_id", header.get("camera_id"));
-        referenceHeader.put("shm_name", referenceShmName);
-        referenceHeader.put("shm_offset", header.get("reference_shm_offset"));
-        referenceHeader.put("width", header.get("reference_width"));
-        referenceHeader.put("height", header.get("reference_height"));
-        referenceHeader.put("stride", header.get("reference_stride"));
-        return uploadRefShm(referenceHeader);
+        HttpResponse<byte[]> resp = httpPostJson("/inspect-shm", body);
+        if (resp.statusCode() / 100 != 2) {
+            return errorMessageToMsg(resp, "inspect-shm");
+        }
+        Map<String, Object> json = readJson(resp.body());
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, inspectJsonToStdioHeader(json), new byte[0]);
     }
 
     private BinaryProtocol.Message inspectShmVisuals(Map<String, Object> header) throws IOException {

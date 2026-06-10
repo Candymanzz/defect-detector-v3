@@ -27,6 +27,10 @@ export function createReferenceBundleFromCameraFrames(
     }
   }
 
+  if (!isValidRoiPolygon(jointRoiPolygon)) {
+    throw new Error(`Joint ROI contour for camera ${REFERENCE_JOINT_ROI_CAMERA_ID} is missing`);
+  }
+
   const frames = REFERENCE_BUNDLE_VIEW_CAMERA_IDS.map((cameraId) => {
     const frame = framesByCameraId[cameraId];
 
@@ -90,7 +94,7 @@ function createReferenceViewForFrame(
   const interestPolygonNorm = roiPolygon;
   const roi = createRoiFromPolygon(roiPolygon, previewFrame.current.width, previewFrame.current.height);
   const jointRoi =
-    viewIndex === jointViewIndex && isValidRoiPolygon(jointRoiPolygon)
+    viewIndex === jointViewIndex
       ? createRoiFromPolygon(jointRoiPolygon, previewFrame.current.width, previewFrame.current.height)
       : null;
 

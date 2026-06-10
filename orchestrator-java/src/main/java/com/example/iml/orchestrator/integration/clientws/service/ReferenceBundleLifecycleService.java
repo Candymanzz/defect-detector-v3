@@ -60,10 +60,11 @@ public final class ReferenceBundleLifecycleService {
             return;
         }
         try {
+            int cameraId = snap.views().get(0).frame().cameraId();
             ctx.pipelineReferences().applyClientBundle(
                     ctx.log(),
                     snap,
-                    ctx::detectorForCamera,
+                    ctx.detectorForCamera(cameraId),
                     ctx.kopcheniBroadcaster().pool()
             );
         } catch (Exception e) {
