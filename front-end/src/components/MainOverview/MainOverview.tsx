@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { ServerStream } from "../ServerStream";
 import { orchestratorWs } from "../../shared/ws";
@@ -26,11 +26,13 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
   const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
-  const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
+  const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
+  const latestPreviewTimestampByCameraIdRef = useRef<Record<number, number>>({});
+  const latestInspectTimestampByCameraIdRef = useRef<Record<number, number>>({});
 
-  const cameraCards = createCameraCards(cameraIds, imageUrlsByCameraId);
-  const modalCameraImageUrl = selectedCamera ? imageUrlsByCameraId[selectedCamera.cameraId] : undefined;
+  const cameraCards = createCameraCards(cameraIds, previewImageUrlsByCameraId);
+  const modalCameraPreviewUrl = selectedCamera ? previewImageUrlsByCameraId[selectedCamera.cameraId] : undefined;
 
   useEffect(() => {
     let isActive = true;
@@ -53,28 +55,45 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
   useEffect(() => {
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
-      if (message.type !== "server.preview_frame" && message.type !== "server.inspect_result") {
+      if (message.type === "server.preview_frame") {
+        const previewFrame = message.payload;
+        const cameraId = previewFrame.camera_id;
+        const previousTimestamp = latestPreviewTimestampByCameraIdRef.current[cameraId] ?? 0;
+
+        if (previewFrame.server_ts_ms < previousTimestamp) {
+          return;
+        }
+
+        const imageUrl = createWsFrameImageUrl(previewFrame);
+        if (!imageUrl) {
+          return;
+        }
+
+        latestPreviewTimestampByCameraIdRef.current[cameraId] = previewFrame.server_ts_ms;
+        setPreviewImageUrlsByCameraId((previousImageUrls) => ({
+          ...previousImageUrls,
+          [cameraId]: imageUrl,
+        }));
         return;
       }
 
-      const frame = message.payload;
-      const imageUrl = createWsFrameImageUrl(frame);
-
-      if (imageUrl) {
-        setImageUrlsByCameraId((previousImageUrls) => ({
-          ...previousImageUrls,
-          [frame.camera_id]: imageUrl,
-        }));
+      if (message.type !== "server.inspect_result") {
+        return;
       }
 
-      if (message.type === "server.inspect_result") {
-        const inspectResult = message.payload;
+      const inspectResult = message.payload;
+      const cameraId = inspectResult.camera_id;
+      const previousTimestamp = latestInspectTimestampByCameraIdRef.current[cameraId] ?? 0;
 
-        setInspectResultsByCameraId((prevInspectResults) => ({
-          ...prevInspectResults,
-          [inspectResult.camera_id]: inspectResult,
-        }));
+      if (inspectResult.server_ts_ms < previousTimestamp) {
+        return;
       }
+
+      latestInspectTimestampByCameraIdRef.current[cameraId] = inspectResult.server_ts_ms;
+      setInspectResultsByCameraId((prevInspectResults) => ({
+        ...prevInspectResults,
+        [cameraId]: inspectResult,
+      }));
     });
 
     orchestratorWs.connect();
@@ -112,7 +131,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         <ModalWrapper
           isOpen
           cameraId={selectedCamera.cameraId}
-          cameraImageUrl={modalCameraImageUrl}
+          cameraImageUrl={modalCameraPreviewUrl}
           headerActions={
             <button
               className="modal__action"

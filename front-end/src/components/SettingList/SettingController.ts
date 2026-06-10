@@ -81,7 +81,7 @@ export async function saveBrightnessData(
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
   const [lightBrightness, geometryRuntime, analysisProductTypes] = await Promise.all([
     orchestratorApi.getLightBrightness(),
-    orchestratorApi.getGeometryRuntime(),
+    orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
   ]);
   const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
@@ -107,7 +107,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
 export async function saveSettingData(form: SettingForm, selectedCameraId: number | null = null): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
   const [geometryRuntime, analysisProductTypes] = await Promise.all([
-    orchestratorApi.getGeometryRuntime(),
+    orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
   ]);
   const analysisSaveRequests =
@@ -116,9 +116,10 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
           orchestratorApi.setAnalysisSettings(productType, normalizedForm.analysisSettings),
         )
       : [orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings)];
+  const geometryOverrides = createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm);
 
   await Promise.all([
-    orchestratorApi.replaceGeometryRuntime(createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm)),
+    saveGeometryRuntimeOverrides(geometryOverrides, selectedCameraId),
     ...analysisSaveRequests,
   ]);
 
@@ -305,6 +306,22 @@ function createGeometryRuntimeOverrides(geometryRuntime: GeometryRuntimeConfig, 
   nextOverrides.max_shift_mm = maxShiftMm;
 
   return nextOverrides;
+}
+
+async function saveGeometryRuntimeOverrides(
+  overrides: Record<string, unknown>,
+  selectedCameraId: number | null,
+) {
+  if (selectedCameraId !== null) {
+    await orchestratorApi.replaceGeometryRuntime(overrides, selectedCameraId);
+    return;
+  }
+
+  const cameraList = await orchestratorApi.listCameras();
+  await Promise.all([
+    orchestratorApi.replaceGeometryRuntime(overrides),
+    ...cameraList.cameras.map((cameraId) => orchestratorApi.replaceGeometryRuntime(overrides, cameraId)),
+  ]);
 }
 
 async function loadAnalysisProductTypes() {

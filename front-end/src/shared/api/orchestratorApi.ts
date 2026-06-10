@@ -77,19 +77,19 @@ export const orchestratorApi = {
     return http.json<GeometryLatestSnapshot>(`/api/geometry/camera/${cameraId}/latest.json`);
   },
 
-  async getGeometryRuntime() {
-    return http.json<GeometryRuntimeConfig>("/api/client/geometry-runtime");
+  async getGeometryRuntime(cameraId: number | null = null) {
+    return http.json<GeometryRuntimeConfig>(geometryRuntimePath(cameraId));
   },
 
-  async replaceGeometryRuntime(overrides: Record<string, unknown>) {
-    return http.json<{ ok: true }>("/api/client/geometry-runtime", {
+  async replaceGeometryRuntime(overrides: Record<string, unknown>, cameraId: number | null = null) {
+    return http.json<{ ok: true }>(geometryRuntimePath(cameraId), {
       method: "PUT",
       body: overrides,
     });
   },
 
-  async clearGeometryRuntime() {
-    return http.json<{ ok: true }>("/api/client/geometry-runtime", {
+  async clearGeometryRuntime(cameraId: number | null = null) {
+    return http.json<{ ok: true }>(geometryRuntimePath(cameraId), {
       method: "DELETE",
     });
   },
@@ -158,6 +158,11 @@ export const orchestratorApi = {
 function clientProxyPath(path: string) {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return normalized.startsWith("/api/client/") ? normalized : `/api/client${normalized}`;
+}
+
+function geometryRuntimePath(cameraId: number | null) {
+  const path = "/api/client/geometry-runtime";
+  return cameraId === null ? path : `${path}?cameraId=${encodeURIComponent(String(cameraId))}`;
 }
 
 function versionImageUrl(imageUrl: string, version?: string | number) {

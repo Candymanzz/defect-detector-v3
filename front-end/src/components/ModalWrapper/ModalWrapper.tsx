@@ -36,7 +36,7 @@ export function ModalWrapper({
   const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImage?.imageUrl;
   const displayedReferenceRoiPoints = referenceImageUrl ? undefined : storedReferenceImage?.roiPoints;
   const inspectResultImageUrl = inspectResult ? createInspectResultImageUrl(inspectResult) : undefined;
-  const displayedCurrentImageUrl = inspectResultImageUrl ?? cameraImageUrl;
+  const displayedCurrentImageUrl = inspectResult ? inspectResultImageUrl : cameraImageUrl;
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, inspectResultImageUrl);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export function ModalWrapper({
           />
           <HeatmapPanel
             cameraId={cameraId}
-            cameraImageUrl={displayedCurrentImageUrl}
+            cameraImageUrl={inspectResultImageUrl}
             inspectResult={inspectResult}
           />
         </div>

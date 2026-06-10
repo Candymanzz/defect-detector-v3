@@ -65,42 +65,16 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
           setMessage(`${message.payload.code}: ${message.payload.message}`);
           break;
         default:
-          setMessage(`Unknown message: ${message.type}`);
           break;
       }
     });
 
     orchestratorWs.connect();
-    if (orchestratorWs.snapshot.state === "open") {
-      try {
-        orchestratorWs.sendPreviewPause();
-      } catch {
-        // best effort; socket can still be reconnecting
-      }
-    }
 
     return () => {
-      if (orchestratorWs.snapshot.state === "open") {
-        try {
-          orchestratorWs.sendPreviewResume();
-        } catch {
-          // best effort on unmount
-        }
-      }
       unsubscribeMessage();
     };
   }, [handlePreviewFrame, handleReferenceBundleAck]);
-
-  useEffect(() => {
-    if (status.state !== "open") {
-      return;
-    }
-    try {
-      orchestratorWs.sendPreviewPause();
-    } catch {
-      // best effort after reconnect
-    }
-  }, [status.state]);
 
   useEffect(() => {
     let cancelled = false;
