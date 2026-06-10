@@ -391,7 +391,7 @@ public final class WsOutboundMessenger {
         } else {
             payload.putNull("heatmap");
         }
-        payload.put("active_reference_view_index", referenceContext.activeReferenceViewIndex());
+        payload.put("active_reference_view_index", Math.max(0, Math.min(3, cameraId)));
         ObjectNode det = JSON.createObjectNode();
         if (detectorId != null && !detectorId.isBlank()) {
             det.put("detector_id", detectorId);

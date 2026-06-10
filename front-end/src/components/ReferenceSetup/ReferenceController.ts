@@ -24,7 +24,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   const canSendReference = Boolean(
     referenceFrames.hasRequiredReferenceFrames &&
       referenceRoi.hasRequiredCameraRois &&
-      referenceRoi.hasRequiredJointRoi &&
       status.state === "open",
   );
 
@@ -145,11 +144,6 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
 
     if (!referenceRoi.hasRequiredCameraRois) {
       setMessage("ROI contours for cameras 0-3 are required");
-      return;
-    }
-
-    if (!referenceRoi.hasRequiredJointRoi) {
-      setMessage("Joint ROI contour for camera 0 is required");
       return;
     }
 

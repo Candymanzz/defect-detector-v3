@@ -68,7 +68,14 @@ public final class ReferenceBundleParser {
         }
         List<ReferenceViewSlot> views = new ArrayList<>(4);
         for (int i = 0; i < 4; i++) {
-            views.add(parseViewSlot(viewsNode.get(i), i, jointViewIndex));
+            ReferenceViewSlot view = parseViewSlot(viewsNode.get(i), i, jointViewIndex);
+            if (view.frame().cameraId() != i) {
+                throw new BundleParseException(
+                        "invalid_camera_id",
+                        "views[" + i + "].frame.camera_id must match view index"
+                );
+            }
+            views.add(view);
         }
         List<FpZoneNorm> fpZones = parseFpZones(payload.path("fp_zones"));
         return new ReferenceBundleSnapshot(
@@ -109,8 +116,6 @@ public final class ReferenceBundleParser {
             if (joint == null) {
                 throw new BundleParseException("invalid_joint_roi", ctx + ".joint_roi invalid or out of frame");
             }
-        } else if (expectJoint) {
-            throw new BundleParseException("missing_joint_roi", "joint_roi required on views[" + jointViewIndex + "]");
         }
         return new ReferenceViewSlot(frame, interest, joint, List.copyOf(interestPolygon));
     }

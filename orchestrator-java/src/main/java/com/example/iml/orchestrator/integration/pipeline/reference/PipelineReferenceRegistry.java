@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntFunction;
 
 /**
  * Эталоны для пайплайна: из камеры ({@code reference_source=camera}) или от клиента по WS.
@@ -35,11 +36,12 @@ public final class PipelineReferenceRegistry {
     public void applyClientBundle(
             Logger log,
             ReferenceBundleSnapshot snap,
-            String detectorId,
+            IntFunction<String> detectorForCamera,
             List<? extends BinaryRpcSupervisor> pythonPool
     ) throws Exception {
         for (ReferenceViewSlot slot : snap.views()) {
             ShmFrameRefData frame = slot.frame();
+            String detectorId = detectorForCamera.apply(frame.cameraId());
             Map<String, Object> header = frameToCaptureHeader(frame, slot);
             ReferenceSnapshot snapshot = new ReferenceSnapshot(snap.productType(), Map.copyOf(header));
             byCamera.put(frame.cameraId(), snapshot);
