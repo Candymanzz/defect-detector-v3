@@ -1,6 +1,6 @@
 import { orchestratorApi } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
-import type { PreviewFramePayload } from "../../shared/ws";
+import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import type { BackendStatus, CameraCardData, CameraImageUrlsById, MainOverviewData, SelectedCamera } from "./type";
 
 const CAMERAS_PER_OBJECT = 5;
@@ -49,7 +49,7 @@ export function createSelectedCamera(camera: CameraCardData): SelectedCamera {
   };
 }
 
-export function createWsFrameImageUrl(frame: PreviewFramePayload) {
+export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResultPayload) {
   const imagePath = frame.http_path ?? frame.current.http_path;
 
   if (imagePath) {

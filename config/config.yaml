@@ -231,7 +231,7 @@ integration:
     max_fps_cap: 30
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
-    enabled: false
+    enabled: true
     cycle_delay_ms: 400
   timing_stages_log:
     enabled: false
