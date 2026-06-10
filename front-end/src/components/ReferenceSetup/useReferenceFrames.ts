@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { UiLatestSnapshot } from "../../shared/api/types";
@@ -6,8 +6,8 @@ import type { PreviewFramePayload } from "../../shared/ws";
 import { REFERENCE_CAMERA_IDS, REFERENCE_REQUIRED_CAMERA_IDS } from "./referenceConstants";
 
 export function useReferenceFrames() {
-  const [liveFramesByCameraId, setLiveFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
-  const [liveImageUrlsByCameraId, setLiveImageUrlsByCameraId] = useState<Record<number, string>>({});
+  const liveFramesByCameraIdRef = useRef<Record<number, PreviewFramePayload>>({});
+  const liveImageUrlsByCameraIdRef = useRef<Record<number, string>>({});
   const [framesByCameraId, setFramesByCameraId] = useState<Record<number, PreviewFramePayload>>({});
   const [imageUrlsByCameraId, setImageUrlsByCameraId] = useState<Record<number, string>>({});
   const [snapshotImageUrlsByCameraId, setSnapshotImageUrlsByCameraId] = useState<Record<number, string>>({});
@@ -22,8 +22,8 @@ export function useReferenceFrames() {
     if (cameraId !== undefined) {
       const loaded = commitLiveReferenceFrame(
         cameraId,
-        liveFramesByCameraId[cameraId],
-        liveImageUrlsByCameraId[cameraId],
+        liveFramesByCameraIdRef.current[cameraId],
+        liveImageUrlsByCameraIdRef.current[cameraId],
         setFramesByCameraId,
         setImageUrlsByCameraId,
       );
@@ -63,8 +63,8 @@ export function useReferenceFrames() {
     for (const cameraId of REFERENCE_CAMERA_IDS) {
       const loaded = commitLiveReferenceFrame(
         cameraId,
-        liveFramesByCameraId[cameraId],
-        liveImageUrlsByCameraId[cameraId],
+        liveFramesByCameraIdRef.current[cameraId],
+        liveImageUrlsByCameraIdRef.current[cameraId],
         setFramesByCameraId,
         setImageUrlsByCameraId,
       );
@@ -92,21 +92,21 @@ export function useReferenceFrames() {
       snapshotCameraIds,
       missingCameraIds,
     };
-  }, [liveFramesByCameraId, liveImageUrlsByCameraId]);
+  }, []);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
     const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
 
-    setLiveFramesByCameraId((prevFrames) => ({
-      ...prevFrames,
+    liveFramesByCameraIdRef.current = {
+      ...liveFramesByCameraIdRef.current,
       [previewFrame.camera_id]: previewFrame,
-    }));
+    };
     if (nextImageUrl) {
-      setLiveImageUrlsByCameraId((prevImageUrls) => ({
-        ...prevImageUrls,
+      liveImageUrlsByCameraIdRef.current = {
+        ...liveImageUrlsByCameraIdRef.current,
         [previewFrame.camera_id]: nextImageUrl,
-      }));
+      };
 
       if (REFERENCE_REQUIRED_CAMERA_IDS.includes(previewFrame.camera_id as (typeof REFERENCE_REQUIRED_CAMERA_IDS)[number])) {
         lockInitialReferenceFrame(
@@ -137,7 +137,12 @@ function commitLiveReferenceFrame(
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
 ) {
-  if (!liveFrame || !liveImageUrl) {
+  if (
+    !liveFrame ||
+    !liveImageUrl ||
+    liveFrame.camera_id !== cameraId ||
+    liveFrame.current.camera_id !== cameraId
+  ) {
     return false;
   }
 
@@ -162,7 +167,7 @@ async function loadSnapshotImage(
   try {
     const snapshot = await orchestratorApi.getLatestSnapshot(cameraId);
 
-    if (!snapshot.hasCurrent || !snapshot.currentJpeg?.path) {
+    if (!snapshot.hasCurrent || !snapshot.currentJpeg?.path || snapshot.cameraId !== cameraId) {
       return false;
     }
 

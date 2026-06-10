@@ -18,11 +18,11 @@ export function commitReferenceBundleImages(
   const nextReferenceImagesByCameraId = new Map<number, StoredReferenceImage>();
   const nextReferenceImageVersion = referenceImageVersion + 1;
 
-  bundle.views.forEach((view, viewIndex) => {
+  bundle.views.forEach((view) => {
+    const cameraId = view.frame.camera_id;
     const baseImageUrl =
       createFrameImageUrl(view.frame) ??
-      fallbackImageUrlsByCameraId[view.frame.camera_id] ??
-      fallbackImageUrlsByCameraId[viewIndex];
+      fallbackImageUrlsByCameraId[cameraId];
 
     if (baseImageUrl) {
       const referenceImage = {
@@ -30,11 +30,7 @@ export function commitReferenceBundleImages(
         roiPoints: copyRoiPoints(view.interest_polygon_norm),
       };
 
-      nextReferenceImagesByCameraId.set(viewIndex, referenceImage);
-
-      if (view.frame.camera_id === viewIndex || !nextReferenceImagesByCameraId.has(view.frame.camera_id)) {
-        nextReferenceImagesByCameraId.set(view.frame.camera_id, referenceImage);
-      }
+      nextReferenceImagesByCameraId.set(cameraId, referenceImage);
     }
   });
 

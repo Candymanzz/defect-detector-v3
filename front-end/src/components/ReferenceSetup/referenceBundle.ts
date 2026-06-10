@@ -79,6 +79,12 @@ function createReferenceViewForFrame(
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
   jointRoiPolygon: InterestPointNorm[],
 ) {
+  if (previewFrame.camera_id !== cameraId || previewFrame.current.camera_id !== cameraId) {
+    throw new Error(
+      `Reference frame camera mismatch: expected ${cameraId}, received ${previewFrame.camera_id}`,
+    );
+  }
+
   const roiPolygon = roiPolygonsByCameraId[cameraId];
 
   if (!isValidRoiPolygon(roiPolygon)) {

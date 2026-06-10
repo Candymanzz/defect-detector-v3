@@ -171,40 +171,22 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     }
   };
 
-  const handleSelectCamera = async (cameraId: number) => {
+  const handleSelectCamera = (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
-    setMessage(`Waiting for live frame from camera ${cameraId}...`);
-    const { loadedCameraIds, snapshotCameraIds } = await refreshLatestImages(cameraId);
-
-    if (loadedCameraIds.length > 0) {
-      setMessage(`Live frame loaded for camera ${cameraId}`);
-      return;
-    }
-
-    if (snapshotCameraIds.length > 0) {
-      setMessage(`Latest snapshot loaded for camera ${cameraId}. Waiting for live frame to send reference.`);
-      return;
-    }
-
-    setMessage(`Live frame has not arrived for camera ${cameraId} yet`);
+    setMessage(
+      referenceFrames.framesByCameraId[cameraId]
+        ? `Editing ROI for camera ${cameraId}`
+        : `Reference frame has not arrived for camera ${cameraId} yet`,
+    );
   };
 
-  const handleSelectJointRoi = async () => {
+  const handleSelectJointRoi = () => {
     referenceRoi.selectJointRoi();
-    setMessage("Waiting for live frame from camera 0 to edit joint ROI...");
-    const { loadedCameraIds, snapshotCameraIds } = await refreshLatestImages(0);
-
-    if (loadedCameraIds.length > 0) {
-      setMessage("Live frame loaded for camera 0. Editing joint ROI.");
-      return;
-    }
-
-    if (snapshotCameraIds.length > 0) {
-      setMessage("Latest snapshot loaded for camera 0. Editing joint ROI while waiting for live frame.");
-      return;
-    }
-
-    setMessage("Live frame has not arrived for camera 0 yet");
+    setMessage(
+      referenceFrames.framesByCameraId[0]
+        ? "Editing joint ROI for camera 0"
+        : "Reference frame has not arrived for camera 0 yet",
+    );
   };
 
   return {
