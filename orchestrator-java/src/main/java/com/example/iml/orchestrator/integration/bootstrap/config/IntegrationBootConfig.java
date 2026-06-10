@@ -45,7 +45,7 @@ public record IntegrationBootConfig(
         ReferenceSource referenceSource = ReferenceSource.fromConfig(
                 integration == null ? null : integration.get("reference_source"));
         int pythonParallelism = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("python_parallelism"), Math.min(cameraParallelism, 2)));
-        int stageQueueSize = Math.max(4, YamlScalars.toInt(integration == null ? null : integration.get("stage_queue_size"), cameraParallelism * 2));
+        int stageQueueSize = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("stage_queue_size"), cameraParallelism * 2));
         return new IntegrationBootConfig(
                 workerIpcMode,
                 workerPipeTemplate,

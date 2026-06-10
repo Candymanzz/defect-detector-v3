@@ -25,6 +25,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     private static final int MAX_ALIGNMENT_DIM = 640;
     private static final int MAX_CIRCLE_DIM = 320;
     private static final int ORB_FEATURES = 1500;
+    private static final double FALLBACK_FAIL_MM = 9999.0;
+    private static final double FALLBACK_FAIL_ROTATION_DEG = 9999.0;
 
     private final ImageCodec imageCodec;
     private final CalibrationService calibrationService;
@@ -266,12 +268,12 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
 
             detectAndComputeFeatures(curGrayScaled, curKeypoints, curDescriptors);
             if (preparedReference.descriptors.empty() || curDescriptors.empty()) {
-                throw new IllegalStateException("Unable to detect enough keypoints in main ROI.");
+                return failedAlignment();
             }
 
             List<DMatch> goodMatches = ratioTestMatches(preparedReference.descriptors, curDescriptors);
             if (goodMatches.size() < 8) {
-                throw new IllegalStateException("Not enough valid matches for homography.");
+                return failedAlignment();
             }
 
             KeyPoint[] refPoints = preparedReference.keypoints;
@@ -293,7 +295,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 dst.fromList(dstPoints);
                 homography = Calib3d.findHomography(src, dst, Calib3d.RANSAC, 3.0, inliersMask);
                 if (homography.empty()) {
-                    throw new IllegalStateException("Homography estimation failed.");
+                    return failedAlignment();
                 }
 
                 Mat scaledToOriginalHomography = toOriginalScaleHomography(
@@ -362,10 +364,6 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             ResizeResult refResize = resizeForProcessing(refGray, MAX_ALIGNMENT_DIM);
             refGrayScaled = refResize.mat;
             detectAndComputeFeatures(refGrayScaled, refKeypoints, refDescriptors);
-            if (refDescriptors.empty()) {
-                throw new IllegalStateException("Unable to detect enough keypoints in reference ROI.");
-            }
-
             Mat descriptorsClone = refDescriptors.clone();
             KeyPoint[] keypointsCopy = refKeypoints.toArray();
             PreparedReference next = new PreparedReference(
@@ -381,6 +379,22 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         } finally {
             release(refGray, refGrayScaled, refDescriptors);
             release(refKeypoints);
+        }
+    }
+
+    private AlignmentResult failedAlignment() {
+        Mat identity = Mat.eye(3, 3, CvType.CV_64F);
+        try {
+            return new AlignmentResult(
+                    0.0,
+                    0.0,
+                    FALLBACK_FAIL_MM,
+                    FALLBACK_FAIL_MM,
+                    FALLBACK_FAIL_ROTATION_DEG,
+                    identity.clone()
+            );
+        } finally {
+            identity.release();
         }
     }
 
