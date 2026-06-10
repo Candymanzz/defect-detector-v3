@@ -79,6 +79,7 @@ public final class AsyncInspectionCycleRunner {
                     in.cameraId(),
                     in.productType(),
                     in.detectorId(),
+                    in.activeReference(),
                     decision,
                     state.capture(),
                     state.geom()

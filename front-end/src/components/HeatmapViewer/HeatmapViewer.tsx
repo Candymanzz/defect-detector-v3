@@ -15,8 +15,9 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    clearHeatmapCanvas(canvasRef.current);
+
     if (!heatmap) {
-      clearHeatmapCanvas(canvasRef.current);
       return;
     }
 

@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -136,6 +137,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             int cameraId,
             String productType,
             String detectorId,
+            ReferenceSnapshot activeReference,
             InspectionDecision decision,
             BinaryProtocol.Message capture,
             BinaryProtocol.Message geomResp
@@ -183,31 +185,46 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 int uw = 0;
                 int uh = 0;
                 if (uiVisualsPython != null && storeHeatmapU8) {
-                    Map<String, Object> pyHeader = new HashMap<>();
-                    pyHeader.put("op", "inspect_shm");
-                    pyHeader.put("camera_id", cameraId);
-                    pyHeader.put("frame_id", frameId);
-                    pyHeader.put("product_type", productType);
-                    pyHeader.put("detector_id", detectorId);
-                    pyHeader.put("threshold", 0.25);
-                    pyHeader.put("include_visuals", false);
-                    pyHeader.put("shm_name", shmName);
-                    pyHeader.put("shm_offset", cap.get("shm_offset"));
-                    pyHeader.put("width", width);
-                    pyHeader.put("height", height);
-                    pyHeader.put("stride", stride);
-                    if (homography != null) {
-                        pyHeader.put("alignment_h_ref_to_cur", homography);
+                    boolean referenceSynced = false;
+                    if (activeReference != null && activeReference.header() != null) {
+                        referenceSynced = activeReference.header().get("shm_name") != null;
                     }
-                    String base = (shmName.startsWith("/") ? shmName.substring(1) : shmName);
-                    Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(base + ".heatmap.u8");
-                    pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
-                    BinaryProtocol.Message pyResp = uiVisualsPython.command(pyHeader);
-                    if (pyResp.type() != BinaryProtocol.MSG_ERROR) {
-                        HeatmapArtifact hm = resolveHeatmapArtifact(pyResp.header(), heatmapOutRequested, width, height);
-                        heatmapU8 = hm.path();
-                        uw = hm.width();
-                        uh = hm.height();
+                    if (referenceSynced) {
+                        Map<String, Object> pyHeader = new HashMap<>();
+                        pyHeader.put("op", "inspect_shm");
+                        pyHeader.put("camera_id", cameraId);
+                        pyHeader.put("frame_id", frameId);
+                        pyHeader.put("product_type", productType);
+                        pyHeader.put("detector_id", detectorId);
+                        pyHeader.put("threshold", 0.25);
+                        pyHeader.put("include_visuals", false);
+                        pyHeader.put("shm_name", shmName);
+                        pyHeader.put("shm_offset", cap.get("shm_offset"));
+                        pyHeader.put("width", width);
+                        pyHeader.put("height", height);
+                        pyHeader.put("stride", stride);
+                        pyHeader.put("reference_shm_name", activeReference.header().get("shm_name"));
+                        pyHeader.put("reference_shm_offset", activeReference.header().get("shm_offset"));
+                        pyHeader.put("reference_width", activeReference.header().get("width"));
+                        pyHeader.put("reference_height", activeReference.header().get("height"));
+                        pyHeader.put("reference_stride", activeReference.header().get("stride"));
+                        if (homography != null) {
+                            pyHeader.put("alignment_h_ref_to_cur", homography);
+                        }
+                        Object roiPolygon = activeReference.header().get("interest_polygon_norm");
+                        if (roiPolygon instanceof List<?> points && points.size() >= 3) {
+                            pyHeader.put("roi_polygon_norm", points);
+                        }
+                        String base = (shmName.startsWith("/") ? shmName.substring(1) : shmName);
+                        Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(base + ".heatmap.u8");
+                        pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
+                        BinaryProtocol.Message pyResp = uiVisualsPython.command(pyHeader);
+                        if (pyResp.type() != BinaryProtocol.MSG_ERROR) {
+                            HeatmapArtifact hm = resolveHeatmapArtifact(pyResp.header(), heatmapOutRequested, width, height);
+                            heatmapU8 = hm.path();
+                            uw = hm.width();
+                            uh = hm.height();
+                        }
                     }
                 }
                 Path currentJpeg = null;
@@ -232,11 +249,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     currentJpeg = prev.currentJpeg();
                     currentJpegW = prev.currentJpegWidth();
                     currentJpegH = prev.currentJpegHeight();
-                }
-                if (heatmapU8 == null && prev != null) {
-                    heatmapU8 = prev.heatmapU8();
-                    uw = prev.heatmapU8Width();
-                    uh = prev.heatmapU8Height();
                 }
                 boolean hasCur =
                         currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);

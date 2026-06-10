@@ -141,6 +141,13 @@ public final class BinaryInspectHeaders {
     ) {
         Map<String, Object> pyHeader = pythonInspectHeader(
                 cameraId, productType, detectorId, capture, geomResp, pythonCfg, includeVisuals);
+        if (activeReference != null && activeReference.header() != null) {
+            pyHeader.put("reference_shm_name", activeReference.header().get("shm_name"));
+            pyHeader.put("reference_shm_offset", activeReference.header().get("shm_offset"));
+            pyHeader.put("reference_width", activeReference.header().get("width"));
+            pyHeader.put("reference_height", activeReference.header().get("height"));
+            pyHeader.put("reference_stride", activeReference.header().get("stride"));
+        }
         Object poly = resolveMainRoiPolygonNorm(activeReference, null);
         if (poly != null) {
             pyHeader.put("roi_polygon_norm", poly);

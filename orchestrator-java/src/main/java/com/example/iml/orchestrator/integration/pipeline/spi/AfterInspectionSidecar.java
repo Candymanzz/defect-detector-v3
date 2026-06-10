@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.spi;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
@@ -21,6 +22,7 @@ public interface AfterInspectionSidecar {
             int cameraId,
             String productType,
             String detectorId,
+            ReferenceSnapshot activeReference,
             InspectionDecision decision,
             BinaryProtocol.Message capture,
             BinaryProtocol.Message geometry

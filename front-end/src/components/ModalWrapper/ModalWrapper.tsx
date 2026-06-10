@@ -155,13 +155,20 @@ function HeatmapPanel({
   cameraImageUrl?: string;
   inspectResult?: InspectResultPayload;
 }) {
+  const matchingInspectResult =
+    cameraId !== undefined && inspectResult?.camera_id === cameraId ? inspectResult : undefined;
+  const heatmapKey = matchingInspectResult
+    ? `${cameraId}-${matchingInspectResult.frame_id}-${matchingInspectResult.heatmap?.artifact_id ?? matchingInspectResult.heatmap?.http_path ?? "no-heatmap"}`
+    : undefined;
+
   return (
     <figure className="modal-image-panel">
       <figcaption>Heatmap</figcaption>
-      {cameraId !== undefined && inspectResult ? (
+      {cameraId !== undefined && matchingInspectResult ? (
         <HeatmapViewer
+          key={heatmapKey}
           cameraId={cameraId}
-          heatmap={inspectResult.heatmap}
+          heatmap={matchingInspectResult.heatmap}
           backgroundImageUrl={cameraImageUrl}
         />
       ) : (
