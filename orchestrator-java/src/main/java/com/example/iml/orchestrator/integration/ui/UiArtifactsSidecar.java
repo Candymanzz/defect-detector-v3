@@ -186,6 +186,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         int stride = YamlScalars.toInt(cap.get("stride"), width * 3);
 
         Object homography = geomResp == null ? null : geomResp.header().get("homographyRefToCurrent");
+        if (ws != null) {
+            try {
+                // Deliver decision immediately; heavy UI artifacts are published in a later update.
+                ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
+            } catch (Exception e) {
+                log.debug("client_ws inspect_result immediate cam={}: {}", cameraId, e.getMessage());
+            }
+        }
 
         try {
             uiArtifactsExecutor.execute(() -> {
@@ -303,7 +311,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             decision
                     );
                 }
-                if (ws != null) {
+                if (ws != null && (hasCur || hasHm)) {
                     try {
                         String hmToken = null;
                         if (hasHm) {
@@ -334,14 +342,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         } catch (java.util.concurrent.RejectedExecutionException e) {
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
-            if (ws != null) {
-                try {
-                    // Fallback: still deliver inspect_result so UI state remains synchronized.
-                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
-                } catch (Exception notifyEx) {
-                    log.debug("client_ws inspect_result fallback cam={}: {}", cameraId, notifyEx.getMessage());
-                }
-            }
         }
     }
 
