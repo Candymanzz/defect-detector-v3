@@ -15,29 +15,28 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    clearHeatmapCanvas(canvasRef.current);
-
     if (!heatmap) {
+      clearHeatmapCanvas(canvasRef.current);
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
     const currentHeatmap = heatmap;
 
     async function loadAndDrawHeatmap() {
       try {
         setStatus("loading");
         setError(null);
-        const bytes = await loadHeatmapForCamera(currentHeatmap);
+        const bytes = await loadHeatmapForCamera(currentHeatmap, controller.signal);
 
-        if (cancelled) {
+        if (controller.signal.aborted) {
           return;
         }
 
         drawGrayU8Heatmap(canvasRef.current, currentHeatmap, bytes);
         setStatus("ready");
       } catch (nextError) {
-        if (cancelled) {
+        if (controller.signal.aborted || (nextError instanceof DOMException && nextError.name === "AbortError")) {
           return;
         }
 
@@ -50,7 +49,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
     loadAndDrawHeatmap();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [cameraId, heatmap]);
 

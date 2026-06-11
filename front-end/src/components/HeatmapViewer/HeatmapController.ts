@@ -3,10 +3,10 @@ import type { HeatmapDescriptor } from "../../shared/ws";
 
 const HEATMAP_COLOR_LUT = createHeatmapColorLut();
 
-export async function loadHeatmapForCamera(heatmap: HeatmapDescriptor) {
+export async function loadHeatmapForCamera(heatmap: HeatmapDescriptor, signal?: AbortSignal) {
   validateHeatmap(heatmap);
 
-  const buffer = await loadHeatmapBuffer(heatmap);
+  const buffer = await loadHeatmapBuffer(heatmap, signal);
   return new Uint8Array(buffer);
 }
 
@@ -20,12 +20,13 @@ export function clearHeatmapCanvas(canvas: HTMLCanvasElement | null) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-async function loadHeatmapBuffer(heatmap: HeatmapDescriptor) {
+async function loadHeatmapBuffer(heatmap: HeatmapDescriptor, signal?: AbortSignal) {
   if (heatmap.http_path) {
     const response = await fetch(orchestratorApi.url(heatmap.http_path), {
       headers: {
         Accept: "application/octet-stream",
       },
+      signal,
     });
 
     if (!response.ok) {
@@ -36,7 +37,7 @@ async function loadHeatmapBuffer(heatmap: HeatmapDescriptor) {
   }
 
   if (heatmap.artifact_id) {
-    return orchestratorApi.getHeatmapArtifact(heatmap.artifact_id);
+    return orchestratorApi.getHeatmapArtifact(heatmap.artifact_id, signal);
   }
 
   throw new Error("Heatmap source is missing for the selected inspect result");

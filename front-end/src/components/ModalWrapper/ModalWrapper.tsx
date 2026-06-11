@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
@@ -125,7 +125,6 @@ function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: 
       <figcaption>{label}</figcaption>
       <div className="modal-image-panel__image-wrap">
         <PreviewImage
-          key={imageUrl ?? `${label}-offline`}
           alt={label}
           className="modal-image-panel__image"
           placeholderClassName="modal-image-panel__placeholder"
@@ -157,16 +156,11 @@ function HeatmapPanel({
 }) {
   const matchingInspectResult =
     cameraId !== undefined && inspectResult?.camera_id === cameraId ? inspectResult : undefined;
-  const heatmapKey = matchingInspectResult
-    ? `${cameraId}-${matchingInspectResult.frame_id}-${matchingInspectResult.heatmap?.artifact_id ?? matchingInspectResult.heatmap?.http_path ?? "no-heatmap"}`
-    : undefined;
-
   return (
     <figure className="modal-image-panel">
       <figcaption>Heatmap</figcaption>
       {cameraId !== undefined && matchingInspectResult ? (
         <HeatmapViewer
-          key={heatmapKey}
           cameraId={cameraId}
           heatmap={matchingInspectResult.heatmap}
           backgroundImageUrl={cameraImageUrl}
@@ -232,12 +226,27 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
             {formatInspectDecisionLine(inspectResult)}
           </div>
 
-          <pre className="modal-inspect-result__raw">{JSON.stringify(inspectResult, null, 2)}</pre>
+          <InspectResultRaw inspectResult={inspectResult} />
         </>
       ) : (
         <div className="modal-inspect-result__empty">No inspect result yet</div>
       )}
     </section>
+  );
+}
+
+function InspectResultRaw({ inspectResult }: { inspectResult: InspectResultPayload }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className="modal-inspect-result__details"
+      open={isOpen}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>Raw result</summary>
+      {isOpen && <pre className="modal-inspect-result__raw">{JSON.stringify(inspectResult, null, 2)}</pre>}
+    </details>
   );
 }
 

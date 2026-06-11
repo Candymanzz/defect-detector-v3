@@ -187,7 +187,7 @@
 
 .modal-inspect-result__raw {
   min-height: 0;
-  margin: 0;
+  margin: 8px 0 0;
   padding: 12px;
   overflow: auto;
   border-radius: 8px;
@@ -195,6 +195,13 @@
   color: #c7d2ce;
   font-size: 0.78rem;
   line-height: 1.45;
+}
+
+.modal-inspect-result__details summary {
+  cursor: pointer;
+  color: #aebbc9;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 @media (max-width: 980px) {

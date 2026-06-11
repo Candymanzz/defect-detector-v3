@@ -61,11 +61,12 @@ export const orchestratorApi = {
     });
   },
 
-  async getHeatmapArtifact(artifactId: string) {
+  async getHeatmapArtifact(artifactId: string, signal?: AbortSignal) {
     return http.arrayBuffer(`/api/heatmap-artifact/${artifactId}`, {
       headers: {
         Accept: "application/octet-stream",
       },
+      signal,
     });
   },
 
