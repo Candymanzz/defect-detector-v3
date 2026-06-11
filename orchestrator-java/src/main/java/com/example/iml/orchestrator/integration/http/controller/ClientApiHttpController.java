@@ -7,12 +7,17 @@ import com.example.iml.orchestrator.integration.http.HttpRequestContext;
 import com.example.iml.orchestrator.integration.http.HttpResponses;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class ClientApiHttpController implements HttpController {
 
@@ -37,6 +42,10 @@ public final class ClientApiHttpController implements HttpController {
         String path = ctx.path();
         if (path.startsWith("/api/client/geometry-runtime")) {
             handleGeometryRuntime(ctx);
+            return;
+        }
+        if (path.equals("/api/client/inspection/stop")) {
+            handleStopInspection(ctx);
             return;
         }
         if (!clientApi.kopcheniConfigured()) {
@@ -86,6 +95,51 @@ public final class ClientApiHttpController implements HttpController {
         HttpResponses.methodNotAllowed(ctx);
     }
 
+    private void handleStopInspection(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (clientApi.inspectionGate() == null) {
+            HttpResponses.sendJsonError(ctx, 503, "inspection gate not configured");
+            return;
+        }
+
+        byte[] raw = ctx.readBody();
+        Map<String, Object> body = raw.length == 0 ? Map.of() : JSON.readValue(raw, new TypeReference<>() {
+        });
+        List<Integer> requestedCameraIds = parseCameraIds(body);
+        if (requestedCameraIds.isEmpty()) {
+            HttpResponses.sendJsonError(ctx, 400, "cameraId or cameraIds is required");
+            return;
+        }
+
+        Set<Integer> stopped = new LinkedHashSet<>();
+        Set<Integer> alreadyIdle = new LinkedHashSet<>();
+        Set<Integer> unknown = new LinkedHashSet<>();
+        for (Integer cameraId : requestedCameraIds) {
+            if (!clientApi.inspectionGate().isKnownCamera(cameraId)) {
+                unknown.add(cameraId);
+                continue;
+            }
+            boolean cancelled = clientApi.inspectionGate().requestCancel(cameraId);
+            if (cancelled) {
+                stopped.add(cameraId);
+            } else {
+                alreadyIdle.add(cameraId);
+            }
+        }
+
+        ObjectNode response = JSON.createObjectNode();
+        response.put("ok", true);
+        response.set("requestedCameraIds", toArray(requestedCameraIds));
+        response.set("stoppedCameraIds", toArray(stopped));
+        response.set("alreadyIdleCameraIds", toArray(alreadyIdle));
+        response.set("unknownCameraIds", toArray(unknown));
+        HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(response));
+    }
+
     private String resolveAnalysisProfile(HttpRequestContext ctx) {
         String query = ctx.query();
         if (query == null || query.isBlank()) {
@@ -117,6 +171,54 @@ public final class ClientApiHttpController implements HttpController {
 
     private static String urlDecode(String value) {
         return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    }
+
+    private static List<Integer> parseCameraIds(Map<String, Object> body) {
+        Set<Integer> out = new LinkedHashSet<>();
+        if (body == null || body.isEmpty()) {
+            return List.of();
+        }
+        Object single = body.get("cameraId");
+        Integer singleId = parseCameraId(single);
+        if (singleId != null) {
+            out.add(singleId);
+        }
+        Object many = body.get("cameraIds");
+        if (many instanceof Iterable<?> iterable) {
+            for (Object rawId : iterable) {
+                Integer cameraId = parseCameraId(rawId);
+                if (cameraId != null) {
+                    out.add(cameraId);
+                }
+            }
+        }
+        return new ArrayList<>(out);
+    }
+
+    private static Integer parseCameraId(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number n) {
+            return n.intValue();
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static ArrayNode toArray(Iterable<Integer> values) {
+        ArrayNode node = JSON.createArrayNode();
+        for (Integer value : values) {
+            node.add(value);
+        }
+        return node;
     }
 
     @Override

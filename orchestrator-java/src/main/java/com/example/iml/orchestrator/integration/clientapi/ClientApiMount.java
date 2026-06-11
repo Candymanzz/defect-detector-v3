@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 
 import java.util.Map;
 
@@ -13,14 +14,19 @@ public record ClientApiMount(
         String kopcheniBaseUrl,
         Map<String, Object> javaGeometryYaml,
         Map<String, Object> pythonDetectorYaml,
-        Map<Integer, String> analysisProfileByCamera
+        Map<Integer, String> analysisProfileByCamera,
+        PerCameraInspectionGate inspectionGate
 ) {
     public static ClientApiMount disabled() {
-        return new ClientApiMount(false, null, "", null, null, Map.of());
+        return new ClientApiMount(false, null, "", null, null, Map.of(), null);
     }
 
     @SuppressWarnings("unchecked")
-    public static ClientApiMount fromRootYaml(Map<String, Object> root, GeometryRuntimeConfig geometryRuntime) {
+    public static ClientApiMount fromRootYaml(
+            Map<String, Object> root,
+            GeometryRuntimeConfig geometryRuntime,
+            PerCameraInspectionGate inspectionGate
+    ) {
         if (root == null || geometryRuntime == null) {
             return disabled();
         }
@@ -56,7 +62,8 @@ public record ClientApiMount(
                 url,
                 jg,
                 py,
-                com.example.iml.orchestrator.integration.config.ConfiguredCameras.analysisProfileByCameraId(root)
+                com.example.iml.orchestrator.integration.config.ConfiguredCameras.analysisProfileByCameraId(root),
+                inspectionGate
         );
     }
 

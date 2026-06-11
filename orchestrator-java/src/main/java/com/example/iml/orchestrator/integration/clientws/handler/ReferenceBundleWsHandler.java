@@ -16,7 +16,8 @@ public final class ReferenceBundleWsHandler implements WsMessageHandler {
     public void handle(WsMessageContext ctx) throws ClientWsKopcheniSyncException {
         ReferenceBundleParser.Result r = ReferenceBundleParser.parseBundle(
                 ctx.envelope(),
-                ctx.application().cfg().protocolVersion()
+                ctx.application().cfg().protocolVersion(),
+                ctx.application().referenceCameraIds()
         );
         if (r instanceof ReferenceBundleParser.Result.Err err) {
             ctx.application().outbound().sendError(ctx.connection(), err.code(), err.message());

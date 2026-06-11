@@ -145,7 +145,7 @@ public final class ProductionInspectionOrchestrator {
                 }
                 return;
             }
-            AsyncInspectionCycleRunner.run(svc, cycleIn, null, inspectionCycleTimeoutMs);
+            AsyncInspectionCycleRunner.run(svc, cycleIn, null, inspectionCycleTimeoutMs, inspectionGate);
         } catch (TimeoutException e) {
             svc.log().warn(
                     "integration cam={}: inspection cycle timeout after {} ms (source={})",

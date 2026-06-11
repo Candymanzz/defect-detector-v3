@@ -1,0 +1,53 @@
+# Подсветка → LightServer.v3: COM = POST /api/com/light { state: On|Off, brightness: "80,..." } (банк COM из appsettings);
+# сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость оркестратора: 0…100%.
+light_servers:
+  enabled: false
+  fail_on_error: true
+  # COM: первый POST может занять 8–12 s, если банк ещё не initialized (оркестратор ждёт GET /api/com/light)
+  timeout_ms: 20000
+  brightness_percent: 80
+  # 0…255 в POST; для теста как Swagger: [5,5,5,5]. Уберите строку — будет только brightness_percent.
+  # brightness_raw: [5, 5, 5, 5]
+  duration_ms: 500
+  # Пауза после POST On, до software trigger камеры (см. capture_trigger_mode).
+  # Пауза после POST on (Hold/bank sync) до software trigger камеры
+  flash_lead_ms: 80
+  settle_delay_ms: 200
+  endpoints:
+    # COM1: 2 вспышки → LAN1 (cam 0), LAN3 (cam 1)
+    - id: light-com1
+      enabled: true
+      type: com_io
+      base_url: "http://127.0.0.1:5080"
+      com_port: "COM1"
+      com_ports: "COM1"
+      brightness_percent: 80
+      channels: [1, 2]
+      camera_ids: [0, 1]
+    # COM3: 4 вспышки → LAN4 (cam 2) каналы 1–2, LAN5 (cam 3) каналы 3–4
+    - id: light-com3-lan4
+      enabled: true
+      type: com_io
+      base_url: "http://127.0.0.1:5080"
+      com_port: "COM3"
+      com_ports: "COM3"
+      brightness_percent: 80
+      channels: [1, 2]
+      camera_ids: [2]
+    - id: light-com3-lan5
+      enabled: true
+      type: com_io
+      base_url: "http://127.0.0.1:5080"
+      com_port: "COM3"
+      com_ports: "COM3"
+      brightness_percent: 80
+      channels: [3, 4]
+      camera_ids: [3]
+    # MV-LE по Ethernet: Open 0x80000203 на index 0 — включите после настройки device_index
+    - id: light-mv-le
+      enabled: false
+      type: mv_le
+      base_url: "http://127.0.0.1:5080"
+      device_index: 1
+      brightness_percent: 80
+      channels: [1, 2, 3, 4]

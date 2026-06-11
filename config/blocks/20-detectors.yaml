@@ -1,0 +1,27 @@
+java_geometry:
+  pixels_to_mm: 0.01
+  main_roi: { x: 0, y: 0, width: 2448, height: 2048 }
+  joint_roi: null
+  wrinkles_roi: null
+  max_shift_mm: 0.5
+  max_rotation_deg: 1.0
+  max_concentricity_mm: 0.2
+  max_joint_defect_mm: 0.3
+  # Совпадает с python_detector.fallback_threshold, если не задан runtime threshold с фронта.
+  # 0.45 снижает ложный брак на стабильных одинаковых кадрах.
+  max_wrinkles_score: 0.45
+
+python_detector:
+  # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
+  base_url: "http://127.0.0.1:8000"
+  # Downscale кадров перед inspect_shm (1.0 = без масштабирования).
+  inspect_scale: 0.4
+  rois:
+    - name: main
+      x: 0
+      y: 0
+      width: 2448
+      height: 2048
+  # Более безопасный рабочий порог: меньше ложных REJECT при микро-шуме/свете.
+  fallback_threshold: 0.45
+  include_visuals: false

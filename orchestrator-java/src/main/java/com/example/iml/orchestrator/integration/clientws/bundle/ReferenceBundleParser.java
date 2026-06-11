@@ -3,7 +3,9 @@ package com.example.iml.orchestrator.integration.clientws.bundle;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Парсинг и валидация {@code client.reference_bundle} (JSON + ShmFrameRef, без пикселей).
@@ -21,9 +23,9 @@ public final class ReferenceBundleParser {
         }
     }
 
-    public static Result parseBundle(JsonNode envelope, int expectedProtocolVersion) {
+    public static Result parseBundle(JsonNode envelope, int expectedProtocolVersion, List<Integer> configuredCameraIds) {
         try {
-            return new Result.Ok(parseBundleOrThrow(envelope, expectedProtocolVersion));
+            return new Result.Ok(parseBundleOrThrow(envelope, expectedProtocolVersion, configuredCameraIds));
         } catch (BundleParseException e) {
             return new Result.Err(e.code(), e.getMessage());
         }
@@ -36,8 +38,13 @@ public final class ReferenceBundleParser {
         return parseFpZones(fpNode);
     }
 
-    private static ReferenceBundleSnapshot parseBundleOrThrow(JsonNode envelope, int expectedProtocolVersion)
+    private static ReferenceBundleSnapshot parseBundleOrThrow(
+            JsonNode envelope,
+            int expectedProtocolVersion,
+            List<Integer> configuredCameraIds
+    )
             throws BundleParseException {
+        List<Integer> cameraIds = normalizeConfiguredCameraIds(configuredCameraIds);
         if (envelope == null || !envelope.isObject()) {
             throw new BundleParseException("invalid_envelope", "root must be object");
         }
@@ -54,8 +61,8 @@ public final class ReferenceBundleParser {
             throw new BundleParseException("invalid_product_type", "product_type required");
         }
         int jointViewIndex = payload.path("joint_view_index").asInt(-1);
-        if (jointViewIndex < 0 || jointViewIndex > 3) {
-            throw new BundleParseException("invalid_joint_view_index", "joint_view_index must be 0..3");
+        if (jointViewIndex < 0 || jointViewIndex >= cameraIds.size()) {
+            throw new BundleParseException("invalid_joint_view_index", "joint_view_index out of configured range");
         }
         int heatmapW = payload.path("heatmap_width").asInt(0);
         int heatmapH = payload.path("heatmap_height").asInt(0);
@@ -63,12 +70,13 @@ public final class ReferenceBundleParser {
             throw new BundleParseException("invalid_heatmap_size", "heatmap_width and heatmap_height must be positive");
         }
         JsonNode viewsNode = payload.path("views");
-        if (!viewsNode.isArray() || viewsNode.size() != 4) {
-            throw new BundleParseException("invalid_views", "views must be array of length 4");
+        if (!viewsNode.isArray() || viewsNode.size() != cameraIds.size()) {
+            throw new BundleParseException("invalid_views", "views must be array of length " + cameraIds.size());
         }
-        List<ReferenceViewSlot> views = new ArrayList<>(4);
-        for (int i = 0; i < 4; i++) {
-            views.add(parseViewSlot(viewsNode.get(i), i, jointViewIndex));
+        Set<Integer> allowedCameraIds = new HashSet<>(cameraIds);
+        List<ReferenceViewSlot> views = new ArrayList<>(cameraIds.size());
+        for (int i = 0; i < cameraIds.size(); i++) {
+            views.add(parseViewSlot(viewsNode.get(i), i, jointViewIndex, allowedCameraIds));
         }
         List<FpZoneNorm> fpZones = parseFpZones(payload.path("fp_zones"));
         return new ReferenceBundleSnapshot(
@@ -82,13 +90,18 @@ public final class ReferenceBundleParser {
         );
     }
 
-    private static ReferenceViewSlot parseViewSlot(JsonNode viewNode, int index, int jointViewIndex)
+    private static ReferenceViewSlot parseViewSlot(
+            JsonNode viewNode,
+            int index,
+            int jointViewIndex,
+            Set<Integer> allowedCameraIds
+    )
             throws BundleParseException {
         if (viewNode == null || !viewNode.isObject()) {
             throw new BundleParseException("invalid_view", "views[" + index + "] must be object");
         }
         String ctx = "views[" + index + "]";
-        ShmFrameRefData frame = parseFrame(viewNode.path("frame"), ctx + ".frame");
+        ShmFrameRefData frame = parseFrame(viewNode.path("frame"), ctx + ".frame", allowedCameraIds);
         PixelRoi interest = parseRoi(viewNode.path("interest_roi"), ctx + ".interest_roi", frame.width(), frame.height());
         if (interest == null) {
             throw new BundleParseException("invalid_interest_roi", ctx + ".interest_roi invalid or out of frame");
@@ -115,13 +128,13 @@ public final class ReferenceBundleParser {
         return new ReferenceViewSlot(frame, interest, joint, List.copyOf(interestPolygon));
     }
 
-    private static ShmFrameRefData parseFrame(JsonNode n, String ctx) throws BundleParseException {
+    private static ShmFrameRefData parseFrame(JsonNode n, String ctx, Set<Integer> allowedCameraIds) throws BundleParseException {
         if (n == null || !n.isObject()) {
             throw new BundleParseException("invalid_frame", ctx + " must be object");
         }
         int cameraId = n.path("camera_id").asInt(-1);
-        if (cameraId < 0 || cameraId > 3) {
-            throw new BundleParseException("invalid_camera_id", ctx + ".camera_id must be 0..3");
+        if (cameraId < 0 || !allowedCameraIds.contains(cameraId)) {
+            throw new BundleParseException("invalid_camera_id", ctx + ".camera_id must be one of configured cameras");
         }
         String frameId = textNonEmpty(n, "frame_id");
         if (frameId == null) {
@@ -280,5 +293,22 @@ public final class ReferenceBundleParser {
         }
         String t = parent.get(field).asText("").trim();
         return t.isEmpty() ? null : t;
+    }
+
+    private static List<Integer> normalizeConfiguredCameraIds(List<Integer> configuredCameraIds) throws BundleParseException {
+        if (configuredCameraIds == null || configuredCameraIds.isEmpty()) {
+            throw new BundleParseException("invalid_views", "configured camera list is empty");
+        }
+        List<Integer> cameraIds = new ArrayList<>();
+        for (Integer cameraId : configuredCameraIds) {
+            if (cameraId == null || cameraId < 0 || cameraIds.contains(cameraId)) {
+                continue;
+            }
+            cameraIds.add(cameraId);
+        }
+        if (cameraIds.isEmpty()) {
+            throw new BundleParseException("invalid_views", "configured camera list is empty");
+        }
+        return List.copyOf(cameraIds);
     }
 }

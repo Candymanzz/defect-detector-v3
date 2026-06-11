@@ -102,7 +102,8 @@ public final class IntegrationBootstrap {
         UiArtifactsSidecar uiSidecar = new UiArtifactsSidecar(log);
         GeometrySnapshotCache geometrySnapshotCache = new GeometrySnapshotCache();
         GeometryRuntimeConfig geometryRuntimeConfig = new GeometryRuntimeConfig();
-        ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(root, geometryRuntimeConfig);
+        PerCameraInspectionGate inspectionGate = PerCameraInspectionGate.fromCameras(cameras);
+        ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(root, geometryRuntimeConfig, inspectionGate);
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);
         WorkerCaptureCoordinator captureCoordinator = new WorkerCaptureCoordinator(log, jpegWriter);
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
@@ -195,6 +196,7 @@ public final class IntegrationBootstrap {
             clientWsServer.setKopcheniPythonPool(pythonPool);
             clientWsServer.attachPipelineReferences(pipelineReferenceRegistry, detectorByCamera);
             clientWsServer.setLightTriggerClient(lightClient);
+            clientWsServer.setReferenceCameraIds(ConfiguredCameras.enabledIds(root));
         }
         uiSidecar.setClientWebSocketServer(clientWsServer);
         if (clientApiMount.enabled()) {
@@ -379,7 +381,6 @@ public final class IntegrationBootstrap {
                 }
             }
             int inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(integration);
-            PerCameraInspectionGate inspectionGate = PerCameraInspectionGate.fromCameras(activeCameras);
             log.info(
                     "inspection gate per-camera in-flight enabled timeout_ms={} cameras={}",
                     inspectionCycleTimeoutMs,

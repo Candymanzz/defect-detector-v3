@@ -133,6 +133,10 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         application.setLivePreviewGate(livePreviewGate);
     }
 
+    public void setReferenceCameraIds(Collection<Integer> cameraIds) {
+        application.setReferenceCameraIds(cameraIds);
+    }
+
     public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws ClientWsKopcheniSyncException {
         WebSocket c;
         synchronized (sessionLock) {

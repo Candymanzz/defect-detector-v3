@@ -1,0 +1,16 @@
+robot:
+  url: "http://127.0.0.1:9999"
+  enabled: false
+
+fanout:
+  robot_tcp:
+    host: "127.0.0.1"
+    port: 9999
+    connect_timeout_ms: 300
+    write_timeout_ms: 300
+    queue_size: 256
+  client_http:
+    host: "127.0.0.1"
+    port: 8088
+    queue_size: 128
+    artificial_delay_ms: 0

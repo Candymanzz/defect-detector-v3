@@ -35,8 +35,13 @@ public final class SetActiveReferenceViewWsHandler implements WsMessageHandler {
             return;
         }
         int viewIndex = payload.path("view_index").asInt(-1);
-        if (viewIndex < 0 || viewIndex > 3) {
-            app.outbound().sendError(ctx.connection(), "invalid_view_index", "view_index must be 0..3");
+        int maxIndex = Math.max(0, app.referenceCameraIds().size() - 1);
+        if (viewIndex < 0 || viewIndex > maxIndex) {
+            app.outbound().sendError(
+                    ctx.connection(),
+                    "invalid_view_index",
+                    "view_index must be in range 0.." + maxIndex
+            );
             return;
         }
         String productType = app.referenceContext().snapshot().map(ReferenceBundleSnapshot::productType).orElse("");

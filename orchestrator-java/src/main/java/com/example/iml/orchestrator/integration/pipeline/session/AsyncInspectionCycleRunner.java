@@ -24,8 +24,13 @@ public final class AsyncInspectionCycleRunner {
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
             Map<String, Object> timingExtras,
-            long timeoutMs
+            long timeoutMs,
+            PerCameraInspectionGate inspectionGate
     ) throws TimeoutException {
+        if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+            svc.log().info("integration cam={}: inspection cycle cancelled before start", in.cameraId());
+            return;
+        }
         CompletableFuture<PipelineState> captureFuture = svc.captureStage().scheduleCapture(
                 in.projectRoot(),
                 in.saveCaptures(),
@@ -37,6 +42,11 @@ public final class AsyncInspectionCycleRunner {
                 in.captureStageExecutor(),
                 "current capture"
         );
+        if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+            captureFuture.cancel(true);
+            svc.log().info("integration cam={}: inspection cycle cancelled during capture stage", in.cameraId());
+            return;
+        }
 
         CompletableFuture<PipelineState> geometryFuture = captureFuture.thenApplyAsync(
                 state -> svc.geometryStage().apply(
@@ -52,6 +62,11 @@ public final class AsyncInspectionCycleRunner {
                 ),
                 in.geometryStageExecutor()
         );
+        if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+            geometryFuture.cancel(true);
+            svc.log().info("integration cam={}: inspection cycle cancelled before geometry stage", in.cameraId());
+            return;
+        }
 
         CompletableFuture<PipelineState> pythonFuture = geometryFuture.thenApplyAsync(
                 state -> svc.pythonStage().apply(
@@ -67,8 +82,17 @@ public final class AsyncInspectionCycleRunner {
                 ),
                 in.pythonStageExecutor()
         );
+        if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+            pythonFuture.cancel(true);
+            svc.log().info("integration cam={}: inspection cycle cancelled before python stage", in.cameraId());
+            return;
+        }
 
         CompletableFuture<Void> decisionFuture = pythonFuture.thenAcceptAsync(state -> {
+            if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+                svc.log().info("integration cam={}: inspection cycle cancelled before decision stage", in.cameraId());
+                return;
+            }
             long tDecision0 = System.nanoTime();
             long captureFrameTimestampNs = YamlScalars.toLong(
                     state.capture() == null || state.capture().header() == null
@@ -156,12 +180,24 @@ public final class AsyncInspectionCycleRunner {
                 decisionFuture.cancel(true);
                 throw e;
             } catch (ExecutionException e) {
+                if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+                    pythonFuture.cancel(true);
+                    decisionFuture.cancel(true);
+                    svc.log().info("integration cam={}: inspection cycle cancelled", in.cameraId());
+                    return;
+                }
                 Throwable cause = e.getCause() == null ? e : e.getCause();
                 if (cause instanceof RuntimeException runtime) {
                     throw runtime;
                 }
                 throw new RuntimeException(cause);
             } catch (InterruptedException e) {
+                if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+                    pythonFuture.cancel(true);
+                    decisionFuture.cancel(true);
+                    svc.log().info("integration cam={}: inspection cycle interrupted by cancel", in.cameraId());
+                    return;
+                }
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }

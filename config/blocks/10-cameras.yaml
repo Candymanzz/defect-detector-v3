@@ -1,0 +1,42 @@
+cameras:
+  # id в ПО ↔ LAN на линии. IP должны совпадать в config.json.
+  - id: 0
+    enabled: true
+    inspection_enabled: true
+    ip: "192.168.1.13"
+    exposure_us: 12000
+    capture_trigger_mode: "continuous"
+    detector: "v1"
+    pipe_command: "\\\\.\\pipe\\camera-0-cmd"
+    analysis_profile: "bench-lan1"
+    pipe_command_linux: "/tmp/camera-0-cmd.sock"
+  - id: 1
+    enabled: true
+    inspection_enabled: true
+    ip: "169.254.79.219"
+    exposure_us: 12000
+    capture_trigger_mode: "continuous"
+    detector: "v1"
+    pipe_command: "\\\\.\\pipe\\camera-1-cmd"
+    analysis_profile: "bench-lan3"
+    pipe_command_linux: "/tmp/camera-1-cmd.sock"
+  - id: 2
+    enabled: true
+    inspection_enabled: true
+    ip: "169.254.100.219"
+    exposure_us: 12000
+    capture_trigger_mode: "continuous"
+    detector: "v1"
+    pipe_command: "\\\\.\\pipe\\camera-2-cmd"
+    analysis_profile: "bench-lan4"
+    pipe_command_linux: "/tmp/camera-2-cmd.sock"
+  - id: 3
+    enabled: true
+    inspection_enabled: true
+    ip: "169.254.105.1"
+    exposure_us: 12000
+    capture_trigger_mode: "continuous"
+    detector: "v1"
+    pipe_command: "\\\\.\\pipe\\camera-3-cmd"
+    analysis_profile: "bench-lan5"
+    pipe_command_linux: "/tmp/camera-3-cmd.sock"

@@ -12,6 +12,11 @@ import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -32,6 +37,7 @@ public final class ClientWsApplicationContext {
     private volatile CameraStreamService cameraStreamService;
     private volatile ClientStreamConfig clientStreamConfig = ClientStreamConfig.defaults();
     private volatile LivePreviewGate livePreviewGate;
+    private volatile List<Integer> referenceCameraIds = List.of(0, 1, 2, 3);
 
     public ClientWsApplicationContext(
             Logger log,
@@ -120,5 +126,29 @@ public final class ClientWsApplicationContext {
 
     public LivePreviewGate livePreviewGate() {
         return livePreviewGate;
+    }
+
+    public void setReferenceCameraIds(Collection<Integer> cameraIds) {
+        if (cameraIds == null || cameraIds.isEmpty()) {
+            this.referenceCameraIds = List.of(0, 1, 2, 3);
+            return;
+        }
+        LinkedHashSet<Integer> deduplicated = new LinkedHashSet<>();
+        for (Integer cameraId : cameraIds) {
+            if (cameraId != null && cameraId >= 0) {
+                deduplicated.add(cameraId);
+            }
+        }
+        if (deduplicated.isEmpty()) {
+            this.referenceCameraIds = List.of(0, 1, 2, 3);
+            return;
+        }
+        ArrayList<Integer> ordered = new ArrayList<>(deduplicated);
+        Collections.sort(ordered);
+        this.referenceCameraIds = List.copyOf(ordered);
+    }
+
+    public List<Integer> referenceCameraIds() {
+        return referenceCameraIds;
     }
 }
