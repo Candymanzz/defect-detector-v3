@@ -48,6 +48,21 @@ public final class IntegrationFeatureConfig {
     public record TimingStagesLogConfig(boolean enabled, String relativePath) {
     }
 
+    /**
+     * Optional capture-frame downscale in shared memory before geometry/python/UI stages.
+     */
+    public record CaptureFrameDownscaleConfig(
+            boolean enabled,
+            double scale,
+            boolean applyToInspectionCapture,
+            boolean applyToReferenceCapture,
+            boolean applyToClientReferenceBundle
+    ) {
+        public static CaptureFrameDownscaleConfig disabled() {
+            return new CaptureFrameDownscaleConfig(false, 1.0d, false, false, false);
+        }
+    }
+
     public static TimingStagesLogConfig parseTimingStagesLog(Map<String, Object> integration) {
         if (integration == null) {
             return new TimingStagesLogConfig(false, "logs/pipeline-stages.jsonl");
@@ -110,6 +125,35 @@ public final class IntegrationFeatureConfig {
         boolean enabled = YamlScalars.toBool(m.get("enabled"), false);
         int intervalMs = Math.max(1000, YamlScalars.toInt(m.get("interval_ms"), 5000));
         return new DevAutoTriggerStubConfig(enabled, intervalMs);
+    }
+
+    public static CaptureFrameDownscaleConfig parseCaptureFrameDownscale(Map<String, Object> integration) {
+        if (integration == null) {
+            return CaptureFrameDownscaleConfig.disabled();
+        }
+        Object raw = integration.get("capture_frame_downscale");
+        if (!(raw instanceof Map<?, ?> m)) {
+            return CaptureFrameDownscaleConfig.disabled();
+        }
+        boolean enabled = YamlScalars.toBool(m.get("enabled"), false);
+        double scale = YamlScalars.toDouble(m.get("scale"), 1.0d);
+        if (!Double.isFinite(scale)) {
+            scale = 1.0d;
+        }
+        scale = Math.max(0.1d, Math.min(1.0d, scale));
+        boolean applyInspection = YamlScalars.toBool(m.get("apply_to_inspection_capture"), true);
+        boolean applyReference = YamlScalars.toBool(m.get("apply_to_reference_capture"), true);
+        boolean applyClientReference = YamlScalars.toBool(m.get("apply_to_client_reference_bundle"), true);
+        if (!enabled || scale >= 0.999d) {
+            return CaptureFrameDownscaleConfig.disabled();
+        }
+        return new CaptureFrameDownscaleConfig(
+                true,
+                scale,
+                applyInspection,
+                applyReference,
+                applyClientReference
+        );
     }
 
 }

@@ -19,6 +19,7 @@ import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
+import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -111,6 +112,10 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     public void attachPipelineReferences(PipelineReferenceRegistry registry, Map<Integer, String> detectorByCamera) {
         application.attachPipelineReferences(registry, detectorByCamera);
+    }
+
+    public void setCaptureStage(CameraCaptureStage captureStage) {
+        application.setCaptureStage(captureStage);
     }
 
     public void setLightTriggerClient(LightTriggerClient lightTriggerClient) {

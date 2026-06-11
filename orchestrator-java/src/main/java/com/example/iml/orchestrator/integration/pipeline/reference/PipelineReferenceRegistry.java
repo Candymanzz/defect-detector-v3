@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.clientws.bundle.ShmFrameRefData;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
+import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
 import org.apache.logging.log4j.Logger;
 
 import java.util.LinkedHashMap;
@@ -36,15 +37,19 @@ public final class PipelineReferenceRegistry {
             Logger log,
             ReferenceBundleSnapshot snap,
             String detectorId,
-            List<? extends BinaryRpcSupervisor> pythonPool
+            List<? extends BinaryRpcSupervisor> pythonPool,
+            CameraCaptureStage captureStage
     ) throws Exception {
         for (ReferenceViewSlot slot : snap.views()) {
             ShmFrameRefData frame = slot.frame();
             Map<String, Object> header = frameToCaptureHeader(frame, slot);
-            ReferenceSnapshot snapshot = new ReferenceSnapshot(snap.productType(), Map.copyOf(header));
+            Map<String, Object> effectiveHeader = captureStage == null
+                    ? header
+                    : captureStage.maybeDownscaleClientReferenceHeader(header, frame.cameraId());
+            ReferenceSnapshot snapshot = new ReferenceSnapshot(snap.productType(), Map.copyOf(effectiveHeader));
             byCamera.put(frame.cameraId(), snapshot);
             Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
-                    snap.productType(), detectorId, header);
+                    snap.productType(), detectorId, effectiveHeader);
             for (BinaryRpcSupervisor python : pythonPool) {
                 python.command(refHdr);
             }

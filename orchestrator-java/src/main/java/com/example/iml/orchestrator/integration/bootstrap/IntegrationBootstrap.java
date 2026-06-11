@@ -31,6 +31,7 @@ import com.example.iml.orchestrator.integration.pipeline.fanoutbridge.Inspection
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectGeometryExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPythonExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
+import com.example.iml.orchestrator.integration.pipeline.stages.CaptureFrameDownscaleService;
 import com.example.iml.orchestrator.integration.pipeline.telemetry.PipelineInspectionTelemetry;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
@@ -105,7 +106,28 @@ public final class IntegrationBootstrap {
         PerCameraInspectionGate inspectionGate = PerCameraInspectionGate.fromCameras(cameras);
         ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(root, geometryRuntimeConfig, inspectionGate);
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);
-        WorkerCaptureCoordinator captureCoordinator = new WorkerCaptureCoordinator(log, jpegWriter);
+        IntegrationFeatureConfig.CaptureFrameDownscaleConfig captureDownscaleCfg =
+                IntegrationFeatureConfig.parseCaptureFrameDownscale(integration);
+        CaptureFrameDownscaleService captureDownscaleService = captureDownscaleCfg.enabled()
+                ? new CaptureFrameDownscaleService(log, captureDownscaleCfg.scale())
+                : null;
+        if (captureDownscaleCfg.enabled()) {
+            log.info(
+                    "capture_frame_downscale enabled scale={} apply_inspection={} apply_reference={} apply_client_reference={}",
+                    captureDownscaleCfg.scale(),
+                    captureDownscaleCfg.applyToInspectionCapture(),
+                    captureDownscaleCfg.applyToReferenceCapture(),
+                    captureDownscaleCfg.applyToClientReferenceBundle()
+            );
+        }
+        WorkerCaptureCoordinator captureCoordinator = new WorkerCaptureCoordinator(
+                log,
+                jpegWriter,
+                captureDownscaleService,
+                captureDownscaleCfg.applyToInspectionCapture(),
+                captureDownscaleCfg.applyToReferenceCapture(),
+                captureDownscaleCfg.applyToClientReferenceBundle()
+        );
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
         ReferenceSnapshotBootstrap referenceBootstrap = new ReferenceSnapshotBootstrap(log, captureCoordinator, pipelineTelemetry);
         InspectionPipelineServices pipelineServices = new InspectionPipelineServices(
@@ -195,6 +217,7 @@ public final class IntegrationBootstrap {
         if (clientWsServer != null) {
             clientWsServer.setKopcheniPythonPool(pythonPool);
             clientWsServer.attachPipelineReferences(pipelineReferenceRegistry, detectorByCamera);
+            clientWsServer.setCaptureStage(captureCoordinator);
             clientWsServer.setLightTriggerClient(lightClient);
             clientWsServer.setReferenceCameraIds(ConfiguredCameras.enabledIds(root));
         }
@@ -268,6 +291,7 @@ public final class IntegrationBootstrap {
                     log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
                     workersByCamera.put(cameraId, worker);
                     activeCameras.add(camera);
+                    sleepWorkerStartupStagger(cfg.workerStartupStaggerMs());
                 } catch (Exception e) {
                     log.error(
                             "worker cam={} failed to start/health; skipping this camera and continuing with others: {}",
@@ -483,5 +507,16 @@ public final class IntegrationBootstrap {
             }
         }
         return List.copyOf(out);
+    }
+
+    private static void sleepWorkerStartupStagger(int delayMs) {
+        if (delayMs <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(delayMs);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

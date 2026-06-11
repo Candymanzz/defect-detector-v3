@@ -22,10 +22,16 @@ integration:
     enabled: true
     flash_on_tick: false
     interval_ms: 5000
-  camera_parallelism: 4
-  geometry_pool_size: 4
-  python_parallelism: 4
-  stage_queue_size: 1
+  camera_parallelism: 10
+  geometry_pool_size: 10
+  python_parallelism: 10
+  stage_queue_size: 20
+  # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
+  worker_command_timeout_ms: 30000
+  # Пауза между последовательным запуском воркеров камер (смягчает пик инициализации SDK/MVS).
+  worker_startup_stagger_ms: 1200
+  # Таймаут health/check для внешних сервисов (geometry/python bridge).
+  service_command_timeout_ms: 15000
   worker_ipc_mode: "stdio"
   worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
@@ -59,6 +65,15 @@ integration:
   timing_stages_log:
     enabled: true
     file: "logs/pipeline-stages.jsonl"
+  # Optional: downscale captured frame in SHM before geometry/python/UI processing.
+  # This changes the effective resolution for downstream services.
+  capture_frame_downscale:
+    enabled: false
+    # 1.0 = disabled; 0.4 means width/height become 40%.
+    scale: 1.0
+    apply_to_inspection_capture: true
+    apply_to_reference_capture: true
+    apply_to_client_reference_bundle: true
   # JPEG кадров из SHM в каталог относительно корня репозитория (эталон: ref_*, инспекция: cap_*).
   save_captures:
     enabled: false

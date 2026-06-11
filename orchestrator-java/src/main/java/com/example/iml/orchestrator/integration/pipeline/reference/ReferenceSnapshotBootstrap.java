@@ -69,9 +69,15 @@ public final class ReferenceSnapshotBootstrap {
         BinaryProtocol.Message referenceCapture = captureHolder[0];
         log.info("worker cam={} reference capture header={}", cameraId, referenceCapture.header());
         capture.saveReferenceCapture(projectRoot, saveCaptures, referenceCapture);
-        ReferenceSnapshot snapshot = new ReferenceSnapshot(shmProductType, Map.copyOf(referenceCapture.header()));
+        Map<String, Object> effectiveReferenceHeader =
+                capture.maybeDownscaleReferenceHeader(referenceCapture.header(), cameraId);
+        ReferenceSnapshot snapshot = new ReferenceSnapshot(shmProductType, Map.copyOf(effectiveReferenceHeader));
         referenceByCamera.put(cameraId, snapshot);
-        Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(shmProductType, detectorId, referenceCapture.header());
+        Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
+                shmProductType,
+                detectorId,
+                effectiveReferenceHeader
+        );
         for (int r = 0; r < referenceRepeatCount; r++) {
             for (BinaryRpcSupervisor python : pythonPool) {
                 python.command(refHdr);

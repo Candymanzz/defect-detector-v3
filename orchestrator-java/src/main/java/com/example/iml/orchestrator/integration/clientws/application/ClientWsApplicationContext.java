@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.clientws.session.ClientWsSession
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
+import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import org.apache.logging.log4j.Logger;
@@ -37,6 +38,7 @@ public final class ClientWsApplicationContext {
     private volatile CameraStreamService cameraStreamService;
     private volatile ClientStreamConfig clientStreamConfig = ClientStreamConfig.defaults();
     private volatile LivePreviewGate livePreviewGate;
+    private volatile CameraCaptureStage captureStage;
     private volatile List<Integer> referenceCameraIds = List.of(0, 1, 2, 3);
 
     public ClientWsApplicationContext(
@@ -126,6 +128,14 @@ public final class ClientWsApplicationContext {
 
     public LivePreviewGate livePreviewGate() {
         return livePreviewGate;
+    }
+
+    public void setCaptureStage(CameraCaptureStage captureStage) {
+        this.captureStage = captureStage;
+    }
+
+    public CameraCaptureStage captureStage() {
+        return captureStage;
     }
 
     public void setReferenceCameraIds(Collection<Integer> cameraIds) {

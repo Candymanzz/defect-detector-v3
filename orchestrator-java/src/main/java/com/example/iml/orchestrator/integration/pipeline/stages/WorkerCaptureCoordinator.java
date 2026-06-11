@@ -24,11 +24,26 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
 
     private final Logger log;
     private final FrameJpegWriter jpegWriter;
+    private final CaptureFrameDownscaleService captureDownscale;
+    private final boolean downscaleInspectionCapture;
+    private final boolean downscaleReferenceCapture;
+    private final boolean downscaleClientReferenceBundle;
     private volatile CameraStreamService cameraStreamService;
 
-    public WorkerCaptureCoordinator(Logger log, FrameJpegWriter jpegWriter) {
+    public WorkerCaptureCoordinator(
+            Logger log,
+            FrameJpegWriter jpegWriter,
+            CaptureFrameDownscaleService captureDownscale,
+            boolean downscaleInspectionCapture,
+            boolean downscaleReferenceCapture,
+            boolean downscaleClientReferenceBundle
+    ) {
         this.log = log;
         this.jpegWriter = jpegWriter;
+        this.captureDownscale = captureDownscale;
+        this.downscaleInspectionCapture = downscaleInspectionCapture;
+        this.downscaleReferenceCapture = downscaleReferenceCapture;
+        this.downscaleClientReferenceBundle = downscaleClientReferenceBundle;
     }
 
     public void setCameraStreamService(CameraStreamService cameraStreamService) {
@@ -110,6 +125,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             if (log.isDebugEnabled()) {
                 log.debug("worker cam={} {} header={}", cameraId, debugLogSuffix, capture.header());
             }
+            capture = maybeDownscaleInspectionCapture(capture, cameraId);
             return new PipelineState(capture, null, null, YamlScalars.nanosToMs(System.nanoTime() - t0), 0L, 0L);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -128,5 +144,38 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
         int width = YamlScalars.toInt(h.get("width"), 0);
         int height = YamlScalars.toInt(h.get("height"), 0);
         return !shmName.isEmpty() && width > 0 && height > 0;
+    }
+
+    @Override
+    public BinaryProtocol.Message maybeDownscaleInspectionCapture(
+            BinaryProtocol.Message capture,
+            int cameraId
+    ) {
+        if (!downscaleInspectionCapture || captureDownscale == null) {
+            return capture;
+        }
+        return captureDownscale.downscaleCapture(capture, cameraId, "inspect");
+    }
+
+    @Override
+    public Map<String, Object> maybeDownscaleReferenceHeader(
+            Map<String, Object> referenceHeader,
+            int cameraId
+    ) {
+        if (!downscaleReferenceCapture || captureDownscale == null || referenceHeader == null) {
+            return referenceHeader;
+        }
+        return captureDownscale.downscaleHeader(referenceHeader, cameraId, "reference");
+    }
+
+    @Override
+    public Map<String, Object> maybeDownscaleClientReferenceHeader(
+            Map<String, Object> referenceHeader,
+            int cameraId
+    ) {
+        if (!downscaleClientReferenceBundle || captureDownscale == null || referenceHeader == null) {
+            return referenceHeader;
+        }
+        return captureDownscale.downscaleHeader(referenceHeader, cameraId, "client_reference");
     }
 }

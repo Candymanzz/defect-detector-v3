@@ -65,7 +65,8 @@ public final class ReferenceBundleLifecycleService {
                     ctx.log(),
                     snap,
                     ctx.detectorForCamera(cameraId),
-                    ctx.kopcheniBroadcaster().pool()
+                    ctx.kopcheniBroadcaster().pool(),
+                    ctx.captureStage()
             );
         } catch (Exception e) {
             ctx.log().warn("pipeline reference from client bundle failed: {}", e.getMessage());

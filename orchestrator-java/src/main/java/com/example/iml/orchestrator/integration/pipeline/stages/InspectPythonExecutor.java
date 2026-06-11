@@ -76,7 +76,10 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
                     1.0
             );
-            if (inspectScale < 0.999d) {
+            boolean captureAlreadyDownscaled = state.capture() != null
+                    && state.capture().header() != null
+                    && YamlScalars.toDouble(state.capture().header().get("downscale_scale"), 1.0d) < 0.999d;
+            if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
                 PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
             }
             if (inspectionRuntimeConfig != null) {
