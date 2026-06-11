@@ -244,6 +244,47 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             heatmapU8 = hm.path();
                             uw = hm.width();
                             uh = hm.height();
+                            int heatmapPreviewMaxWidth = Math.max(
+                                    0,
+                                    YamlScalars.toInt(
+                                            uiCfg == null ? null : uiCfg.get("heatmap_preview_max_width"),
+                                            800
+                                    )
+                            );
+                            if (heatmapU8 != null && uw > 0 && uh > 0 && heatmapPreviewMaxWidth > 0) {
+                                try {
+                                    HeatmapU8PreviewScaler.ScaledHeatmap preview = HeatmapU8PreviewScaler.scale(
+                                            heatmapU8,
+                                            uw,
+                                            uh,
+                                            heatmapPreviewMaxWidth
+                                    );
+                                    if (!preview.path().equals(heatmapU8)) {
+                                        log.debug(
+                                                "ui heatmap preview scaled cam={} frame={} {}x{} -> {}x{}",
+                                                cameraId,
+                                                frameId,
+                                                uw,
+                                                uh,
+                                                preview.width(),
+                                                preview.height()
+                                        );
+                                    }
+                                    heatmapU8 = preview.path();
+                                    uw = preview.width();
+                                    uh = preview.height();
+                                } catch (IOException e) {
+                                    log.warn(
+                                            "ui heatmap preview scale failed cam={} frame={} size={}x{} max_width={}: {}",
+                                            cameraId,
+                                            frameId,
+                                            uw,
+                                            uh,
+                                            heatmapPreviewMaxWidth,
+                                            e.getMessage()
+                                    );
+                                }
+                            }
                         } else {
                             log.warn(
                                     "ui visuals failed cam={} frame={} op=inspect_shm_visuals error={}",

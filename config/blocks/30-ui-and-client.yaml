@@ -6,6 +6,8 @@ ui_http:
   visuals_queue_size: 8
   store_current_jpeg: true
   store_heatmap_u8: true
+  # UI-only gray_u8 heatmap width; 0 keeps the original detector resolution.
+  heatmap_preview_max_width: 800
   client_preview_jpeg_quality: 58
   client_preview_max_width: 0
 
