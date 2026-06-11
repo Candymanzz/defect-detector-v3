@@ -19,7 +19,7 @@ public final class ReferenceBundleWsHandler implements WsMessageHandler {
                 ctx.application().cfg().protocolVersion()
         );
         if (r instanceof ReferenceBundleParser.Result.Err err) {
-            ctx.application().outbound().sendError(ctx.connection(), err.code(), err.message());
+            ctx.application().outbound().sendError(ctx.connection(), ctx.envelope(), err.code(), err.message());
             return;
         }
         ReferenceBundleSnapshot parsed = ((ReferenceBundleParser.Result.Ok) r).snapshot();
@@ -33,6 +33,7 @@ public final class ReferenceBundleWsHandler implements WsMessageHandler {
             ctx.application().log().warn("client_ws kopcheni sync after bundle failed: {}", e.getMessage());
             ctx.application().outbound().sendError(
                     ctx.connection(),
+                    ctx.envelope(),
                     "kopcheni_sync_failed",
                     com.example.iml.orchestrator.integration.clientws.util.WsTextUtil.truncate(e.getMessage(), 400)
             );

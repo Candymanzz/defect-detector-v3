@@ -28,7 +28,9 @@ public final class AnalisSurfaceClientWsSync {
         h.put("heatmap_width", snap.heatmapWidth());
         h.put("heatmap_height", snap.heatmapHeight());
         h.put("active_reference_view_index", Math.max(0, Math.min(3, activeReferenceViewIndex)));
-        h.put("fp_zones", fpZonesToJsonList(snap.fpZones()));
+        if (!snap.fpZones().isEmpty()) {
+            h.put("fp_zones", fpZonesToJsonList(snap.fpZones()));
+        }
         List<Map<String, Object>> views = new ArrayList<>(4);
         List<Map<String, Object>> interestRois = new ArrayList<>(4);
         List<Map<String, Object>> interestPolygonsNorm = new ArrayList<>(4);
@@ -83,9 +85,22 @@ public final class AnalisSurfaceClientWsSync {
     }
 
     public static Map<String, Object> replaceFpZones(String productType, int heatmapW, int heatmapH, List<FpZoneNorm> zones) {
+        return replaceFpZones(productType, -1, heatmapW, heatmapH, zones);
+    }
+
+    public static Map<String, Object> replaceFpZones(
+            String productType,
+            int cameraId,
+            int heatmapW,
+            int heatmapH,
+            List<FpZoneNorm> zones
+    ) {
         Map<String, Object> h = new HashMap<>();
         h.put("op", "replace_fp_zones");
         h.put("product_type", productType);
+        if (cameraId >= 0) {
+            h.put("camera_id", cameraId);
+        }
         h.put("heatmap_width", heatmapW);
         h.put("heatmap_height", heatmapH);
         h.put("fp_zones", fpZonesToJsonList(zones));

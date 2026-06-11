@@ -18,18 +18,19 @@ public final class SetActiveReferenceViewWsHandler implements WsMessageHandler {
     public void handle(WsMessageContext ctx) {
         var app = ctx.application();
         if (!app.referenceContext().hasCommittedBundle()) {
-            app.outbound().sendError(ctx.connection(), "no_reference", "accept client.reference_bundle first");
+            app.outbound().sendError(ctx.connection(), ctx.envelope(), "no_reference", "accept client.reference_bundle first");
             return;
         }
         JsonNode payload = ctx.envelope().path("payload");
         if (!payload.isObject()) {
-            app.outbound().sendError(ctx.connection(), "invalid_payload", "payload must be object");
+            app.outbound().sendError(ctx.connection(), ctx.envelope(), "invalid_payload", "payload must be object");
             return;
         }
         int pv = payload.path("protocol_version").asInt(-1);
         if (pv != app.cfg().protocolVersion()) {
             app.outbound().sendError(
                     ctx.connection(),
+                    ctx.envelope(),
                     "invalid_protocol_version",
                     "expected protocol_version=" + app.cfg().protocolVersion()
             );
@@ -37,12 +38,12 @@ public final class SetActiveReferenceViewWsHandler implements WsMessageHandler {
         }
         int viewIndex = payload.path("view_index").asInt(-1);
         if (viewIndex < 0 || viewIndex > 3) {
-            app.outbound().sendError(ctx.connection(), "invalid_view_index", "view_index must be 0..3");
+            app.outbound().sendError(ctx.connection(), ctx.envelope(), "invalid_view_index", "view_index must be 0..3");
             return;
         }
         String productType = app.referenceContext().snapshot().map(ReferenceBundleSnapshot::productType).orElse("");
         if (productType.isEmpty()) {
-            app.outbound().sendError(ctx.connection(), "no_reference", "missing product_type context");
+            app.outbound().sendError(ctx.connection(), ctx.envelope(), "no_reference", "missing product_type context");
             return;
         }
         try {
@@ -57,7 +58,12 @@ public final class SetActiveReferenceViewWsHandler implements WsMessageHandler {
             );
         } catch (ClientWsKopcheniSyncException e) {
             app.log().warn("client_ws kopcheni set_active_reference_view failed: {}", e.getMessage());
-            app.outbound().sendError(ctx.connection(), "kopcheni_sync_failed", WsTextUtil.truncate(e.getMessage(), 400));
+            app.outbound().sendError(
+                    ctx.connection(),
+                    ctx.envelope(),
+                    "kopcheni_sync_failed",
+                    WsTextUtil.truncate(e.getMessage(), 400)
+            );
             return;
         }
         app.referenceContext().setActiveReferenceViewIndex(viewIndex);

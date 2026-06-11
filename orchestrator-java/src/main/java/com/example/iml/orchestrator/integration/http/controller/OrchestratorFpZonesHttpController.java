@@ -24,7 +24,7 @@ public final class OrchestratorFpZonesHttpController implements HttpController {
             HttpResponses.sendJsonError(ctx, 503, "python_detector.base_url not configured");
             return;
         }
-        String path = ctx.path();
+        String path = ctx.uri().getRawPath();
         String target = path.replaceFirst("^/api/orchestrator", "");
         if (target.isEmpty()) {
             target = "/";

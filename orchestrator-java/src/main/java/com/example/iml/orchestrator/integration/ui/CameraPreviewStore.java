@@ -42,6 +42,10 @@ public interface CameraPreviewStore {
     /** Путь к .u8 по opaque-токену или {@code null}. */
     Path resolveHeatmapArtifactPath(String token);
 
+    String registerCurrentImageArtifact(int cameraId, Path currentJpegPath);
+
+    Path resolveCurrentImageArtifactPath(String token);
+
     void update(
             int cameraId,
             long frameId,

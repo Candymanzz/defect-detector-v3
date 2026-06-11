@@ -159,6 +159,8 @@ export type FpZone = {
 };
 
 export type FpZonesResponse = {
+  product_type: string;
+  zones: FpZone[];
   fp_zones?: FpZone[];
   [key: string]: JsonValue | FpZone[] | undefined;
 };

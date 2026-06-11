@@ -455,6 +455,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private BinaryProtocol.Message replaceFpZones(Map<String, Object> header) throws IOException {
         String productType = String.valueOf(header.get("product_type"));
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        productType = scopedProductType(productType, cameraId);
         int hw = YamlScalars.toInt(header.get("heatmap_width"), 0);
         int hh = YamlScalars.toInt(header.get("heatmap_height"), 0);
         if (hw <= 0 || hh <= 0) {
@@ -464,35 +466,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                     new byte[0]
             );
         }
-        HttpResponse<byte[]> listResp = httpGetRaw("/fp-zones/" + urlEncodePathSegment(productType));
-        if (listResp.statusCode() / 100 != 2) {
-            return errorMessageToMsg(listResp, "fp-zones list");
-        }
-        Map<String, Object> listJson = readJson(listResp.body());
-        Object zonesObj = listJson.get("zones");
-        if (zonesObj instanceof List<?> zones) {
-            for (Object z : zones) {
-                if (z instanceof Map<?, ?> zm) {
-                    Object id = zm.get("id");
-                    if (id != null) {
-                        HttpResponse<byte[]> deleteResp =
-                                httpDeleteRaw("/fp-zones/" + urlEncodePathSegment(String.valueOf(id)));
-                        if (deleteResp.statusCode() / 100 != 2) {
-                            return errorMessageToMsg(deleteResp, "fp-zones delete");
-                        }
-                    }
-                }
-            }
-        }
         Object fp = header.get("fp_zones");
-        if (!(fp instanceof List<?> fpList)) {
-            Map<String, Object> ok = new LinkedHashMap<>();
-            ok.put("status", "ok");
-            ok.put("product_type", productType);
-            ok.put("zones_count", 0);
-            return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, ok, new byte[0]);
-        }
-        int added = 0;
+        List<?> fpList = fp instanceof List<?> list ? list : List.of();
+        List<Map<String, Object>> replacement = new ArrayList<>();
         for (Object o : fpList) {
             if (!(o instanceof Map<?, ?> zone)) {
                 continue;
@@ -502,22 +478,24 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 continue;
             }
             Map<String, Object> create = new LinkedHashMap<>();
-            create.put("product_type", productType);
             create.put("points", pts);
-            create.put("heatmap_w", hw);
-            create.put("heatmap_h", hh);
             Object note = zone.get("note");
             create.put("note", note == null ? "" : String.valueOf(note));
-            HttpResponse<byte[]> cr = httpPostJson("/fp-zones", create);
-            if (cr.statusCode() / 100 != 2) {
-                return errorMessageToMsg(cr, "fp-zones create");
-            }
-            added++;
+            replacement.add(create);
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("heatmap_w", hw);
+        body.put("heatmap_h", hh);
+        body.put("zones", replacement);
+        HttpResponse<byte[]> replaceResp =
+                httpPutJson("/fp-zones/" + urlEncodePathSegment(productType), body);
+        if (replaceResp.statusCode() / 100 != 2) {
+            return errorMessageToMsg(replaceResp, "fp-zones replace");
         }
         Map<String, Object> ok = new LinkedHashMap<>();
         ok.put("status", "ok");
         ok.put("product_type", productType);
-        ok.put("zones_count", added);
+        ok.put("zones_count", replacement.size());
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, ok, new byte[0]);
     }
 
@@ -711,6 +689,14 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private HttpResponse<byte[]> httpPostJson(String path, Map<String, Object> jsonBody) throws IOException {
+        return httpJson(path, jsonBody, "POST");
+    }
+
+    private HttpResponse<byte[]> httpPutJson(String path, Map<String, Object> jsonBody) throws IOException {
+        return httpJson(path, jsonBody, "PUT");
+    }
+
+    private HttpResponse<byte[]> httpJson(String path, Map<String, Object> jsonBody, String method) throws IOException {
         byte[] json = MAPPER.writeValueAsBytes(jsonBody);
         URI uri = URI.create(baseUrl + path);
         HttpRequest req = HttpRequest.newBuilder(uri)
@@ -718,7 +704,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 .version(HttpClient.Version.HTTP_1_1)
                 .header("Content-Type", "application/json; charset=utf-8")
                 .header("Accept", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofByteArray(json))
+                .method(method, HttpRequest.BodyPublishers.ofByteArray(json))
                 .build();
         HttpResponse<byte[]> resp = send(req);
         if (resp.statusCode() / 100 != 2) {

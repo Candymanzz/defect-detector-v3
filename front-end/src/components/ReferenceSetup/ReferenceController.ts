@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { commitReferenceBundleImages } from "../../shared/referenceImages";
+import { orchestratorApi } from "../../shared/api";
 import { orchestratorWs } from "../../shared/ws";
 import type { ClientReferenceBundlePayload, ServerWsMessage } from "../../shared/ws";
 import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
@@ -62,6 +63,9 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
           handleReferenceBundleAck(message);
           break;
         case "server.error":
+          if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
+            pendingReferenceBundleRef.current = null;
+          }
           setMessage(`${message.payload.code}: ${message.payload.message}`);
           break;
         default:
@@ -111,7 +115,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const handleSendReference = () => {
+  const handleSendReference = async () => {
     if (!referenceFrames.hasRequiredReferenceFrames) {
       setMessage("Reference frames for cameras 0-3 are required");
       return;
@@ -133,6 +137,13 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
         referenceRoi.roiPolygonsByCameraId,
         referenceRoi.jointRoiPolygon,
       );
+      const fpProfile = scopedCameraProfile(payload.product_type, payload.joint_view_index);
+      const fpResponse = await orchestratorApi.getFpZones(fpProfile);
+      payload.fp_zones = (fpResponse.zones ?? fpResponse.fp_zones ?? []).map((zone) => ({
+        id: zone.id,
+        note: zone.note ?? "",
+        points_norm_heatmap: zone.points_norm_heatmap,
+      }));
       const messageId = orchestratorWs.sendReferenceBundle(payload);
       pendingReferenceBundleRef.current = {
         messageId,
@@ -173,4 +184,9 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
     handleSelectCamera,
     handleSelectJointRoi,
   };
+}
+
+function scopedCameraProfile(productType: string, cameraId: number) {
+  const normalized = productType.trim();
+  return normalized.includes("#cam=") ? normalized : `${normalized}#cam=${cameraId}`;
 }

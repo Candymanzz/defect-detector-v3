@@ -128,11 +128,37 @@ public final class CameraPreviewHttpController implements HttpController {
         HttpResponses.send(ctx, 200, "application/octet-stream", Files.readAllBytes(file));
     }
 
+    public void handleCurrentImageArtifact(HttpRequestContext ctx) throws IOException {
+        if (!"GET".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        String prefix = "/api/current-image-artifact/";
+        String uri = ctx.path();
+        if (!uri.startsWith(prefix)) {
+            HttpResponses.notFound(ctx);
+            return;
+        }
+        String token = uri.substring(prefix.length());
+        int slash = token.indexOf('/');
+        if (slash >= 0) {
+            token = token.substring(0, slash);
+        }
+        Path file = store.resolveCurrentImageArtifactPath(token);
+        if (token.isEmpty() || file == null || !Files.isRegularFile(file)) {
+            HttpResponses.notFound(ctx);
+            return;
+        }
+        HttpResponses.send(ctx, 200, "image/jpeg", Files.readAllBytes(file));
+    }
+
     @Override
     public void handle(HttpRequestContext ctx) throws IOException {
         String path = ctx.path();
         if (path.startsWith("/api/heatmap-artifact/")) {
             handleHeatmapArtifact(ctx);
+        } else if (path.startsWith("/api/current-image-artifact/")) {
+            handleCurrentImageArtifact(ctx);
         } else if (path.startsWith("/api/camera/")) {
             handleCameraPath(ctx);
         } else if ("/api/cameras".equals(path)) {

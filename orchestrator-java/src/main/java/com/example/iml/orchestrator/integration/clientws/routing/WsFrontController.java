@@ -44,7 +44,12 @@ public final class WsFrontController {
             }
         }
         if (handler.isEmpty()) {
-            application.outbound().sendError(connection, "unknown_type", "unsupported message type: " + messageType);
+            application.outbound().sendError(
+                    connection,
+                    envelope,
+                    "unknown_type",
+                    "unsupported message type: " + messageType
+            );
             return;
         }
         WsMessageContext ctx = new WsMessageContext(connection, envelope, normalizedType, application);
@@ -54,6 +59,7 @@ public final class WsFrontController {
             application.log().warn("client_ws handler {}: {}", normalizedType, e.getMessage());
             application.outbound().sendError(
                     connection,
+                    envelope,
                     "handler_error",
                     WsTextUtil.truncate(e.getMessage(), 400)
             );

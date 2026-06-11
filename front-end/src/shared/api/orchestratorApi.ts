@@ -8,6 +8,7 @@ import type {
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
+  FpZonesResponse,
   UiCameraList,
   UiLatestSnapshot,
 } from "./types";
@@ -67,6 +68,10 @@ export const orchestratorApi = {
         Accept: "application/octet-stream",
       },
     });
+  },
+
+  async getFpZones(productType: string) {
+    return http.json<FpZonesResponse>(`/api/orchestrator/fp-zones/${encodeURIComponent(productType)}`);
   },
 
   async listGeometryCameras() {

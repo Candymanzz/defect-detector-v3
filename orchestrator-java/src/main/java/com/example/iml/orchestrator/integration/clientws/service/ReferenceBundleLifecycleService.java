@@ -69,13 +69,59 @@ public final class ReferenceBundleLifecycleService {
 
     private static void syncBundleToDetectors(ClientWsApplicationContext ctx, ReferenceBundleSnapshot snap)
             throws ClientWsKopcheniSyncException {
-        for (int viewIndex = 0; viewIndex < snap.views().size(); viewIndex++) {
-            int cameraId = snap.views().get(viewIndex).frame().cameraId();
-            String productType = ctx.productTypeByCamera().getOrDefault(cameraId, snap.productType());
-            ReferenceBundleSnapshot scoped = withProductType(snap, productType);
-            ctx.kopcheniBroadcaster().broadcast(
-                    AnalisSurfaceClientWsSync.syncClientReferenceBundle(scoped, viewIndex)
-            );
+        ReferenceBundleSnapshot previous = ctx.referenceContext().snapshot()
+                .map(existing -> new ReferenceBundleSnapshot(
+                        existing.productType(),
+                        existing.views(),
+                        existing.jointViewIndex(),
+                        ctx.referenceContext().effectiveHeatmapWidth(),
+                        ctx.referenceContext().effectiveHeatmapHeight(),
+                        ctx.referenceContext().effectiveFpZones(),
+                        existing.acceptedAtEpochMs()
+                ))
+                .orElse(null);
+        int attemptedViews = 0;
+        try {
+            for (int viewIndex = 0; viewIndex < snap.views().size(); viewIndex++) {
+                int cameraId = snap.views().get(viewIndex).frame().cameraId();
+                String productType = ctx.productTypeByCamera().getOrDefault(cameraId, snap.productType());
+                ReferenceBundleSnapshot scoped = withProductType(snap, productType);
+                attemptedViews = viewIndex + 1;
+                ctx.kopcheniBroadcaster().broadcast(
+                        AnalisSurfaceClientWsSync.syncClientReferenceBundle(scoped, viewIndex)
+                );
+            }
+        } catch (ClientWsKopcheniSyncException syncError) {
+            if (previous != null) {
+                rollbackBundle(ctx, previous, attemptedViews);
+            }
+            throw syncError;
+        }
+    }
+
+    private static void rollbackBundle(
+            ClientWsApplicationContext ctx,
+            ReferenceBundleSnapshot previous,
+            int attemptedViews
+    ) {
+        int rollbackCount = Math.min(attemptedViews, previous.views().size());
+        for (int viewIndex = rollbackCount - 1; viewIndex >= 0; viewIndex--) {
+            int cameraId = previous.views().get(viewIndex).frame().cameraId();
+            String productType = ctx.productTypeByCamera().getOrDefault(cameraId, previous.productType());
+            try {
+                ctx.kopcheniBroadcaster().broadcast(
+                        AnalisSurfaceClientWsSync.syncClientReferenceBundle(
+                                withProductType(previous, productType),
+                                viewIndex
+                        )
+                );
+            } catch (ClientWsKopcheniSyncException rollbackError) {
+                ctx.log().error(
+                        "client_ws reference rollback failed camera_id={}: {}",
+                        cameraId,
+                        rollbackError.getMessage()
+                );
+            }
         }
     }
 

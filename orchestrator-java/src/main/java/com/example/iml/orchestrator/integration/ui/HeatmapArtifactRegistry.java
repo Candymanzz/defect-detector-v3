@@ -1,11 +1,14 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.regex.Pattern;
 
 /**
@@ -15,9 +18,11 @@ public final class HeatmapArtifactRegistry {
 
     private static final SecureRandom RND = new SecureRandom();
     private static final Pattern TOKEN = Pattern.compile("^[0-9a-f]{32}$");
+    private static final int MAX_ARTIFACTS = 256;
+    private static final Path ARTIFACT_DIR = Path.of(System.getProperty("java.io.tmpdir"), "iml-ui-artifacts");
 
     private final ConcurrentHashMap<String, Path> byToken = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Integer, String> latestTokenByCamera = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedDeque<String> insertionOrder = new ConcurrentLinkedDeque<>();
 
     /**
      * Регистрирует файл для камеры; предыдущий токен этой камеры инвалидируется.
@@ -29,15 +34,21 @@ public final class HeatmapArtifactRegistry {
         if (!Files.isRegularFile(heatmapFile)) {
             return null;
         }
-        Path abs = heatmapFile.toAbsolutePath().normalize();
         byte[] raw = new byte[16];
         RND.nextBytes(raw);
         String token = HexFormat.of().formatHex(raw);
-        String prev = latestTokenByCamera.put(cameraId, token);
-        if (prev != null) {
-            byToken.remove(prev);
+        String fileName = heatmapFile.getFileName() == null ? "" : heatmapFile.getFileName().toString();
+        String suffix = fileName.toLowerCase().endsWith(".jpg") ? ".jpg" : ".u8";
+        Path artifact = ARTIFACT_DIR.resolve(token + suffix);
+        try {
+            Files.createDirectories(ARTIFACT_DIR);
+            Files.copy(heatmapFile, artifact, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            return null;
         }
-        byToken.put(token, abs);
+        byToken.put(token, artifact);
+        insertionOrder.addLast(token);
+        trimOldArtifacts();
         return token;
     }
 
@@ -51,5 +62,22 @@ public final class HeatmapArtifactRegistry {
         }
         Path p = byToken.get(t);
         return p != null && Files.isRegularFile(p) ? p : null;
+    }
+
+    private void trimOldArtifacts() {
+        while (byToken.size() > MAX_ARTIFACTS) {
+            String oldest = insertionOrder.pollFirst();
+            if (oldest == null) {
+                return;
+            }
+            Path removed = byToken.remove(oldest);
+            if (removed != null) {
+                try {
+                    Files.deleteIfExists(removed);
+                } catch (IOException ignored) {
+                    // Temp cleanup can remove a stale artifact later.
+                }
+            }
+        }
     }
 }

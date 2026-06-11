@@ -271,11 +271,19 @@ public final class WsOutboundMessenger {
     }
 
     public void sendError(WebSocket conn, String code, String message) {
+        sendError(conn, null, code, message);
+    }
+
+    public void sendError(WebSocket conn, JsonNode requestRoot, String code, String message) {
         try {
             ObjectNode root = JSON.createObjectNode();
             root.put("type", WsMessageTypes.SERVER_ERROR);
             root.put("protocol_version", cfg.protocolVersion());
-            root.put("message_id", UUID.randomUUID().toString());
+            if (requestRoot == null) {
+                root.put("message_id", UUID.randomUUID().toString());
+            } else {
+                copyRequestMessageId(root, requestRoot);
+            }
             ObjectNode payload = JSON.createObjectNode();
             payload.put("code", code == null ? "error" : code);
             payload.put("message", message == null ? "" : WsTextUtil.truncate(message, 800));
@@ -391,7 +399,8 @@ public final class WsOutboundMessenger {
         } else {
             payload.putNull("heatmap");
         }
-        payload.put("active_reference_view_index", referenceContext.activeReferenceViewIndex());
+        // With one reference per camera, the inspected camera identifies the reference actually used.
+        payload.put("active_reference_view_index", cameraId);
         ObjectNode det = JSON.createObjectNode();
         if (detectorId != null && !detectorId.isBlank()) {
             det.put("detector_id", detectorId);

@@ -309,8 +309,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         if (hasHm) {
                             hmToken = uiServer.registerHeatmapArtifact(cameraId, heatmapU8);
                         }
+                        String currentToken = hasCur
+                                ? uiServer.registerCurrentImageArtifact(cameraId, currentJpeg)
+                                : null;
                         boolean filePathInWs = hasHm && hmToken == null;
-                        String currentHttpPath = hasCur ? "/api/camera/" + cameraId + "/current.jpg" : null;
+                        String currentHttpPath = currentToken == null
+                                ? null
+                                : "/api/current-image-artifact/" + currentToken;
                         ws.notifyInspectResult(
                                 cameraId,
                                 productType,

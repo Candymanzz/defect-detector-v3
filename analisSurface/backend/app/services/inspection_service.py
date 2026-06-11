@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
+from threading import RLock
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -36,6 +37,7 @@ class InspectionService:
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
         self.fp_zones: Dict[str, list[FPZone]] = {}
+        self._fp_zones_lock = RLock()
         self._last_diff_maps: Dict[str, np.ndarray] = {}
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
 
@@ -192,20 +194,69 @@ class InspectionService:
             baseline_score=baseline["score"],
             note=note.strip(),
         )
-        self.fp_zones.setdefault(product_type, []).append(zone)
-        self._save_fp_zones()
+        with self._fp_zones_lock:
+            self.fp_zones.setdefault(product_type, []).append(zone)
+            self._save_fp_zones()
         return zone
 
     def get_fp_zones(self, product_type: str) -> list[FPZone]:
-        return list(self.fp_zones.get(product_type, []))
+        with self._fp_zones_lock:
+            return list(self.fp_zones.get(product_type, []))
+
+    def replace_fp_zones(
+        self,
+        product_type: str,
+        zones: list[tuple[list[Tuple[float, float]], str]],
+        heatmap_w: int,
+        heatmap_h: int,
+    ) -> list[FPZone]:
+        if heatmap_w <= 0 or heatmap_h <= 0:
+            raise ValueError("heatmap size must be positive")
+
+        replacement: list[FPZone] = []
+        for points_norm_heatmap, note in zones:
+            normalized = validate_polygon_points(points_norm_heatmap, "FP polygon")
+            if polygon_area(normalized) < 0.0001:
+                raise ValueError("FP polygon area is too small")
+            baseline = self._measure_fp_zone_activity(product_type, normalized)
+            replacement.append(
+                FPZone(
+                    id=str(uuid.uuid4()),
+                    product_type=product_type,
+                    points_norm_heatmap=normalized,
+                    points_norm_ref=list(normalized),
+                    heatmap_w=int(heatmap_w),
+                    heatmap_h=int(heatmap_h),
+                    created_at=datetime.now(timezone.utc).isoformat(),
+                    baseline_diff_q90=baseline["diff_q90"],
+                    baseline_diff_max=baseline["diff_max"],
+                    baseline_active_ratio=baseline["active_ratio"],
+                    baseline_score=baseline["score"],
+                    note=note.strip(),
+                )
+            )
+
+        with self._fp_zones_lock:
+            previous = self.fp_zones.get(product_type)
+            self.fp_zones[product_type] = replacement
+            try:
+                self._save_fp_zones()
+            except Exception:
+                if previous is None:
+                    self.fp_zones.pop(product_type, None)
+                else:
+                    self.fp_zones[product_type] = previous
+                raise
+        return list(replacement)
 
     def delete_fp_zone(self, zone_id: str) -> bool:
-        for product_type, zones in self.fp_zones.items():
-            retained = [zone for zone in zones if zone.id != zone_id]
-            if len(retained) != len(zones):
-                self.fp_zones[product_type] = retained
-                self._save_fp_zones()
-                return True
+        with self._fp_zones_lock:
+            for product_type, zones in self.fp_zones.items():
+                retained = [zone for zone in zones if zone.id != zone_id]
+                if len(retained) != len(zones):
+                    self.fp_zones[product_type] = retained
+                    self._save_fp_zones()
+                    return True
         return False
 
     def inspect(
@@ -447,7 +498,9 @@ class InspectionService:
                         "note": zone.note,
                     }
                 )
-        self._fp_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+        temp_file = self._fp_zones_file.with_suffix(self._fp_zones_file.suffix + ".tmp")
+        temp_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+        temp_file.replace(self._fp_zones_file)
 
     def _measure_fp_zone_activity(self, product_type: str, points: list[Tuple[float, float]]) -> dict[str, float]:
         diff_map = self._last_diff_maps.get(product_type)

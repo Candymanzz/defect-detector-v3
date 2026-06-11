@@ -164,6 +164,17 @@ class FPZoneCreateRequest(BaseModel):
     note: str = ""
 
 
+class FPZoneReplaceItem(BaseModel):
+    points: list[FPZonePoint]
+    note: str = ""
+
+
+class FPZoneReplaceRequest(BaseModel):
+    heatmap_w: int
+    heatmap_h: int
+    zones: list[FPZoneReplaceItem] = Field(default_factory=list)
+
+
 class FPZoneResponse(BaseModel):
     id: str
     product_type: str

@@ -2,7 +2,12 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspection_service
 from app.api.mappers import to_fp_zone_response
-from app.api.schemas import FPZoneCreateRequest, FPZoneListResponse, FPZoneResponse
+from app.api.schemas import (
+    FPZoneCreateRequest,
+    FPZoneListResponse,
+    FPZoneReplaceRequest,
+    FPZoneResponse,
+)
 
 
 router = APIRouter()
@@ -30,6 +35,27 @@ async def get_fp_zones(product_type: str) -> FPZoneListResponse:
     return FPZoneListResponse(
         product_type=product_type,
         zones=[to_fp_zone_response(zone) for zone in zones],
+    )
+
+
+@router.put("/fp-zones/{product_type}", response_model=FPZoneListResponse)
+async def replace_fp_zones(product_type: str, payload: FPZoneReplaceRequest) -> FPZoneListResponse:
+    zones = [
+        ([(point.x, point.y) for point in zone.points], zone.note)
+        for zone in payload.zones
+    ]
+    try:
+        replaced = inspection_service.replace_fp_zones(
+            product_type=product_type,
+            zones=zones,
+            heatmap_w=payload.heatmap_w,
+            heatmap_h=payload.heatmap_h,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return FPZoneListResponse(
+        product_type=product_type,
+        zones=[to_fp_zone_response(zone) for zone in replaced],
     )
 
 

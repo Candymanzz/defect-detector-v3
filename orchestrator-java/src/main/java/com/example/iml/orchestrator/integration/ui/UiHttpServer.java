@@ -59,6 +59,7 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     private final HttpApplicationContext httpContext;
     private final Map<Integer, Latest> latestByCamera = new ConcurrentHashMap<>();
     private final HeatmapArtifactRegistry heatmapArtifacts = new HeatmapArtifactRegistry();
+    private final HeatmapArtifactRegistry currentImageArtifacts = new HeatmapArtifactRegistry();
 
     public UiHttpServer(String host, int port) throws IOException {
         this(host, port, null, ClientApiMount.disabled(), null, Map.of());
@@ -118,6 +119,19 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     @Override
     public Path resolveHeatmapArtifactPath(String token) {
         return heatmapArtifacts.resolve(token);
+    }
+
+    @Override
+    public String registerCurrentImageArtifact(int cameraId, Path currentJpegPath) {
+        if (currentJpegPath == null) {
+            return null;
+        }
+        return currentImageArtifacts.register(cameraId, currentJpegPath);
+    }
+
+    @Override
+    public Path resolveCurrentImageArtifactPath(String token) {
+        return currentImageArtifacts.resolve(token);
     }
 
     @Override
