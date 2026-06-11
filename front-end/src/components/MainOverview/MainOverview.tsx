@@ -16,6 +16,8 @@ import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type"
 import type { InspectResultPayload } from "../../shared/ws";
 import "./MainOverview.css";
 
+const PREVIEW_UPDATE_INTERVAL_MS = 100;
+
 type MainOverviewProps = {
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
@@ -30,6 +32,8 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
   const latestPreviewTimestampByCameraIdRef = useRef<Record<number, number>>({});
   const latestInspectTimestampByCameraIdRef = useRef<Record<number, number>>({});
+  const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
+  const previewUpdateTimerRef = useRef<number | null>(null);
 
   const cameraCards = createCameraCards(cameraIds, previewImageUrlsByCameraId);
   const modalCameraPreviewUrl = selectedCamera ? previewImageUrlsByCameraId[selectedCamera.cameraId] : undefined;
@@ -70,10 +74,19 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         }
 
         latestPreviewTimestampByCameraIdRef.current[cameraId] = previewFrame.server_ts_ms;
-        setPreviewImageUrlsByCameraId((previousImageUrls) => ({
-          ...previousImageUrls,
-          [cameraId]: imageUrl,
-        }));
+        pendingPreviewUrlsByCameraIdRef.current[cameraId] = imageUrl;
+
+        if (previewUpdateTimerRef.current === null) {
+          previewUpdateTimerRef.current = window.setTimeout(() => {
+            previewUpdateTimerRef.current = null;
+            const pendingPreviewUrls = pendingPreviewUrlsByCameraIdRef.current;
+            pendingPreviewUrlsByCameraIdRef.current = {};
+            setPreviewImageUrlsByCameraId((previousImageUrls) => ({
+              ...previousImageUrls,
+              ...pendingPreviewUrls,
+            }));
+          }, PREVIEW_UPDATE_INTERVAL_MS);
+        }
         return;
       }
 
@@ -100,6 +113,11 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
     return () => {
       unsubscribeMessage();
+      if (previewUpdateTimerRef.current !== null) {
+        window.clearTimeout(previewUpdateTimerRef.current);
+        previewUpdateTimerRef.current = null;
+      }
+      pendingPreviewUrlsByCameraIdRef.current = {};
     };
   }, []);
 

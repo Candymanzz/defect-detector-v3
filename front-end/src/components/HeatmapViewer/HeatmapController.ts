@@ -1,6 +1,8 @@
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { HeatmapDescriptor } from "../../shared/ws";
 
+const HEATMAP_COLOR_LUT = createHeatmapColorLut();
+
 export async function loadHeatmapForCamera(heatmap: HeatmapDescriptor) {
   validateHeatmap(heatmap);
 
@@ -75,55 +77,68 @@ export function drawGrayU8Heatmap(canvas: HTMLCanvasElement | null, heatmap: Hea
   }
 
   const imageData = ctx.createImageData(heatmap.width, heatmap.height);
-  const values = normalizeHeatmapBytes(bytes, expectedSize);
+  const normalizationLut = createNormalizationLut(bytes, expectedSize);
+  const pixels = imageData.data;
 
   for (let index = 0; index < expectedSize; index += 1) {
-    const value = values[index];
+    const colorIndex = normalizationLut[bytes[index]] * 4;
     const pixelIndex = index * 4;
-    const color = heatmapColor(value);
 
-    imageData.data[pixelIndex] = color.r;
-    imageData.data[pixelIndex + 1] = color.g;
-    imageData.data[pixelIndex + 2] = color.b;
-    imageData.data[pixelIndex + 3] = color.a;
+    pixels[pixelIndex] = HEATMAP_COLOR_LUT[colorIndex];
+    pixels[pixelIndex + 1] = HEATMAP_COLOR_LUT[colorIndex + 1];
+    pixels[pixelIndex + 2] = HEATMAP_COLOR_LUT[colorIndex + 2];
+    pixels[pixelIndex + 3] = HEATMAP_COLOR_LUT[colorIndex + 3];
   }
 
   ctx.putImageData(imageData, 0, 0);
 }
 
-function normalizeHeatmapBytes(bytes: Uint8Array, size: number) {
+function createNormalizationLut(bytes: Uint8Array, size: number) {
   let min = 255;
   let max = 0;
 
   for (let index = 0; index < size; index += 1) {
     const value = bytes[index];
-    min = Math.min(min, value);
-    max = Math.max(max, value);
+
+    if (value < min) {
+      min = value;
+    }
+    if (value > max) {
+      max = value;
+    }
   }
+
+  const normalized = new Uint8Array(256);
 
   if (max <= min) {
-    return new Uint8Array(size);
+    return normalized;
   }
 
-  const normalized = new Uint8Array(size);
   const range = max - min;
 
-  for (let index = 0; index < size; index += 1) {
-    const ratio = (bytes[index] - min) / range;
-    normalized[index] = Math.round(Math.pow(ratio, 0.8) * 255);
+  for (let value = min; value <= max; value += 1) {
+    const ratio = (value - min) / range;
+    normalized[value] = Math.round(ratio ** 0.8 * 255);
   }
 
   return normalized;
 }
 
-function heatmapColor(value: number) {
-  const ratio = Math.min(1, Math.max(0, value / 255));
-  const color = jetHeatmapColor(ratio);
+function createHeatmapColorLut() {
+  const lut = new Uint8ClampedArray(256 * 4);
 
-  return {
-    ...color,
-    a: Math.round(95 + 110 * ratio),
-  };
+  for (let value = 0; value < 256; value += 1) {
+    const ratio = value / 255;
+    const color = jetHeatmapColor(ratio);
+    const index = value * 4;
+
+    lut[index] = color.r;
+    lut[index + 1] = color.g;
+    lut[index + 2] = color.b;
+    lut[index + 3] = Math.round(95 + 110 * ratio);
+  }
+
+  return lut;
 }
 
 function jetHeatmapColor(ratio: number) {

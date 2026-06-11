@@ -15,18 +15,24 @@ export function PreviewImage({
   placeholderClassName,
   emptyLabel = "Нет изображения",
 }: PreviewImageProps) {
-  const [failed, setFailed] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string>();
+  const failed = Boolean(src && failedSrc === src);
 
-  if (!src || failed) {
+  if (!src) {
     return <div className={placeholderClassName}>{emptyLabel}</div>;
   }
 
   return (
-    <img
-      alt={alt}
-      className={className}
-      src={src}
-      onError={() => setFailed(true)}
-    />
+    <>
+      <img
+        alt={alt}
+        className={className}
+        hidden={failed}
+        src={src}
+        onError={() => setFailedSrc(src)}
+        onLoad={() => setFailedSrc((previousFailedSrc) => (previousFailedSrc === src ? undefined : previousFailedSrc))}
+      />
+      {failed && <div className={placeholderClassName}>{emptyLabel}</div>}
+    </>
   );
 }

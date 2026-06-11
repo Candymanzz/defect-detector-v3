@@ -78,7 +78,6 @@ export function useStreamController({
           }
 
           clearFirstFrameTimer();
-          setMessage(`Stream active, frame ${wsMessage.payload.frame_id}`);
           return;
 
         case "server.stream_stopped":

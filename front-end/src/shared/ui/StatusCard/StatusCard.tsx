@@ -29,7 +29,6 @@ export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false,
     >
       <div className="camera-card__image-wrap">
         <PreviewImage
-          key={imageUrl ?? `camera-${cameraId}-offline`}
           alt={`${objectName}, камера ${cameraId}`}
           className="camera-card__image"
           placeholderClassName="camera-card__image-placeholder"
