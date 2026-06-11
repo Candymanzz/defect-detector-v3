@@ -68,7 +68,14 @@ public final class ReferenceBundleParser {
         }
         List<ReferenceViewSlot> views = new ArrayList<>(4);
         for (int i = 0; i < 4; i++) {
-            views.add(parseViewSlot(viewsNode.get(i), i, jointViewIndex));
+            ReferenceViewSlot slot = parseViewSlot(viewsNode.get(i), i, jointViewIndex);
+            if (slot.frame().cameraId() != i) {
+                throw new BundleParseException(
+                        "invalid_camera_layout",
+                        "views[" + i + "].frame.camera_id must be " + i + " but got " + slot.frame().cameraId()
+                );
+            }
+            views.add(slot);
         }
         List<FpZoneNorm> fpZones = parseFpZones(payload.path("fp_zones"));
         return new ReferenceBundleSnapshot(

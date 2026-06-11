@@ -222,7 +222,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             }
         }
         Object fp = header.get("fp_zones");
-        if (fp instanceof List<?> list && !list.isEmpty()) {
+        if (fp instanceof List<?>) {
             Map<String, Object> fpHdr = new LinkedHashMap<>(header);
             fpHdr.put("op", "replace_fp_zones");
             fpHdr.put("product_type", scopedProductType);
@@ -475,7 +475,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 if (z instanceof Map<?, ?> zm) {
                     Object id = zm.get("id");
                     if (id != null) {
-                        httpDeleteRaw("/fp-zones/" + urlEncodePathSegment(String.valueOf(id)));
+                        HttpResponse<byte[]> deleteResp =
+                                httpDeleteRaw("/fp-zones/" + urlEncodePathSegment(String.valueOf(id)));
+                        if (deleteResp.statusCode() / 100 != 2) {
+                            return errorMessageToMsg(deleteResp, "fp-zones delete");
+                        }
                     }
                 }
             }
@@ -691,7 +695,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return send(req);
     }
 
-    private void httpDeleteRaw(String path) throws IOException {
+    private HttpResponse<byte[]> httpDeleteRaw(String path) throws IOException {
         URI uri = URI.create(baseUrl + path);
         HttpRequest req = HttpRequest.newBuilder(uri)
                 .timeout(Duration.ofMillis(commandTimeoutMs))
@@ -699,7 +703,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 .header("Accept", "application/json")
                 .build();
         try {
-            HTTP.send(req, HttpResponse.BodyHandlers.discarding());
+            return HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException(name + " DELETE interrupted", e);

@@ -170,9 +170,11 @@ public final class IntegrationBootstrap {
         }
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
         Map<Integer, String> detectorByCamera = new LinkedHashMap<>();
+        Map<Integer, String> productTypeByCamera = new LinkedHashMap<>();
         for (Map<String, Object> camera : cameras) {
             int cameraId = ((Number) camera.get("id")).intValue();
             detectorByCamera.put(cameraId, String.valueOf(camera.getOrDefault("detector", "v1")));
+            productTypeByCamera.put(cameraId, ConfiguredCameras.analysisProfileForCamera(camera, cameraId));
         }
         if (cfg.referenceSource() == com.example.iml.orchestrator.integration.config.ReferenceSource.CLIENT) {
             log.info("integration.reference_source=client — эталон только через client.reference_bundle (WebSocket)");
@@ -193,7 +195,10 @@ public final class IntegrationBootstrap {
         }
         if (clientWsServer != null) {
             clientWsServer.setKopcheniPythonPool(pythonPool);
-            clientWsServer.attachPipelineReferences(pipelineReferenceRegistry, detectorByCamera);
+            clientWsServer.attachPipelineReferences(
+                    pipelineReferenceRegistry,
+                    productTypeByCamera
+            );
             clientWsServer.setLightTriggerClient(lightClient);
         }
         uiSidecar.setClientWebSocketServer(clientWsServer);

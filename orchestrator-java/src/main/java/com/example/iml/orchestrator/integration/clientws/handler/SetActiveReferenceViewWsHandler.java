@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientws.handler;
 
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsKopcheniSyncException;
+import com.example.iml.orchestrator.integration.clientws.service.ReferenceBundleLifecycleService;
 import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
 import com.example.iml.orchestrator.integration.clientws.routing.WsMessageContext;
 import com.example.iml.orchestrator.integration.clientws.routing.WsMessageHandler;
@@ -45,7 +46,15 @@ public final class SetActiveReferenceViewWsHandler implements WsMessageHandler {
             return;
         }
         try {
-            app.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.setActiveReferenceView(productType, viewIndex));
+            ReferenceBundleSnapshot snapshot = app.referenceContext().snapshot().orElseThrow();
+            int cameraId = snapshot.views().get(viewIndex).frame().cameraId();
+            String scopedProductType = app.productTypeByCamera().getOrDefault(cameraId, productType);
+            app.kopcheniBroadcaster().broadcast(
+                    AnalisSurfaceClientWsSync.syncClientReferenceBundle(
+                            ReferenceBundleLifecycleService.withProductType(snapshot, scopedProductType),
+                            viewIndex
+                    )
+            );
         } catch (ClientWsKopcheniSyncException e) {
             app.log().warn("client_ws kopcheni set_active_reference_view failed: {}", e.getMessage());
             app.outbound().sendError(ctx.connection(), "kopcheni_sync_failed", WsTextUtil.truncate(e.getMessage(), 400));

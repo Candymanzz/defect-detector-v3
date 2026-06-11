@@ -27,7 +27,7 @@ public final class ClientWsApplicationContext {
     private final ClientWsKopcheniBroadcaster kopcheniBroadcaster;
     private final WsOutboundMessenger outbound;
     private volatile PipelineReferenceRegistry pipelineReferences;
-    private volatile Map<Integer, String> detectorByCamera = Map.of();
+    private volatile Map<Integer, String> productTypeByCamera = Map.of();
     private volatile LightTriggerClient lightTriggerClient;
     private volatile CameraStreamService cameraStreamService;
     private volatile ClientStreamConfig clientStreamConfig = ClientStreamConfig.defaults();
@@ -77,17 +77,20 @@ public final class ClientWsApplicationContext {
         return outbound;
     }
 
-    public void attachPipelineReferences(PipelineReferenceRegistry registry, Map<Integer, String> detectorByCamera) {
+    public void attachPipelineReferences(
+            PipelineReferenceRegistry registry,
+            Map<Integer, String> productTypeByCamera
+    ) {
         this.pipelineReferences = registry;
-        this.detectorByCamera = detectorByCamera == null ? Map.of() : Map.copyOf(detectorByCamera);
+        this.productTypeByCamera = productTypeByCamera == null ? Map.of() : Map.copyOf(productTypeByCamera);
     }
 
     public PipelineReferenceRegistry pipelineReferences() {
         return pipelineReferences;
     }
 
-    public String detectorForCamera(int cameraId) {
-        return detectorByCamera.getOrDefault(cameraId, "v1");
+    public Map<Integer, String> productTypeByCamera() {
+        return productTypeByCamera;
     }
 
     public void setLightTriggerClient(LightTriggerClient lightTriggerClient) {

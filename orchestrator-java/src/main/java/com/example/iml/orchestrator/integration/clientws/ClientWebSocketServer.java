@@ -109,8 +109,11 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         kopcheniBroadcaster.setPool(pool);
     }
 
-    public void attachPipelineReferences(PipelineReferenceRegistry registry, Map<Integer, String> detectorByCamera) {
-        application.attachPipelineReferences(registry, detectorByCamera);
+    public void attachPipelineReferences(
+            PipelineReferenceRegistry registry,
+            Map<Integer, String> productTypeByCamera
+    ) {
+        application.attachPipelineReferences(registry, productTypeByCamera);
     }
 
     public void setLightTriggerClient(LightTriggerClient lightTriggerClient) {

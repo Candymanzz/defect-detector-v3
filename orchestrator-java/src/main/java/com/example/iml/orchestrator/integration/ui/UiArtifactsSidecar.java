@@ -328,7 +328,37 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.warn(
+                        "ui publish failed camera_id={} frame_id={}: {}",
+                        cameraId,
+                        frameId,
+                        e.getMessage()
+                );
+                if (ws != null) {
+                    try {
+                        ws.notifyInspectResult(
+                                cameraId,
+                                productType,
+                                detectorId,
+                                decision,
+                                cap,
+                                null,
+                                0,
+                                0,
+                                null,
+                                null,
+                                false
+                        );
+                    } catch (Exception notifyEx) {
+                        log.warn(
+                                "client_ws inspect_result fallback failed camera_id={} frame_id={}: {}",
+                                cameraId,
+                                frameId,
+                                notifyEx.getMessage()
+                        );
+                    }
+                }
             }
             });
         } catch (java.util.concurrent.RejectedExecutionException e) {

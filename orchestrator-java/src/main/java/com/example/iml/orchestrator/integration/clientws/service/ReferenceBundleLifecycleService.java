@@ -22,9 +22,9 @@ public final class ReferenceBundleLifecycleService {
             ReferenceBundleSnapshot snap,
             JsonNode requestRoot
     ) throws ClientWsKopcheniSyncException {
-        ctx.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
-        ctx.referenceContext().applyBundle(snap);
+        syncBundleToDetectors(ctx, snap);
         applyBundleToPipeline(ctx, snap);
+        ctx.referenceContext().applyBundle(snap);
         transitionToOperational(ctx, conn, requestRoot);
         ctx.log().info(
                 "client_ws reference bundle accepted product_type={} joint_view_index={} fp_zones={}",
@@ -36,9 +36,9 @@ public final class ReferenceBundleLifecycleService {
 
     public static void applyFromDraft(ClientWsApplicationContext ctx, WebSocket conn, ReferenceBundleSnapshot snap)
             throws ClientWsKopcheniSyncException {
-        ctx.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
-        ctx.referenceContext().applyBundle(snap);
+        syncBundleToDetectors(ctx, snap);
         applyBundleToPipeline(ctx, snap);
+        ctx.referenceContext().applyBundle(snap);
         ctx.setSessionState(ClientWsSessionState.READY);
         if (conn != null && conn.isOpen()) {
             ctx.outbound().sendSessionState(conn, ClientWsSessionState.READY);
@@ -55,21 +55,40 @@ public final class ReferenceBundleLifecycleService {
         );
     }
 
-    private static void applyBundleToPipeline(ClientWsApplicationContext ctx, ReferenceBundleSnapshot snap) {
+    private static void applyBundleToPipeline(ClientWsApplicationContext ctx, ReferenceBundleSnapshot snap)
+            throws ClientWsKopcheniSyncException {
         if (ctx.pipelineReferences() == null || snap.views().isEmpty()) {
-            return;
+            throw new ClientWsKopcheniSyncException("pipeline reference registry is unavailable");
         }
-        try {
-            int cameraId = snap.views().get(0).frame().cameraId();
-            ctx.pipelineReferences().applyClientBundle(
-                    ctx.log(),
-                    snap,
-                    ctx.detectorForCamera(cameraId),
-                    ctx.kopcheniBroadcaster().pool()
+        ctx.pipelineReferences().applyClientBundle(
+                ctx.log(),
+                snap,
+                ctx.productTypeByCamera()
+        );
+    }
+
+    private static void syncBundleToDetectors(ClientWsApplicationContext ctx, ReferenceBundleSnapshot snap)
+            throws ClientWsKopcheniSyncException {
+        for (int viewIndex = 0; viewIndex < snap.views().size(); viewIndex++) {
+            int cameraId = snap.views().get(viewIndex).frame().cameraId();
+            String productType = ctx.productTypeByCamera().getOrDefault(cameraId, snap.productType());
+            ReferenceBundleSnapshot scoped = withProductType(snap, productType);
+            ctx.kopcheniBroadcaster().broadcast(
+                    AnalisSurfaceClientWsSync.syncClientReferenceBundle(scoped, viewIndex)
             );
-        } catch (Exception e) {
-            ctx.log().warn("pipeline reference from client bundle failed: {}", e.getMessage());
         }
+    }
+
+    public static ReferenceBundleSnapshot withProductType(ReferenceBundleSnapshot snap, String productType) {
+        return new ReferenceBundleSnapshot(
+                productType,
+                snap.views(),
+                snap.jointViewIndex(),
+                snap.heatmapWidth(),
+                snap.heatmapHeight(),
+                snap.fpZones(),
+                snap.acceptedAtEpochMs()
+        );
     }
 
     private static void transitionToOperational(ClientWsApplicationContext ctx, WebSocket conn, JsonNode requestRoot) {

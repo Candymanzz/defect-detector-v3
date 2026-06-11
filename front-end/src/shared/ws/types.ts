@@ -50,6 +50,7 @@ export type ServerErrorCode =
   | "invalid_view"
   | "invalid_frame"
   | "invalid_camera_id"
+  | "invalid_camera_layout"
   | "invalid_frame_id"
   | "invalid_shm_name"
   | "invalid_frame_size"

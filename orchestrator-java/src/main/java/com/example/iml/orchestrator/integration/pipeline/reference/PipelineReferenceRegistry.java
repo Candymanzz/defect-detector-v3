@@ -1,10 +1,8 @@
 package com.example.iml.orchestrator.integration.pipeline.reference;
 
-import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceViewSlot;
 import com.example.iml.orchestrator.integration.clientws.bundle.ShmFrameRefData;
-import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
 import org.apache.logging.log4j.Logger;
@@ -32,30 +30,28 @@ public final class PipelineReferenceRegistry {
     /**
      * После {@code client.reference_bundle}: SHM-заголовки в реестр + {@code set_reference_shm} в Python.
      */
+    // Detector synchronization succeeds before this method publishes the new local snapshot set.
     public void applyClientBundle(
             Logger log,
             ReferenceBundleSnapshot snap,
-            String detectorId,
-            List<? extends BinaryRpcSupervisor> pythonPool
-    ) throws Exception {
+            Map<Integer, String> productTypeByCamera
+    ) {
+        Map<Integer, ReferenceSnapshot> pending = new LinkedHashMap<>();
         for (ReferenceViewSlot slot : snap.views()) {
             ShmFrameRefData frame = slot.frame();
             Map<String, Object> header = frameToCaptureHeader(frame, slot);
-            ReferenceSnapshot snapshot = new ReferenceSnapshot(snap.productType(), Map.copyOf(header));
-            byCamera.put(frame.cameraId(), snapshot);
-            Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
-                    snap.productType(), detectorId, header);
-            for (BinaryRpcSupervisor python : pythonPool) {
-                python.command(refHdr);
-            }
+            String productType = productTypeByCamera.getOrDefault(frame.cameraId(), snap.productType());
+            ReferenceSnapshot snapshot = new ReferenceSnapshot(productType, Map.copyOf(header));
+            pending.put(frame.cameraId(), snapshot);
             log.info(
                     "pipeline reference from client cam={} product_type={} frame_id={} shm={}",
                     frame.cameraId(),
-                    snap.productType(),
+                    productType,
                     frame.frameId(),
                     frame.shmName()
             );
         }
+        byCamera.putAll(pending);
     }
 
     private static Map<String, Object> frameToCaptureHeader(ShmFrameRefData frame, ReferenceViewSlot slot) {

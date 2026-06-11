@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.clientws.service;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsKopcheniSyncException;
+import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -45,7 +46,16 @@ public final class ClientWsKopcheniBroadcaster {
         ClientWsKopcheniSyncException last = null;
         for (BinaryRpcSupervisor py : pool) {
             try {
-                py.command(header);
+                BinaryProtocol.Message response = py.command(header);
+                if (response == null || response.type() == BinaryProtocol.MSG_ERROR) {
+                    Object error = response == null || response.header() == null
+                            ? "empty response"
+                            : response.header().getOrDefault("error", response.header());
+                    last = new ClientWsKopcheniSyncException(
+                            "kopcheni command rejected worker=" + py.supervisorLabel() + ": " + error
+                    );
+                    log.warn("client_ws kopcheni command rejected worker={}: {}", py.supervisorLabel(), error);
+                }
             } catch (IOException e) {
                 last = new ClientWsKopcheniSyncException(
                         "kopcheni command failed worker=" + py.supervisorLabel() + ": " + e.getMessage(),
