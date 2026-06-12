@@ -155,11 +155,13 @@ public final class ClientApiHttpController implements HttpController {
                 unknown.add(cameraId);
                 continue;
             }
-            if (clientApi.inspectionGate().isInspectionEnabled(cameraId) != enabled) {
-                clientApi.inspectionGate().setInspectionEnabled(cameraId, enabled);
+            boolean wasEnabled = clientApi.inspectionGate().isInspectionEnabled(cameraId);
+            if (wasEnabled != enabled) {
                 changed.add(cameraId);
             }
-            if (!enabled && clientApi.inspectionGate().requestCancel(cameraId)) {
+            if (enabled) {
+                clientApi.inspectionGate().setInspectionEnabled(cameraId, true);
+            } else if (clientApi.inspectionGate().disableInspectionAndRequestCancel(cameraId)) {
                 cancelled.add(cameraId);
             }
         }

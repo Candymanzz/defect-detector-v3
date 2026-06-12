@@ -78,6 +78,23 @@ public final class PerCameraInspectionGate {
         }
     }
 
+    public boolean disableInspectionAndRequestCancel(int cameraId) {
+        AtomicBoolean flag = inspectionEnabled.get(cameraId);
+        AtomicBoolean flight = inFlight.get(cameraId);
+        AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
+        if (flag == null || flight == null || cancelFlag == null) {
+            return false;
+        }
+        synchronized (flight) {
+            flag.set(false);
+            if (!flight.get()) {
+                return false;
+            }
+            cancelFlag.set(true);
+            return true;
+        }
+    }
+
     public BeginResult tryBeginInspection(int cameraId) {
         AtomicBoolean flight = inFlight.get(cameraId);
         if (flight == null) {
@@ -100,12 +117,15 @@ public final class PerCameraInspectionGate {
 
     public void endInspection(int cameraId) {
         AtomicBoolean flight = inFlight.get(cameraId);
-        if (flight != null) {
-            flight.set(false);
-        }
         AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
-        if (cancelFlag != null) {
-            cancelFlag.set(false);
+        if (flight == null) {
+            return;
+        }
+        synchronized (flight) {
+            flight.set(false);
+            if (cancelFlag != null) {
+                cancelFlag.set(false);
+            }
         }
     }
 
@@ -115,15 +135,33 @@ public final class PerCameraInspectionGate {
         if (flight == null || cancelFlag == null) {
             return false;
         }
-        if (!flight.get()) {
-            return false;
+        synchronized (flight) {
+            if (!flight.get()) {
+                return false;
+            }
+            cancelFlag.set(true);
+            return true;
         }
-        cancelFlag.set(true);
-        return true;
     }
 
     public boolean isCancelRequested(int cameraId) {
         AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
         return cancelFlag != null && cancelFlag.get();
+    }
+
+    public boolean runIfInspectionActive(int cameraId, Runnable action) {
+        AtomicBoolean flag = inspectionEnabled.get(cameraId);
+        AtomicBoolean flight = inFlight.get(cameraId);
+        AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
+        if (flag == null || flight == null || cancelFlag == null) {
+            return false;
+        }
+        synchronized (flight) {
+            if (!flag.get() || !flight.get() || cancelFlag.get()) {
+                return false;
+            }
+            action.run();
+            return true;
+        }
     }
 }

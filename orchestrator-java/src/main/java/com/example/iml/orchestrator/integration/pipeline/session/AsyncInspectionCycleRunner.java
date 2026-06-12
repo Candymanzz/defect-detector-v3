@@ -17,6 +17,8 @@ import java.util.concurrent.TimeoutException;
  */
 public final class AsyncInspectionCycleRunner {
 
+    private static final long CANCEL_POLL_INTERVAL_MS = 50L;
+
     private AsyncInspectionCycleRunner() {
     }
 
@@ -105,20 +107,26 @@ public final class AsyncInspectionCycleRunner {
             InspectionDecision decision = svc.decisionPolicy().decide(
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
-            svc.afterInspectionSidecar().scheduleAfterInspection(
-                    in.uiServer(),
-                    in.uiCfg(),
-                    in.uiVisualsPython(),
-                    in.uiArtifactsExecutor(),
-                    in.cameraId(),
-                    in.productType(),
-                    in.detectorId(),
-                    in.activeReference(),
-                    decision,
-                    state.capture(),
-                    state.geom()
-            );
-            in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
+            boolean resultPublished = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
+                svc.afterInspectionSidecar().scheduleAfterInspection(
+                        in.uiServer(),
+                        in.uiCfg(),
+                        in.uiVisualsPython(),
+                        in.uiArtifactsExecutor(),
+                        in.cameraId(),
+                        in.productType(),
+                        in.detectorId(),
+                        in.activeReference(),
+                        decision,
+                        state.capture(),
+                        state.geom()
+                );
+                in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
+            });
+            if (!resultPublished) {
+                svc.log().info("integration cam={}: inspection result suppressed by client stop", in.cameraId());
+                return;
+            }
             long tFanoutDone = System.nanoTime();
             long totalMs = YamlScalars.nanosToMs(tFanoutDone - in.tCameraStartNanos());
             long captureFrameToInspectionEndMs = captureFrameTimestampNs > 0
@@ -172,7 +180,19 @@ public final class AsyncInspectionCycleRunner {
         if (timeoutMs > 0) {
             try {
                 // SLA timeout applies only until python stage completion.
-                pythonFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
+                boolean pythonCompleted = awaitPythonOrCancel(
+                        captureFuture,
+                        geometryFuture,
+                        pythonFuture,
+                        decisionFuture,
+                        timeoutMs,
+                        inspectionGate,
+                        in.cameraId(),
+                        svc
+                );
+                if (!pythonCompleted) {
+                    return;
+                }
                 // Decision/fan-out stays outside timeout window.
                 decisionFuture.join();
             } catch (TimeoutException e) {
@@ -202,7 +222,102 @@ public final class AsyncInspectionCycleRunner {
                 throw new RuntimeException(e);
             }
         } else {
-            decisionFuture.join();
+            awaitDecisionOrCancel(
+                    decisionFuture,
+                    inspectionGate,
+                    in.cameraId(),
+                    svc,
+                    captureFuture,
+                    geometryFuture,
+                    pythonFuture,
+                    decisionFuture
+            );
         }
+    }
+
+    private static boolean awaitPythonOrCancel(
+            CompletableFuture<PipelineState> captureFuture,
+            CompletableFuture<PipelineState> geometryFuture,
+            CompletableFuture<PipelineState> pythonFuture,
+            CompletableFuture<Void> decisionFuture,
+            long timeoutMs,
+            PerCameraInspectionGate inspectionGate,
+            int cameraId,
+            InspectionPipelineServices svc
+    ) throws TimeoutException, ExecutionException, InterruptedException {
+        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        while (true) {
+            if (cancelIfRequested(
+                    inspectionGate,
+                    cameraId,
+                    svc,
+                    captureFuture,
+                    geometryFuture,
+                    pythonFuture,
+                    decisionFuture
+            )) {
+                return false;
+            }
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                throw new TimeoutException();
+            }
+            long waitMs = Math.min(
+                    CANCEL_POLL_INTERVAL_MS,
+                    Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos))
+            );
+            try {
+                pythonFuture.get(waitMs, TimeUnit.MILLISECONDS);
+                return true;
+            } catch (TimeoutException ignored) {
+                // Poll the cancellation flag until the stage completes or the SLA deadline expires.
+            }
+        }
+    }
+
+    private static void awaitDecisionOrCancel(
+            CompletableFuture<Void> decisionFuture,
+            PerCameraInspectionGate inspectionGate,
+            int cameraId,
+            InspectionPipelineServices svc,
+            CompletableFuture<?>... futures
+    ) {
+        while (!decisionFuture.isDone()) {
+            if (cancelIfRequested(inspectionGate, cameraId, svc, futures)) {
+                return;
+            }
+            try {
+                decisionFuture.get(CANCEL_POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);
+                return;
+            } catch (TimeoutException ignored) {
+                // Continue polling cancellation.
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause() == null ? e : e.getCause();
+                if (cause instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new RuntimeException(cause);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+        decisionFuture.join();
+    }
+
+    private static boolean cancelIfRequested(
+            PerCameraInspectionGate inspectionGate,
+            int cameraId,
+            InspectionPipelineServices svc,
+            CompletableFuture<?>... futures
+    ) {
+        if (inspectionGate == null || !inspectionGate.isCancelRequested(cameraId)) {
+            return false;
+        }
+        for (CompletableFuture<?> future : futures) {
+            future.cancel(true);
+        }
+        svc.log().info("integration cam={}: inspection cycle cancelled by client", cameraId);
+        return true;
     }
 }
