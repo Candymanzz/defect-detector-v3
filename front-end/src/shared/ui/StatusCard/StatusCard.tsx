@@ -6,7 +6,7 @@ type StatusCardProps = {
   cameraId: number;
   objectName: string;
   imageUrl?: string;
-  inspectionImageUrl?: string;
+  currentFrameId?: string;
   inspectionFrameId?: string;
   isSelected?: boolean;
   isInspectionEnabled?: boolean;
@@ -23,7 +23,7 @@ export function StatusCard({
   cameraId,
   objectName,
   imageUrl,
-  inspectionImageUrl,
+  currentFrameId,
   inspectionFrameId,
   isSelected = false,
   isInspectionEnabled = true,
@@ -62,32 +62,18 @@ export function StatusCard({
       onClick={onSelect}
       onKeyDown={handleKeyDown}
     >
-      <div className="camera-card__images">
-        <div className="camera-card__image-panel">
-          <span className="camera-card__image-label">Текущий</span>
-          <div className="camera-card__image-wrap">
-            <PreviewImage
-              alt={`${objectName}, камера ${cameraId}, текущий кадр`}
-              className="camera-card__image"
-              placeholderClassName="camera-card__image-placeholder"
-              src={imageUrl}
-            />
-          </div>
-        </div>
-        <div className="camera-card__image-panel">
-          <span className="camera-card__image-label">
-            Инспекция{inspectionFrameId ? ` #${inspectionFrameId}` : ""}
-          </span>
-          <div className="camera-card__image-wrap">
-            <PreviewImage
-              alt={`${objectName}, камера ${cameraId}, последний кадр инспекции`}
-              className="camera-card__image"
-              emptyLabel="Нет результата"
-              placeholderClassName="camera-card__image-placeholder"
-              src={inspectionImageUrl}
-            />
-          </div>
-        </div>
+      <div className="camera-card__image-wrap">
+        <PreviewImage
+          alt={`${objectName}, камера ${cameraId}`}
+          className="camera-card__image"
+          placeholderClassName="camera-card__image-placeholder"
+          src={imageUrl}
+        />
+      </div>
+
+      <div className="camera-card__frame-ids">
+        <span>Current frame: {currentFrameId ?? "-"}</span>
+        <span>Inspection frame: {inspectionFrameId ?? "-"}</span>
       </div>
 
       <div className="camera-card__footer">

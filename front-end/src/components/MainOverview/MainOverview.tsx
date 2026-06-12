@@ -32,19 +32,14 @@ type InspectionControlState = {
   message: string;
 };
 
-type InspectionFrame = {
-  imageUrl: string;
-  frameId: string;
-};
-
 export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(INITIAL_BACKEND_STATUS);
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
   const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
   const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
+  const [previewFrameIdsByCameraId, setPreviewFrameIdsByCameraId] = useState<Record<number, string>>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
-  const [inspectionFramesByCameraId, setInspectionFramesByCameraId] = useState<Record<number, InspectionFrame>>({});
   const [inspectionControlByCameraId, setInspectionControlByCameraId] = useState<
     Record<number, InspectionControlState>
   >({});
@@ -164,6 +159,10 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         }
 
         latestPreviewTimestampByCameraIdRef.current[cameraId] = previewFrame.server_ts_ms;
+        setPreviewFrameIdsByCameraId((previousFrameIds) => ({
+          ...previousFrameIds,
+          [cameraId]: previewFrame.frame_id,
+        }));
         pendingPreviewUrlsByCameraIdRef.current[cameraId] = imageUrl;
 
         if (previewUpdateTimerRef.current === null) {
@@ -197,16 +196,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         ...prevInspectResults,
         [cameraId]: inspectResult,
       }));
-      const inspectionImageUrl = createWsFrameImageUrl(inspectResult);
-      if (inspectionImageUrl) {
-        setInspectionFramesByCameraId((previousFrames) => ({
-          ...previousFrames,
-          [cameraId]: {
-            imageUrl: inspectionImageUrl,
-            frameId: inspectResult.frame_id,
-          },
-        }));
-      }
     });
 
     orchestratorWs.connect();
@@ -238,7 +227,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
             {cameraGroup.map((camera) => {
               const inspectionControlState = inspectionControlByCameraId[camera.cameraId];
               const inspectResult = inspectResultsByCameraId[camera.cameraId];
-              const inspectionFrame = inspectionFramesByCameraId[camera.cameraId];
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
@@ -249,8 +237,8 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   cameraId={camera.cameraId}
                   objectName={camera.objectName}
                   imageUrl={camera.imageUrl}
-                  inspectionImageUrl={inspectionFrame?.imageUrl}
-                  inspectionFrameId={inspectionFrame?.frameId}
+                  currentFrameId={previewFrameIdsByCameraId[camera.cameraId]}
+                  inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
                   isInspectionEnabled={isInspectionEnabled}
                   isInspectionActionDisabled={isInspectionActionPending}
