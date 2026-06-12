@@ -1,4 +1,5 @@
 import { appEnv } from "../config/env";
+import { resolveReferenceBundleImages, stageReferenceBundleImages } from "../referenceImages";
 import type {
   ClientFpZonesUpdatePayload,
   ClientLightBrightnessPayload,
@@ -116,8 +117,18 @@ export class OrchestratorWebSocketClient {
     return () => this.statusHandlers.delete(handler);
   }
 
-  sendReferenceBundle(payload: ClientReferenceBundlePayload) {
-    return this.send("client.reference_bundle", payload);
+  sendReferenceBundle(
+    payload: ClientReferenceBundlePayload,
+    imageUrlsByCameraId: Record<number, string> = {},
+  ) {
+    const messageId = createMessageId();
+    stageReferenceBundleImages(messageId, payload, imageUrlsByCameraId);
+    try {
+      return this.send("client.reference_bundle", payload, messageId);
+    } catch (error) {
+      resolveReferenceBundleImages(messageId, false);
+      throw error;
+    }
   }
 
   sendFpZonesUpdate(payload: Omit<ClientFpZonesUpdatePayload, "protocol_version">) {
@@ -154,11 +165,15 @@ export class OrchestratorWebSocketClient {
     return this.send("client.stream_stop", payload);
   }
 
-  send<TType extends keyof ClientWsPayloadByType>(type: TType, payload: ClientWsPayloadByType[TType]) {
+  send<TType extends keyof ClientWsPayloadByType>(
+    type: TType,
+    payload: ClientWsPayloadByType[TType],
+    messageId = createMessageId(),
+  ) {
     const message: ClientWsEnvelope<TType> = {
       type,
       protocol_version: PROTOCOL_VERSION,
-      message_id: createMessageId(),
+      message_id: messageId,
       payload,
     };
 
@@ -187,6 +202,10 @@ export class OrchestratorWebSocketClient {
         lastMessageAtMs: Date.now(),
         lastError: undefined,
       });
+
+      if (message.type === "server.reference_bundle_ack") {
+        resolveReferenceBundleImages(message.message_id, message.payload.ok);
+      }
 
       for (const handler of this.messageHandlers) {
         handler(message);

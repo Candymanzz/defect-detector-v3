@@ -1,5 +1,5 @@
 import { orchestratorApi } from "./api";
-import type { ClientReferenceBundlePayload, InterestPointNorm, ShmFrameRefData } from "./ws";
+import type { ClientReferenceBundlePayload, InterestPointNorm, ShmFrameRefData } from "./ws/types";
 
 type ReferenceImageListener = () => void;
 export type StoredReferenceImage = {
@@ -8,8 +8,41 @@ export type StoredReferenceImage = {
 };
 
 const referenceImagesByCameraId = new Map<number, StoredReferenceImage>();
+const pendingReferenceBundles = new Map<
+  string,
+  {
+    bundle: ClientReferenceBundlePayload;
+    fallbackImageUrlsByCameraId: Record<number, string>;
+  }
+>();
 const listeners = new Set<ReferenceImageListener>();
 let referenceImageVersion = 0;
+
+export function stageReferenceBundleImages(
+  messageId: string,
+  bundle: ClientReferenceBundlePayload,
+  fallbackImageUrlsByCameraId: Record<number, string> = {},
+) {
+  pendingReferenceBundles.set(messageId, {
+    bundle,
+    fallbackImageUrlsByCameraId: { ...fallbackImageUrlsByCameraId },
+  });
+}
+
+export function resolveReferenceBundleImages(messageId: string, accepted: boolean) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) {
+    return;
+  }
+  pendingReferenceBundles.delete(messageId);
+
+  if (accepted) {
+    commitReferenceBundleImages(
+      pendingBundle.bundle,
+      pendingBundle.fallbackImageUrlsByCameraId,
+    );
+  }
+}
 
 export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,

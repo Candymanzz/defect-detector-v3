@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { orchestratorApi } from "../../shared/api";
-import { commitReferenceBundleImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
-import type { ClientReferenceBundlePayload, ServerWsMessage } from "../../shared/ws";
+import type { ServerWsMessage } from "../../shared/ws";
 import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
 import { useReferenceFrames } from "./useReferenceFrames";
 import { useReferenceRoi } from "./useReferenceRoi";
@@ -15,11 +14,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   );
   const [message, setMessage] = useState("Waiting for preview frames...");
   const [cameraIds, setCameraIds] = useState<number[]>([]);
-  const pendingReferenceBundleRef = useRef<{
-    messageId: string;
-    payload: ClientReferenceBundlePayload;
-    imageUrlsByCameraId: Record<number, string>;
-  } | null>(null);
   const referenceFrames = useReferenceFrames(cameraIds);
   const referenceRoi = useReferenceRoi(cameraIds, initialCameraId);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
@@ -59,21 +53,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     };
   }, []);
 
-  const handleReferenceBundleAck = useCallback((message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
-    if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
-      if (message.payload.ok) {
-        commitReferenceBundleImages(
-          pendingReferenceBundleRef.current.payload,
-          pendingReferenceBundleRef.current.imageUrlsByCameraId,
-        );
-      }
-
-      pendingReferenceBundleRef.current = null;
-    }
-
-    setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
-  }, []);
-
   useEffect(() => {
     const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
       switch (message.type) {
@@ -90,7 +69,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           // Temporarily disabled: ReferenceSetup does not manage server streams.
           break;
         case "server.reference_bundle_ack":
-          handleReferenceBundleAck(message);
+          setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;
         case "server.error":
           setMessage(`${message.payload.code}: ${message.payload.message}`);
@@ -105,7 +84,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     return () => {
       unsubscribeMessage();
     };
-  }, [handlePreviewFrame, handleReferenceBundleAck]);
+  }, [handlePreviewFrame]);
 
   useEffect(() => {
     if (cameraIds.length === 0) {
@@ -131,7 +110,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
     return () => {
       cancelled = true;
-      pendingReferenceBundleRef.current = null;
     };
   }, [cameraIds, refreshLatestImages]);
 
@@ -170,12 +148,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         referenceRoi.roiPolygonsByCameraId,
         referenceRoi.jointRoiPolygon,
       );
-      const messageId = orchestratorWs.sendReferenceBundle(payload);
-      pendingReferenceBundleRef.current = {
-        messageId,
-        payload,
-        imageUrlsByCameraId: { ...imageUrlsByCameraId },
-      };
+      orchestratorWs.sendReferenceBundle(payload, imageUrlsByCameraId);
       setMessage("Reference bundle sent");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
