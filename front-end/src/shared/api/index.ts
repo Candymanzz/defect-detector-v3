@@ -19,6 +19,7 @@ export type {
   GeometryRuntimeEffectiveConfig,
   GeometryRuntimeOverrides,
   GeometryRuntimeRoi,
+  InspectionStateResponse,
   JsonObject,
   JsonPrimitive,
   JsonValue,

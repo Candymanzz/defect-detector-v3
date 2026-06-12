@@ -14,6 +14,7 @@ type ModalWrapperProps = {
   cameraImageUrl?: string;
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
+  dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
   onClose: () => void;
 };
@@ -25,6 +26,7 @@ export function ModalWrapper({
   cameraImageUrl,
   inspectResult,
   referenceImageUrl,
+  dangerHeaderAction,
   headerActions,
   onClose,
 }: ModalWrapperProps) {
@@ -73,6 +75,7 @@ export function ModalWrapper({
         <header className="modal__header">
           <h2>{title}</h2>
           <div className="modal__header-actions">
+            {dangerHeaderAction}
             {headerActions}
             <button
               aria-label="Закрыть"

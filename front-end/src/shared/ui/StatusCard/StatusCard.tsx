@@ -7,12 +7,33 @@ type StatusCardProps = {
   objectName: string;
   imageUrl?: string;
   isSelected?: boolean;
+  isInspectionEnabled?: boolean;
+  isInspectionActionDisabled?: boolean;
+  inspectionActionLabel?: string;
+  inspectionStatus?: string;
   onOpen: () => void;
   onSelect: () => void;
+  onInspectionToggle: () => void;
 };
 
-export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false, onOpen, onSelect }: StatusCardProps) {
+export function StatusCard({
+  cameraId,
+  objectName,
+  imageUrl,
+  isSelected = false,
+  isInspectionEnabled = true,
+  isInspectionActionDisabled = false,
+  inspectionActionLabel = "Stop",
+  inspectionStatus,
+  onOpen,
+  onSelect,
+  onInspectionToggle,
+}: StatusCardProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onSelect();
@@ -38,17 +59,32 @@ export function StatusCard({ cameraId, objectName, imageUrl, isSelected = false,
 
       <div className="camera-card__footer">
         <strong>Camera {cameraId}</strong>
-        <button
-          className="camera-card__open"
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen();
-          }}
-        >
-          Открыть
-        </button>
+        <div className="camera-card__actions">
+          <button
+            className={isInspectionEnabled ? "camera-card__stop" : "camera-card__start"}
+            type="button"
+            disabled={isInspectionActionDisabled}
+            title={inspectionStatus}
+            onClick={(event) => {
+              event.stopPropagation();
+              onInspectionToggle();
+            }}
+          >
+            {inspectionActionLabel}
+          </button>
+          <button
+            className="camera-card__open"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            Открыть
+          </button>
+        </div>
       </div>
+      {inspectionStatus && <div className="camera-card__stop-status">{inspectionStatus}</div>}
     </div>
   );
 }

@@ -5,19 +5,25 @@ import type {
   PreviewFramePayload,
   ReferenceViewSlot,
 } from "../../shared/ws";
-import {
-  REFERENCE_BUNDLE_VIEW_CAMERA_IDS,
-  REFERENCE_JOINT_ROI_CAMERA_ID,
-  REFERENCE_REQUIRED_CAMERA_IDS,
-} from "./referenceConstants";
 import { createRoiFromPolygon, isValidRoiPolygon } from "./referenceRoi";
 
 export function createReferenceBundleFromCameraFrames(
+  cameraIds: number[],
+  jointCameraId: number,
   framesByCameraId: Record<number, PreviewFramePayload>,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
   jointRoiPolygon: InterestPointNorm[],
 ): ClientReferenceBundlePayload {
-  for (const cameraId of REFERENCE_REQUIRED_CAMERA_IDS) {
+  if (cameraIds.length === 0) {
+    throw new Error("Configured camera list is empty");
+  }
+
+  const jointViewIndex = cameraIds.indexOf(jointCameraId);
+  if (jointViewIndex < 0) {
+    throw new Error(`Joint ROI camera ${jointCameraId} is not configured`);
+  }
+
+  for (const cameraId of cameraIds) {
     if (!framesByCameraId[cameraId]) {
       throw new Error(`Reference frame for camera ${cameraId} is missing`);
     }
@@ -28,10 +34,10 @@ export function createReferenceBundleFromCameraFrames(
   }
 
   if (!isValidRoiPolygon(jointRoiPolygon)) {
-    throw new Error(`Joint ROI contour for camera ${REFERENCE_JOINT_ROI_CAMERA_ID} is missing`);
+    throw new Error(`Joint ROI contour for camera ${jointCameraId} is missing`);
   }
 
-  const frames = REFERENCE_BUNDLE_VIEW_CAMERA_IDS.map((cameraId) => {
+  const frames = cameraIds.map((cameraId) => {
     const frame = framesByCameraId[cameraId];
 
     if (!frame) {
@@ -40,26 +46,25 @@ export function createReferenceBundleFromCameraFrames(
 
     return frame;
   });
-  const jointViewIndex = REFERENCE_JOINT_ROI_CAMERA_ID;
   const jointFrame = frames[jointViewIndex] ?? frames[0];
   const productType = jointFrame.detector.product_type || "reference-product";
 
   for (const frame of frames) {
     if (frame.current.width !== jointFrame.current.width || frame.current.height !== jointFrame.current.height) {
-      throw new Error("Reference frames for cameras 0-3 must have the same resolution");
+      throw new Error("Reference frames must have the same resolution");
     }
   }
 
   const views = frames.map((previewFrame, viewIndex) =>
     createReferenceViewForFrame(
       previewFrame,
-      REFERENCE_BUNDLE_VIEW_CAMERA_IDS[viewIndex],
+      cameraIds[viewIndex],
       viewIndex,
       jointViewIndex,
       roiPolygonsByCameraId,
       jointRoiPolygon,
     ),
-  ) as ClientReferenceBundlePayload["views"];
+  );
 
   return {
     product_type: productType,

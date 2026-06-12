@@ -279,7 +279,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
       {isReferenceSetupOpen && (
         <ReferenceSetup
-          initialJointViewIndex={selectedCameraId}
+          initialCameraId={selectedCameraId}
           onClose={() => setIsReferenceSetupOpen(false)}
         />
       )}

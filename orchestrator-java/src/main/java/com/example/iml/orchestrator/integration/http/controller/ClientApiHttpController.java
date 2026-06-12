@@ -32,7 +32,7 @@ public final class ClientApiHttpController implements HttpController {
     public void handleClientApi(HttpRequestContext ctx) throws IOException {
         String method = ctx.method();
         if ("OPTIONS".equalsIgnoreCase(method)) {
-            HttpResponses.corsPreflight(ctx.exchange(), "GET, POST, PUT, DELETE, OPTIONS");
+            HttpResponses.corsPreflight(ctx.exchange(), "GET, POST, PUT, PATCH, DELETE, OPTIONS");
             return;
         }
         if (!clientApi.enabled()) {
@@ -44,8 +44,16 @@ public final class ClientApiHttpController implements HttpController {
             handleGeometryRuntime(ctx);
             return;
         }
+        if (path.equals("/api/client/inspection/status")) {
+            handleInspectionStatus(ctx);
+            return;
+        }
         if (path.equals("/api/client/inspection/stop")) {
-            handleStopInspection(ctx);
+            handleInspectionToggle(ctx, false);
+            return;
+        }
+        if (path.equals("/api/client/inspection/start")) {
+            handleInspectionToggle(ctx, true);
             return;
         }
         if (!clientApi.kopcheniConfigured()) {
@@ -87,6 +95,16 @@ public final class ClientApiHttpController implements HttpController {
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", "{\"ok\":true}".getBytes(StandardCharsets.UTF_8));
             return;
         }
+        if ("PATCH".equalsIgnoreCase(m)) {
+            byte[] raw = ctx.readBody();
+            if (raw.length > 0) {
+                Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
+                });
+                clientApi.geometryRuntime().mergeFromClient(analysisProfile, body);
+            }
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", "{\"ok\":true}".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
         if ("DELETE".equalsIgnoreCase(m)) {
             clientApi.geometryRuntime().clear(analysisProfile);
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", "{\"ok\":true}".getBytes(StandardCharsets.UTF_8));
@@ -95,7 +113,21 @@ public final class ClientApiHttpController implements HttpController {
         HttpResponses.methodNotAllowed(ctx);
     }
 
-    private void handleStopInspection(HttpRequestContext ctx) throws IOException {
+    private void handleInspectionStatus(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"GET".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (clientApi.inspectionGate() == null) {
+            HttpResponses.sendJsonError(ctx, 503, "inspection gate not configured");
+            return;
+        }
+
+        sendInspectionState(ctx, List.of(), Set.of(), Set.of());
+    }
+
+    private void handleInspectionToggle(HttpRequestContext ctx, boolean enabled) throws IOException {
         HttpResponses.corsJson(ctx.exchange());
         if (!"POST".equalsIgnoreCase(ctx.method())) {
             HttpResponses.methodNotAllowed(ctx);
@@ -115,28 +147,62 @@ public final class ClientApiHttpController implements HttpController {
             return;
         }
 
-        Set<Integer> stopped = new LinkedHashSet<>();
-        Set<Integer> alreadyIdle = new LinkedHashSet<>();
+        Set<Integer> changed = new LinkedHashSet<>();
+        Set<Integer> cancelled = new LinkedHashSet<>();
         Set<Integer> unknown = new LinkedHashSet<>();
         for (Integer cameraId : requestedCameraIds) {
             if (!clientApi.inspectionGate().isKnownCamera(cameraId)) {
                 unknown.add(cameraId);
                 continue;
             }
-            boolean cancelled = clientApi.inspectionGate().requestCancel(cameraId);
-            if (cancelled) {
-                stopped.add(cameraId);
+            if (clientApi.inspectionGate().isInspectionEnabled(cameraId) != enabled) {
+                clientApi.inspectionGate().setInspectionEnabled(cameraId, enabled);
+                changed.add(cameraId);
+            }
+            if (!enabled && clientApi.inspectionGate().requestCancel(cameraId)) {
+                cancelled.add(cameraId);
+            }
+        }
+
+        sendInspectionState(ctx, requestedCameraIds, changed, cancelled, unknown);
+    }
+
+    private void sendInspectionState(
+            HttpRequestContext ctx,
+            List<Integer> requestedCameraIds,
+            Set<Integer> changedCameraIds,
+            Set<Integer> cancelledCameraIds
+    ) throws IOException {
+        sendInspectionState(ctx, requestedCameraIds, changedCameraIds, cancelledCameraIds, Set.of());
+    }
+
+    private void sendInspectionState(
+            HttpRequestContext ctx,
+            List<Integer> requestedCameraIds,
+            Set<Integer> changedCameraIds,
+            Set<Integer> cancelledCameraIds,
+            Set<Integer> unknownCameraIds
+    ) throws IOException {
+        List<Integer> cameraIds = new ArrayList<>(clientApi.inspectionGate().cameraIds());
+        cameraIds.sort(Integer::compareTo);
+        Set<Integer> enabledCameraIds = new LinkedHashSet<>();
+        Set<Integer> disabledCameraIds = new LinkedHashSet<>();
+        for (Integer cameraId : cameraIds) {
+            if (clientApi.inspectionGate().isInspectionEnabled(cameraId)) {
+                enabledCameraIds.add(cameraId);
             } else {
-                alreadyIdle.add(cameraId);
+                disabledCameraIds.add(cameraId);
             }
         }
 
         ObjectNode response = JSON.createObjectNode();
         response.put("ok", true);
         response.set("requestedCameraIds", toArray(requestedCameraIds));
-        response.set("stoppedCameraIds", toArray(stopped));
-        response.set("alreadyIdleCameraIds", toArray(alreadyIdle));
-        response.set("unknownCameraIds", toArray(unknown));
+        response.set("changedCameraIds", toArray(changedCameraIds));
+        response.set("cancelledCameraIds", toArray(cancelledCameraIds));
+        response.set("enabledCameraIds", toArray(enabledCameraIds));
+        response.set("disabledCameraIds", toArray(disabledCameraIds));
+        response.set("unknownCameraIds", toArray(unknownCameraIds));
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(response));
     }
 

@@ -153,6 +153,22 @@ h1 {
   outline: none;
 }
 
+.modal__action--danger {
+  border-color: rgba(255, 115, 115, 0.55);
+  background: rgba(255, 115, 115, 0.12);
+  color: #ffd0d0;
+}
+
+.modal__action--danger:hover,
+.modal__action--danger:focus-visible {
+  border-color: #ffabab;
+}
+
+.modal__action:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
 .modal__close {
   width: 40px;
   height: 40px;

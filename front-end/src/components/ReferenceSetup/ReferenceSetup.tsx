@@ -6,16 +6,17 @@ import { getReferenceImage, subscribeReferenceImages } from "../../shared/refere
 import { useReferenceSetupController } from "./ReferenceController";
 
 type ReferenceSetupProps = {
-  initialJointViewIndex: number | null;
+  initialCameraId: number | null;
   onClose: () => void;
 };
 
-export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetupProps) {
+export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps) {
   const {
     status,
     message,
     cameraSlots,
     jointViewIndex,
+    jointCameraId,
     hasSelectedCameraRoi,
     hasRequiredJointRoi,
     canSendReference,
@@ -28,7 +29,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
     roiPolygonsByCameraId,
     setJointRoiPolygon,
     setRoiPolygonForCamera,
-  } = useReferenceSetupController(onClose, initialJointViewIndex);
+  } = useReferenceSetupController(onClose, initialCameraId);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
@@ -67,7 +68,9 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
           <div className="reference-setup__toolbar">
             <label className="reference-setup__field">
               <span>Камера joint ROI</span>
-              <span className="reference-setup__readonly">Camera {jointViewIndex}</span>
+              <span className="reference-setup__readonly">
+                Camera {jointCameraId} / view {jointViewIndex}
+              </span>
             </label>
 
             <button
@@ -119,7 +122,7 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
                     <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
                   </button>
 
-                  {slot.cameraId === 0 && (
+                  {slot.cameraId === jointCameraId && (
                     <button
                       className={
                         selectedRoiMode === "joint"
@@ -149,10 +152,10 @@ export function ReferenceSetup({ onClose, initialJointViewIndex }: ReferenceSetu
             </p>
             <p className="reference-setup__roi-status">
               {selectedRoiMode === "joint"
-                ? "Редактируется joint ROI для Camera 0"
+                ? `Редактируется joint ROI для Camera ${jointCameraId}`
                 : hasRequiredJointRoi
-                  ? "Joint ROI задан для Camera 0"
-                  : "Joint ROI для Camera 0 обязателен"}
+                  ? `Joint ROI задан для Camera ${jointCameraId}`
+                  : `Joint ROI для Camera ${jointCameraId} обязателен`}
             </p>
             <p className="reference-setup__hint">
               Статус: {status.state}

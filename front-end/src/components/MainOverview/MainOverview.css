@@ -1,15 +1,21 @@
-.camera-overview {
+.camera-overviews {
+  display: flex;
   flex: 1 1 auto;
-  width: auto;
+  flex-direction: column;
+  gap: 20px;
   min-width: 0;
-  height: 50%;
+}
+
+.camera-overview {
+  width: 100%;
+  min-width: 0;
   border: 1px solid #fff;
   border-radius: 10px;
   padding: 10px;
 }
 
 @media (max-width: 900px) {
-  .camera-overview {
+  .camera-overviews {
     width: 100%;
   }
 }

@@ -42,6 +42,7 @@
 
 .camera-card__footer {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   justify-content: space-between;
@@ -60,17 +61,29 @@
   text-align: right;
 }
 
+.camera-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.camera-card__start,
+.camera-card__stop,
 .camera-card__open {
   min-height: 32px;
   padding: 6px 10px;
-  border: 1px solid #00ff00;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
-  color: #00ff00;
   cursor: pointer;
   font: inherit;
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.camera-card__open {
+  border: 1px solid #00ff00;
+  color: #00ff00;
 }
 
 .camera-card__open:hover,
@@ -78,4 +91,42 @@
   border-color: #3b8f3b;
   color: #3b8f3b;
   outline: none;
+}
+
+.camera-card__stop {
+  border: 1px solid #ff7373;
+  color: #ff9b9b;
+}
+
+.camera-card__stop:hover,
+.camera-card__stop:focus-visible {
+  border-color: #ffabab;
+  color: #ffd0d0;
+  outline: none;
+}
+
+.camera-card__start {
+  border: 1px solid #00ff00;
+  color: #9becbd;
+}
+
+.camera-card__start:hover,
+.camera-card__start:focus-visible {
+  border-color: #9becbd;
+  color: #d1fae5;
+  outline: none;
+}
+
+.camera-card__start:disabled,
+.camera-card__stop:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.camera-card__stop-status {
+  min-height: 30px;
+  padding: 0 12px 10px;
+  overflow-wrap: anywhere;
+  color: #b9c7c3;
+  font-size: 0.76rem;
 }

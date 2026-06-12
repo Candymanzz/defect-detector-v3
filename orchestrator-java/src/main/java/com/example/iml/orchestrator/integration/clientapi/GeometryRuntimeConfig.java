@@ -63,6 +63,20 @@ public final class GeometryRuntimeConfig {
         overridesByProfile.put(profileKey, profileOverrides);
     }
 
+    public void mergeFromClient(String analysisProfile, Map<String, Object> body) {
+        if (body == null || body.isEmpty()) {
+            return;
+        }
+        ConcurrentHashMap<String, Object> profileOverrides =
+                overridesByProfile.computeIfAbsent(normalizeProfile(analysisProfile), ignored -> new ConcurrentHashMap<>());
+        for (Map.Entry<String, Object> entry : body.entrySet()) {
+            String key = normalizeKey(entry.getKey());
+            if (key != null && entry.getValue() != null) {
+                profileOverrides.put(key, entry.getValue());
+            }
+        }
+    }
+
     public Map<String, Object> overridesCopy() {
         return overridesCopy(null);
     }

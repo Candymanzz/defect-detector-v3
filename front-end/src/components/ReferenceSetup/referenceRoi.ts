@@ -47,10 +47,6 @@ export function isValidRoiPolygon(points?: InterestPointNorm[]) {
   return Boolean(points && points.length >= 3);
 }
 
-export function clampViewIndex(cameraId: number) {
-  return Math.min(Math.max(cameraId, 0), 4);
-}
-
 function normalizeRoiCoordinate(value: number, size: number) {
   if (!Number.isFinite(value) || !Number.isFinite(size) || size <= 0) {
     return 0;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { orchestratorApi } from "../../shared/api";
 import { commitReferenceBundleImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { ClientReferenceBundlePayload, ServerWsMessage } from "../../shared/ws";
@@ -6,27 +7,57 @@ import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
 import { useReferenceFrames } from "./useReferenceFrames";
 import { useReferenceRoi } from "./useReferenceRoi";
 
-export function useReferenceSetupController(onClose: () => void, initialJointViewIndex: number | null = null) {
+export function useReferenceSetupController(onClose: () => void, initialCameraId: number | null = null) {
   const status = useSyncExternalStore(
     (onStoreChange) => orchestratorWs.onStatus(onStoreChange),
     () => orchestratorWs.snapshot,
     () => orchestratorWs.snapshot,
   );
   const [message, setMessage] = useState("Waiting for preview frames...");
+  const [cameraIds, setCameraIds] = useState<number[]>([]);
   const pendingReferenceBundleRef = useRef<{
     messageId: string;
     payload: ClientReferenceBundlePayload;
     imageUrlsByCameraId: Record<number, string>;
   } | null>(null);
-  const referenceFrames = useReferenceFrames();
-  const referenceRoi = useReferenceRoi(initialJointViewIndex);
+  const referenceFrames = useReferenceFrames(cameraIds);
+  const referenceRoi = useReferenceRoi(cameraIds, initialCameraId);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
   const canSendReference = Boolean(
-    referenceFrames.hasRequiredReferenceFrames &&
+    cameraIds.length > 0 &&
+      referenceFrames.hasRequiredReferenceFrames &&
       referenceRoi.hasRequiredCameraRois &&
       referenceRoi.hasRequiredJointRoi &&
       status.state === "open",
   );
+
+  useEffect(() => {
+    let isActive = true;
+
+    orchestratorApi
+      .listCameras()
+      .then(({ cameras }) => {
+        if (!isActive) {
+          return;
+        }
+
+        setCameraIds(cameras);
+        setMessage(
+          cameras.length > 0
+            ? `Configured cameras: ${cameras.join(", ")}`
+            : "No configured cameras found",
+        );
+      })
+      .catch((error) => {
+        if (isActive) {
+          setMessage(error instanceof Error ? error.message : String(error));
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const handleReferenceBundleAck = useCallback((message: Extract<ServerWsMessage, { type: "server.reference_bundle_ack" }>) => {
     if (pendingReferenceBundleRef.current?.messageId === message.message_id) {
@@ -77,6 +108,10 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   }, [handlePreviewFrame, handleReferenceBundleAck]);
 
   useEffect(() => {
+    if (cameraIds.length === 0) {
+      return;
+    }
+
     let cancelled = false;
 
     refreshLatestImages().then(({ loadedCameraIds, snapshotCameraIds }) => {
@@ -98,7 +133,7 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
       cancelled = true;
       pendingReferenceBundleRef.current = null;
     };
-  }, [refreshLatestImages]);
+  }, [cameraIds, refreshLatestImages]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -113,22 +148,24 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
 
   const handleSendReference = () => {
     if (!referenceFrames.hasRequiredReferenceFrames) {
-      setMessage("Reference frames for cameras 0-3 are required");
+      setMessage(`Reference frames for cameras ${cameraIds.join(", ")} are required`);
       return;
     }
 
     if (!referenceRoi.hasRequiredCameraRois) {
-      setMessage("ROI contours for cameras 0-3 are required");
+      setMessage(`ROI contours for cameras ${cameraIds.join(", ")} are required`);
       return;
     }
 
     if (!referenceRoi.hasRequiredJointRoi) {
-      setMessage("Joint ROI contour for camera 0 is required");
+      setMessage(`Joint ROI contour for camera ${referenceRoi.jointCameraId} is required`);
       return;
     }
 
     try {
       const payload = createReferenceBundleFromCameraFrames(
+        cameraIds,
+        referenceRoi.jointCameraId,
         referenceFrames.framesByCameraId,
         referenceRoi.roiPolygonsByCameraId,
         referenceRoi.jointRoiPolygon,
@@ -157,15 +194,16 @@ export function useReferenceSetupController(onClose: () => void, initialJointVie
   const handleSelectJointRoi = () => {
     referenceRoi.selectJointRoi();
     setMessage(
-      referenceFrames.framesByCameraId[0]
-        ? "Editing joint ROI for camera 0"
-        : "Reference frame has not arrived for camera 0 yet",
+      referenceFrames.framesByCameraId[referenceRoi.jointCameraId]
+        ? `Editing joint ROI for camera ${referenceRoi.jointCameraId}`
+        : `Reference frame has not arrived for camera ${referenceRoi.jointCameraId} yet`,
     );
   };
 
   return {
     status,
     message,
+    cameraIds,
     ...referenceFrames,
     ...referenceRoi,
     canSendReference,

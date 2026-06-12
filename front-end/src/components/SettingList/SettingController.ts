@@ -106,20 +106,14 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
 
 export async function saveSettingData(form: SettingForm, selectedCameraId: number | null = null): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
-  const [geometryRuntime, analysisProductTypes] = await Promise.all([
-    orchestratorApi.getGeometryRuntime(selectedCameraId),
-    loadAnalysisProductTypes(),
-  ]);
+  const cameraList = selectedCameraId === null ? await orchestratorApi.listCameras() : null;
   const analysisSaveRequests =
     selectedCameraId === null
-      ? resolveAnalysisProductTypesToSave(analysisProductTypes).map((productType) =>
-          orchestratorApi.setAnalysisSettings(productType, normalizedForm.analysisSettings),
-        )
+      ? createAllCameraAnalysisSaveRequests(cameraList?.cameras ?? [], normalizedForm.analysisSettings)
       : [orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings)];
-  const geometryOverrides = createGeometryRuntimeOverrides(geometryRuntime, normalizedForm.maxShiftMm);
 
   await Promise.all([
-    saveGeometryRuntimeOverrides(geometryOverrides, selectedCameraId),
+    saveMaxShiftMm(normalizedForm.maxShiftMm, selectedCameraId, cameraList?.cameras ?? []),
     ...analysisSaveRequests,
   ]);
 
@@ -296,31 +290,21 @@ function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {
   );
 }
 
-function createGeometryRuntimeOverrides(geometryRuntime: GeometryRuntimeConfig, maxShiftMm: number) {
-  const nextOverrides: Record<string, unknown> = {
-    ...geometryRuntime.runtimeOverrides,
-  };
-
-  delete nextOverrides.maxShiftMm;
-  delete nextOverrides.max_shift_mm;
-  nextOverrides.max_shift_mm = maxShiftMm;
-
-  return nextOverrides;
-}
-
-async function saveGeometryRuntimeOverrides(
-  overrides: Record<string, unknown>,
+async function saveMaxShiftMm(
+  maxShiftMm: number,
   selectedCameraId: number | null,
+  cameraIds: number[],
 ) {
+  const update = { max_shift_mm: maxShiftMm };
+
   if (selectedCameraId !== null) {
-    await orchestratorApi.replaceGeometryRuntime(overrides, selectedCameraId);
+    await orchestratorApi.patchGeometryRuntime(update, selectedCameraId);
     return;
   }
 
-  const cameraList = await orchestratorApi.listCameras();
   await Promise.all([
-    orchestratorApi.replaceGeometryRuntime(overrides),
-    ...cameraList.cameras.map((cameraId) => orchestratorApi.replaceGeometryRuntime(overrides, cameraId)),
+    orchestratorApi.patchGeometryRuntime(update),
+    ...cameraIds.map((cameraId) => orchestratorApi.patchGeometryRuntime(update, cameraId)),
   ]);
 }
 
@@ -342,6 +326,16 @@ async function loadAnalysisProductTypes() {
 
 function resolveAnalysisProductTypesToSave(fallbackProductTypes: string[]) {
   return fallbackProductTypes.length > 0 ? fallbackProductTypes : [FALLBACK_ANALYSIS_PRODUCT_TYPE];
+}
+
+function createAllCameraAnalysisSaveRequests(cameraIds: number[], settings: AnalysisSettings) {
+  if (cameraIds.length === 0) {
+    return resolveAnalysisProductTypesToSave([]).map((productType) =>
+      orchestratorApi.setAnalysisSettings(productType, settings),
+    );
+  }
+
+  return cameraIds.map((cameraId) => orchestratorApi.setCameraAnalysisSettings(cameraId, settings));
 }
 
 function parseInputNumber(rawValue: string, fallback: number) {

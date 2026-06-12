@@ -5,6 +5,7 @@ import type {
   AnalysisSettingsUpdateRequest,
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
+  InspectionStateResponse,
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
@@ -89,9 +90,30 @@ export const orchestratorApi = {
     });
   },
 
+  async patchGeometryRuntime(overrides: Record<string, unknown>, cameraId: number | null = null) {
+    return http.json<{ ok: true }>(geometryRuntimePath(cameraId), {
+      method: "PATCH",
+      body: overrides,
+    });
+  },
+
   async clearGeometryRuntime(cameraId: number | null = null) {
     return http.json<{ ok: true }>(geometryRuntimePath(cameraId), {
       method: "DELETE",
+    });
+  },
+
+  async getInspectionStatus() {
+    return http.json<InspectionStateResponse>("/api/client/inspection/status");
+  },
+
+  async setInspectionEnabled(cameraId: number, enabled: boolean) {
+    const action = enabled ? "start" : "stop";
+    return http.json<InspectionStateResponse>(`/api/client/inspection/${action}`, {
+      method: "POST",
+      body: {
+        cameraId,
+      },
     });
   },
 

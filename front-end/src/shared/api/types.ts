@@ -12,6 +12,16 @@ export type ApiOk = {
   ok: true;
 };
 
+export type InspectionStateResponse = {
+  ok: true;
+  requestedCameraIds: CameraId[];
+  changedCameraIds: CameraId[];
+  cancelledCameraIds: CameraId[];
+  enabledCameraIds: CameraId[];
+  disabledCameraIds: CameraId[];
+  unknownCameraIds: CameraId[];
+};
+
 export type CameraId = number;
 export type EpochMs = number;
 export type FrameId = number;

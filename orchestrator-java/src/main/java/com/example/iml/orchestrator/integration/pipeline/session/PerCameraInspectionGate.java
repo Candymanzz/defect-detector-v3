@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -56,6 +57,10 @@ public final class PerCameraInspectionGate {
         return inspectionEnabled.containsKey(cameraId);
     }
 
+    public Set<Integer> cameraIds() {
+        return Set.copyOf(inspectionEnabled.keySet());
+    }
+
     public boolean isInspectionEnabled(int cameraId) {
         AtomicBoolean flag = inspectionEnabled.get(cameraId);
         return flag != null && flag.get();
@@ -63,27 +68,34 @@ public final class PerCameraInspectionGate {
 
     public void setInspectionEnabled(int cameraId, boolean enabled) {
         AtomicBoolean flag = inspectionEnabled.get(cameraId);
-        if (flag != null) {
+        AtomicBoolean flight = inFlight.get(cameraId);
+        if (flag != null && flight != null) {
+            synchronized (flight) {
+                flag.set(enabled);
+            }
+        } else if (flag != null) {
             flag.set(enabled);
         }
     }
 
     public BeginResult tryBeginInspection(int cameraId) {
-        if (!isInspectionEnabled(cameraId)) {
-            return BeginResult.DISABLED;
-        }
         AtomicBoolean flight = inFlight.get(cameraId);
         if (flight == null) {
             return BeginResult.DISABLED;
         }
-        if (!flight.compareAndSet(false, true)) {
-            return BeginResult.IN_FLIGHT;
+        synchronized (flight) {
+            if (!isInspectionEnabled(cameraId)) {
+                return BeginResult.DISABLED;
+            }
+            if (!flight.compareAndSet(false, true)) {
+                return BeginResult.IN_FLIGHT;
+            }
+            AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
+            if (cancelFlag != null) {
+                cancelFlag.set(false);
+            }
+            return BeginResult.STARTED;
         }
-        AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
-        if (cancelFlag != null) {
-            cancelFlag.set(false);
-        }
-        return BeginResult.STARTED;
     }
 
     public void endInspection(int cameraId) {

@@ -312,7 +312,7 @@ export type ClientReferenceBundlePayload = {
   joint_view_index: number;
   heatmap_width: number;
   heatmap_height: number;
-  views: [ReferenceViewSlot, ReferenceViewSlot, ReferenceViewSlot, ReferenceViewSlot];
+  views: ReferenceViewSlot[];
   fp_zones: FpZoneNorm[];
 };
 

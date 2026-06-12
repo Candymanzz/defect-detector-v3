@@ -57,7 +57,7 @@ public final class HttpFrontController {
 
         if ("OPTIONS".equalsIgnoreCase(method) && path.startsWith("/api/")) {
 
-            HttpResponses.corsPreflight(exchange, "GET, POST, PUT, DELETE, OPTIONS");
+            HttpResponses.corsPreflight(exchange, "GET, POST, PUT, PATCH, DELETE, OPTIONS");
 
             return;
 

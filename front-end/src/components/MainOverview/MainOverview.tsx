@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { ServerStream } from "../ServerStream";
+import { orchestratorApi } from "../../shared/api";
+import { errorMessage } from "../../shared/lib/errors";
 import { orchestratorWs } from "../../shared/ws";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import {
@@ -17,10 +19,17 @@ import type { InspectResultPayload } from "../../shared/ws";
 import "./MainOverview.css";
 
 const PREVIEW_UPDATE_INTERVAL_MS = 100;
+const CAMERAS_PER_OVERVIEW = 5;
 
 type MainOverviewProps = {
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
+};
+
+type InspectionControlState = {
+  isEnabled: boolean;
+  state: "idle" | "starting" | "stopping" | "error";
+  message: string;
 };
 
 export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
@@ -30,26 +39,103 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
   const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
+  const [inspectionControlByCameraId, setInspectionControlByCameraId] = useState<
+    Record<number, InspectionControlState>
+  >({});
   const latestPreviewTimestampByCameraIdRef = useRef<Record<number, number>>({});
   const latestInspectTimestampByCameraIdRef = useRef<Record<number, number>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateTimerRef = useRef<number | null>(null);
 
   const cameraCards = createCameraCards(cameraIds, previewImageUrlsByCameraId);
+  const cameraCardGroups = Array.from(
+    { length: Math.ceil(cameraCards.length / CAMERAS_PER_OVERVIEW) },
+    (_, groupIndex) => {
+      const startIndex = groupIndex * CAMERAS_PER_OVERVIEW;
+      return cameraCards.slice(startIndex, startIndex + CAMERAS_PER_OVERVIEW);
+    },
+  );
   const modalCameraPreviewUrl = selectedCamera ? previewImageUrlsByCameraId[selectedCamera.cameraId] : undefined;
+  const modalInspectionControlState = selectedCamera
+    ? inspectionControlByCameraId[selectedCamera.cameraId]
+    : undefined;
+
+  const toggleInspection = async (cameraId: number) => {
+    const currentControl = inspectionControlByCameraId[cameraId];
+    if (currentControl?.state === "starting" || currentControl?.state === "stopping") {
+      return;
+    }
+    const wasEnabled = currentControl?.isEnabled ?? true;
+    const nextEnabled = !wasEnabled;
+
+    setInspectionControlByCameraId((currentStates) => ({
+      ...currentStates,
+      [cameraId]: {
+        isEnabled: wasEnabled,
+        state: nextEnabled ? "starting" : "stopping",
+        message: nextEnabled ? "Starting inspection..." : "Stopping inspection...",
+      },
+    }));
+
+    try {
+      const response = await orchestratorApi.setInspectionEnabled(cameraId, nextEnabled);
+
+      if (response.unknownCameraIds.includes(cameraId)) {
+        throw new Error(`Camera ${cameraId} is not configured`);
+      }
+
+      const isEnabled = response.enabledCameraIds.includes(cameraId);
+      setInspectionControlByCameraId((currentStates) => ({
+        ...currentStates,
+        [cameraId]: {
+          isEnabled,
+          state: "idle",
+          message: isEnabled ? "Inspection enabled" : "Inspection stopped",
+        },
+      }));
+    } catch (error) {
+      setInspectionControlByCameraId((currentStates) => ({
+        ...currentStates,
+        [cameraId]: {
+          isEnabled: wasEnabled,
+          state: "error",
+          message: errorMessage(error),
+        },
+      }));
+    }
+  };
 
   useEffect(() => {
     let isActive = true;
 
-    loadMainOverviewData()
-      .catch(createMainOverviewErrorData)
-      .then(({ backendStatus: nextBackendStatus, cameraIds: nextCameraIds }) => {
+    Promise.all([
+      loadMainOverviewData().catch(createMainOverviewErrorData),
+      orchestratorApi.getInspectionStatus().catch(() => null),
+    ]).then(([overviewData, inspectionStatus]) => {
         if (!isActive) {
           return;
         }
 
-        setBackendStatus(nextBackendStatus);
-        setCameraIds(nextCameraIds);
+        setBackendStatus(overviewData.backendStatus);
+        setCameraIds(overviewData.cameraIds);
+        if (inspectionStatus) {
+          const nextControlStates: Record<number, InspectionControlState> = {};
+          for (const cameraId of inspectionStatus.enabledCameraIds) {
+            nextControlStates[cameraId] = {
+              isEnabled: true,
+              state: "idle",
+              message: "Inspection enabled",
+            };
+          }
+          for (const cameraId of inspectionStatus.disabledCameraIds) {
+            nextControlStates[cameraId] = {
+              isEnabled: false,
+              state: "idle",
+              message: "Inspection stopped",
+            };
+          }
+          setInspectionControlByCameraId(nextControlStates);
+        }
       });
 
     return () => {
@@ -122,34 +208,83 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   }, []);
 
   return (
-    <section
-      className="camera-overview"
-      aria-label="Camera frames"
-    >
-      <div className="backend-status-row">
-        <span>Status</span>
-        <strong data-status={backendStatus.state}>{backendStatus.text}</strong>
-      </div>
+    <div className="camera-overviews">
+      {cameraCardGroups.map((cameraGroup, groupIndex) => (
+        <section
+          className="camera-overview"
+          aria-label={`Camera frames for object ${groupIndex + 1}`}
+          key={groupIndex}
+        >
+          <div className="backend-status-row">
+            <span>Status</span>
+            <strong data-status={backendStatus.state}>{backendStatus.text}</strong>
+          </div>
 
-      <div className="camera-grid">
-        {cameraCards.map((camera) => (
-          <StatusCard
-            key={camera.cameraId}
-            cameraId={camera.cameraId}
-            objectName={camera.objectName}
-            imageUrl={camera.imageUrl}
-            isSelected={selectedSettingsCameraId === camera.cameraId}
-            onOpen={() => setSelectedCamera(createSelectedCamera(camera))}
-            onSelect={() => onSettingsCameraToggle(camera.cameraId)}
-          />
-        ))}
-      </div>
+          <div className="camera-grid">
+            {cameraGroup.map((camera) => {
+              const inspectionControlState = inspectionControlByCameraId[camera.cameraId];
+              const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
+              const isInspectionActionPending =
+                inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
+
+              return (
+                <StatusCard
+                  key={camera.cameraId}
+                  cameraId={camera.cameraId}
+                  objectName={camera.objectName}
+                  imageUrl={camera.imageUrl}
+                  isSelected={selectedSettingsCameraId === camera.cameraId}
+                  isInspectionEnabled={isInspectionEnabled}
+                  isInspectionActionDisabled={isInspectionActionPending}
+                  inspectionActionLabel={
+                    inspectionControlState?.state === "starting"
+                      ? "Starting..."
+                      : inspectionControlState?.state === "stopping"
+                        ? "Stopping..."
+                        : isInspectionEnabled
+                          ? "Stop"
+                          : "Start"
+                  }
+                  inspectionStatus={inspectionControlState?.message}
+                  onOpen={() => setSelectedCamera(createSelectedCamera(camera))}
+                  onSelect={() => onSettingsCameraToggle(camera.cameraId)}
+                  onInspectionToggle={() => void toggleInspection(camera.cameraId)}
+                />
+              );
+            })}
+          </div>
+        </section>
+      ))}
 
       {selectedCamera && (
         <ModalWrapper
           isOpen
           cameraId={selectedCamera.cameraId}
           cameraImageUrl={modalCameraPreviewUrl}
+          dangerHeaderAction={
+            <button
+              className={
+                modalInspectionControlState?.isEnabled === false
+                  ? "modal__action"
+                  : "modal__action modal__action--danger"
+              }
+              type="button"
+              disabled={
+                modalInspectionControlState?.state === "starting" ||
+                modalInspectionControlState?.state === "stopping"
+              }
+              title={modalInspectionControlState?.message}
+              onClick={() => void toggleInspection(selectedCamera.cameraId)}
+            >
+              {modalInspectionControlState?.state === "starting"
+                ? "Starting..."
+                : modalInspectionControlState?.state === "stopping"
+                  ? "Stopping..."
+                  : modalInspectionControlState?.isEnabled === false
+                    ? "Start inspection"
+                    : "Stop inspection"}
+            </button>
+          }
           headerActions={
             <button
               className="modal__action"
@@ -173,6 +308,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           onClose={() => setStreamCamera(null)}
         />
       )}
-    </section>
+    </div>
   );
 }
