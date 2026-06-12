@@ -40,6 +40,8 @@ export function ModalWrapper({
   const inspectResultImageUrl = inspectResult ? createInspectResultImageUrl(inspectResult) : undefined;
   const displayedCurrentImageUrl = inspectResult ? inspectResultImageUrl : cameraImageUrl;
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, inspectResultImageUrl);
+  const inspectionResultState = resolveInspectionResultState(inspectResult);
+  const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
 
   useEffect(() => {
     if (!isOpen) {
@@ -68,7 +70,7 @@ export function ModalWrapper({
       <section
         aria-label={title}
         aria-modal="true"
-        className="modal"
+        className={modalClassName}
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -87,6 +89,15 @@ export function ModalWrapper({
             </button>
           </div>
         </header>
+
+        {inspectionResultState && (
+          <div
+            className="modal__inspection-indicator"
+            data-result={inspectionResultState}
+          >
+            {inspectionResultState === "pass" ? "Годен" : "Брак"}
+          </div>
+        )}
 
         <div className="modal__media-grid">
           <ImagePanel
@@ -325,4 +336,20 @@ function getInspectResultSyncState(inspectResult: InspectResultPayload | undefin
 
 function hasHeatmapSource(inspectResult: InspectResultPayload) {
   return Boolean(inspectResult.heatmap?.http_path || inspectResult.heatmap?.artifact_id);
+}
+
+function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pass" | "fail" | undefined {
+  if (typeof inspectResult?.overall_pass === "boolean") {
+    return inspectResult.overall_pass ? "pass" : "fail";
+  }
+
+  const action = inspectResult?.action?.toUpperCase();
+  if (action === "ACCEPT") {
+    return "pass";
+  }
+  if (action === "REJECT") {
+    return "fail";
+  }
+
+  return undefined;
 }

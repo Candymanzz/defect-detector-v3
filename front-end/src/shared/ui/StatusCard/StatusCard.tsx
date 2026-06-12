@@ -6,11 +6,14 @@ type StatusCardProps = {
   cameraId: number;
   objectName: string;
   imageUrl?: string;
+  inspectionImageUrl?: string;
+  inspectionFrameId?: string;
   isSelected?: boolean;
   isInspectionEnabled?: boolean;
   isInspectionActionDisabled?: boolean;
   inspectionActionLabel?: string;
   inspectionStatus?: string;
+  inspectionResult?: "pass" | "fail";
   onOpen: () => void;
   onSelect: () => void;
   onInspectionToggle: () => void;
@@ -20,15 +23,26 @@ export function StatusCard({
   cameraId,
   objectName,
   imageUrl,
+  inspectionImageUrl,
+  inspectionFrameId,
   isSelected = false,
   isInspectionEnabled = true,
   isInspectionActionDisabled = false,
   inspectionActionLabel = "Stop",
   inspectionStatus,
+  inspectionResult,
   onOpen,
   onSelect,
   onInspectionToggle,
 }: StatusCardProps) {
+  const classNames = [
+    "camera-card",
+    isSelected ? "camera-card--selected" : "",
+    inspectionResult ? `camera-card--${inspectionResult}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) {
       return;
@@ -42,19 +56,38 @@ export function StatusCard({
 
   return (
     <div
-      className={isSelected ? "camera-card camera-card--selected" : "camera-card"}
+      className={classNames}
       tabIndex={0}
       aria-pressed={isSelected}
       onClick={onSelect}
       onKeyDown={handleKeyDown}
     >
-      <div className="camera-card__image-wrap">
-        <PreviewImage
-          alt={`${objectName}, камера ${cameraId}`}
-          className="camera-card__image"
-          placeholderClassName="camera-card__image-placeholder"
-          src={imageUrl}
-        />
+      <div className="camera-card__images">
+        <div className="camera-card__image-panel">
+          <span className="camera-card__image-label">Текущий</span>
+          <div className="camera-card__image-wrap">
+            <PreviewImage
+              alt={`${objectName}, камера ${cameraId}, текущий кадр`}
+              className="camera-card__image"
+              placeholderClassName="camera-card__image-placeholder"
+              src={imageUrl}
+            />
+          </div>
+        </div>
+        <div className="camera-card__image-panel">
+          <span className="camera-card__image-label">
+            Инспекция{inspectionFrameId ? ` #${inspectionFrameId}` : ""}
+          </span>
+          <div className="camera-card__image-wrap">
+            <PreviewImage
+              alt={`${objectName}, камера ${cameraId}, последний кадр инспекции`}
+              className="camera-card__image"
+              emptyLabel="Нет результата"
+              placeholderClassName="camera-card__image-placeholder"
+              src={inspectionImageUrl}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="camera-card__footer">

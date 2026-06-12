@@ -1,5 +1,4 @@
 import { orchestratorApi } from "../../shared/api";
-import { errorMessage } from "../../shared/lib/errors";
 import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import type { BackendStatus, CameraCardData, CameraImageUrlsById, MainOverviewData, SelectedCamera } from "./type";
 
@@ -8,27 +7,27 @@ const CAMERAS_PER_OBJECT = 5;
 export const FALLBACK_CAMERA_IDS = Array.from({ length: CAMERAS_PER_OBJECT }, (_, index) => index);
 export const INITIAL_BACKEND_STATUS: BackendStatus = {
   state: "loading",
-  text: "checking",
+  text: "Проверка...",
 };
 
 export async function loadMainOverviewData(): Promise<MainOverviewData> {
-  const backendHealth = await loadBackendHealth();
+  await loadBackendHealth();
   const backendCameraIds = await loadBackendCameraIds();
 
   return {
     backendStatus: {
       state: "ready",
-      text: backendHealth,
+      text: "OK",
     },
     cameraIds: backendCameraIds,
   };
 }
 
-export function createMainOverviewErrorData(error: unknown): MainOverviewData {
+export function createMainOverviewErrorData(): MainOverviewData {
   return {
     backendStatus: {
       state: "error",
-      text: errorMessage(error),
+      text: "Нет подключения",
     },
     cameraIds: FALLBACK_CAMERA_IDS,
   };
