@@ -76,15 +76,17 @@ h1 {
 
 .camera-overview {
   display: grid;
-  gap: 16px;
+  gap: 5px;
 }
 
 .backend-status-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
   gap: 16px;
+  width: 10%;
   align-items: center;
-  min-height: 52px;
+  justify-content: center;
+  justify-self: flex-end;
+  max-height: 22px;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
