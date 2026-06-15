@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
@@ -48,7 +49,9 @@ public record AsyncInspectionCycleInput(
         BinaryRpcSupervisor uiVisualsPython,
         ExecutorService uiArtifactsExecutor,
         int flashLeadMs,
-        PipelineStagesLog pipelineStagesLog
+        PipelineStagesLog pipelineStagesLog,
+        long triggerSequence,
+        BucketInspectionAggregator bucketAggregator
 ) {
 
     /** Conveyor: меняется product_type эталона и тайминг ref по ведру. */
@@ -86,7 +89,45 @@ public record AsyncInspectionCycleInput(
                 uiVisualsPython,
                 uiArtifactsExecutor,
                 flashLeadMs,
-                pipelineStagesLog
+                pipelineStagesLog,
+                triggerSequence,
+                bucketAggregator
+        );
+    }
+
+    public AsyncInspectionCycleInput withTriggerSequence(long triggerSequence) {
+        return new AsyncInspectionCycleInput(
+                projectRoot,
+                saveCaptures,
+                cameraId,
+                productType,
+                detectorId,
+                activeReference,
+                referenceMsFinal,
+                tCameraStartNanos,
+                worker,
+                lightClient,
+                pythonPool,
+                geometryPool,
+                pythonCfg,
+                geometryCfg,
+                fanOut,
+                geometrySlots,
+                pythonSlots,
+                geometryRoundRobin,
+                pythonRoundRobin,
+                captureStageExecutor,
+                pythonStageExecutor,
+                geometryStageExecutor,
+                decisionStageExecutor,
+                uiCfg,
+                uiServer,
+                uiVisualsPython,
+                uiArtifactsExecutor,
+                flashLeadMs,
+                pipelineStagesLog,
+                triggerSequence,
+                bucketAggregator
         );
     }
 
@@ -119,7 +160,9 @@ public record AsyncInspectionCycleInput(
             BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             int flashLeadMs,
-            PipelineStagesLog pipelineStagesLog
+            PipelineStagesLog pipelineStagesLog,
+            long triggerSequence,
+            BucketInspectionAggregator bucketAggregator
     ) {
         return new AsyncInspectionCycleInput(
                 projectRoot,
@@ -150,7 +193,9 @@ public record AsyncInspectionCycleInput(
                 uiVisualsPython,
                 uiArtifactsExecutor,
                 flashLeadMs,
-                pipelineStagesLog
+                pipelineStagesLog,
+                triggerSequence,
+                bucketAggregator
         );
     }
 }

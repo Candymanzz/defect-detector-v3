@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.session;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -80,6 +81,17 @@ public final class PerCameraInspectionGate {
             }
         } else if (flag != null) {
             flag.set(enabled);
+        }
+    }
+
+    /** Оставляет инспекцию включённой только на указанных камерах (режим 5/10). */
+    public void setInspectionEnabledOnlyFor(Collection<Integer> allowedCameraIds) {
+        if (allowedCameraIds == null || allowedCameraIds.isEmpty()) {
+            return;
+        }
+        Set<Integer> allowed = Set.copyOf(allowedCameraIds);
+        for (Integer cameraId : cameraIds()) {
+            setInspectionEnabled(cameraId, allowed.contains(cameraId));
         }
     }
 

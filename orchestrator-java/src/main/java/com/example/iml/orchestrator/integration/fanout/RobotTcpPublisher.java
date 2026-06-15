@@ -42,6 +42,10 @@ final class RobotTcpPublisher implements AutoCloseable {
         queue.offer(event);
     }
 
+    void publishBucketSignal(BucketRobotSignal signal) {
+        queue.offerBucketSignal(signal);
+    }
+
     long droppedTotal() {
         return queue.droppedTotal();
     }
@@ -53,14 +57,34 @@ final class RobotTcpPublisher implements AutoCloseable {
     private void runLoop() {
         while (running.get() && !Thread.currentThread().isInterrupted()) {
             try {
-                FanOutEvent event = queue.take();
-                sendLine(event);
+                BoundedEventQueue.Entry entry = queue.takeEntry();
+                if (entry.bucketSignal() != null) {
+                    sendBucketSignal(entry.bucketSignal());
+                } else if (entry.event() != null) {
+                    sendLine(entry.event());
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (Exception e) {
                 log.warn("robot tcp publish failed: {}", e.getMessage());
             }
         }
+    }
+
+    private void sendBucketSignal(BucketRobotSignal signal) throws Exception {
+        String payload = signal.groupId() + ":" + (signal.pass() ? "1" : "0");
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), connectTimeoutMs);
+            socket.setSoTimeout(writeTimeoutMs);
+            try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
+                writer.println(payload);
+                writer.flush();
+                if (writer.checkError()) {
+                    throw new IllegalStateException("tcp write failed");
+                }
+            }
+        }
+        log.info("robot tcp bucket signal sent group={} value={}", signal.groupId(), signal.pass() ? "1" : "0");
     }
 
     private void sendLine(FanOutEvent event) throws Exception {

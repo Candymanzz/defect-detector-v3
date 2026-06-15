@@ -49,6 +49,20 @@ final class ClientHttpStubServer implements AutoCloseable {
         queue.offer(event);
     }
 
+    void publishBucket(BucketFanOutResult result) {
+        FanOutEvent summary = new FanOutEvent(
+                -1 - result.groupId(),
+                result.triggerSequence(),
+                result.overallPass(),
+                result.overallPass() ? "ACCEPT" : "REJECT",
+                0.0,
+                "BUCKET_" + result.groupId(),
+                "BUCKET_" + result.groupId(),
+                System.currentTimeMillis()
+        );
+        queue.offer(summary);
+    }
+
     long droppedTotal() {
         return queue.droppedTotal();
     }
@@ -60,7 +74,7 @@ final class ClientHttpStubServer implements AutoCloseable {
     private void runSinkLoop() {
         while (running.get() && !Thread.currentThread().isInterrupted()) {
             try {
-                queue.take();
+                queue.takeEntry();
                 if (artificialDelayMs > 0) {
                     Thread.sleep(artificialDelayMs);
                 }

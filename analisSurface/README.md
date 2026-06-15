@@ -34,9 +34,9 @@ Use the QC dashboard buttons or HTTP API:
 Per-`product_type` inspection tuning (defaults always apply for unset fields):
 
 - `GET /analysis-settings/defaults` — default values
-- `GET /analysis-settings/{product_type}` — effective settings + overrides
-- `PUT /analysis-settings/{product_type}` — partial update (JSON body)
-- `DELETE /analysis-settings/{product_type}` — reset to defaults
+- `GET /analysis-settings/{analysis_profile}` — effective settings + overrides
+- `PUT /analysis-settings/{analysis_profile}` — partial update (JSON body)
+- `DELETE /analysis-settings/{analysis_profile}` — reset to defaults
 
 Full parameter reference (what each knob does, increase/decrease effects): [docs/ANALYSIS_SETTINGS.md](docs/ANALYSIS_SETTINGS.md)
 

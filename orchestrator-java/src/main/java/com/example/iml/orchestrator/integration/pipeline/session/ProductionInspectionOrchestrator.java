@@ -145,6 +145,7 @@ public final class ProductionInspectionOrchestrator {
                 }
                 return;
             }
+            cycleIn = cycleIn.withTriggerSequence(event.sequence());
             AsyncInspectionCycleRunner.run(svc, cycleIn, null, inspectionCycleTimeoutMs, inspectionGate);
         } catch (TimeoutException e) {
             svc.log().warn(

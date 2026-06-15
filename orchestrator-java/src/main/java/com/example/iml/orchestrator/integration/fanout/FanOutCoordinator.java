@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.fanout;
 
+import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -9,7 +10,7 @@ import java.util.Map;
 /**
  * Координация fan-out: робот (TCP) и HTTP-заглушка клиента по корневому YAML.
  */
-public final class FanOutCoordinator implements AutoCloseable {
+public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink {
     private static final Logger log = LogManager.getLogger(FanOutCoordinator.class);
 
     private final RobotTcpPublisher robotPublisher;
@@ -73,6 +74,21 @@ public final class FanOutCoordinator implements AutoCloseable {
             robotPublisher.publish(event);
         }
         clientServer.publish(event);
+    }
+
+    /** Per-frame событие — только HTTP-заглушка клиента (не робот). */
+    @Override
+    public void publishPerFrame(FanOutEvent event) {
+        clientServer.publish(event);
+    }
+
+    /** Итог по ведру: робот получает groupId:1/0, HTTP-заглушка — подробный JSON. */
+    @Override
+    public void publishBucket(BucketFanOutResult result) {
+        if (robotPublisher != null) {
+            robotPublisher.publishBucketSignal(new BucketRobotSignal(result.groupId(), result.overallPass()));
+        }
+        clientServer.publishBucket(result);
     }
 
     public String metricsSummary() {

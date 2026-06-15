@@ -108,23 +108,31 @@ public final class AsyncInspectionCycleRunner {
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
             boolean resultPublished = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
-                try {
+                if (in.bucketAggregator() != null) {
+                    in.bucketAggregator().recordFrameResult(
+                            in.triggerSequence(),
+                            in.cameraId(),
+                            decision,
+                            in.fanOut(),
+                            svc.fanOutEventFactory()
+                    );
+                } else if (in.fanOut() != null) {
                     in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
-                } catch (RuntimeException e) {
-                    svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
-                    throw e;
                 }
                 try {
                     svc.afterInspectionSidecar().scheduleAfterInspection(
                             in.uiServer(),
                             in.uiCfg(),
+                            in.uiVisualsPython(),
                             in.uiArtifactsExecutor(),
                             in.cameraId(),
                             in.productType(),
                             in.detectorId(),
+                            in.activeReference(),
                             decision,
                             state.capture(),
-                            state.py()
+                            state.py(),
+                            state.geom()
                     );
                 } catch (RuntimeException e) {
                     svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());

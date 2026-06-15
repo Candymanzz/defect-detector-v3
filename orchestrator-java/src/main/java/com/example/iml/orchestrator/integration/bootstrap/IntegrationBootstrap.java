@@ -34,10 +34,14 @@ import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoo
 import com.example.iml.orchestrator.integration.pipeline.stages.CaptureFrameDownscaleService;
 import com.example.iml.orchestrator.integration.pipeline.telemetry.PipelineInspectionTelemetry;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
+import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadcaster;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
+import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
@@ -58,6 +62,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -254,6 +259,8 @@ public final class IntegrationBootstrap {
         LivePreviewGate livePreviewGate = new LivePreviewGate();
         CameraStreamService cameraStreamService = null;
         InspectionTriggerRuntime triggerRuntime = null;
+        BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster = null;
+        BucketInspectionAggregator bucketInspectionAggregator = null;
         try {
             IntegrationFeatureConfig.TimingStagesLogConfig timingStagesLogCfg = IntegrationFeatureConfig.parseTimingStagesLog(integration);
             if (timingStagesLogCfg.enabled()) {
@@ -372,18 +379,52 @@ public final class IntegrationBootstrap {
                     IntegrationFeatureConfig.parseContinuousInspection(integration);
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
                     IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
-        triggerRuntime = InspectionTriggerRuntime.start(
-                log,
-                integration,
-                workersByCamera.keySet(),
-                triggerMode
-        );
-        InspectionTriggerStrategy sharedTriggerStrategy = InspectionTriggerStrategyFactory.create(
-                    triggerMode,
-                    triggerRuntime.bus(),
-                    devAutoTriggerStub,
-                    continuousInspection
+            BucketInspectionConfig bucketInspectionConfig =
+                    BucketInspectionConfig.parse(integration, workersByCamera.keySet());
+            List<Integer> inspectionCameraIds = bucketInspectionConfig.enabled()
+                    ? bucketInspectionConfig.allCameraIds()
+                    : workersByCamera.keySet().stream().sorted().toList();
+            if (bucketInspectionConfig.enabled()) {
+                bucketInspectionAggregator = new BucketInspectionAggregator(log, bucketInspectionConfig);
+                inspectionGate.setInspectionEnabledOnlyFor(inspectionCameraIds);
+                log.info(
+                        "inspection bucket enabled groups={} cameras={} timeout_ms={} line_broadcast_interval_ms={}",
+                        bucketInspectionConfig.groups(),
+                        bucketInspectionConfig.allCameraIds(),
+                        bucketInspectionConfig.timeoutMs(),
+                        bucketInspectionConfig.lineBroadcastIntervalMs()
+                );
+            }
+            triggerRuntime = InspectionTriggerRuntime.start(
+                    log,
+                    integration,
+                    inspectionCameraIds,
+                    triggerMode
             );
+            InspectionTriggerStrategy sharedTriggerStrategy;
+            if (bucketInspectionConfig.enabled()) {
+                if (triggerMode != IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
+                    long broadcastIntervalMs = triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.TIMER
+                            ? devAutoTriggerStub.intervalMs()
+                            : continuousInspection.cycleDelayMs() > 0
+                                    ? continuousInspection.cycleDelayMs()
+                                    : bucketInspectionConfig.lineBroadcastIntervalMs();
+                    bucketLineTriggerBroadcaster = new BucketLineTriggerBroadcaster(
+                            log,
+                            triggerRuntime.bus(),
+                            broadcastIntervalMs
+                    );
+                    bucketLineTriggerBroadcaster.start();
+                }
+                sharedTriggerStrategy = new BusTriggerStrategy(triggerRuntime.bus());
+            } else {
+                sharedTriggerStrategy = InspectionTriggerStrategyFactory.create(
+                        triggerMode,
+                        triggerRuntime.bus(),
+                        devAutoTriggerStub,
+                        continuousInspection
+                );
+            }
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures = IntegrationFeatureConfig.parseSaveCaptures(integration);
             if (saveCaptures.enabled()) {
                 log.info("save_captures enabled dir={} (от корня проекта)", saveCaptures.relativeDir());
@@ -412,9 +453,19 @@ public final class IntegrationBootstrap {
                     workersByCamera.keySet()
             );
             List<Callable<Void>> tasks = new ArrayList<>();
+            final BucketInspectionAggregator activeBucketAggregator = bucketInspectionAggregator;
+            final Set<Integer> activeInspectionCameraIds = Set.copyOf(inspectionCameraIds);
             for (Map<String, Object> camera : activeCameras) {
+                int cameraId = ((Number) camera.get("id")).intValue();
+                if (bucketInspectionConfig.enabled() && !activeInspectionCameraIds.contains(cameraId)) {
+                    log.info(
+                            "integration cam={}: inspection pipeline skipped (bucket cameras={})",
+                            cameraId,
+                            activeInspectionCameraIds
+                    );
+                    continue;
+                }
                 tasks.add(() -> {
-                    int cameraId = ((Number) camera.get("id")).intValue();
                     WorkerProcessSupervisor worker = workersByCamera.get(cameraId);
                     if (worker == null) {
                         log.warn("camera task skipped: worker not initialized for camera {}", cameraId);
@@ -451,7 +502,8 @@ public final class IntegrationBootstrap {
                             flashLeadMs,
                             pipelineStagesLog,
                             inspectionGate,
-                            inspectionCycleTimeoutMs
+                            inspectionCycleTimeoutMs,
+                            activeBucketAggregator
                     );
                     return null;
                 });
@@ -463,6 +515,12 @@ public final class IntegrationBootstrap {
         } catch (Exception e) {
             log.error("Integration bootstrap failed", e);
         } finally {
+            if (bucketLineTriggerBroadcaster != null) {
+                bucketLineTriggerBroadcaster.close();
+            }
+            if (bucketInspectionAggregator != null) {
+                bucketInspectionAggregator.close();
+            }
             if (livePreview != null) {
                 livePreview.close();
             }

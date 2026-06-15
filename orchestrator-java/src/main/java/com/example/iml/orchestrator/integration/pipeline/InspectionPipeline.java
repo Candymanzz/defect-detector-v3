@@ -11,6 +11,7 @@ import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceBootstrapOutcome;
 import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspectionCycleInput;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.pipeline.session.ProductionInspectionOrchestrator;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
@@ -65,7 +66,8 @@ public final class InspectionPipeline {
             int flashLeadMs,
             PipelineStagesLog pipelineStagesLog,
             PerCameraInspectionGate inspectionGate,
-            long inspectionCycleTimeoutMs
+            long inspectionCycleTimeoutMs,
+            BucketInspectionAggregator bucketAggregator
     ) throws Exception {
         int cameraId = ((Number) camera.get("id")).intValue();
         String productType = ConfiguredCameras.analysisProfileForCamera(camera, cameraId);
@@ -102,7 +104,9 @@ public final class InspectionPipeline {
                 uiVisualsPython,
                 uiArtifactsExecutor,
                 flashLeadMs,
-                pipelineStagesLog
+                pipelineStagesLog,
+                0L,
+                bucketAggregator
         );
 
         ReferenceSnapshot referenceSnapshot = referenceByCamera.get(cameraId);
