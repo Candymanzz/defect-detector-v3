@@ -338,8 +338,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 int currentJpegH = 0;
                 Path temporaryJpeg = null;
                 if (storeCurrent) {
-                    int previewMaxW = YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_max_width"), 0);
-                    int qualPct = YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_jpeg_quality"), 58);
+                    int previewMaxW = YamlScalars.toInt(
+                            uiCfg == null ? null : uiCfg.get("inspection_preview_max_width"),
+                            YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_max_width"), 0)
+                    );
+                    int qualPct = YamlScalars.toInt(
+                            uiCfg == null ? null : uiCfg.get("inspection_preview_jpeg_quality"),
+                            YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_jpeg_quality"), 58)
+                    );
                     qualPct = Math.min(100, Math.max(5, qualPct));
                     float q = qualPct / 100f;
                     boolean canCreateBundle =
