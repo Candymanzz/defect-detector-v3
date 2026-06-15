@@ -41,8 +41,11 @@ public final class InspectionArtifactRegistry {
     }
 
     public synchronized Bundle register(int cameraId, long frameId, Path frameJpeg, Path heatmapU8) throws IOException {
-        if (!Files.isRegularFile(frameJpeg) || !Files.isRegularFile(heatmapU8)) {
-            throw new IOException("inspection artifact source is missing");
+        if (frameJpeg == null || !Files.isRegularFile(frameJpeg)) {
+            throw new IOException("inspection frame source is missing");
+        }
+        if (heatmapU8 != null && !Files.isRegularFile(heatmapU8)) {
+            throw new IOException("inspection heatmap source is missing");
         }
 
         cleanup();
@@ -51,10 +54,12 @@ public final class InspectionArtifactRegistry {
         Path bundleDir = root.resolve(id);
         Files.createDirectories(bundleDir);
         Path storedFrame = bundleDir.resolve("frame.jpg");
-        Path storedHeatmap = bundleDir.resolve("heatmap.u8");
+        Path storedHeatmap = heatmapU8 == null ? null : bundleDir.resolve("heatmap.u8");
         try {
             Files.copy(frameJpeg, storedFrame, StandardCopyOption.REPLACE_EXISTING);
-            Files.copy(heatmapU8, storedHeatmap, StandardCopyOption.REPLACE_EXISTING);
+            if (heatmapU8 != null) {
+                Files.copy(heatmapU8, storedHeatmap, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             deleteBundleDirectory(bundleDir);
             throw e;
@@ -76,7 +81,9 @@ public final class InspectionArtifactRegistry {
             return Optional.empty();
         }
         Bundle bundle = byId.get(id);
-        if (bundle == null || !Files.isRegularFile(bundle.frameJpeg()) || !Files.isRegularFile(bundle.heatmapU8())) {
+        if (bundle == null
+                || !Files.isRegularFile(bundle.frameJpeg())
+                || (bundle.heatmapU8() != null && !Files.isRegularFile(bundle.heatmapU8()))) {
             return Optional.empty();
         }
         return Optional.of(bundle);

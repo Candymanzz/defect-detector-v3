@@ -333,15 +333,16 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
                 CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
                 boolean bundleSourcesReady =
-                        currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg)
-                                && heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8);
+                        currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
                 try {
                     if (bundleSourcesReady) {
                         registeredArtifacts = uiServer.registerInspectionArtifacts(
-                                cameraId,
-                                frameId,
-                                currentJpeg,
-                                heatmapU8
+                            cameraId,
+                            frameId,
+                            currentJpeg,
+                            heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8)
+                                    ? heatmapU8
+                                    : null
                         );
                         currentJpeg = registeredArtifacts.frameJpeg();
                         heatmapU8 = registeredArtifacts.heatmapU8();
@@ -396,9 +397,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 if (ws != null) {
                     try {
                         String bundleId = registeredArtifacts == null ? null : registeredArtifacts.bundleId();
-                        String currentHttpPath = bundleId == null
-                                ? null
-                                : "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
+                        String currentHttpPath = bundleId != null
+                                ? "/api/inspection-artifacts/" + bundleId + "/frame.jpg"
+                                : hasCur
+                                        ? "/api/camera/" + cameraId + "/current.jpg"
+                                        : null;
+                        String heatmapArtifactToken = bundleId == null && hasHm
+                                ? uiServer.registerHeatmapArtifact(cameraId, heatmapU8)
+                                : null;
                         ws.notifyInspectResult(
                                 cameraId,
                                 productType,
@@ -409,7 +415,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 hasHm ? uw : 0,
                                 hasHm ? uh : 0,
                                 currentHttpPath,
-                                null,
+                                heatmapArtifactToken,
                                 false,
                                 bundleId
                         );

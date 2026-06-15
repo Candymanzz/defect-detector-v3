@@ -45,4 +45,17 @@ class InspectionArtifactRegistryTest {
         assertFalse(Files.exists(orphan));
         assertTrue(Files.isDirectory(root));
     }
+
+    @Test
+    void storesFrameWhenHeatmapIsUnavailable() throws Exception {
+        Path root = tempDir.resolve("registry");
+        Path frame = Files.write(tempDir.resolve("source.jpg"), new byte[]{7, 8, 9});
+        InspectionArtifactRegistry registry = new InspectionArtifactRegistry(root);
+
+        InspectionArtifactRegistry.Bundle bundle = registry.register(3, 43, frame, null);
+
+        assertArrayEquals(new byte[]{7, 8, 9}, registry.read(bundle.id(), "frame.jpg"));
+        assertNull(bundle.heatmapU8());
+        assertNull(registry.read(bundle.id(), "heatmap.u8"));
+    }
 }

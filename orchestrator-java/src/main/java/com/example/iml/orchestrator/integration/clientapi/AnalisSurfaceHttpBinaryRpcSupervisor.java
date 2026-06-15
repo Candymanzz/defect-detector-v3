@@ -665,7 +665,13 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private Map<String, Object> inspectJsonToStdioHeader(Map<String, Object> json) {
         String status = String.valueOf(json.getOrDefault("status", "UNKNOWN"));
-        boolean ok = !("БРАК".equalsIgnoreCase(status) || "FAIL".equalsIgnoreCase(status) || "ERROR".equalsIgnoreCase(status));
+        String normalizedStatus = status.trim().toUpperCase(java.util.Locale.ROOT);
+        boolean ok = !(
+                "\u0411\u0420\u0410\u041a".equals(normalizedStatus)
+                        || "FAIL".equals(normalizedStatus)
+                        || "ERROR".equals(normalizedStatus)
+                        || "REJECT".equals(normalizedStatus)
+        );
         Map<String, Object> h = new LinkedHashMap<>();
         h.put("status", status);
         h.put("ok", ok);
