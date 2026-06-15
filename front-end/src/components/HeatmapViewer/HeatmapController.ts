@@ -21,7 +21,7 @@ export function clearHeatmapCanvas(canvas: HTMLCanvasElement | null) {
 
 async function loadHeatmapBuffer(heatmap: HeatmapDescriptor, signal?: AbortSignal) {
   if (heatmap.http_path) {
-    const response = await fetch(orchestratorApi.url(heatmap.http_path), {
+    const response = await fetch(resolveHeatmapUrl(heatmap.http_path), {
       headers: {
         Accept: "application/octet-stream",
       },
@@ -114,4 +114,8 @@ export function drawHeatmapBitmap(
   context.clearRect(0, 0, width, height);
   context.drawImage(bitmap, 0, 0);
   bitmap.close();
+}
+
+function resolveHeatmapUrl(path: string) {
+  return path.startsWith("blob:") ? path : orchestratorApi.url(path);
 }

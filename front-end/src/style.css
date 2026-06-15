@@ -82,7 +82,7 @@ h1 {
 .backend-status-row {
   display: flex;
   gap: 16px;
-  width: 10%;
+  width: 30%;
   align-items: center;
   justify-content: center;
   justify-self: flex-end;
@@ -203,5 +203,4 @@ h1 {
   .camera-grid {
     grid-template-columns: 1fr;
   }
-
 }

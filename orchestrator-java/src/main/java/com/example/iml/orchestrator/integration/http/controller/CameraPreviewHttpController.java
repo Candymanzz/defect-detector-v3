@@ -128,11 +128,48 @@ public final class CameraPreviewHttpController implements HttpController {
         HttpResponses.send(ctx, 200, "application/octet-stream", Files.readAllBytes(file));
     }
 
+    public void handleInspectionArtifact(HttpRequestContext ctx) throws IOException {
+        if (!"GET".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        String prefix = "/api/inspection-artifacts/";
+        String uri = ctx.path();
+        if (!uri.startsWith(prefix)) {
+            HttpResponses.notFound(ctx);
+            return;
+        }
+        String[] parts = uri.substring(prefix.length()).split("/");
+        if (parts.length != 2) {
+            HttpResponses.notFound(ctx);
+            return;
+        }
+
+        String contentType;
+        if ("frame.jpg".equals(parts[1])) {
+            contentType = "image/jpeg";
+        } else if ("heatmap.u8".equals(parts[1])) {
+            contentType = "application/octet-stream";
+        } else {
+            HttpResponses.notFound(ctx);
+            return;
+        }
+        byte[] artifact = store.readInspectionArtifact(parts[0], parts[1]);
+        if (artifact == null) {
+            HttpResponses.notFound(ctx);
+            return;
+        }
+        ctx.exchange().getResponseHeaders().set("Cache-Control", "private, max-age=31536000, immutable");
+        HttpResponses.send(ctx, 200, contentType, artifact);
+    }
+
     @Override
     public void handle(HttpRequestContext ctx) throws IOException {
         String path = ctx.path();
         if (path.startsWith("/api/heatmap-artifact/")) {
             handleHeatmapArtifact(ctx);
+        } else if (path.startsWith("/api/inspection-artifacts/")) {
+            handleInspectionArtifact(ctx);
         } else if (path.startsWith("/api/camera/")) {
             handleCameraPath(ctx);
         } else if ("/api/cameras".equals(path)) {

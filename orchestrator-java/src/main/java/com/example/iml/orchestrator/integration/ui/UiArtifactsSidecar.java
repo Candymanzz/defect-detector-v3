@@ -159,7 +159,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (uiServer == null || uiArtifactsExecutor == null) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false, null);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no ui pool) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -171,7 +171,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!storeCurrent && !storeHeatmapU8) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false, null);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no store flags) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -189,7 +189,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (ws != null) {
             try {
                 // Deliver decision immediately; heavy UI artifacts are published in a later update.
-                ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false);
+                ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false, null);
             } catch (Exception e) {
                 log.debug("client_ws inspect_result immediate cam={}: {}", cameraId, e.getMessage());
             }
@@ -311,25 +311,71 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 Path currentJpeg = null;
                 int currentJpegW = 0;
                 int currentJpegH = 0;
+                Path temporaryJpeg = null;
                 if (storeCurrent) {
                     int previewMaxW = YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_max_width"), 0);
                     int qualPct = YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_jpeg_quality"), 58);
                     qualPct = Math.min(100, Math.max(5, qualPct));
                     float q = qualPct / 100f;
+                    boolean canCreateBundle =
+                            heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8);
                     UiHttpServer.ClientPreviewArtifact art =
-                            UiHttpServer.writeCurrentJpegFromBgrShm(shmName, width, height, stride, previewMaxW, q, cameraId);
+                            UiHttpServer.writeCurrentJpegFromBgrShm(
+                                    shmName,
+                                    width,
+                                    height,
+                                    stride,
+                                    previewMaxW,
+                                    q,
+                                    canCreateBundle ? -1 : cameraId
+                            );
                     if (art.path() == null && art.error() != null) {
                         log.debug("ui sidecar cam={} preview jpeg: {}", cameraId, art.error());
                     }
                     currentJpeg = art.path();
                     currentJpegW = art.width();
                     currentJpegH = art.height();
+                    if (canCreateBundle) {
+                        temporaryJpeg = currentJpeg;
+                    }
                 }
-                CameraPreviewStore.Latest prev = uiServer.latest(cameraId).orElse(null);
-                if (currentJpeg == null && prev != null) {
-                    currentJpeg = prev.currentJpeg();
-                    currentJpegW = prev.currentJpegWidth();
-                    currentJpegH = prev.currentJpegHeight();
+                CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
+                boolean bundleSourcesReady =
+                        currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg)
+                                && heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8);
+                try {
+                    if (bundleSourcesReady) {
+                        registeredArtifacts = uiServer.registerInspectionArtifacts(
+                                cameraId,
+                                frameId,
+                                currentJpeg,
+                                heatmapU8
+                        );
+                        currentJpeg = registeredArtifacts.frameJpeg();
+                        heatmapU8 = registeredArtifacts.heatmapU8();
+                    }
+                } catch (IOException e) {
+                    currentJpeg = null;
+                    currentJpegW = 0;
+                    currentJpegH = 0;
+                    log.warn(
+                            "inspection artifact bundle failed camera_id={} frame_id={}: {}",
+                            cameraId,
+                            frameId,
+                            e.getMessage()
+                    );
+                } finally {
+                    if (temporaryJpeg != null) {
+                        try {
+                            Files.deleteIfExists(temporaryJpeg);
+                        } catch (IOException e) {
+                            log.debug(
+                                    "temporary inspection jpeg cleanup failed path={}: {}",
+                                    temporaryJpeg,
+                                    e.getMessage()
+                            );
+                        }
+                    }
                 }
                 boolean hasCur =
                         currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
@@ -352,14 +398,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             decision
                     );
                 }
-                if (ws != null && (hasCur || hasHm)) {
+                if (ws != null && registeredArtifacts != null) {
                     try {
-                        String hmToken = null;
-                        if (hasHm) {
-                            hmToken = uiServer.registerHeatmapArtifact(cameraId, heatmapU8);
-                        }
-                        boolean filePathInWs = hasHm && hmToken == null;
-                        String currentHttpPath = hasCur ? "/api/camera/" + cameraId + "/current.jpg" : null;
+                        String bundleId = registeredArtifacts.bundleId();
+                        String currentHttpPath = "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
                         ws.notifyInspectResult(
                                 cameraId,
                                 productType,
@@ -370,8 +412,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 hasHm ? uw : 0,
                                 hasHm ? uh : 0,
                                 currentHttpPath,
-                                hmToken,
-                                filePathInWs
+                                null,
+                                false,
+                                bundleId
                         );
                     } catch (Exception e) {
                         log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());

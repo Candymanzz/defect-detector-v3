@@ -11,6 +11,9 @@ import java.util.Optional;
  */
 public interface CameraPreviewStore {
 
+    record RegisteredInspectionArtifacts(String bundleId, Path frameJpeg, Path heatmapU8) {
+    }
+
     record Latest(
             long frameId,
             String productType,
@@ -41,6 +44,15 @@ public interface CameraPreviewStore {
 
     /** Путь к .u8 по opaque-токену или {@code null}. */
     Path resolveHeatmapArtifactPath(String token);
+
+    RegisteredInspectionArtifacts registerInspectionArtifacts(
+            int cameraId,
+            long frameId,
+            Path frameJpeg,
+            Path heatmapU8
+    ) throws java.io.IOException;
+
+    byte[] readInspectionArtifact(String bundleId, String artifactName) throws java.io.IOException;
 
     void update(
             int cameraId,

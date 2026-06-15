@@ -120,6 +120,7 @@ public final class HttpFrontController {
         router.register(HttpRoute.prefix("GET", "/api/camera/", camera::handleCameraPath));
 
         router.register(HttpRoute.prefix("GET", "/api/heatmap-artifact/", camera::handleHeatmapArtifact));
+        router.register(HttpRoute.prefix("GET", "/api/inspection-artifacts/", camera::handleInspectionArtifact));
 
         if (ctx.geometryEnabled()) {
 

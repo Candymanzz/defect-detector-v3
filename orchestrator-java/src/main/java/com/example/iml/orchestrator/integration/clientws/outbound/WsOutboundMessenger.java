@@ -103,7 +103,8 @@ public final class WsOutboundMessenger {
             int heatmapH,
             String currentHttpPath,
             String heatmapArtifactTokenOrNull,
-            boolean includeHeatmapFilePathInWs
+            boolean includeHeatmapFilePathInWs,
+            String inspectionArtifactBundleId
     ) {
         try {
             if (decision == null) {
@@ -122,7 +123,8 @@ public final class WsOutboundMessenger {
                     heatmapH,
                     currentHttpPath,
                     heatmapArtifactTokenOrNull,
-                    includeHeatmapFilePathInWs
+                    includeHeatmapFilePathInWs,
+                    inspectionArtifactBundleId
             );
             sendRaw(conn, json, WsMessageTypes.SERVER_INSPECT_RESULT);
             log.info("client_ws sent type={} camera_id={} frame_id={}", WsMessageTypes.SERVER_INSPECT_RESULT, cameraId, frameId);
@@ -350,7 +352,8 @@ public final class WsOutboundMessenger {
             int heatmapH,
             String currentHttpPath,
             String heatmapArtifactTokenOrNull,
-            boolean includeHeatmapFilePathInWs
+            boolean includeHeatmapFilePathInWs,
+            String inspectionArtifactBundleId
     ) throws ClientWsJsonSerializationException, ClientWsInvalidCaptureDescriptorException {
         ObjectNode current = buildCurrentShmObjectNode(cameraId, captureHeader, frameIdLong, shmName);
         String previewHttpPath = currentHttpPath == null ? "" : currentHttpPath.trim();
@@ -366,6 +369,10 @@ public final class WsOutboundMessenger {
         payload.put("frame_id", Long.toString(frameIdLong));
         payload.put("session_state", sessionState.get().name());
         payload.set("current", current);
+        String bundleId = inspectionArtifactBundleId == null ? "" : inspectionArtifactBundleId.trim();
+        if (!bundleId.isEmpty()) {
+            payload.put("artifact_bundle_id", bundleId);
+        }
         if (!previewHttpPath.isEmpty()) {
             payload.put("http_path", previewHttpPath);
         }
@@ -380,7 +387,9 @@ public final class WsOutboundMessenger {
             hm.put("pixel_format", "gray_u8");
             hm.put("channels", 1);
             String tok = heatmapArtifactTokenOrNull == null ? "" : heatmapArtifactTokenOrNull.trim();
-            if (!tok.isEmpty()) {
+            if (!bundleId.isEmpty()) {
+                hm.put("http_path", "/api/inspection-artifacts/" + bundleId + "/heatmap.u8");
+            } else if (!tok.isEmpty()) {
                 hm.put("artifact_id", tok);
                 hm.put("http_path", "/api/heatmap-artifact/" + tok);
             }

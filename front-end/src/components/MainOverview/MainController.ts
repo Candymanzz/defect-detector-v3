@@ -17,7 +17,7 @@ export async function loadMainOverviewData(): Promise<MainOverviewData> {
   return {
     backendStatus: {
       state: "ready",
-      text: "OK",
+      text: "Подключено",
     },
     cameraIds: backendCameraIds,
   };

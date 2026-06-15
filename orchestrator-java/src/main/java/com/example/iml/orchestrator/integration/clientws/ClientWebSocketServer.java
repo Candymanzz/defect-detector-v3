@@ -174,7 +174,8 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             int heatmapH,
             String currentHttpPath,
             String heatmapArtifactTokenOrNull,
-            boolean includeHeatmapFilePathInWs
+            boolean includeHeatmapFilePathInWs,
+            String inspectionArtifactBundleId
     ) {
         if (captureHeader == null || cameraId < 0) {
             return;
@@ -205,7 +206,8 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 heatmapH,
                 currentHttpPath,
                 heatmapArtifactTokenOrNull,
-                includeHeatmapFilePathInWs
+                includeHeatmapFilePathInWs,
+                inspectionArtifactBundleId
         ));
     }
 

@@ -44,6 +44,10 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             System.getProperty("java.io.tmpdir"),
             "iml-ui-current"
     );
+    private static final Path INSPECTION_ARTIFACT_DIR = Path.of(
+            System.getProperty("java.io.tmpdir"),
+            "iml-ui-inspection-artifacts"
+    );
 
     public record ClientPreviewArtifact(Path path, int width, int height, String error) {
         public static ClientPreviewArtifact ok(Path path, int width, int height) {
@@ -59,6 +63,7 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     private final HttpApplicationContext httpContext;
     private final Map<Integer, Latest> latestByCamera = new ConcurrentHashMap<>();
     private final HeatmapArtifactRegistry heatmapArtifacts = new HeatmapArtifactRegistry();
+    private final InspectionArtifactRegistry inspectionArtifacts = new InspectionArtifactRegistry(INSPECTION_ARTIFACT_DIR);
 
     public UiHttpServer(String host, int port) throws IOException {
         this(host, port, null, ClientApiMount.disabled(), null, Map.of());
@@ -118,6 +123,23 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     @Override
     public Path resolveHeatmapArtifactPath(String token) {
         return heatmapArtifacts.resolve(token);
+    }
+
+    @Override
+    public RegisteredInspectionArtifacts registerInspectionArtifacts(
+            int cameraId,
+            long frameId,
+            Path frameJpeg,
+            Path heatmapU8
+    ) throws IOException {
+        InspectionArtifactRegistry.Bundle bundle =
+                inspectionArtifacts.register(cameraId, frameId, frameJpeg, heatmapU8);
+        return new RegisteredInspectionArtifacts(bundle.id(), bundle.frameJpeg(), bundle.heatmapU8());
+    }
+
+    @Override
+    public byte[] readInspectionArtifact(String bundleId, String artifactName) throws IOException {
+        return inspectionArtifacts.read(bundleId, artifactName);
     }
 
     @Override

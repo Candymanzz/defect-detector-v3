@@ -212,6 +212,7 @@ export type InspectResultPayload = {
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;
+  artifact_bundle_id?: string;
   heatmap: HeatmapDescriptor | null;
   active_reference_view_index: number;
   detector: {

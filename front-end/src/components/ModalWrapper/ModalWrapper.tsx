@@ -1,6 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { orchestratorApi } from "../../shared/api";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
@@ -12,6 +11,11 @@ type ModalWrapperProps = {
   title: string;
   cameraId?: number;
   cameraImageUrl?: string;
+  inspectHeatmapUrl?: string;
+  inspectSnapshotLoadState?: {
+    state: "idle" | "loading" | "error";
+    message?: string;
+  };
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
   dangerHeaderAction?: ReactNode;
@@ -24,6 +28,8 @@ export function ModalWrapper({
   title,
   cameraId,
   cameraImageUrl,
+  inspectHeatmapUrl,
+  inspectSnapshotLoadState,
   inspectResult,
   referenceImageUrl,
   dangerHeaderAction,
@@ -37,9 +43,8 @@ export function ModalWrapper({
   );
   const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImage?.imageUrl;
   const displayedReferenceRoiPoints = referenceImageUrl ? undefined : storedReferenceImage?.roiPoints;
-  const inspectResultImageUrl = inspectResult ? createInspectResultImageUrl(inspectResult) : undefined;
-  const displayedCurrentImageUrl = inspectResult ? inspectResultImageUrl : cameraImageUrl;
-  const inspectResultSyncState = getInspectResultSyncState(inspectResult, inspectResultImageUrl);
+  const displayedCurrentImageUrl = inspectResult ? cameraImageUrl : undefined;
+  const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
 
@@ -107,11 +112,12 @@ export function ModalWrapper({
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
-            label="Проверка камеры"
+            label="Последний кадр инспекции"
           />
           <HeatmapPanel
             cameraId={cameraId}
-            cameraImageUrl={inspectResultImageUrl}
+            cameraImageUrl={displayedCurrentImageUrl}
+            heatmapUrl={inspectHeatmapUrl}
             inspectResult={inspectResult}
           />
         </div>
@@ -122,6 +128,19 @@ export function ModalWrapper({
             data-state={inspectResultSyncState.state}
           >
             {inspectResultSyncState.label}
+          </div>
+        )}
+
+        {inspectSnapshotLoadState && inspectSnapshotLoadState.state !== "idle" && (
+          <div
+            className="modal__frame-sync"
+            data-state={inspectSnapshotLoadState.state === "error" ? "partial" : "loading"}
+          >
+            {inspectSnapshotLoadState.state === "loading"
+              ? inspectResult
+                ? "Loading newer inspection..."
+                : "Loading latest inspection..."
+              : inspectSnapshotLoadState.message}
           </div>
         )}
 
@@ -162,26 +181,35 @@ function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: 
 function HeatmapPanel({
   cameraId,
   cameraImageUrl,
+  heatmapUrl,
   inspectResult,
 }: {
   cameraId?: number;
   cameraImageUrl?: string;
+  heatmapUrl?: string;
   inspectResult?: InspectResultPayload;
 }) {
   const matchingInspectResult =
     cameraId !== undefined && inspectResult?.camera_id === cameraId ? inspectResult : undefined;
+  const frozenHeatmap = useMemo(
+    () =>
+      matchingInspectResult?.heatmap && heatmapUrl
+        ? { ...matchingInspectResult.heatmap, http_path: heatmapUrl, artifact_id: undefined }
+        : null,
+    [heatmapUrl, matchingInspectResult],
+  );
   return (
     <figure className="modal-image-panel">
       <figcaption>Heatmap</figcaption>
       {cameraId !== undefined && matchingInspectResult ? (
         <HeatmapViewer
           cameraId={cameraId}
-          heatmap={matchingInspectResult.heatmap}
+          heatmap={frozenHeatmap}
           backgroundImageUrl={cameraImageUrl}
         />
       ) : (
         <div className="modal-image-panel__image-wrap">
-          <div className="modal-image-panel__placeholder">No inspect result yet</div>
+          <div className="modal-image-panel__placeholder">No synchronized inspect result yet</div>
         </div>
       )}
     </figure>
@@ -243,7 +271,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
           <InspectResultRaw inspectResult={inspectResult} />
         </>
       ) : (
-        <div className="modal-inspect-result__empty">No inspect result yet</div>
+        <div className="modal-inspect-result__empty">No synchronized inspect result yet</div>
       )}
     </section>
   );
@@ -299,43 +327,26 @@ function formatServerTime(serverTsMs: number) {
   return new Date(serverTsMs).toLocaleTimeString();
 }
 
-function createInspectResultImageUrl(inspectResult: InspectResultPayload) {
-  const imagePath = inspectResult.http_path ?? inspectResult.current.http_path;
-
-  if (!imagePath) {
-    return undefined;
-  }
-
-  return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
-}
-
-function getInspectResultSyncState(inspectResult: InspectResultPayload | undefined, inspectResultImageUrl?: string) {
+function getInspectResultSyncState(
+  inspectResult: InspectResultPayload | undefined,
+  inspectResultImageUrl?: string,
+  inspectHeatmapUrl?: string,
+) {
   if (!inspectResult) {
     return null;
   }
 
-  if (inspectResultImageUrl && hasHeatmapSource(inspectResult)) {
+  if (inspectResultImageUrl && inspectHeatmapUrl) {
     return {
       state: "synced" as const,
-      label: `Current image is fixed to frame ${inspectResult.frame_id}; heatmap loaded from inspect-result source`,
-    };
-  }
-
-  if (inspectResultImageUrl) {
-    return {
-      state: "partial" as const,
-      label: `Current image is fixed to frame ${inspectResult.frame_id}, but heatmap source is incomplete`,
+      label: `Последняя сохранённая инспекция: кадр ${inspectResult.frame_id}`,
     };
   }
 
   return {
     state: "partial" as const,
-    label: `Inspect result for frame ${inspectResult.frame_id} has no dedicated preview image`,
+    label: `Frozen artifacts for frame ${inspectResult.frame_id} are incomplete`,
   };
-}
-
-function hasHeatmapSource(inspectResult: InspectResultPayload) {
-  return Boolean(inspectResult.heatmap?.http_path || inspectResult.heatmap?.artifact_id);
 }
 
 function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pass" | "fail" | undefined {
