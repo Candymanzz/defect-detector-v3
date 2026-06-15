@@ -93,16 +93,23 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
     },
   );
   const modalInspectionControlState = selectedCamera ? inspectionControlByCameraId[selectedCamera.cameraId] : undefined;
+  const selectedInspectResult = selectedCamera ? inspectResultsByCameraId[selectedCamera.cameraId] : undefined;
   const displayedModalInspectSnapshot =
-    selectedCamera && modalInspectSnapshot?.inspectResult.camera_id === selectedCamera.cameraId
+    selectedCamera &&
+    modalInspectSnapshot?.inspectResult.camera_id === selectedCamera.cameraId &&
+    (!selectedInspectResult || compareInspectResults(modalInspectSnapshot.inspectResult, selectedInspectResult) >= 0)
       ? modalInspectSnapshot
       : undefined;
-  const selectedInspectResult = selectedCamera ? inspectResultsByCameraId[selectedCamera.cameraId] : undefined;
   const displayedModalInspectResult = displayedModalInspectSnapshot?.inspectResult ?? selectedInspectResult;
+  const selectedInspectImageUrl = selectedInspectResult ? createWsFrameImageUrl(selectedInspectResult) : undefined;
+  const matchingPreviewImageUrl =
+    selectedCamera &&
+    selectedInspectResult &&
+    previewFrameIdsByCameraId[selectedCamera.cameraId] === selectedInspectResult.frame_id
+      ? previewImageUrlsByCameraId[selectedCamera.cameraId]
+      : undefined;
   const displayedModalImageUrl =
-    displayedModalInspectSnapshot?.imageUrl ??
-    (selectedCamera ? previewImageUrlsByCameraId[selectedCamera.cameraId] : undefined) ??
-    (selectedInspectResult ? createWsFrameImageUrl(selectedInspectResult) : undefined);
+    displayedModalInspectSnapshot?.imageUrl ?? selectedInspectImageUrl ?? matchingPreviewImageUrl;
   const displayedModalHeatmapUrl =
     displayedModalInspectSnapshot?.heatmapUrl ??
     (selectedInspectResult?.heatmap ? resolveHeatmapSourceUrlOrUndefined(selectedInspectResult.heatmap) : undefined);
@@ -640,15 +647,14 @@ async function freezeInspectSnapshot(
 
   const imageSourceUrl = orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
   const heatmapSourceUrl = resolveHeatmapSourceUrl(heatmap);
-  const [imageBlob, heatmapBlob] = await Promise.all([
-    fetchArtifactBlob(imageSourceUrl, "image/jpeg", signal),
-    fetchArtifactBlob(heatmapSourceUrl, "application/octet-stream", signal),
-  ]);
+  if (signal.aborted) {
+    throw new DOMException("Inspect snapshot loading aborted", "AbortError");
+  }
 
   return {
     inspectResult,
-    imageUrl: URL.createObjectURL(imageBlob),
-    heatmapUrl: URL.createObjectURL(heatmapBlob),
+    imageUrl: imageSourceUrl,
+    heatmapUrl: heatmapSourceUrl,
   };
 }
 
@@ -670,21 +676,13 @@ function resolveHeatmapSourceUrlOrUndefined(heatmap: HeatmapDescriptor) {
   }
 }
 
-async function fetchArtifactBlob(url: string, accept: string, signal: AbortSignal) {
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: { Accept: accept },
-    signal,
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to load inspect artifact: HTTP ${response.status}`);
-  }
-  return response.blob();
-}
-
 function revokeInspectSnapshot(snapshot: InspectSnapshot) {
-  URL.revokeObjectURL(snapshot.imageUrl);
-  URL.revokeObjectURL(snapshot.heatmapUrl);
+  if (snapshot.imageUrl.startsWith("blob:")) {
+    URL.revokeObjectURL(snapshot.imageUrl);
+  }
+  if (snapshot.heatmapUrl.startsWith("blob:")) {
+    URL.revokeObjectURL(snapshot.heatmapUrl);
+  }
 }
 
 function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pass" | "fail" | undefined {

@@ -126,9 +126,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return null;
         }
         int q = Math.max(1, YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("visuals_queue_size"), 8));
+        int parallelism = Math.max(
+                1,
+                YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("visuals_parallelism"), 2)
+        );
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                1,
-                1,
+                parallelism,
+                parallelism,
                 30L,
                 TimeUnit.SECONDS,
                 new java.util.concurrent.ArrayBlockingQueue<>(q),
@@ -140,6 +144,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 new ThreadPoolExecutor.CallerRunsPolicy()
         );
         executor.allowCoreThreadTimeOut(false);
+        log.info("ui artifact publisher started parallelism={} queue_size={}", parallelism, q);
         return executor;
     }
 

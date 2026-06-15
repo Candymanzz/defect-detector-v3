@@ -3,11 +3,13 @@ ui_http:
   host: "127.0.0.1"
   port: 8099
   visuals_async_enabled: true
+  # Parallel UI artifact preparation across cameras. Keep this below the detector worker capacity.
+  visuals_parallelism: 2
   visuals_queue_size: 8
   store_current_jpeg: true
   store_heatmap_u8: true
   # UI-only gray_u8 heatmap width; 0 keeps the original detector resolution.
-  heatmap_preview_max_width: 800
+  heatmap_preview_max_width: 512
   client_preview_jpeg_quality: 58
   client_preview_max_width: 0
 
