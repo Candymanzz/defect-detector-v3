@@ -41,10 +41,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     private record FrozenFrame(Path path, String shmName) {
     }
 
-    private record UiPublishTask(int cameraId, Runnable delegate) implements Runnable {
+    private record UiPublishTask(int cameraId, Runnable delegate, Runnable cleanup) implements Runnable {
         @Override
         public void run() {
             delegate.run();
+        }
+
+        private void discard() {
+            cleanup.run();
         }
     }
 
@@ -53,6 +57,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     private final java.util.concurrent.atomic.LongAdder droppedUiPublishTasks = new java.util.concurrent.atomic.LongAdder();
     private final AtomicLong uiPublishSequence = new AtomicLong();
     private final ConcurrentHashMap<Integer, Long> latestUiPublishByCamera = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Object> uiPublishLockByCamera = new ConcurrentHashMap<>();
 
     public UiArtifactsSidecar(Logger log) {
         this.log = log;
@@ -247,11 +252,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
 
         UiPublishTask publishTask = new UiPublishTask(cameraId, () -> {
-            Path generatedHeatmapPreview = null;
-            try {
-                if (!isLatestPublish(cameraId, publishSequence)) {
-                    return;
-                }
+            Object cameraPublishLock = uiPublishLockByCamera.computeIfAbsent(cameraId, ignored -> new Object());
+            synchronized (cameraPublishLock) {
+                Path generatedHeatmapPreview = null;
+                try {
+                    if (!isLatestPublish(cameraId, publishSequence)) {
+                        return;
+                    }
                 String artifactShmName = frozenFrame.shmName();
                 Path heatmapU8 = sourceHeatmap.path();
                 int uw = sourceHeatmap.width();
@@ -324,10 +331,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         temporaryJpeg = currentJpeg;
                     }
                 }
-                if (!isLatestPublish(cameraId, publishSequence)) {
-                    deleteTemporaryArtifact(temporaryJpeg, "stale inspection jpeg");
-                    return;
-                }
                 CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
                 boolean bundleSourcesReady =
                         currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg)
@@ -368,9 +371,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             );
                         }
                     }
-                }
-                if (!isLatestPublish(cameraId, publishSequence)) {
-                    return;
                 }
                 boolean hasCur =
                         currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
@@ -417,22 +417,26 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
                     }
                 }
-            } catch (Exception e) {
-                log.warn(
-                        "ui artifact publish failed camera_id={} frame_id={}: {}",
-                        cameraId,
-                        frameId,
-                        e.getMessage()
-                );
-            } finally {
-                deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
-                deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");
-                try {
-                    Files.deleteIfExists(frozenFrame.path());
-                } catch (IOException e) {
-                    log.debug("frozen inspection frame cleanup failed path={}: {}", frozenFrame.path(), e.getMessage());
+                } catch (Exception e) {
+                    log.warn(
+                            "ui artifact publish failed camera_id={} frame_id={}: {}",
+                            cameraId,
+                            frameId,
+                            e.getMessage()
+                    );
+                } finally {
+                    deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
+                    deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");
+                    try {
+                        Files.deleteIfExists(frozenFrame.path());
+                    } catch (IOException e) {
+                        log.debug("frozen inspection frame cleanup failed path={}: {}", frozenFrame.path(), e.getMessage());
+                    }
                 }
             }
+        }, () -> {
+            deleteTemporaryArtifact(sourceHeatmap.path(), "discarded queued source heatmap");
+            deleteTemporaryArtifact(frozenFrame.path(), "discarded queued frozen inspection frame");
         });
         removeQueuedPublishForCamera(uiArtifactsExecutor, cameraId);
         try {
@@ -461,7 +465,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             if (queued instanceof UiPublishTask task
                     && task.cameraId() == cameraId
                     && pool.remove(queued)) {
-                task.run();
+                task.discard();
             }
         }
     }
