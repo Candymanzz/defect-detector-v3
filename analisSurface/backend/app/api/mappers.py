@@ -108,9 +108,9 @@ def to_visuals_response(
     result,
     visual_outputs: dict[str, ShmImageOutputInfo],
 ) -> ShmVisualsResponse:
+    base = to_inspect_response(result)
     return ShmVisualsResponse(
-        product_type=result.product_type,
-        detector_id=result.detector_id,
+        **base.model_dump(),
         aligned_image_u8=to_shm_image_output(visual_outputs.get("aligned_image")),
         diff_map_u8=to_shm_image_output(visual_outputs.get("diff_map")),
         heatmap_u8=to_shm_image_output(visual_outputs.get("heatmap")),

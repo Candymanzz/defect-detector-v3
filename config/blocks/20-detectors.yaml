@@ -24,4 +24,6 @@ python_detector:
       height: 2048
   # Более безопасный рабочий порог: меньше ложных REJECT при микро-шуме/свете.
   fallback_threshold: 0.45
+  # UI heatmap is written at this width after the full-resolution inspection decision is calculated.
+  ui_heatmap_max_width: 512
   include_visuals: false

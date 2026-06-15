@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -21,6 +22,9 @@ from app.services.inspection_geometry import (
     validate_polygon_points,
 )
 from app.services.inspection_models import FPZone, InspectionResult, RoiSubZone, RoiSubZoneScore
+
+
+logger = logging.getLogger(__name__)
 
 
 class InspectionService:
@@ -214,6 +218,7 @@ class InspectionService:
         image_bytes: bytes,
         threshold: Optional[float] = None,
         include_visuals: bool = True,
+        include_heatmap_u8: bool = False,
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
     ) -> InspectionResult:
@@ -223,6 +228,7 @@ class InspectionService:
             frame=current,
             threshold=threshold,
             include_visuals=include_visuals,
+            include_heatmap_u8=include_heatmap_u8,
             detector_id=detector_id,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
@@ -233,6 +239,7 @@ class InspectionService:
         frame: np.ndarray,
         threshold: Optional[float] = None,
         include_visuals: bool = True,
+        include_heatmap_u8: bool = False,
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
     ) -> InspectionResult:
@@ -296,8 +303,15 @@ class InspectionService:
         sub_failed = any(entry.status == "БРАК" for entry in sub_zone_scores)
         status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
 
-        heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map) if include_visuals else None
-        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if heatmap_u8 is not None else None
+        heatmap_u8 = None
+        if include_visuals:
+            heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
+        elif include_heatmap_u8:
+            try:
+                heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
+            except Exception:
+                logger.exception("UI heatmap generation failed after inspection completed")
+        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
             heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
             heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
@@ -317,7 +331,7 @@ class InspectionService:
             aligned_image=aligned if include_visuals else None,
             diff_map=diff_map if include_visuals else None,
             heatmap=heatmap if include_visuals else None,
-            heatmap_u8=heatmap_u8 if include_visuals else None,
+            heatmap_u8=heatmap_u8,
             segmentation_mask=segmentation_mask if include_visuals else None,
         )
 

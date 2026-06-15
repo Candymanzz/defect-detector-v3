@@ -108,22 +108,36 @@ public final class AsyncInspectionCycleRunner {
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
             boolean resultPublished = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
-                svc.afterInspectionSidecar().scheduleAfterInspection(
-                        in.uiServer(),
-                        in.uiCfg(),
-                        in.uiVisualsPython(),
-                        in.uiArtifactsExecutor(),
-                        in.cameraId(),
-                        in.productType(),
-                        in.detectorId(),
-                        in.activeReference(),
-                        decision,
-                        state.capture(),
-                        state.geom()
-                );
-                in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
+                try {
+                    in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
+                } catch (RuntimeException e) {
+                    svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
+                    throw e;
+                }
+                try {
+                    svc.afterInspectionSidecar().scheduleAfterInspection(
+                            in.uiServer(),
+                            in.uiCfg(),
+                            in.uiArtifactsExecutor(),
+                            in.cameraId(),
+                            in.productType(),
+                            in.detectorId(),
+                            decision,
+                            state.capture(),
+                            state.py()
+                    );
+                } catch (RuntimeException e) {
+                    svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
+                    svc.log().warn(
+                            "ui artifact scheduling failed camera_id={} frame_id={}: {}",
+                            in.cameraId(),
+                            decision.frameId(),
+                            e.getMessage()
+                    );
+                }
             });
             if (!resultPublished) {
+                svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
                 svc.log().info("integration cam={}: inspection result suppressed by client stop", in.cameraId());
                 return;
             }

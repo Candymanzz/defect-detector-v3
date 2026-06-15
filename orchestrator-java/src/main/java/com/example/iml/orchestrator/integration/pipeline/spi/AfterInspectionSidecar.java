@@ -1,8 +1,6 @@
 package com.example.iml.orchestrator.integration.pipeline.spi;
 
-import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
-import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
@@ -17,14 +15,15 @@ public interface AfterInspectionSidecar {
     void scheduleAfterInspection(
             UiHttpServer uiServer,
             Map<String, Object> uiCfg,
-            BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             int cameraId,
             String productType,
             String detectorId,
-            ReferenceSnapshot activeReference,
             InspectionDecision decision,
             BinaryProtocol.Message capture,
-            BinaryProtocol.Message geometry
+            BinaryProtocol.Message python
     );
+
+    default void discardInspectionArtifacts(BinaryProtocol.Message python) {
+    }
 }

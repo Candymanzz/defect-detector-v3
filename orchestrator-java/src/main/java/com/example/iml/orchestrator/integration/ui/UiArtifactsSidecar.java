@@ -6,7 +6,6 @@ import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
-import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -17,17 +16,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Асинхронные артефакты UI: отдельный Python и пул задач после инспекции (не в горячем пути).
+ * Асинхронная подготовка UI-артефактов из результата основной инспекции.
  */
 public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
@@ -43,9 +41,18 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     private record FrozenFrame(Path path, String shmName) {
     }
 
+    private record UiPublishTask(int cameraId, Runnable delegate) implements Runnable {
+        @Override
+        public void run() {
+            delegate.run();
+        }
+    }
+
     private final Logger log;
     private volatile ClientWebSocketServer clientWebSocketServer;
     private final java.util.concurrent.atomic.LongAdder droppedUiPublishTasks = new java.util.concurrent.atomic.LongAdder();
+    private final AtomicLong uiPublishSequence = new AtomicLong();
+    private final ConcurrentHashMap<Integer, Long> latestUiPublishByCamera = new ConcurrentHashMap<>();
 
     public UiArtifactsSidecar(Logger log) {
         this.log = log;
@@ -141,7 +148,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     t.setDaemon(true);
                     return t;
                 },
-                new ThreadPoolExecutor.CallerRunsPolicy()
+                new ThreadPoolExecutor.AbortPolicy()
         );
         executor.allowCoreThreadTimeOut(false);
         log.info("ui artifact publisher started parallelism={} queue_size={}", parallelism, q);
@@ -152,21 +159,30 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     public void scheduleAfterInspection(
             UiHttpServer uiServer,
             Map<String, Object> uiCfg,
-            BinaryRpcSupervisor uiVisualsPython,
             ExecutorService uiArtifactsExecutor,
             int cameraId,
             String productType,
             String detectorId,
-            ReferenceSnapshot activeReference,
             InspectionDecision decision,
             BinaryProtocol.Message capture,
-            BinaryProtocol.Message geomResp
+            BinaryProtocol.Message pyResp
     ) {
         if (capture == null) {
             return;
         }
         Map<String, Object> cap = capture.header();
         ClientWebSocketServer ws = clientWebSocketServer;
+        String shmName = String.valueOf(cap.get("shm_name"));
+        long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
+        int width = YamlScalars.toInt(cap.get("width"), 2448);
+        int height = YamlScalars.toInt(cap.get("height"), 2048);
+        int stride = YamlScalars.toInt(cap.get("stride"), width * 3);
+        HeatmapArtifact resolvedSourceHeatmap = resolveHeatmapArtifact(
+                pyResp == null ? null : pyResp.header(),
+                null,
+                width,
+                height
+        );
         if (uiServer == null || uiArtifactsExecutor == null) {
             if (ws != null) {
                 try {
@@ -175,6 +191,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     log.debug("client_ws inspect_result (no ui pool) cam={}: {}", cameraId, e.getMessage());
                 }
             }
+            deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "unused source heatmap");
             return;
         }
         boolean storeCurrent = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_current_jpeg"), true);
@@ -187,16 +204,18 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     log.debug("client_ws inspect_result (no store flags) cam={}: {}", cameraId, e.getMessage());
                 }
             }
+            deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "disabled source heatmap");
             return;
         }
 
-        String shmName = String.valueOf(cap.get("shm_name"));
-        long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
-        int width = YamlScalars.toInt(cap.get("width"), 2448);
-        int height = YamlScalars.toInt(cap.get("height"), 2048);
-        int stride = YamlScalars.toInt(cap.get("stride"), width * 3);
+        final HeatmapArtifact sourceHeatmap;
+        if (!storeHeatmapU8) {
+            deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "disabled source heatmap");
+            sourceHeatmap = HeatmapArtifact.empty();
+        } else {
+            sourceHeatmap = resolvedSourceHeatmap;
+        }
 
-        Object homography = geomResp == null ? null : geomResp.header().get("homographyRefToCurrent");
         if (ws != null) {
             try {
                 // Deliver decision immediately; heavy UI artifacts are published in a later update.
@@ -206,10 +225,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             }
         }
 
+        long publishSequence = uiPublishSequence.incrementAndGet();
+        latestUiPublishByCamera.put(cameraId, publishSequence);
         final FrozenFrame frozenFrame;
         try {
             frozenFrame = freezeInspectionFrame(cameraId, frameId, shmName, width, height, stride, cap);
         } catch (IOException e) {
+            deleteTemporaryArtifact(sourceHeatmap.path(), "failed source heatmap");
             log.warn(
                     "inspection frame freeze failed camera_id={} frame_id={}: {}",
                     cameraId,
@@ -218,120 +240,51 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             );
             return;
         }
+        if (!isLatestPublish(cameraId, publishSequence)) {
+            deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
+            deleteTemporaryArtifact(frozenFrame.path(), "stale frozen inspection frame");
+            return;
+        }
 
-        try {
-            uiArtifactsExecutor.execute(() -> {
+        UiPublishTask publishTask = new UiPublishTask(cameraId, () -> {
+            Path generatedHeatmapPreview = null;
             try {
+                if (!isLatestPublish(cameraId, publishSequence)) {
+                    return;
+                }
                 String artifactShmName = frozenFrame.shmName();
-                Path heatmapU8 = null;
-                int uw = 0;
-                int uh = 0;
-                if (uiVisualsPython != null && storeHeatmapU8) {
-                    boolean referenceSynced = false;
-                    if (activeReference != null && activeReference.header() != null) {
-                        referenceSynced = activeReference.header().get("shm_name") != null;
-                    }
-                    if (referenceSynced) {
-                        Map<String, Object> pyHeader = new HashMap<>();
-                        pyHeader.put("op", "inspect_shm");
-                        pyHeader.put("camera_id", cameraId);
-                        pyHeader.put("frame_id", frameId);
-                        pyHeader.put("product_type", productType);
-                        pyHeader.put("detector_id", detectorId);
-                        pyHeader.put("threshold", 0.25);
-                        pyHeader.put("include_visuals", false);
-                        pyHeader.put("shm_name", artifactShmName);
-                        pyHeader.put("shm_offset", 0);
-                        pyHeader.put("width", width);
-                        pyHeader.put("height", height);
-                        pyHeader.put("stride", stride);
-                        pyHeader.put("reference_shm_name", activeReference.header().get("shm_name"));
-                        pyHeader.put("reference_shm_offset", activeReference.header().get("shm_offset"));
-                        pyHeader.put("reference_width", activeReference.header().get("width"));
-                        pyHeader.put("reference_height", activeReference.header().get("height"));
-                        pyHeader.put("reference_stride", activeReference.header().get("stride"));
-                        if (homography != null) {
-                            pyHeader.put("alignment_h_ref_to_cur", homography);
-                        }
-                        Object roiPolygon = activeReference.header().get("interest_polygon_norm");
-                        if (roiPolygon instanceof List<?> points && points.size() >= 3) {
-                            pyHeader.put("roi_polygon_norm", points);
-                        }
-                        String base = (shmName.startsWith("/") ? shmName.substring(1) : shmName);
-                        // Use per-frame heatmap path to avoid race/overwrite between consecutive frames.
-                        Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
-                                base + ".f" + frameId + ".heatmap.u8"
+                Path heatmapU8 = sourceHeatmap.path();
+                int uw = sourceHeatmap.width();
+                int uh = sourceHeatmap.height();
+                int heatmapPreviewMaxWidth = Math.max(
+                        0,
+                        YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("heatmap_preview_max_width"), 512)
+                );
+                if (heatmapU8 != null && uw > 0 && uh > 0 && heatmapPreviewMaxWidth > 0) {
+                    try {
+                        HeatmapU8PreviewScaler.ScaledHeatmap preview = HeatmapU8PreviewScaler.scale(
+                                heatmapU8,
+                                uw,
+                                uh,
+                                heatmapPreviewMaxWidth
                         );
-                        pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
-                        BinaryProtocol.Message pyResp = uiVisualsPython.command(pyHeader);
-                        if (pyResp.type() != BinaryProtocol.MSG_ERROR) {
-                            HeatmapArtifact hm = resolveHeatmapArtifact(pyResp.header(), heatmapOutRequested, width, height);
-                            heatmapU8 = hm.path();
-                            uw = hm.width();
-                            uh = hm.height();
-                            int heatmapPreviewMaxWidth = Math.max(
-                                    0,
-                                    YamlScalars.toInt(
-                                            uiCfg == null ? null : uiCfg.get("heatmap_preview_max_width"),
-                                            800
-                                    )
-                            );
-                            if (heatmapU8 != null && uw > 0 && uh > 0 && heatmapPreviewMaxWidth > 0) {
-                                try {
-                                    HeatmapU8PreviewScaler.ScaledHeatmap preview = HeatmapU8PreviewScaler.scale(
-                                            heatmapU8,
-                                            uw,
-                                            uh,
-                                            heatmapPreviewMaxWidth
-                                    );
-                                    if (!preview.path().equals(heatmapU8)) {
-                                        log.debug(
-                                                "ui heatmap preview scaled cam={} frame={} {}x{} -> {}x{}",
-                                                cameraId,
-                                                frameId,
-                                                uw,
-                                                uh,
-                                                preview.width(),
-                                                preview.height()
-                                        );
-                                    }
-                                    heatmapU8 = preview.path();
-                                    uw = preview.width();
-                                    uh = preview.height();
-                                } catch (IOException e) {
-                                    log.warn(
-                                            "ui heatmap preview scale failed cam={} frame={} size={}x{} max_width={}: {}",
-                                            cameraId,
-                                            frameId,
-                                            uw,
-                                            uh,
-                                            heatmapPreviewMaxWidth,
-                                            e.getMessage()
-                                    );
-                                }
-                            }
-                        } else {
-                            log.warn(
-                                    "ui visuals failed cam={} frame={} op=inspect_shm_visuals error={}",
-                                    cameraId,
-                                    frameId,
-                                    pyResp.header() == null ? "unknown" : pyResp.header().get("error")
-                            );
+                        if (!preview.path().equals(heatmapU8)) {
+                            generatedHeatmapPreview = preview.path();
                         }
-                    } else {
-                        log.info(
-                                "ui visuals skipped cam={} frame={} reason=reference_not_synced product_type={}",
+                        heatmapU8 = preview.path();
+                        uw = preview.width();
+                        uh = preview.height();
+                    } catch (IOException e) {
+                        log.warn(
+                                "ui heatmap preview scale failed cam={} frame={} size={}x{} max_width={}: {}",
                                 cameraId,
                                 frameId,
-                                productType
+                                uw,
+                                uh,
+                                heatmapPreviewMaxWidth,
+                                e.getMessage()
                         );
                     }
-                } else if (storeHeatmapU8) {
-                    log.info(
-                            "ui visuals skipped cam={} frame={} reason=visuals_supervisor_unavailable",
-                            cameraId,
-                            frameId
-                    );
                 }
                 Path currentJpeg = null;
                 int currentJpegW = 0;
@@ -371,6 +324,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         temporaryJpeg = currentJpeg;
                     }
                 }
+                if (!isLatestPublish(cameraId, publishSequence)) {
+                    deleteTemporaryArtifact(temporaryJpeg, "stale inspection jpeg");
+                    return;
+                }
                 CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
                 boolean bundleSourcesReady =
                         currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg)
@@ -390,6 +347,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     currentJpeg = null;
                     currentJpegW = 0;
                     currentJpegH = 0;
+                    heatmapU8 = null;
+                    uw = 0;
+                    uh = 0;
                     log.warn(
                             "inspection artifact bundle failed camera_id={} frame_id={}: {}",
                             cameraId,
@@ -408,6 +368,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             );
                         }
                     }
+                }
+                if (!isLatestPublish(cameraId, publishSequence)) {
+                    return;
                 }
                 boolean hasCur =
                         currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
@@ -462,14 +425,20 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         e.getMessage()
                 );
             } finally {
+                deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
+                deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");
                 try {
                     Files.deleteIfExists(frozenFrame.path());
                 } catch (IOException e) {
                     log.debug("frozen inspection frame cleanup failed path={}: {}", frozenFrame.path(), e.getMessage());
                 }
             }
-            });
+        });
+        removeQueuedPublishForCamera(uiArtifactsExecutor, cameraId);
+        try {
+            uiArtifactsExecutor.execute(publishTask);
         } catch (java.util.concurrent.RejectedExecutionException e) {
+            deleteTemporaryArtifact(sourceHeatmap.path(), "rejected source heatmap");
             try {
                 Files.deleteIfExists(frozenFrame.path());
             } catch (IOException cleanupError) {
@@ -481,6 +450,49 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             }
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
+        }
+    }
+
+    private void removeQueuedPublishForCamera(ExecutorService executor, int cameraId) {
+        if (!(executor instanceof ThreadPoolExecutor pool)) {
+            return;
+        }
+        for (Runnable queued : pool.getQueue()) {
+            if (queued instanceof UiPublishTask task
+                    && task.cameraId() == cameraId
+                    && pool.remove(queued)) {
+                task.run();
+            }
+        }
+    }
+
+    @Override
+    public void discardInspectionArtifacts(BinaryProtocol.Message pyResp) {
+        try {
+            HeatmapArtifact heatmap = resolveHeatmapArtifact(
+                    pyResp == null ? null : pyResp.header(),
+                    null,
+                    0,
+                    0
+            );
+            deleteTemporaryArtifact(heatmap.path(), "discarded source heatmap");
+        } catch (RuntimeException e) {
+            log.debug("discarded source heatmap cleanup failed: {}", e.getMessage());
+        }
+    }
+
+    private boolean isLatestPublish(int cameraId, long publishSequence) {
+        return Long.valueOf(publishSequence).equals(latestUiPublishByCamera.get(cameraId));
+    }
+
+    private void deleteTemporaryArtifact(Path path, String label) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.debug("{} cleanup failed path={}: {}", label, path, e.getMessage());
         }
     }
 

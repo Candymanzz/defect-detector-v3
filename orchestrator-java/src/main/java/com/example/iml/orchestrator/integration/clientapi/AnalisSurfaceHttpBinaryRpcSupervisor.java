@@ -435,15 +435,14 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (heatmapPath != null) {
             body.put("heatmap_u8_output_path", String.valueOf(heatmapPath));
         }
+        copyIfPresent(body, header, "heatmap_max_width");
         HttpResponse<byte[]> resp = httpPostJson("/inspect-shm-visuals", body);
         if (resp.statusCode() / 100 != 2) {
             return errorMessageToMsg(resp, "inspect-shm-visuals");
         }
         Map<String, Object> json = readJson(resp.body());
-        Map<String, Object> h = new LinkedHashMap<>();
-        h.put("status", "ok");
-        h.put("product_type", String.valueOf(json.getOrDefault("product_type", header.get("product_type"))));
-        h.put("detector_id", String.valueOf(json.getOrDefault("detector_id", header.get("detector_id"))));
+        Map<String, Object> h = inspectJsonToStdioHeader(json);
+        h.put("product_type", String.valueOf(header.getOrDefault("product_type", "")));
         Object hm = json.get("heatmap_u8");
         if (hm instanceof Map<?, ?> hmMap) {
             h.put("heatmap_u8_path", hmMap.get("path"));

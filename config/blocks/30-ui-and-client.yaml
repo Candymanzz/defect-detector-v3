@@ -9,10 +9,10 @@ ui_http:
   store_current_jpeg: true
   store_heatmap_u8: true
   # UI-only gray_u8 heatmap width; 0 keeps the original detector resolution.
-  heatmap_preview_max_width: 256
-  # Inspection uses the original SHM frame; only the JPEG sent to the UI is reduced.
-  inspection_preview_max_width: 1280
-  inspection_preview_jpeg_quality: 45
+  heatmap_preview_max_width: 512
+  # The detector still uses the original frame; only the UI JPEG is reduced.
+  inspection_preview_max_width: 1600
+  inspection_preview_jpeg_quality: 55
   client_preview_jpeg_quality: 58
   client_preview_max_width: 0
 

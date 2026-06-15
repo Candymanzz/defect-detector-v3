@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -85,6 +86,18 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             if (inspectionRuntimeConfig != null) {
                 inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, productType);
             }
+            long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
+            pyHeader.put(
+                    "heatmap_u8_output_path",
+                    FrameJpegWriter.imlShmFilePath(
+                            "iml_primary_inspect_cam_" + cameraId + "_f" + frameId + "_"
+                                    + Long.toUnsignedString(System.nanoTime()) + ".heatmap.u8"
+                    ).toString()
+            );
+            pyHeader.put(
+                    "heatmap_max_width",
+                    Math.max(0, YamlScalars.toInt(pythonCfg == null ? null : pythonCfg.get("ui_heatmap_max_width"), 512))
+            );
             pythonSlots.acquire();
             try {
                 BinaryProtocol.Message pyResp = python.command(pyHeader);

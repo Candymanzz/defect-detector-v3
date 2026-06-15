@@ -1,3 +1,7 @@
+import logging
+from pathlib import Path
+
+import cv2
 from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspection_service
@@ -14,13 +18,34 @@ from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def cleanup_requested_visual_outputs(payload: ShmVisualsRequest) -> None:
+    for raw_path in (
+        payload.aligned_image_u8_output_path,
+        payload.diff_map_u8_output_path,
+        payload.heatmap_u8_output_path,
+        payload.segmentation_mask_u8_output_path,
+    ):
+        if not raw_path:
+            continue
+        try:
+            Path(raw_path).unlink(missing_ok=True)
+        except (OSError, ValueError):
+            logger.debug("failed to clean partial visual output path=%s", raw_path)
 
 
 def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[str, ShmImageOutputInfo]:
+    heatmap_u8 = result.heatmap_u8
+    max_width = payload.heatmap_max_width or 0
+    if heatmap_u8 is not None and max_width > 0 and heatmap_u8.shape[1] > max_width:
+        target_height = max(1, round(heatmap_u8.shape[0] * max_width / heatmap_u8.shape[1]))
+        heatmap_u8 = cv2.resize(heatmap_u8, (max_width, target_height), interpolation=cv2.INTER_AREA)
     requested = {
         "aligned_image": (payload.aligned_image_u8_output_path, result.aligned_image),
         "diff_map": (payload.diff_map_u8_output_path, result.diff_map),
-        "heatmap": (payload.heatmap_u8_output_path, result.heatmap_u8),
+        "heatmap": (payload.heatmap_u8_output_path, heatmap_u8),
         "segmentation_mask": (payload.segmentation_mask_u8_output_path, result.segmentation_mask),
     }
     outputs: dict[str, ShmImageOutputInfo] = {}
@@ -104,14 +129,28 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
                     product_type=payload.product_type,
                     frame=bgr_frame,
                     threshold=payload.threshold,
-                    include_visuals=True,
+                    include_visuals=any(
+                        (
+                            payload.aligned_image_u8_output_path,
+                            payload.diff_map_u8_output_path,
+                            payload.segmentation_mask_u8_output_path,
+                        )
+                    ),
+                    include_heatmap_u8=payload.heatmap_u8_output_path is not None,
                     detector_id=payload.detector_id,
                     alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
                 )
             finally:
                 del bgr_frame
-        visual_outputs = write_requested_visual_outputs(payload, result)
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        visual_outputs = write_requested_visual_outputs(payload, result)
+    except Exception as exc:
+        # UI artifacts are best-effort and must not invalidate a completed inspection.
+        logger.warning("inspection visual output export failed: %s", exc)
+        cleanup_requested_visual_outputs(payload)
+        visual_outputs = {}
 
     return to_visuals_response(result, visual_outputs)

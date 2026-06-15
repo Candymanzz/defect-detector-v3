@@ -124,12 +124,11 @@ class ShmVisualsRequest(ShmFrameRequest):
     aligned_image_u8_output_path: Optional[str] = None
     diff_map_u8_output_path: Optional[str] = None
     heatmap_u8_output_path: Optional[str] = None
+    heatmap_max_width: Optional[int] = None
     segmentation_mask_u8_output_path: Optional[str] = None
 
 
-class ShmVisualsResponse(BaseModel):
-    product_type: str
-    detector_id: str
+class ShmVisualsResponse(InspectResponse):
     aligned_image_u8: Optional[ShmImageOutput] = None
     diff_map_u8: Optional[ShmImageOutput] = None
     heatmap_u8: Optional[ShmImageOutput] = None
