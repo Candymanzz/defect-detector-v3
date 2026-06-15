@@ -39,6 +39,12 @@ class DefaultInspectionDecisionAggregatorTest {
     @Test
     void rejectsMissingOrAmbiguousStageResponses() {
         assertFalse(aggregator.decide(1, capture, null, null).overallPass());
+        assertTrue(aggregator.decide(
+                1,
+                capture,
+                message(BinaryProtocol.MSG_RESPONSE, Map.of("ok", true, "status", "PASS")),
+                null
+        ).overallPass());
         assertFalse(aggregator.decide(
                 1,
                 capture,

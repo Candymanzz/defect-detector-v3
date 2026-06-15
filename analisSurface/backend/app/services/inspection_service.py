@@ -215,7 +215,7 @@ class InspectionService:
         threshold: Optional[float] = None,
         include_visuals: bool = True,
         detector_id: Optional[str] = None,
-        alignment_h_ref_to_cur: Optional[list[list[float]]] = None,
+        alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
     ) -> InspectionResult:
         current = self._decode_image(image_bytes)
         return self.inspect_frame(
@@ -234,7 +234,7 @@ class InspectionService:
         threshold: Optional[float] = None,
         include_visuals: bool = True,
         detector_id: Optional[str] = None,
-        alignment_h_ref_to_cur: Optional[list[list[float]]] = None,
+        alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
     ) -> InspectionResult:
         settings = self.get_analysis_settings(product_type)
         reference = self.get_reference(product_type)
@@ -680,7 +680,7 @@ class InspectionService:
         current: np.ndarray,
         reference: np.ndarray,
         product_type: str,
-        alignment_h_ref_to_cur: Optional[list[list[float]]] = None,
+        alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
     ) -> np.ndarray:
         geometry_aligned = self._align_with_geometry_homography(
             current,
@@ -729,6 +729,8 @@ class InspectionService:
             return None
         try:
             homography = np.asarray(alignment_h_ref_to_cur, dtype=np.float64)
+            if homography.size == 9:
+                homography = homography.reshape(3, 3)
             if homography.shape != (3, 3) or not np.all(np.isfinite(homography)):
                 return None
             if abs(float(np.linalg.det(homography))) < 1e-12:

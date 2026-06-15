@@ -416,10 +416,7 @@ public final class WsOutboundMessenger {
             payload.put("python_status", decision.pythonStatus());
             payload.put("geometry_status", decision.geometryStatus());
         } else {
-            // Keep payload schema stable for UI even if decision aggregation failed upstream.
-            payload.put("overall_pass", false);
-            payload.put("action", "REJECT");
-            payload.put("anomaly_score", 0.0);
+            // Missing aggregation is not a reject decision.
             payload.put("python_status", "UNKNOWN");
             payload.put("geometry_status", "UNKNOWN");
         }

@@ -97,6 +97,15 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
     selectedCamera && modalInspectSnapshot?.inspectResult.camera_id === selectedCamera.cameraId
       ? modalInspectSnapshot
       : undefined;
+  const selectedInspectResult = selectedCamera ? inspectResultsByCameraId[selectedCamera.cameraId] : undefined;
+  const displayedModalInspectResult = displayedModalInspectSnapshot?.inspectResult ?? selectedInspectResult;
+  const displayedModalImageUrl =
+    displayedModalInspectSnapshot?.imageUrl ??
+    (selectedCamera ? previewImageUrlsByCameraId[selectedCamera.cameraId] : undefined) ??
+    (selectedInspectResult ? createWsFrameImageUrl(selectedInspectResult) : undefined);
+  const displayedModalHeatmapUrl =
+    displayedModalInspectSnapshot?.heatmapUrl ??
+    (selectedInspectResult?.heatmap ? resolveHeatmapSourceUrlOrUndefined(selectedInspectResult.heatmap) : undefined);
   const selectedArtifactResult = selectedCamera
     ? inspectArtifactResultsByCameraId[selectedCamera.cameraId]
     : undefined;
@@ -515,8 +524,8 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         <ModalWrapper
           isOpen
           cameraId={selectedCamera.cameraId}
-          cameraImageUrl={displayedModalInspectSnapshot?.imageUrl}
-          inspectHeatmapUrl={displayedModalInspectSnapshot?.heatmapUrl}
+          cameraImageUrl={displayedModalImageUrl}
+          inspectHeatmapUrl={displayedModalHeatmapUrl}
           inspectSnapshotLoadState={modalInspectSnapshotLoadState}
           dangerHeaderAction={
             <button
@@ -550,7 +559,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
               Открыть стрим
             </button>
           }
-          inspectResult={displayedModalInspectSnapshot?.inspectResult}
+          inspectResult={displayedModalInspectResult}
           title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}
           onClose={() => setSelectedCamera(null)}
         />
@@ -651,6 +660,14 @@ function resolveHeatmapSourceUrl(heatmap: HeatmapDescriptor) {
     return orchestratorApi.heatmapArtifactUrl(heatmap.artifact_id);
   }
   throw new Error("Heatmap source is missing");
+}
+
+function resolveHeatmapSourceUrlOrUndefined(heatmap: HeatmapDescriptor) {
+  try {
+    return resolveHeatmapSourceUrl(heatmap);
+  } catch {
+    return undefined;
+  }
 }
 
 async function fetchArtifactBlob(url: string, accept: string, signal: AbortSignal) {

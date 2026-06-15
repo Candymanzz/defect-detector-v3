@@ -29,9 +29,9 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
         boolean pythonPass = pyResp != null
                 && pyResp.type() == BinaryProtocol.MSG_RESPONSE
                 && Boolean.TRUE.equals(pyResp.header().get("ok"));
-        boolean geometryPass = geomResp != null
-                && geomResp.type() == BinaryProtocol.MSG_RESPONSE
-                && Boolean.TRUE.equals(geomResp.header().get("overallPass"));
+        boolean geometryPass = geomResp == null
+                || (geomResp.type() == BinaryProtocol.MSG_RESPONSE
+                && Boolean.TRUE.equals(geomResp.header().get("overallPass")));
         String geometryStatus = geomResp == null ? "UNKNOWN" : String.valueOf(
                 geomResp.header().getOrDefault("status", geometryPass ? "PASS" : "FAIL")
         );

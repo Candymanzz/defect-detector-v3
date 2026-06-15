@@ -419,10 +419,12 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             decision
                     );
                 }
-                if (ws != null && registeredArtifacts != null) {
+                if (ws != null) {
                     try {
-                        String bundleId = registeredArtifacts.bundleId();
-                        String currentHttpPath = "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
+                        String bundleId = registeredArtifacts == null ? null : registeredArtifacts.bundleId();
+                        String currentHttpPath = bundleId == null
+                                ? null
+                                : "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
                         ws.notifyInspectResult(
                                 cameraId,
                                 productType,
