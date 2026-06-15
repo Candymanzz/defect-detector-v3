@@ -66,6 +66,11 @@ public final class PerCameraInspectionGate {
         return flag != null && flag.get();
     }
 
+    public boolean isInspectionInFlight(int cameraId) {
+        AtomicBoolean flag = inFlight.get(cameraId);
+        return flag != null && flag.get();
+    }
+
     public void setInspectionEnabled(int cameraId, boolean enabled) {
         AtomicBoolean flag = inspectionEnabled.get(cameraId);
         AtomicBoolean flight = inFlight.get(cameraId);

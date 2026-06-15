@@ -15,10 +15,13 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +38,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         private static HeatmapArtifact empty() {
             return new HeatmapArtifact(null, 0, 0);
         }
+    }
+
+    private record FrozenFrame(Path path, String shmName) {
     }
 
     private final Logger log;
@@ -195,9 +201,23 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             }
         }
 
+        final FrozenFrame frozenFrame;
+        try {
+            frozenFrame = freezeInspectionFrame(cameraId, frameId, shmName, width, height, stride, cap);
+        } catch (IOException e) {
+            log.warn(
+                    "inspection frame freeze failed camera_id={} frame_id={}: {}",
+                    cameraId,
+                    frameId,
+                    e.getMessage()
+            );
+            return;
+        }
+
         try {
             uiArtifactsExecutor.execute(() -> {
             try {
+                String artifactShmName = frozenFrame.shmName();
                 Path heatmapU8 = null;
                 int uw = 0;
                 int uh = 0;
@@ -215,8 +235,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         pyHeader.put("detector_id", detectorId);
                         pyHeader.put("threshold", 0.25);
                         pyHeader.put("include_visuals", false);
-                        pyHeader.put("shm_name", shmName);
-                        pyHeader.put("shm_offset", cap.get("shm_offset"));
+                        pyHeader.put("shm_name", artifactShmName);
+                        pyHeader.put("shm_offset", 0);
                         pyHeader.put("width", width);
                         pyHeader.put("height", height);
                         pyHeader.put("stride", stride);
@@ -321,10 +341,11 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8);
                     UiHttpServer.ClientPreviewArtifact art =
                             UiHttpServer.writeCurrentJpegFromBgrShm(
-                                    shmName,
+                                    artifactShmName,
                                     width,
                                     height,
                                     stride,
+                                    0L,
                                     previewMaxW,
                                     q,
                                     canCreateBundle ? -1 : cameraId
@@ -420,13 +441,80 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.warn(
+                        "ui artifact publish failed camera_id={} frame_id={}: {}",
+                        cameraId,
+                        frameId,
+                        e.getMessage()
+                );
+            } finally {
+                try {
+                    Files.deleteIfExists(frozenFrame.path());
+                } catch (IOException e) {
+                    log.debug("frozen inspection frame cleanup failed path={}: {}", frozenFrame.path(), e.getMessage());
+                }
             }
             });
         } catch (java.util.concurrent.RejectedExecutionException e) {
+            try {
+                Files.deleteIfExists(frozenFrame.path());
+            } catch (IOException cleanupError) {
+                log.debug(
+                        "rejected frozen inspection frame cleanup failed path={}: {}",
+                        frozenFrame.path(),
+                        cleanupError.getMessage()
+                );
+            }
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
         }
+    }
+
+    private static FrozenFrame freezeInspectionFrame(
+            int cameraId,
+            long frameId,
+            String shmName,
+            int width,
+            int height,
+            int stride,
+            Map<String, Object> captureHeader
+    ) throws IOException {
+        if (width <= 0 || height <= 0 || stride < width * 3) {
+            throw new IOException("invalid frame geometry");
+        }
+        long sourceOffset = YamlScalars.toLong(captureHeader.get("shm_offset"), 0L);
+        long frameBytes = Math.multiplyExact((long) stride, (long) height);
+        Path source = FrameJpegWriter.resolveShmPath(shmName, cameraId);
+        if (source == null || !Files.isRegularFile(source)) {
+            throw new IOException("source SHM is missing");
+        }
+
+        String frozenName = "iml_ui_inspect_cam_" + cameraId + "_f" + frameId + "_" + UUID.randomUUID() + ".bgr";
+        Path target = FrameJpegWriter.imlShmFilePath(frozenName);
+        Files.createDirectories(target.getParent());
+        try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);
+             FileChannel output = FileChannel.open(
+                     target,
+                     StandardOpenOption.CREATE_NEW,
+                     StandardOpenOption.WRITE
+             )) {
+            if (input.size() < sourceOffset + frameBytes) {
+                throw new IOException("source SHM is smaller than the captured frame");
+            }
+            long copied = 0L;
+            while (copied < frameBytes) {
+                long count = input.transferTo(sourceOffset + copied, frameBytes - copied, output);
+                if (count <= 0L) {
+                    throw new IOException("could not copy the complete captured frame");
+                }
+                copied += count;
+            }
+        } catch (IOException | RuntimeException e) {
+            Files.deleteIfExists(target);
+            throw e;
+        }
+        return new FrozenFrame(target, frozenName);
     }
 
     /**

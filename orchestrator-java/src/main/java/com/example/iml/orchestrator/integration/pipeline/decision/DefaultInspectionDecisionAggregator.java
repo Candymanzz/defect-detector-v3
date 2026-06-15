@@ -26,14 +26,17 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
         long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
         double anomalyScore = pyResp == null ? 0.0 : YamlScalars.toDouble(pyResp.header().get("anomaly_score"), 0.0);
         String pyStatus = pyResp == null ? "UNKNOWN" : String.valueOf(pyResp.header().getOrDefault("status", "UNKNOWN"));
-        boolean pythonPass = pyResp == null || pyResp.type() != BinaryProtocol.MSG_ERROR;
-        boolean geometryPass = geomResp == null
-                || (geomResp.type() != BinaryProtocol.MSG_ERROR && Boolean.TRUE.equals(geomResp.header().get("overallPass")));
-        String geometryStatus = geomResp == null ? "UNKNOWN" : String.valueOf(geomResp.header().getOrDefault("status", "PASS"));
+        boolean pythonPass = pyResp != null
+                && pyResp.type() == BinaryProtocol.MSG_RESPONSE
+                && Boolean.TRUE.equals(pyResp.header().get("ok"));
+        boolean geometryPass = geomResp != null
+                && geomResp.type() == BinaryProtocol.MSG_RESPONSE
+                && Boolean.TRUE.equals(geomResp.header().get("overallPass"));
+        String geometryStatus = geomResp == null ? "UNKNOWN" : String.valueOf(
+                geomResp.header().getOrDefault("status", geometryPass ? "PASS" : "FAIL")
+        );
 
-        boolean overallPass = pythonPass
-                && geometryPass
-                && !("БРАК".equalsIgnoreCase(pyStatus) || "FAIL".equalsIgnoreCase(pyStatus));
+        boolean overallPass = pythonPass && geometryPass;
         String action = overallPass ? "ACCEPT" : "REJECT";
         InspectionDecision decision = new InspectionDecision(cameraId, frameId, overallPass, action, anomalyScore, pyStatus, geometryStatus);
         if (log.isDebugEnabled()) {

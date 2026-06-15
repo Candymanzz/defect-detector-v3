@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -45,6 +46,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
     private final ScheduledExecutorService scheduler;
     private final CameraStreamService cameraStreamService;
     private final LivePreviewGate previewGate;
+    private final PerCameraInspectionGate inspectionGate;
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean cycleInProgress = new AtomicBoolean(false);
     private final ConcurrentHashMap<Integer, AtomicBoolean> tickInProgressByCamera = new ConcurrentHashMap<>();
@@ -65,6 +67,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
             ScheduledExecutorService scheduler,
             CameraStreamService cameraStreamService,
             LivePreviewGate previewGate,
+            PerCameraInspectionGate inspectionGate,
             List<CameraPreviewTarget> previewTargets
     ) {
         this.log = log;
@@ -82,6 +85,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
         this.scheduler = scheduler;
         this.cameraStreamService = cameraStreamService;
         this.previewGate = previewGate;
+        this.inspectionGate = inspectionGate;
         this.previewTargets = previewTargets == null ? List.of() : List.copyOf(previewTargets);
     }
 
@@ -99,7 +103,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
             PipelineReferenceRegistry referenceRegistry,
             IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoStub,
             CameraStreamService cameraStreamService,
-            LivePreviewGate previewGate
+            LivePreviewGate previewGate,
+            PerCameraInspectionGate inspectionGate
     ) {
         LivePreviewConfig cfg = LivePreviewConfig.fromRootYaml(rootYaml);
         if (!cfg.enabled() || uiServer == null || workersByCamera == null || workersByCamera.isEmpty()) {
@@ -150,6 +155,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 scheduler,
                 cameraStreamService,
                 previewGate,
+                inspectionGate,
                 targets
         );
         for (CameraPreviewTarget target : targets) {
@@ -216,6 +222,12 @@ public final class LivePreviewPublisher implements AutoCloseable {
             return;
         }
         if (previewGate != null && previewGate.isPaused()) {
+            return;
+        }
+        // Capture reuses the camera SHM buffer, so preview must not overwrite
+        // pixels while an inspection stage is still reading them.
+        if (inspectionGate != null && inspectionGate.isInspectionInFlight(cameraId)) {
+            metrics.droppedTicks.increment();
             return;
         }
         if (cameraStreamService != null && cameraStreamService.isStreaming(cameraId)) {

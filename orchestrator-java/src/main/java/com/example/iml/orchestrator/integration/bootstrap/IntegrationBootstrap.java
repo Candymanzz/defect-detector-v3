@@ -347,7 +347,8 @@ public final class IntegrationBootstrap {
                     pipelineReferenceRegistry,
                     devAutoTriggerStub,
                     cameraStreamService,
-                    livePreviewGate
+                    livePreviewGate,
+                    inspectionGate
             );
             cameraExecutor = Executors.newFixedThreadPool(cfg.cameraParallelism(), r -> {
                 Thread t = new Thread(r, "camera-flow");
