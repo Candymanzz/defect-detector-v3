@@ -20,7 +20,6 @@ import "./MainOverview.css";
 
 const PREVIEW_UPDATE_INTERVAL_MS = 30;
 const CAMERAS_PER_OVERVIEW = 5;
-const RECENT_INSPECT_FRAME_LIMIT = 256;
 
 type MainOverviewProps = {
   selectedSettingsCameraId: number | null;
@@ -66,7 +65,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const latestPreviewFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const latestInspectResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
   const latestArtifactResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
-  const acceptedInspectFrameIdsByCameraIdRef = useRef<Record<number, Map<string, true>>>({});
+  const awaitingLiveResultAfterResetByCameraIdRef = useRef<Record<number, boolean>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateTimerRef = useRef<number | null>(null);
   const modalInspectSnapshotRef = useRef<InspectSnapshot | undefined>(undefined);
@@ -102,55 +101,11 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
     }
   }, []);
 
-  const resetCameraInspectionState = useCallback(
-    (cameraId: number) => {
+  const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
       delete latestInspectResultByCameraIdRef.current[cameraId];
       delete latestArtifactResultByCameraIdRef.current[cameraId];
-      delete acceptedInspectFrameIdsByCameraIdRef.current[cameraId];
-      setInspectResultsByCameraId((current) => omitCamera(current, cameraId));
-      setInspectArtifactResultsByCameraId((current) =>
-        omitCamera(current, cameraId),
-      );
-
-      if (selectedModalCameraIdRef.current !== cameraId) {
-        return;
-      }
-
-      inspectSnapshotLoadControllerRef.current?.abort();
-      inspectSnapshotLoadControllerRef.current = undefined;
-      activeInspectResultRef.current = undefined;
-      pendingInspectResultRef.current = undefined;
-      retireModalInspectSnapshot();
-      setModalInspectSnapshot(undefined);
-      setModalInspectSnapshotLoadState({ state: "idle" });
-    },
-    [retireModalInspectSnapshot],
-  );
-
-  const resetInspectionSession = useCallback(() => {
-    if (previewUpdateTimerRef.current !== null) {
-      window.clearTimeout(previewUpdateTimerRef.current);
-      previewUpdateTimerRef.current = null;
-    }
-    pendingPreviewUrlsByCameraIdRef.current = {};
-    latestPreviewTimestampByCameraIdRef.current = {};
-    latestPreviewFrameIdByCameraIdRef.current = {};
-    latestInspectResultByCameraIdRef.current = {};
-    latestArtifactResultByCameraIdRef.current = {};
-    acceptedInspectFrameIdsByCameraIdRef.current = {};
-    setPreviewImageUrlsByCameraId({});
-    setPreviewFrameIdsByCameraId({});
-    setInspectResultsByCameraId({});
-    setInspectArtifactResultsByCameraId({});
-
-    inspectSnapshotLoadControllerRef.current?.abort();
-    inspectSnapshotLoadControllerRef.current = undefined;
-    activeInspectResultRef.current = undefined;
-    pendingInspectResultRef.current = undefined;
-    retireModalInspectSnapshot();
-    setModalInspectSnapshot(undefined);
-    setModalInspectSnapshotLoadState({ state: "idle" });
-  }, [retireModalInspectSnapshot]);
+      awaitingLiveResultAfterResetByCameraIdRef.current[cameraId] = true;
+  }, []);
 
   const loadLatestInspectSnapshot = useCallback(async () => {
     if (activeInspectResultRef.current) {
@@ -297,16 +252,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   }, []);
 
   useEffect(() => {
-    let hasOpened = false;
-    const unsubscribeStatus = orchestratorWs.onStatus((status) => {
-      if (status.state !== "open") {
-        return;
-      }
-      if (hasOpened || Object.keys(latestInspectResultByCameraIdRef.current).length > 0) {
-        resetInspectionSession();
-      }
-      hasOpened = true;
-    });
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
       if (message.type === "server.preview_frame") {
         const previewFrame = message.payload;
@@ -319,7 +264,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
         const previousFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
         if (previousFrameId && compareFrameIds(previewFrame.frame_id, previousFrameId) < 0) {
-          resetCameraInspectionState(cameraId);
+          resetCameraInspectionOrdering(cameraId);
         }
         latestPreviewFrameIdByCameraIdRef.current[cameraId] = previewFrame.frame_id;
 
@@ -358,7 +303,11 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       const hasArtifacts = hasCompleteInspectArtifacts(inspectResult);
 
       if (hasArtifacts) {
-        if (!acceptedInspectFrameIdsByCameraIdRef.current[cameraId]?.has(inspectResult.frame_id)) {
+        if (awaitingLiveResultAfterResetByCameraIdRef.current[cameraId]) {
+          return;
+        }
+        const currentLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
+        if (currentLiveResult && compareFrameIds(inspectResult.frame_id, currentLiveResult.frame_id) > 0) {
           return;
         }
         const previousArtifactResult = latestArtifactResultByCameraIdRef.current[cameraId];
@@ -372,7 +321,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
             [cameraId]: inspectResult,
           };
         });
-        const currentLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
         if (!currentLiveResult || compareInspectResults(inspectResult, currentLiveResult) >= 0) {
           latestInspectResultByCameraIdRef.current[cameraId] = inspectResult;
           setInspectResultsByCameraId((previousResults) => ({
@@ -385,14 +333,14 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
       const previousResult = latestInspectResultByCameraIdRef.current[cameraId];
       if (previousResult && isInspectionCounterReset(previousResult, inspectResult)) {
-        resetCameraInspectionState(cameraId);
+        resetCameraInspectionOrdering(cameraId);
       }
 
       const currentResult = latestInspectResultByCameraIdRef.current[cameraId];
       if (currentResult && compareInspectResults(inspectResult, currentResult) < 0) {
         return;
       }
-      rememberInspectFrame(acceptedInspectFrameIdsByCameraIdRef.current, cameraId, inspectResult.frame_id);
+      delete awaitingLiveResultAfterResetByCameraIdRef.current[cameraId];
       latestInspectResultByCameraIdRef.current[cameraId] = inspectResult;
       setInspectResultsByCameraId((previousResults) => ({
         ...previousResults,
@@ -403,7 +351,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
     orchestratorWs.connect();
 
     return () => {
-      unsubscribeStatus();
       unsubscribeMessage();
       if (previewUpdateTimerRef.current !== null) {
         window.clearTimeout(previewUpdateTimerRef.current);
@@ -411,7 +358,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       }
       pendingPreviewUrlsByCameraIdRef.current = {};
     };
-  }, [resetCameraInspectionState, resetInspectionSession]);
+  }, [resetCameraInspectionOrdering]);
 
   useEffect(() => {
     const cameraId = selectedCamera?.cameraId;
@@ -621,37 +568,6 @@ function isInspectionCounterReset(
     candidate.server_ts_ms >= previous.server_ts_ms &&
     compareFrameIds(candidate.frame_id, previous.frame_id) < 0
   );
-}
-
-function omitCamera<T>(
-  valuesByCameraId: Record<number, T>,
-  cameraId: number,
-): Record<number, T> {
-  if (!(cameraId in valuesByCameraId)) {
-    return valuesByCameraId;
-  }
-
-  const nextValuesByCameraId = { ...valuesByCameraId };
-  delete nextValuesByCameraId[cameraId];
-  return nextValuesByCameraId;
-}
-
-function rememberInspectFrame(
-  framesByCameraId: Record<number, Map<string, true>>,
-  cameraId: number,
-  frameId: string,
-) {
-  const frames = framesByCameraId[cameraId] ?? new Map<string, true>();
-  frames.delete(frameId);
-  frames.set(frameId, true);
-  while (frames.size > RECENT_INSPECT_FRAME_LIMIT) {
-    const oldestFrameId = frames.keys().next().value;
-    if (oldestFrameId === undefined) {
-      break;
-    }
-    frames.delete(oldestFrameId);
-  }
-  framesByCameraId[cameraId] = frames;
 }
 
 function hasCompleteInspectArtifacts(inspectResult: InspectResultPayload) {
