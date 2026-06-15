@@ -20,6 +20,7 @@ import "./MainOverview.css";
 
 const PREVIEW_UPDATE_INTERVAL_MS = 30;
 const CAMERAS_PER_OVERVIEW = 5;
+const INSPECTION_HISTORY_LIMIT = 20;
 
 type MainOverviewProps = {
   selectedSettingsCameraId: number | null;
@@ -43,6 +44,11 @@ type InspectSnapshotLoadState = {
   message?: string;
 };
 
+type InspectionHistoryItem = {
+  frameId: string;
+  result: "pass" | "fail";
+};
+
 export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(INITIAL_BACKEND_STATUS);
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
@@ -53,6 +59,9 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
   const [inspectArtifactResultsByCameraId, setInspectArtifactResultsByCameraId] = useState<
     Record<number, InspectResultPayload>
+  >({});
+  const [inspectionHistoryByCameraId, setInspectionHistoryByCameraId] = useState<
+    Record<number, InspectionHistoryItem[]>
   >({});
   const [modalInspectSnapshot, setModalInspectSnapshot] = useState<InspectSnapshot>();
   const [modalInspectSnapshotLoadState, setModalInspectSnapshotLoadState] = useState<InspectSnapshotLoadState>({
@@ -307,14 +316,12 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           return;
         }
         const currentLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
-        if (currentLiveResult && compareFrameIds(inspectResult.frame_id, currentLiveResult.frame_id) > 0) {
-          return;
-        }
         const previousArtifactResult = latestArtifactResultByCameraIdRef.current[cameraId];
         if (previousArtifactResult && !isNewerSnapshot(inspectResult, previousArtifactResult)) {
           return;
         }
         latestArtifactResultByCameraIdRef.current[cameraId] = inspectResult;
+        addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
         setInspectArtifactResultsByCameraId((previousResults) => {
           return {
             ...previousResults,
@@ -342,6 +349,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       }
       delete awaitingLiveResultAfterResetByCameraIdRef.current[cameraId];
       latestInspectResultByCameraIdRef.current[cameraId] = inspectResult;
+      addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
       setInspectResultsByCameraId((previousResults) => ({
         ...previousResults,
         [cameraId]: inspectResult,
@@ -472,6 +480,33 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                 />
               );
             })}
+          </div>
+
+          <div className="inspection-history-grid">
+            {cameraGroup.map((camera) => (
+              <section
+                className="inspection-history"
+                aria-label={`Inspection history for camera ${camera.cameraId}`}
+                key={camera.cameraId}
+              >
+                <header>Camera {camera.cameraId}: latest inspections</header>
+                <div className="inspection-history__list">
+                  {(inspectionHistoryByCameraId[camera.cameraId] ?? []).map((item) => (
+                    <div
+                      className="inspection-history__item"
+                      data-result={item.result}
+                      key={item.frameId}
+                    >
+                      <span>Frame {item.frameId}</span>
+                      <strong>{item.result === "pass" ? "Годен" : "Брак"}</strong>
+                    </div>
+                  ))}
+                  {!inspectionHistoryByCameraId[camera.cameraId]?.length && (
+                    <div className="inspection-history__empty">Нет результатов</div>
+                  )}
+                </div>
+              </section>
+            ))}
           </div>
         </section>
       ))}
@@ -649,4 +684,34 @@ function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pa
   }
 
   return undefined;
+}
+
+function addInspectionHistoryItem(
+  setHistory: React.Dispatch<React.SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+  inspectResult: InspectResultPayload,
+) {
+  const result = resolveInspectionResultState(inspectResult);
+  if (!result) {
+    return;
+  }
+
+  setHistory((current) => {
+    const cameraHistory = current[inspectResult.camera_id] ?? [];
+    const existing = cameraHistory.find(
+      (item) => item.frameId === inspectResult.frame_id && item.result === result,
+    );
+    if (existing) {
+      return current;
+    }
+
+    const nextCameraHistory = [
+      { frameId: inspectResult.frame_id, result },
+      ...cameraHistory.filter((item) => item.frameId !== inspectResult.frame_id),
+    ].slice(0, INSPECTION_HISTORY_LIMIT);
+
+    return {
+      ...current,
+      [inspectResult.camera_id]: nextCameraHistory,
+    };
+  });
 }

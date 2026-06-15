@@ -117,6 +117,7 @@ class ShmFrameRequest(BaseModel):
     threshold: Optional[float] = None
     detector_id: Optional[str] = None
     algorithm_params: Optional[dict] = None
+    alignment_h_ref_to_cur: Optional[list[list[float]]] = None
 
 
 class ShmVisualsRequest(ShmFrameRequest):

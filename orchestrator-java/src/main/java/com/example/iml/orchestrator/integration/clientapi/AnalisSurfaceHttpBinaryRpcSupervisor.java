@@ -584,6 +584,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (header.get("detector_id") != null) {
             body.put("detector_id", header.get("detector_id"));
         }
+        copyIfPresent(body, header, "alignment_h_ref_to_cur");
         appendAlgorithmParams(body, header);
         return body;
     }

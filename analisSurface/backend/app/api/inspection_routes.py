@@ -79,6 +79,7 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
                     threshold=payload.threshold,
                     include_visuals=False,
                     detector_id=payload.detector_id,
+                    alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
                 )
             finally:
                 del bgr_frame
@@ -105,6 +106,7 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
                     threshold=payload.threshold,
                     include_visuals=True,
                     detector_id=payload.detector_id,
+                    alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
                 )
             finally:
                 del bgr_frame

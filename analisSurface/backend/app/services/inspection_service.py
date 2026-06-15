@@ -215,6 +215,7 @@ class InspectionService:
         threshold: Optional[float] = None,
         include_visuals: bool = True,
         detector_id: Optional[str] = None,
+        alignment_h_ref_to_cur: Optional[list[list[float]]] = None,
     ) -> InspectionResult:
         current = self._decode_image(image_bytes)
         return self.inspect_frame(
@@ -223,6 +224,7 @@ class InspectionService:
             threshold=threshold,
             include_visuals=include_visuals,
             detector_id=detector_id,
+            alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
 
     def inspect_frame(
@@ -232,13 +234,19 @@ class InspectionService:
         threshold: Optional[float] = None,
         include_visuals: bool = True,
         detector_id: Optional[str] = None,
+        alignment_h_ref_to_cur: Optional[list[list[float]]] = None,
     ) -> InspectionResult:
         settings = self.get_analysis_settings(product_type)
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
 
-        aligned = self._align_to_reference(frame, reference, product_type)
+        aligned = self._align_to_reference(
+            frame,
+            reference,
+            product_type,
+            alignment_h_ref_to_cur=alignment_h_ref_to_cur,
+        )
 
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
@@ -672,7 +680,16 @@ class InspectionService:
         current: np.ndarray,
         reference: np.ndarray,
         product_type: str,
+        alignment_h_ref_to_cur: Optional[list[list[float]]] = None,
     ) -> np.ndarray:
+        geometry_aligned = self._align_with_geometry_homography(
+            current,
+            reference,
+            alignment_h_ref_to_cur,
+        )
+        if geometry_aligned is not None:
+            return self._refine_alignment_ecc(geometry_aligned, reference)
+
         cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
         kp_ref, des_ref = self._get_ref_orb(product_type, reference)
         kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
@@ -701,6 +718,31 @@ class InspectionService:
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
         return self._refine_alignment_ecc(aligned, reference)
+
+    @staticmethod
+    def _align_with_geometry_homography(
+        current: np.ndarray,
+        reference: np.ndarray,
+        alignment_h_ref_to_cur: Optional[list[list[float]]],
+    ) -> Optional[np.ndarray]:
+        if alignment_h_ref_to_cur is None:
+            return None
+        try:
+            homography = np.asarray(alignment_h_ref_to_cur, dtype=np.float64)
+            if homography.shape != (3, 3) or not np.all(np.isfinite(homography)):
+                return None
+            if abs(float(np.linalg.det(homography))) < 1e-12:
+                return None
+            height, width = reference.shape[:2]
+            return cv2.warpPerspective(
+                current,
+                homography,
+                (width, height),
+                flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                borderMode=cv2.BORDER_REPLICATE,
+            )
+        except (TypeError, ValueError, cv2.error, np.linalg.LinAlgError):
+            return None
 
     def _compute_advanced_difference(
         self,

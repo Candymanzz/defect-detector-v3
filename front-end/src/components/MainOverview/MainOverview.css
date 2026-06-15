@@ -14,8 +14,76 @@
   padding: 10px;
 }
 
+.inspection-history-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.inspection-history {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.inspection-history > header {
+  margin-bottom: 7px;
+  color: #d8e2df;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.inspection-history__list {
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.inspection-history__item {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 0.72rem;
+}
+
+.inspection-history__item span {
+  overflow: hidden;
+  color: #b9c7c3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspection-history__item[data-result="pass"] strong {
+  color: #4ade80;
+}
+
+.inspection-history__item[data-result="fail"] strong {
+  color: #f87171;
+}
+
+.inspection-history__empty {
+  color: #7f8d89;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 1180px) {
+  .inspection-history-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .camera-overviews {
     width: 100%;
+  }
+
+  .inspection-history-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -72,8 +72,8 @@ export function StatusCard({
       </div>
 
       <div className="camera-card__frame-ids">
-        <span>Current frame: {currentFrameId ?? "-"}</span>
-        <span>Inspection frame: {inspectionFrameId ?? "-"}</span>
+        <span>Live preview frame: {currentFrameId ?? "-"}</span>
+        <span>Latest decision frame: {inspectionFrameId ?? "-"}</span>
       </div>
 
       <div className="camera-card__footer">
