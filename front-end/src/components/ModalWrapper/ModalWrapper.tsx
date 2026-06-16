@@ -370,5 +370,12 @@ function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pa
     return "fail";
   }
 
+  if (inspectResult?.overall_pass === true || inspectResult?.action === "ACCEPT") {
+    return "pass";
+  }
+  if (inspectResult?.overall_pass === false || inspectResult?.action === "REJECT") {
+    return "fail";
+  }
+
   return undefined;
 }

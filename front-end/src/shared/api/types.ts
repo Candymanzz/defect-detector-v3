@@ -47,6 +47,11 @@ export type UiLatestSnapshot = {
   detectorId: string;
   shmName: string;
   updatedAtMs: EpochMs;
+  overall_pass?: boolean | null;
+  action?: string | null;
+  anomaly_score?: number | null;
+  python_status?: string | null;
+  geometry_status?: string | null;
   hasCurrent: boolean;
   hasHeatmap: boolean;
   capture: UiCaptureSize;

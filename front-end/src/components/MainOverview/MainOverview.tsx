@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { ServerStream } from "../ServerStream";
 import { orchestratorApi } from "../../shared/api";
+import type { UiLatestSnapshot } from "../../shared/api/types";
 import { errorMessage } from "../../shared/lib/errors";
 import { orchestratorWs } from "../../shared/ws";
 import { StatusCard } from "../../shared/ui/StatusCard";
@@ -250,6 +251,14 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
       setBackendStatus(overviewData.backendStatus);
       setCameraIds(overviewData.cameraIds);
+      void hydrateCardsFromLatestSnapshots(overviewData.cameraIds, () => isActive, {
+        setPreviewImageUrlsByCameraId,
+        setPreviewFrameIdsByCameraId,
+        setInspectResultsByCameraId,
+        setInspectionHistoryByCameraId,
+        latestPreviewFrameIdByCameraIdRef,
+        latestInspectResultByCameraIdRef,
+      });
       if (inspectionStatus) {
         const nextControlStates: Record<number, InspectionControlState> = {};
         for (const cameraId of inspectionStatus.enabledCameraIds) {
@@ -693,6 +702,13 @@ function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pa
     return "fail";
   }
 
+  if (inspectResult?.overall_pass === true || inspectResult?.action === "ACCEPT") {
+    return "pass";
+  }
+  if (inspectResult?.overall_pass === false || inspectResult?.action === "REJECT") {
+    return "fail";
+  }
+
   return undefined;
 }
 
@@ -724,4 +740,120 @@ function addInspectionHistoryItem(
       [inspectResult.camera_id]: nextCameraHistory,
     };
   });
+}
+
+async function hydrateCardsFromLatestSnapshots(
+  cameraIds: number[],
+  isActive: () => boolean,
+  deps: {
+    setPreviewImageUrlsByCameraId: React.Dispatch<React.SetStateAction<CameraImageUrlsById>>;
+    setPreviewFrameIdsByCameraId: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+    setInspectResultsByCameraId: React.Dispatch<React.SetStateAction<Record<number, InspectResultPayload>>>;
+    setInspectionHistoryByCameraId: React.Dispatch<
+      React.SetStateAction<Record<number, InspectionHistoryItem[]>>
+    >;
+    latestPreviewFrameIdByCameraIdRef: React.MutableRefObject<Record<number, string>>;
+    latestInspectResultByCameraIdRef: React.MutableRefObject<Record<number, InspectResultPayload>>;
+  },
+) {
+  const snapshots = await Promise.all(
+    cameraIds.map((cameraId) => orchestratorApi.getLatestSnapshot(cameraId).catch(() => null)),
+  );
+  if (!isActive()) {
+    return;
+  }
+
+  const previewUrls: CameraImageUrlsById = {};
+  const previewFrameIds: Record<number, string> = {};
+  const inspectResults: Record<number, InspectResultPayload> = {};
+  const inspectionHistory: Record<number, InspectionHistoryItem[]> = {};
+
+  for (const snapshot of snapshots) {
+    if (!snapshot) {
+      continue;
+    }
+    const frameId = String(snapshot.frameId);
+    if (snapshot.hasCurrent && snapshot.currentJpeg?.path && snapshot.frameId >= 0) {
+      previewUrls[snapshot.cameraId] = orchestratorApi.imageUrl(snapshot.currentJpeg.path, snapshot.frameId);
+      previewFrameIds[snapshot.cameraId] = frameId;
+      deps.latestPreviewFrameIdByCameraIdRef.current[snapshot.cameraId] = frameId;
+    }
+
+    const inspectResult = latestSnapshotToInspectResult(snapshot);
+    if (!inspectResult) {
+      continue;
+    }
+    inspectResults[snapshot.cameraId] = inspectResult;
+    deps.latestInspectResultByCameraIdRef.current[snapshot.cameraId] = inspectResult;
+    const resultState = resolveInspectionResultState(inspectResult);
+    if (resultState) {
+      inspectionHistory[snapshot.cameraId] = [{ frameId: inspectResult.frame_id, result: resultState }];
+    }
+  }
+
+  if (Object.keys(previewUrls).length > 0) {
+    deps.setPreviewImageUrlsByCameraId((current) => ({ ...current, ...previewUrls }));
+  }
+  if (Object.keys(previewFrameIds).length > 0) {
+    deps.setPreviewFrameIdsByCameraId((current) => ({ ...current, ...previewFrameIds }));
+  }
+  if (Object.keys(inspectResults).length > 0) {
+    deps.setInspectResultsByCameraId((current) => ({ ...current, ...inspectResults }));
+  }
+  if (Object.keys(inspectionHistory).length > 0) {
+    deps.setInspectionHistoryByCameraId((current) => ({ ...current, ...inspectionHistory }));
+  }
+}
+
+function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): InspectResultPayload | undefined {
+  const hasDecision =
+    snapshot.python_status != null ||
+    snapshot.geometry_status != null ||
+    snapshot.overall_pass != null ||
+    snapshot.action != null;
+  if (!hasDecision || snapshot.frameId < 0) {
+    return undefined;
+  }
+
+  return {
+    camera_id: snapshot.cameraId,
+    frame_id: String(snapshot.frameId),
+    session_state: "READY",
+    current: {
+      camera_id: snapshot.cameraId,
+      frame_id: String(snapshot.frameId),
+      shm_name: snapshot.shmName ?? "",
+      width: snapshot.capture.width,
+      height: snapshot.capture.height,
+      stride: 0,
+      shm_offset: 0,
+      pixel_format: "bgr_u8",
+      channels: 3,
+      http_path: snapshot.currentJpeg?.path,
+    },
+    http_path: snapshot.currentJpeg?.path,
+    artifact_bundle_id: undefined,
+    heatmap:
+      snapshot.hasHeatmap && snapshot.heatmapU8?.path
+        ? {
+            width: snapshot.heatmapU8.width,
+            height: snapshot.heatmapU8.height,
+            pixel_format: "gray_u8",
+            channels: 1,
+            http_path: snapshot.heatmapU8.path,
+          }
+        : null,
+    active_reference_view_index: 0,
+    detector: {
+      detector_id: snapshot.detectorId,
+      product_type: snapshot.productType,
+    },
+    overall_pass: snapshot.overall_pass ?? undefined,
+    action: snapshot.action ?? undefined,
+    anomaly_score: snapshot.anomaly_score ?? undefined,
+    python_status: snapshot.python_status ?? undefined,
+    geometry_status: snapshot.geometry_status ?? undefined,
+    fp_zones: [],
+    server_ts_ms: snapshot.updatedAtMs,
+  };
 }
