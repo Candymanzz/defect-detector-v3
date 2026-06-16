@@ -118,12 +118,14 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
   const analysisSaveRequests =
     selectedCameraId === null
       ? createAllCameraAnalysisSaveRequests(cameraList?.cameras ?? [], normalizedForm.analysisSettings)
-      : [orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings)];
+      : [
+          saveWithContext(
+            `Analysis settings camera ${selectedCameraId}`,
+            orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings),
+          ),
+        ];
 
-  await Promise.all([
-    saveMaxShiftMm(normalizedForm.maxShiftMm, selectedCameraId, cameraList?.cameras ?? []),
-    ...analysisSaveRequests,
-  ]);
+  await Promise.all(analysisSaveRequests);
 
   const nextData = await loadSettingData(selectedCameraId);
 
@@ -147,6 +149,32 @@ function loadAnalysisSettings(selectedCameraId: number | null, fallbackProductTy
   }
 
   return orchestratorApi.getAnalysisSettings(fallbackProductTypes[0] ?? FALLBACK_ANALYSIS_PRODUCT_TYPE);
+}
+
+export async function saveMaxShiftData(
+  form: SettingForm,
+  analysisProductTypes: string[],
+  selectedCameraId: number | null = null,
+): Promise<SettingData> {
+  const normalizedForm = normalizeSettingForm(form);
+  const cameraList = selectedCameraId === null ? await orchestratorApi.listCameras() : null;
+
+  await saveWithContext(
+    "Geometry settings",
+    saveMaxShiftMm(normalizedForm.maxShiftMm, selectedCameraId, cameraList?.cameras ?? []),
+  );
+
+  return {
+    status: {
+      state: "ready",
+      text: "max shift saved",
+    },
+    form: {
+      ...form,
+      maxShiftMm: normalizedForm.maxShiftMm,
+    },
+    analysisProductTypes,
+  };
 }
 
 export function createSettingErrorData(error: unknown, form: SettingForm = INITIAL_SETTING_FORM): SettingData {
@@ -383,12 +411,20 @@ function resolveAnalysisProductTypesToSave(fallbackProductTypes: string[]) {
 
 function createAllCameraAnalysisSaveRequests(cameraIds: number[], settings: AnalysisSettings) {
   if (cameraIds.length === 0) {
-    return resolveAnalysisProductTypesToSave([]).map((productType) =>
-      orchestratorApi.setAnalysisSettings(productType, settings),
+    return resolveAnalysisProductTypesToSave([]).map((analysisProfile) =>
+      saveWithContext(
+        `Analysis settings profile ${analysisProfile}`,
+        orchestratorApi.setAnalysisSettings(analysisProfile, settings),
+      ),
     );
   }
 
-  return cameraIds.map((cameraId) => orchestratorApi.setCameraAnalysisSettings(cameraId, settings));
+  return cameraIds.map((cameraId) =>
+    saveWithContext(
+      `Analysis settings camera ${cameraId}`,
+      orchestratorApi.setCameraAnalysisSettings(cameraId, settings),
+    ),
+  );
 }
 
 function parseInputNumber(rawValue: string, fallback: number) {
@@ -434,6 +470,16 @@ function toBoolean(value: unknown, fallback: boolean) {
   }
 
   return fallback;
+}
+
+async function saveWithContext<T>(label: string, request: Promise<T>) {
+  try {
+    return await request;
+  } catch (error) {
+    const contextualError = new Error(`${label}: ${errorMessage(error)}`);
+    Object.defineProperty(contextualError, "cause", { value: error });
+    throw contextualError;
+  }
 }
 
 function clampBrightness(value: number) {
