@@ -242,6 +242,12 @@ public final class LivePreviewPublisher implements AutoCloseable {
                         captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
                     });
                     capture = captureHolder[0];
+                    if (!hasUsableCaptureHeader(capture)) {
+                        capture = worker.command(Map.of("op", "capture"));
+                        if (log.isDebugEnabled()) {
+                            log.debug("live_preview cam={} fallback capture (sync response had no usable frame header)", cameraId);
+                        }
+                    }
                 } else {
                     capture = worker.command(Map.of("op", "capture"));
                 }
@@ -334,6 +340,18 @@ public final class LivePreviewPublisher implements AutoCloseable {
         UiHttpServer.ClientPreviewArtifact art = UiHttpServer.writeCurrentJpegFromBgrShm(
                 shmName, width, height, stride, shmOffset, previewMaxW, q, cameraId);
         return new PathHolder(art.path(), art.width(), art.height(), art.error());
+    }
+
+    private static boolean hasUsableCaptureHeader(BinaryProtocol.Message capture) {
+        if (capture == null || capture.header() == null) {
+            return false;
+        }
+        Map<String, Object> header = capture.header();
+        long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
+        String shmName = String.valueOf(header.getOrDefault("shm_name", "")).trim();
+        int width = YamlScalars.toInt(header.get("width"), 0);
+        int height = YamlScalars.toInt(header.get("height"), 0);
+        return frameId >= 0 && !shmName.isEmpty() && width > 0 && height > 0;
     }
 
     private record PathHolder(Path path, int width, int height, String error) {
