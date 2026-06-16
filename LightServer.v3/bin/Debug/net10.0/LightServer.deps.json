@@ -10,7 +10,7 @@
         "dependencies": {
           "Swashbuckle.AspNetCore": "10.1.7",
           "System.IO.Ports": "10.0.8",
-          "MvCameraControl.Net": "4.6.0.0"
+          "MvCameraControl.Net": "4.8.0.3"
         },
         "runtime": {
           "LightServer.dll": {}
@@ -250,11 +250,11 @@
           }
         }
       },
-      "MvCameraControl.Net/4.6.0.0": {
+      "MvCameraControl.Net/4.8.0.3": {
         "runtime": {
           "MvCameraControl.Net.dll": {
-            "assemblyVersion": "4.6.0.0",
-            "fileVersion": "4.6.0.0"
+            "assemblyVersion": "4.8.0.3",
+            "fileVersion": "4.8.0.3"
           }
         }
       }
@@ -427,7 +427,7 @@
       "path": "system.io.ports/10.0.8",
       "hashPath": "system.io.ports.10.0.8.nupkg.sha512"
     },
-    "MvCameraControl.Net/4.6.0.0": {
+    "MvCameraControl.Net/4.8.0.3": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""

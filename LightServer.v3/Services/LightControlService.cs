@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
 using LightServer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,6 +12,15 @@ namespace LightServer.Services;
 public sealed class LightControlService
 {
     private const string BrightnessNode = "LightBrightness";
+    private static readonly string[] BrightnessNodeCandidates =
+    [
+        BrightnessNode,
+        "LightControllerBrightness",
+        "LightIntensity",
+        "LightControllerIntensity",
+        "LightChannelBrightness",
+        "LightControlBrightness"
+    ];
     private const int BrightnessMin = 0;
     private const int BrightnessMax = 255;
     private const int BrightnessDefaultOn = 255;
@@ -109,6 +119,7 @@ public sealed class LightControlService
                     TLayerType = d.TLayerType.ToString(),
                     ModelName = d.ModelName ?? "",
                     SerialNumber = d.SerialNumber ?? "",
+                    IpAddress = GetDeviceIpAddress(d),
                     ComPort = matchedCom
                 });
             }
@@ -123,21 +134,23 @@ public sealed class LightControlService
         return result;
     }
 
-    public (bool ok, string? error) SetLightNetwork(LightCommandRequest request)
+    public (bool ok, string? error, int? resolvedDeviceIndex) SetLightNetwork(LightCommandRequest request)
     {
         ClearSerialPortFilter();
         var (enumOk, enumErr, list) = EnumDevicesInternal(NetworkLayers);
         if (!enumOk || list == null)
-            return (false, enumErr);
+            return (false, enumErr, null);
 
-        if (request.DeviceIndex < 0 || request.DeviceIndex >= list.Count)
-            return (false, $"Invalid deviceIndex {request.DeviceIndex} (count {list.Count}).");
+        var (resolveOk, resolveErr, idx) = ResolveNetworkDeviceIndex(list, request);
+        if (!resolveOk || idx is null)
+            return (false, resolveErr, null);
 
-        IDevice device = DeviceFactory.CreateDevice(list[request.DeviceIndex]);
+        IDevice device = DeviceFactory.CreateDevice(list[idx.Value]);
         var caps = new MvLeDeviceCapabilities(
             device.Parameters.GetEnumValue("LightControllerSelector", out IEnumValue _) == MvError.MV_OK,
             device.Parameters.GetIntValue(BrightnessNode, out IIntValue _) == MvError.MV_OK);
-        return ApplyLightToDevice(device, request, caps, new object(), alreadyOpen: false, leaveOpen: false);
+        var (ok, err) = ApplyLightToDevice(device, request, caps, new object(), alreadyOpen: false, leaveOpen: false);
+        return (ok, err, idx.Value);
     }
 
     public (bool ok, string? error) InitializeComBank(IReadOnlyList<ComLightDeviceEntry> devices)
@@ -402,7 +415,7 @@ public sealed class LightControlService
                 ? (cmd.ComPort, r.Ok, r.Message)
                 : (cmd.ComPort, false, (string?)"Не подготовлен."))
             .ToList();
-    
+
     /// <summary>Применить свет к COM (сессия из банка / InitializeComBank).</summary>
     public (bool ok, string? error) ApplyComPort(LightCommandRequestCom request, int[] defaultChannels)
     {
@@ -725,6 +738,122 @@ public sealed class LightControlService
     private static string BuildDeviceKey(string model, string serial, string? comPort) =>
         $"{model}|{serial}|{comPort}";
 
+    private static (bool ok, string? error, int? index) ResolveNetworkDeviceIndex(
+        List<IDeviceInfo> list,
+        LightCommandRequest request)
+    {
+        string? serial = NormalizeOptionalInput(request.SerialNumber);
+        string? model = NormalizeOptionalInput(request.ModelName);
+        string? ip = NormalizeIp(request.IpAddress);
+        bool hasStableSelector = serial != null || model != null || ip != null;
+
+        if (!hasStableSelector)
+        {
+            if (request.DeviceIndex is null)
+                return (false, "Укажите deviceIndex или стабильный селектор: serialNumber / ipAddress / modelName.", null);
+            if (request.DeviceIndex < 0 || request.DeviceIndex >= list.Count)
+                return (false, $"Invalid deviceIndex {request.DeviceIndex} (count {list.Count}).", null);
+            return (true, null, request.DeviceIndex.Value);
+        }
+
+        List<int> matches = [];
+        for (int i = 0; i < list.Count; i++)
+        {
+            IDeviceInfo d = list[i];
+            if (serial != null && !string.Equals(d.SerialNumber, serial, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (model != null && !string.Equals(d.ModelName, model, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (ip != null && !IpMatches(d, ip))
+                continue;
+            matches.Add(i);
+        }
+
+        if (matches.Count == 0)
+        {
+            string selector = BuildSelectorDescription(serial, ip, model);
+            return (false, $"Устройство не найдено по {selector}.", null);
+        }
+
+        if (matches.Count > 1)
+        {
+            string selector = BuildSelectorDescription(serial, ip, model);
+            string variants = string.Join(", ", matches.Select(i =>
+            {
+                IDeviceInfo d = list[i];
+                string devIp = GetDeviceIpAddress(d) ?? "?";
+                return $"idx={i}:{d.ModelName}/{d.SerialNumber}/ip={devIp}";
+            }));
+            return (false, $"Найдено несколько устройств по {selector}: [{variants}]. Уточните serialNumber или ipAddress.", null);
+        }
+
+        return (true, null, matches[0]);
+    }
+
+    private static string BuildSelectorDescription(string? serial, string? ip, string? model)
+    {
+        var parts = new List<string>(3);
+        if (serial != null) parts.Add($"serialNumber='{serial}'");
+        if (ip != null) parts.Add($"ipAddress='{ip}'");
+        if (model != null) parts.Add($"modelName='{model}'");
+        return string.Join(", ", parts);
+    }
+
+    private static bool IpMatches(IDeviceInfo deviceInfo, string targetIp)
+    {
+        string? current = GetDeviceIpAddress(deviceInfo);
+        return current != null && string.Equals(current, targetIp, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetDeviceIpAddress(IDeviceInfo deviceInfo)
+    {
+        var prop = deviceInfo.GetType().GetProperty("CurrentIp");
+        if (prop == null)
+            return null;
+
+        object? raw = prop.GetValue(deviceInfo);
+        if (raw == null)
+            return null;
+
+        if (raw is string s)
+            return NormalizeIp(s);
+
+        if (raw is uint ui)
+            return UIntToIpv4(ui);
+
+        if (raw is int i)
+            return UIntToIpv4(unchecked((uint)i));
+
+        if (raw is long l)
+            return UIntToIpv4(unchecked((uint)l));
+
+        if (raw is ulong ul)
+            return UIntToIpv4((uint)ul);
+
+        return null;
+    }
+
+    private static string? NormalizeIp(string? input)
+    {
+        string? value = NormalizeOptionalInput(input);
+        if (value == null)
+            return null;
+
+        return IPAddress.TryParse(value, out IPAddress? ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+            ? ip.ToString()
+            : value;
+    }
+
+    private static string UIntToIpv4(uint ip)
+    {
+        string direct = $"{(ip >> 24) & 0xFF}.{(ip >> 16) & 0xFF}.{(ip >> 8) & 0xFF}.{ip & 0xFF}";
+        if (IPAddress.TryParse(direct, out _))
+            return direct;
+
+        return $"{ip & 0xFF}.{(ip >> 8) & 0xFF}.{(ip >> 16) & 0xFF}.{(ip >> 24) & 0xFF}";
+    }
+
     private static string? TryMatchComPort(IDeviceInfo d, IReadOnlyList<string> ports)
     {
         var normalizedPorts = ports.Select(NormalizeComPort).ToArray();
@@ -801,6 +930,7 @@ public sealed class LightControlService
                 TLayerType = d.TLayerType.ToString(),
                 ModelName = d.ModelName ?? "",
                 SerialNumber = d.SerialNumber ?? "",
+                IpAddress = GetDeviceIpAddress(d),
                 ComPort = com
             });
         }
@@ -842,6 +972,11 @@ public sealed class LightControlService
                 device.Parameters.SetIntValue("GevSCPSPacketSize", packetSize);
         }
 
+        // Some MV-LE devices do not expose selector via GetEnumValue,
+        // but still allow selecting channels by SetEnumValue / SetEnumValueByString.
+        bool selectorOperational = caps.HasLightController || ProbeSelectorWritable(device);
+        bool brightnessOperational = caps.HasBrightness || ProbeBrightnessWritable(device);
+
         try
         {
             string source = NormalizeSource(request.LightControllerSource);
@@ -852,10 +987,14 @@ public sealed class LightControlService
             if (request.Brightness is { Length: > 0 } && request.Brightness.Length != channels.Length)
                 return (false, $"brightness length ({request.Brightness.Length}) must match channels ({channels.Length}).");
 
-            if (!caps.HasLightController)
+            if (!selectorOperational)
                 return (false, "Устройство не поддерживает LightControllerSelector (не MV-LE по этому API).");
 
-            bool writeBrightness = caps.HasBrightness && !source.Equals("Off", StringComparison.OrdinalIgnoreCase);
+            bool brightnessRequested = request.Brightness is { Length: > 0 } && !source.Equals("Off", StringComparison.OrdinalIgnoreCase);
+            if (brightnessRequested && !brightnessOperational)
+                return (false, $"Устройство не принимает яркость через узлы [{string.Join(", ", BrightnessNodeCandidates)}].");
+
+            bool writeBrightness = brightnessOperational && !source.Equals("Off", StringComparison.OrdinalIgnoreCase);
             var appliedBrightness = new int[channels.Length];
 
             for (int i = 0; i < channels.Length; i++)
@@ -864,14 +1003,14 @@ public sealed class LightControlService
                 if (ch is < 1 or > 4)
                     return (false, $"Invalid channel {ch}. Use 1–4.");
 
-                appliedBrightness[i] = ResolveBrightness(request, i, channels.Length, source, caps.HasBrightness);
+                appliedBrightness[i] = ResolveBrightness(request, i, channels.Length, source, brightnessOperational);
             }
 
-            if (!ApplyAllChannels(device, syncRoot, channels, appliedBrightness, source, writeBrightness, out int failedChannel))
+            if (!ApplyAllChannels(device, syncRoot, channels, appliedBrightness, source, writeBrightness, out int failedChannel, out string? brightnessNodeUsed))
                 return (false, $"Failed channel {failedChannel}, source {source}.");
 
             string brightPart = writeBrightness
-                ? $", brightness [{string.Join(", ", appliedBrightness)}]"
+                ? $", brightness [{string.Join(", ", appliedBrightness)}], node {brightnessNodeUsed}"
                 : "";
 
             return (true, $"Channels [{string.Join(", ", channels)}] -> {source}{brightPart}.");
@@ -895,10 +1034,14 @@ public sealed class LightControlService
         int[] brightness,
         string source,
         bool writeBrightness,
-        out int failedChannel)
+        out int failedChannel,
+        out string? brightnessNodeUsed)
     {
         failedChannel = 0;
+        brightnessNodeUsed = null;
         bool hasSourceNumeric = TrySourceNumeric(source, out uint sourceNumeric);
+        string? brightnessNode = null;
+        bool brightnessNodeIsFloat = false;
 
         lock (syncRoot)
         {
@@ -913,7 +1056,7 @@ public sealed class LightControlService
 
                 if (writeBrightness)
                 {
-                    if (device.Parameters.SetIntValue(BrightnessNode, brightness[i]) != MvError.MV_OK)
+                    if (!TrySetBrightness(device, brightness[i], ref brightnessNode, ref brightnessNodeIsFloat))
                     {
                         failedChannel = ch;
                         return false;
@@ -934,6 +1077,9 @@ public sealed class LightControlService
                 }
             }
         }
+
+        if (writeBrightness && brightnessNode != null)
+            brightnessNodeUsed = brightnessNodeIsFloat ? $"{brightnessNode}:float" : $"{brightnessNode}:int";
 
         return true;
     }
@@ -976,6 +1122,51 @@ public sealed class LightControlService
 
         string selector = channel.ToString(CultureInfo.InvariantCulture);
         return device.Parameters.SetEnumValueByString("LightControllerSelector", selector) == MvError.MV_OK;
+    }
+
+    private static bool ProbeSelectorWritable(IDevice device) =>
+        SelectChannel(device, 1)
+        || SelectChannel(device, 0);
+
+    private static bool ProbeBrightnessWritable(IDevice device)
+    {
+        if (!SelectChannel(device, 1))
+            return false;
+
+        string? node = null;
+        bool isFloat = false;
+        return TrySetBrightness(device, 0, ref node, ref isFloat);
+    }
+
+    private static bool TrySetBrightness(IDevice device, int value, ref string? cachedNode, ref bool cachedNodeIsFloat)
+    {
+        if (cachedNode != null)
+        {
+            int ret = cachedNodeIsFloat
+                ? device.Parameters.SetFloatValue(cachedNode, value)
+                : device.Parameters.SetIntValue(cachedNode, value);
+            if (ret == MvError.MV_OK)
+                return true;
+        }
+
+        foreach (string node in BrightnessNodeCandidates)
+        {
+            if (device.Parameters.SetIntValue(node, value) == MvError.MV_OK)
+            {
+                cachedNode = node;
+                cachedNodeIsFloat = false;
+                return true;
+            }
+
+            if (device.Parameters.SetFloatValue(node, value) == MvError.MV_OK)
+            {
+                cachedNode = node;
+                cachedNodeIsFloat = true;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string NormalizeSource(string source)

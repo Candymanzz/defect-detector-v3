@@ -85,6 +85,18 @@
         <member name="T:LightServer.Models.LightCommandRequest">
             <summary>Команда MV-LE по индексу из GET /api/devices (сеть и т.п.).</summary>
         </member>
+        <member name="P:LightServer.Models.LightCommandRequest.DeviceIndex">
+            <summary>Legacy-выбор устройства по индексу из GET /api/devices.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.SerialNumber">
+            <summary>Предпочтительный стабильный выбор по серийному номеру.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.IpAddress">
+            <summary>Выбор по IPv4 для GigE-устройств (например 192.168.1.10).</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.ModelName">
+            <summary>Выбор по имени модели (лучше вместе с serialNumber или ipAddress).</summary>
+        </member>
         <member name="P:LightServer.Models.LightCommandRequest.Brightness">
             <summary>0–255 на канал; длина = channels. При On без массива — 255.</summary>
         </member>
@@ -187,7 +199,7 @@
         <member name="M:LightServer.Services.LightControlService.ClearSerialPortFilter">
             <summary>Сброс фильтра COM перед перечислением сети (пустой список).</summary>
         </member>
-        <member name="M:LightServer.Services.LightControlService.ApplyAllChannels(MvCameraControl.IDevice,System.Object,System.Int32[],System.Int32[],System.String,System.Boolean,System.Int32@)">
+        <member name="M:LightServer.Services.LightControlService.ApplyAllChannels(MvCameraControl.IDevice,System.Object,System.Int32[],System.Int32[],System.String,System.Boolean,System.Int32@,System.String@)">
             <summary>Один lock, последовательная запись — предсказуемое время без Parallel.For.</summary>
         </member>
         <member name="T:LightServer.Services.MvLeApplyState">

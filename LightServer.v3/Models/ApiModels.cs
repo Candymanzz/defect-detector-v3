@@ -6,6 +6,7 @@ public sealed class DeviceInfoDto
     public string TLayerType { get; set; } = "";
     public string ModelName { get; set; } = "";
     public string SerialNumber { get; set; } = "";
+    public string? IpAddress { get; set; }
     /// <summary>Для Camera Link (COM) — из ICamlDeviceInfo.PortID.</summary>
     public string? ComPort { get; set; }
 }
