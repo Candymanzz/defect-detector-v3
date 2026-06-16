@@ -39,6 +39,7 @@ public final class KopcheniHttpProxy {
                 || body.length == 0 && ("DELETE".equals(method) || "OPTIONS".equals(method));
         HttpRequest.Builder rb = HttpRequest.newBuilder(URI.create(target))
                 .timeout(Duration.ofSeconds(120))
+                .version(HttpClient.Version.HTTP_1_1)
                 .method(method, noBody ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body));
         String ct = ex.getRequestHeaders().getFirst("Content-Type");
         if (ct != null && !ct.isBlank() && body.length > 0) {
