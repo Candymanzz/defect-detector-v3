@@ -261,192 +261,221 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Object cameraPublishLock = uiPublishLockByCamera.computeIfAbsent(cameraId, ignored -> new Object());
             synchronized (cameraPublishLock) {
                 Path generatedHeatmapPreview = null;
+                Path currentJpeg = null;
+                Path temporaryCurrentJpeg = null;
                 try {
                     if (!isLatestPublish(cameraId, publishSequence)) {
                         return;
                     }
-                String artifactShmName = frozenFrame.shmName();
-                HeatmapArtifact heatmapSource = sourceHeatmap;
-                if (storeHeatmapU8
-                        && (heatmapSource.path() == null || heatmapSource.width() <= 0 || heatmapSource.height() <= 0)) {
-                    heatmapSource = generateHeatmapArtifact(
-                            uiVisualsPython,
-                            activeReference,
-                            geometry,
-                            uiCfg,
-                            cameraId,
-                            frameId,
-                            productType,
-                            detectorId,
-                            frozenFrame,
-                            width,
-                            height,
-                            stride
-                    );
-                }
-                Path heatmapU8 = heatmapSource.path();
-                int uw = heatmapSource.width();
-                int uh = heatmapSource.height();
-                int heatmapPreviewMaxWidth = Math.max(
-                        0,
-                        YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("heatmap_preview_max_width"), 512)
-                );
-                if (heatmapU8 != null && uw > 0 && uh > 0 && heatmapPreviewMaxWidth > 0) {
-                    try {
-                        HeatmapU8PreviewScaler.ScaledHeatmap preview = HeatmapU8PreviewScaler.scale(
-                                heatmapU8,
-                                uw,
-                                uh,
-                                heatmapPreviewMaxWidth
+                    String artifactShmName = frozenFrame.shmName();
+                    int currentJpegW = 0;
+                    int currentJpegH = 0;
+                    if (storeCurrent) {
+                        int previewMaxW = YamlScalars.toInt(
+                                uiCfg == null ? null : uiCfg.get("inspection_preview_max_width"),
+                                YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_max_width"), 1280)
                         );
-                        if (!preview.path().equals(heatmapU8)) {
-                            generatedHeatmapPreview = preview.path();
+                        int qualPct = YamlScalars.toInt(
+                                uiCfg == null ? null : uiCfg.get("inspection_preview_jpeg_quality"),
+                                YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_jpeg_quality"), 45)
+                        );
+                        qualPct = Math.min(100, Math.max(5, qualPct));
+                        float q = qualPct / 100f;
+                        UiHttpServer.ClientPreviewArtifact art =
+                                UiHttpServer.writeCurrentJpegFromBgrShm(
+                                        artifactShmName,
+                                        width,
+                                        height,
+                                        stride,
+                                        0L,
+                                        previewMaxW,
+                                        q,
+                                        -1
+                                );
+                        if (art.path() == null && art.error() != null) {
+                            log.debug("ui sidecar cam={} preview jpeg: {}", cameraId, art.error());
                         }
-                        heatmapU8 = preview.path();
-                        uw = preview.width();
-                        uh = preview.height();
-                    } catch (IOException e) {
-                        log.warn(
-                                "ui heatmap preview scale failed cam={} frame={} size={}x{} max_width={}: {}",
-                                cameraId,
-                                frameId,
-                                uw,
-                                uh,
-                                heatmapPreviewMaxWidth,
-                                e.getMessage()
-                        );
+                        currentJpeg = art.path();
+                        currentJpegW = art.width();
+                        currentJpegH = art.height();
+                        temporaryCurrentJpeg = currentJpeg;
                     }
-                }
-                Path currentJpeg = null;
-                int currentJpegW = 0;
-                int currentJpegH = 0;
-                Path temporaryJpeg = null;
-                if (storeCurrent) {
-                    int previewMaxW = YamlScalars.toInt(
-                            uiCfg == null ? null : uiCfg.get("inspection_preview_max_width"),
-                            YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_max_width"), 0)
-                    );
-                    int qualPct = YamlScalars.toInt(
-                            uiCfg == null ? null : uiCfg.get("inspection_preview_jpeg_quality"),
-                            YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_jpeg_quality"), 58)
-                    );
-                    qualPct = Math.min(100, Math.max(5, qualPct));
-                    float q = qualPct / 100f;
-                    boolean canCreateBundle =
-                            heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8);
-                    UiHttpServer.ClientPreviewArtifact art =
-                            UiHttpServer.writeCurrentJpegFromBgrShm(
-                                    artifactShmName,
-                                    width,
-                                    height,
-                                    stride,
-                                    0L,
-                                    previewMaxW,
-                                    q,
-                                    canCreateBundle ? -1 : cameraId
-                            );
-                    if (art.path() == null && art.error() != null) {
-                        log.debug("ui sidecar cam={} preview jpeg: {}", cameraId, art.error());
-                    }
-                    currentJpeg = art.path();
-                    currentJpegW = art.width();
-                    currentJpegH = art.height();
-                    if (canCreateBundle) {
-                        temporaryJpeg = currentJpeg;
-                    }
-                }
-                CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
-                boolean bundleSourcesReady =
-                        currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
-                try {
-                    if (bundleSourcesReady) {
-                        registeredArtifacts = uiServer.registerInspectionArtifacts(
-                            cameraId,
-                            frameId,
-                            currentJpeg,
-                            heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8)
-                                    ? heatmapU8
-                                    : null
-                        );
-                        currentJpeg = registeredArtifacts.frameJpeg();
-                        heatmapU8 = registeredArtifacts.heatmapU8();
-                    }
-                } catch (IOException e) {
-                    currentJpeg = null;
-                    currentJpegW = 0;
-                    currentJpegH = 0;
-                    heatmapU8 = null;
-                    uw = 0;
-                    uh = 0;
-                    log.warn(
-                            "inspection artifact bundle failed camera_id={} frame_id={}: {}",
-                            cameraId,
-                            frameId,
-                            e.getMessage()
-                    );
-                } finally {
-                    if (temporaryJpeg != null) {
+
+                    CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
+                    String bundleId = null;
+                    boolean hasCur =
+                            currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
+                    if (hasCur) {
                         try {
-                            Files.deleteIfExists(temporaryJpeg);
+                            registeredArtifacts = uiServer.registerInspectionArtifacts(cameraId, frameId, currentJpeg, null);
+                            bundleId = registeredArtifacts.bundleId();
+                            currentJpeg = registeredArtifacts.frameJpeg();
+                            hasCur = currentJpeg != null
+                                    && currentJpegW > 0
+                                    && currentJpegH > 0
+                                    && Files.isRegularFile(currentJpeg);
                         } catch (IOException e) {
-                            log.debug(
-                                    "temporary inspection jpeg cleanup failed path={}: {}",
-                                    temporaryJpeg,
+                            log.warn(
+                                    "inspection artifact frame bundle failed camera_id={} frame_id={}: {}",
+                                    cameraId,
+                                    frameId,
                                     e.getMessage()
                             );
                         }
                     }
-                }
-                boolean hasCur =
-                        currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
-                boolean hasHm = heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8);
-                if (hasCur || hasHm) {
-                    uiServer.update(
-                            cameraId,
-                            frameId,
-                            productType,
-                            detectorId,
-                            shmName,
-                            width,
-                            height,
-                            hasCur ? currentJpeg : null,
-                            hasCur ? currentJpegW : 0,
-                            hasCur ? currentJpegH : 0,
-                            hasHm ? heatmapU8 : null,
-                            hasHm ? uw : 0,
-                            hasHm ? uh : 0,
-                            decision
-                    );
-                }
-                if (ws != null) {
-                    try {
-                        String bundleId = registeredArtifacts == null ? null : registeredArtifacts.bundleId();
-                        String currentHttpPath = bundleId != null
-                                ? "/api/inspection-artifacts/" + bundleId + "/frame.jpg"
-                                : hasCur
-                                        ? "/api/camera/" + cameraId + "/current.jpg"
-                                        : null;
-                        String heatmapArtifactToken = bundleId == null && hasHm
-                                ? uiServer.registerHeatmapArtifact(cameraId, heatmapU8)
-                                : null;
-                        ws.notifyInspectResult(
+
+                    if (hasCur) {
+                        uiServer.update(
                                 cameraId,
+                                frameId,
                                 productType,
                                 detectorId,
-                                decision,
-                                cap,
+                                shmName,
+                                width,
+                                height,
+                                currentJpeg,
+                                currentJpegW,
+                                currentJpegH,
+                                null,
+                                0,
+                                0,
+                                decision
+                        );
+                        if (ws != null) {
+                            try {
+                                ws.notifyInspectResult(
+                                        cameraId,
+                                        productType,
+                                        detectorId,
+                                        decision,
+                                        cap,
+                                        null,
+                                        0,
+                                        0,
+                                        resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur),
+                                        null,
+                                        false,
+                                        bundleId
+                                );
+                            } catch (Exception e) {
+                                log.debug("client_ws inspect_result frame-ready cam={}: {}", cameraId, e.getMessage());
+                            }
+                        }
+                    }
+
+                    HeatmapArtifact heatmapSource = sourceHeatmap;
+                    if (storeHeatmapU8
+                            && (heatmapSource.path() == null || heatmapSource.width() <= 0 || heatmapSource.height() <= 0)) {
+                        heatmapSource = generateHeatmapArtifact(
+                                uiVisualsPython,
+                                activeReference,
+                                geometry,
+                                uiCfg,
+                                cameraId,
+                                frameId,
+                                productType,
+                                detectorId,
+                                frozenFrame,
+                                width,
+                                height,
+                                stride
+                        );
+                    }
+                    Path heatmapU8 = heatmapSource.path();
+                    int uw = heatmapSource.width();
+                    int uh = heatmapSource.height();
+                    int heatmapPreviewMaxWidth = Math.max(
+                            0,
+                            YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("heatmap_preview_max_width"), 512)
+                    );
+                    if (heatmapU8 != null && uw > 0 && uh > 0 && heatmapPreviewMaxWidth > 0) {
+                        try {
+                            HeatmapU8PreviewScaler.ScaledHeatmap preview = HeatmapU8PreviewScaler.scale(
+                                    heatmapU8,
+                                    uw,
+                                    uh,
+                                    heatmapPreviewMaxWidth
+                            );
+                            if (!preview.path().equals(heatmapU8)) {
+                                generatedHeatmapPreview = preview.path();
+                            }
+                            heatmapU8 = preview.path();
+                            uw = preview.width();
+                            uh = preview.height();
+                        } catch (IOException e) {
+                            log.warn(
+                                    "ui heatmap preview scale failed cam={} frame={} size={}x{} max_width={}: {}",
+                                    cameraId,
+                                    frameId,
+                                    uw,
+                                    uh,
+                                    heatmapPreviewMaxWidth,
+                                    e.getMessage()
+                            );
+                        }
+                    }
+
+                    boolean hasHm = heatmapU8 != null && uw > 0 && uh > 0 && Files.isRegularFile(heatmapU8);
+                    if (bundleId != null && hasHm) {
+                        try {
+                            registeredArtifacts = uiServer.attachInspectionHeatmap(bundleId, heatmapU8);
+                            heatmapU8 = registeredArtifacts.heatmapU8();
+                            hasHm = heatmapU8 != null
+                                    && uw > 0
+                                    && uh > 0
+                                    && Files.isRegularFile(heatmapU8);
+                        } catch (IOException e) {
+                            log.warn(
+                                    "inspection artifact heatmap attach failed camera_id={} frame_id={} bundle_id={}: {}",
+                                    cameraId,
+                                    frameId,
+                                    bundleId,
+                                    e.getMessage()
+                            );
+                        }
+                    }
+
+                    if (hasCur || hasHm) {
+                        uiServer.update(
+                                cameraId,
+                                frameId,
+                                productType,
+                                detectorId,
+                                shmName,
+                                width,
+                                height,
+                                hasCur ? currentJpeg : null,
+                                hasCur ? currentJpegW : 0,
+                                hasCur ? currentJpegH : 0,
                                 hasHm ? heatmapU8 : null,
                                 hasHm ? uw : 0,
                                 hasHm ? uh : 0,
-                                currentHttpPath,
-                                heatmapArtifactToken,
-                                false,
-                                bundleId
+                                decision
                         );
-                    } catch (Exception e) {
-                        log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
                     }
-                }
+                    if (ws != null && (hasCur || hasHm)) {
+                        try {
+                            String heatmapArtifactToken = bundleId == null && hasHm
+                                    ? uiServer.registerHeatmapArtifact(cameraId, heatmapU8)
+                                    : null;
+                            ws.notifyInspectResult(
+                                    cameraId,
+                                    productType,
+                                    detectorId,
+                                    decision,
+                                    cap,
+                                    hasHm ? heatmapU8 : null,
+                                    hasHm ? uw : 0,
+                                    hasHm ? uh : 0,
+                                    resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur),
+                                    heatmapArtifactToken,
+                                    false,
+                                    bundleId
+                            );
+                        } catch (Exception e) {
+                            log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
+                        }
+                    }
                 } catch (Exception e) {
                     log.warn(
                             "ui artifact publish failed camera_id={} frame_id={}: {}",
@@ -455,6 +484,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             e.getMessage()
                     );
                 } finally {
+                    if (temporaryCurrentJpeg != null && !temporaryCurrentJpeg.equals(currentJpeg)) {
+                        deleteTemporaryArtifact(temporaryCurrentJpeg, "temporary inspection jpeg");
+                    }
                     deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
                     deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");
                     try {
@@ -485,6 +517,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
         }
+    }
+
+    private static String resolveInspectionFrameHttpPath(int cameraId, String bundleId, boolean hasCurrentJpeg) {
+        if (bundleId != null && !bundleId.isBlank()) {
+            return "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
+        }
+        return hasCurrentJpeg ? "/api/camera/" + cameraId + "/current.jpg" : null;
     }
 
     private void removeQueuedPublishForCamera(ExecutorService executor, int cameraId) {

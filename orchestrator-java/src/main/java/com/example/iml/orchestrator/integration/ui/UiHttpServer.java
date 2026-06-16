@@ -137,6 +137,11 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         return new RegisteredInspectionArtifacts(bundle.id(), bundle.frameJpeg(), bundle.heatmapU8());
     }
 
+    public RegisteredInspectionArtifacts attachInspectionHeatmap(String bundleId, Path heatmapU8) throws IOException {
+        InspectionArtifactRegistry.Bundle bundle = inspectionArtifacts.attachHeatmap(bundleId, heatmapU8);
+        return new RegisteredInspectionArtifacts(bundle.id(), bundle.frameJpeg(), bundle.heatmapU8());
+    }
+
     @Override
     public byte[] readInspectionArtifact(String bundleId, String artifactName) throws IOException {
         return inspectionArtifacts.read(bundleId, artifactName);

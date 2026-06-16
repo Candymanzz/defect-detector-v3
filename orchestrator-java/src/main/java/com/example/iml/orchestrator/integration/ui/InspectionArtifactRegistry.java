@@ -72,6 +72,26 @@ public final class InspectionArtifactRegistry {
         return bundle;
     }
 
+    public synchronized Bundle attachHeatmap(String rawId, Path heatmapU8) throws IOException {
+        if (heatmapU8 == null || !Files.isRegularFile(heatmapU8)) {
+            throw new IOException("inspection heatmap source is missing");
+        }
+
+        Bundle bundle = resolve(rawId).orElseThrow(() -> new IOException("inspection artifact bundle is missing"));
+        Path storedHeatmap = bundle.frameJpeg().getParent().resolve("heatmap.u8");
+        Files.copy(heatmapU8, storedHeatmap, StandardCopyOption.REPLACE_EXISTING);
+        Bundle updatedBundle = new Bundle(
+                bundle.id(),
+                bundle.cameraId(),
+                bundle.frameId(),
+                bundle.frameJpeg(),
+                storedHeatmap,
+                bundle.createdAtEpochMs()
+        );
+        byId.put(updatedBundle.id(), updatedBundle);
+        return updatedBundle;
+    }
+
     public synchronized Optional<Bundle> resolve(String rawId) {
         if (rawId == null) {
             return Optional.empty();
