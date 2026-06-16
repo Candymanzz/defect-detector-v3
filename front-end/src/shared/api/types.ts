@@ -199,7 +199,8 @@ export type AnalysisSettings = {
 };
 
 export type AnalysisSettingsResponse = {
-  product_type: string;
+  analysis_profile?: string;
+  product_type?: string;
   settings: AnalysisSettings;
   defaults: AnalysisSettings;
   overrides: Partial<AnalysisSettings>;
