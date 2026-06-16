@@ -37,6 +37,38 @@
   align-items: end;
 }
 
+.reference-setup__group-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reference-setup__group-tab {
+  display: grid;
+  gap: 4px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2f5f7;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+}
+
+.reference-setup__group-tab span {
+  color: #9aa8a4;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reference-setup__group-tab--active {
+  border-color: #9becbd;
+  background: rgba(34, 197, 94, 0.14);
+}
+
 .reference-setup__field {
   display: grid;
   gap: 6px;
@@ -78,6 +110,8 @@
 
 .reference-setup__button:hover,
 .reference-setup__button:focus-visible,
+.reference-setup__group-tab:hover,
+.reference-setup__group-tab:focus-visible,
 .reference-setup__field select:focus-visible {
   border-color: rgba(158, 216, 200, 0.55);
   outline: none;

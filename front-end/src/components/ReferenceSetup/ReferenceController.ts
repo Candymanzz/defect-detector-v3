@@ -6,6 +6,8 @@ import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
 import { useReferenceFrames } from "./useReferenceFrames";
 import { useReferenceRoi } from "./useReferenceRoi";
 
+const CAMERAS_PER_REFERENCE_GROUP = 5;
+
 export function useReferenceSetupController(onClose: () => void, initialCameraId: number | null = null) {
   const status = useSyncExternalStore(
     (onStoreChange) => orchestratorWs.onStatus(onStoreChange),
@@ -14,12 +16,16 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   );
   const [message, setMessage] = useState("Waiting for preview frames...");
   const [cameraIds, setCameraIds] = useState<number[]>([]);
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const cameraGroups = splitCameraGroups(cameraIds);
+  const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
   const referenceFrames = useReferenceFrames(cameraIds);
-  const referenceRoi = useReferenceRoi(cameraIds, initialCameraId);
+  const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
+  const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
   const canSendReference = Boolean(
-    cameraIds.length > 0 &&
-      referenceFrames.hasRequiredReferenceFrames &&
+    activeCameraIds.length > 0 &&
+      activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
       referenceRoi.hasRequiredCameraRois &&
       referenceRoi.hasRequiredJointRoi &&
       status.state === "open",
@@ -35,10 +41,13 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           return;
         }
 
-        setCameraIds(cameras);
+        const sortedCameraIds = [...new Set(cameras)].sort((left, right) => left - right);
+        setCameraIds(sortedCameraIds);
+        const initialGroupIndex = resolveInitialGroupIndex(sortedCameraIds, initialCameraId);
+        setActiveGroupIndex(initialGroupIndex);
         setMessage(
-          cameras.length > 0
-            ? `Configured cameras: ${cameras.join(", ")}`
+          sortedCameraIds.length > 0
+            ? `Configured cameras: ${sortedCameraIds.join(", ")}`
             : "No configured cameras found",
         );
       })
@@ -125,13 +134,13 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [onClose]);
 
   const handleSendReference = () => {
-    if (!referenceFrames.hasRequiredReferenceFrames) {
-      setMessage(`Reference frames for cameras ${cameraIds.join(", ")} are required`);
+    if (!activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId])) {
+      setMessage(`Reference frames for cameras ${activeCameraIds.join(", ")} are required`);
       return;
     }
 
     if (!referenceRoi.hasRequiredCameraRois) {
-      setMessage(`ROI contours for cameras ${cameraIds.join(", ")} are required`);
+      setMessage(`ROI contours for cameras ${activeCameraIds.join(", ")} are required`);
       return;
     }
 
@@ -142,7 +151,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
     try {
       const payload = createReferenceBundleFromCameraFrames(
-        cameraIds,
+        activeCameraIds,
         referenceRoi.jointCameraId,
         referenceFrames.framesByCameraId,
         referenceRoi.roiPolygonsByCameraId,
@@ -178,10 +187,31 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     message,
     cameraIds,
     ...referenceFrames,
+    cameraGroups,
+    activeGroupIndex,
+    setActiveGroupIndex,
+    cameraSlots,
     ...referenceRoi,
     canSendReference,
     handleSendReference,
     handleSelectCamera,
     handleSelectJointRoi,
   };
+}
+
+function splitCameraGroups(cameraIds: number[]) {
+  const groups: number[][] = [];
+  for (let index = 0; index < cameraIds.length; index += CAMERAS_PER_REFERENCE_GROUP) {
+    groups.push(cameraIds.slice(index, index + CAMERAS_PER_REFERENCE_GROUP));
+  }
+  return groups;
+}
+
+function resolveInitialGroupIndex(cameraIds: number[], initialCameraId: number | null) {
+  if (initialCameraId === null) {
+    return 0;
+  }
+  const sortedCameraIds = [...new Set(cameraIds)].sort((left, right) => left - right);
+  const cameraIndex = sortedCameraIds.indexOf(initialCameraId);
+  return cameraIndex < 0 ? 0 : Math.floor(cameraIndex / CAMERAS_PER_REFERENCE_GROUP);
 }

@@ -150,7 +150,17 @@ export function ModalWrapper({
   );
 }
 
-function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: string; roiPoints?: InterestPointNorm[] }) {
+function ImagePanel({
+  label,
+  imageUrl,
+  roiPoints,
+  fetchPriority = "high",
+}: {
+  label: string;
+  imageUrl?: string;
+  roiPoints?: InterestPointNorm[];
+  fetchPriority?: "high" | "low" | "auto";
+}) {
   const svgPoints = roiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
@@ -160,6 +170,8 @@ function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: 
         <PreviewImage
           alt={label}
           className="modal-image-panel__image"
+          decoding="async"
+          fetchPriority={fetchPriority}
           placeholderClassName="modal-image-panel__placeholder"
           src={imageUrl}
         />
@@ -350,15 +362,11 @@ function getInspectResultSyncState(
 }
 
 function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pass" | "fail" | undefined {
-  if (typeof inspectResult?.overall_pass === "boolean") {
-    return inspectResult.overall_pass ? "pass" : "fail";
-  }
-
-  const action = inspectResult?.action?.toUpperCase();
-  if (action === "ACCEPT") {
+  const pythonStatus = inspectResult?.python_status?.toUpperCase();
+  if (pythonStatus === "PASS") {
     return "pass";
   }
-  if (action === "REJECT") {
+  if (pythonStatus === "FAIL" || pythonStatus === "ERROR") {
     return "fail";
   }
 

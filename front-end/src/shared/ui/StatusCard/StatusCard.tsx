@@ -66,6 +66,8 @@ export function StatusCard({
         <PreviewImage
           alt={`${objectName}, камера ${cameraId}`}
           className="camera-card__image"
+          decoding="async"
+          fetchPriority={isSelected ? "high" : "low"}
           placeholderClassName="camera-card__image-placeholder"
           src={imageUrl}
         />

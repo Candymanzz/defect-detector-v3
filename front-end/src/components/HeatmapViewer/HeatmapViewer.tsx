@@ -126,8 +126,10 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
         {backgroundImageUrl && (
           <img
             className="heatmap-viewer__image"
-            src={backgroundImageUrl}
             alt=""
+            decoding="async"
+            fetchPriority="high"
+            src={backgroundImageUrl}
           />
         )}
 

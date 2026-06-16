@@ -18,7 +18,6 @@ import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type"
 import type { HeatmapDescriptor, InspectResultPayload } from "../../shared/ws";
 import "./MainOverview.css";
 
-const PREVIEW_UPDATE_INTERVAL_MS = 30;
 const CAMERAS_PER_OVERVIEW = 5;
 const INSPECTION_HISTORY_LIMIT = 20;
 
@@ -76,7 +75,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const latestArtifactResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
   const awaitingLiveResultAfterResetByCameraIdRef = useRef<Record<number, boolean>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
-  const previewUpdateTimerRef = useRef<number | null>(null);
+  const previewUpdateFrameRef = useRef<number | null>(null);
   const modalInspectSnapshotRef = useRef<InspectSnapshot | undefined>(undefined);
   const retiredInspectSnapshotsRef = useRef<InspectSnapshot[]>([]);
   const selectedModalCameraIdRef = useRef<number | undefined>(undefined);
@@ -305,16 +304,16 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         }));
         pendingPreviewUrlsByCameraIdRef.current[cameraId] = imageUrl;
 
-        if (previewUpdateTimerRef.current === null) {
-          previewUpdateTimerRef.current = window.setTimeout(() => {
-            previewUpdateTimerRef.current = null;
+        if (previewUpdateFrameRef.current === null) {
+          previewUpdateFrameRef.current = window.requestAnimationFrame(() => {
+            previewUpdateFrameRef.current = null;
             const pendingPreviewUrls = pendingPreviewUrlsByCameraIdRef.current;
             pendingPreviewUrlsByCameraIdRef.current = {};
             setPreviewImageUrlsByCameraId((previousImageUrls) => ({
               ...previousImageUrls,
               ...pendingPreviewUrls,
             }));
-          }, PREVIEW_UPDATE_INTERVAL_MS);
+          });
         }
         return;
       }
@@ -376,9 +375,9 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
     return () => {
       unsubscribeMessage();
-      if (previewUpdateTimerRef.current !== null) {
-        window.clearTimeout(previewUpdateTimerRef.current);
-        previewUpdateTimerRef.current = null;
+      if (previewUpdateFrameRef.current !== null) {
+        window.cancelAnimationFrame(previewUpdateFrameRef.current);
+        previewUpdateFrameRef.current = null;
       }
       pendingPreviewUrlsByCameraIdRef.current = {};
     };
@@ -686,15 +685,11 @@ function revokeInspectSnapshot(snapshot: InspectSnapshot) {
 }
 
 function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pass" | "fail" | undefined {
-  if (typeof inspectResult?.overall_pass === "boolean") {
-    return inspectResult.overall_pass ? "pass" : "fail";
-  }
-
-  const action = inspectResult?.action?.toUpperCase();
-  if (action === "ACCEPT") {
+  const pythonStatus = inspectResult?.python_status?.toUpperCase();
+  if (pythonStatus === "PASS") {
     return "pass";
   }
-  if (action === "REJECT") {
+  if (pythonStatus === "FAIL" || pythonStatus === "ERROR") {
     return "fail";
   }
 
