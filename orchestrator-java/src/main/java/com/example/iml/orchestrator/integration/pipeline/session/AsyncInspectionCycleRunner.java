@@ -218,13 +218,11 @@ public final class AsyncInspectionCycleRunner {
                 // Decision/fan-out stays outside timeout window.
                 decisionFuture.join();
             } catch (TimeoutException e) {
-                pythonFuture.cancel(true);
-                decisionFuture.cancel(true);
+                cancelInspectionFutures(captureFuture, geometryFuture, pythonFuture, decisionFuture);
                 throw e;
             } catch (ExecutionException e) {
                 if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
-                    pythonFuture.cancel(true);
-                    decisionFuture.cancel(true);
+                    cancelInspectionFutures(captureFuture, geometryFuture, pythonFuture, decisionFuture);
                     svc.log().info("integration cam={}: inspection cycle cancelled", in.cameraId());
                     return;
                 }
@@ -235,8 +233,7 @@ public final class AsyncInspectionCycleRunner {
                 throw new RuntimeException(cause);
             } catch (InterruptedException e) {
                 if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
-                    pythonFuture.cancel(true);
-                    decisionFuture.cancel(true);
+                    cancelInspectionFutures(captureFuture, geometryFuture, pythonFuture, decisionFuture);
                     svc.log().info("integration cam={}: inspection cycle interrupted by cancel", in.cameraId());
                     return;
                 }
@@ -341,5 +338,11 @@ public final class AsyncInspectionCycleRunner {
         }
         svc.log().info("integration cam={}: inspection cycle cancelled by client", cameraId);
         return true;
+    }
+
+    private static void cancelInspectionFutures(CompletableFuture<?>... futures) {
+        for (CompletableFuture<?> future : futures) {
+            future.cancel(true);
+        }
     }
 }
