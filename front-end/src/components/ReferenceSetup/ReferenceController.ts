@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { MutableRefObject } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { orchestratorWs } from "../../shared/ws";
 import type { ServerWsMessage } from "../../shared/ws";
@@ -7,6 +8,7 @@ import { useReferenceFrames } from "./useReferenceFrames";
 import { useReferenceRoi } from "./useReferenceRoi";
 
 const CAMERAS_PER_REFERENCE_GROUP = 5;
+const REFERENCE_PREVIEW_PAUSE_TIMEOUT_MS = 15000;
 
 export function useReferenceSetupController(onClose: () => void, initialCameraId: number | null = null) {
   const status = useSyncExternalStore(
@@ -17,6 +19,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [message, setMessage] = useState("Waiting for preview frames...");
   const [cameraIds, setCameraIds] = useState<number[]>([]);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const referencePreviewResumeTimerRef = useRef<number | null>(null);
+  const isReferencePreviewPausedRef = useRef(false);
+  const pendingReferenceMessageIdsRef = useRef<Set<string>>(new Set());
   const cameraGroups = splitCameraGroups(cameraIds);
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
   const referenceFrames = useReferenceFrames(cameraIds);
@@ -28,6 +33,15 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
       referenceRoi.hasRequiredCameraRois &&
       referenceRoi.hasRequiredJointRoi &&
+      status.state === "open",
+  );
+  const canSendAllReferences = Boolean(
+    cameraGroups.length > 1 &&
+      cameraGroups.every(
+        (groupCameraIds) =>
+          groupCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
+          referenceRoi.hasRequiredRoisForCameraIds(groupCameraIds),
+      ) &&
       status.state === "open",
   );
 
@@ -78,9 +92,15 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           // Temporarily disabled: ReferenceSetup does not manage server streams.
           break;
         case "server.reference_bundle_ack":
+          pendingReferenceMessageIdsRef.current.delete(message.message_id);
+          if (pendingReferenceMessageIdsRef.current.size === 0) {
+            resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
+          }
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;
         case "server.error":
+          pendingReferenceMessageIdsRef.current.clear();
+          resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
           setMessage(`${message.payload.code}: ${message.payload.message}`);
           break;
         default:
@@ -92,6 +112,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
     return () => {
       unsubscribeMessage();
+      pendingReferenceMessageIdsRef.current.clear();
+      resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
     };
   }, [handlePreviewFrame]);
 
@@ -123,6 +145,20 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [cameraIds, refreshLatestImages]);
 
   useEffect(() => {
+    if (status.state !== "open" || cameraIds.length === 0 || isReferencePreviewPausedRef.current) {
+      return;
+    }
+
+    const missingCameraIds = cameraIds.filter((cameraId) => !referenceFrames.framesByCameraId[cameraId]);
+    if (missingCameraIds.length > 0) {
+      return;
+    }
+
+    pauseReferencePreview(isReferencePreviewPausedRef);
+    setMessage(`Reference frames locked for cameras: ${cameraIds.join(", ")}`);
+  }, [cameraIds, referenceFrames.framesByCameraId, status.state]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
@@ -134,32 +170,54 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [onClose]);
 
   const handleSendReference = () => {
-    if (!activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId])) {
-      setMessage(`Reference frames for cameras ${activeCameraIds.join(", ")} are required`);
+    sendReferenceForGroups([activeCameraIds]);
+  };
+
+  const handleSendAllReferences = () => {
+    sendReferenceForGroups(cameraGroups);
+  };
+
+  const sendReferenceForGroups = (targetGroups: number[][]) => {
+    const groupsToSend = targetGroups.filter((groupCameraIds) => groupCameraIds.length > 0);
+    if (groupsToSend.length === 0) {
+      setMessage("Configured camera list is empty");
       return;
     }
 
-    if (!referenceRoi.hasRequiredCameraRois) {
-      setMessage(`ROI contours for cameras ${activeCameraIds.join(", ")} are required`);
-      return;
-    }
+    for (const groupCameraIds of groupsToSend) {
+      if (!groupCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId])) {
+        setMessage(`Reference frames for cameras ${groupCameraIds.join(", ")} are required`);
+        return;
+      }
 
-    if (!referenceRoi.hasRequiredJointRoi) {
-      setMessage(`Joint ROI contour for camera ${referenceRoi.jointCameraId} is required`);
-      return;
+      if (!referenceRoi.hasRequiredRoisForCameraIds(groupCameraIds)) {
+        setMessage(`ROI contours for cameras ${groupCameraIds.join(", ")} are required`);
+        return;
+      }
     }
 
     try {
-      const payload = createReferenceBundleFromCameraFrames(
-        activeCameraIds,
-        referenceRoi.jointCameraId,
-        referenceFrames.framesByCameraId,
-        referenceRoi.roiPolygonsByCameraId,
-        referenceRoi.jointRoiPolygon,
+      startReferenceResumeTimeout(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
+      pendingReferenceMessageIdsRef.current.clear();
+      for (const groupCameraIds of groupsToSend) {
+        const payload = createReferenceBundleFromCameraFrames(
+          groupCameraIds,
+          groupCameraIds[0],
+          referenceFrames.framesByCameraId,
+          referenceRoi.roiPolygonsByCameraId,
+          referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
+        );
+        const messageId = orchestratorWs.sendReferenceBundle(payload, imageUrlsByCameraId);
+        pendingReferenceMessageIdsRef.current.add(messageId);
+      }
+      setMessage(
+        groupsToSend.length === 1
+          ? `Reference bundle sent for cameras ${groupsToSend[0].join(", ")}`
+          : `Reference bundles sent for ${groupsToSend.length} groups`,
       );
-      orchestratorWs.sendReferenceBundle(payload, imageUrlsByCameraId);
-      setMessage("Reference bundle sent");
     } catch (error) {
+      pendingReferenceMessageIdsRef.current.clear();
+      resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
@@ -193,7 +251,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     cameraSlots,
     ...referenceRoi,
     canSendReference,
+    canSendAllReferences,
     handleSendReference,
+    handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,
   };
@@ -214,4 +274,49 @@ function resolveInitialGroupIndex(cameraIds: number[], initialCameraId: number |
   const sortedCameraIds = [...new Set(cameraIds)].sort((left, right) => left - right);
   const cameraIndex = sortedCameraIds.indexOf(initialCameraId);
   return cameraIndex < 0 ? 0 : Math.floor(cameraIndex / CAMERAS_PER_REFERENCE_GROUP);
+}
+
+function pauseReferencePreview(isPausedRef: MutableRefObject<boolean>) {
+  if (isPausedRef.current) {
+    return;
+  }
+
+  orchestratorWs.sendPreviewPause();
+  isPausedRef.current = true;
+}
+
+function startReferenceResumeTimeout(
+  timerRef: MutableRefObject<number | null>,
+  isPausedRef: MutableRefObject<boolean>,
+) {
+  if (timerRef.current !== null) {
+    window.clearTimeout(timerRef.current);
+  }
+
+  pauseReferencePreview(isPausedRef);
+  timerRef.current = window.setTimeout(() => {
+    timerRef.current = null;
+    resumePreviewAfterReference(timerRef, isPausedRef);
+  }, REFERENCE_PREVIEW_PAUSE_TIMEOUT_MS);
+}
+
+function resumePreviewAfterReference(
+  timerRef: MutableRefObject<number | null>,
+  isPausedRef: MutableRefObject<boolean>,
+) {
+  if (timerRef.current !== null) {
+    window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+
+  if (!isPausedRef.current) {
+    return;
+  }
+
+  try {
+    orchestratorWs.sendPreviewResume();
+    isPausedRef.current = false;
+  } catch {
+    // The WebSocket status UI will surface connection problems.
+  }
 }

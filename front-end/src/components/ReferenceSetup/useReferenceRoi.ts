@@ -26,6 +26,14 @@ export function useReferenceRoi(
   const hasRequiredJointRoi = isValidRoiPolygon(jointRoiPolygon);
   const jointViewIndex = activeCameraIds.indexOf(jointCameraId);
 
+  const getJointRoiPolygonForCameraIds = (targetCameraIds: number[]) =>
+    jointRoiPolygonsByGroupKey[createGroupKey(targetCameraIds)] ?? [];
+
+  const hasRequiredRoisForCameraIds = (targetCameraIds: number[]) =>
+    targetCameraIds.length > 0 &&
+    targetCameraIds.every((cameraId) => isValidRoiPolygon(roiPolygonsByCameraId[cameraId])) &&
+    isValidRoiPolygon(getJointRoiPolygonForCameraIds(targetCameraIds));
+
   const setRoiPolygonForCamera = (cameraId: number, points: InterestPointNorm[]) => {
     const targetCameraId = resolveCameraId(cameraIds, cameraId);
 
@@ -64,6 +72,8 @@ export function useReferenceRoi(
     roiPolygonsByCameraId,
     selectedCameraId,
     selectedRoiMode,
+    getJointRoiPolygonForCameraIds,
+    hasRequiredRoisForCameraIds,
     selectJointRoi,
     setJointRoiPolygon: setJointRoi,
     setRoiPolygonForCamera,

@@ -23,7 +23,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     hasSelectedCameraRoi,
     hasRequiredJointRoi,
     canSendReference,
+    canSendAllReferences,
     handleSendReference,
+    handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,
     selectedCameraId,
@@ -105,6 +107,16 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             >
               Задать эталон
             </button>
+            {cameraGroups.length > 1 && (
+              <button
+                className="reference-setup__button reference-setup__button--secondary"
+                type="button"
+                disabled={!canSendAllReferences}
+                onClick={handleSendAllReferences}
+              >
+                Задать все эталоны
+              </button>
+            )}
           </div>
 
           <div className="reference-setup__workspace">
