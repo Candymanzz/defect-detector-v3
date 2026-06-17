@@ -94,28 +94,29 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   );
   const modalInspectionControlState = selectedCamera ? inspectionControlByCameraId[selectedCamera.cameraId] : undefined;
   const selectedInspectResult = selectedCamera ? inspectResultsByCameraId[selectedCamera.cameraId] : undefined;
-  const displayedModalInspectSnapshot =
-    selectedCamera &&
-    modalInspectSnapshot?.inspectResult.camera_id === selectedCamera.cameraId &&
-    (!selectedInspectResult || compareInspectResults(modalInspectSnapshot.inspectResult, selectedInspectResult) >= 0)
-      ? modalInspectSnapshot
-      : undefined;
-  const displayedModalInspectResult = displayedModalInspectSnapshot?.inspectResult ?? selectedInspectResult;
-  const selectedInspectImageUrl = selectedInspectResult ? createWsFrameImageUrl(selectedInspectResult) : undefined;
-  const matchingPreviewImageUrl =
-    selectedCamera &&
-    selectedInspectResult &&
-    previewFrameIdsByCameraId[selectedCamera.cameraId] === selectedInspectResult.frame_id
-      ? previewImageUrlsByCameraId[selectedCamera.cameraId]
-      : undefined;
-  const displayedModalImageUrl =
-    displayedModalInspectSnapshot?.imageUrl ?? selectedInspectImageUrl ?? matchingPreviewImageUrl;
-  const displayedModalHeatmapUrl =
-    displayedModalInspectSnapshot?.heatmapUrl ??
-    (selectedInspectResult?.heatmap ? resolveHeatmapSourceUrlOrUndefined(selectedInspectResult.heatmap) : undefined);
   const selectedArtifactResult = selectedCamera
     ? inspectArtifactResultsByCameraId[selectedCamera.cameraId]
     : undefined;
+  const selectedModalInspectResult = resolveModalInspectResult(selectedInspectResult, selectedArtifactResult);
+  const displayedModalInspectSnapshot =
+    selectedCamera &&
+    modalInspectSnapshot?.inspectResult.camera_id === selectedCamera.cameraId &&
+    (!selectedModalInspectResult || compareInspectResults(modalInspectSnapshot.inspectResult, selectedModalInspectResult) >= 0)
+      ? modalInspectSnapshot
+      : undefined;
+  const displayedModalInspectResult = displayedModalInspectSnapshot?.inspectResult ?? selectedModalInspectResult;
+  const displayedInspectImageUrl = displayedModalInspectResult ? createWsFrameImageUrl(displayedModalInspectResult) : undefined;
+  const matchingPreviewImageUrl =
+    selectedCamera &&
+    displayedModalInspectResult &&
+    previewFrameIdsByCameraId[selectedCamera.cameraId] === displayedModalInspectResult.frame_id
+      ? previewImageUrlsByCameraId[selectedCamera.cameraId]
+      : undefined;
+  const displayedModalImageUrl =
+    displayedModalInspectSnapshot?.imageUrl ?? displayedInspectImageUrl ?? matchingPreviewImageUrl;
+  const displayedModalHeatmapUrl =
+    displayedModalInspectSnapshot?.heatmapUrl ??
+    (displayedModalInspectResult?.heatmap ? resolveHeatmapSourceUrlOrUndefined(displayedModalInspectResult.heatmap) : undefined);
   selectedModalCameraIdRef.current = selectedCamera?.cameraId;
 
   const retireModalInspectSnapshot = useCallback(() => {
@@ -472,6 +473,8 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
             {cameraGroup.map((camera) => {
               const inspectionControlState = inspectionControlByCameraId[camera.cameraId];
               const inspectResult = inspectResultsByCameraId[camera.cameraId];
+              const artifactInspectResult = inspectArtifactResultsByCameraId[camera.cameraId];
+              const inspectImageUrl = resolveCardInspectImageUrl(inspectResult, artifactInspectResult);
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
@@ -481,7 +484,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   key={camera.cameraId}
                   cameraId={camera.cameraId}
                   objectName={camera.objectName}
-                  imageUrl={camera.imageUrl}
+                  imageUrl={inspectImageUrl ?? camera.imageUrl}
                   currentFrameId={previewFrameIdsByCameraId[camera.cameraId]}
                   inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
@@ -594,6 +597,36 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
 function isNewerSnapshot(candidate: InspectResultPayload, current: InspectResultPayload) {
   return compareInspectResults(candidate, current) > 0;
+}
+
+function resolveCardInspectImageUrl(
+  inspectResult: InspectResultPayload | undefined,
+  artifactInspectResult: InspectResultPayload | undefined,
+) {
+  if (!inspectResult) {
+    return undefined;
+  }
+
+  return (
+    createWsFrameImageUrl(inspectResult) ??
+    (artifactInspectResult && artifactInspectResult.frame_id === inspectResult.frame_id
+      ? createWsFrameImageUrl(artifactInspectResult)
+      : undefined)
+  );
+}
+
+function resolveModalInspectResult(
+  inspectResult: InspectResultPayload | undefined,
+  artifactInspectResult: InspectResultPayload | undefined,
+) {
+  if (!inspectResult) {
+    return artifactInspectResult;
+  }
+  if (!artifactInspectResult) {
+    return inspectResult;
+  }
+
+  return compareInspectResults(artifactInspectResult, inspectResult) >= 0 ? artifactInspectResult : inspectResult;
 }
 
 function isSameInspectResult(left: InspectResultPayload, right: InspectResultPayload) {
