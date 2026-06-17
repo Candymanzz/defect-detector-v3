@@ -28,15 +28,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId);
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
-  const canSendReference = Boolean(
-    activeCameraIds.length > 0 &&
-      activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
-      referenceRoi.hasRequiredCameraRois &&
-      referenceRoi.hasRequiredJointRoi &&
-      status.state === "open",
-  );
   const canSendAllReferences = Boolean(
-    cameraGroups.length > 1 &&
+    cameraGroups.length > 0 &&
       cameraGroups.every(
         (groupCameraIds) =>
           groupCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
@@ -169,10 +162,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const handleSendReference = () => {
-    sendReferenceForGroups([activeCameraIds]);
-  };
-
   const handleSendAllReferences = () => {
     sendReferenceForGroups(cameraGroups);
   };
@@ -215,6 +204,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           ? `Reference bundle sent for cameras ${groupsToSend[0].join(", ")}`
           : `Reference bundles sent for ${groupsToSend.length} groups`,
       );
+      resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
     } catch (error) {
       pendingReferenceMessageIdsRef.current.clear();
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
@@ -250,9 +240,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     setActiveGroupIndex,
     cameraSlots,
     ...referenceRoi,
-    canSendReference,
     canSendAllReferences,
-    handleSendReference,
     handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,

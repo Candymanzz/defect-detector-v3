@@ -22,9 +22,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     jointCameraId,
     hasSelectedCameraRoi,
     hasRequiredJointRoi,
-    canSendReference,
     canSendAllReferences,
-    handleSendReference,
     handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,
@@ -102,12 +100,12 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             <button
               className="reference-setup__button reference-setup__button--primary"
               type="button"
-              disabled={!canSendReference}
-              onClick={handleSendReference}
+              disabled={!canSendAllReferences}
+              onClick={handleSendAllReferences}
             >
               Задать эталон
             </button>
-            {cameraGroups.length > 1 && (
+            {false && (
               <button
                 className="reference-setup__button reference-setup__button--secondary"
                 type="button"
