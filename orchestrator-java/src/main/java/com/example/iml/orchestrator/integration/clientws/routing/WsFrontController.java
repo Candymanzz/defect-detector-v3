@@ -5,6 +5,8 @@ import com.example.iml.orchestrator.integration.clientws.exception.ClientWsExcep
 import com.example.iml.orchestrator.integration.clientws.handler.FpZonesUpdateWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.LightBrightnessWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewPauseWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesDisableWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesEnableWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewResumeWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.ReferenceBundleWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.SetActiveReferenceViewWsHandler;
@@ -68,6 +70,14 @@ public final class WsFrontController {
         router.register(new WsRoute(WsMessageTypes.CLIENT_LIGHT_BRIGHTNESS, new LightBrightnessWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_PREVIEW_PAUSE, new PreviewPauseWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_PREVIEW_RESUME, new PreviewResumeWsHandler()));
+        router.register(new WsRoute(
+                WsMessageTypes.CLIENT_PREVIEW_IMAGES_DISABLE,
+                new PreviewImagesDisableWsHandler()
+        ));
+        router.register(new WsRoute(
+                WsMessageTypes.CLIENT_PREVIEW_IMAGES_ENABLE,
+                new PreviewImagesEnableWsHandler()
+        ));
         router.register(new WsRoute(WsMessageTypes.CLIENT_STREAM_START, new StreamStartWsHandler()));
         router.register(new WsRoute(WsMessageTypes.CLIENT_STREAM_STOP, new StreamStopWsHandler()));
         return router;

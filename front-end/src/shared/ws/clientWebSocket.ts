@@ -157,6 +157,14 @@ export class OrchestratorWebSocketClient {
     return this.send("client.preview_resume", {});
   }
 
+  disablePreviewImages() {
+    return this.send("client.preview_images_disable", {});
+  }
+
+  enablePreviewImages() {
+    return this.send("client.preview_images_enable", {});
+  }
+
   sendStreamStart(payload: ClientStreamStartPayload) {
     return this.send("client.stream_start", payload);
   }

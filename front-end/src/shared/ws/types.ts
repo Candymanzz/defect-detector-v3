@@ -9,6 +9,8 @@ export type ClientWsMessageType =
   | "client.light_brightness"
   | "client.preview_pause"
   | "client.preview_resume"
+  | "client.preview_images_disable"
+  | "client.preview_images_enable"
   | "client.stream_start"
   | "client.stream_stop";
 
@@ -355,6 +357,8 @@ export type ClientWsPayloadByType = {
   "client.light_brightness": ClientLightBrightnessPayload;
   "client.preview_pause": Record<string, never>;
   "client.preview_resume": Record<string, never>;
+  "client.preview_images_disable": Record<string, never>;
+  "client.preview_images_enable": Record<string, never>;
   "client.stream_start": ClientStreamStartPayload;
   "client.stream_stop": ClientStreamStopPayload;
 };
@@ -366,5 +370,7 @@ export type ClientWsMessage =
   | ClientWsEnvelope<"client.light_brightness">
   | ClientWsEnvelope<"client.preview_pause">
   | ClientWsEnvelope<"client.preview_resume">
+  | ClientWsEnvelope<"client.preview_images_disable">
+  | ClientWsEnvelope<"client.preview_images_enable">
   | ClientWsEnvelope<"client.stream_start">
   | ClientWsEnvelope<"client.stream_stop">;
