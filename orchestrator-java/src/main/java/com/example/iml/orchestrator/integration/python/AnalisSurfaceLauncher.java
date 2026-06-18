@@ -34,7 +34,8 @@ public final class AnalisSurfaceLauncher {
             boolean enabled,
             Path workingDir,
             String healthUrl,
-            int startupTimeoutMs
+            int startupTimeoutMs,
+            int inspectWorkers
     ) {
     }
 
@@ -73,12 +74,14 @@ public final class AnalisSurfaceLauncher {
             ExternalServiceProcess process = ExternalServiceProcess.start(
                     PROCESS_LABEL,
                     resolvedCommand,
-                    settings.workingDir()
+                    settings.workingDir(),
+                    Map.of("ANALIS_INSPECT_WORKERS", String.valueOf(settings.inspectWorkers()))
             );
             waitForHealth(settings.healthUrl(), settings.startupTimeoutMs(), process);
             log.info(
-                    "analisSurface ready url={} command={} cwd={}",
+                    "analisSurface ready url={} inspect_workers={} command={} cwd={}",
                     settings.healthUrl(),
+                    settings.inspectWorkers(),
                     resolvedCommand,
                     settings.workingDir().toAbsolutePath()
             );
@@ -98,6 +101,7 @@ public final class AnalisSurfaceLauncher {
         String workingDirRel = DEFAULT_BACKEND_DIR;
         int timeoutMs = 180_000;
         String healthPath = "/health";
+        int inspectWorkers = 10;
 
         if (integration != null) {
             Object raw = integration.get("analis_surface_autostart");
@@ -110,6 +114,7 @@ public final class AnalisSurfaceLauncher {
                 if (m.get("health_path") != null) {
                     healthPath = String.valueOf(m.get("health_path")).trim();
                 }
+                inspectWorkers = Math.max(1, YamlScalars.toInt(m.get("inspect_workers"), inspectWorkers));
             }
             Object cmdWin = integration.get("analis_surface_command_windows");
             Object cmdLinux = integration.get("analis_surface_command_linux");
@@ -129,7 +134,7 @@ public final class AnalisSurfaceLauncher {
         String path = healthPath.startsWith("/") ? healthPath : "/" + healthPath;
         String healthUrl = base + path;
         Path workingDir = projectRoot.resolve(workingDirRel).normalize();
-        return new AutostartSettings(enabled, workingDir, healthUrl, timeoutMs);
+        return new AutostartSettings(enabled, workingDir, healthUrl, timeoutMs, inspectWorkers);
     }
 
     private static List<String> defaultCommand(Path projectRoot, boolean isWindows) {

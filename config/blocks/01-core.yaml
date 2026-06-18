@@ -94,6 +94,8 @@ integration:
   # Автозапуск uvicorn (как LightServer). Один раз: pip install в analisSurface/backend/.venv
   analis_surface_autostart:
     enabled: true
+    # Потоков inspect в одном uvicorn (10 кадров с 10 камер параллельно).
+    inspect_workers: 10
     working_dir: "analisSurface/backend"
     startup_timeout_ms: 180000
     health_path: "/health"

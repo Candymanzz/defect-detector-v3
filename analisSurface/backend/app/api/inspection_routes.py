@@ -1,10 +1,13 @@
+import asyncio
 import logging
+from functools import partial
 from pathlib import Path
 
 import cv2
+import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from app.api.dependencies import inspection_service
+from app.api.dependencies import inspect_executor, inspection_service
 from app.api.mappers import to_inspect_response, to_visuals_response
 from app.api.schemas import (
     DetectorHealthResponse,
@@ -87,27 +90,55 @@ async def upload_reference_shm(payload: ShmFrameRequest) -> dict:
     return {"message": "Reference uploaded from shared memory", "product_type": payload.product_type}
 
 
+def _copy_shm_bgr_frame(payload: ShmFrameRequest) -> np.ndarray:
+    with open_bgr_shm_frame(
+        shm_name=payload.shm_name,
+        width=payload.width,
+        height=payload.height,
+        stride=payload.stride,
+        shm_offset=payload.shm_offset,
+    ) as bgr_frame:
+        return np.copy(bgr_frame)
+
+
+def _inspect_shm_sync(
+    payload: ShmFrameRequest,
+    *,
+    include_visuals: bool,
+    include_heatmap_u8: bool,
+):
+    frame = _copy_shm_bgr_frame(payload)
+    return inspection_service.inspect_frame(
+        product_type=payload.product_type,
+        frame=frame,
+        threshold=payload.threshold,
+        include_visuals=include_visuals,
+        include_heatmap_u8=include_heatmap_u8,
+        detector_id=payload.detector_id,
+        alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
+    )
+
+
+async def _inspect_shm_parallel(
+    payload: ShmFrameRequest,
+    *,
+    include_visuals: bool,
+    include_heatmap_u8: bool,
+):
+    loop = asyncio.get_running_loop()
+    job = partial(
+        _inspect_shm_sync,
+        payload,
+        include_visuals=include_visuals,
+        include_heatmap_u8=include_heatmap_u8,
+    )
+    return await loop.run_in_executor(inspect_executor, job)
+
+
 @router.post("/inspect-shm", response_model=InspectResponse)
 async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
     try:
-        with open_bgr_shm_frame(
-            shm_name=payload.shm_name,
-            width=payload.width,
-            height=payload.height,
-            stride=payload.stride,
-            shm_offset=payload.shm_offset,
-        ) as bgr_frame:
-            try:
-                result = inspection_service.inspect_frame(
-                    product_type=payload.product_type,
-                    frame=bgr_frame,
-                    threshold=payload.threshold,
-                    include_visuals=False,
-                    detector_id=payload.detector_id,
-                    alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
-                )
-            finally:
-                del bgr_frame
+        result = await _inspect_shm_parallel(payload, include_visuals=False, include_heatmap_u8=False)
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -117,31 +148,17 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
 @router.post("/inspect-shm-visuals", response_model=ShmVisualsResponse)
 async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
     try:
-        with open_bgr_shm_frame(
-            shm_name=payload.shm_name,
-            width=payload.width,
-            height=payload.height,
-            stride=payload.stride,
-            shm_offset=payload.shm_offset,
-        ) as bgr_frame:
-            try:
-                result = inspection_service.inspect_frame(
-                    product_type=payload.product_type,
-                    frame=bgr_frame,
-                    threshold=payload.threshold,
-                    include_visuals=any(
-                        (
-                            payload.aligned_image_u8_output_path,
-                            payload.diff_map_u8_output_path,
-                            payload.segmentation_mask_u8_output_path,
-                        )
-                    ),
-                    include_heatmap_u8=payload.heatmap_u8_output_path is not None,
-                    detector_id=payload.detector_id,
-                    alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
+        result = await _inspect_shm_parallel(
+            payload,
+            include_visuals=any(
+                (
+                    payload.aligned_image_u8_output_path,
+                    payload.diff_map_u8_output_path,
+                    payload.segmentation_mask_u8_output_path,
                 )
-            finally:
-                del bgr_frame
+            ),
+            include_heatmap_u8=payload.heatmap_u8_output_path is not None,
+        )
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

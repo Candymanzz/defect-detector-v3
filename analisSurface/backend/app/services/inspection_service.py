@@ -247,6 +247,7 @@ class InspectionService:
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
+        reference = reference.copy()
 
         aligned = self._align_to_reference(
             frame,
