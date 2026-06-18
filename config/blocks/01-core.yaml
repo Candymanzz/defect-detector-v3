@@ -3,14 +3,16 @@ version: 1
 frame:
   width: 2448
   height: 2048
-  format: BGR8
+  # Mono8: ~3x меньше GigE-трафика; camera-worker конвертирует в BGR8 для пайплайна.
+  format: Mono8
 
 capture_source: "hik"
 capture_trigger_mode: "software"
 frame_timeout_ms: 8000
-# GigE: межпакетная задержка и сдвиг старта передачи (тики ~8 нс; step ≈ 125% размера кадра).
+# GigE: межпакетная задержка (GevSCPD) и сдвиг старта передачи (GevSCFTD, тики ~8 нс).
 gige_inter_packet_delay: 8000
-gige_frame_transfer_delay_step: 20000000
+# GevSCFTD step ≈ 125% payload; для Mono8 (~5 МБ) ~7000000, для BGR8 — ~20000000.
+gige_frame_transfer_delay_step: 7000000
 
 orchestrator:
   control_pipe: "\\\\.\\pipe\\iml-orchestrator"

@@ -83,6 +83,9 @@ typedef struct {
     int trigger_mode;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
+    size_t gige_payload_bytes;
+    int pixel_format_pref;
+    int hik_pixel_format_active;
     uint64_t started_ns;
     int capture_backend_ready;
     char capture_backend_info[128];
@@ -227,7 +230,16 @@ typedef struct {
     int trigger_mode;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
+    int frame_width;
+    int frame_height;
+    int pixel_format_pref;
 } worker_camera_config_t;
+
+enum {
+    PIXEL_PREF_BGR8 = 0,
+    PIXEL_PREF_RGB8 = 1,
+    PIXEL_PREF_MONO8 = 2
+};
 
 enum {
     TRIGGER_MODE_CONTINUOUS = 0,
@@ -274,6 +286,89 @@ static const char *trigger_mode_name(int trigger_mode) {
             return "line1";
         default:
             return "continuous";
+    }
+}
+
+static int parse_pixel_format_pref(const char *raw) {
+    if (!raw || raw[0] == '\0') {
+        return PIXEL_PREF_BGR8;
+    }
+#ifdef _WIN32
+    if (_stricmp(raw, "Mono8") == 0 || _stricmp(raw, "MONO8") == 0 || _stricmp(raw, "gray") == 0
+        || _stricmp(raw, "Gray8") == 0) {
+        return PIXEL_PREF_MONO8;
+    }
+    if (_stricmp(raw, "RGB8") == 0 || _stricmp(raw, "RGB8Packed") == 0) {
+        return PIXEL_PREF_RGB8;
+    }
+#else
+    if (strcasecmp(raw, "Mono8") == 0 || strcasecmp(raw, "MONO8") == 0 || strcasecmp(raw, "gray") == 0
+        || strcasecmp(raw, "Gray8") == 0) {
+        return PIXEL_PREF_MONO8;
+    }
+    if (strcasecmp(raw, "RGB8") == 0 || strcasecmp(raw, "RGB8Packed") == 0) {
+        return PIXEL_PREF_RGB8;
+    }
+#endif
+    return PIXEL_PREF_BGR8;
+}
+
+static const char *pixel_format_pref_name(int pref) {
+    switch (pref) {
+        case PIXEL_PREF_MONO8:
+            return "Mono8";
+        case PIXEL_PREF_RGB8:
+            return "RGB8";
+        default:
+            return "BGR8";
+    }
+}
+
+/** Читает frame.width / frame.height / frame.format из корня config.json. */
+static void load_frame_config(const char *js, int jslen, worker_camera_config_t *cfg) {
+    jsmn_parser p;
+    jsmntok_t tok[TOK_POOL];
+    jsmn_init(&p);
+    int r = jsmn_parse(&p, js, (size_t)jslen, tok, TOK_POOL);
+    if (r < 1 || tok[0].type != JSMN_OBJECT) {
+        return;
+    }
+
+    int frame_idx = -1;
+    for (int i = 1; i < r - 1; i++) {
+        if (jsoneq(js, &tok[i], "frame") == 0 && tok[i + 1].type == JSMN_OBJECT) {
+            frame_idx = i + 1;
+            break;
+        }
+    }
+    if (frame_idx < 0) {
+        return;
+    }
+
+    int frame_end = tok[frame_idx].end;
+    for (int i = frame_idx + 1; i < r && tok[i].start < frame_end; i++) {
+        if (tok[i].type != JSMN_STRING) {
+            continue;
+        }
+        if (jsoneq(js, &tok[i], "width") == 0 && tok[i + 1].type == JSMN_PRIMITIVE) {
+            char buf[16];
+            if (json_copy_token_string(js, &tok[i + 1], buf, sizeof(buf)) == 0) {
+                cfg->frame_width = atoi(buf);
+            }
+            i++;
+        } else if (jsoneq(js, &tok[i], "height") == 0 && tok[i + 1].type == JSMN_PRIMITIVE) {
+            char buf[16];
+            if (json_copy_token_string(js, &tok[i + 1], buf, sizeof(buf)) == 0) {
+                cfg->frame_height = atoi(buf);
+            }
+            i++;
+        } else if (jsoneq(js, &tok[i], "format") == 0 && tok[i + 1].type == JSMN_STRING) {
+            char fmt[32];
+            if (json_copy_token_string(js, &tok[i + 1], fmt, sizeof(fmt)) == 0) {
+                cfg->pixel_format_pref = parse_pixel_format_pref(fmt);
+            }
+            i++;
+        }
     }
 }
 
@@ -687,7 +782,8 @@ static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info,
 
 /** Минимальный шаг GevSCFTD (тики ~8 нс): время кадра на 1 Gb/s + ~25% запас под оверхед. */
 static unsigned int hik_min_frame_transfer_delay_step(const worker_state_t *st) {
-    size_t frame_bytes = st->frame_bytes > 0 ? st->frame_bytes : 15000000u;
+    size_t frame_bytes = st->gige_payload_bytes > 0 ? st->gige_payload_bytes
+                                                    : (st->frame_bytes > 0 ? st->frame_bytes : 15000000u);
     unsigned long long ticks = (unsigned long long)frame_bytes * 5ull / 4ull;
     if (ticks < 12000000ull) {
         ticks = 12000000ull;
@@ -748,18 +844,45 @@ static void hik_apply_gige_stream_tuning(worker_state_t *st) {
     (void)MV_CC_SetImageNodeNum(st->hik_handle, 5);
 }
 
-static int hik_apply_pixel_format(void *handle, int camera_id) {
+static int hik_apply_pixel_format(void *handle, int camera_id, int pixel_format_pref, int *active_pref_out) {
+    if (active_pref_out) {
+        *active_pref_out = pixel_format_pref;
+    }
+    if (pixel_format_pref == PIXEL_PREF_MONO8) {
+        int r = MV_CC_SetEnumValueByString(handle, "PixelFormat", "Mono8");
+        if (r == MV_OK) {
+            fprintf(stderr, "hik: cam=%d PixelFormat=Mono8 (GigE ~3x less traffic)\n", camera_id);
+            return 0;
+        }
+        fprintf(stderr, "hik: cam=%d Mono8 not applied (0x%x), fallback to color\n", camera_id, r);
+        if (active_pref_out) {
+            *active_pref_out = PIXEL_PREF_BGR8;
+        }
+    }
+    if (pixel_format_pref == PIXEL_PREF_RGB8) {
+        int r = MV_CC_SetEnumValueByString(handle, "PixelFormat", "RGB8Packed");
+        if (r == MV_OK) {
+            fprintf(stderr, "hik: cam=%d PixelFormat=RGB8Packed\n", camera_id);
+            return 0;
+        }
+    }
     int r = MV_CC_SetEnumValueByString(handle, "PixelFormat", "BGR8Packed");
     if (r == MV_OK) {
         fprintf(stderr, "hik: cam=%d PixelFormat=BGR8Packed\n", camera_id);
+        if (active_pref_out) {
+            *active_pref_out = PIXEL_PREF_BGR8;
+        }
         return 0;
     }
     r = MV_CC_SetEnumValueByString(handle, "PixelFormat", "RGB8Packed");
     if (r == MV_OK) {
         fprintf(stderr, "hik: cam=%d PixelFormat=RGB8Packed (BGR8Packed unsupported)\n", camera_id);
+        if (active_pref_out) {
+            *active_pref_out = PIXEL_PREF_RGB8;
+        }
         return 0;
     }
-    fprintf(stderr, "hik: cam=%d PixelFormat BGR8/RGB8 not applied (0x%x)\n", camera_id, r);
+    fprintf(stderr, "hik: cam=%d PixelFormat not applied (0x%x)\n", camera_id, r);
     return -1;
 }
 
@@ -855,8 +978,8 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
             fprintf(stderr, "hik: GevSCPSPacketSize=%d cam=%d\n", packetSize, st->camera_id);
         }
     }
-    if (hik_apply_pixel_format(st->hik_handle, st->camera_id) != 0) {
-        snprintf(err, err_len, "hik: failed to set BGR8/RGB8 pixel format");
+    if (hik_apply_pixel_format(st->hik_handle, st->camera_id, st->pixel_format_pref, &st->hik_pixel_format_active) != 0) {
+        snprintf(err, err_len, "hik: failed to set pixel format (%s)", pixel_format_pref_name(st->pixel_format_pref));
         MV_CC_CloseDevice(st->hik_handle);
         MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
@@ -878,10 +1001,16 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         MV_CC_Finalize();
         return -1;
     }
-    st->frame_bytes = (size_t)payload.nCurValue;
+    st->gige_payload_bytes = (size_t)payload.nCurValue;
     if (devList.pDeviceInfo[selected]->nTLayerType == MV_GIGE_DEVICE) {
         hik_apply_gige_stream_tuning(st);
     }
+    fprintf(stderr,
+            "hik: cam=%d payload=%u bytes shm_slot=%zu bytes capture=%s shm=BGR8\n",
+            st->camera_id,
+            payload.nCurValue,
+            st->frame_bytes,
+            pixel_format_pref_name(st->hik_pixel_format_active));
     st->hik_raw_capacity = payload.nCurValue;
     st->hik_raw_frame = (unsigned char *)malloc(st->hik_raw_capacity);
     if (!st->hik_raw_frame) {
@@ -1168,7 +1297,7 @@ static void format_capture_json(const worker_state_t *st, char *out, size_t out_
     size_t slot_offset = slot_index >= 0 ? (size_t)slot_index * st->frame_bytes : 0;
     snprintf(out, out_len,
              "{\"camera_id\":%d,\"frame_id\":%llu,\"slot_index\":%d,\"width\":%d,\"height\":%d,\"stride\":%d,"
-             "\"format\":\"BGR8\",\"timestamp_ns\":%llu,\"shm_name\":\"%s\",\"shm_offset\":%zu,\"frame_bytes\":%zu,"
+             "\"format\":\"BGR8\",\"capture_pixel_format\":\"%s\",\"timestamp_ns\":%llu,\"shm_name\":\"%s\",\"shm_offset\":%zu,\"frame_bytes\":%zu,"
              "\"ring_slots\":%d,\"streaming\":%s,\"capture_started_ns\":%llu,\"capture_latency_ns\":%llu}",
              st->camera_id,
              (unsigned long long)st->last_frame_id,
@@ -1176,6 +1305,7 @@ static void format_capture_json(const worker_state_t *st, char *out, size_t out_
              st->width,
              st->height,
              st->stride,
+             pixel_format_pref_name(st->hik_pixel_format_active),
              (unsigned long long)st->stream_last_timestamp_ns,
              st->shm_name,
              slot_offset,
@@ -1298,8 +1428,11 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->trigger_mode = cam_cfg ? cam_cfg->trigger_mode : TRIGGER_MODE_CONTINUOUS;
     st->gige_inter_packet_delay = cam_cfg ? cam_cfg->gige_inter_packet_delay : 0;
     st->gige_frame_transfer_delay_step = cam_cfg ? cam_cfg->gige_frame_transfer_delay_step : 0;
-    st->width = 2448;
-    st->height = 2048;
+    st->pixel_format_pref = cam_cfg ? cam_cfg->pixel_format_pref : PIXEL_PREF_BGR8;
+    st->hik_pixel_format_active = st->pixel_format_pref;
+    st->gige_payload_bytes = 0;
+    st->width = cam_cfg && cam_cfg->frame_width > 0 ? cam_cfg->frame_width : 2448;
+    st->height = cam_cfg && cam_cfg->frame_height > 0 ? cam_cfg->frame_height : 2048;
     st->stride = st->width * 3;
     st->frame_bytes = (size_t)st->stride * (size_t)st->height;
     st->ring_slots = RING_SLOTS;
@@ -1797,12 +1930,17 @@ int main(int argc, char **argv) {
     load_camera_config(js, (int)jslen, camera_id, &cam_cfg);
     (void)json_find_int(js, (int)jslen, "gige_inter_packet_delay", &cam_cfg.gige_inter_packet_delay);
     (void)json_find_int(js, (int)jslen, "gige_frame_transfer_delay_step", &cam_cfg.gige_frame_transfer_delay_step);
+    load_frame_config(js, (int)jslen, &cam_cfg);
 
     fprintf(stderr, "worker start config version=%s path=%s camera=%d mode=%s\n", version, path, camera_id,
             binary_mode ? "binary-stdio" : (named_pipe_mode ? "named-pipe" : "stdout"));
     fprintf(stderr,
-            "capture source=%s frame_timeout_ms=%d ip=%s exposure_us=%d trigger=%s (detection via analisSurface)\n",
-            capture_source, frame_timeout_ms, cam_cfg.ip, cam_cfg.exposure_us,
+            "capture source=%s frame=%dx%d format_pref=%s frame_timeout_ms=%d ip=%s exposure_us=%d trigger=%s\n",
+            capture_source,
+            cam_cfg.frame_width > 0 ? cam_cfg.frame_width : 2448,
+            cam_cfg.frame_height > 0 ? cam_cfg.frame_height : 2048,
+            pixel_format_pref_name(cam_cfg.pixel_format_pref),
+            frame_timeout_ms, cam_cfg.ip, cam_cfg.exposure_us,
             trigger_mode_name(cam_cfg.trigger_mode));
 
     free(js);

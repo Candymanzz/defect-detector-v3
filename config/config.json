@@ -3,13 +3,13 @@
   "frame": {
     "width": 2448,
     "height": 2048,
-    "format": "BGR8"
+    "format": "Mono8"
   },
   "capture_source": "hik",
   "capture_trigger_mode": "software",
   "frame_timeout_ms": 8000,
   "gige_inter_packet_delay": 8000,
-  "gige_frame_transfer_delay_step": 20000000,
+  "gige_frame_transfer_delay_step": 7000000,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
     "control_pipe_linux": "/tmp/iml-orchestrator.sock"
