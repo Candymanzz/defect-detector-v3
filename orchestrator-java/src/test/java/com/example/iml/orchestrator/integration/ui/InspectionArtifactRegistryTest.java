@@ -20,14 +20,17 @@ class InspectionArtifactRegistryTest {
     void storesImmutableCopiesAndReadsThemByBundleId() throws Exception {
         Path root = tempDir.resolve("registry");
         Path frame = Files.write(tempDir.resolve("source.jpg"), new byte[]{1, 2, 3});
+        Path card = Files.write(tempDir.resolve("source-card.jpg"), new byte[]{7, 8});
         Path heatmap = Files.write(tempDir.resolve("source.u8"), new byte[]{4, 5, 6});
         InspectionArtifactRegistry registry = new InspectionArtifactRegistry(root);
 
-        InspectionArtifactRegistry.Bundle bundle = registry.register(2, 42, frame, heatmap);
+        InspectionArtifactRegistry.Bundle bundle = registry.register(2, 42, frame, card, heatmap);
         Files.write(frame, new byte[]{9});
+        Files.write(card, new byte[]{9});
         Files.delete(heatmap);
 
         assertArrayEquals(new byte[]{1, 2, 3}, registry.read(bundle.id(), "frame.jpg"));
+        assertArrayEquals(new byte[]{7, 8}, registry.read(bundle.id(), "card.jpg"));
         assertArrayEquals(new byte[]{4, 5, 6}, registry.read(bundle.id(), "heatmap.u8"));
         assertNull(registry.read(bundle.id(), "unknown"));
     }
@@ -55,6 +58,7 @@ class InspectionArtifactRegistryTest {
         InspectionArtifactRegistry.Bundle bundle = registry.register(3, 43, frame, null);
 
         assertArrayEquals(new byte[]{7, 8, 9}, registry.read(bundle.id(), "frame.jpg"));
+        assertArrayEquals(new byte[]{7, 8, 9}, registry.read(bundle.id(), "card.jpg"));
         assertNull(bundle.heatmapU8());
         assertNull(registry.read(bundle.id(), "heatmap.u8"));
     }

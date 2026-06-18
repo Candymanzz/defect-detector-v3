@@ -56,6 +56,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const [inspectionControlByCameraId, setInspectionControlByCameraId] = useState<
     Record<number, InspectionControlState>
   >({});
+  const [hasReference, setHasReference] = useState(false);
   const latestPreviewTimestampByCameraIdRef = useRef<Record<number, number>>({});
   const latestPreviewFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const latestInspectResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
@@ -190,6 +191,16 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
   useEffect(() => {
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
+      if (message.type === "server.hello" || message.type === "server.state") {
+        setHasReference(message.payload.session_state !== "NO_REFERENCE");
+        return;
+      }
+
+      if (message.type === "server.reference_bundle_ack" && message.payload.ok) {
+        setHasReference(true);
+        return;
+      }
+
       if (message.type === "server.preview_frame") {
         const previewFrame = message.payload;
         const cameraId = previewFrame.camera_id;
@@ -236,6 +247,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       }
 
       const inspectResult = message.payload;
+      setHasReference(true);
       const cameraId = inspectResult.camera_id;
       const hasArtifacts = hasDisplayableInspectImage(inspectResult);
 
@@ -320,7 +332,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   key={camera.cameraId}
                   cameraId={camera.cameraId}
                   objectName={camera.objectName}
-                  imageUrl={inspectImageUrl ?? camera.imageUrl}
+                  imageUrl={hasReference ? inspectImageUrl : camera.imageUrl}
                   currentFrameId={previewFrameIdsByCameraId[camera.cameraId]}
                   inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
@@ -434,9 +446,16 @@ function resolveCardInspectImageUrl(
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
 ) {
-  return (
-    (inspectResult ? createWsFrameImageUrl(inspectResult) : undefined) ??
-    (artifactInspectResult ? createWsFrameImageUrl(artifactInspectResult) : undefined)
+  if (
+    !inspectResult ||
+    !artifactInspectResult?.artifact_bundle_id ||
+    artifactInspectResult.frame_id !== inspectResult.frame_id
+  ) {
+    return undefined;
+  }
+
+  return orchestratorApi.url(
+    `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
   );
 }
 

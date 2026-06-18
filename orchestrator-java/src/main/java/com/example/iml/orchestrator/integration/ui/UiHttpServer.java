@@ -59,6 +59,12 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         }
     }
 
+    public record InspectionPreviewArtifacts(
+            ClientPreviewArtifact frame,
+            ClientPreviewArtifact card
+    ) {
+    }
+
     private final HttpServer httpServer;
     private final HttpApplicationContext httpContext;
     private final Map<Integer, Latest> latestByCamera = new ConcurrentHashMap<>();
@@ -130,16 +136,27 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             int cameraId,
             long frameId,
             Path frameJpeg,
+            Path cardJpeg,
             Path heatmapU8
     ) throws IOException {
         InspectionArtifactRegistry.Bundle bundle =
-                inspectionArtifacts.register(cameraId, frameId, frameJpeg, heatmapU8);
-        return new RegisteredInspectionArtifacts(bundle.id(), bundle.frameJpeg(), bundle.heatmapU8());
+                inspectionArtifacts.register(cameraId, frameId, frameJpeg, cardJpeg, heatmapU8);
+        return new RegisteredInspectionArtifacts(
+                bundle.id(),
+                bundle.frameJpeg(),
+                bundle.cardJpeg(),
+                bundle.heatmapU8()
+        );
     }
 
     public RegisteredInspectionArtifacts attachInspectionHeatmap(String bundleId, Path heatmapU8) throws IOException {
         InspectionArtifactRegistry.Bundle bundle = inspectionArtifacts.attachHeatmap(bundleId, heatmapU8);
-        return new RegisteredInspectionArtifacts(bundle.id(), bundle.frameJpeg(), bundle.heatmapU8());
+        return new RegisteredInspectionArtifacts(
+                bundle.id(),
+                bundle.frameJpeg(),
+                bundle.cardJpeg(),
+                bundle.heatmapU8()
+        );
     }
 
     @Override
@@ -249,21 +266,63 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             float quality,
             int cameraId
     ) {
+        BufferedImage source;
+        try {
+            source = readBgrImageFromShm(shmName, width, height, stride, shmOffset, cameraId);
+        } catch (Exception e) {
+            return previewJpegFailed(e.getMessage());
+        }
+        return writePreviewJpeg(source, previewMaxWidth, quality, cameraId);
+    }
+
+    public static InspectionPreviewArtifacts writeInspectionJpegsFromBgrShm(
+            String shmName,
+            int width,
+            int height,
+            int stride,
+            long shmOffset,
+            int frameMaxWidth,
+            float frameQuality,
+            int cardMaxWidth,
+            float cardQuality
+    ) {
+        final BufferedImage source;
+        try {
+            source = readBgrImageFromShm(shmName, width, height, stride, shmOffset, -1);
+        } catch (Exception e) {
+            ClientPreviewArtifact failed = previewJpegFailed(e.getMessage());
+            return new InspectionPreviewArtifacts(failed, failed);
+        }
+
+        return new InspectionPreviewArtifacts(
+                writePreviewJpeg(source, frameMaxWidth, frameQuality, -1),
+                writePreviewJpeg(source, cardMaxWidth, cardQuality, -1)
+        );
+    }
+
+    private static BufferedImage readBgrImageFromShm(
+            String shmName,
+            int width,
+            int height,
+            int stride,
+            long shmOffset,
+            int cameraId
+    ) throws IOException {
         if (width <= 0 || height <= 0 || stride < width * 3 || shmOffset < 0) {
-            return previewJpegFailed(
+            throw new IOException(
                     "invalid frame geometry width=" + width + " height=" + height + " stride=" + stride
                             + " shmOffset=" + shmOffset
             );
         }
         Path shmPath = FrameJpegWriter.resolveShmPath(shmName, cameraId);
         if (shmPath == null || !Files.isRegularFile(shmPath)) {
-            return previewJpegFailed("shm not readable shmName=" + shmName + " path=" + shmPath);
+            throw new IOException("shm not readable shmName=" + shmName + " path=" + shmPath);
         }
         long need = (long) stride * (long) height;
         try (FileChannel ch = FileChannel.open(shmPath, StandardOpenOption.READ)) {
             long fileSize = Math.max(0, ch.size());
             if (fileSize < shmOffset + need || need < (long) width * 3L * height) {
-                return previewJpegFailed(
+                throw new IOException(
                         "shm size mismatch fileSize=" + fileSize + " need=" + need + " shmOffset=" + shmOffset
                 );
             }
@@ -274,23 +333,35 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                 buf.position(y * stride);
                 buf.get(dst, y * width * 3, width * 3);
             }
+            return img;
+        }
+    }
 
-            int outW = width;
-            int outH = height;
-            if (previewMaxWidth > 0 && width > previewMaxWidth) {
-                outW = previewMaxWidth;
-                outH = Math.max(1, (int) Math.round((double) height * previewMaxWidth / width));
-                BufferedImage scaled = new BufferedImage(outW, outH, BufferedImage.TYPE_3BYTE_BGR);
-                Graphics2D g = scaled.createGraphics();
-                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g.drawImage(img, 0, 0, outW, outH, null);
-                g.dispose();
-                img = scaled;
+    private static ClientPreviewArtifact writePreviewJpeg(
+            BufferedImage source,
+            int previewMaxWidth,
+            float quality,
+            int cameraId
+    ) {
+        int outW = source.getWidth();
+        int outH = source.getHeight();
+        BufferedImage output = source;
+        if (previewMaxWidth > 0 && outW > previewMaxWidth) {
+            outW = previewMaxWidth;
+            outH = Math.max(1, (int) Math.round((double) source.getHeight() * previewMaxWidth / source.getWidth()));
+            output = new BufferedImage(outW, outH, BufferedImage.TYPE_3BYTE_BGR);
+            Graphics2D graphics = output.createGraphics();
+            try {
+                graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                graphics.drawImage(source, 0, 0, outW, outH, null);
+            } finally {
+                graphics.dispose();
             }
-
+        }
+        try {
             Path out = cameraId >= 0
-                    ? writeStablePreviewJpeg(cameraId, img, quality)
-                    : writeTempPreviewJpeg(img, quality);
+                    ? writeStablePreviewJpeg(cameraId, output, quality)
+                    : writeTempPreviewJpeg(output, quality);
             if (out == null) {
                 return previewJpegFailed("jpeg encode failed cameraId=" + cameraId);
             }

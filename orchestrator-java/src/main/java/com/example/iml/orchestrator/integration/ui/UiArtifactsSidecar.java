@@ -263,6 +263,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 Path generatedHeatmapPreview = null;
                 Path currentJpeg = null;
                 Path temporaryCurrentJpeg = null;
+                Path cardJpeg = null;
+                Path temporaryCardJpeg = null;
                 try {
                     String artifactShmName = frozenFrame.shmName();
                     int currentJpegW = 0;
@@ -277,25 +279,43 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("client_preview_jpeg_quality"), 45)
                         );
                         qualPct = Math.min(100, Math.max(5, qualPct));
-                        float q = qualPct / 100f;
-                        UiHttpServer.ClientPreviewArtifact art =
-                                UiHttpServer.writeCurrentJpegFromBgrShm(
+                        int cardPreviewMaxW = YamlScalars.toInt(
+                                uiCfg == null ? null : uiCfg.get("inspection_card_preview_max_width"),
+                                384
+                        );
+                        int cardQualPct = YamlScalars.toInt(
+                                uiCfg == null ? null : uiCfg.get("inspection_card_preview_jpeg_quality"),
+                                30
+                        );
+                        cardQualPct = Math.min(100, Math.max(5, cardQualPct));
+
+                        UiHttpServer.InspectionPreviewArtifacts previews =
+                                UiHttpServer.writeInspectionJpegsFromBgrShm(
                                         artifactShmName,
                                         width,
                                         height,
                                         stride,
                                         0L,
                                         previewMaxW,
-                                        q,
-                                        -1
+                                        qualPct / 100f,
+                                        cardPreviewMaxW,
+                                        cardQualPct / 100f
                                 );
-                        if (art.path() == null && art.error() != null) {
-                            log.debug("ui sidecar cam={} preview jpeg: {}", cameraId, art.error());
+                        UiHttpServer.ClientPreviewArtifact frameArtifact = previews.frame();
+                        if (frameArtifact.path() == null && frameArtifact.error() != null) {
+                            log.debug("ui sidecar cam={} preview jpeg: {}", cameraId, frameArtifact.error());
                         }
-                        currentJpeg = art.path();
-                        currentJpegW = art.width();
-                        currentJpegH = art.height();
+                        currentJpeg = frameArtifact.path();
+                        currentJpegW = frameArtifact.width();
+                        currentJpegH = frameArtifact.height();
                         temporaryCurrentJpeg = currentJpeg;
+
+                        UiHttpServer.ClientPreviewArtifact cardArtifact = previews.card();
+                        if (cardArtifact.path() == null && cardArtifact.error() != null) {
+                            log.debug("ui sidecar cam={} card jpeg: {}", cameraId, cardArtifact.error());
+                        }
+                        cardJpeg = cardArtifact.path();
+                        temporaryCardJpeg = cardJpeg;
                     }
 
                     CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
@@ -304,9 +324,16 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             currentJpeg != null && currentJpegW > 0 && currentJpegH > 0 && Files.isRegularFile(currentJpeg);
                     if (hasCur) {
                         try {
-                            registeredArtifacts = uiServer.registerInspectionArtifacts(cameraId, frameId, currentJpeg, null);
+                            registeredArtifacts = uiServer.registerInspectionArtifacts(
+                                    cameraId,
+                                    frameId,
+                                    currentJpeg,
+                                    cardJpeg,
+                                    null
+                            );
                             bundleId = registeredArtifacts.bundleId();
                             currentJpeg = registeredArtifacts.frameJpeg();
+                            cardJpeg = registeredArtifacts.cardJpeg();
                             hasCur = currentJpeg != null
                                     && currentJpegW > 0
                                     && currentJpegH > 0
@@ -490,6 +517,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 } finally {
                     if (temporaryCurrentJpeg != null && !temporaryCurrentJpeg.equals(currentJpeg)) {
                         deleteTemporaryArtifact(temporaryCurrentJpeg, "temporary inspection jpeg");
+                    }
+                    if (temporaryCardJpeg != null) {
+                        deleteTemporaryArtifact(temporaryCardJpeg, "temporary inspection card jpeg");
                     }
                     deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
                     deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");

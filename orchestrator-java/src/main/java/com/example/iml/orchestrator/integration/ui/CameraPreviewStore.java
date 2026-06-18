@@ -11,7 +11,7 @@ import java.util.Optional;
  */
 public interface CameraPreviewStore {
 
-    record RegisteredInspectionArtifacts(String bundleId, Path frameJpeg, Path heatmapU8) {
+    record RegisteredInspectionArtifacts(String bundleId, Path frameJpeg, Path cardJpeg, Path heatmapU8) {
     }
 
     record Latest(
@@ -49,6 +49,7 @@ public interface CameraPreviewStore {
             int cameraId,
             long frameId,
             Path frameJpeg,
+            Path cardJpeg,
             Path heatmapU8
     ) throws java.io.IOException;
 
