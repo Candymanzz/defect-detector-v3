@@ -196,7 +196,7 @@ function HeatmapPanel({
   return (
     <figure className="modal-image-panel">
       <figcaption>Heatmap</figcaption>
-      {cameraId !== undefined && matchingInspectResult ? (
+      {cameraId !== undefined && matchingInspectResult?.heatmap ? (
         <HeatmapViewer
           cameraId={cameraId}
           heatmap={frozenHeatmap}
@@ -204,7 +204,9 @@ function HeatmapPanel({
         />
       ) : (
         <div className="modal-image-panel__image-wrap">
-          <div className="modal-image-panel__placeholder">No synchronized inspect result yet</div>
+          <div className="modal-image-panel__placeholder">
+            {matchingInspectResult ? "Heatmap is being prepared" : "No synchronized inspect result yet"}
+          </div>
         </div>
       )}
     </figure>
@@ -335,6 +337,13 @@ function getInspectResultSyncState(
     return {
       state: "synced" as const,
       label: `Последняя сохранённая инспекция: кадр ${inspectResult.frame_id}`,
+    };
+  }
+
+  if (inspectResultImageUrl) {
+    return {
+      state: "loading" as const,
+      label: `Кадр инспекции ${inspectResult.frame_id} получен, heatmap готовится`,
     };
   }
 

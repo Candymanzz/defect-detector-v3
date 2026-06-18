@@ -237,7 +237,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
-      const hasArtifacts = hasDisplayableInspectArtifacts(inspectResult);
+      const hasArtifacts = hasDisplayableInspectImage(inspectResult);
 
       if (hasArtifacts) {
         const currentLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
@@ -485,10 +485,9 @@ function isInspectionCounterReset(
   );
 }
 
-function hasDisplayableInspectArtifacts(inspectResult: InspectResultPayload) {
+function hasDisplayableInspectImage(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current.http_path;
-  const heatmap = inspectResult.heatmap;
-  return Boolean(imagePath && heatmap && (heatmap.http_path || heatmap.artifact_id));
+  return Boolean(imagePath);
 }
 
 function resolveHeatmapSourceUrlOrUndefined(heatmap: HeatmapDescriptor) {
@@ -579,7 +578,7 @@ async function hydrateCardsFromLatestSnapshots(
     }
     inspectResults[snapshot.cameraId] = inspectResult;
     deps.latestInspectResultByCameraIdRef.current[snapshot.cameraId] = inspectResult;
-    if (hasDisplayableInspectArtifacts(inspectResult)) {
+    if (hasDisplayableInspectImage(inspectResult)) {
       artifactResults[snapshot.cameraId] = inspectResult;
       deps.latestArtifactResultByCameraIdRef.current[snapshot.cameraId] = inspectResult;
     }

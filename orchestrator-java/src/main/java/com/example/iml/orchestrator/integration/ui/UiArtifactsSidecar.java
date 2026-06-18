@@ -264,9 +264,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 Path currentJpeg = null;
                 Path temporaryCurrentJpeg = null;
                 try {
-                    if (!isLatestPublish(cameraId, publishSequence)) {
-                        return;
-                    }
                     String artifactShmName = frozenFrame.shmName();
                     int currentJpegW = 0;
                     int currentJpegH = 0;
@@ -361,6 +358,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 log.debug("client_ws inspect_result frame-ready cam={}: {}", cameraId, e.getMessage());
                             }
                         }
+                    }
+
+                    // A newer inspection may arrive while this task is encoding the JPEG.
+                    // Keep the frame-ready publication above, but avoid spending detector/CPU
+                    // capacity on a heatmap that the UI will immediately replace.
+                    if (!isLatestPublish(cameraId, publishSequence)) {
+                        return;
                     }
 
                     HeatmapArtifact heatmapSource = sourceHeatmap;
