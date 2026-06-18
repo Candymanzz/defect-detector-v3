@@ -6,9 +6,11 @@ frame:
   format: BGR8
 
 capture_source: "hik"
-# No external trigger yet: run in continuous mode.
-capture_trigger_mode: "continuous"
-frame_timeout_ms: 4000
+capture_trigger_mode: "software"
+frame_timeout_ms: 8000
+# GigE: межпакетная задержка и сдвиг старта передачи кадра (тики ~8 нс; step ≈ размер кадра в байтах для 1 Gb/s).
+gige_inter_packet_delay: 4000
+gige_frame_transfer_delay_step: 16000000
 
 orchestrator:
   control_pipe: "\\\\.\\pipe\\iml-orchestrator"

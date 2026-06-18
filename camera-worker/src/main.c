@@ -593,35 +593,124 @@ static int hik_fire_software_trigger(worker_state_t *st) {
     return nRet;
 }
 
+/** Строковый шаг в буфере MVS (часто больше width*bpp из-за выравнивания). */
+static int hik_src_row_stride(const MV_FRAME_OUT_INFO_EX *info, int width, int bytes_per_pixel) {
+    int min_stride = width * bytes_per_pixel;
+    if (info->nHeight > 0 && info->nFrameLen > 0) {
+        int derived = (int)(info->nFrameLen / info->nHeight);
+        if (derived >= min_stride) {
+            return derived;
+        }
+    }
+    return min_stride;
+}
+
+static void hik_copy_rows_rgb_to_bgr(uint8_t *dst, const uint8_t *src, int width, int height, int src_stride,
+                                     int dst_stride) {
+    int row_bytes = width * 3;
+    for (int y = 0; y < height; y++) {
+        const uint8_t *src_row = src + (size_t)y * (size_t)src_stride;
+        uint8_t *dst_row = dst + (size_t)y * (size_t)dst_stride;
+        for (int x = 0; x < width; x++) {
+            size_t si = (size_t)x * 3;
+            dst_row[si + 0] = src_row[si + 2];
+            dst_row[si + 1] = src_row[si + 1];
+            dst_row[si + 2] = src_row[si + 0];
+        }
+        if (dst_stride > row_bytes) {
+            memset(dst_row + row_bytes, 0, (size_t)(dst_stride - row_bytes));
+        }
+    }
+}
+
+static void hik_copy_rows_bgr(uint8_t *dst, const uint8_t *src, int width, int height, int src_stride, int dst_stride) {
+    int row_bytes = width * 3;
+    for (int y = 0; y < height; y++) {
+        const uint8_t *src_row = src + (size_t)y * (size_t)src_stride;
+        uint8_t *dst_row = dst + (size_t)y * (size_t)dst_stride;
+        memcpy(dst_row, src_row, (size_t)row_bytes);
+        if (dst_stride > row_bytes) {
+            memset(dst_row + row_bytes, 0, (size_t)(dst_stride - row_bytes));
+        }
+    }
+}
+
+static void hik_copy_rows_mono8_to_bgr(uint8_t *dst, const uint8_t *src, int width, int height, int src_stride,
+                                       int dst_stride) {
+    for (int y = 0; y < height; y++) {
+        const uint8_t *src_row = src + (size_t)y * (size_t)src_stride;
+        uint8_t *dst_row = dst + (size_t)y * (size_t)dst_stride;
+        for (int x = 0; x < width; x++) {
+            uint8_t v = src_row[x];
+            size_t di = (size_t)x * 3;
+            dst_row[di + 0] = v;
+            dst_row[di + 1] = v;
+            dst_row[di + 2] = v;
+        }
+        if (dst_stride > width * 3) {
+            memset(dst_row + width * 3, 0, (size_t)(dst_stride - width * 3));
+        }
+    }
+}
+
 static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info, uint8_t *frame) {
     if ((int)info->nWidth != st->width || (int)info->nHeight != st->height) {
         return -1;
     }
+    const uint8_t *src = st->hik_raw_frame;
+    int dst_stride = st->stride;
     if (info->enPixelType == PixelType_Gvsp_Mono8) {
-        for (int y = 0; y < st->height; y++) {
-            for (int x = 0; x < st->width; x++) {
-                uint8_t v = st->hik_raw_frame[(size_t)y * (size_t)st->width + (size_t)x];
-                size_t i = (size_t)(y * st->width + x) * 3;
-                frame[i + 0] = v;
-                frame[i + 1] = v;
-                frame[i + 2] = v;
-            }
-        }
+        int src_stride = hik_src_row_stride(info, st->width, 1);
+        hik_copy_rows_mono8_to_bgr(frame, src, st->width, st->height, src_stride, dst_stride);
         return 0;
     }
     if (info->enPixelType == PixelType_Gvsp_RGB8_Packed) {
-        for (int y = 0; y < st->height; y++) {
-            for (int x = 0; x < st->width; x++) {
-                size_t src = ((size_t)y * (size_t)st->width + (size_t)x) * 3;
-                size_t dst = src;
-                frame[dst + 0] = st->hik_raw_frame[src + 2];
-                frame[dst + 1] = st->hik_raw_frame[src + 1];
-                frame[dst + 2] = st->hik_raw_frame[src + 0];
-            }
+        int src_stride = hik_src_row_stride(info, st->width, 3);
+        if (src_stride != st->width * 3) {
+            fprintf(stderr, "hik: cam=%d RGB row padding src_stride=%d width*3=%d\n", st->camera_id, src_stride,
+                    st->width * 3);
         }
+        hik_copy_rows_rgb_to_bgr(frame, src, st->width, st->height, src_stride, dst_stride);
+        return 0;
+    }
+    if (info->enPixelType == PixelType_Gvsp_BGR8_Packed) {
+        int src_stride = hik_src_row_stride(info, st->width, 3);
+        if (src_stride != st->width * 3) {
+            fprintf(stderr, "hik: cam=%d BGR row padding src_stride=%d width*3=%d\n", st->camera_id, src_stride,
+                    st->width * 3);
+        }
+        hik_copy_rows_bgr(frame, src, st->width, st->height, src_stride, dst_stride);
         return 0;
     }
     return -1;
+}
+
+/** Минимальный шаг GevSCFTD (тики ~8 нс): время передачи кадра на 1 Gb/s ≈ frame_bytes. */
+static unsigned int hik_min_frame_transfer_delay_step(const worker_state_t *st) {
+    if (st->frame_bytes > 0) {
+        return (unsigned int)st->frame_bytes;
+    }
+    return 15000000u;
+}
+
+static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t *st) {
+    unsigned int configured = st->gige_frame_transfer_delay_step > 0 ? (unsigned int)st->gige_frame_transfer_delay_step
+                                                                       : 0u;
+    unsigned int min_step = hik_min_frame_transfer_delay_step(st);
+    if (configured == 0u) {
+        return min_step;
+    }
+    if (configured < min_step / 8u) {
+        fprintf(stderr,
+                "hik: GevSCFTD step=%u too low for %dx%d (~%u ticks needed for 1Gb/s), using %u\n",
+                configured,
+                st->width,
+                st->height,
+                min_step,
+                min_step);
+        return min_step;
+    }
+    return configured;
 }
 /** Автобаланс белого выключает «плывущий» цвет между кадрами (GenICam BalanceWhiteAuto). */
 static void hik_disable_auto_white_balance(void *handle) {
@@ -653,10 +742,14 @@ static void hik_apply_gige_inter_packet_delay(void *handle, int inter_packet_del
  * Экспозиция у всех камер в один момент; на гигабитный линк данные идут со сдвигом.
  */
 static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
-    if (!st->hik_handle || st->gige_frame_transfer_delay_step <= 0) {
+    if (!st->hik_handle) {
         return;
     }
-    unsigned int delay = (unsigned int)(st->camera_id * st->gige_frame_transfer_delay_step);
+    unsigned int step = hik_effective_frame_transfer_delay_step(st);
+    if (step == 0u) {
+        return;
+    }
+    unsigned int delay = (unsigned int)st->camera_id * step;
     if (delay == 0) {
         return;
     }
@@ -896,6 +989,10 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
         }
         if ((int)info.nWidth != st->width || (int)info.nHeight != st->height) {
             snprintf(err, err_len, "hik frame dims mismatch %ux%u", info.nWidth, info.nHeight);
+            return -1;
+        }
+        if (info.nLostPacket > 0) {
+            snprintf(err, err_len, "hik frame incomplete: lost_packets=%u", info.nLostPacket);
             return -1;
         }
         if (hik_copy_frame_to_bgr(st, &info, frame) != 0) {
