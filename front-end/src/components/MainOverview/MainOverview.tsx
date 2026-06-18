@@ -5,6 +5,7 @@ import { orchestratorApi } from "../../shared/api";
 import type { UiLatestSnapshot } from "../../shared/api/types";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
+import { getReferenceImage } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import {
@@ -17,7 +18,7 @@ import {
   loadMainOverviewData,
 } from "./MainController";
 import type { BackendStatus, CameraImageUrlsById, SelectedCamera } from "./type";
-import type { HeatmapDescriptor, InspectResultPayload } from "../../shared/ws";
+import type { HeatmapDescriptor, InspectResultPayload, InterestPointNorm } from "../../shared/ws";
 import "./MainOverview.css";
 
 const CAMERAS_PER_OVERVIEW = 5;
@@ -39,10 +40,18 @@ type InspectionHistoryItem = {
   result: "pass" | "fail";
 };
 
+type ModalInspectionSnapshot = SelectedCamera & {
+  inspectResult?: InspectResultPayload;
+  cameraImageUrl?: string;
+  heatmapUrl?: string;
+  referenceImageUrl?: string;
+  referenceRoiPoints?: InterestPointNorm[];
+};
+
 export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(INITIAL_BACKEND_STATUS);
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
-  const [selectedCamera, setSelectedCamera] = useState<SelectedCamera | null>(null);
+  const [modalSnapshot, setModalSnapshot] = useState<ModalInspectionSnapshot | null>(null);
   const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
   const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [previewFrameIdsByCameraId, setPreviewFrameIdsByCameraId] = useState<Record<number, string>>({});
@@ -72,22 +81,9 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       return cameraCards.slice(startIndex, startIndex + CAMERAS_PER_OVERVIEW);
     },
   );
-  const modalInspectionControlState = selectedCamera ? inspectionControlByCameraId[selectedCamera.cameraId] : undefined;
-  const selectedInspectResult = selectedCamera ? inspectResultsByCameraId[selectedCamera.cameraId] : undefined;
-  const selectedArtifactResult = selectedCamera
-    ? inspectArtifactResultsByCameraId[selectedCamera.cameraId]
+  const modalInspectionControlState = modalSnapshot
+    ? inspectionControlByCameraId[modalSnapshot.cameraId]
     : undefined;
-  const selectedModalInspectResult = resolveDisplayedInspectResult(selectedInspectResult, selectedArtifactResult);
-  const displayedInspectImageUrl = selectedModalInspectResult ? createWsFrameImageUrl(selectedModalInspectResult) : undefined;
-  const matchingPreviewImageUrl =
-    selectedCamera &&
-    selectedModalInspectResult &&
-    previewFrameIdsByCameraId[selectedCamera.cameraId] === selectedModalInspectResult.frame_id
-      ? previewImageUrlsByCameraId[selectedCamera.cameraId]
-      : undefined;
-  const displayedModalImageUrl = displayedInspectImageUrl ?? matchingPreviewImageUrl;
-  const displayedModalHeatmapUrl =
-    selectedModalInspectResult?.heatmap ? resolveHeatmapSourceUrlOrUndefined(selectedModalInspectResult.heatmap) : undefined;
 
   const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
     delete latestInspectResultByCameraIdRef.current[cameraId];
@@ -352,7 +348,17 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   }
                   inspectionStatus={inspectionControlState?.message}
                   inspectionResult={resolveInspectionResultState(inspectResult)}
-                  onOpen={() => setSelectedCamera(createSelectedCamera(camera))}
+                  onOpen={() =>
+                    setModalSnapshot(
+                      createModalInspectionSnapshot(
+                        createSelectedCamera(camera),
+                        inspectResult,
+                        artifactInspectResult,
+                        previewFrameIdsByCameraId[camera.cameraId],
+                        previewImageUrlsByCameraId[camera.cameraId],
+                      ),
+                    )
+                  }
                   onSelect={() => onSettingsCameraToggle(camera.cameraId)}
                   onInspectionToggle={() => void toggleInspection(camera.cameraId)}
                 />
@@ -389,12 +395,14 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         </section>
       ))}
 
-      {selectedCamera && (
+      {modalSnapshot && (
         <ModalWrapper
           isOpen
-          cameraId={selectedCamera.cameraId}
-          cameraImageUrl={displayedModalImageUrl}
-          inspectHeatmapUrl={displayedModalHeatmapUrl}
+          cameraId={modalSnapshot.cameraId}
+          cameraImageUrl={modalSnapshot.cameraImageUrl}
+          inspectHeatmapUrl={modalSnapshot.heatmapUrl}
+          referenceImageUrl={modalSnapshot.referenceImageUrl}
+          referenceRoiPoints={modalSnapshot.referenceRoiPoints}
           dangerHeaderAction={
             <button
               className={
@@ -407,7 +415,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                 modalInspectionControlState?.state === "starting" || modalInspectionControlState?.state === "stopping"
               }
               title={modalInspectionControlState?.message}
-              onClick={() => void toggleInspection(selectedCamera.cameraId)}
+              onClick={() => void toggleInspection(modalSnapshot.cameraId)}
             >
               {modalInspectionControlState?.state === "starting"
                 ? "Starting..."
@@ -422,14 +430,14 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
             <button
               className="modal__action"
               type="button"
-              onClick={() => setStreamCamera(selectedCamera)}
+              onClick={() => setStreamCamera(modalSnapshot)}
             >
               Открыть стрим
             </button>
           }
-          inspectResult={selectedModalInspectResult}
-          title={`${selectedCamera.objectName} / Camera ${selectedCamera.cameraId}`}
-          onClose={() => setSelectedCamera(null)}
+          inspectResult={modalSnapshot.inspectResult}
+          title={`${modalSnapshot.objectName} / Camera ${modalSnapshot.cameraId}`}
+          onClose={() => setModalSnapshot(null)}
         />
       )}
 
@@ -462,11 +470,44 @@ function resolveCardInspectImageUrl(
   );
 }
 
-function resolveDisplayedInspectResult(
+function createModalInspectionSnapshot(
+  camera: SelectedCamera,
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
-) {
-  return artifactInspectResult ?? inspectResult;
+  previewFrameId: string | undefined,
+  previewImageUrl: string | undefined,
+): ModalInspectionSnapshot {
+  const snapshotResult =
+    inspectResult && artifactInspectResult?.frame_id === inspectResult.frame_id
+      ? artifactInspectResult
+      : (inspectResult ?? artifactInspectResult);
+  const inspectImageUrl = snapshotResult
+    ? resolveImmutableInspectionImageUrl(snapshotResult) ?? createWsFrameImageUrl(snapshotResult)
+    : undefined;
+  const matchingPreviewImageUrl =
+    snapshotResult && previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
+  const referenceImage = getReferenceImage(camera.cameraId);
+
+  return {
+    ...camera,
+    inspectResult: snapshotResult,
+    cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl,
+    heatmapUrl: snapshotResult?.heatmap
+      ? resolveHeatmapSourceUrlOrUndefined(snapshotResult.heatmap)
+      : undefined,
+    referenceImageUrl: referenceImage?.imageUrl,
+    referenceRoiPoints: referenceImage?.roiPoints.map((point) => ({ ...point })),
+  };
+}
+
+function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload) {
+  if (!inspectResult.artifact_bundle_id) {
+    return undefined;
+  }
+
+  return orchestratorApi.url(
+    `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
+  );
 }
 
 function removeCameraResult(

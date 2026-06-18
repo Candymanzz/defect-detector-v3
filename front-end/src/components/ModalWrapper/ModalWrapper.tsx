@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
@@ -15,6 +14,7 @@ type ModalWrapperProps = {
   inspectHeatmapUrl?: string;
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
+  referenceRoiPoints?: InterestPointNorm[];
   dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
   onClose: () => void;
@@ -28,17 +28,11 @@ export function ModalWrapper({
   inspectHeatmapUrl,
   inspectResult,
   referenceImageUrl,
+  referenceRoiPoints,
   dangerHeaderAction,
   headerActions,
   onClose,
 }: ModalWrapperProps) {
-  const storedReferenceImage = useSyncExternalStore(
-    subscribeReferenceImages,
-    () => getReferenceImage(cameraId),
-    () => undefined,
-  );
-  const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImage?.imageUrl;
-  const displayedReferenceRoiPoints = referenceImageUrl ? undefined : storedReferenceImage?.roiPoints;
   const displayedCurrentImageUrl = inspectResult ? cameraImageUrl : undefined;
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
@@ -102,9 +96,9 @@ export function ModalWrapper({
 
         <div className="modal__media-grid">
           <ImagePanel
-            imageUrl={displayedReferenceImageUrl}
+            imageUrl={referenceImageUrl}
             label="Эталон"
-            roiPoints={displayedReferenceRoiPoints}
+            roiPoints={referenceRoiPoints}
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
