@@ -8,9 +8,9 @@ frame:
 capture_source: "hik"
 capture_trigger_mode: "software"
 frame_timeout_ms: 8000
-# GigE: межпакетная задержка и сдвиг старта передачи кадра (тики ~8 нс; step ≈ размер кадра в байтах для 1 Gb/s).
-gige_inter_packet_delay: 4000
-gige_frame_transfer_delay_step: 16000000
+# GigE: межпакетная задержка и сдвиг старта передачи (тики ~8 нс; step ≈ 125% размера кадра).
+gige_inter_packet_delay: 8000
+gige_frame_transfer_delay_step: 20000000
 
 orchestrator:
   control_pipe: "\\\\.\\pipe\\iml-orchestrator"
@@ -23,8 +23,11 @@ integration:
   live_preview:
     enabled: true
     flash_on_tick: false
-    interval_ms: 5000
+    # Реже инспекции (3.5 с), чтобы preview не конкурировал с GigE при 10 камерах.
+    interval_ms: 8000
   camera_parallelism: 10
+  # Программный сдвиг триггера между камерами (мс), дополняет GevSCFTD на камере.
+  capture_trigger_stagger_ms: 140
   geometry_pool_size: 10
   python_parallelism: 10
   stage_queue_size: 20

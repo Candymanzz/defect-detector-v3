@@ -226,7 +226,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
         }
         // Capture reuses the camera SHM buffer, so preview must not overwrite
         // pixels while an inspection stage is still reading them.
-        if (inspectionGate != null && inspectionGate.isInspectionInFlight(cameraId)) {
+        if (inspectionGate != null && (inspectionGate.isInspectionInFlight(cameraId)
+                || inspectionGate.hasAnyInspectionInFlight())) {
             metrics.droppedTicks.increment();
             return;
         }

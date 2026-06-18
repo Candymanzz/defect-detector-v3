@@ -685,12 +685,14 @@ static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info,
     return -1;
 }
 
-/** Минимальный шаг GevSCFTD (тики ~8 нс): время передачи кадра на 1 Gb/s ≈ frame_bytes. */
+/** Минимальный шаг GevSCFTD (тики ~8 нс): время кадра на 1 Gb/s + ~25% запас под оверхед. */
 static unsigned int hik_min_frame_transfer_delay_step(const worker_state_t *st) {
-    if (st->frame_bytes > 0) {
-        return (unsigned int)st->frame_bytes;
+    size_t frame_bytes = st->frame_bytes > 0 ? st->frame_bytes : 15000000u;
+    unsigned long long ticks = (unsigned long long)frame_bytes * 5ull / 4ull;
+    if (ticks < 12000000ull) {
+        ticks = 12000000ull;
     }
-    return 15000000u;
+    return (unsigned int)ticks;
 }
 
 static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t *st) {
@@ -700,7 +702,7 @@ static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t
     if (configured == 0u) {
         return min_step;
     }
-    if (configured < min_step / 8u) {
+    if (configured < min_step) {
         fprintf(stderr,
                 "hik: GevSCFTD step=%u too low for %dx%d (~%u ticks needed for 1Gb/s), using %u\n",
                 configured,
@@ -735,6 +737,30 @@ static void hik_apply_gige_inter_packet_delay(void *handle, int inter_packet_del
     } else {
         fprintf(stderr, "hik: GevSCPD=%d (inter-packet delay)\n", inter_packet_delay);
     }
+}
+
+static void hik_apply_gige_stream_tuning(worker_state_t *st) {
+    if (!st->hik_handle) {
+        return;
+    }
+    hik_apply_gige_inter_packet_delay(st->hik_handle, st->gige_inter_packet_delay);
+    hik_apply_gige_frame_transfer_delay(st);
+    (void)MV_CC_SetImageNodeNum(st->hik_handle, 5);
+}
+
+static int hik_apply_pixel_format(void *handle, int camera_id) {
+    int r = MV_CC_SetEnumValueByString(handle, "PixelFormat", "BGR8Packed");
+    if (r == MV_OK) {
+        fprintf(stderr, "hik: cam=%d PixelFormat=BGR8Packed\n", camera_id);
+        return 0;
+    }
+    r = MV_CC_SetEnumValueByString(handle, "PixelFormat", "RGB8Packed");
+    if (r == MV_OK) {
+        fprintf(stderr, "hik: cam=%d PixelFormat=RGB8Packed (BGR8Packed unsupported)\n", camera_id);
+        return 0;
+    }
+    fprintf(stderr, "hik: cam=%d PixelFormat BGR8/RGB8 not applied (0x%x)\n", camera_id, r);
+    return -1;
 }
 
 /**
@@ -826,11 +852,17 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         int packetSize = MV_CC_GetOptimalPacketSize(st->hik_handle);
         if (packetSize > 0) {
             (void)MV_CC_SetIntValue(st->hik_handle, "GevSCPSPacketSize", (unsigned int)packetSize);
+            fprintf(stderr, "hik: GevSCPSPacketSize=%d cam=%d\n", packetSize, st->camera_id);
         }
-        hik_apply_gige_inter_packet_delay(st->hik_handle, st->gige_inter_packet_delay);
-        hik_apply_gige_frame_transfer_delay(st);
     }
-    (void)MV_CC_SetEnumValueByString(st->hik_handle, "PixelFormat", "RGB8Packed");
+    if (hik_apply_pixel_format(st->hik_handle, st->camera_id) != 0) {
+        snprintf(err, err_len, "hik: failed to set BGR8/RGB8 pixel format");
+        MV_CC_CloseDevice(st->hik_handle);
+        MV_CC_DestroyHandle(st->hik_handle);
+        st->hik_handle = NULL;
+        MV_CC_Finalize();
+        return -1;
+    }
     hik_disable_auto_white_balance(st->hik_handle);
     hik_apply_exposure(st->hik_handle, st->exposure_us);
     hik_configure_trigger_mode(st);
@@ -845,6 +877,10 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         st->hik_handle = NULL;
         MV_CC_Finalize();
         return -1;
+    }
+    st->frame_bytes = (size_t)payload.nCurValue;
+    if (devList.pDeviceInfo[selected]->nTLayerType == MV_GIGE_DEVICE) {
+        hik_apply_gige_stream_tuning(st);
     }
     st->hik_raw_capacity = payload.nCurValue;
     st->hik_raw_frame = (unsigned char *)malloc(st->hik_raw_capacity);
@@ -993,6 +1029,14 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
         }
         if (info.nLostPacket > 0) {
             snprintf(err, err_len, "hik frame incomplete: lost_packets=%u", info.nLostPacket);
+            return -1;
+        }
+        unsigned int min_frame_len = (unsigned int)st->width * (unsigned int)st->height * 3u;
+        if (info.enPixelType == PixelType_Gvsp_Mono8) {
+            min_frame_len = (unsigned int)st->width * (unsigned int)st->height;
+        }
+        if (info.nFrameLen > 0 && info.nFrameLen < min_frame_len) {
+            snprintf(err, err_len, "hik frame too short: nFrameLen=%u expected>=%u", info.nFrameLen, min_frame_len);
             return -1;
         }
         if (hik_copy_frame_to_bgr(st, &info, frame) != 0) {

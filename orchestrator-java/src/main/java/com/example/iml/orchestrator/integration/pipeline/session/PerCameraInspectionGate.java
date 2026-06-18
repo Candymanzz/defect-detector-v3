@@ -72,6 +72,16 @@ public final class PerCameraInspectionGate {
         return flag != null && flag.get();
     }
 
+    /** Любая камера в цикле инспекции — для паузы live_preview и разгрузки GigE. */
+    public boolean hasAnyInspectionInFlight() {
+        for (AtomicBoolean flag : inFlight.values()) {
+            if (flag != null && flag.get()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void setInspectionEnabled(int cameraId, boolean enabled) {
         AtomicBoolean flag = inspectionEnabled.get(cameraId);
         AtomicBoolean flight = inFlight.get(cameraId);
