@@ -67,9 +67,10 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [initialCameraId]);
 
   useEffect(() => {
+    const pendingReferenceMessageIds = pendingReferenceMessageIdsRef.current;
     const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
       switch (message.type) {
         case "server.hello":
@@ -105,7 +106,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
     return () => {
       unsubscribeMessage();
-      pendingReferenceMessageIdsRef.current.clear();
+      pendingReferenceMessageIds.clear();
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
     };
   }, [handlePreviewFrame]);
@@ -148,7 +149,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     }
 
     pauseReferencePreview(isReferencePreviewPausedRef);
-    setMessage(`Reference frames locked for cameras: ${cameraIds.join(", ")}`);
+    window.setTimeout(() => {
+      setMessage(`Reference frames locked for cameras: ${cameraIds.join(", ")}`);
+    }, 0);
   }, [cameraIds, referenceFrames.framesByCameraId, status.state]);
 
   useEffect(() => {

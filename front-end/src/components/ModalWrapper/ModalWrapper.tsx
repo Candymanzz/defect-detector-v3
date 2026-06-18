@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
+import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
@@ -12,10 +13,6 @@ type ModalWrapperProps = {
   cameraId?: number;
   cameraImageUrl?: string;
   inspectHeatmapUrl?: string;
-  inspectSnapshotLoadState?: {
-    state: "idle" | "loading" | "error";
-    message?: string;
-  };
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
   dangerHeaderAction?: ReactNode;
@@ -29,7 +26,6 @@ export function ModalWrapper({
   cameraId,
   cameraImageUrl,
   inspectHeatmapUrl,
-  inspectSnapshotLoadState,
   inspectResult,
   referenceImageUrl,
   dangerHeaderAction,
@@ -128,19 +124,6 @@ export function ModalWrapper({
             data-state={inspectResultSyncState.state}
           >
             {inspectResultSyncState.label}
-          </div>
-        )}
-
-        {inspectSnapshotLoadState && inspectSnapshotLoadState.state !== "idle" && (
-          <div
-            className="modal__frame-sync"
-            data-state={inspectSnapshotLoadState.state === "error" ? "partial" : "loading"}
-          >
-            {inspectSnapshotLoadState.state === "loading"
-              ? inspectResult
-                ? "Loading newer inspection..."
-                : "Loading latest inspection..."
-              : inspectSnapshotLoadState.message}
           </div>
         )}
 
@@ -361,21 +344,3 @@ function getInspectResultSyncState(
   };
 }
 
-function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pass" | "fail" | undefined {
-  const pythonStatus = inspectResult?.python_status?.toUpperCase();
-  if (pythonStatus === "PASS") {
-    return "pass";
-  }
-  if (pythonStatus === "FAIL" || pythonStatus === "ERROR") {
-    return "fail";
-  }
-
-  if (inspectResult?.overall_pass === true || inspectResult?.action === "ACCEPT") {
-    return "pass";
-  }
-  if (inspectResult?.overall_pass === false || inspectResult?.action === "REJECT") {
-    return "fail";
-  }
-
-  return undefined;
-}

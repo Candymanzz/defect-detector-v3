@@ -105,16 +105,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             >
               Задать эталон
             </button>
-            {false && (
-              <button
-                className="reference-setup__button reference-setup__button--secondary"
-                type="button"
-                disabled={!canSendAllReferences}
-                onClick={handleSendAllReferences}
-              >
-                Задать все эталоны
-              </button>
-            )}
           </div>
 
           <div className="reference-setup__workspace">
