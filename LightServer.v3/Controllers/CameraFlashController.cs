@@ -1,6 +1,7 @@
 using LightServer.Models;
 using LightServer.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Concurrent;
 
 namespace LightServer.Controllers;
 
@@ -9,6 +10,9 @@ namespace LightServer.Controllers;
 public sealed class CameraFlashController : ControllerBase
 {
     private readonly LightControlService _light;
+    private static readonly int[] AllNetworkChannels = [1, 2, 3, 4];
+    private static readonly ConcurrentDictionary<string, int[]> NetworkBrightnessState = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object NetworkStateLock = new();
 
     public CameraFlashController(LightControlService light) => _light = light;
 
@@ -68,9 +72,12 @@ public sealed class CameraFlashController : ControllerBase
             {
                 IpAddress = target.IpAddress,
                 LightControllerSource = "On",
-                Channels = channels,
-                Brightness = brightness
+                Channels = AllNetworkChannels,
+                Brightness = BuildMergedNetworkBrightness(target.IpAddress!, target.LeftChannel, target.RightChannel, request.LeftPower, request.RightPower)
             });
+
+        if (netOk)
+            RememberNetworkBrightness(target.IpAddress!, target.LeftChannel, target.RightChannel, request.LeftPower, request.RightPower);
 
         return netOk
             ? Ok(new
@@ -159,6 +166,44 @@ public sealed class CameraFlashController : ControllerBase
             8 => new PairTarget(null, "169.254.213.2", 3, 4),
             _ => throw new ArgumentOutOfRangeException(nameof(cameraNumber), cameraNumber, "cameraNumber вне диапазона 1..8")
         };
+    }
+
+    private static int[] BuildMergedNetworkBrightness(
+        string ipAddress,
+        int leftChannel,
+        int rightChannel,
+        int leftPower,
+        int rightPower)
+    {
+        lock (NetworkStateLock)
+        {
+            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing) && existing.Length == 4
+                ? (int[])existing.Clone()
+                : [0, 0, 0, 0];
+
+            merged[leftChannel - 1] = leftPower;
+            merged[rightChannel - 1] = rightPower;
+            return merged;
+        }
+    }
+
+    private static void RememberNetworkBrightness(
+        string ipAddress,
+        int leftChannel,
+        int rightChannel,
+        int leftPower,
+        int rightPower)
+    {
+        lock (NetworkStateLock)
+        {
+            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing) && existing.Length == 4
+                ? (int[])existing.Clone()
+                : [0, 0, 0, 0];
+
+            merged[leftChannel - 1] = leftPower;
+            merged[rightChannel - 1] = rightPower;
+            NetworkBrightnessState[ipAddress] = merged;
+        }
     }
 
     private sealed record PairTarget(string? ComPort, string? IpAddress, int LeftChannel, int RightChannel);
