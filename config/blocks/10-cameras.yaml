@@ -3,7 +3,7 @@ cameras:
   - id: 0
     enabled: true
     inspection_enabled: true
-    ip: "169.254.105.1"
+    ip: "169.254.88.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -13,7 +13,7 @@ cameras:
   - id: 1
     enabled: true
     inspection_enabled: true
-    ip: "169.254.79.219"
+    ip: "169.254.83.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -23,7 +23,7 @@ cameras:
   - id: 2
     enabled: true
     inspection_enabled: true
-    ip: "169.254.100.219"
+    ip: "169.254.213.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -33,7 +33,7 @@ cameras:
   - id: 3
     enabled: true
     inspection_enabled: true
-    ip: "169.254.213.219"
+    ip: "169.254.98.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -43,7 +43,7 @@ cameras:
   - id: 4
     enabled: true
     inspection_enabled: true
-    ip: "169.254.92.219"
+    ip: "169.254.79.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -53,7 +53,7 @@ cameras:
   - id: 5
     enabled: true
     inspection_enabled: true
-    ip: "169.254.97.219"
+    ip: "169.254.92.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -63,7 +63,7 @@ cameras:
   - id: 6
     enabled: true
     inspection_enabled: true
-    ip: "169.254.98.219"
+    ip: "169.254.100.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -73,7 +73,7 @@ cameras:
   - id: 7
     enabled: true
     inspection_enabled: true
-    ip: "169.254.83.219"
+    ip: "169.254.105.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -83,7 +83,7 @@ cameras:
   - id: 8
     enabled: true
     inspection_enabled: true
-    ip: "169.254.103.219"
+    ip: "169.254.97.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -93,7 +93,7 @@ cameras:
   - id: 9
     enabled: true
     inspection_enabled: true
-    ip: "169.254.88.219"
+    ip: "169.254.103.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"

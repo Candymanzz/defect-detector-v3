@@ -3,8 +3,12 @@ import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws"
 import type { BackendStatus, CameraCardData, CameraImageUrlsById, MainOverviewData, SelectedCamera } from "./type";
 
 const CAMERAS_PER_OBJECT = 5;
+const FALLBACK_OBJECT_COUNT = 2;
 
-export const FALLBACK_CAMERA_IDS = Array.from({ length: CAMERAS_PER_OBJECT }, (_, index) => index);
+export const FALLBACK_CAMERA_IDS = Array.from(
+  { length: CAMERAS_PER_OBJECT * FALLBACK_OBJECT_COUNT },
+  (_, index) => index,
+);
 export const INITIAL_BACKEND_STATUS: BackendStatus = {
   state: "loading",
   text: "Проверка...",
@@ -68,7 +72,11 @@ async function loadBackendCameraIds() {
 }
 
 function getCameraIdsOrFallback(cameraIds: number[]) {
-  return cameraIds.length ? cameraIds : FALLBACK_CAMERA_IDS;
+  if (!cameraIds.length) {
+    return FALLBACK_CAMERA_IDS;
+  }
+
+  return [...new Set(cameraIds)].sort((left, right) => left - right);
 }
 
 function createCameraCardData(

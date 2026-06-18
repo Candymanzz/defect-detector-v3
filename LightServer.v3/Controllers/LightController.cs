@@ -26,8 +26,8 @@ public sealed class LightController : ControllerBase
     [HttpPost("light")]
     public ActionResult<LightCommandResponse> SetLight([FromBody] LightCommandRequest request)
     {
-        var (ok, message) = _light.SetLightNetwork(request);
-        var response = BuildResponse(ok, message, request.DeviceIndex, null, request);
+        var (ok, message, resolvedIndex) = _light.SetLightNetwork(request);
+        var response = BuildResponse(ok, message, resolvedIndex ?? request.DeviceIndex, null, request);
         return ok ? Ok(response) : BadRequest(response);
     }
 

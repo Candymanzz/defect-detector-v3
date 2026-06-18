@@ -203,6 +203,16 @@
   cursor: pointer;
 }
 
+.setting-list__inline-save {
+  min-height: 32px;
+  border: 1px solid #65d994;
+  border-radius: 6px;
+  background: rgba(0, 217, 107, 0.12);
+  color: #8bf0b4;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .setting-list__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -231,6 +241,7 @@
 
 .setting-list__submit:disabled,
 .setting-list__brightness-save:disabled,
+.setting-list__inline-save:disabled,
 .setting-list input:disabled {
   cursor: not-allowed;
   opacity: 0.65;

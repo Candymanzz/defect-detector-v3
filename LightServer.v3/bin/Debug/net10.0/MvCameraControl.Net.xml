@@ -216,19 +216,19 @@
             是否采集卡上的相机
             </summary>
         </member>
-        <member name="F:MvCameraControl.GigEDeviceInfo.HostIp">
+        <member name="P:MvCameraControl.GigEDeviceInfo.HostIP">
             <summary>
-            占用设备的主机ip
+            占用相机的主机IP地址
             </summary>
         </member>
-        <member name="F:MvCameraControl.GigEDeviceInfo.nMulticastIp">
+        <member name="P:MvCameraControl.GigEDeviceInfo.MulticastIP">
             <summary>
-            组播ip
+            组播地址
             </summary>
         </member>
-        <member name="F:MvCameraControl.GigEDeviceInfo.nMulticastPort">
+        <member name="P:MvCameraControl.GigEDeviceInfo.MulticastPort">
             <summary>
-            组播port
+            组播端口
             </summary>
         </member>
         <member name="T:MvCameraControl.USBDeviceInfo">
@@ -1300,6 +1300,7 @@
             <param name="pixelDataPtr"></param>
             <param name="pixelDataLen"></param>
             <param name="devHandle">设备句柄</param>
+            <param name="byteBlockPool">内存池对象</param>
         </member>
         <member name="T:MvCameraControl.MvPooledImage">
             <summary>
@@ -1407,6 +1408,151 @@
             <param name="devInfoList"></param>
             <returns></returns>
         </member>
+        <member name="T:MvCameraControl.LiquidLens">
+            <summary>
+            液态镜头控制实现
+            </summary>
+        </member>
+        <member name="E:MvCameraControl.LiquidLens.LiquidLensMsgEvent">
+            <summary>
+            液态镜头消息事件
+            </summary>
+        </member>
+        <member name="E:MvCameraControl.LiquidLens.LiquidLensExceptionEvent">
+            <summary>
+            液态镜头异常事件
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.Open(MvCameraControl.LiquidLensInfo@)">
+            <summary>
+            打开液态镜头
+            </summary>
+            <param name="liquidLensInfo">液态镜头基本信息</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.Close">
+            <summary>
+            关闭液态镜头
+            </summary>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.SetFocalPower(System.Int32,System.Boolean)">
+            <summary>
+            设置光焦度
+            </summary>
+            <param name="focalPower">光焦度值</param>
+            <param name="triggerEnable">是否触发相机，false-不触发，true-触发</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.GetFocalPower(System.Int32@)">
+            <summary>
+            获取当前光焦度
+            </summary>
+            <param name="focalPower">当前光焦度</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.AutoFocus(MvCameraControl.LiquidLensAutoFocusParam,System.Boolean,System.Int32@)">
+            <summary>
+            执行自动对焦
+            </summary>
+            <param name="autoFocusParam">自动对焦参数</param>
+            <param name="outputImage">是否输出图像，false-不输出，true-输出</param>
+            <param name="resultFocalPower">结果光焦度</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.OnLiquidLensMsg(MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MSG@,System.IntPtr)">
+            <summary>
+            液态镜头消息回调处理方法
+            </summary>
+            <param name="msg">液态镜头消息</param>
+            <param name="userData">用户自定义数据</param>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.OnLiquidLensException(MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_EXCEPTION_MSG@,System.IntPtr)">
+            <summary>
+            液态镜头异常回调处理方法
+            </summary>
+            <param name="exceptionMsg">液态镜头异常消息</param>
+            <param name="userData">用户自定义数据</param>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.FocalPowerRangeScan(MvCameraControl.LiquidLensRangeScanParam,System.IntPtr)">
+            <summary>
+            执行光焦度区间扫描
+            </summary>
+            <param name="rangeScanParam">区间扫描参数</param>
+            <param name="userData">用户自定义参数</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.MultiFocalPowerScan(MvCameraControl.LiquidLensMultiFocalPowerScanParam,System.IntPtr)">
+            <summary>
+            执行多焦度轮询
+            </summary>
+            <param name="multiFPScanParam">多焦度轮询参数</param>
+            <param name="userData">用户自定义参数</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.SaveUserSet(MvCameraControl.LiquidLensUserSet)">
+            <summary>
+            保存参数到指定用户集
+            </summary>
+            <param name="userSet">用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.GetCurrentUserSet(MvCameraControl.LiquidLensUserSet@)">
+            <summary>
+            获取当前用户集
+            </summary>
+            <param name="userSet">当前用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.LoadUserSet(MvCameraControl.LiquidLensUserSet)">
+            <summary>
+            加载指定用户集
+            </summary>
+            <param name="userSet">用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.SetDefaultUserSet(MvCameraControl.LiquidLensUserSet)">
+            <summary>
+            设置默认用户集
+            </summary>
+            <param name="userSet">用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.GetDefaultUserSet(MvCameraControl.LiquidLensUserSet@)">
+            <summary>
+            获取默认用户集
+            </summary>
+            <param name="userSet">默认用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.SetTriggerDelayTime(System.UInt32)">
+            <summary>
+            设置触发延时
+            </summary>
+            <param name="delayTimeMs">触发延迟时间（毫秒）</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.GetTriggerDelayTime(System.UInt32@)">
+            <summary>
+            获取触发延时
+            </summary>
+            <param name="delayTimeMs">触发延迟时间（毫秒）</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.SetTempDetectInterval(System.UInt32)">
+            <summary>
+            设置液态镜头温度变化检测时间间隔
+            </summary>
+            <param name="intervalSeconds">检测时间间隔（秒）</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.LiquidLens.GetTempDetectInterval(System.UInt32@)">
+            <summary>
+            获取液态镜头温度变化检测时间间隔
+            </summary>
+            <param name="intervalSeconds">检测时间间隔（秒）</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
         <member name="T:MvCameraControl.MvCCDll">
             <summary>
             MyCamera
@@ -1478,6 +1624,13 @@
             Stream Exception callback Ex
             </summary>
             <param name="pstStreamExceptionInfo">exception info</param>
+            <param name="pUser">User defined variable</param>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.cbLiquidLensMsg">
+            <summary>
+            Liquid lens message callback
+            </summary>
+            <param name="pstMsg">Liquid lens message</param>
             <param name="pUser">User defined variable</param>
         </member>
         <member name="M:MvCameraControl.MvCCDll.ByteToStruct(System.Byte[],System.Type)">
@@ -1563,6 +1716,241 @@
         <member name="F:MvCameraControl.MvCCDll.MV_MAX_DEVICE_NUM">
             <summary>
             最大的相机数量
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_MAX_FOCALPOWER_NUM">
+            <summary>
+            最大变焦次数
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MSG_TYPE">
+            <summary>
+            液态镜头消息类型
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_EXCEPTION_TYPE">
+            <summary>
+            液态镜头异常事件类型
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_USERSET">
+            <summary>
+            液态镜头用户集
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MSG">
+            <summary>
+            液态镜头消息回调信息
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MSG.nMsgType">
+            <summary>
+            消息类型
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MSG.nCurFocalPower">
+            <summary>
+            消息数据，当 nMsgType为MV_CC_LIQUIDLENS_MSG_DPTCHANGE 时，表示当前光焦度值（光焦度（实际）* 1000），其他消息类型请忽略此值
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MSG.nReserved">
+            <summary>
+            预留
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_EXCEPTION_MSG">
+            <summary>
+            液态镜头异常消息回调信息
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_EXCEPTION_MSG.nMsgType">
+            <summary>
+            消息类型
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_EXCEPTION_MSG.nReserved">
+            <summary>
+            预留
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO">
+            <summary>
+            液态镜头基本信息
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.chSerialNumber">
+            <summary>
+            序列号
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.chModelName">
+            <summary>
+            型号名字
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.chFirmwareVersion">
+            <summary>
+            驱动板的固件版本
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.nSupportsTempCompensation">
+            <summary>
+            是否支持温度补偿,0-不支持，1-支持
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.nLensStableTime">
+            <summary>
+            镜头稳定时间，单位ms
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.nMaxFocalPower">
+            <summary>
+            镜头的最大光焦度（1000 * dpt)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.nMinFocalPower">
+            <summary>
+            镜头的最小光焦度（1000 * dpt)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO.nRes">
+            <summary>
+            预留
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_FOCALPOWER">
+            <summary>
+            液态镜头光焦度
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_FOCALPOWER.nCurValue">
+            <summary>
+            当前光焦度，光焦度（实际）* 1000
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_FOCALPOWER.nMaxValue">
+            <summary>
+            最大光焦度，光焦度（实际）* 1000
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_FOCALPOWER.nMinValue">
+            <summary>
+            最小光焦度，光焦度（实际）* 1000
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_FOCALPOWER.nPrecision">
+            <summary>
+            精度,实际光焦度精度（dpt）*1000，如100：精度0.1dpt
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_FOCALPOWER.nRes">
+            <summary>
+            预留
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_RANGE_SCAN_PARAM">
+            <summary>
+            液态镜头区间扫描
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_RANGE_SCAN_PARAM.nFocalPowerStart">
+            <summary>
+            起始光焦度值
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_RANGE_SCAN_PARAM.nFocalPowerEnd">
+            <summary>
+            结束光焦度值
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_RANGE_SCAN_PARAM.nSteps">
+            <summary>
+            扫描步数,扫描步数，范围：[1,200]
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_RANGE_SCAN_PARAM.nDwellTimeMs">
+            <summary>
+            每步停留时间（毫秒）范围[1,10000]
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_RANGE_SCAN_PARAM.nRes">
+            <summary>
+            预留
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM">
+            <summary>
+            液态镜头自动对焦
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nFocalPowerStart">
+            <summary>
+            起始光焦度值
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nFocalPowerEnd">
+            <summary>
+            结束光焦度值
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nCoarseSteps">
+            <summary>
+            粗调阶段步数，粗调阶段步数，范围[3-20], 推荐6
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nRoiEnable">
+            <summary>
+            是否使能ROI,0-禁用，非0-使能
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nOffsetX">
+            <summary>
+            ROI区域左上角X坐标
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nOffsetY">
+            <summary>
+            ROI区域左上角Y坐标
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nRoiWidth">
+            <summary>
+            ROI区域宽度
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nRoiHeight">
+            <summary>
+            ROI区域高度
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM.nRes">
+            <summary>
+            预留
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MULTI_FP_SCAN_PARAM">
+            <summary>
+            液态镜头多焦度轮询
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MULTI_FP_SCAN_PARAM.nFocalPowerNum">
+            <summary>
+            实际光焦度数量
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MULTI_FP_SCAN_PARAM.nFocalPowers">
+            <summary>
+            光焦度数组
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MULTI_FP_SCAN_PARAM.nDwellTimeMs">
+            <summary>
+            每个光焦度停留时间(毫秒)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MULTI_FP_SCAN_PARAM.nRes">
+            <summary>
+            预留
             </summary>
         </member>
         <member name="F:MvCameraControl.MvCCDll.MV_MAX_GENTL_IF_NUM">
@@ -1919,9 +2307,24 @@
             网口IP地址
             </summary>
         </member>
-        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO.nReserved">
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO.nHostIP">
             <summary>
-            预留
+            占用相机的主机IP地址
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO.nGenTLType">
+            <summary>
+            GenTL库的类型(0:普通网口相机 1:虚拟相机 2:采集卡上的相机)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO.nMulticastIP">
+            <summary>
+            组播IP地址
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO.nMulticastPort">
+            <summary>
+            组播端口
             </summary>
         </member>
         <member name="T:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO_EX">
@@ -1989,9 +2392,24 @@
             网口IP地址
             </summary>
         </member>
-        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO_EX.nReserved">
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO_EX.nHostIP">
             <summary>
-            预留
+            占用相机的主机IP地址
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO_EX.nGenTLType">
+            <summary>
+            GenTL库的类型(0:普通网口相机 1:虚拟相机 2:采集卡上的相机)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO_EX.nMulticastIP">
+            <summary>
+            组播IP地址
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_GIGE_DEVICE_INFO_EX.nMulticastPort">
+            <summary>
+            组播端口
             </summary>
         </member>
         <member name="T:MvCameraControl.MvCCDll.MV_USB3_DEVICE_INFO">
@@ -2478,6 +2896,8 @@
             <summary>
             Device info, should be convert to special device info eg GIGE_DEVICE_INFO
             </summary>
+            SDK  v4.6.1版本增加了虚拟相机设备信息，C库联合体的大小从540变成了604
+            这里跟C库保持一致，调用旧版本C库时可能存在兼容性问题
         </member>
         <member name="F:MvCameraControl.MvCCDll.MV_CC_DEVICE_INFO.SpecialInfo">
             <summary>
@@ -3018,6 +3438,21 @@
         <member name="F:MvCameraControl.MvCCDll.MV_FRAME_OUT_INFO_EX.UserPtr">
             <summary>
             用户自定义指针
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_FRAME_OUT_INFO_EX.nFirstLineEncoderCount">
+            <summary>
+            首行编码器计数
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_FRAME_OUT_INFO_EX.nLastLineEncoderCount">
+            <summary>
+            尾行编码器计数
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_FRAME_OUT_INFO_EX.nLastFrameFlag">
+            <summary>
+            电平结束后的最后一帧标记
             </summary>
         </member>
         <member name="F:MvCameraControl.MvCCDll.MV_FRAME_OUT_INFO_EX.nReserved">
@@ -3585,6 +4020,11 @@
             [IN]     Bayer的插值方法 0-快速 1-均衡 2-最优（如果传入其它值则默认为最优）
             </summary>
         </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_SAVE_IMG_TO_FILE_PARAM_EX.nEndian">
+            <summary>
+            保存TIFF图像时的字节序  1-大端存储  0、其他值-小端存储
+            </summary>
+        </member>
         <member name="F:MvCameraControl.MvCCDll.MV_SAVE_IMG_TO_FILE_PARAM_EX.nRes">
             <summary>
             保留字节
@@ -3608,6 +4048,11 @@
         <member name="F:MvCameraControl.MvCCDll.MV_CC_SAVE_IMAGE_PARAM.iMethodValue">
             <summary>
             [IN]     Bayer的插值方法 0-快速 1-均衡 2-最优（如果传入其它值则默认为最优）
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_SAVE_IMAGE_PARAM.nEndian">
+            <summary>
+            保存TIFF图像时的字节序 1-大端存储  0、其他值-小端存储
             </summary>
         </member>
         <member name="F:MvCameraControl.MvCCDll.MV_CC_SAVE_IMAGE_PARAM.nRes">
@@ -4959,6 +5404,41 @@
             </summary>
         </member>
         <member name="F:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO.nRes">
+            <summary>
+            保留字节
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO_EX">
+            <summary>
+            输入帧信息
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO_EX.enPixelType">
+            <summary>
+            [IN]     输入数据的像素格式
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO_EX.nWidth">
+            <summary>
+            [IN]     图像宽(指定目标参数时需为8的倍数)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO_EX.nHeight">
+            <summary>
+            [IN]     图像高(指定目标参数时需为8的倍数)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO_EX.pData">
+            <summary>
+            [IN]     图像数据指针
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO_EX.nDataLen">
+            <summary>
+            [IN]     图像大小
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.MvCCDll.MV_CC_INPUT_FRAME_INFO_EX.nRes">
             <summary>
             保留字节
             </summary>
@@ -7618,6 +8098,156 @@
             获取枚举类型节点(支持的枚举个数扩展到256) V4.4.1新增
             </summary>
         </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_Open(System.IntPtr,MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_INFO@)">
+            <summary>
+            Open the liquid lens
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="pstLiquidLensInfo">Liquid lens basic information</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_Close(System.IntPtr)">
+            <summary>
+            Close the liquid lens
+            </summary>
+            <param name="handle">Device handle</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_SetFocalPower(System.IntPtr,System.Int32,System.Int32)">
+            <summary>
+            Set focal power
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="nFocalPower">Focal power value</param>
+            <param name="nTriggerEnable">Whether to trigger camera, 0-not trigger, non-0-trigger</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_GetFocalPower(System.IntPtr,System.Int32@)">
+            <summary>
+            Get focal power information
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="pstFocalPower">Focal power information</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_AutoFocus(System.IntPtr,MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_AUTOFOCUS_PARAM@,System.Int32,System.Int32@)">
+            <summary>
+            Execute auto focus
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="pstAutoFocusParam">Auto focus parameters</param>
+            <param name="nOutputImage">Output image</param>
+            <param name="pnResultFocalPower">Result focal power</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_FocalPowerRangeScan(System.IntPtr,MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_RANGE_SCAN_PARAM@,MvCameraControl.MvCCDll.cbLiquidLensMsg,System.IntPtr)">
+            <summary>
+            Execute focal power range scan
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="pstRangeScanParam">Range scan parameters</param>
+            <param name="cbLiquidLensMsg">Liquid lens message callback</param>
+            <param name="pUser">User defined variable</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_MultiFocalPowerScan(System.IntPtr,MvCameraControl.MvCCDll.MV_CC_LIQUIDLENS_MULTI_FP_SCAN_PARAM@,MvCameraControl.MvCCDll.cbLiquidLensMsg,System.IntPtr)">
+            <summary>
+            Execute multi focal power polling
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="pstMultiFPScanParam">Multi focal power scan parameters</param>
+            <param name="cbLiquidLensMsg">Liquid lens message callback</param>
+            <param name="pUser">User defined variable</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_SaveUserSet(System.IntPtr,System.UInt32)">
+            <summary>
+            Save parameters to specified user set
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="enUserSet">User set</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_GetCurrentUserSet(System.IntPtr,System.UInt32@)">
+            <summary>
+            Get current user set
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="penUserSet">Current user set</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_LoadUserSet(System.IntPtr,System.UInt32)">
+            <summary>
+            Load specified user set
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="enUserSet">User set</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_SetDefaultUserSet(System.IntPtr,System.UInt32)">
+            <summary>
+            Set default user set
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="enUserSet">User set</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_GetDefaultUserSet(System.IntPtr,System.UInt32@)">
+            <summary>
+            Get default user set
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="penUserSet">Default user set</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_SetTriggerDelayTime(System.IntPtr,System.UInt32)">
+            <summary>
+            Set trigger delay time
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="nDelayTimeMs">Trigger delay time in milliseconds</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_GetTriggerDelayTime(System.IntPtr,System.UInt32@)">
+            <summary>
+            Get trigger delay time
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="pnDelayTimeMs">Current trigger delay time in milliseconds</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_SetTempDetectInterval(System.IntPtr,System.UInt32)">
+            <summary>
+            Set temperature detection interval for liquid lens
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="nIntervalSeconds">Detection interval in seconds</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_GetTempDetectInterval(System.IntPtr,System.UInt32@)">
+            <summary>
+            Get temperature detection interval for liquid lens
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="pnIntervalSeconds">Detection interval in seconds</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
+        <member name="T:MvCameraControl.MvCCDll.cbLiquidLensException">
+            <summary>
+            Liquid lens exception callback delegate
+            </summary>
+            <param name="pstLiquidLensExceptionMsg">Liquid lens exception message</param>
+            <param name="pUser">User defined variable</param>
+        </member>
+        <member name="M:MvCameraControl.MvCCDll.MV_CC_LiquidLens_RegisterExceptionCallBack(System.IntPtr,MvCameraControl.MvCCDll.cbLiquidLensException,System.IntPtr)">
+            <summary>
+            Register liquid lens exception event callback interface
+            </summary>
+            <param name="handle">Device handle</param>
+            <param name="cbLiquidLensException">Exception event callback function pointer</param>
+            <param name="pUser">User defined data</param>
+            <returns>Success: MV_OK; Failure: error code</returns>
+        </member>
         <member name="T:MvCameraControl.IntValue">
             <summary>
             整型参数实现类
@@ -7758,6 +8388,21 @@
             <param name="mvFrameOut"></param>
             <param name="frameOut"></param>
             <returns></returns>
+        </member>
+        <member name="M:MvCameraControl.StreamGrabber.AllocAlignedBuffer(System.UInt64,System.UInt32)">
+            <summary>
+            分配对齐的内存缓冲区
+            </summary>
+            <param name="nBufSize">缓冲区大小</param>
+            <param name="nAlignment">对齐字节数</param>
+            <returns>分配的内存缓冲区指针</returns>
+        </member>
+        <member name="M:MvCameraControl.StreamGrabber.FreeAlignedBuffer(System.IntPtr)">
+            <summary>
+            释放对齐的内存缓冲区
+            </summary>
+            <param name="pBuffer">要释放的缓冲区指针</param>
+            <returns>操作结果状态码</returns>
         </member>
         <member name="T:MvCameraControl.DeviceAccessMode">
             <summary>
@@ -8024,6 +8669,11 @@
             获取用于串口通信的对象(需要相机支持)
             </summary>
         </member>
+        <member name="P:MvCameraControl.IDevice.LiquidLens">
+            <summary>
+            获取液态镜头控制对象
+            </summary>
+        </member>
         <member name="M:MvCameraControl.IDevice.Open">
             <summary>
             打开设备，默认以独占权限打开
@@ -8128,7 +8778,7 @@
             <summary>
             设置GVSP取流超时时间 
             </summary>
-            <param name="timeoutInMS">超时时间(MS)，默认30ms，范围：>10ms</param>
+            <param name="timeoutInMS">超时时间(MS)，默认300ms，范围：>=10ms</param>
             <returns>成功，返回MV_OK；失败，返回错误码</returns>
         </member>
         <member name="M:MvCameraControl.IGigEDevice.GetGvspTimeout(System.UInt32@)">
@@ -8201,6 +8851,9 @@
             </summary>
             <param name="timeInMS">同一重传包多次请求之间的时间间隔，默认10ms </param>
             <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>
+            该接口必须在调用<see cref="M:MvCameraControl.IGigEDevice.SetResend(System.Boolean,System.UInt32,System.UInt32)"/>开启重传包功能之后调用，否则失败且返回MV_E_CALLORDER。
+            </remarks>
         </member>
         <member name="M:MvCameraControl.IGigEDevice.GetResendTimeInterval(System.UInt32@)">
             <summary>
@@ -8208,6 +8861,9 @@
             </summary>
             <param name="timeInMS">同一重传包多次请求之间的时间间隔(以毫秒为单位)</param>
             <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>
+            该接口必须在调用<see cref="M:MvCameraControl.IGigEDevice.SetResend(System.Boolean,System.UInt32,System.UInt32)"/>开启重传包功能之后调用，否则失败且返回MV_E_CALLORDER。
+            </remarks>
         </member>
         <member name="M:MvCameraControl.IGigEDevice.SetTransmissionType(MvCameraControl.TransmissionType,System.UInt32,System.UInt32)">
             <summary>
@@ -8478,7 +9134,7 @@
         </member>
         <member name="M:MvCameraControl.DeviceFactory.CreateDeviceByIp(System.String,System.String)">
             <summary>
-            通过设备IP地址创建设备，适用于GigE设备,不包含虚拟设备与采集卡设备
+            通过设备IP地址创建设备，适用于GigE Vision设备，不包含虚拟设备与采集卡设备
             </summary>
             <param name="deviceIp">设备IP地址</param>
             <param name="netExportIp">网口IP地址</param>
@@ -8626,6 +9282,21 @@
         <member name="P:MvCameraControl.IGigEDeviceInfo.GenTLDevice">
             <summary>
             是否采集卡上的相机
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.IGigEDeviceInfo.HostIP">
+            <summary>
+            占用相机的主机IP地址
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.IGigEDeviceInfo.MulticastIP">
+            <summary>
+            组播地址
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.IGigEDeviceInfo.MulticastPort">
+            <summary>
+            组播端口
             </summary>
         </member>
         <member name="T:MvCameraControl.IUSBDeviceInfo">
@@ -8836,6 +9507,48 @@
         <member name="F:MvCameraControl.MvError.MV_E_NOENOUGH_STREAM">
             <summary>流通道不足</summary>
         </member>
+        <member name="F:MvCameraControl.MvError.MV_E_NORESPONSE">
+            <summary>设备无响应</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_WRITEFILE">
+            <summary>写入文件异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_READFILE">
+            <summary>读取文件异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_FILELENGTH">
+            <summary>文件长度异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_RESOURCE_EVENT">
+            <summary>事件创建失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_RESOURCE_THREAD">
+            <summary>线程创建失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LOCK">
+            <summary>锁异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_TIME">
+            <summary>时间相关异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_EVENT">
+            <summary>事件异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_EVENT_TIMEOUT">
+            <summary>事件超时</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_XML_PARSE">
+            <summary>XML解析异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_MULTICAST_IP_INVALID">
+            <summary>IP地址异常，不在组播范围内</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_PARAMETER_RANGE">
+            <summary>参数超出范围限制</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_INTERNAL">
+            <summary>SDK内部错误</summary>
+        </member>
         <member name="F:MvCameraControl.MvError.MV_E_UNKNOW">
             <summary>未知的错误</summary>
         </member>
@@ -8866,6 +9579,18 @@
         <member name="F:MvCameraControl.MvError.MV_E_GC_DYNAMICCAST">
             <summary>转换异常</summary>
         </member>
+        <member name="F:MvCameraControl.MvError.MV_E_GC_NODE_NOT_FOUND">
+            <summary>节点不存在</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_GC_NODE_VERIFY">
+            <summary>节点校验失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_GC_FILE">
+            <summary>GenICam文件异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_GC_URL_DESC">
+            <summary>设备URL描述符异常</summary>
+        </member>
         <member name="F:MvCameraControl.MvError.MV_E_GC_UNKNOW">
             <summary>GenICam未知错误</summary>
         </member>
@@ -8895,6 +9620,24 @@
         </member>
         <member name="F:MvCameraControl.MvError.MV_E_KEY_VERIFICATION">
             <summary>秘钥校验错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_CHANNEL_INDEX_INVALID">
+            <summary>通道索引无效</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_DEV_DISCONNECT">
+            <summary>设备已断开连接</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_UDP_INIT">
+            <summary>UDP初始化失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_UDP_SEND_DATA">
+            <summary>UDP发送数据失败（网络异常）</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_UDP_RECV_DATA">
+            <summary>接收数据失败（网络异常）</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_NO_RESPONSE">
+            <summary>设备无应答（接收数据超时）</summary>
         </member>
         <member name="F:MvCameraControl.MvError.MV_E_IP_CONFLICT">
             <summary>设备IP冲突</summary>
@@ -8932,8 +9675,170 @@
         <member name="F:MvCameraControl.MvError.MV_E_UPG_INNER_ERR">
             <summary>升级时设备内部出现错误</summary>
         </member>
+        <member name="F:MvCameraControl.MvError.MV_E_UPG_DEVICE_BUSY">
+            <summary>设备正在升级中，不支持再次升级</summary>
+        </member>
         <member name="F:MvCameraControl.MvError.MV_E_UPG_UNKNOW">
             <summary>升级时未知错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SUPPORT_PIXEL_FORMAT">
+            <summary>不支持的像素格式</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SUPPORT_IMAGE_TYPE">
+            <summary>不支持的图像类型 (比如BMP,TIFF,JPG等）</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_NOENOUGH_INPUT_DATA">
+            <summary>输入图像数据不足</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_NOT_INITIAL">
+            <summary>未初始化</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_FUNCTION">
+            <summary>不支持接口</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_ENGINE">
+            <summary>不支持渲染引擎</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_PIXELTYPE">
+            <summary>不支持像素格式</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_TEXTURESIZE">
+            <summary>不支持纹理大小</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_WND">
+            <summary>不支持显示窗口</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_EFFECT">
+            <summary>不支持显示效果</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_VIEWTYPE">
+            <summary>不支持视角变换</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUPPORT_STATE">
+            <summary>不支持渲染状态</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SUBPORT">
+            <summary>端口号无效</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_PORT_USING">
+            <summary>端口号被占用</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_D3D_RESOURCE">
+            <summary>创建D3D相关资源失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SWAPCHAIN">
+            <summary>交换链相关错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_SHADER">
+            <summary>shader操作时相关错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_FONT">
+            <summary>写字时相关错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_LOAD_LIBRARY">
+            <summary>动态加载库失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_OPENGL_RESOURCE">
+            <summary>创建OpenGL相关资源失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_CONTEXT">
+            <summary>context操作失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_PRESENT">
+            <summary>因为显卡原因Present接口返回失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_INVALID_RECT">
+            <summary>无效的矩形区域</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_INVALID_FLOAT">
+            <summary>无效的归一化浮点值</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_INVALID_COLOR">
+            <summary>无效的颜色</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_INVALID_POINT">
+            <summary>无效的点</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_SR_RUNTIME">
+            <summary>运行环境错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_CMD_NOT_SUPPORT">
+            <summary>不支持的命令</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_REGISTER_NOT_EXIST">
+            <summary>寄存器不存在</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_PERMISSION_DENIED">
+            <summary>权限错误，访问被拒</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_CHECKSUM_ERROR">
+            <summary>checksum校验失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_PACKET_FORMAT_ERROR">
+            <summary>数据包格式错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_DATA_FOAMAT_ERROR">
+            <summary>Data字段格式错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_DATA_OUT_RANGE">
+            <summary>参数超出范围</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_DATA_LENGTH_ERROR">
+            <summary>写入数据长度与寄存器长度不匹配</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_DEVICE_BUSY">
+            <summary>设备忙无法响应</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_DATA_INCORRECT_ORDER">
+            <summary>命令顺序错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_RUN_COND_NOT_MET">
+            <summary>运行条件不满足</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_COMMANDTIMEOUT">
+            <summary>镜头指令超时</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_OFFLINE">
+            <summary>镜头离线</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_AF_IMAGE_ABNORMAL">
+            <summary>对焦时图像异常,比如画面全黑全白等</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_ACK_DATA_LENGTH_ERROR">
+            <summary>串口回包的数据长度错误</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_TRIGGER_MODE_NOT_OPEN">
+            <summary>触发模式未打开</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_NOT_SOFT_TRIGGER_MODE">
+            <summary>不是软触发模式</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_DEVICE_NOT_GRABBING">
+            <summary>设备未处于取流状态</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_STRATEGY_NOT_ONEBYONE">
+            <summary>流策略不支持</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_AF_IMAGE_LOST">
+            <summary>对焦时图像缺失或数量异常</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_AF_NOT_CONVERGED">
+            <summary>对焦时达到最大迭代次数但还没有满足收敛条件</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_SERIAL_PORT_PARAMS_FAIL">
+            <summary>串口参数配置失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_INIT_FAILED">
+            <summary>镜头初始化失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_TASK_EXECUTING">
+            <summary>设备忙碌，当前已有任务在执行</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_AF_SHARPNESS_CALC_FAILED">
+            <summary>自动对焦时，清晰度计算失败</summary>
+        </member>
+        <member name="F:MvCameraControl.MvError.MV_E_LIQUIDLENS_UNDEFINED_ERROR">
+            <summary>未定义错误</summary>
         </member>
         <member name="F:MvCameraControl.MvError.MV_ALG_OK">
             <summary>处理正确</summary>
@@ -9712,12 +10617,12 @@
         </member>
         <member name="F:MvCameraControl.RenderMode.D3D">
             <summary>
-            Direct3D,只支持Windows
+            Direct3D，仅适用于Windows平台
             </summary>
         </member>
         <member name="F:MvCameraControl.RenderMode.OPENGL">
             <summary>
-            OPENGL,只支持Windows
+            OPENGL，仅适用于Windows平台，Linux请使用Default
             </summary>
         </member>
         <member name="T:MvCameraControl.MvColor">
@@ -9954,6 +10859,21 @@
             TIFF图像格式
             </summary>
         </member>
+        <member name="T:MvCameraControl.Endianness">
+            <summary>
+            字节序
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.Endianness.LittleEndian">
+            <summary>
+            小端字节序
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.Endianness.BigEndian">
+            <summary>
+            大端字节序
+            </summary>
+        </member>
         <member name="T:MvCameraControl.ImageFormatInfo">
             <summary>
             图像格式信息
@@ -9967,6 +10887,11 @@
         <member name="F:MvCameraControl.ImageFormatInfo.JpegQuality">
             <summary>
             JPEG编码质量(50-99]，其他格式无效
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.ImageFormatInfo.ByteOrder">
+            <summary>
+            TIFF图像存储时的字节序
             </summary>
         </member>
         <member name="T:MvCameraControl.IImageSaver">
@@ -10144,7 +11069,7 @@
         </member>
         <member name="P:MvCameraControl.IInterfaceInfo.PCIEInfo">
             <summary>
-            采集卡的PCIE插槽信息 
+            采集卡的PCIe插槽信息 
             </summary>
         </member>
         <member name="P:MvCameraControl.IInterfaceInfo.InterfaceID">
@@ -10181,6 +11106,273 @@
             <summary>
             自定义名称
             </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensMsgType">
+            <summary>
+            液态镜头消息类型枚举
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensMsgType.FocalPowerChange">
+            <summary>
+            光焦度变化
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensMsgType.RangeScanCompleted">
+            <summary>
+            光焦度区间扫描结束
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensMsgType.MultiFPScanCompleted">
+            <summary>
+            多光焦度轮询结束
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensUserSet">
+            <summary>
+            液态镜头用户集枚举
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensUserSet.Default">
+            <summary>
+            默认用户集
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensUserSet.UserSet1">
+            <summary>
+            用户集1
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensUserSet.UserSet2">
+            <summary>
+            用户集2
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensUserSet.UserSet3">
+            <summary>
+            用户集3
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensExceptionType">
+            <summary>
+            液态镜头异常类型枚举
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.LiquidLensExceptionType.Offline">
+            <summary>
+            液态镜头掉线
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensMsg">
+            <summary>
+            液态镜头消息
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensMsg.MsgType">
+            <summary>
+            消息类型
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensMsg.CurrentFocalPower">
+            <summary>
+            当前光焦度值
+            当 MsgType 为 LiquidLensMsgType.FocalPowerChange 时，表示当前光焦度值（光焦度（实际）* 1000），其他消息类型请忽略此值
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensMsg.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensMsgEventArgs">
+            <summary>
+            液态镜头消息事件参数
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensMsgEventArgs.Msg">
+            <summary>
+            液态镜头消息
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensMsgEventArgs.UserData">
+            <summary>
+            用户自定义数据
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensMsgEventArgs.#ctor(MvCameraControl.LiquidLensMsg,System.IntPtr)">
+            <summary>
+            构造函数
+            </summary>
+            <param name="msg">液态镜头消息</param>
+            <param name="userData">用户自定义数据</param>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensExceptionEventArgs">
+            <summary>
+            液态镜头异常消息事件参数
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensExceptionEventArgs.MsgType">
+            <summary>
+            异常消息类型
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensExceptionEventArgs.UserData">
+            <summary>
+            用户自定义数据
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensExceptionEventArgs.#ctor(MvCameraControl.LiquidLensExceptionType,System.IntPtr)">
+            <summary>
+            构造函数
+            </summary>
+            <param name="msgType">异常消息类型</param>
+            <param name="userData">用户自定义数据</param>
+        </member>
+        <member name="T:MvCameraControl.ILiquidLens">
+            <summary>
+            液态镜头控制接口
+            </summary>
+        </member>
+        <member name="E:MvCameraControl.ILiquidLens.LiquidLensMsgEvent">
+            <summary>
+            液态镜头消息事件
+            </summary>
+        </member>
+        <member name="E:MvCameraControl.ILiquidLens.LiquidLensExceptionEvent">
+            <summary>
+            液态镜头异常事件
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.Open(MvCameraControl.LiquidLensInfo@)">
+            <summary>
+            打开液态镜头
+            </summary>
+            <param name="liquidLensInfo">液态镜头基本信息</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.Close">
+            <summary>
+            关闭液态镜头
+            </summary>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.SetFocalPower(System.Int32,System.Boolean)">
+            <summary>
+            设置光焦度
+            </summary>
+            <param name="focalPower">光焦度值</param>
+            <param name="triggerEnable">是否触发相机，false-不触发，true-触发</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>当triggerEnable为true时，用户需要先把相机设置为软触发模式，接口调用后，相机将触发一帧图像，否则无法出图。</remarks>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.GetFocalPower(System.Int32@)">
+            <summary>
+            获取光焦度信息
+            </summary>
+            <param name="focalPower">光焦度信息</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.AutoFocus(MvCameraControl.LiquidLensAutoFocusParam,System.Boolean,System.Int32@)">
+            <summary>
+            执行自动对焦
+            </summary>
+            <param name="autoFocusParam">自动对焦参数</param>
+            <param name="outputImage">对焦过程中是否输出图像，false: 丢弃对焦过程中的图像，true：保留对焦过程中的图像，用户可以通过注册回调或者GetImageBuffer主动获取图像</param>
+            <param name="resultFocalPower">最佳清晰位置的光焦度值</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>
+            当outputImage为true时，在对焦前建议增大图像缓存节点个数，以免丢帧。
+            对焦过程中会将相机切换成软触发模式，对焦结束后，会将触发模式恢复到对焦前的设定。
+            为了提高对焦的有效性，对焦前请确保对焦画面亮度均匀。
+            </remarks>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.FocalPowerRangeScan(MvCameraControl.LiquidLensRangeScanParam,System.IntPtr)">
+            <summary>
+            执行光焦度区间扫描
+            </summary>
+            <param name="rangeScanParam">区间扫描参数</param>
+            <param name="userData">用户自定义参数，如果注册了LiquidLensMsgEvent事件，则该参数会被传递给回调函数</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>
+            调用接口前需要用户先把相机设置为软触发模式，否则扫描过程中相机无法触发出图。相机触发出图的时机受触发延迟时间的影响，可以通过SetTriggerDelayTime接口设置。
+            在回调中可以获取到光焦度变化事件和扫描结束事件，如果是光焦度变化事件，消息数据返回的是当前光焦度值。
+            </remarks>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.MultiFocalPowerScan(MvCameraControl.LiquidLensMultiFocalPowerScanParam,System.IntPtr)">
+            <summary>
+            执行多焦度轮询
+            </summary>
+            <param name="multiFPScanParam">多焦度轮询参数</param>
+            <param name="userData">用户自定义参数，如果注册了LiquidLensMsgEvent事件，则该参数会被传递给回调函数</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>
+            调用接口前需要用户先把相机设置为软触发模式，否则扫描过程中相机无法触发出图。相机触发出图的时机受触发延迟时间的影响，可以通过SetTriggerDelayTime接口设置。
+            在回调中可以获取到光焦度变化事件和扫描结束事件，如果是光焦度变化事件，消息数据返回的是当前光焦度值。
+            </remarks>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.SaveUserSet(MvCameraControl.LiquidLensUserSet)">
+            <summary>
+            保存参数到指定用户集
+            </summary>
+            <param name="userSet">用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.GetCurrentUserSet(MvCameraControl.LiquidLensUserSet@)">
+            <summary>
+            获取当前用户集
+            </summary>
+            <param name="userSet">当前用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.LoadUserSet(MvCameraControl.LiquidLensUserSet)">
+            <summary>
+            加载指定用户集
+            </summary>
+            <param name="userSet">用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.SetDefaultUserSet(MvCameraControl.LiquidLensUserSet)">
+            <summary>
+            设置默认用户集
+            </summary>
+            <param name="userSet">用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>调用此接口后，镜头重新上电后，将默认加载设定的用户集。</remarks>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.GetDefaultUserSet(MvCameraControl.LiquidLensUserSet@)">
+            <summary>
+            获取默认用户集
+            </summary>
+            <param name="userSet">默认用户集</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.SetTriggerDelayTime(System.UInt32)">
+            <summary>
+            设置触发延时
+            </summary>
+            <param name="delayTimeMs">触发延迟时间（毫秒），范围[0, 65535]</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+            <remarks>触发延迟时间决定相机触发出图的时机，比如发送设置光焦度命令后，等待一个触发延迟时间后，再触发出图（如果需要）。</remarks>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.GetTriggerDelayTime(System.UInt32@)">
+            <summary>
+            获取触发延时
+            </summary>
+            <param name="delayTimeMs">触发延迟时间（毫秒），范围[0, 65535]</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.SetTempDetectInterval(System.UInt32)">
+            <summary>
+            设置液态镜头温度变化检测时间间隔
+            </summary>
+            <param name="intervalSeconds">检测时间间隔（秒），范围[0, 65535]</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.ILiquidLens.GetTempDetectInterval(System.UInt32@)">
+            <summary>
+            获取液态镜头温度变化检测时间间隔
+            </summary>
+            <param name="intervalSeconds">检测时间间隔（秒），范围[0, 65535]</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
         </member>
         <member name="T:MvCameraControl.MvException">
             <summary>
@@ -11357,7 +12549,7 @@
         </member>
         <member name="M:MvCameraControl.ISerialPort.Write(System.Byte[],System.Int32,System.UInt32@)">
             <summary>
-            向串口写数据，一次最大写1024字节的数据
+            向串口写数据，一次最大写512字节的数据
             </summary>
             <param name="buffer">写入的数据缓存</param>
             <param name="length">要写入的数据长度</param>
@@ -11409,6 +12601,11 @@
         <member name="F:MvCameraControl.StreamExceptionType.PartialImage">
             <summary>
              行高不足,丢弃残帧(线阵相机或者采集卡配置了残帧丢弃模式,出图行高不足时被SDK丢弃)
+            </summary>
+        </member>
+        <member name="F:MvCameraControl.StreamExceptionType.ImageBufferOverflow">
+            <summary>
+            设备发送的图像数据大小超过了图像缓存区容量（该帧丢弃）
             </summary>
         </member>
         <member name="T:MvCameraControl.StreamExceptionEventArgs">
@@ -11463,7 +12660,7 @@
         </member>
         <member name="F:MvCameraControl.StreamGrabStrategy.UpcomingImage">
             <summary>
-            在调用取流接口时忽略输出缓存列表中所有图像，并等待设备即将生成的一帧图像。该策略只支持GigE设备，不支持U3V设备  
+            在调用取流接口时忽略输出缓存列表中所有图像，并等待下一帧图像
             </summary>
         </member>
         <member name="T:MvCameraControl.IChunkData">
@@ -11623,6 +12820,21 @@
             子图列表
             </summary>
         </member>
+        <member name="P:MvCameraControl.IFrameOut.FirstLineEncoderCount">
+            <summary>
+            首行编码器计数
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.IFrameOut.LastLineEncoderCount">
+            <summary>
+            尾行编码器计数
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.IFrameOut.LastFrameFlag">
+            <summary>
+            电平结束后的最后一帧标记
+            </summary>
+        </member>
         <member name="T:MvCameraControl.FrameGrabbedEventArgs">
             <summary>
             采集一帧图像的事件，用于获取图像数据和帧信息
@@ -11743,6 +12955,45 @@
             该接口在连续模式切触发模式后，可以清除历史数据。 
             </remarks>
         </member>
+        <member name="M:MvCameraControl.IStreamGrabber.GetPayloadSize(System.UInt64@,System.UInt32@)">
+            <summary>
+            获取设备payload大小（payload包含图像数据和Chunk数据）和内存对其方式，用于SDK外部注册缓存时，应用层分配足够的缓存及正确的内存对齐方式
+            </summary>
+            <param name="payloadSize">负载长度</param>
+            <param name="alignment">负载内存对齐的字节数</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.IStreamGrabber.RegisterBuffer(System.IntPtr,System.UInt64,System.IntPtr)">
+            <summary>
+            应用程序分配缓存，并注册到SDK内部，供SDK使用
+            </summary>
+            <param name="buffer">内存地址</param>
+            <param name="bufferSize">内存长度</param>
+            <param name="pUser">用户指针</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.IStreamGrabber.UnRegisterBuffer(System.IntPtr)">
+            <summary>
+            外部内存取消注册
+            </summary>
+            <param name="buffer">外部内存地址</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="M:MvCameraControl.IStreamGrabber.AllocAlignedBuffer(System.UInt64,System.UInt32)">
+            <summary>
+            分配对齐的内存缓冲区
+            </summary>
+            <param name="nBufSize">缓冲区大小</param>
+            <param name="nAlignment">对齐字节数</param>
+            <returns>分配的内存缓冲区指针</returns>
+        </member>
+        <member name="M:MvCameraControl.IStreamGrabber.FreeAlignedBuffer(System.IntPtr)">
+            <summary>
+            释放对齐的内存缓冲区
+            </summary>
+            <param name="pBuffer">要释放的缓冲区指针</param>
+            <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
         <member name="T:MvCameraControl.VideoFormatType">
             <summary>
             视频格式
@@ -11775,7 +13026,7 @@
         </member>
         <member name="F:MvCameraControl.RecordParam.FrameRate">
             <summary>
-            帧率fps(大于1/16) 
+            帧率fps，范围[1/16 - 1000] 
             </summary>
         </member>
         <member name="F:MvCameraControl.RecordParam.BitRate">
@@ -11813,6 +13064,175 @@
             停止录像 
             </summary>
             <returns>成功，返回MV_OK；失败，返回错误码</returns>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensInfo">
+            <summary>
+            液态镜头基本信息
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensInfo.SerialNumber">
+            <summary>
+            序列号
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensInfo.ModelName">
+            <summary>
+            型号名字
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensInfo.FirmwareVersion">
+            <summary>
+            驱动板的固件版本
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensInfo.SupportsTempCompensation">
+            <summary>
+            是否支持温度补偿,0-不支持，1-支持
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensInfo.LensStableTime">
+            <summary>
+            镜头稳定时间，单位ms
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensInfo.MaxFocalPower">
+            <summary>
+            镜头的最大光焦度（1000 * dpt)
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensInfo.MinFocalPower">
+            <summary>
+             镜头的最小光焦度（1000 * dpt)
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensInfo.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensRangeScanParam">
+            <summary>
+            液态镜头区间扫描参数
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensRangeScanParam.FocalPowerStart">
+            <summary>
+            起始光焦度值
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensRangeScanParam.FocalPowerEnd">
+            <summary>
+            结束光焦度值
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensRangeScanParam.Steps">
+            <summary>
+            扫描步数,扫描步数，范围：[1,200]
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensRangeScanParam.DwellTimeMs">
+            <summary>
+            每步停留时间（毫秒）范围[1,10000]
+            </summary>
+            <remarks>镜头移动到指定光焦度后，会等待此时间段，以确保镜头稳定并完成图像采集</remarks>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensRangeScanParam.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensAutoFocusParam">
+            <summary>
+            液态镜头自动对焦参数
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.FocalPowerStart">
+            <summary>
+            起始光焦度值
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.FocalPowerEnd">
+            <summary>
+            结束光焦度值
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.CoarseSteps">
+            <summary>
+            粗调阶段步数，范围[3-20], 推荐6。
+            </summary>
+            <remarks>步数越大，搜索越精细但对焦耗时越长；步数越小，搜索越快但可能错过最佳焦点</remarks>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.RoiEnable">
+            <summary>
+            是否使能ROI,0-禁用，非0-使能
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.OffsetX">
+            <summary>
+            ROI区域左上角X坐标
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.OffsetY">
+            <summary>
+            ROI区域左上角Y坐标
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.RoiWidth">
+            <summary>
+            ROI区域宽度
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensAutoFocusParam.RoiHeight">
+            <summary>
+            ROI区域高度
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensAutoFocusParam.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensFocalPowerItem">
+            <summary>
+            液态镜头光焦度项
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensFocalPowerItem.FocalPower">
+            <summary>
+            光焦度值
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensFocalPowerItem.DwellTimeMs">
+            <summary>
+            停留时间(毫秒)
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensFocalPowerItem.#ctor">
+            <summary>
+            构造函数
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensFocalPowerItem.#ctor(System.Int32,System.UInt32)">
+            <summary>
+            构造函数
+            </summary>
+            <param name="focalPower">光焦度值</param>
+            <param name="dwellTimeMs">停留时间(毫秒)</param>
+        </member>
+        <member name="T:MvCameraControl.LiquidLensMultiFocalPowerScanParam">
+            <summary>
+            液态镜头多焦度轮询参数
+            </summary>
+        </member>
+        <member name="P:MvCameraControl.LiquidLensMultiFocalPowerScanParam.FocalPowerItems">
+            <summary>
+            光焦度项列表
+            </summary>
+        </member>
+        <member name="M:MvCameraControl.LiquidLensMultiFocalPowerScanParam.#ctor">
+            <summary>
+            构造函数
+            </summary>
         </member>
         <member name="T:MvCamCtrl.NET.MyCamera">
             <summary>
@@ -12200,6 +13620,14 @@
             </summary>
             <param name="pstInfo">Various type of information</param>
             <returns>Success, return MV_OK. Failure, return error code</returns>
+        </member>
+        <member name="M:MvCamCtrl.NET.MyCamera.MV_CC_GetPayloadSize_NET(System.UInt64@,System.UInt32@)">
+            <summary>
+            Gets the device payload size (including image data and Chunk data, and more.) and memory alignment method. 
+            </summary>
+            <param name="pnPayloadSize">payload size</param>
+            <param name="pnAlignment">alignment bytes</param>
+            <returns>Success, return MV_OK. Failure, return error code </returns>
         </member>
         <member name="M:MvCamCtrl.NET.MyCamera.MV_CC_GetIntValueEx_NET(System.String,MvCamCtrl.NET.MyCamera.MVCC_INTVALUE_EX@)">
             <summary>
@@ -13980,9 +15408,24 @@
             网口IP地址
             </summary>
         </member>
-        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO.nReserved">
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO.nHostIP">
             <summary>
-            预留
+            占用相机的主机IP地址
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO.nGenTLType">
+            <summary>
+            GenTL库的类型(0:普通网口相机 1:虚拟相机 2:采集卡上的相机)
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO.nMulticastIP">
+            <summary>
+            组播IP地址
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO.nMulticastPort">
+            <summary>
+            组播端口
             </summary>
         </member>
         <member name="T:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO_EX">
@@ -14050,9 +15493,24 @@
             网口IP地址
             </summary>
         </member>
-        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO_EX.nReserved">
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO_EX.nHostIP">
             <summary>
-            预留
+            占用相机的主机IP地址
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO_EX.nGenTLType">
+            <summary>
+            GenTL库的类型(0:普通网口相机 1:虚拟相机 2:采集卡上的相机)
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO_EX.nMulticastIP">
+            <summary>
+            组播IP地址
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE_INFO_EX.nMulticastPort">
+            <summary>
+            组播端口
             </summary>
         </member>
         <member name="T:MvCamCtrl.NET.MyCamera.MV_USB3_DEVICE_INFO">
@@ -14138,6 +15596,11 @@
         <member name="F:MvCamCtrl.NET.MyCamera.MV_USB3_DEVICE_INFO.nbcdUSB">
             <summary>
             支持的USB协议
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_USB3_DEVICE_INFO.nDeviceAddress">
+            <summary>
+            设备地址
             </summary>
         </member>
         <member name="F:MvCamCtrl.NET.MyCamera.MV_USB3_DEVICE_INFO.nReserved">
@@ -14228,6 +15691,11 @@
         <member name="F:MvCamCtrl.NET.MyCamera.MV_USB3_DEVICE_INFO_EX.nbcdUSB">
             <summary>
             支持的USB协议
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_USB3_DEVICE_INFO_EX.nDeviceAddress">
+            <summary>
+            设备地址
             </summary>
         </member>
         <member name="F:MvCamCtrl.NET.MyCamera.MV_USB3_DEVICE_INFO_EX.nReserved">
@@ -14996,6 +16464,61 @@
             图像高扩展
             </summary>
         </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.nFrameLenEx">
+            <summary>
+            帧长度扩展
+            </summary>
+        </member>
+        <member name="T:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.SUB_IMAGE_LIST">
+            <summary>
+            子图信息
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.SUB_IMAGE_LIST.pstSubImage">
+            <summary>
+            子图信息
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.SUB_IMAGE_LIST.nAligning">
+            <summary>
+            对齐结构体，无实际用途
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.SubImageList">
+            <summary>
+            子图信息
+            </summary>
+        </member>
+        <member name="T:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.USER_PTR">
+            <summary>
+            用户自定义指针
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.USER_PTR.pUser">
+            <summary>
+            用户自定义指针
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.USER_PTR.nAligning">
+            <summary>
+            对齐结构体，无实际用途
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.UserPtr">
+            <summary>
+            用户自定义指针
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.nFirstLineEncoderCount">
+            <summary>
+            首行编码器计数
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.nLastLineEncoderCount">
+            <summary>
+            尾行编码器计数
+            </summary>
+        </member>
         <member name="F:MvCamCtrl.NET.MyCamera.MV_FRAME_OUT_INFO_EX.nReserved">
             <summary>
             保留字节
@@ -15114,6 +16637,11 @@
         <member name="F:MvCamCtrl.NET.MyCamera.MV_DISPLAY_FRAME_INFO_EX.nDataLen">
             <summary>
             显示的帧数据大小
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_DISPLAY_FRAME_INFO_EX.enRenderMode">
+            <summary>
+            图像渲染方式 0-默认模式(Windows GDI/Linux OPENGL), 1-D3D模式(Windows有效)
             </summary>
         </member>
         <member name="F:MvCamCtrl.NET.MyCamera.MV_DISPLAY_FRAME_INFO_EX.nReserved">
@@ -15514,6 +17042,11 @@
         <member name="F:MvCamCtrl.NET.MyCamera.MV_SAVE_IMG_TO_FILE_PARAM_EX.iMethodValue">
             <summary>
             [IN]     Bayer的插值方法 0-快速 1-均衡 2-最优（如果传入其它值则默认为最优）
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_SAVE_IMG_TO_FILE_PARAM_EX.nEndian">
+            <summary>
+            保存TIFF图像时的字节序  1-大端存储  0、其他值-小端存储
             </summary>
         </member>
         <member name="F:MvCamCtrl.NET.MyCamera.MV_SAVE_IMG_TO_FILE_PARAM_EX.nRes">
@@ -17457,6 +18990,16 @@
         <member name="F:MvCamCtrl.NET.MyCamera.MV_ACTION_CMD_INFO.nTimeOut">
             <summary>
             等待ACK的超时时间，如果为0表示不需要ACK
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_ACTION_CMD_INFO.bSpecialNetEnable">
+            <summary>
+            只有设置成1时指定的网卡IP才有效，非1时无效
+            </summary>
+        </member>
+        <member name="F:MvCamCtrl.NET.MyCamera.MV_ACTION_CMD_INFO.nSpecialNetIP">
+            <summary>
+            指定的网卡IP
             </summary>
         </member>
         <member name="F:MvCamCtrl.NET.MyCamera.MV_ACTION_CMD_INFO.nReserved">

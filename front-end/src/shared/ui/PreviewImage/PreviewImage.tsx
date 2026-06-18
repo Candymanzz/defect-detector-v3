@@ -6,6 +6,8 @@ type PreviewImageProps = {
   className?: string;
   placeholderClassName?: string;
   emptyLabel?: string;
+  decoding?: "async" | "sync" | "auto";
+  fetchPriority?: "high" | "low" | "auto";
 };
 
 export function PreviewImage({
@@ -14,6 +16,8 @@ export function PreviewImage({
   className,
   placeholderClassName,
   emptyLabel = "Нет изображения",
+  decoding = "async",
+  fetchPriority = "auto",
 }: PreviewImageProps) {
   const [failedSrc, setFailedSrc] = useState<string>();
   const failed = Boolean(src && failedSrc === src);
@@ -27,6 +31,8 @@ export function PreviewImage({
       <img
         alt={alt}
         className={className}
+        decoding={decoding}
+        fetchPriority={fetchPriority}
         hidden={failed}
         src={src}
         onError={() => setFailedSrc(src)}

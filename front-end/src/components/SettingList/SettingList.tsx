@@ -5,6 +5,7 @@ import {
   INITIAL_SETTING_DATA,
   loadSettingData,
   saveBrightnessData,
+  saveMaxShiftData,
   saveSettingData,
   SAVING_SETTING_STATUS,
   updateAnalysisSettingField,
@@ -153,6 +154,30 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       });
   };
 
+  const handleMaxShiftSave = () => {
+    if (!canEditSettings) {
+      return;
+    }
+
+    const { form, analysisProductTypes } = settingData;
+    const requestId = ++requestIdRef.current;
+    setSettingData((currentSettingData) => ({
+      ...currentSettingData,
+      status: SAVING_SETTING_STATUS,
+    }));
+
+    saveMaxShiftData(form, analysisProductTypes, selectedCameraId)
+      .catch((error) => ({
+        ...createSettingErrorData(error, form),
+        analysisProductTypes,
+      }))
+      .then((nextSettingData) => {
+        if (requestId === requestIdRef.current) {
+          setSettingData(nextSettingData);
+        }
+      });
+  };
+
   return (
     <aside
       className="setting-list"
@@ -216,6 +241,14 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
             onChange={handleFieldChange("maxShiftMm")}
           />
         </label>
+        <button
+          className="setting-list__inline-save"
+          type="button"
+          disabled={!canEditSettings}
+          onClick={handleMaxShiftSave}
+        >
+          Save max shift
+        </button>
 
         <section className="setting-list__analysis">
           <div className="setting-list__section-header">

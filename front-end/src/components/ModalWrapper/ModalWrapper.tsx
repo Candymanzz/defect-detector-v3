@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
+import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
@@ -12,10 +13,6 @@ type ModalWrapperProps = {
   cameraId?: number;
   cameraImageUrl?: string;
   inspectHeatmapUrl?: string;
-  inspectSnapshotLoadState?: {
-    state: "idle" | "loading" | "error";
-    message?: string;
-  };
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
   dangerHeaderAction?: ReactNode;
@@ -29,7 +26,6 @@ export function ModalWrapper({
   cameraId,
   cameraImageUrl,
   inspectHeatmapUrl,
-  inspectSnapshotLoadState,
   inspectResult,
   referenceImageUrl,
   dangerHeaderAction,
@@ -131,26 +127,23 @@ export function ModalWrapper({
           </div>
         )}
 
-        {inspectSnapshotLoadState && inspectSnapshotLoadState.state !== "idle" && (
-          <div
-            className="modal__frame-sync"
-            data-state={inspectSnapshotLoadState.state === "error" ? "partial" : "loading"}
-          >
-            {inspectSnapshotLoadState.state === "loading"
-              ? inspectResult
-                ? "Loading newer inspection..."
-                : "Loading latest inspection..."
-              : inspectSnapshotLoadState.message}
-          </div>
-        )}
-
         <InspectResultPanel inspectResult={inspectResult} />
       </section>
     </div>
   );
 }
 
-function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: string; roiPoints?: InterestPointNorm[] }) {
+function ImagePanel({
+  label,
+  imageUrl,
+  roiPoints,
+  fetchPriority = "high",
+}: {
+  label: string;
+  imageUrl?: string;
+  roiPoints?: InterestPointNorm[];
+  fetchPriority?: "high" | "low" | "auto";
+}) {
   const svgPoints = roiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
@@ -160,6 +153,8 @@ function ImagePanel({ label, imageUrl, roiPoints }: { label: string; imageUrl?: 
         <PreviewImage
           alt={label}
           className="modal-image-panel__image"
+          decoding="async"
+          fetchPriority={fetchPriority}
           placeholderClassName="modal-image-panel__placeholder"
           src={imageUrl}
         />
@@ -201,7 +196,7 @@ function HeatmapPanel({
   return (
     <figure className="modal-image-panel">
       <figcaption>Heatmap</figcaption>
-      {cameraId !== undefined && matchingInspectResult ? (
+      {cameraId !== undefined && matchingInspectResult?.heatmap ? (
         <HeatmapViewer
           cameraId={cameraId}
           heatmap={frozenHeatmap}
@@ -209,7 +204,9 @@ function HeatmapPanel({
         />
       ) : (
         <div className="modal-image-panel__image-wrap">
-          <div className="modal-image-panel__placeholder">No synchronized inspect result yet</div>
+          <div className="modal-image-panel__placeholder">
+            {matchingInspectResult ? "Heatmap is being prepared" : "No synchronized inspect result yet"}
+          </div>
         </div>
       )}
     </figure>
@@ -343,24 +340,16 @@ function getInspectResultSyncState(
     };
   }
 
+  if (inspectResultImageUrl) {
+    return {
+      state: "loading" as const,
+      label: `Кадр инспекции ${inspectResult.frame_id} получен, heatmap готовится`,
+    };
+  }
+
   return {
     state: "partial" as const,
     label: `Frozen artifacts for frame ${inspectResult.frame_id} are incomplete`,
   };
 }
 
-function resolveInspectionResultState(inspectResult?: InspectResultPayload): "pass" | "fail" | undefined {
-  if (typeof inspectResult?.overall_pass === "boolean") {
-    return inspectResult.overall_pass ? "pass" : "fail";
-  }
-
-  const action = inspectResult?.action?.toUpperCase();
-  if (action === "ACCEPT") {
-    return "pass";
-  }
-  if (action === "REJECT") {
-    return "fail";
-  }
-
-  return undefined;
-}

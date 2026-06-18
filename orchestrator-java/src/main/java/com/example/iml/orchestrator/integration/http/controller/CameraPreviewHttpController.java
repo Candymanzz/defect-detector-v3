@@ -146,7 +146,7 @@ public final class CameraPreviewHttpController implements HttpController {
         }
 
         String contentType;
-        if ("frame.jpg".equals(parts[1])) {
+        if ("frame.jpg".equals(parts[1]) || "card.jpg".equals(parts[1])) {
             contentType = "image/jpeg";
         } else if ("heatmap.u8".equals(parts[1])) {
             contentType = "application/octet-stream";

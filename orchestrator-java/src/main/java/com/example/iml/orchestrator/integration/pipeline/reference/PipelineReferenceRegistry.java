@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntFunction;
 
 /**
  * Эталоны для пайплайна: из камеры ({@code reference_source=camera}) или от клиента по WS.
@@ -36,7 +37,7 @@ public final class PipelineReferenceRegistry {
     public void applyClientBundle(
             Logger log,
             ReferenceBundleSnapshot snap,
-            String detectorId,
+            IntFunction<String> detectorIdResolver,
             List<? extends BinaryRpcSupervisor> pythonPool,
             CameraCaptureStage captureStage
     ) throws Exception {
@@ -48,6 +49,7 @@ public final class PipelineReferenceRegistry {
                     : captureStage.maybeDownscaleClientReferenceHeader(header, frame.cameraId());
             ReferenceSnapshot snapshot = new ReferenceSnapshot(snap.productType(), Map.copyOf(effectiveHeader));
             byCamera.put(frame.cameraId(), snapshot);
+            String detectorId = detectorIdResolver == null ? "" : detectorIdResolver.apply(frame.cameraId());
             Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
                     snap.productType(), detectorId, effectiveHeader);
             for (BinaryRpcSupervisor python : pythonPool) {

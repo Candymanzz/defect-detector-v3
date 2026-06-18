@@ -2,6 +2,9 @@ import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { HeatmapDescriptor } from "../../shared/ws";
 import { createNormalizationLut, HEATMAP_COLOR_LUT } from "./HeatmapColor";
 
+const HEATMAP_CACHE_LIMIT = 12;
+const heatmapBufferCache = new Map<string, ArrayBuffer>();
+
 export async function loadHeatmapForCamera(heatmap: HeatmapDescriptor, signal?: AbortSignal) {
   validateHeatmap(heatmap);
 
@@ -20,6 +23,17 @@ export function clearHeatmapCanvas(canvas: HTMLCanvasElement | null) {
 }
 
 async function loadHeatmapBuffer(heatmap: HeatmapDescriptor, signal?: AbortSignal) {
+  const cacheKey = resolveHeatmapCacheKey(heatmap);
+  if (cacheKey) {
+    const cached = heatmapBufferCache.get(cacheKey);
+    if (cached) {
+      heatmapBufferCache.delete(cacheKey);
+      heatmapBufferCache.set(cacheKey, cached);
+      return cached;
+    }
+  }
+
+  let buffer: ArrayBuffer;
   if (heatmap.http_path) {
     const response = await fetch(resolveHeatmapUrl(heatmap.http_path), {
       headers: {
@@ -32,14 +46,18 @@ async function loadHeatmapBuffer(heatmap: HeatmapDescriptor, signal?: AbortSigna
       throw new Error(`Failed to load heatmap: HTTP ${response.status}`);
     }
 
-    return response.arrayBuffer();
+    buffer = await response.arrayBuffer();
+  } else if (heatmap.artifact_id) {
+    buffer = await orchestratorApi.getHeatmapArtifact(heatmap.artifact_id, signal);
+  } else {
+    throw new Error("Heatmap source is missing for the selected inspect result");
   }
 
-  if (heatmap.artifact_id) {
-    return orchestratorApi.getHeatmapArtifact(heatmap.artifact_id, signal);
+  if (cacheKey) {
+    rememberHeatmapBuffer(cacheKey, buffer);
   }
 
-  throw new Error("Heatmap source is missing for the selected inspect result");
+  return buffer;
 }
 
 function validateHeatmap(heatmap: HeatmapDescriptor) {
@@ -118,4 +136,26 @@ export function drawHeatmapBitmap(
 
 function resolveHeatmapUrl(path: string) {
   return path.startsWith("blob:") ? path : orchestratorApi.url(path);
+}
+
+function resolveHeatmapCacheKey(heatmap: HeatmapDescriptor) {
+  if (heatmap.http_path) {
+    return `path:${heatmap.http_path}`;
+  }
+  if (heatmap.artifact_id) {
+    return `artifact:${heatmap.artifact_id}`;
+  }
+  return null;
+}
+
+function rememberHeatmapBuffer(cacheKey: string, buffer: ArrayBuffer) {
+  heatmapBufferCache.delete(cacheKey);
+  heatmapBufferCache.set(cacheKey, buffer);
+  while (heatmapBufferCache.size > HEATMAP_CACHE_LIMIT) {
+    const oldestKey = heatmapBufferCache.keys().next().value;
+    if (!oldestKey) {
+      break;
+    }
+    heatmapBufferCache.delete(oldestKey);
+  }
 }

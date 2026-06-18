@@ -9,10 +9,13 @@ ui_http:
   store_current_jpeg: true
   store_heatmap_u8: true
   # UI-only gray_u8 heatmap width; 0 keeps the original detector resolution.
-  heatmap_preview_max_width: 512
+  heatmap_preview_max_width: 384
   # The detector still uses the original frame; only the UI JPEG is reduced.
-  inspection_preview_max_width: 1600
-  inspection_preview_jpeg_quality: 55
+  inspection_preview_max_width: 960
+  inspection_preview_jpeg_quality: 45
+  # Immutable lightweight JPEG used only by StatusCard.
+  inspection_card_preview_max_width: 384
+  inspection_card_preview_jpeg_quality: 30
   client_preview_jpeg_quality: 58
   client_preview_max_width: 0
 

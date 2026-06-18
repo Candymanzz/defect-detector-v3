@@ -71,10 +71,11 @@ public record BucketInspectionConfig(
         if (rawGroups instanceof List<?> list && !list.isEmpty()) {
             return parseExplicitGroups(list);
         }
-        InspectionOperationMode mode = InspectionOperationMode.fromConfig(
-                m.get("mode") == null ? null : String.valueOf(m.get("mode"))
-        );
         List<Integer> cameraIds = parseFlatCameraIds(m.get("camera_ids"));
+        InspectionOperationMode mode = resolveOperationMode(
+                m.get("mode") == null ? null : String.valueOf(m.get("mode")),
+                cameraIds.isEmpty() ? enabledCameraIds : cameraIds
+        );
         if (!cameraIds.isEmpty()) {
             return splitIntoPresetGroups(mode, cameraIds);
         }
@@ -167,5 +168,15 @@ public record BucketInspectionConfig(
                         .distinct()
                         .toList();
         return splitIntoPresetGroups(mode, sorted);
+    }
+
+    private static InspectionOperationMode resolveOperationMode(String rawMode, Collection<Integer> cameraIds) {
+        if (rawMode != null && !rawMode.isBlank()) {
+            return InspectionOperationMode.fromConfig(rawMode);
+        }
+        int cameraCount = cameraIds == null ? 0 : (int) cameraIds.stream().filter(id -> id != null && id >= 0).count();
+        return cameraCount >= DEFAULT_CAMERAS_PER_PRESET_GROUP * 2
+                ? InspectionOperationMode.TEN_CAMERAS
+                : InspectionOperationMode.FIVE_CAMERAS;
     }
 }

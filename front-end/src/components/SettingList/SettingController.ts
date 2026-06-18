@@ -1,5 +1,10 @@
 import { orchestratorApi } from "../../shared/api";
-import type { AnalysisSettings, GeometryRuntimeConfig, LightBrightnessSettings, LightEndpointBrightness } from "../../shared/api";
+import type {
+  AnalysisSettings,
+  GeometryRuntimeConfig,
+  LightBrightnessSettings,
+  LightEndpointBrightness,
+} from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import type { AnalysisSettingFieldName, SettingData, SettingFieldName, SettingForm, SettingStatus } from "./type";
 
@@ -85,10 +90,13 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
     loadAnalysisProductTypes(),
   ]);
   const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
-  const analysisSettings =
-    "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;
+  const analysisSettings = "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;
   const resolvedProductTypes =
-    "product_type" in analysisResponse ? [analysisResponse.product_type] : analysisProductTypes;
+    "analysis_profile" in analysisResponse && analysisResponse.analysis_profile
+      ? [analysisResponse.analysis_profile]
+      : "product_type" in analysisResponse && analysisResponse.product_type
+        ? [analysisResponse.product_type]
+        : analysisProductTypes;
 
   return {
     status: {
@@ -110,12 +118,14 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
   const analysisSaveRequests =
     selectedCameraId === null
       ? createAllCameraAnalysisSaveRequests(cameraList?.cameras ?? [], normalizedForm.analysisSettings)
-      : [orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings)];
+      : [
+          saveWithContext(
+            `Analysis settings camera ${selectedCameraId}`,
+            orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings),
+          ),
+        ];
 
-  await Promise.all([
-    saveMaxShiftMm(normalizedForm.maxShiftMm, selectedCameraId, cameraList?.cameras ?? []),
-    ...analysisSaveRequests,
-  ]);
+  await Promise.all(analysisSaveRequests);
 
   const nextData = await loadSettingData(selectedCameraId);
 
@@ -139,6 +149,32 @@ function loadAnalysisSettings(selectedCameraId: number | null, fallbackProductTy
   }
 
   return orchestratorApi.getAnalysisSettings(fallbackProductTypes[0] ?? FALLBACK_ANALYSIS_PRODUCT_TYPE);
+}
+
+export async function saveMaxShiftData(
+  form: SettingForm,
+  analysisProductTypes: string[],
+  selectedCameraId: number | null = null,
+): Promise<SettingData> {
+  const normalizedForm = normalizeSettingForm(form);
+  const cameraList = selectedCameraId === null ? await orchestratorApi.listCameras() : null;
+
+  await saveWithContext(
+    "Geometry settings",
+    saveMaxShiftMm(normalizedForm.maxShiftMm, selectedCameraId, cameraList?.cameras ?? []),
+  );
+
+  return {
+    status: {
+      state: "ready",
+      text: "max shift saved",
+    },
+    form: {
+      ...form,
+      maxShiftMm: normalizedForm.maxShiftMm,
+    },
+    analysisProductTypes,
+  };
 }
 
 export function createSettingErrorData(error: unknown, form: SettingForm = INITIAL_SETTING_FORM): SettingData {
@@ -168,7 +204,8 @@ export function updateAnalysisSettingField(
   rawValue: string | boolean,
 ): SettingForm {
   const currentValue = form.analysisSettings[fieldName];
-  const nextValue = typeof currentValue === "boolean" ? Boolean(rawValue) : parseInputNumber(String(rawValue), currentValue);
+  const nextValue =
+    typeof currentValue === "boolean" ? Boolean(rawValue) : parseInputNumber(String(rawValue), currentValue);
 
   return normalizeSettingForm({
     ...form,
@@ -189,24 +226,72 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
 
 function normalizeAnalysisSettings(settings: AnalysisSettings): AnalysisSettings {
   return {
-    default_threshold: clampNumber(settings.default_threshold, Number.MIN_VALUE, 1),
-    use_patchcore: settings.use_patchcore,
-    min_defect_area: Math.max(1, Math.round(settings.min_defect_area)),
-    min_scratch_aspect: Math.max(1, settings.min_scratch_aspect),
-    min_diff_signal: Math.max(0, settings.min_diff_signal),
-    diff_percentile: clampNumber(settings.diff_percentile, 50, 100),
-    scratch_score_floor: clampNumber(settings.scratch_score_floor, 0, 1),
-    scratch_aspect_floor: Math.max(1, settings.scratch_aspect_floor),
-    edge_suppress_factor: clampNumber(settings.edge_suppress_factor, 0, 1),
-    text_min_contrast: clampNumber(Math.round(settings.text_min_contrast), 0, 255),
-    text_structure_threshold: clampNumber(Math.round(settings.text_structure_threshold), 0, 255),
-    contrast_loss_boost: Math.max(1, settings.contrast_loss_boost),
-    contrast_loss_ref_grad: Math.max(0, settings.contrast_loss_ref_grad),
-    contrast_loss_cur_grad: Math.max(0, settings.contrast_loss_cur_grad),
-    enable_clahe: settings.enable_clahe,
-    clahe_clip_limit: Math.max(Number.MIN_VALUE, settings.clahe_clip_limit),
-    fp_recheck_enabled: settings.fp_recheck_enabled,
-    fp_trigger_diff_q90: Math.max(0, settings.fp_trigger_diff_q90),
+    default_threshold: clampNumber(
+      toFiniteNumber(settings.default_threshold, DEFAULT_ANALYSIS_SETTINGS.default_threshold),
+      Number.MIN_VALUE,
+      1,
+    ),
+    use_patchcore: toBoolean(settings.use_patchcore, DEFAULT_ANALYSIS_SETTINGS.use_patchcore),
+    min_defect_area: Math.max(
+      1,
+      Math.round(toFiniteNumber(settings.min_defect_area, DEFAULT_ANALYSIS_SETTINGS.min_defect_area)),
+    ),
+    min_scratch_aspect: Math.max(
+      1,
+      toFiniteNumber(settings.min_scratch_aspect, DEFAULT_ANALYSIS_SETTINGS.min_scratch_aspect),
+    ),
+    min_diff_signal: Math.max(0, toFiniteNumber(settings.min_diff_signal, DEFAULT_ANALYSIS_SETTINGS.min_diff_signal)),
+    diff_percentile: clampNumber(
+      toFiniteNumber(settings.diff_percentile, DEFAULT_ANALYSIS_SETTINGS.diff_percentile),
+      50,
+      100,
+    ),
+    scratch_score_floor: clampNumber(
+      toFiniteNumber(settings.scratch_score_floor, DEFAULT_ANALYSIS_SETTINGS.scratch_score_floor),
+      0,
+      1,
+    ),
+    scratch_aspect_floor: Math.max(
+      1,
+      toFiniteNumber(settings.scratch_aspect_floor, DEFAULT_ANALYSIS_SETTINGS.scratch_aspect_floor),
+    ),
+    edge_suppress_factor: clampNumber(
+      toFiniteNumber(settings.edge_suppress_factor, DEFAULT_ANALYSIS_SETTINGS.edge_suppress_factor),
+      0,
+      1,
+    ),
+    text_min_contrast: clampNumber(
+      Math.round(toFiniteNumber(settings.text_min_contrast, DEFAULT_ANALYSIS_SETTINGS.text_min_contrast)),
+      0,
+      255,
+    ),
+    text_structure_threshold: clampNumber(
+      Math.round(toFiniteNumber(settings.text_structure_threshold, DEFAULT_ANALYSIS_SETTINGS.text_structure_threshold)),
+      0,
+      255,
+    ),
+    contrast_loss_boost: Math.max(
+      1,
+      toFiniteNumber(settings.contrast_loss_boost, DEFAULT_ANALYSIS_SETTINGS.contrast_loss_boost),
+    ),
+    contrast_loss_ref_grad: Math.max(
+      0,
+      toFiniteNumber(settings.contrast_loss_ref_grad, DEFAULT_ANALYSIS_SETTINGS.contrast_loss_ref_grad),
+    ),
+    contrast_loss_cur_grad: Math.max(
+      0,
+      toFiniteNumber(settings.contrast_loss_cur_grad, DEFAULT_ANALYSIS_SETTINGS.contrast_loss_cur_grad),
+    ),
+    enable_clahe: toBoolean(settings.enable_clahe, DEFAULT_ANALYSIS_SETTINGS.enable_clahe),
+    clahe_clip_limit: Math.max(
+      Number.MIN_VALUE,
+      toFiniteNumber(settings.clahe_clip_limit, DEFAULT_ANALYSIS_SETTINGS.clahe_clip_limit),
+    ),
+    fp_recheck_enabled: toBoolean(settings.fp_recheck_enabled, DEFAULT_ANALYSIS_SETTINGS.fp_recheck_enabled),
+    fp_trigger_diff_q90: Math.max(
+      0,
+      toFiniteNumber(settings.fp_trigger_diff_q90, DEFAULT_ANALYSIS_SETTINGS.fp_trigger_diff_q90),
+    ),
   };
 }
 
@@ -290,11 +375,7 @@ function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {
   );
 }
 
-async function saveMaxShiftMm(
-  maxShiftMm: number,
-  selectedCameraId: number | null,
-  cameraIds: number[],
-) {
+async function saveMaxShiftMm(maxShiftMm: number, selectedCameraId: number | null, cameraIds: number[]) {
   const update = { max_shift_mm: maxShiftMm };
 
   if (selectedCameraId !== null) {
@@ -330,12 +411,20 @@ function resolveAnalysisProductTypesToSave(fallbackProductTypes: string[]) {
 
 function createAllCameraAnalysisSaveRequests(cameraIds: number[], settings: AnalysisSettings) {
   if (cameraIds.length === 0) {
-    return resolveAnalysisProductTypesToSave([]).map((productType) =>
-      orchestratorApi.setAnalysisSettings(productType, settings),
+    return resolveAnalysisProductTypesToSave([]).map((analysisProfile) =>
+      saveWithContext(
+        `Analysis settings profile ${analysisProfile}`,
+        orchestratorApi.setAnalysisSettings(analysisProfile, settings),
+      ),
     );
   }
 
-  return cameraIds.map((cameraId) => orchestratorApi.setCameraAnalysisSettings(cameraId, settings));
+  return cameraIds.map((cameraId) =>
+    saveWithContext(
+      `Analysis settings camera ${cameraId}`,
+      orchestratorApi.setCameraAnalysisSettings(cameraId, settings),
+    ),
+  );
 }
 
 function parseInputNumber(rawValue: string, fallback: number) {
@@ -361,6 +450,36 @@ function firstFiniteNumber(values: unknown[], fallback: number) {
 function toFiniteNumber(value: unknown, fallback: number) {
   const nextValue = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
   return Number.isFinite(nextValue) ? nextValue : fallback;
+}
+
+function toBoolean(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === "true") {
+      return true;
+    }
+
+    if (normalized === "false") {
+      return false;
+    }
+  }
+
+  return fallback;
+}
+
+async function saveWithContext<T>(label: string, request: Promise<T>) {
+  try {
+    return await request;
+  } catch (error) {
+    const contextualError = new Error(`${label}: ${errorMessage(error)}`);
+    Object.defineProperty(contextualError, "cause", { value: error });
+    throw contextualError;
+  }
 }
 
 function clampBrightness(value: number) {

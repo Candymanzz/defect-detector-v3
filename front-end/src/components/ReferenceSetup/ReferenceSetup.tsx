@@ -15,12 +15,15 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     status,
     message,
     cameraSlots,
+    cameraGroups,
+    activeGroupIndex,
+    setActiveGroupIndex,
     jointViewIndex,
     jointCameraId,
     hasSelectedCameraRoi,
     hasRequiredJointRoi,
-    canSendReference,
-    handleSendReference,
+    canSendAllReferences,
+    handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,
     selectedCameraId,
@@ -66,6 +69,27 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
 
         <div className="reference-setup__body">
           <div className="reference-setup__toolbar">
+            {cameraGroups.length > 1 && (
+              <div className="reference-setup__group-switch" role="tablist" aria-label="Camera groups">
+                {cameraGroups.map((groupCameraIds, groupIndex) => (
+                  <button
+                    key={groupCameraIds.join("-")}
+                    aria-selected={groupIndex === activeGroupIndex}
+                    className={
+                      groupIndex === activeGroupIndex
+                        ? "reference-setup__group-tab reference-setup__group-tab--active"
+                        : "reference-setup__group-tab"
+                    }
+                    role="tab"
+                    type="button"
+                    onClick={() => setActiveGroupIndex(groupIndex)}
+                  >
+                    Group {groupIndex + 1}
+                    <span>Cameras {groupCameraIds.join(", ")}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <label className="reference-setup__field">
               <span>Камера joint ROI</span>
               <span className="reference-setup__readonly">
@@ -76,8 +100,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             <button
               className="reference-setup__button reference-setup__button--primary"
               type="button"
-              disabled={!canSendReference}
-              onClick={handleSendReference}
+              disabled={!canSendAllReferences}
+              onClick={handleSendAllReferences}
             >
               Задать эталон
             </button>

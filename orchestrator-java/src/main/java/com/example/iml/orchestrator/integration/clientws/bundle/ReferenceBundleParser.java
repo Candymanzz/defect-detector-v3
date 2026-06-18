@@ -60,23 +60,30 @@ public final class ReferenceBundleParser {
         if (productType == null) {
             throw new BundleParseException("invalid_product_type", "product_type required");
         }
+        JsonNode viewsNode = payload.path("views");
+        if (!viewsNode.isArray() || viewsNode.size() == 0) {
+            throw new BundleParseException("invalid_views", "views must be a non-empty array");
+        }
+        int viewCount = viewsNode.size();
         int jointViewIndex = payload.path("joint_view_index").asInt(-1);
-        if (jointViewIndex < 0 || jointViewIndex >= cameraIds.size()) {
-            throw new BundleParseException("invalid_joint_view_index", "joint_view_index out of configured range");
+        if (jointViewIndex < 0 || jointViewIndex >= viewCount) {
+            throw new BundleParseException("invalid_joint_view_index", "joint_view_index out of views range");
         }
         int heatmapW = payload.path("heatmap_width").asInt(0);
         int heatmapH = payload.path("heatmap_height").asInt(0);
         if (heatmapW <= 0 || heatmapH <= 0) {
             throw new BundleParseException("invalid_heatmap_size", "heatmap_width and heatmap_height must be positive");
         }
-        JsonNode viewsNode = payload.path("views");
-        if (!viewsNode.isArray() || viewsNode.size() != cameraIds.size()) {
-            throw new BundleParseException("invalid_views", "views must be array of length " + cameraIds.size());
-        }
         Set<Integer> allowedCameraIds = new HashSet<>(cameraIds);
-        List<ReferenceViewSlot> views = new ArrayList<>(cameraIds.size());
-        for (int i = 0; i < cameraIds.size(); i++) {
-            views.add(parseViewSlot(viewsNode.get(i), i, jointViewIndex, allowedCameraIds));
+        Set<Integer> seenCameraIds = new HashSet<>();
+        List<ReferenceViewSlot> views = new ArrayList<>(viewCount);
+        for (int i = 0; i < viewCount; i++) {
+            ReferenceViewSlot slot = parseViewSlot(viewsNode.get(i), i, jointViewIndex, allowedCameraIds);
+            int cameraId = slot.frame().cameraId();
+            if (!seenCameraIds.add(cameraId)) {
+                throw new BundleParseException("invalid_views", "duplicate camera_id in views: " + cameraId);
+            }
+            views.add(slot);
         }
         List<FpZoneNorm> fpZones = parseFpZones(payload.path("fp_zones"));
         return new ReferenceBundleSnapshot(

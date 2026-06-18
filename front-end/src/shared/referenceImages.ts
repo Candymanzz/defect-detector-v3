@@ -48,11 +48,13 @@ export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,
   fallbackImageUrlsByCameraId: Record<number, string> = {},
 ) {
-  const nextReferenceImagesByCameraId = new Map<number, StoredReferenceImage>();
+  const nextReferenceImagesByCameraId = new Map(referenceImagesByCameraId);
   const nextReferenceImageVersion = referenceImageVersion + 1;
+  const updatedCameraIds = new Set<number>();
 
   bundle.views.forEach((view) => {
     const cameraId = view.frame.camera_id;
+    updatedCameraIds.add(cameraId);
     const baseImageUrl =
       fallbackImageUrlsByCameraId[cameraId] ??
       createFrameImageUrl(view.frame);
@@ -71,7 +73,10 @@ export function commitReferenceBundleImages(
     return;
   }
 
-  referenceImagesByCameraId.forEach((referenceImage) => {
+  referenceImagesByCameraId.forEach((referenceImage, cameraId) => {
+    if (!updatedCameraIds.has(cameraId)) {
+      return;
+    }
     if (
       referenceImage.imageUrl.startsWith("blob:") &&
       !Array.from(nextReferenceImagesByCameraId.values()).some(
