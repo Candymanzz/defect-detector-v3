@@ -245,9 +245,28 @@
     "worker_named_pipe_template_linux": "/tmp/iml-camera-%d.pipe",
     "worker_named_pipe_connect_timeout_ms": 3000,
     "light_server_startup_delay_ms": 5000,
+    "inspection_cycle_timeout_ms": 3500,
+    "inspection_bucket": {
+      "enabled": true,
+      "mode": "ten_cameras",
+      "timeout_ms": 3500,
+      "line_broadcast_interval_ms": 3500
+    },
     "continuous_inspection": {
-      "enabled": false,
-      "cycle_delay_ms": 400
+      "enabled": true,
+      "cycle_delay_ms": 3500
+    },
+    "capture_frame_downscale": {
+      "enabled": true,
+      "scale": 0.5,
+      "apply_to_inspection_capture": true,
+      "apply_to_reference_capture": true,
+      "apply_to_client_reference_bundle": true
+    },
+    "reference_source": "client",
+    "analis_surface_autostart": {
+      "enabled": true,
+      "inspect_workers": 10
     },
     "save_captures": {
       "enabled": true,

@@ -40,19 +40,14 @@ integration:
   worker_named_pipe_connect_timeout_ms: 3000
   # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
   light_server_startup_delay_ms: 8000
-  # Макс. длительность одного цикла инспекции на камеру (capture→fanout); при превышении — сброс in-flight.
+  # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).
   inspection_cycle_timeout_ms: 3500
-  # Агрегация кадров в «ведро»: робот получает groupId:1/0 когда все камеры ведра ответили.
+  # Агрегация: mode=ten_cameras → группы 0–4 и 5–9, все 10 камер в инспекции.
   inspection_bucket:
     enabled: true
-    timeout_ms: 6000
-    line_broadcast_interval_ms: 5000
-    groups:
-      - id: 0
-        camera_ids: [0, 1, 2, 3, 4]
-      - id: 1
-        camera_ids: [5, 6, 7, 8, 9]
-    # Альтернатива без groups: preset mode=five_cameras|ten_cameras (+ опционально camera_ids).
+    mode: ten_cameras
+    timeout_ms: 3500
+    line_broadcast_interval_ms: 3500
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
   dev_auto_trigger_stub:
     enabled: false
@@ -74,16 +69,14 @@ integration:
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
     enabled: true
-    cycle_delay_ms: 1200
+    cycle_delay_ms: 3500
   timing_stages_log:
     enabled: true
     file: "logs/pipeline-stages.jsonl"
-  # Optional: downscale captured frame in SHM before geometry/python/UI processing.
-  # This changes the effective resolution for downstream services.
+  # Downscale перед geometry/python: ~4× быстрее ORB/diff/anomalib при SLA 3.5 с.
   capture_frame_downscale:
-    enabled: false
-    # 1.0 = disabled; 0.4 means width/height become 40%.
-    scale: 1.0
+    enabled: true
+    scale: 0.5
     apply_to_inspection_capture: true
     apply_to_reference_capture: true
     apply_to_client_reference_bundle: true
