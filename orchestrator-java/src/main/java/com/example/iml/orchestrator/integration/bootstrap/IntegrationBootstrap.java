@@ -148,30 +148,39 @@ public final class IntegrationBootstrap {
         );
         InspectionPipeline inspectionPipeline = new InspectionPipeline(pipelineServices);
 
-        ExternalServiceProcess analisSurfaceProcess = analisSurfaceLauncher.startIfConfigured(
+        AnalisSurfaceLauncher.PoolStartResult analisSurfacePool = analisSurfaceLauncher.startPoolIfConfigured(
                 integration,
                 projectRoot,
                 isWindows,
-                pythonDetectorCfg.baseUrl()
+                pythonDetectorCfg.baseUrl(),
+                cfg.pythonServerPoolSize(),
+                cfg.workerStartupStaggerMs()
         );
+        List<ExternalServiceProcess> analisSurfaceProcesses = analisSurfacePool.processes();
 
         List<BinaryRpcSupervisor> pythonPool = servicePools.startAnalisSurfaceHttpPool(
-                pythonDetectorCfg.baseUrl(),
+                analisSurfacePool.baseUrls(),
                 cfg.pythonParallelism(),
                 cfg.serviceCommandTimeoutMs()
         );
         if (pythonPool.isEmpty()) {
             log.error(
-                    "analisSurface FastAPI pool is empty (base_url={}). "
+                    "analisSurface FastAPI pool is empty (urls={}). "
                             + "Проверьте venv в analisSurface/backend, integration.analis_surface_autostart и python_detector.base_url.",
-                    pythonDetectorCfg.baseUrl()
+                    analisSurfacePool.baseUrls()
             );
-            if (analisSurfaceProcess != null) {
-                analisSurfaceProcess.close();
+            for (ExternalServiceProcess process : analisSurfaceProcesses) {
+                process.close();
             }
             return;
         }
-        log.info("python detector transport=http base_url={} pool_size={}", pythonDetectorCfg.baseUrl(), pythonPool.size());
+        log.info(
+                "python detector transport=http servers={} clients={} autostart={} urls={}",
+                analisSurfacePool.baseUrls().size(),
+                pythonPool.size(),
+                analisSurfacePool.autostartEnabled(),
+                analisSurfacePool.baseUrls()
+        );
         List<ServiceProcessSupervisor> geometryPool = servicePools.startOptionalPool(
                 geometryCommand,
                 projectRoot,
@@ -404,11 +413,14 @@ public final class IntegrationBootstrap {
             InspectionTriggerStrategy sharedTriggerStrategy;
             if (bucketInspectionConfig.enabled()) {
                 if (triggerMode != IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
+                    // Не ускорять line-broadcast ниже line_broadcast_interval_ms: иначе триггеры
+                    // накапливаются быстрее, чем 5 камер успевают закрыть ведро (in-flight skip).
                     long broadcastIntervalMs = triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.TIMER
                             ? devAutoTriggerStub.intervalMs()
-                            : continuousInspection.cycleDelayMs() > 0
-                                    ? continuousInspection.cycleDelayMs()
-                                    : bucketInspectionConfig.lineBroadcastIntervalMs();
+                            : Math.max(
+                                    bucketInspectionConfig.lineBroadcastIntervalMs(),
+                                    continuousInspection.cycleDelayMs()
+                            );
                     bucketLineTriggerBroadcaster = new BucketLineTriggerBroadcaster(
                             log,
                             triggerRuntime.bus(),
@@ -541,7 +553,7 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
-                    analisSurfaceProcess,
+                    analisSurfaceProcesses,
                     lightClient,
                     uiVisualsPython,
                     uiArtifactsExecutor,

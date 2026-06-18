@@ -1,5 +1,10 @@
 version: 1
 
+# frame:
+#   width: 2448
+#   height: 2048
+#   format: BGR8
+
 frame:
   width: 2448
   height: 2048
@@ -8,7 +13,7 @@ frame:
 capture_source: "hik"
 # No external trigger yet: run in continuous mode.
 capture_trigger_mode: "continuous"
-frame_timeout_ms: 4000
+frame_timeout_ms: 8000
 
 orchestrator:
   control_pipe: "\\\\.\\pipe\\iml-orchestrator"
@@ -23,7 +28,10 @@ integration:
     flash_on_tick: false
     interval_ms: 5000
   camera_parallelism: 10
-  geometry_pool_size: 10
+  geometry_pool_size: 5
+  # uvicorn-процессов analisSurface (порты 8000..8004).
+  python_server_pool_size: 5
+  # HTTP-клиентов пайплайна (round-robin по серверам: 10 клиентов → по 2 на сервер).
   python_parallelism: 10
   stage_queue_size: 20
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
@@ -39,18 +47,18 @@ integration:
   # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
   light_server_startup_delay_ms: 8000
   # Макс. длительность одного цикла инспекции на камеру (capture→fanout); при превышении — сброс in-flight.
-  inspection_cycle_timeout_ms: 3500
+  inspection_cycle_timeout_ms: 10000
   # Агрегация кадров в «ведро»: робот получает groupId:1/0 когда все камеры ведра ответили.
   inspection_bucket:
     enabled: true
-    timeout_ms: 4000
-    line_broadcast_interval_ms: 5000
+    timeout_ms: 20000
+    line_broadcast_interval_ms: 12000
     groups:
       - id: 0
         camera_ids: [0, 1, 2, 3, 4]
       # Второе независимое ведро (10 камер) — раскомментировать:
-      - id: 1
-        camera_ids: [5, 6, 7, 8, 9]
+      # - id: 1
+      #   camera_ids: [5, 6, 7, 8, 9]
     # Альтернатива без groups: preset mode=five_cameras|ten_cameras (+ опционально camera_ids).
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
   dev_auto_trigger_stub:
@@ -73,7 +81,7 @@ integration:
   # Непрерывный цикл: вспышка → capture → geometry → python → fanout (робот выключен, триггер — ПО из оркестратора).
   continuous_inspection:
     enabled: true
-    cycle_delay_ms: 1200
+    cycle_delay_ms: 6000
   timing_stages_log:
     enabled: true
     file: "logs/pipeline-stages.jsonl"
@@ -91,7 +99,8 @@ integration:
     enabled: false
     directory: "testimage"
     jpeg_quality: 0.92
-  # Автозапуск uvicorn (как LightServer). Один раз: pip install в analisSurface/backend/.venv
+  # Автозапуск пула uvicorn: python_server_pool_size процессов на портах 8000..
+  # python_parallelism HTTP-клиентов round-robin по серверам (не дублирует эталон на тот же порт).
   analis_surface_autostart:
     enabled: true
     working_dir: "analisSurface/backend"

@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
+import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.integration.pipeline.spi.PipelineRunTelemetry;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -79,7 +80,7 @@ public final class ReferenceSnapshotBootstrap {
                 effectiveReferenceHeader
         );
         for (int r = 0; r < referenceRepeatCount; r++) {
-            for (BinaryRpcSupervisor python : pythonPool) {
+            for (BinaryRpcSupervisor python : AnalisSurfacePoolSupport.uniqueServerClients(pythonPool)) {
                 python.command(refHdr);
             }
             if (uiVisualsPython != null) {

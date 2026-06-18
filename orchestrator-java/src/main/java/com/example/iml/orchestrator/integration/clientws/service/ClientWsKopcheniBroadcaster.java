@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.clientws.service;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsKopcheniSyncException;
+import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -43,7 +44,7 @@ public final class ClientWsKopcheniBroadcaster {
             return;
         }
         ClientWsKopcheniSyncException last = null;
-        for (BinaryRpcSupervisor py : pool) {
+        for (BinaryRpcSupervisor py : AnalisSurfacePoolSupport.uniqueServerClients(pool)) {
             try {
                 py.command(header);
             } catch (IOException e) {

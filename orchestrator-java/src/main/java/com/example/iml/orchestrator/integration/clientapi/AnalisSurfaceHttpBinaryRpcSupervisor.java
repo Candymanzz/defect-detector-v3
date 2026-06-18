@@ -82,6 +82,10 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return name;
     }
 
+    public String baseUrl() {
+        return baseUrl;
+    }
+
     @Override
     public int restartCount() {
         return restartCount;
