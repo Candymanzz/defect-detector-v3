@@ -15,9 +15,17 @@ type ModalWrapperProps = {
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];
+  inspectionItems?: InspectionNavigationItem[];
+  selectedInspectionFrameId?: string;
   dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
+  onInspectionSelect?: (frameId: string) => void;
   onClose: () => void;
+};
+
+type InspectionNavigationItem = {
+  frameId: string;
+  result: "pass" | "fail";
 };
 
 export function ModalWrapper({
@@ -29,8 +37,11 @@ export function ModalWrapper({
   inspectResult,
   referenceImageUrl,
   referenceRoiPoints,
+  inspectionItems = [],
+  selectedInspectionFrameId,
   dangerHeaderAction,
   headerActions,
+  onInspectionSelect,
   onClose,
 }: ModalWrapperProps) {
   const displayedCurrentImageUrl = inspectResult ? cameraImageUrl : undefined;
@@ -112,6 +123,14 @@ export function ModalWrapper({
           />
         </div>
 
+        {inspectionItems.length > 0 && (
+          <InspectionNavigation
+            items={inspectionItems}
+            selectedFrameId={selectedInspectionFrameId}
+            onSelect={onInspectionSelect}
+          />
+        )}
+
         {inspectResultSyncState && (
           <div
             className="modal__frame-sync"
@@ -125,6 +144,54 @@ export function ModalWrapper({
       </section>
     </div>
   );
+}
+
+function InspectionNavigation({
+  items,
+  selectedFrameId,
+  onSelect,
+}: {
+  items: InspectionNavigationItem[];
+  selectedFrameId?: string;
+  onSelect?: (frameId: string) => void;
+}) {
+  const orderedItems = [...items].sort((left, right) =>
+    compareFrameIds(left.frameId, right.frameId),
+  );
+
+  return (
+    <section
+      className="modal-inspection-navigation"
+      aria-label="Inspection navigation"
+    >
+      <header>Инспекции</header>
+      <div className="modal-inspection-navigation__tiles">
+        {orderedItems.map((item) => (
+          <button
+            className="modal-inspection-navigation__tile"
+            data-active={item.frameId === selectedFrameId}
+            data-result={item.result}
+            key={item.frameId}
+            type="button"
+            aria-pressed={item.frameId === selectedFrameId}
+            onClick={() => onSelect?.(item.frameId)}
+          >
+            {item.frameId}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function compareFrameIds(left: string, right: string) {
+  try {
+    const leftId = BigInt(left);
+    const rightId = BigInt(right);
+    return leftId === rightId ? 0 : leftId > rightId ? 1 : -1;
+  } catch {
+    return left.localeCompare(right, undefined, { numeric: true });
+  }
 }
 
 function ImagePanel({

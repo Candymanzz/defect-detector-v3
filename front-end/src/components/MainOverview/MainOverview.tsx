@@ -38,14 +38,17 @@ type InspectionControlState = {
 type InspectionHistoryItem = {
   frameId: string;
   result: "pass" | "fail";
+  inspectResult: InspectResultPayload;
 };
 
 type ModalInspectionSnapshot = SelectedCamera & {
+  initialFrameId?: string;
   inspectResult?: InspectResultPayload;
   cameraImageUrl?: string;
   heatmapUrl?: string;
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];
+  inspectionItems: InspectionHistoryItem[];
 };
 
 export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
@@ -249,6 +252,8 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
       setHasReference(true);
       const cameraId = inspectResult.camera_id;
       const hasArtifacts = hasDisplayableInspectImage(inspectResult);
+      addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
+      addModalInspectionItem(setModalSnapshot, inspectResult);
 
       if (hasArtifacts) {
         const currentLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
@@ -257,7 +262,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           return;
         }
         latestArtifactResultByCameraIdRef.current[cameraId] = inspectResult;
-        addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
         setInspectArtifactResultsByCameraId((previousResults) => {
           return {
             ...previousResults,
@@ -284,7 +288,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         return;
       }
       latestInspectResultByCameraIdRef.current[cameraId] = inspectResult;
-      addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
       setInspectResultsByCameraId((previousResults) => ({
         ...previousResults,
         [cameraId]: inspectResult,
@@ -356,6 +359,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                         artifactInspectResult,
                         previewFrameIdsByCameraId[camera.cameraId],
                         previewImageUrlsByCameraId[camera.cameraId],
+                        inspectionHistoryByCameraId[camera.cameraId] ?? [],
                       ),
                     )
                   }
@@ -397,12 +401,18 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
 
       {modalSnapshot && (
         <ModalWrapper
+          key={`${modalSnapshot.cameraId}:${modalSnapshot.inspectResult?.frame_id ?? "empty"}`}
           isOpen
           cameraId={modalSnapshot.cameraId}
           cameraImageUrl={modalSnapshot.cameraImageUrl}
           inspectHeatmapUrl={modalSnapshot.heatmapUrl}
           referenceImageUrl={modalSnapshot.referenceImageUrl}
           referenceRoiPoints={modalSnapshot.referenceRoiPoints}
+          inspectionItems={modalSnapshot.inspectionItems.map(({ frameId, result }) => ({
+            frameId,
+            result,
+          }))}
+          selectedInspectionFrameId={modalSnapshot.inspectResult?.frame_id}
           dangerHeaderAction={
             <button
               className={
@@ -437,6 +447,11 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           }
           inspectResult={modalSnapshot.inspectResult}
           title={`${modalSnapshot.objectName} / Camera ${modalSnapshot.cameraId}`}
+          onInspectionSelect={(frameId) =>
+            setModalSnapshot((currentSnapshot) =>
+              selectModalInspection(currentSnapshot, frameId),
+            )
+          }
           onClose={() => setModalSnapshot(null)}
         />
       )}
@@ -476,6 +491,7 @@ function createModalInspectionSnapshot(
   artifactInspectResult: InspectResultPayload | undefined,
   previewFrameId: string | undefined,
   previewImageUrl: string | undefined,
+  inspectionHistory: InspectionHistoryItem[],
 ): ModalInspectionSnapshot {
   const snapshotResult =
     inspectResult && artifactInspectResult?.frame_id === inspectResult.frame_id
@@ -490,6 +506,7 @@ function createModalInspectionSnapshot(
 
   return {
     ...camera,
+    initialFrameId: snapshotResult?.frame_id,
     inspectResult: snapshotResult,
     cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl,
     heatmapUrl: snapshotResult?.heatmap
@@ -497,6 +514,7 @@ function createModalInspectionSnapshot(
       : undefined,
     referenceImageUrl: referenceImage?.imageUrl,
     referenceRoiPoints: referenceImage?.roiPoints.map((point) => ({ ...point })),
+    inspectionItems: createInitialModalInspectionItems(inspectionHistory, snapshotResult),
   };
 }
 
@@ -508,6 +526,61 @@ function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload)
   return orchestratorApi.url(
     `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
   );
+}
+
+function createInitialModalInspectionItems(
+  inspectionHistory: InspectionHistoryItem[],
+  selectedResult: InspectResultPayload | undefined,
+) {
+  if (!selectedResult) {
+    return [];
+  }
+
+  const selectedState = resolveInspectionResultState(selectedResult);
+  const availableItems =
+    selectedState === undefined
+      ? inspectionHistory
+      : upsertInspectionItem(inspectionHistory, {
+          frameId: selectedResult.frame_id,
+          result: selectedState,
+          inspectResult: selectedResult,
+        });
+  const previousItems = availableItems
+    .filter((item) => compareFrameIds(item.frameId, selectedResult.frame_id) < 0)
+    .sort((left, right) => compareFrameIds(right.frameId, left.frameId))
+    .slice(0, 10);
+  const selectedItem = availableItems.find((item) => item.frameId === selectedResult.frame_id);
+
+  return [...previousItems, ...(selectedItem ? [selectedItem] : [])].sort((left, right) =>
+    compareFrameIds(left.frameId, right.frameId),
+  );
+}
+
+function selectModalInspection(
+  currentSnapshot: ModalInspectionSnapshot | null,
+  frameId: string,
+) {
+  if (!currentSnapshot || currentSnapshot.inspectResult?.frame_id === frameId) {
+    return currentSnapshot;
+  }
+
+  const item = currentSnapshot.inspectionItems.find((candidate) => candidate.frameId === frameId);
+  return item ? updateModalSnapshotResult(currentSnapshot, item.inspectResult) : currentSnapshot;
+}
+
+function updateModalSnapshotResult(
+  currentSnapshot: ModalInspectionSnapshot,
+  inspectResult: InspectResultPayload,
+) {
+  return {
+    ...currentSnapshot,
+    inspectResult,
+    cameraImageUrl:
+      resolveImmutableInspectionImageUrl(inspectResult) ?? createWsFrameImageUrl(inspectResult),
+    heatmapUrl: inspectResult.heatmap
+      ? resolveHeatmapSourceUrlOrUndefined(inspectResult.heatmap)
+      : undefined,
+  };
 }
 
 function removeCameraResult(
@@ -574,23 +647,73 @@ function addInspectionHistoryItem(
 
   setHistory((current) => {
     const cameraHistory = current[inspectResult.camera_id] ?? [];
-    const existing = cameraHistory.find(
-      (item) => item.frameId === inspectResult.frame_id && item.result === result,
-    );
-    if (existing) {
-      return current;
-    }
-
-    const nextCameraHistory = [
-      { frameId: inspectResult.frame_id, result },
-      ...cameraHistory.filter((item) => item.frameId !== inspectResult.frame_id),
-    ].slice(0, INSPECTION_HISTORY_LIMIT);
+    const nextCameraHistory = upsertInspectionItem(cameraHistory, {
+      frameId: inspectResult.frame_id,
+      result,
+      inspectResult,
+    }).slice(0, INSPECTION_HISTORY_LIMIT);
 
     return {
       ...current,
       [inspectResult.camera_id]: nextCameraHistory,
     };
   });
+}
+
+function addModalInspectionItem(
+  setModalSnapshot: React.Dispatch<React.SetStateAction<ModalInspectionSnapshot | null>>,
+  inspectResult: InspectResultPayload,
+) {
+  const result = resolveInspectionResultState(inspectResult);
+  if (!result) {
+    return;
+  }
+
+  setModalSnapshot((currentSnapshot) => {
+    if (!currentSnapshot || currentSnapshot.cameraId !== inspectResult.camera_id) {
+      return currentSnapshot;
+    }
+
+    const existingItem = currentSnapshot.inspectionItems.some(
+      (item) => item.frameId === inspectResult.frame_id,
+    );
+    const isNewerThanInitial =
+      !currentSnapshot.initialFrameId ||
+      compareFrameIds(inspectResult.frame_id, currentSnapshot.initialFrameId) > 0;
+    if (!existingItem && !isNewerThanInitial) {
+      return currentSnapshot;
+    }
+
+    const nextItems = upsertInspectionItem(currentSnapshot.inspectionItems, {
+      frameId: inspectResult.frame_id,
+      result,
+      inspectResult,
+    });
+    const nextSnapshot = {
+      ...currentSnapshot,
+      inspectionItems: nextItems,
+    };
+
+    if (
+      currentSnapshot.inspectResult?.frame_id === inspectResult.frame_id &&
+      hasDisplayableInspectImage(inspectResult) &&
+      !hasDisplayableInspectImage(currentSnapshot.inspectResult)
+    ) {
+      return updateModalSnapshotResult(nextSnapshot, inspectResult);
+    }
+
+    return nextSnapshot;
+  });
+}
+
+function upsertInspectionItem(
+  items: InspectionHistoryItem[],
+  nextItem: InspectionHistoryItem,
+) {
+  return [
+    nextItem,
+    ...items.filter((item) => item.frameId !== nextItem.frameId),
+  ].sort((left, right) => compareFrameIds(right.frameId, left.frameId));
 }
 
 function setPreviewImagesEnabled(enabled: boolean) {
@@ -659,7 +782,11 @@ async function hydrateCardsFromLatestSnapshots(
     }
     const resultState = resolveInspectionResultState(inspectResult);
     if (resultState) {
-      inspectionHistory[snapshot.cameraId] = [{ frameId: inspectResult.frame_id, result: resultState }];
+      inspectionHistory[snapshot.cameraId] = [{
+        frameId: inspectResult.frame_id,
+        result: resultState,
+        inspectResult,
+      }];
     }
   }
 

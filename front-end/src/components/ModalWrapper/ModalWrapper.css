@@ -14,7 +14,7 @@
   width: 90%;
   height: 90%;
   padding: 18px;
-  overflow: hidden;
+  overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: #15191e;
@@ -26,10 +26,63 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-rows: minmax(0, 1fr);
+  flex: 1 0 320px;
   gap: 14px;
   min-height: 0;
-  height: 80%;
+  height: auto;
   overflow: hidden;
+}
+
+.modal-inspection-navigation {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.modal-inspection-navigation > header {
+  color: #c7d2ce;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.modal-inspection-navigation__tiles {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+}
+
+.modal-inspection-navigation__tile {
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.modal-inspection-navigation__tile[data-result="pass"] {
+  background: #15803d;
+}
+
+.modal-inspection-navigation__tile[data-result="fail"] {
+  background: #b91c1c;
+}
+
+.modal-inspection-navigation__tile[data-active="true"] {
+  border-color: #f8fafc;
+  box-shadow: 0 0 0 2px #15191e, 0 0 0 4px #f8fafc;
+}
+
+.modal-inspection-navigation__tile:hover,
+.modal-inspection-navigation__tile:focus-visible {
+  filter: brightness(1.15);
+  outline: none;
 }
 
 .modal--pass {
@@ -162,7 +215,9 @@
 }
 
 .modal-inspect-result {
-  height: 50%;
+  flex: 0 0 auto;
+  min-height: 190px;
+  height: auto;
   gap: 12px;
   padding: 14px;
   overflow: hidden;
