@@ -192,12 +192,15 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   useEffect(() => {
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
       if (message.type === "server.hello" || message.type === "server.state") {
-        setHasReference(message.payload.session_state !== "NO_REFERENCE");
+        const nextHasReference = message.payload.session_state !== "NO_REFERENCE";
+        setHasReference(nextHasReference);
+        setPreviewImagesEnabled(!nextHasReference);
         return;
       }
 
       if (message.type === "server.reference_bundle_ack" && message.payload.ok) {
         setHasReference(true);
+        setPreviewImagesEnabled(false);
         return;
       }
 
@@ -216,16 +219,16 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
         }
         latestPreviewFrameIdByCameraIdRef.current[cameraId] = previewFrame.frame_id;
 
-        const imageUrl = createWsFrameImageUrl(previewFrame);
-        if (!imageUrl) {
-          return;
-        }
-
         latestPreviewTimestampByCameraIdRef.current[cameraId] = previewFrame.server_ts_ms;
         setPreviewFrameIdsByCameraId((previousFrameIds) => ({
           ...previousFrameIds,
           [cameraId]: previewFrame.frame_id,
         }));
+        const imageUrl = createWsFrameImageUrl(previewFrame);
+        if (!imageUrl) {
+          return;
+        }
+
         pendingPreviewUrlsByCameraIdRef.current[cameraId] = imageUrl;
 
         if (previewUpdateFrameRef.current === null) {
@@ -547,6 +550,18 @@ function addInspectionHistoryItem(
       [inspectResult.camera_id]: nextCameraHistory,
     };
   });
+}
+
+function setPreviewImagesEnabled(enabled: boolean) {
+  try {
+    if (enabled) {
+      orchestratorWs.enablePreviewImages();
+    } else {
+      orchestratorWs.disablePreviewImages();
+    }
+  } catch {
+    // The next server state message will retry after reconnect.
+  }
 }
 
 async function hydrateCardsFromLatestSnapshots(

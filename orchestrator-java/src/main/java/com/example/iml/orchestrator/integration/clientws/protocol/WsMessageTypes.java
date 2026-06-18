@@ -13,6 +13,8 @@ public final class WsMessageTypes {
     public static final String CLIENT_STREAM_STOP = "client.stream_stop";
     public static final String CLIENT_PREVIEW_PAUSE = "client.preview_pause";
     public static final String CLIENT_PREVIEW_RESUME = "client.preview_resume";
+    public static final String CLIENT_PREVIEW_IMAGES_DISABLE = "client.preview_images_disable";
+    public static final String CLIENT_PREVIEW_IMAGES_ENABLE = "client.preview_images_enable";
 
     public static final String SERVER_HELLO = "server.hello";
     public static final String SERVER_INSPECT_RESULT = "server.inspect_result";

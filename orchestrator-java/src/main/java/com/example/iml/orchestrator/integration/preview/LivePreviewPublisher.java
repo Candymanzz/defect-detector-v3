@@ -288,6 +288,11 @@ public final class LivePreviewPublisher implements AutoCloseable {
             }
 
             long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
+            if (previewGate != null && !previewGate.areImagesEnabled()) {
+                notifyPreviewFrame(cameraId, productType, detectorId, header, null, metrics);
+                return;
+            }
+
             long encodeStarted = System.nanoTime();
             PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
             metrics.encodeNs.add(System.nanoTime() - encodeStarted);
@@ -313,23 +318,36 @@ public final class LivePreviewPublisher implements AutoCloseable {
                     0,
                     null
             );
-            if (clientWs != null) {
-                long wsStarted = System.nanoTime();
-                clientWs.notifyPreviewFrame(
-                        cameraId,
-                        productType,
-                        detectorId,
-                        header,
-                        "/api/camera/" + cameraId + "/current.jpg"
-                );
-                metrics.wsNs.add(System.nanoTime() - wsStarted);
-                metrics.frames.increment();
-            }
+            notifyPreviewFrame(
+                    cameraId,
+                    productType,
+                    detectorId,
+                    header,
+                    "/api/camera/" + cameraId + "/current.jpg",
+                    metrics
+            );
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.debug("live_preview cam={}: {}", cameraId, e.getMessage());
         }
+    }
+
+    private void notifyPreviewFrame(
+            int cameraId,
+            String productType,
+            String detectorId,
+            Map<String, Object> header,
+            String httpPath,
+            PreviewMetrics metrics
+    ) {
+        if (clientWs == null) {
+            return;
+        }
+        long wsStarted = System.nanoTime();
+        clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
+        metrics.wsNs.add(System.nanoTime() - wsStarted);
+        metrics.frames.increment();
     }
 
     private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride, long shmOffset) {

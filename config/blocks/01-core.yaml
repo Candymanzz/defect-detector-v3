@@ -43,14 +43,13 @@ integration:
   # Агрегация кадров в «ведро»: робот получает groupId:1/0 когда все камеры ведра ответили.
   inspection_bucket:
     enabled: true
-    timeout_ms: 4000
+    timeout_ms: 6000
     line_broadcast_interval_ms: 5000
     groups:
       - id: 0
         camera_ids: [0, 1, 2, 3, 4]
-      # Второе независимое ведро (10 камер) — раскомментировать:
-      # - id: 1
-      #   camera_ids: [5, 6, 7, 8, 9]
+      - id: 1
+        camera_ids: [5, 6, 7, 8, 9]
     # Альтернатива без groups: preset mode=five_cameras|ten_cameras (+ опционально camera_ids).
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
   dev_auto_trigger_stub:

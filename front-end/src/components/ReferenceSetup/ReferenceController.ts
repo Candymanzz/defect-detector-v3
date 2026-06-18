@@ -21,6 +21,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
+  const hasReferenceRef = useRef(false);
   const pendingReferenceMessageIdsRef = useRef<Set<string>>(new Set());
   const cameraGroups = splitCameraGroups(cameraIds);
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
@@ -74,9 +75,13 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     const unsubscribeMessage = orchestratorWs.onMessage((message: ServerWsMessage) => {
       switch (message.type) {
         case "server.hello":
+          hasReferenceRef.current = message.payload.session_state !== "NO_REFERENCE";
+          enableReferencePreviewImages();
           setMessage("WebSocket connected");
           break;
         case "server.state":
+          hasReferenceRef.current = message.payload.session_state !== "NO_REFERENCE";
+          enableReferencePreviewImages();
           break;
         case "server.preview_frame":
           handlePreviewFrame(message.payload);
@@ -89,6 +94,10 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           pendingReferenceMessageIdsRef.current.delete(message.message_id);
           if (pendingReferenceMessageIdsRef.current.size === 0) {
             resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
+          }
+          if (message.payload.ok) {
+            hasReferenceRef.current = true;
+            enableReferencePreviewImages();
           }
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;
@@ -108,8 +117,19 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       unsubscribeMessage();
       pendingReferenceMessageIds.clear();
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
+      if (hasReferenceRef.current) {
+        disableReferencePreviewImages();
+      } else {
+        enableReferencePreviewImages();
+      }
     };
   }, [handlePreviewFrame]);
+
+  useEffect(() => {
+    if (status.state === "open") {
+      enableReferencePreviewImages();
+    }
+  }, [status.state]);
 
   useEffect(() => {
     if (cameraIds.length === 0) {
@@ -307,6 +327,22 @@ function resumePreviewAfterReference(
   try {
     orchestratorWs.sendPreviewResume();
     isPausedRef.current = false;
+  } catch {
+    // The WebSocket status UI will surface connection problems.
+  }
+}
+
+function enableReferencePreviewImages() {
+  try {
+    orchestratorWs.enablePreviewImages();
+  } catch {
+    // The WebSocket status UI will surface connection problems.
+  }
+}
+
+function disableReferencePreviewImages() {
+  try {
+    orchestratorWs.disablePreviewImages();
   } catch {
     // The WebSocket status UI will surface connection problems.
   }
