@@ -3,11 +3,11 @@ import type { InspectResultPayload } from "./ws";
 export function resolveInspectionResultState(
   inspectResult?: InspectResultPayload,
 ): "pass" | "fail" | undefined {
-  const pythonStatus = inspectResult?.python_status?.toUpperCase();
-  if (pythonStatus === "PASS") {
+  const pythonStatus = inspectResult?.python_status?.trim().toUpperCase();
+  if (pythonStatus === "PASS" || pythonStatus === "ГОДЕН") {
     return "pass";
   }
-  if (pythonStatus === "FAIL" || pythonStatus === "ERROR") {
+  if (pythonStatus === "FAIL" || pythonStatus === "ERROR" || pythonStatus === "БРАК") {
     return "fail";
   }
 
