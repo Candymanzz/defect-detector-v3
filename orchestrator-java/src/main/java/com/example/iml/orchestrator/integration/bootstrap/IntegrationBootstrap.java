@@ -399,7 +399,8 @@ public final class IntegrationBootstrap {
                     log,
                     integration,
                     inspectionCameraIds,
-                    triggerMode
+                    triggerMode,
+                    cfg.captureTriggerStaggerMs()
             );
             InspectionTriggerStrategy sharedTriggerStrategy;
             if (bucketInspectionConfig.enabled()) {

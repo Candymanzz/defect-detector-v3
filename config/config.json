@@ -6,8 +6,10 @@
     "format": "BGR8"
   },
   "capture_source": "hik",
-  "capture_trigger_mode": "continuous",
-  "frame_timeout_ms": 4000,
+  "capture_trigger_mode": "software",
+  "frame_timeout_ms": 8000,
+  "gige_inter_packet_delay": 2500,
+  "gige_frame_transfer_delay_step": 8000,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
     "control_pipe_linux": "/tmp/iml-orchestrator.sock"
@@ -20,7 +22,7 @@
       "ip": "169.254.105.1",
       "analysis_profile": "bench-lan1",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-0-cmd",
       "pipe_command_linux": "/tmp/camera-0-cmd.sock"
@@ -32,7 +34,7 @@
       "ip": "169.254.79.219",
       "analysis_profile": "bench-lan2",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-1-cmd",
       "pipe_command_linux": "/tmp/camera-1-cmd.sock"
@@ -44,7 +46,7 @@
       "ip": "169.254.100.219",
       "analysis_profile": "bench-lan3",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-2-cmd",
       "pipe_command_linux": "/tmp/camera-2-cmd.sock"
@@ -56,7 +58,7 @@
       "ip": "169.254.213.219",
       "analysis_profile": "bench-lan4",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-3-cmd",
       "pipe_command_linux": "/tmp/camera-3-cmd.sock"
@@ -68,7 +70,7 @@
       "ip": "169.254.92.219",
       "analysis_profile": "bench-lan5",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-4-cmd",
       "pipe_command_linux": "/tmp/camera-4-cmd.sock"
@@ -80,7 +82,7 @@
       "ip": "169.254.97.219",
       "analysis_profile": "bench-lan6",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-5-cmd",
       "pipe_command_linux": "/tmp/camera-5-cmd.sock"
@@ -92,7 +94,7 @@
       "ip": "169.254.98.219",
       "analysis_profile": "bench-lan7",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-6-cmd",
       "pipe_command_linux": "/tmp/camera-6-cmd.sock"
@@ -104,7 +106,7 @@
       "ip": "169.254.83.219",
       "analysis_profile": "bench-lan8",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-7-cmd",
       "pipe_command_linux": "/tmp/camera-7-cmd.sock"
@@ -116,7 +118,7 @@
       "ip": "169.254.103.219",
       "analysis_profile": "bench-lan9",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-8-cmd",
       "pipe_command_linux": "/tmp/camera-8-cmd.sock"
@@ -128,7 +130,7 @@
       "ip": "169.254.88.219",
       "analysis_profile": "bench-lan10",
       "exposure_us": 12000,
-      "capture_trigger_mode": "continuous",
+      "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-9-cmd",
       "pipe_command_linux": "/tmp/camera-9-cmd.sock"

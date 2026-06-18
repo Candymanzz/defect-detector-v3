@@ -33,9 +33,13 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             Logger log,
             Map<String, Object> integration,
             Collection<Integer> cameraIds,
-            IntegrationFeatureConfig.InspectionTriggerMode mode
+            IntegrationFeatureConfig.InspectionTriggerMode mode,
+            int captureTriggerStaggerMs
     ) {
-        InspectionTriggerBus bus = new InspectionTriggerBus(cameraIds);
+        InspectionTriggerBus bus = new InspectionTriggerBus(cameraIds, captureTriggerStaggerMs);
+        if (captureTriggerStaggerMs > 0) {
+            log.info("inspection trigger stagger enabled delay_ms={} cameras={}", captureTriggerStaggerMs, cameraIds.size());
+        }
         List<TriggerTransport> transports = new ArrayList<>();
         if (mode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
             InspectionTriggerConfig cfg = InspectionTriggerConfig.parse(integration);
@@ -59,6 +63,10 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
                 transport.close();
             } catch (Exception ignored) {
             }
+        }
+        try {
+            bus.close();
+        } catch (Exception ignored) {
         }
     }
 }

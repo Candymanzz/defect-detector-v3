@@ -16,6 +16,7 @@ public record IntegrationBootConfig(
         int workerPipeConnectTimeoutMs,
         int workerCommandTimeoutMs,
         int workerStartupStaggerMs,
+        int captureTriggerStaggerMs,
         int serviceCommandTimeoutMs,
         int lightStartupDelayMs,
         int cameraParallelism,
@@ -39,6 +40,7 @@ public record IntegrationBootConfig(
         int workerPipeConnectTimeoutMs = YamlScalars.toInt(integration == null ? null : integration.get("worker_named_pipe_connect_timeout_ms"), 3000);
         int workerCommandTimeoutMs = YamlScalars.toInt(integration == null ? null : integration.get("worker_command_timeout_ms"), 5000);
         int workerStartupStaggerMs = Math.max(0, YamlScalars.toInt(integration == null ? null : integration.get("worker_startup_stagger_ms"), 0));
+        int captureTriggerStaggerMs = Math.max(0, YamlScalars.toInt(integration == null ? null : integration.get("capture_trigger_stagger_ms"), 0));
         int serviceCommandTimeoutMs = YamlScalars.toInt(integration == null ? null : integration.get("service_command_timeout_ms"), 7000);
         int lightStartupDelayMs = YamlScalars.toInt(integration == null ? null : integration.get("light_server_startup_delay_ms"), 1200);
         int cameraParallelism = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("camera_parallelism"), Math.min(5, cameraCount)));
@@ -54,6 +56,7 @@ public record IntegrationBootConfig(
                 workerPipeConnectTimeoutMs,
                 workerCommandTimeoutMs,
                 workerStartupStaggerMs,
+                captureTriggerStaggerMs,
                 serviceCommandTimeoutMs,
                 lightStartupDelayMs,
                 cameraParallelism,
@@ -75,6 +78,7 @@ public record IntegrationBootConfig(
                 workerPipeConnectTimeoutMs,
                 workerCommandTimeoutMs,
                 workerStartupStaggerMs,
+                captureTriggerStaggerMs,
                 serviceCommandTimeoutMs,
                 lightStartupDelayMs,
                 cameraParallelism,

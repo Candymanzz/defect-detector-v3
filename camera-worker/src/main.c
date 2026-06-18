@@ -81,6 +81,8 @@ typedef struct {
     int frame_timeout_ms;
     int exposure_us;
     int trigger_mode;
+    int gige_inter_packet_delay;
+    int gige_frame_transfer_delay_step;
     uint64_t started_ns;
     int capture_backend_ready;
     char capture_backend_info[128];
@@ -223,6 +225,8 @@ typedef struct {
     char ip[64];
     int exposure_us;
     int trigger_mode;
+    int gige_inter_packet_delay;
+    int gige_frame_transfer_delay_step;
 } worker_camera_config_t;
 
 enum {
@@ -623,13 +627,46 @@ static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info,
 static void hik_disable_auto_white_balance(void *handle) {
     int r = MV_CC_SetEnumValueByString(handle, "BalanceWhiteAuto", "Off");
     if (r != MV_OK) {
-        /* У части камер Off = 0 (Continuous=2, Once=1). */
         r = MV_CC_SetEnumValue(handle, "BalanceWhiteAuto", 0);
     }
     if (r != MV_OK)
         fprintf(stderr, "hik: BalanceWhiteAuto=Off не применён (0x%x), модель может не поддерживать узел\n", r);
     else
         fprintf(stderr, "hik: BalanceWhiteAuto=Off\n");
+}
+
+/** Межпакетная задержка GigE — снижает потери UDP при нескольких камерах на одном линке. */
+static void hik_apply_gige_inter_packet_delay(void *handle, int inter_packet_delay) {
+    if (inter_packet_delay <= 0) {
+        return;
+    }
+    int r = MV_CC_SetIntValue(handle, "GevSCPD", (unsigned int)inter_packet_delay);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: GevSCPD=%d not applied (0x%x)\n", inter_packet_delay, r);
+    } else {
+        fprintf(stderr, "hik: GevSCPD=%d (inter-packet delay)\n", inter_packet_delay);
+    }
+}
+
+/**
+ * Сдвиг старта передачи кадра по сети после триггера (GevSCFTD).
+ * Экспозиция у всех камер в один момент; на гигабитный линк данные идут со сдвигом.
+ */
+static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
+    if (!st->hik_handle || st->gige_frame_transfer_delay_step <= 0) {
+        return;
+    }
+    unsigned int delay = (unsigned int)(st->camera_id * st->gige_frame_transfer_delay_step);
+    if (delay == 0) {
+        return;
+    }
+    int r = MV_CC_SetIntValue(st->hik_handle, "GevSCFTD", delay);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: GevSCFTD=%u not applied cam=%d (0x%x)\n", delay, st->camera_id, r);
+    } else {
+        fprintf(stderr, "hik: GevSCFTD=%u cam=%d (frame transfer delay, exposure stays sync)\n", delay,
+                st->camera_id);
+    }
 }
 
 static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
@@ -697,6 +734,8 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         if (packetSize > 0) {
             (void)MV_CC_SetIntValue(st->hik_handle, "GevSCPSPacketSize", (unsigned int)packetSize);
         }
+        hik_apply_gige_inter_packet_delay(st->hik_handle, st->gige_inter_packet_delay);
+        hik_apply_gige_frame_transfer_delay(st);
     }
     (void)MV_CC_SetEnumValueByString(st->hik_handle, "PixelFormat", "RGB8Packed");
     hik_disable_auto_white_balance(st->hik_handle);
@@ -1116,6 +1155,8 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     }
     st->exposure_us = cam_cfg ? cam_cfg->exposure_us : 0;
     st->trigger_mode = cam_cfg ? cam_cfg->trigger_mode : TRIGGER_MODE_CONTINUOUS;
+    st->gige_inter_packet_delay = cam_cfg ? cam_cfg->gige_inter_packet_delay : 0;
+    st->gige_frame_transfer_delay_step = cam_cfg ? cam_cfg->gige_frame_transfer_delay_step : 0;
     st->width = 2448;
     st->height = 2048;
     st->stride = st->width * 3;
@@ -1613,6 +1654,8 @@ int main(int argc, char **argv) {
     (void)json_find_string(js, (int)jslen, "capture_source", capture_source, sizeof(capture_source));
     (void)json_find_int(js, (int)jslen, "frame_timeout_ms", &frame_timeout_ms);
     load_camera_config(js, (int)jslen, camera_id, &cam_cfg);
+    (void)json_find_int(js, (int)jslen, "gige_inter_packet_delay", &cam_cfg.gige_inter_packet_delay);
+    (void)json_find_int(js, (int)jslen, "gige_frame_transfer_delay_step", &cam_cfg.gige_frame_transfer_delay_step);
 
     fprintf(stderr, "worker start config version=%s path=%s camera=%d mode=%s\n", version, path, camera_id,
             binary_mode ? "binary-stdio" : (named_pipe_mode ? "named-pipe" : "stdout"));
