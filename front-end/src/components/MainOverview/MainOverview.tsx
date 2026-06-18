@@ -361,7 +361,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                       key={item.frameId}
                     >
                       <span>Frame {item.frameId}</span>
-                      <strong>{item.result === "pass" ? "ГОДЕН" : "БРАК"}</strong>
+                      <strong>{item.result === "pass" ? "Годен" : "Брак"}</strong>
                     </div>
                   ))}
                   {!inspectionHistoryByCameraId[camera.cameraId]?.length && (

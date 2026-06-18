@@ -96,7 +96,7 @@ export function ModalWrapper({
             className="modal__inspection-indicator"
             data-result={inspectionResultState}
           >
-            {inspectionResultState === "pass" ? "ГОДЕН" : "БРАК"}
+            {inspectionResultState === "pass" ? "Годен" : "Брак"}
           </div>
         )}
 
