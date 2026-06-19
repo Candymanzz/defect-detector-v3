@@ -48,7 +48,7 @@ export function ModalWrapper({
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
-
+  console.log(inspectResult?.frame_id, inspectResult);
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -155,10 +155,6 @@ function InspectionNavigation({
   selectedFrameId?: string;
   onSelect?: (frameId: string) => void;
 }) {
-  const orderedItems = [...items].sort((left, right) =>
-    compareFrameIds(left.frameId, right.frameId),
-  );
-
   return (
     <section
       className="modal-inspection-navigation"
@@ -166,7 +162,7 @@ function InspectionNavigation({
     >
       <header>Инспекции</header>
       <div className="modal-inspection-navigation__tiles">
-        {orderedItems.map((item) => (
+        {items.map((item) => (
           <button
             className="modal-inspection-navigation__tile"
             data-active={item.frameId === selectedFrameId}
@@ -182,16 +178,6 @@ function InspectionNavigation({
       </div>
     </section>
   );
-}
-
-function compareFrameIds(left: string, right: string) {
-  try {
-    const leftId = BigInt(left);
-    const rightId = BigInt(right);
-    return leftId === rightId ? 0 : leftId > rightId ? 1 : -1;
-  } catch {
-    return left.localeCompare(right, undefined, { numeric: true });
-  }
 }
 
 function ImagePanel({
@@ -322,9 +308,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
             />
           </dl>
 
-          <div className="modal-inspect-result__decision">
-            {formatInspectDecisionLine(inspectResult)}
-          </div>
+          <div className="modal-inspect-result__decision">{formatInspectDecisionLine(inspectResult)}</div>
 
           <InspectResultRaw inspectResult={inspectResult} />
         </>
@@ -413,4 +397,3 @@ function getInspectResultSyncState(
     label: `Frozen artifacts for frame ${inspectResult.frame_id} are incomplete`,
   };
 }
-

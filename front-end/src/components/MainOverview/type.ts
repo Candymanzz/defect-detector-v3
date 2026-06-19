@@ -20,3 +20,26 @@ export type MainOverviewData = {
   backendStatus: BackendStatus;
   cameraIds: number[];
 };
+
+export type InspectionControlState = {
+  isEnabled: boolean;
+  state: "idle" | "starting" | "stopping" | "error";
+  message: string;
+};
+
+export type InspectionHistoryItem = {
+  frameId: string;
+  result: "pass" | "fail";
+  inspectResult: InspectResultPayload;
+};
+
+export type ModalInspectionSnapshot = SelectedCamera & {
+  initialFrameId?: string;
+  inspectResult?: InspectResultPayload;
+  cameraImageUrl?: string;
+  heatmapUrl?: string;
+  referenceImageUrl?: string;
+  referenceRoiPoints?: InterestPointNorm[];
+  inspectionItems: InspectionHistoryItem[];
+};
+import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
