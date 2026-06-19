@@ -25,6 +25,7 @@ type ModalWrapperProps = {
 
 type InspectionNavigationItem = {
   frameId: string;
+  inspectionId: string;
   result: "pass" | "fail";
 };
 
@@ -172,7 +173,7 @@ function InspectionNavigation({
             aria-pressed={item.frameId === selectedFrameId}
             onClick={() => onSelect?.(item.frameId)}
           >
-            {item.frameId}
+            {item.inspectionId}
           </button>
         ))}
       </div>

@@ -20,6 +20,7 @@ import {
   isInspectionCounterReset,
   latestSnapshotToInspectResult,
   loadMainOverviewData,
+  resolveInspectionId,
   selectModalInspection as selectModalInspectionSnapshot,
   upsertInspectionHistoryItem,
   upsertModalInspectionItem,
@@ -363,6 +364,7 @@ function addInspectionHistoryItem(
       ...current,
       [inspectResult.camera_id]: upsertInspectionHistoryItem(cameraHistory, {
         frameId: inspectResult.frame_id,
+        inspectionId: resolveInspectionId(inspectResult),
         result,
         inspectResult,
       }).slice(0, INSPECTION_HISTORY_LIMIT),
@@ -393,6 +395,7 @@ function addModalInspectionItem(
 
     const nextItems = upsertModalInspectionItem(currentSnapshot.inspectionItems, {
       frameId: inspectResult.frame_id,
+      inspectionId: resolveInspectionId(inspectResult),
       result,
       inspectResult,
     });
@@ -495,6 +498,7 @@ async function hydrateCardsFromLatestSnapshots(
       inspectionHistory[snapshot.cameraId] = [
         {
           frameId: inspectResult.frame_id,
+          inspectionId: resolveInspectionId(inspectResult),
           result: resultState,
           inspectResult,
         },

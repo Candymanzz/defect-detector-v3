@@ -189,6 +189,10 @@ export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], next
   );
 }
 
+export function resolveInspectionId(inspectResult: InspectResultPayload) {
+  return inspectResult.inspection_id ?? inspectResult.frame_id;
+}
+
 export function upsertModalInspectionItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
   return [...items.filter((item) => item.frameId !== nextItem.frameId), nextItem]
     .sort((left, right) => compareFrameIds(left.frameId, right.frameId))
@@ -272,6 +276,7 @@ function createInitialModalInspectionItems(
       ? inspectionHistory
       : upsertInspectionHistoryItem(inspectionHistory, {
           frameId: selectedResult.frame_id,
+          inspectionId: resolveInspectionId(selectedResult),
           result: selectedState,
           inspectResult: selectedResult,
         });

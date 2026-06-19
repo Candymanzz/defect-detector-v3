@@ -211,6 +211,7 @@ export type WsStatusHandler = (status: WsConnectionStatus) => void;
 export type InspectResultPayload = {
   camera_id: number;
   frame_id: string;
+  inspection_id?: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;

@@ -97,7 +97,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                         data-result={item.result}
                         key={item.frameId}
                       >
-                        <span>Frame {item.frameId}</span>
+                        <span>Inspection {item.inspectionId}</span>
                         <strong>{item.result === "pass" ? "Годен" : "Брак"}</strong>
                       </div>
                     ))}
@@ -118,8 +118,9 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           inspectHeatmapUrl={controller.modalSnapshot.heatmapUrl}
           referenceImageUrl={controller.modalSnapshot.referenceImageUrl}
           referenceRoiPoints={controller.modalSnapshot.referenceRoiPoints}
-          inspectionItems={controller.modalSnapshot.inspectionItems.map(({ frameId, result }) => ({
+          inspectionItems={controller.modalSnapshot.inspectionItems.map(({ frameId, inspectionId, result }) => ({
             frameId,
+            inspectionId,
             result,
           }))}
           selectedInspectionFrameId={controller.modalSnapshot.inspectResult?.frame_id}
