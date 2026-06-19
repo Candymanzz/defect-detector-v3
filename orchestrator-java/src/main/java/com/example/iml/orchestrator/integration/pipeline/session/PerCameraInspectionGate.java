@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Per-camera inspection gate: at most one in-flight cycle per camera, optional disable without stopping capture.
@@ -23,15 +24,18 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicBoolean> inspectionEnabled = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> inFlight = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> cancelRequested = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
             Map<Integer, AtomicBoolean> inFlight,
-            Map<Integer, AtomicBoolean> cancelRequested
+            Map<Integer, AtomicBoolean> cancelRequested,
+            Map<Integer, AtomicLong> inspectionSequence
     ) {
         this.inspectionEnabled.putAll(enabled);
         this.inFlight.putAll(inFlight);
         this.cancelRequested.putAll(cancelRequested);
+        this.inspectionSequence.putAll(inspectionSequence);
     }
 
     @SuppressWarnings("unchecked")
@@ -39,6 +43,7 @@ public final class PerCameraInspectionGate {
         ConcurrentHashMap<Integer, AtomicBoolean> enabled = new ConcurrentHashMap<>();
         ConcurrentHashMap<Integer, AtomicBoolean> flight = new ConcurrentHashMap<>();
         ConcurrentHashMap<Integer, AtomicBoolean> cancelled = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Integer, AtomicLong> sequences = new ConcurrentHashMap<>();
         if (cameras != null) {
             for (Map<String, Object> camera : cameras) {
                 Object idObj = camera.get("id");
@@ -49,9 +54,10 @@ public final class PerCameraInspectionGate {
                 enabled.put(cameraId, new AtomicBoolean(YamlScalars.toBool(camera.get("inspection_enabled"), true)));
                 flight.put(cameraId, new AtomicBoolean(false));
                 cancelled.put(cameraId, new AtomicBoolean(false));
+                sequences.put(cameraId, new AtomicLong(0L));
             }
         }
-        return new PerCameraInspectionGate(enabled, flight, cancelled);
+        return new PerCameraInspectionGate(enabled, flight, cancelled, sequences);
     }
 
     public boolean isKnownCamera(int cameraId) {
@@ -130,6 +136,14 @@ public final class PerCameraInspectionGate {
             }
             return BeginResult.STARTED;
         }
+    }
+
+    public long nextInspectionId(int cameraId) {
+        AtomicLong sequence = inspectionSequence.get(cameraId);
+        if (sequence == null) {
+            throw new IllegalArgumentException("unknown camera_id=" + cameraId);
+        }
+        return sequence.incrementAndGet();
     }
 
     public void endInspection(int cameraId) {

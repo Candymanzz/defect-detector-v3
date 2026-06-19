@@ -106,6 +106,7 @@ public final class InspectionPipeline {
                 flashLeadMs,
                 pipelineStagesLog,
                 0L,
+                0L,
                 bucketAggregator
         );
 

@@ -172,6 +172,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             int cameraId,
             String productType,
             String detectorId,
+            long inspectionId,
             ReferenceSnapshot activeReference,
             InspectionDecision decision,
             BinaryProtocol.Message capture,
@@ -197,7 +198,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (uiServer == null || uiArtifactsExecutor == null) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false, null);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, inspectionId, decision, cap, null, 0, 0, null, null, false, null);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no ui pool) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -210,7 +211,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!storeCurrent && !storeHeatmapU8) {
             if (ws != null) {
                 try {
-                    ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false, null);
+                    ws.notifyInspectResult(cameraId, productType, detectorId, inspectionId, decision, cap, null, 0, 0, null, null, false, null);
                 } catch (Exception e) {
                     log.debug("client_ws inspect_result (no store flags) cam={}: {}", cameraId, e.getMessage());
                 }
@@ -230,7 +231,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (ws != null) {
             try {
                 // Deliver decision immediately; heavy UI artifacts are published in a later update.
-                ws.notifyInspectResult(cameraId, productType, detectorId, decision, cap, null, 0, 0, null, null, false, null);
+                ws.notifyInspectResult(cameraId, productType, detectorId, inspectionId, decision, cap, null, 0, 0, null, null, false, null);
             } catch (Exception e) {
                 log.debug("client_ws inspect_result immediate cam={}: {}", cameraId, e.getMessage());
             }
@@ -371,6 +372,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                         cameraId,
                                         productType,
                                         detectorId,
+                                        inspectionId,
                                         decision,
                                         cap,
                                         null,
@@ -493,6 +495,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                     cameraId,
                                     productType,
                                     detectorId,
+                                    inspectionId,
                                     decision,
                                     cap,
                                     hasHm ? heatmapU8 : null,

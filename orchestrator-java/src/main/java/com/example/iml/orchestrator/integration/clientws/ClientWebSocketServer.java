@@ -31,15 +31,12 @@ import org.java_websocket.server.WebSocketServer;
 
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -48,7 +45,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class ClientWebSocketServer extends WebSocketServer implements AutoCloseable {
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final int INSPECTION_IDS_PER_CAMERA = 256;
 
     private final Logger log;
     private final ClientWsConfig cfg;
@@ -60,8 +56,6 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     private final ClientWsApplicationContext application;
     private final WsFrontController frontController;
     private final Object sessionLock = new Object();
-    private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequenceByCamera = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Integer, LinkedHashMap<Long, Long>> inspectionIdsByCamera = new ConcurrentHashMap<>();
     private WebSocket activeClient;
     private final ScheduledExecutorService pingScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "client-ws-ping");
@@ -173,6 +167,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             int cameraId,
             String productType,
             String detectorId,
+            long inspectionId,
             InspectionDecision decision,
             Map<String, Object> captureHeader,
             Path heatmapU8Path,
@@ -198,7 +193,6 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         if (frameId < 0) {
             return;
         }
-        long inspectionId = resolveInspectionId(cameraId, frameId);
         broadcastOpenClients(conn -> outbound.sendInspectResult(
                 conn,
                 cameraId,
@@ -217,28 +211,6 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 includeHeatmapFilePathInWs,
                 inspectionArtifactBundleId
         ));
-    }
-
-    private long resolveInspectionId(int cameraId, long frameId) {
-        LinkedHashMap<Long, Long> ids = inspectionIdsByCamera.computeIfAbsent(
-                cameraId,
-                ignored -> new LinkedHashMap<>()
-        );
-        synchronized (ids) {
-            Long existing = ids.get(frameId);
-            if (existing != null) {
-                return existing;
-            }
-            long next = inspectionSequenceByCamera
-                    .computeIfAbsent(cameraId, ignored -> new AtomicLong())
-                    .incrementAndGet();
-            ids.put(frameId, next);
-            while (ids.size() > INSPECTION_IDS_PER_CAMERA) {
-                Long oldestFrameId = ids.keySet().iterator().next();
-                ids.remove(oldestFrameId);
-            }
-            return next;
-        }
     }
 
     @Override

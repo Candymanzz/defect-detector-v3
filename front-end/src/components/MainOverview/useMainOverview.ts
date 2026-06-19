@@ -56,12 +56,14 @@ export function useMainOverview() {
   const latestPreviewFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const latestInspectResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
   const latestArtifactResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
+  const latestInspectionIdByCameraIdRef = useRef<Record<number, number>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateFrameRef = useRef<number | null>(null);
 
   const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
     delete latestInspectResultByCameraIdRef.current[cameraId];
     delete latestArtifactResultByCameraIdRef.current[cameraId];
+    delete latestInspectionIdByCameraIdRef.current[cameraId];
     setInspectResultsByCameraId((previousResults) => removeCameraResult(previousResults, cameraId));
     setInspectArtifactResultsByCameraId((previousResults) => removeCameraResult(previousResults, cameraId));
     setInspectionHistoryByCameraId((previousHistory) => removeCameraResult(previousHistory, cameraId));
@@ -243,6 +245,7 @@ export function useMainOverview() {
       const inspectResult = message.payload;
       console.log(inspectResult);
       const cameraId = inspectResult.camera_id;
+      logMissingInspectionResults(latestInspectionIdByCameraIdRef, inspectResult);
       setHasReference(true);
 
       const previousLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
@@ -314,6 +317,30 @@ export function useMainOverview() {
     selectModalInspection,
     closeInspectionModal,
   };
+}
+
+function logMissingInspectionResults(
+  latestInspectionIdsRef: React.MutableRefObject<Record<number, number>>,
+  inspectResult: InspectResultPayload,
+) {
+  const inspectionId = Number(inspectResult.inspection_id);
+  if (!Number.isSafeInteger(inspectionId) || inspectionId <= 0) {
+    return;
+  }
+
+  const cameraId = inspectResult.camera_id;
+  const previousId = latestInspectionIdsRef.current[cameraId];
+  if (previousId !== undefined && inspectionId > previousId + 1) {
+    console.warn("Missing inspection results", {
+      cameraId,
+      expectedFrom: previousId + 1,
+      expectedTo: inspectionId - 1,
+      received: inspectionId,
+    });
+  }
+  if (previousId === undefined || inspectionId > previousId) {
+    latestInspectionIdsRef.current[cameraId] = inspectionId;
+  }
 }
 
 function queuePreviewImageUpdate(
