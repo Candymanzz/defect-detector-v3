@@ -7,6 +7,8 @@ import com.example.iml.orchestrator.integration.clientws.handler.LightBrightness
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesDisableWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesEnableWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewPauseWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesDisableWsHandler;
+import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesEnableWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewResumeWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.ReferenceBundleWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.SetActiveReferenceViewWsHandler;

@@ -97,7 +97,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           }
           if (message.payload.ok) {
             hasReferenceRef.current = true;
-            enableReferencePreviewImages();
+            disableReferencePreviewImages();
           }
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;

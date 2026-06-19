@@ -134,6 +134,7 @@ public final class ProductionInspectionOrchestrator {
             );
             return;
         }
+        long inspectionId = 0L;
         try {
             AsyncInspectionCycleInput cycleIn = resolveCycleInput(in, referenceFromClient, referenceByCamera);
             if (cycleIn == null) {
@@ -146,18 +147,28 @@ public final class ProductionInspectionOrchestrator {
                 return;
             }
             cycleIn = cycleIn.withTriggerSequence(event.sequence());
+            inspectionId = inspectionGate.nextInspectionId(in.cameraId());
+            cycleIn = cycleIn.withInspectionId(inspectionId);
+            svc.log().info(
+                    "integration cam={}: inspection started inspection_id={} source={}",
+                    in.cameraId(),
+                    inspectionId,
+                    event.source()
+            );
             AsyncInspectionCycleRunner.run(svc, cycleIn, null, inspectionCycleTimeoutMs, inspectionGate);
         } catch (TimeoutException e) {
             svc.log().warn(
-                    "integration cam={}: inspection cycle timeout after {} ms (source={})",
+                    "integration cam={}: inspection cycle timeout inspection_id={} after {} ms (source={})",
                     in.cameraId(),
+                    inspectionId,
                     inspectionCycleTimeoutMs,
                     event.source()
             );
         } catch (Exception e) {
             svc.log().warn(
-                    "integration cam={}: inspection cycle failed (next tick continues): {}",
+                    "integration cam={}: inspection cycle failed inspection_id={} (next tick continues): {}",
                     in.cameraId(),
+                    inspectionId,
                     e.getMessage()
             );
             svc.log().debug("inspection cycle error", e);

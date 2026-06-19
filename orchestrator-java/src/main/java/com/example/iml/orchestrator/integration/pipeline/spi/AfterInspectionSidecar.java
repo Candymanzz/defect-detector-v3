@@ -22,6 +22,7 @@ public interface AfterInspectionSidecar {
             int cameraId,
             String productType,
             String detectorId,
+            long inspectionId,
             ReferenceSnapshot activeReference,
             InspectionDecision decision,
             BinaryProtocol.Message capture,
