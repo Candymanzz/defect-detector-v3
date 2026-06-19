@@ -240,6 +240,7 @@ export function useMainOverview() {
       }
 
       const inspectResult = message.payload;
+      console.log(inspectResult);
       const cameraId = inspectResult.camera_id;
       setHasReference(true);
 
