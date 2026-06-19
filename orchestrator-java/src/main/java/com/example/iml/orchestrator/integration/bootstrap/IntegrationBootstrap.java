@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationS
 import com.example.iml.orchestrator.integration.camera.WorkerIpcMode;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
 import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
@@ -85,6 +86,7 @@ public final class IntegrationBootstrap {
             return;
         }
         log.info("configured cameras: {}", ConfiguredCameras.enabledIds(root));
+        ImlShmJanitor.purgeStaleFiles(log);
 
         Path workerBin = CameraWorkerPaths.resolveCameraWorkerExecutable(projectRoot);
         @SuppressWarnings("unchecked")

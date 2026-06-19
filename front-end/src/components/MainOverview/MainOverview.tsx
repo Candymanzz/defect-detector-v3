@@ -56,7 +56,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
   const [inspectionControlByCameraId, setInspectionControlByCameraId] = useState<
     Record<number, InspectionControlState>
   >({});
-  const [hasReference, setHasReference] = useState(false);
+  const [, setHasReference] = useState(false);
   const latestPreviewTimestampByCameraIdRef = useRef<Record<number, number>>({});
   const latestPreviewFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const latestInspectResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
@@ -335,7 +335,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   key={camera.cameraId}
                   cameraId={camera.cameraId}
                   objectName={camera.objectName}
-                  imageUrl={hasReference ? inspectImageUrl : camera.imageUrl}
+                  imageUrl={inspectImageUrl ?? camera.imageUrl}
                   currentFrameId={previewFrameIdsByCameraId[camera.cameraId]}
                   inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}

@@ -810,6 +810,32 @@ static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t
     }
     return configured;
 }
+
+/**
+ * Сдвиг старта передачи кадра по сети после триггера (GevSCFTD).
+ * Экспозиция у всех камер в один момент; на гигабитный линк данные идут со сдвигом.
+ */
+static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
+    if (!st->hik_handle) {
+        return;
+    }
+    unsigned int step = hik_effective_frame_transfer_delay_step(st);
+    if (step == 0u) {
+        return;
+    }
+    unsigned int delay = (unsigned int)st->camera_id * step;
+    if (delay == 0) {
+        return;
+    }
+    int r = MV_CC_SetIntValue(st->hik_handle, "GevSCFTD", delay);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: GevSCFTD=%u not applied cam=%d (0x%x)\n", delay, st->camera_id, r);
+    } else {
+        fprintf(stderr, "hik: GevSCFTD=%u cam=%d (frame transfer delay, exposure stays sync)\n", delay,
+                st->camera_id);
+    }
+}
+
 /** Автобаланс белого выключает «плывущий» цвет между кадрами (GenICam BalanceWhiteAuto). */
 static void hik_disable_auto_white_balance(void *handle) {
     int r = MV_CC_SetEnumValueByString(handle, "BalanceWhiteAuto", "Off");
@@ -884,31 +910,6 @@ static int hik_apply_pixel_format(void *handle, int camera_id, int pixel_format_
     }
     fprintf(stderr, "hik: cam=%d PixelFormat not applied (0x%x)\n", camera_id, r);
     return -1;
-}
-
-/**
- * Сдвиг старта передачи кадра по сети после триггера (GevSCFTD).
- * Экспозиция у всех камер в один момент; на гигабитный линк данные идут со сдвигом.
- */
-static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
-    if (!st->hik_handle) {
-        return;
-    }
-    unsigned int step = hik_effective_frame_transfer_delay_step(st);
-    if (step == 0u) {
-        return;
-    }
-    unsigned int delay = (unsigned int)st->camera_id * step;
-    if (delay == 0) {
-        return;
-    }
-    int r = MV_CC_SetIntValue(st->hik_handle, "GevSCFTD", delay);
-    if (r != MV_OK) {
-        fprintf(stderr, "hik: GevSCFTD=%u not applied cam=%d (0x%x)\n", delay, st->camera_id, r);
-    } else {
-        fprintf(stderr, "hik: GevSCFTD=%u cam=%d (frame transfer delay, exposure stays sync)\n", delay,
-                st->camera_id);
-    }
 }
 
 static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {

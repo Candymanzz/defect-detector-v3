@@ -56,8 +56,7 @@ public final class CaptureFrameDownscaleService {
             int outW = Math.max(1, (int) Math.round(width * scale));
             int outH = Math.max(1, (int) Math.round(height * scale));
             byte[] outBgr = resizeBgr(bgr, width, height, outW, outH);
-            String base = sanitizeForFileName(shmName, cameraId);
-            String outName = "iml_ds_" + sourceTag + "_cam" + resolvedCameraId + "_f" + Math.max(frameId, 0L) + "_" + base;
+            String outName = "iml_ds_" + sourceTag + "_cam" + resolvedCameraId;
             Path outPath = FrameJpegWriter.imlShmFilePath(outName);
             Path parent = outPath.getParent();
             if (parent != null) {
@@ -143,17 +142,5 @@ public final class CaptureFrameDownscaleService {
             }
             return bgr;
         }
-    }
-
-    private static String sanitizeForFileName(String shmName, int cameraId) {
-        String base = shmName;
-        if (base.startsWith("/")) {
-            base = base.substring(1);
-        }
-        base = base.replace('\\', '_').replace('/', '_').replace(':', '_');
-        if (base.isBlank()) {
-            return "cam" + cameraId;
-        }
-        return base;
     }
 }

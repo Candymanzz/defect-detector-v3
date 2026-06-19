@@ -19,6 +19,19 @@
         <member name="P:LightServer.ComLightDeviceEntry.TimerArmSource">
             <summary>Arm для вспышки: Timer1, Timer5… Пусто — из enum устройства (Timer1 или первый Timer*).</summary>
         </member>
+        <member name="M:LightServer.Controllers.CameraFlashController.SetPair(LightServer.Models.CameraPairFlashRequest)">
+            <summary>
+            Камеры 1..8: установить мощность левой/правой вспышки.
+            1,2 -> COM3 (1/2, 3/4), 3,4 -> COM2 (1/2, 3/4),
+            5,6 -> 169.254.213.1 (1/2, 3/4), 7,8 -> 169.254.213.2 (1/2, 3/4).
+            </summary>
+        </member>
+        <member name="M:LightServer.Controllers.CameraFlashController.SetSingle(LightServer.Models.CameraSingleFlashRequest)">
+            <summary>
+            Камеры 9..10: установить мощность одной вспышки.
+            9 -> COM1 ch1, 10 -> COM1 ch2.
+            </summary>
+        </member>
         <member name="T:LightServer.Controllers.ComLightApplyController">
             <summary>COM-подсветка: один POST — on/off и яркость % через запятую.</summary>
         </member>
@@ -74,6 +87,12 @@
         <member name="P:LightServer.Models.DeviceInfoDto.ComPort">
             <summary>Для Camera Link (COM) — из ICamlDeviceInfo.PortID.</summary>
         </member>
+        <member name="T:LightServer.Models.CameraPairFlashRequest">
+            <summary>Камеры 1..8: две вспышки (левая/правая).</summary>
+        </member>
+        <member name="T:LightServer.Models.CameraSingleFlashRequest">
+            <summary>Камеры 9..10: одна вспышка (один канал).</summary>
+        </member>
         <member name="T:LightServer.Models.ComLightStateRequest">
             <summary>
             POST /api/com/light — одним запросом все COM из appsettings.
@@ -84,6 +103,18 @@
         </member>
         <member name="T:LightServer.Models.LightCommandRequest">
             <summary>Команда MV-LE по индексу из GET /api/devices (сеть и т.п.).</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.DeviceIndex">
+            <summary>Legacy-выбор устройства по индексу из GET /api/devices.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.SerialNumber">
+            <summary>Предпочтительный стабильный выбор по серийному номеру.</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.IpAddress">
+            <summary>Выбор по IPv4 для GigE-устройств (например 192.168.1.10).</summary>
+        </member>
+        <member name="P:LightServer.Models.LightCommandRequest.ModelName">
+            <summary>Выбор по имени модели (лучше вместе с serialNumber или ipAddress).</summary>
         </member>
         <member name="P:LightServer.Models.LightCommandRequest.Brightness">
             <summary>0–255 на канал; длина = channels. При On без массива — 255.</summary>
@@ -154,6 +185,9 @@
         <member name="M:LightServer.Services.IsolatedComPortLight.OpenFromBankEnumeration(System.Collections.Generic.List{MvCameraControl.IDeviceInfo},System.Int32)">
             <summary>Открыть по индексу из общего EnumDevices(все COM) — рекомендуемый путь банка.</summary>
         </member>
+        <member name="M:LightServer.Services.IsolatedComPortLight.ApplyDirectOn(System.Int32[])">
+            <summary>Быстрый On (один проход SDK) для BankFlashMode On/Direct/Broadcast.</summary>
+        </member>
         <member name="F:LightServer.Services.LightControlService.NetworkLayers">
             <summary>Как в Test.exe — сеть/USB/GenTL, без Camera Link (COM перечисляется отдельно).</summary>
         </member>
@@ -184,7 +218,7 @@
         <member name="M:LightServer.Services.LightControlService.ClearSerialPortFilter">
             <summary>Сброс фильтра COM перед перечислением сети (пустой список).</summary>
         </member>
-        <member name="M:LightServer.Services.LightControlService.ApplyAllChannels(MvCameraControl.IDevice,System.Object,System.Int32[],System.Int32[],System.String,System.Boolean,System.Int32@)">
+        <member name="M:LightServer.Services.LightControlService.ApplyAllChannels(MvCameraControl.IDevice,System.Object,System.Int32[],System.Int32[],System.String,System.Boolean,System.Int32@,System.String@)">
             <summary>Один lock, последовательная запись — предсказуемое время без Parallel.For.</summary>
         </member>
         <member name="T:LightServer.Services.MvLeApplyState">
@@ -210,6 +244,9 @@
         <member name="P:LightServer.Services.MvLeFlashSyncPlan.UseDirectImmediate">
             <summary>Direct/Sequential: On/Off сразу по каналам, без Hold/Timer.</summary>
         </member>
+        <member name="P:LightServer.Services.MvLeFlashSyncPlan.CachedBroadcastSelectorName">
+            <summary>Имя селектора broadcast (например All), найденное при открытии — без перебора на каждый On.</summary>
+        </member>
         <member name="M:LightServer.Services.MvLeFlashSync.ProbeTimerArmSource(MvCameraControl.IDevice,LightServer.Services.MvLeFlashSyncPlan,System.String)">
             <summary>Timer1 если есть, иначе Timer с макс. номером (напр. Timer5 на MV-VC).</summary>
         </member>
@@ -224,6 +261,9 @@
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.CreateBankDirectPlan(MvCameraControl.IDevice)">
             <summary>Банк: один broadcast On/Off, без Timer (рекомендуется для COM1–COM3).</summary>
+        </member>
+        <member name="M:LightServer.Services.MvLeFlashSync.ApplyBankDirectOn(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Boolean,System.Int32@,System.String@)">
+            <summary>Быстрый On: яркость + включение за один проход SDK (без prep Off + fire).</summary>
         </member>
         <member name="M:LightServer.Services.MvLeFlashSync.PrepareBankDirect(MvCameraControl.IDevice,System.Object,LightServer.Services.MvLeFlashSyncPlan,System.Int32[],System.Int32[],System.Int32@)">
             <summary>Фаза 1 (On): яркость + broadcast Off (свет не горит до fire).</summary>

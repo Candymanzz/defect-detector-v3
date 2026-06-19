@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
@@ -20,7 +21,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -41,7 +41,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
     }
 
-    private record FrozenFrame(Path path, String shmName) {
+    private record FrozenFrame(Path path, String shmName, boolean deleteWhenDone) {
     }
 
     private record UiPublishTask(int cameraId, Runnable delegate, Runnable cleanup) implements Runnable {
@@ -253,7 +253,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
         if (!isLatestPublish(cameraId, publishSequence)) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
-            deleteTemporaryArtifact(frozenFrame.path(), "stale frozen inspection frame");
+            deleteFrozenFrameIfOwned(frozenFrame, "stale frozen inspection frame");
             return;
         }
 
@@ -523,31 +523,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     }
                     deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
                     deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");
-                    try {
-                        Files.deleteIfExists(frozenFrame.path());
-                    } catch (IOException e) {
-                        log.debug("frozen inspection frame cleanup failed path={}: {}", frozenFrame.path(), e.getMessage());
-                    }
+                    deleteFrozenFrameIfOwned(frozenFrame, "frozen inspection frame");
                 }
             }
         }, () -> {
             deleteTemporaryArtifact(sourceHeatmap.path(), "discarded queued source heatmap");
-            deleteTemporaryArtifact(frozenFrame.path(), "discarded queued frozen inspection frame");
+            deleteFrozenFrameIfOwned(frozenFrame, "discarded queued frozen inspection frame");
         });
         removeQueuedPublishForCamera(uiArtifactsExecutor, cameraId);
         try {
             uiArtifactsExecutor.execute(publishTask);
         } catch (java.util.concurrent.RejectedExecutionException e) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "rejected source heatmap");
-            try {
-                Files.deleteIfExists(frozenFrame.path());
-            } catch (IOException cleanupError) {
-                log.debug(
-                        "rejected frozen inspection frame cleanup failed path={}: {}",
-                        frozenFrame.path(),
-                        cleanupError.getMessage()
-                );
-            }
+            deleteFrozenFrameIfOwned(frozenFrame, "rejected frozen inspection frame");
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
         }
@@ -603,6 +591,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
     }
 
+    private void deleteFrozenFrameIfOwned(FrozenFrame frozenFrame, String label) {
+        if (frozenFrame == null || !frozenFrame.deleteWhenDone()) {
+            return;
+        }
+        deleteTemporaryArtifact(frozenFrame.path(), label);
+    }
+
     private static FrozenFrame freezeInspectionFrame(
             int cameraId,
             long frameId,
@@ -622,14 +617,20 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             throw new IOException("source SHM is missing");
         }
 
-        String frozenName = "iml_ui_inspect_cam_" + cameraId + "_f" + frameId + "_" + UUID.randomUUID() + ".bgr";
+        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
+        if (sourceOffset == 0L && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
+            return new FrozenFrame(source, "/" + base, false);
+        }
+
+        String frozenName = "iml_ui_inspect_cam_" + cameraId;
         Path target = FrameJpegWriter.imlShmFilePath(frozenName);
         Files.createDirectories(target.getParent());
         try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);
              FileChannel output = FileChannel.open(
                      target,
-                     StandardOpenOption.CREATE_NEW,
-                     StandardOpenOption.WRITE
+                     StandardOpenOption.CREATE,
+                     StandardOpenOption.WRITE,
+                     StandardOpenOption.TRUNCATE_EXISTING
              )) {
             if (input.size() < sourceOffset + frameBytes) {
                 throw new IOException("source SHM is smaller than the captured frame");
@@ -646,7 +647,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Files.deleteIfExists(target);
             throw e;
         }
-        return new FrozenFrame(target, frozenName);
+        return new FrozenFrame(target, "/" + frozenName, true);
     }
 
     private HeatmapArtifact generateHeatmapArtifact(
@@ -699,10 +700,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             if (roiPolygon instanceof List<?> points && points.size() >= 3) {
                 pyHeader.put("roi_polygon_norm", points);
             }
-            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
-                    "iml_ui_heatmap_cam_" + cameraId + "_f" + frameId + "_"
-                            + Long.toUnsignedString(System.nanoTime()) + ".heatmap.u8"
-            );
+            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath("iml_ui_heatmap_cam_" + cameraId);
             pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
             pyHeader.put(
                     "heatmap_max_width",

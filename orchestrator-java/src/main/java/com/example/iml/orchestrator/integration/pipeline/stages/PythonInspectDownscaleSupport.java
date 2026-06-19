@@ -36,10 +36,8 @@ final class PythonInspectDownscaleSupport {
         if (scale >= 0.999d) {
             return;
         }
-        String frameId = String.valueOf(pyHeader.getOrDefault("frame_id", "0"));
-
         ShmDescriptor current = descriptorFromHeader(pyHeader, "", cameraId);
-        ShmDescriptor downscaledCurrent = writeDownscaled(current, cameraId, "iml_py_ds_cur_" + cameraId + "_" + frameId, scale);
+        ShmDescriptor downscaledCurrent = writeDownscaled(current, cameraId, "iml_py_ds_cur_cam" + cameraId, scale);
         putDescriptor(pyHeader, "", downscaledCurrent);
 
         ShmDescriptor reference = descriptorFromHeader(pyHeader, "reference_", cameraId);
@@ -49,7 +47,7 @@ final class PythonInspectDownscaleSupport {
             putDescriptor(pyHeader, "reference_", cached);
             return;
         }
-        String refName = "iml_py_ds_ref_" + cameraId + "_" + Integer.toHexString(cacheKey.hashCode());
+        String refName = "iml_py_ds_ref_cam" + cameraId;
         ShmDescriptor downscaledReference = writeDownscaled(reference, cameraId, refName, scale);
         REFERENCE_CACHE.put(cacheKey, downscaledReference);
         putDescriptor(pyHeader, "reference_", downscaledReference);

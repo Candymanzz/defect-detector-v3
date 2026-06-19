@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.bootstrap.lifecycle;
 
+import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
@@ -115,5 +116,6 @@ public final class IntegrationShutdownCoordinator {
         if (r.uiServer != null) {
             r.uiServer.close();
         }
+        ImlShmJanitor.purgeOrchestratorBuffers(r.log);
     }
 }
