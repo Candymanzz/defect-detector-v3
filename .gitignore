@@ -35,3 +35,6 @@ LightServer.v3/bin/Debug/net10.0/LightServer.exe
 LightServer.v3/bin/Debug/net10.0/LightServer.pdb
 LightServer.v3/bin/Debug/net10.0/LightServer.xml
 /LightServer.v3/logs
+defect-detector-v3
+/camera-worker/build/Release
+camera-worker/build/Release/camera_worker.exe
