@@ -63,7 +63,6 @@ export function useMainOverview() {
     delete latestInspectionIdByCameraIdRef.current[cameraId];
     setInspectResultsByCameraId((previousResults) => removeCameraResult(previousResults, cameraId));
     setInspectArtifactResultsByCameraId((previousResults) => removeCameraResult(previousResults, cameraId));
-    setInspectionHistoryByCameraId((previousHistory) => removeCameraResult(previousHistory, cameraId));
     setModalSnapshot((currentSnapshot) =>
       currentSnapshot?.cameraId === cameraId
         ? {
@@ -72,7 +71,6 @@ export function useMainOverview() {
             inspectResult: undefined,
             cameraImageUrl: undefined,
             heatmapUrl: undefined,
-            inspectionItems: [],
           }
         : currentSnapshot,
     );
@@ -239,13 +237,18 @@ export function useMainOverview() {
       }
 
       const inspectResult = message.payload;
-      console.log(inspectResult);
       const cameraId = inspectResult.camera_id;
       logMissingInspectionResults(latestInspectionIdByCameraIdRef, inspectResult);
       setHasReference(true);
+      addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
+      addModalInspectionItem(setModalSnapshot, inspectResult);
 
       const previousLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
-      if (previousLiveResult && isInspectionCounterReset(previousLiveResult, inspectResult)) {
+      if (
+        !hasImmutableInspectArtifact(inspectResult) &&
+        previousLiveResult &&
+        isInspectionCounterReset(previousLiveResult, inspectResult)
+      ) {
         resetCameraInspectionOrdering(cameraId);
       }
 
@@ -281,8 +284,6 @@ export function useMainOverview() {
         }));
       }
 
-      addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
-      addModalInspectionItem(setModalSnapshot, inspectResult);
     });
 
     orchestratorWs.connect();
@@ -405,13 +406,6 @@ function addModalInspectionItem(
 
   setModalSnapshot((currentSnapshot) => {
     if (!currentSnapshot || currentSnapshot.cameraId !== inspectResult.camera_id) {
-      return currentSnapshot;
-    }
-
-    const existingItem = currentSnapshot.inspectionItems.some((item) => item.frameId === inspectResult.frame_id);
-    const isNewerThanInitial =
-      !currentSnapshot.initialFrameId || compareFrameIds(inspectResult.frame_id, currentSnapshot.initialFrameId) > 0;
-    if (!existingItem && !isNewerThanInitial) {
       return currentSnapshot;
     }
 
