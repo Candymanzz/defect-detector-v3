@@ -89,6 +89,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           inspectHeatmapUrl={controller.modalSnapshot.heatmapUrl}
           referenceImageUrl={controller.modalSnapshot.referenceImageUrl}
           referenceRoiPoints={controller.modalSnapshot.referenceRoiPoints}
+          referenceJointRoiPoints={controller.modalSnapshot.referenceJointRoiPoints}
           inspectionItems={controller.modalSnapshot.inspectionItems.map(({ frameId, inspectionId, result }) => ({
             frameId,
             inspectionId,

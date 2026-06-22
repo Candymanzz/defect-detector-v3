@@ -35,6 +35,7 @@ export type ModalInspectionSnapshot = SelectedCamera & {
   heatmapUrl?: string;
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];
+  referenceJointRoiPoints?: InterestPointNorm[];
   inspectionItems: InspectionHistoryItem[];
 };
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";

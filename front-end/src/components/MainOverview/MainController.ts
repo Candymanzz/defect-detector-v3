@@ -126,6 +126,7 @@ export function createModalInspectionSnapshot(
     heatmapUrl: snapshotResult?.heatmap ? resolveHeatmapSourceUrlOrUndefined(snapshotResult.heatmap) : undefined,
     referenceImageUrl: referenceImage?.imageUrl,
     referenceRoiPoints: referenceImage?.roiPoints.map((point) => ({ ...point })),
+    referenceJointRoiPoints: referenceImage?.jointRoiPoints?.map((point) => ({ ...point })),
     inspectionItems: createInitialModalInspectionItems(inspectionHistory, snapshotResult),
   };
 }

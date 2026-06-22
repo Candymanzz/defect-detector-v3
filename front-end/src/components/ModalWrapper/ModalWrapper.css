@@ -210,6 +210,12 @@
   stroke-width: 2;
 }
 
+.modal-image-panel__roi-overlay--joint polygon {
+  fill: rgba(255, 166, 0, 0.14);
+  stroke: #ffa600;
+  stroke-dasharray: 8 5;
+}
+
 .modal-image-panel .heatmap-viewer {
   container-type: size;
   display: grid;

@@ -15,6 +15,7 @@ type ModalWrapperProps = {
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];
+  referenceJointRoiPoints?: InterestPointNorm[];
   inspectionItems?: InspectionNavigationItem[];
   selectedInspectionFrameId?: string;
   dangerHeaderAction?: ReactNode;
@@ -38,6 +39,7 @@ export function ModalWrapper({
   inspectResult,
   referenceImageUrl,
   referenceRoiPoints,
+  referenceJointRoiPoints,
   inspectionItems = [],
   selectedInspectionFrameId,
   dangerHeaderAction,
@@ -110,6 +112,7 @@ export function ModalWrapper({
             imageUrl={referenceImageUrl}
             label="Эталон"
             roiPoints={referenceRoiPoints}
+            jointRoiPoints={referenceJointRoiPoints}
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
@@ -184,15 +187,20 @@ function ImagePanel({
   label,
   imageUrl,
   roiPoints,
+  jointRoiPoints,
   fetchPriority = "high",
 }: {
   label: string;
   imageUrl?: string;
   roiPoints?: InterestPointNorm[];
+  jointRoiPoints?: InterestPointNorm[];
   fetchPriority?: "high" | "low" | "auto";
 }) {
   const [imageSize, setImageSize] = useState({ width: 4, height: 3 });
   const svgPoints = roiPoints
+    ?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`)
+    .join(" ");
+  const jointSvgPoints = jointRoiPoints
     ?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`)
     .join(" ");
   const mediaStyle = {
@@ -229,6 +237,16 @@ function ImagePanel({
               viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
             >
               <polygon points={svgPoints} />
+            </svg>
+          )}
+          {imageUrl && jointSvgPoints && jointRoiPoints && jointRoiPoints.length >= 3 && (
+            <svg
+              aria-hidden="true"
+              className="modal-image-panel__roi-overlay modal-image-panel__roi-overlay--joint"
+              preserveAspectRatio="xMidYMid meet"
+              viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+            >
+              <polygon points={jointSvgPoints} />
             </svg>
           )}
         </div>

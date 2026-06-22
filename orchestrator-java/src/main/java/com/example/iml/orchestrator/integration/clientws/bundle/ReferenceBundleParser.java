@@ -129,8 +129,6 @@ public final class ReferenceBundleParser {
             if (joint == null) {
                 throw new BundleParseException("invalid_joint_roi", ctx + ".joint_roi invalid or out of frame");
             }
-        } else if (expectJoint) {
-            throw new BundleParseException("missing_joint_roi", "joint_roi required on views[" + jointViewIndex + "]");
         }
         return new ReferenceViewSlot(frame, interest, joint, List.copyOf(interestPolygon));
     }

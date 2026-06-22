@@ -75,6 +75,7 @@ public final class PipelineReferenceRegistry {
         header.put("width", frame.width());
         header.put("height", frame.height());
         header.put("stride", frame.strideBytes());
+        header.put("client_reference_bundle", true);
         if (frame.pixelFormat() != null && !frame.pixelFormat().isBlank()) {
             header.put("format", frame.pixelFormat());
         }
@@ -84,6 +85,22 @@ public final class PipelineReferenceRegistry {
         if (polygonNorm.size() >= 3) {
             header.put("interest_polygon_norm", polygonNorm);
         }
+        if (slot.jointRoi() != null) {
+            header.put("joint_roi_norm", normalizedRoi(slot.jointRoi(), frame.width(), frame.height()));
+        }
         return header;
+    }
+
+    private static Map<String, Object> normalizedRoi(
+            com.example.iml.orchestrator.integration.clientws.bundle.PixelRoi roi,
+            int frameWidth,
+            int frameHeight
+    ) {
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("x", roi.x() / (double) frameWidth);
+        normalized.put("y", roi.y() / (double) frameHeight);
+        normalized.put("width", roi.width() / (double) frameWidth);
+        normalized.put("height", roi.height() / (double) frameHeight);
+        return Map.copyOf(normalized);
     }
 }

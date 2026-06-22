@@ -50,7 +50,7 @@ public final class BinaryInspectHeaders {
             }
         }
         gHeader.put("mainRoi", mainRoi);
-        gHeader.put("jointRoi", geometryCfg == null ? null : geometryCfg.get("joint_roi"));
+        gHeader.put("jointRoi", resolveJointRoi(activeReference, geometryCfg));
         gHeader.put("wrinklesRoi", geometryCfg == null ? null : geometryCfg.get("wrinkles_roi"));
         gHeader.put("pixelsToMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.01));
         gHeader.put("maxShiftMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_shift_mm"), 0.5));
@@ -65,6 +65,29 @@ public final class BinaryInspectHeaders {
         gHeader.put("threshold", defaultThreshold);
         gHeader.put("maxWrinklesScore", maxWrinkles);
         return gHeader;
+    }
+
+    private static Object resolveJointRoi(ReferenceSnapshot activeReference, Map<String, Object> geometryCfg) {
+        if (activeReference != null && activeReference.header() != null) {
+            Object raw = activeReference.header().get("joint_roi_norm");
+            if (raw instanceof Map<?, ?> normalized) {
+                int frameWidth = YamlScalars.toInt(activeReference.header().get("width"), 0);
+                int frameHeight = YamlScalars.toInt(activeReference.header().get("height"), 0);
+                if (frameWidth > 0 && frameHeight > 0) {
+                    int x = (int) Math.round(YamlScalars.toDouble(normalized.get("x"), 0d) * frameWidth);
+                    int y = (int) Math.round(YamlScalars.toDouble(normalized.get("y"), 0d) * frameHeight);
+                    int width = (int) Math.round(YamlScalars.toDouble(normalized.get("width"), 0d) * frameWidth);
+                    int height = (int) Math.round(YamlScalars.toDouble(normalized.get("height"), 0d) * frameHeight);
+                    if (width > 0 && height > 0) {
+                        return Map.of("x", x, "y", y, "width", width, "height", height);
+                    }
+                }
+            }
+            if (YamlScalars.toBool(activeReference.header().get("client_reference_bundle"), false)) {
+                return null;
+            }
+        }
+        return geometryCfg == null ? null : geometryCfg.get("joint_roi");
     }
 
     /**

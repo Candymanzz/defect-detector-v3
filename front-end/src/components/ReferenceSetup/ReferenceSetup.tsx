@@ -21,7 +21,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     jointViewIndex,
     jointCameraId,
     hasSelectedCameraRoi,
-    hasRequiredJointRoi,
+    hasJointRoi,
     canSendAllReferences,
     handleSendAllReferences,
     handleSelectCamera,
@@ -91,7 +91,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </div>
             )}
             <label className="reference-setup__field">
-              <span>Камера joint ROI</span>
+                <span>Камера joint ROI (необязательно)</span>
               <span className="reference-setup__readonly">
                 Camera {jointCameraId} / view {jointViewIndex}
               </span>
@@ -146,20 +146,24 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
                   </button>
 
-                  {slot.cameraId === jointCameraId && (
-                    <button
-                      className={
-                        selectedRoiMode === "joint"
-                          ? "reference-setup__joint-trigger reference-setup__joint-trigger--active"
-                          : "reference-setup__joint-trigger"
-                      }
-                      type="button"
-                      onClick={handleSelectJointRoi}
-                    >
-                      Joint
-                      <span>{hasRequiredJointRoi ? "ROI задан" : "ROI не задан"}</span>
-                    </button>
-                  )}
+                  <button
+                    className={
+                      slot.cameraId === jointCameraId && selectedRoiMode === "joint"
+                        ? "reference-setup__joint-trigger reference-setup__joint-trigger--active"
+                        : "reference-setup__joint-trigger"
+                    }
+                    type="button"
+                    onClick={() => handleSelectJointRoi(slot.cameraId)}
+                  >
+                    Joint
+                    <span>
+                      {slot.cameraId === jointCameraId
+                        ? hasJointRoi
+                          ? "ROI задан"
+                          : "Выбрана камера"
+                        : "Выбрать"}
+                    </span>
+                  </button>
                 </div>
               ))}
             </div>
@@ -177,9 +181,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             <p className="reference-setup__roi-status">
               {selectedRoiMode === "joint"
                 ? `Редактируется joint ROI для Camera ${jointCameraId}`
-                : hasRequiredJointRoi
+                : hasJointRoi
                   ? `Joint ROI задан для Camera ${jointCameraId}`
-                  : `Joint ROI для Camera ${jointCameraId} обязателен`}
+                  : "Joint ROI не задан (необязательно)"}
             </p>
             <p className="reference-setup__hint">
               Статус: {status.state}

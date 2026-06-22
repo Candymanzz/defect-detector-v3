@@ -215,7 +215,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       for (const groupCameraIds of groupsToSend) {
         const payload = createReferenceBundleFromCameraFrames(
           groupCameraIds,
-          groupCameraIds[0],
+          referenceRoi.getJointCameraIdForCameraIds(groupCameraIds),
           referenceFrames.framesByCameraId,
           referenceRoi.roiPolygonsByCameraId,
           referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
@@ -229,7 +229,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
               referenceRoi.roiPolygonsByCameraId[cameraId] ?? [],
             ]),
           ),
-          groupCameraIds[0],
+          referenceRoi.getJointCameraIdForCameraIds(groupCameraIds),
           referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
         );
         pendingReferenceMessageIdsRef.current.add(messageId);
@@ -256,12 +256,12 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     );
   };
 
-  const handleSelectJointRoi = () => {
-    referenceRoi.selectJointRoi();
+  const handleSelectJointRoi = (cameraId: number) => {
+    referenceRoi.selectJointRoi(cameraId);
     setMessage(
-      referenceFrames.framesByCameraId[referenceRoi.jointCameraId]
-        ? `Editing joint ROI for camera ${referenceRoi.jointCameraId}`
-        : `Reference frame has not arrived for camera ${referenceRoi.jointCameraId} yet`,
+      referenceFrames.framesByCameraId[cameraId]
+        ? `Editing optional joint ROI for camera ${cameraId}`
+        : `Reference frame has not arrived for camera ${cameraId} yet`,
     );
   };
 

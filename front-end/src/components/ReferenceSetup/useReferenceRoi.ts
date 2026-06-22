@@ -19,27 +19,41 @@ export function useReferenceRoi(
   const [editedJointRoiPolygonsByGroupKey, setEditedJointRoiPolygonsByGroupKey] = useState<
     Record<string, InterestPointNorm[]>
   >({});
+  const [jointCameraIdsByGroupKey, setJointCameraIdsByGroupKey] = useState<Record<string, number>>({});
   const [selectedCameraIdState, setSelectedCameraIdState] = useState(initialCameraId);
   const [selectedRoiMode, setSelectedRoiMode] = useState<ReferenceRoiEditMode>("interest");
   const roiPolygonsByCameraId = mergeStoredCameraRois(cameraIds, editedRoiPolygonsByCameraId);
-  const jointRoiPolygonsByGroupKey = mergeStoredJointRois(cameraGroups, editedJointRoiPolygonsByGroupKey);
+  const jointRoiPolygonsByKey = mergeStoredJointRois(cameraGroups, editedJointRoiPolygonsByGroupKey);
   const selectedCameraId = resolveCameraId(activeCameraIds, selectedCameraIdState);
-  const jointCameraId = activeCameraIds[0] ?? 0;
   const jointGroupKey = createGroupKey(activeCameraIds);
-  const jointRoiPolygon = jointRoiPolygonsByGroupKey[jointGroupKey] ?? [];
+  const jointCameraId = resolveCameraId(
+    activeCameraIds,
+    jointCameraIdsByGroupKey[jointGroupKey] ?? findStoredJointCameraId(activeCameraIds),
+  );
+  const jointRoiKey = createJointRoiKey(activeCameraIds, jointCameraId);
+  const jointRoiPolygon = jointRoiPolygonsByKey[jointRoiKey] ?? [];
   const hasSelectedCameraRoi = isValidRoiPolygon(roiPolygonsByCameraId[selectedCameraId]);
   const hasRequiredCameraRois =
     activeCameraIds.length > 0 && activeCameraIds.every((cameraId) => isValidRoiPolygon(roiPolygonsByCameraId[cameraId]));
-  const hasRequiredJointRoi = isValidRoiPolygon(jointRoiPolygon);
+  const hasJointRoi = isValidRoiPolygon(jointRoiPolygon);
   const jointViewIndex = activeCameraIds.indexOf(jointCameraId);
 
-  const getJointRoiPolygonForCameraIds = (targetCameraIds: number[]) =>
-    jointRoiPolygonsByGroupKey[createGroupKey(targetCameraIds)] ?? [];
+  const getJointCameraIdForCameraIds = (targetCameraIds: number[]) => {
+    const groupKey = createGroupKey(targetCameraIds);
+    return resolveCameraId(
+      targetCameraIds,
+      jointCameraIdsByGroupKey[groupKey] ?? findStoredJointCameraId(targetCameraIds),
+    );
+  };
+
+  const getJointRoiPolygonForCameraIds = (targetCameraIds: number[]) => {
+    const targetJointCameraId = getJointCameraIdForCameraIds(targetCameraIds);
+    return jointRoiPolygonsByKey[createJointRoiKey(targetCameraIds, targetJointCameraId)] ?? [];
+  };
 
   const hasRequiredRoisForCameraIds = (targetCameraIds: number[]) =>
     targetCameraIds.length > 0 &&
-    targetCameraIds.every((cameraId) => isValidRoiPolygon(roiPolygonsByCameraId[cameraId])) &&
-    isValidRoiPolygon(getJointRoiPolygonForCameraIds(targetCameraIds));
+    targetCameraIds.every((cameraId) => isValidRoiPolygon(roiPolygonsByCameraId[cameraId]));
 
   const setRoiPolygonForCamera = (cameraId: number, points: InterestPointNorm[]) => {
     const targetCameraId = resolveCameraId(cameraIds, cameraId);
@@ -53,7 +67,7 @@ export function useReferenceRoi(
   const setJointRoi = (points: InterestPointNorm[]) => {
     setEditedJointRoiPolygonsByGroupKey((previous) => ({
       ...previous,
-      [jointGroupKey]: copyRoiPolygon(points),
+      [jointRoiKey]: copyRoiPolygon(points),
     }));
   };
 
@@ -63,8 +77,13 @@ export function useReferenceRoi(
     setSelectedRoiMode("interest");
   };
 
-  const selectJointRoi = () => {
-    setSelectedCameraIdState(jointCameraId);
+  const selectJointRoi = (cameraId: number) => {
+    const nextCameraId = resolveCameraId(activeCameraIds, cameraId);
+    setJointCameraIdsByGroupKey((previous) => ({
+      ...previous,
+      [jointGroupKey]: nextCameraId,
+    }));
+    setSelectedCameraIdState(nextCameraId);
     setSelectedRoiMode("joint");
   };
 
@@ -74,12 +93,13 @@ export function useReferenceRoi(
     activeCameraIds,
     hasSelectedCameraRoi,
     hasRequiredCameraRois,
-    hasRequiredJointRoi,
+    hasJointRoi,
     jointRoiPolygon,
     roiPolygonsByCameraId,
     selectedCameraId,
     selectedRoiMode,
     getJointRoiPolygonForCameraIds,
+    getJointCameraIdForCameraIds,
     hasRequiredRoisForCameraIds,
     selectJointRoi,
     setJointRoiPolygon: setJointRoi,
@@ -129,20 +149,29 @@ function mergeStoredJointRois(
   const merged: Record<string, InterestPointNorm[]> = {};
 
   for (const groupCameraIds of cameraGroups) {
-    const groupKey = createGroupKey(groupCameraIds);
-    const editedPoints = editedRois[groupKey];
-    const jointCameraId = groupCameraIds[0];
-    const storedPoints = getReferenceImage(jointCameraId)?.jointRoiPoints;
-    const points = editedPoints ?? storedPoints;
+    for (const cameraId of groupCameraIds) {
+      const roiKey = createJointRoiKey(groupCameraIds, cameraId);
+      const editedPoints = editedRois[roiKey];
+      const storedPoints = getReferenceImage(cameraId)?.jointRoiPoints;
+      const points = editedPoints ?? storedPoints;
 
-    if (points) {
-      merged[groupKey] = copyRoiPolygon(points);
+      if (points) {
+        merged[roiKey] = copyRoiPolygon(points);
+      }
     }
   }
 
   return merged;
 }
 
+function findStoredJointCameraId(cameraIds: number[]) {
+  return cameraIds.find((cameraId) => isValidRoiPolygon(getReferenceImage(cameraId)?.jointRoiPoints)) ?? null;
+}
+
 function createGroupKey(cameraIds: number[]) {
   return cameraIds.join(",");
+}
+
+function createJointRoiKey(cameraIds: number[], cameraId: number) {
+  return `${createGroupKey(cameraIds)}:${cameraId}`;
 }
