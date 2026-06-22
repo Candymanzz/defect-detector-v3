@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.IntToLongFunction;
 
 /**
  * Per-camera inspection gate: at most one in-flight cycle per camera, optional disable without stopping capture.
@@ -25,6 +26,9 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicBoolean> inFlight = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> cancelRequested = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, AtomicLong> resumeAfterTriggerSequence = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, AtomicBoolean> resumeTriggerPending = new ConcurrentHashMap<>();
+    private volatile IntToLongFunction triggerBacklogDiscarder = ignored -> 0L;
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
@@ -36,6 +40,10 @@ public final class PerCameraInspectionGate {
         this.inFlight.putAll(inFlight);
         this.cancelRequested.putAll(cancelRequested);
         this.inspectionSequence.putAll(inspectionSequence);
+        for (Integer cameraId : enabled.keySet()) {
+            this.resumeAfterTriggerSequence.put(cameraId, new AtomicLong(0L));
+            this.resumeTriggerPending.put(cameraId, new AtomicBoolean(false));
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -93,10 +101,81 @@ public final class PerCameraInspectionGate {
         AtomicBoolean flight = inFlight.get(cameraId);
         if (flag != null && flight != null) {
             synchronized (flight) {
+                boolean wasEnabled = flag.get();
+                if (!wasEnabled && enabled) {
+                    long resumeAfter = triggerBacklogDiscarder.applyAsLong(cameraId);
+                    AtomicLong boundary = resumeAfterTriggerSequence.get(cameraId);
+                    if (boundary != null) {
+                        boundary.set(Math.max(0L, resumeAfter));
+                    }
+                    AtomicBoolean pending = resumeTriggerPending.get(cameraId);
+                    if (pending != null) {
+                        pending.set(true);
+                    }
+                }
                 flag.set(enabled);
             }
         } else if (flag != null) {
             flag.set(enabled);
+        }
+    }
+
+    public void setTriggerBacklogDiscarder(IntToLongFunction triggerBacklogDiscarder) {
+        this.triggerBacklogDiscarder = triggerBacklogDiscarder == null ? ignored -> 0L : triggerBacklogDiscarder;
+    }
+
+    public boolean shouldDiscardTriggerAtResumeBoundary(int cameraId, long triggerSequence) {
+        AtomicBoolean pending = resumeTriggerPending.get(cameraId);
+        if (pending == null || !pending.get()) {
+            return false;
+        }
+        AtomicLong boundary = resumeAfterTriggerSequence.get(cameraId);
+        if (boundary == null || triggerSequence <= 0L) {
+            return false;
+        }
+        return triggerSequence <= boundary.get();
+    }
+
+    public boolean isFirstTriggerAfterResume(int cameraId, long triggerSequence) {
+        AtomicBoolean pending = resumeTriggerPending.get(cameraId);
+        if (pending == null || !pending.get()) {
+            return false;
+        }
+        AtomicLong boundary = resumeAfterTriggerSequence.get(cameraId);
+        return triggerSequence <= 0L || boundary == null || triggerSequence > boundary.get();
+    }
+
+    public void markResumeTriggerAccepted(int cameraId) {
+        AtomicBoolean pending = resumeTriggerPending.get(cameraId);
+        if (pending != null) {
+            pending.set(false);
+        }
+        AtomicLong boundary = resumeAfterTriggerSequence.get(cameraId);
+        if (boundary != null) {
+            boundary.set(0L);
+        }
+    }
+
+    public boolean awaitInspectionIdle(int cameraId, long timeoutMs) {
+        AtomicBoolean flight = inFlight.get(cameraId);
+        if (flight == null) {
+            return false;
+        }
+        long deadline = System.currentTimeMillis() + Math.max(1L, timeoutMs);
+        synchronized (flight) {
+            while (flight.get()) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0L) {
+                    return false;
+                }
+                try {
+                    flight.wait(Math.min(remaining, 100L));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
@@ -167,6 +246,7 @@ public final class PerCameraInspectionGate {
             if (cancelFlag != null) {
                 cancelFlag.set(false);
             }
+            flight.notifyAll();
         }
     }
 

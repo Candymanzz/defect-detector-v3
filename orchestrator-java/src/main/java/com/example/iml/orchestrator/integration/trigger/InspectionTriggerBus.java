@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class InspectionTriggerBus implements AutoCloseable {
 
     private final Map<Integer, BlockingQueue<InspectionTriggerEvent>> perCamera = new ConcurrentHashMap<>();
+    private final Map<Integer, AtomicLong> discardThroughSequenceByCamera = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(0);
     private final int captureTriggerStaggerMs;
     private final ScheduledExecutorService staggerScheduler;
@@ -39,6 +40,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
                 : null;
         for (int cameraId : cameraIds) {
             perCamera.put(cameraId, new LinkedBlockingQueue<>(512));
+            discardThroughSequenceByCamera.put(cameraId, new AtomicLong(0L));
         }
     }
 
@@ -86,8 +88,28 @@ public final class InspectionTriggerBus implements AutoCloseable {
         if (queue == null) {
             return false;
         }
+        AtomicLong discardThrough = discardThroughSequenceByCamera.get(cameraId);
+        if (discardThrough != null && seq <= discardThrough.get()) {
+            return false;
+        }
         InspectionTriggerEvent event = new InspectionTriggerEvent(cameraId, seq, receivedAt, source, false);
         return queue.offer(event);
+    }
+
+    /**
+     * Drops all triggers that existed at the resume boundary, including staggered events
+     * already scheduled with the current global sequence.
+     */
+    public long discardPendingThroughCurrentSequence(int cameraId) {
+        BlockingQueue<InspectionTriggerEvent> queue = perCamera.get(cameraId);
+        AtomicLong discardThrough = discardThroughSequenceByCamera.get(cameraId);
+        if (queue == null || discardThrough == null) {
+            return 0L;
+        }
+        long boundary = sequence.get();
+        discardThrough.set(boundary);
+        queue.clear();
+        return boundary;
     }
 
     public InspectionTriggerEvent take(int cameraId) throws InterruptedException {
