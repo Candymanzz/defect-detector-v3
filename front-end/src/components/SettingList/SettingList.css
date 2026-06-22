@@ -193,24 +193,42 @@
   text-align: right;
 }
 
-.setting-list__brightness-save {
-  min-height: 32px;
-  border: 1px solid #65d994;
-  border-radius: 6px;
-  background: rgba(0, 217, 107, 0.12);
-  color: #8bf0b4;
-  font-weight: 700;
-  cursor: pointer;
-}
-
+.setting-list__brightness-save,
 .setting-list__inline-save {
   min-height: 32px;
+}
+
+.setting-list__brightness-save,
+.setting-list__inline-save,
+.setting-list__submit {
   border: 1px solid #65d994;
   border-radius: 6px;
   background: rgba(0, 217, 107, 0.12);
   color: #8bf0b4;
   font-weight: 700;
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.setting-list__brightness-save:not(:disabled):hover,
+.setting-list__brightness-save:not(:disabled):focus-visible,
+.setting-list__inline-save:not(:disabled):hover,
+.setting-list__inline-save:not(:disabled):focus-visible,
+.setting-list__submit:not(:disabled):hover,
+.setting-list__submit:not(:disabled):focus-visible {
+  border-color: #8bf0b4;
+  background: rgba(0, 217, 107, 0.2);
+  color: #b8f8d1;
+}
+
+.setting-list__brightness-save:not(:disabled):active,
+.setting-list__inline-save:not(:disabled):active,
+.setting-list__submit:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .setting-list__actions {
@@ -221,12 +239,6 @@
 
 .setting-list__submit {
   height: 38px;
-  border: 1px solid #00ff00;
-  border-radius: 6px;
-  background: #00ff00;
-  color: #0b0d10;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .setting-list__submit:first-child {
@@ -234,9 +246,16 @@
 }
 
 .setting-list__submit--secondary {
-  border-color: #f2f5f7;
-  background: transparent;
+  border-color: rgba(242, 245, 247, 0.65);
+  background: rgba(242, 245, 247, 0.08);
   color: #f2f5f7;
+}
+
+.setting-list__submit--secondary:not(:disabled):hover,
+.setting-list__submit--secondary:not(:disabled):focus-visible {
+  border-color: #ffffff;
+  background: rgba(242, 245, 247, 0.14);
+  color: #ffffff;
 }
 
 .setting-list__submit:disabled,

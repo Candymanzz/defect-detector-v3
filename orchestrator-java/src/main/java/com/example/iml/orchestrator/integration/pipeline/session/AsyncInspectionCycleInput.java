@@ -50,6 +50,7 @@ public record AsyncInspectionCycleInput(
         ExecutorService uiArtifactsExecutor,
         int flashLeadMs,
         PipelineStagesLog pipelineStagesLog,
+        long inspectionId,
         long triggerSequence,
         BucketInspectionAggregator bucketAggregator
 ) {
@@ -90,6 +91,7 @@ public record AsyncInspectionCycleInput(
                 uiArtifactsExecutor,
                 flashLeadMs,
                 pipelineStagesLog,
+                inspectionId,
                 triggerSequence,
                 bucketAggregator
         );
@@ -126,6 +128,44 @@ public record AsyncInspectionCycleInput(
                 uiArtifactsExecutor,
                 flashLeadMs,
                 pipelineStagesLog,
+                inspectionId,
+                triggerSequence,
+                bucketAggregator
+        );
+    }
+
+    public AsyncInspectionCycleInput withInspectionId(long inspectionId) {
+        return new AsyncInspectionCycleInput(
+                projectRoot,
+                saveCaptures,
+                cameraId,
+                productType,
+                detectorId,
+                activeReference,
+                referenceMsFinal,
+                tCameraStartNanos,
+                worker,
+                lightClient,
+                pythonPool,
+                geometryPool,
+                pythonCfg,
+                geometryCfg,
+                fanOut,
+                geometrySlots,
+                pythonSlots,
+                geometryRoundRobin,
+                pythonRoundRobin,
+                captureStageExecutor,
+                pythonStageExecutor,
+                geometryStageExecutor,
+                decisionStageExecutor,
+                uiCfg,
+                uiServer,
+                uiVisualsPython,
+                uiArtifactsExecutor,
+                flashLeadMs,
+                pipelineStagesLog,
+                inspectionId,
                 triggerSequence,
                 bucketAggregator
         );
@@ -161,6 +201,7 @@ public record AsyncInspectionCycleInput(
             ExecutorService uiArtifactsExecutor,
             int flashLeadMs,
             PipelineStagesLog pipelineStagesLog,
+            long inspectionId,
             long triggerSequence,
             BucketInspectionAggregator bucketAggregator
     ) {
@@ -194,6 +235,7 @@ public record AsyncInspectionCycleInput(
                 uiArtifactsExecutor,
                 flashLeadMs,
                 pipelineStagesLog,
+                inspectionId,
                 triggerSequence,
                 bucketAggregator
         );

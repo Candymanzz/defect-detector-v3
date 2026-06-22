@@ -3,7 +3,7 @@ cameras:
   - id: 0
     enabled: true
     inspection_enabled: true
-    ip: "169.254.88.219"
+    ip: "169.254.183.111"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -13,7 +13,7 @@ cameras:
   - id: 1
     enabled: true
     inspection_enabled: true
-    ip: "169.254.83.219"
+    ip: "169.254.92.219"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -23,7 +23,7 @@ cameras:
   - id: 2
     enabled: true
     inspection_enabled: true
-    ip: "169.254.213.219"
+    ip: "192.168.1.110"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"
@@ -33,7 +33,7 @@ cameras:
   - id: 3
     enabled: true
     inspection_enabled: true
-    ip: "169.254.98.219"
+    ip: "169.254.213.254"
     exposure_us: 12000
     capture_trigger_mode: "software"
     detector: "v1"

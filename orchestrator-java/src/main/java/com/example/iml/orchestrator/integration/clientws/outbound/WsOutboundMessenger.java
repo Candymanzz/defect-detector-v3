@@ -97,6 +97,7 @@ public final class WsOutboundMessenger {
             InspectionDecision decision,
             Map<String, Object> captureHeader,
             long frameId,
+            long inspectionId,
             String shmName,
             Path heatmapU8Path,
             int heatmapW,
@@ -117,6 +118,7 @@ public final class WsOutboundMessenger {
                     decision,
                     captureHeader,
                     frameId,
+                    inspectionId,
                     shmName,
                     heatmapU8Path,
                     heatmapW,
@@ -127,7 +129,13 @@ public final class WsOutboundMessenger {
                     inspectionArtifactBundleId
             );
             sendRaw(conn, json, WsMessageTypes.SERVER_INSPECT_RESULT);
-            log.info("client_ws sent type={} camera_id={} frame_id={}", WsMessageTypes.SERVER_INSPECT_RESULT, cameraId, frameId);
+            log.info(
+                    "client_ws sent type={} camera_id={} frame_id={} inspection_id={}",
+                    WsMessageTypes.SERVER_INSPECT_RESULT,
+                    cameraId,
+                    frameId,
+                    inspectionId
+            );
         } catch (ClientWsJsonSerializationException | ClientWsInvalidCaptureDescriptorException e) {
             log.debug("client_ws inspect_result build failed: {}", e.getMessage());
         } catch (ClientWsSendFailedException e) {
@@ -346,6 +354,7 @@ public final class WsOutboundMessenger {
             InspectionDecision decision,
             Map<String, Object> captureHeader,
             long frameIdLong,
+            long inspectionId,
             String shmName,
             Path heatmapU8Path,
             int heatmapW,
@@ -367,6 +376,7 @@ public final class WsOutboundMessenger {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("camera_id", cameraId);
         payload.put("frame_id", Long.toString(frameIdLong));
+        payload.put("inspection_id", Long.toString(inspectionId));
         payload.put("session_state", sessionState.get().name());
         payload.set("current", current);
         String bundleId = inspectionArtifactBundleId == null ? "" : inspectionArtifactBundleId.trim();

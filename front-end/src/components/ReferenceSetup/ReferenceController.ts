@@ -22,6 +22,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
   const hasReferenceRef = useRef(false);
+  const hasReferenceRef = useRef(false);
   const pendingReferenceMessageIdsRef = useRef<Set<string>>(new Set());
   const cameraGroups = splitCameraGroups(cameraIds);
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
@@ -31,12 +32,12 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
   const canSendAllReferences = Boolean(
     cameraGroups.length > 0 &&
-      cameraGroups.every(
-        (groupCameraIds) =>
-          groupCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
-          referenceRoi.hasRequiredRoisForCameraIds(groupCameraIds),
-      ) &&
-      status.state === "open",
+    cameraGroups.every(
+      (groupCameraIds) =>
+        groupCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
+        referenceRoi.hasRequiredRoisForCameraIds(groupCameraIds),
+    ) &&
+    status.state === "open",
   );
 
   useEffect(() => {
@@ -77,9 +78,13 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         case "server.hello":
           hasReferenceRef.current = message.payload.session_state !== "NO_REFERENCE";
           enableReferencePreviewImages();
+          hasReferenceRef.current = message.payload.session_state !== "NO_REFERENCE";
+          enableReferencePreviewImages();
           setMessage("WebSocket connected");
           break;
         case "server.state":
+          hasReferenceRef.current = message.payload.session_state !== "NO_REFERENCE";
+          enableReferencePreviewImages();
           hasReferenceRef.current = message.payload.session_state !== "NO_REFERENCE";
           enableReferencePreviewImages();
           break;
@@ -98,6 +103,10 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           if (message.payload.ok) {
             hasReferenceRef.current = true;
             enableReferencePreviewImages();
+          }
+          if (message.payload.ok) {
+            hasReferenceRef.current = true;
+            disableReferencePreviewImages();
           }
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;
@@ -122,8 +131,19 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       } else {
         enableReferencePreviewImages();
       }
+      if (hasReferenceRef.current) {
+        disableReferencePreviewImages();
+      } else {
+        enableReferencePreviewImages();
+      }
     };
   }, [handlePreviewFrame]);
+
+  useEffect(() => {
+    if (status.state === "open") {
+      enableReferencePreviewImages();
+    }
+  }, [status.state]);
 
   useEffect(() => {
     if (status.state === "open") {
@@ -149,7 +169,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       }
 
       if (snapshotCameraIds.length > 0) {
-        setMessage(`Latest snapshots loaded for cameras: ${snapshotCameraIds.join(", ")}. Waiting for live frames to send reference.`);
+        setMessage(
+          `Latest snapshots loaded for cameras: ${snapshotCameraIds.join(", ")}. Waiting for live frames to send reference.`,
+        );
       }
     });
 
@@ -327,6 +349,22 @@ function resumePreviewAfterReference(
   try {
     orchestratorWs.sendPreviewResume();
     isPausedRef.current = false;
+  } catch {
+    // The WebSocket status UI will surface connection problems.
+  }
+}
+
+function enableReferencePreviewImages() {
+  try {
+    orchestratorWs.enablePreviewImages();
+  } catch {
+    // The WebSocket status UI will surface connection problems.
+  }
+}
+
+function disableReferencePreviewImages() {
+  try {
+    orchestratorWs.disablePreviewImages();
   } catch {
     // The WebSocket status UI will surface connection problems.
   }

@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.services;
 
 import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -52,26 +53,34 @@ public final class ServicePoolLifecycle {
     }
 
     /**
-     * Пул HTTP-клиентов к FastAPI analisSurface (без subprocess stdio).
+     * HTTP-клиенты пайплайна: {@code clientCount} штук, round-robin по {@code serverBaseUrls}.
      */
     public List<BinaryRpcSupervisor> startAnalisSurfaceHttpPool(
-            String baseUrl,
-            int poolSize,
+            List<String> serverBaseUrls,
+            int clientCount,
             int commandTimeoutMs
     ) {
         List<BinaryRpcSupervisor> pool = new ArrayList<>();
-        if (baseUrl == null || baseUrl.isBlank()) {
+        List<String> clientUrls = AnalisSurfacePoolSupport.clientBaseUrls(serverBaseUrls, clientCount);
+        if (clientUrls.isEmpty()) {
             return pool;
         }
-        int n = Math.max(1, poolSize);
-        for (int i = 0; i < n; i++) {
-            String name = n == 1 ? "analis-surface-http" : ("analis-surface-http-" + i);
+        int servers = serverBaseUrls == null ? 0 : serverBaseUrls.size();
+        for (int i = 0; i < clientUrls.size(); i++) {
+            String baseUrl = clientUrls.get(i);
+            if (baseUrl == null || baseUrl.isBlank()) {
+                continue;
+            }
+            int serverIndex = servers <= 0 ? 0 : (i % servers);
+            String name = clientUrls.size() == 1
+                    ? "analis-surface-http"
+                    : ("analis-surface-http-" + i + "->srv" + serverIndex);
             AnalisSurfaceHttpBinaryRpcSupervisor supervisor =
                     new AnalisSurfaceHttpBinaryRpcSupervisor(name, baseUrl, commandTimeoutMs);
             try {
                 supervisor.start();
                 BinaryProtocol.Message health = supervisor.health();
-                log.info("{} health => {}", name, health.header());
+                log.info("{} health => {} base_url={}", name, health.header(), baseUrl);
                 pool.add(supervisor);
             } catch (IOException e) {
                 log.warn("failed to start {} baseUrl={}: {}", name, baseUrl, e.getMessage());

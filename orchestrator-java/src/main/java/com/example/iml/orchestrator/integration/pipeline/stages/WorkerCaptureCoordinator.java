@@ -121,6 +121,16 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                     log.debug("worker cam={} fallback capture (sync response had no usable frame header)", cameraId);
                 }
             }
+            if (!hasUsableCaptureHeader(capture)) {
+                String detail = capture == null || capture.header() == null
+                        ? "null capture response"
+                        : String.valueOf(capture.header().getOrDefault("error", capture.header()));
+                log.warn(
+                        "worker cam={} capture unusable after sync+fallback ({}); geometry/python will be skipped",
+                        cameraId,
+                        detail
+                );
+            }
             jpegWriter.saveCapturedFrame(projectRoot, saveCaptures, capture.header(), "cap");
             if (log.isDebugEnabled()) {
                 log.debug("worker cam={} {} header={}", cameraId, debugLogSuffix, capture.header());

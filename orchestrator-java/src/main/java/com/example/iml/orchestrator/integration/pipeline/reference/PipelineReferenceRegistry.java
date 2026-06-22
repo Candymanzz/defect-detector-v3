@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
+import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import org.apache.logging.log4j.Logger;
 
 import java.util.LinkedHashMap;
@@ -52,7 +53,7 @@ public final class PipelineReferenceRegistry {
             String detectorId = detectorIdResolver == null ? "" : detectorIdResolver.apply(frame.cameraId());
             Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
                     snap.productType(), detectorId, effectiveHeader);
-            for (BinaryRpcSupervisor python : pythonPool) {
+            for (BinaryRpcSupervisor python : AnalisSurfacePoolSupport.uniqueServerClients(pythonPool)) {
                 python.command(refHdr);
             }
             log.info(

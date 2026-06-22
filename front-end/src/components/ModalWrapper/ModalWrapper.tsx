@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
@@ -15,9 +14,19 @@ type ModalWrapperProps = {
   inspectHeatmapUrl?: string;
   inspectResult?: InspectResultPayload;
   referenceImageUrl?: string;
+  referenceRoiPoints?: InterestPointNorm[];
+  inspectionItems?: InspectionNavigationItem[];
+  selectedInspectionFrameId?: string;
   dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
+  onInspectionSelect?: (frameId: string) => void;
   onClose: () => void;
+};
+
+type InspectionNavigationItem = {
+  frameId: string;
+  inspectionId: string;
+  result: "pass" | "fail";
 };
 
 export function ModalWrapper({
@@ -28,22 +37,19 @@ export function ModalWrapper({
   inspectHeatmapUrl,
   inspectResult,
   referenceImageUrl,
+  referenceRoiPoints,
+  inspectionItems = [],
+  selectedInspectionFrameId,
   dangerHeaderAction,
   headerActions,
+  onInspectionSelect,
   onClose,
 }: ModalWrapperProps) {
-  const storedReferenceImage = useSyncExternalStore(
-    subscribeReferenceImages,
-    () => getReferenceImage(cameraId),
-    () => undefined,
-  );
-  const displayedReferenceImageUrl = referenceImageUrl ?? storedReferenceImage?.imageUrl;
-  const displayedReferenceRoiPoints = referenceImageUrl ? undefined : storedReferenceImage?.roiPoints;
   const displayedCurrentImageUrl = inspectResult ? cameraImageUrl : undefined;
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
-
+  console.log(inspectResult?.frame_id, inspectResult);
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -102,9 +108,9 @@ export function ModalWrapper({
 
         <div className="modal__media-grid">
           <ImagePanel
-            imageUrl={displayedReferenceImageUrl}
+            imageUrl={referenceImageUrl}
             label="Эталон"
-            roiPoints={displayedReferenceRoiPoints}
+            roiPoints={referenceRoiPoints}
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
@@ -118,6 +124,14 @@ export function ModalWrapper({
           />
         </div>
 
+        {inspectionItems.length > 0 && (
+          <InspectionNavigation
+            items={inspectionItems}
+            selectedFrameId={selectedInspectionFrameId}
+            onSelect={onInspectionSelect}
+          />
+        )}
+
         {inspectResultSyncState && (
           <div
             className="modal__frame-sync"
@@ -130,6 +144,40 @@ export function ModalWrapper({
         <InspectResultPanel inspectResult={inspectResult} />
       </section>
     </div>
+  );
+}
+
+function InspectionNavigation({
+  items,
+  selectedFrameId,
+  onSelect,
+}: {
+  items: InspectionNavigationItem[];
+  selectedFrameId?: string;
+  onSelect?: (frameId: string) => void;
+}) {
+  return (
+    <section
+      className="modal-inspection-navigation"
+      aria-label="Inspection navigation"
+    >
+      <header>Инспекции</header>
+      <div className="modal-inspection-navigation__tiles">
+        {items.map((item) => (
+          <button
+            className="modal-inspection-navigation__tile"
+            data-active={item.frameId === selectedFrameId}
+            data-result={item.result}
+            key={item.frameId}
+            type="button"
+            aria-pressed={item.frameId === selectedFrameId}
+            onClick={() => onSelect?.(item.frameId)}
+          >
+            {item.inspectionId}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -261,9 +309,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
             />
           </dl>
 
-          <div className="modal-inspect-result__decision">
-            {formatInspectDecisionLine(inspectResult)}
-          </div>
+          <div className="modal-inspect-result__decision">{formatInspectDecisionLine(inspectResult)}</div>
 
           <InspectResultRaw inspectResult={inspectResult} />
         </>
@@ -352,4 +398,3 @@ function getInspectResultSyncState(
     label: `Frozen artifacts for frame ${inspectResult.frame_id} are incomplete`,
   };
 }
-
