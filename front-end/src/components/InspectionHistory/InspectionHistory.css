@@ -1,0 +1,67 @@
+.inspection-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.inspection-history > header {
+  color: #c7d2ce;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.inspection-history__tiles {
+  display: flex;
+  gap: 8px;
+  min-height: 46px;
+  padding: 2px 2px 8px;
+  overflow-x: auto;
+}
+
+.inspection-history__tile {
+  display: grid;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid;
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.inspection-history__tile:hover,
+.inspection-history__tile:focus-visible {
+  outline: none;
+  filter: brightness(1.18);
+}
+
+.inspection-history__tile:active {
+  transform: translateY(1px);
+}
+
+.inspection-history__tile[data-result="pass"] {
+  border-color: #65d994;
+  background: rgba(0, 217, 107, 0.12);
+  color: #8bf0b4;
+}
+
+.inspection-history__tile[data-result="fail"] {
+  border-color: #ef6b6b;
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+
+.inspection-history__empty {
+  display: flex;
+  align-items: center;
+  color: #7f8d89;
+  font-size: 0.82rem;
+}

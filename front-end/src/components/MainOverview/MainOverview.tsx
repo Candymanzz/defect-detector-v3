@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
+import { InspectionHistory } from "../InspectionHistory";
 import { ServerStream } from "../ServerStream";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { StatusCard } from "../../shared/ui/StatusCard";
@@ -73,34 +74,10 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
             })}
           </div>
 
-          <div className="inspection-history-grid">
-            {cameraGroup.map((camera) => {
-              const history = controller.inspectionHistoryByCameraId[camera.cameraId] ?? [];
-
-              return (
-                <section
-                  className="inspection-history"
-                  aria-label={`Inspection history for camera ${camera.cameraId}`}
-                  key={camera.cameraId}
-                >
-                  <header>Camera {camera.cameraId}: latest inspections</header>
-                  <div className="inspection-history__list">
-                    {history.map((item) => (
-                      <div
-                        className="inspection-history__item"
-                        data-result={item.result}
-                        key={item.frameId}
-                      >
-                        <span>Frame {item.frameId}</span>
-                        <strong>{item.result === "pass" ? "Годен" : "Брак"}</strong>
-                      </div>
-                    ))}
-                    {history.length === 0 && <div className="inspection-history__empty">Нет результатов</div>}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+          <InspectionHistory
+            cameraIds={cameraGroup.map((camera) => camera.cameraId)}
+            historyByCameraId={controller.inspectionHistoryByCameraId}
+          />
         </section>
       ))}
 
