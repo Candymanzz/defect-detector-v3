@@ -32,11 +32,6 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           aria-label={`Camera frames for object ${groupIndex + 1}`}
           key={groupIndex}
         >
-          <div className="backend-status-row">
-            <span>Status</span>
-            <strong data-status={controller.backendStatus.state}>{controller.backendStatus.text}</strong>
-          </div>
-
           <div className="camera-grid">
             {cameraGroup.map((camera) => {
               const inspectionControlState = controller.inspectionControlByCameraId[camera.cameraId];

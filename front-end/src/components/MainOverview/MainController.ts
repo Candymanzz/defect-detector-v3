@@ -5,7 +5,6 @@ import { compareFrameIds } from "../../shared/lib/frameIds";
 import { getReferenceImage } from "../../shared/referenceImages";
 import type { HeatmapDescriptor, InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import type {
-  BackendStatus,
   CameraCardData,
   CameraImageUrlsById,
   InspectionControlState,
@@ -23,30 +22,16 @@ export const FALLBACK_CAMERA_IDS = Array.from(
   { length: CAMERAS_PER_OBJECT * FALLBACK_OBJECT_COUNT },
   (_, index) => index,
 );
-export const INITIAL_BACKEND_STATUS: BackendStatus = {
-  state: "loading",
-  text: "Проверка...",
-};
-
 export async function loadMainOverviewData(): Promise<MainOverviewData> {
-  await loadBackendHealth();
   const backendCameraIds = await loadBackendCameraIds();
 
   return {
-    backendStatus: {
-      state: "ready",
-      text: "Подключено",
-    },
     cameraIds: backendCameraIds,
   };
 }
 
 export function createMainOverviewErrorData(): MainOverviewData {
   return {
-    backendStatus: {
-      state: "error",
-      text: "Нет подключения",
-    },
     cameraIds: FALLBACK_CAMERA_IDS,
   };
 }
@@ -295,11 +280,6 @@ function resolveHeatmapSourceUrlOrUndefined(heatmap: HeatmapDescriptor) {
     return orchestratorApi.heatmapArtifactUrl(heatmap.artifact_id);
   }
   return undefined;
-}
-
-async function loadBackendHealth() {
-  const health = await orchestratorApi.health();
-  return health.trim() || "ok";
 }
 
 async function loadBackendCameraIds() {

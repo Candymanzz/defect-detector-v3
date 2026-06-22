@@ -16,6 +16,39 @@ border-radius: 25px;
 border: 1px solid #00FF00;
 font-size: 20px;
 }
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.app-header-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+  background: #171b20;
+  color: #9aa8a4;
+}
+
+.app-header-status strong {
+  color: #f4f7f5;
+}
+
+.app-header-status strong[data-status="ready"] {
+  color: #65d994;
+}
+
+.app-header-status strong[data-status="loading"] {
+  color: #facc15;
+}
+
+.app-header-status strong[data-status="error"] {
+  color: #f87171;
+}
+
 .app-content {
   display: flex;
   flex-direction: row;

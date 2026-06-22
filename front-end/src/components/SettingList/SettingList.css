@@ -38,8 +38,12 @@
   overflow-wrap: anywhere;
 }
 
-.setting-list__header strong[data-status="ready"] {
-  color: #00ff00;
+.setting-list__header strong[data-status="success"] {
+  color: #65d994;
+}
+
+.setting-list__header strong[data-status="saving"] {
+  color: #facc15;
 }
 
 .setting-list__header strong[data-status="error"] {

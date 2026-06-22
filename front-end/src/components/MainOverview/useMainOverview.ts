@@ -16,7 +16,6 @@ import {
   hasDisplayableInspectImage,
   hasImmutableInspectArtifact,
   INSPECTION_HISTORY_LIMIT,
-  INITIAL_BACKEND_STATUS,
   isInspectionCounterReset,
   latestSnapshotToInspectResult,
   loadMainOverviewData,
@@ -27,7 +26,6 @@ import {
   updateModalSnapshotResult,
 } from "./MainController";
 import type {
-  BackendStatus,
   CameraImageUrlsById,
   InspectionControlState,
   InspectionHistoryItem,
@@ -36,7 +34,6 @@ import type {
 } from "./type";
 
 export function useMainOverview() {
-  const [backendStatus, setBackendStatus] = useState<BackendStatus>(INITIAL_BACKEND_STATUS);
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [modalSnapshot, setModalSnapshot] = useState<ModalInspectionSnapshot | null>(null);
   const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
@@ -168,7 +165,6 @@ export function useMainOverview() {
         return;
       }
 
-      setBackendStatus(overviewData.backendStatus);
       setCameraIds(overviewData.cameraIds);
       void hydrateCardsFromLatestSnapshots(overviewData.cameraIds, () => isActive, {
         setPreviewImageUrlsByCameraId,
@@ -302,7 +298,6 @@ export function useMainOverview() {
   }, [resetCameraInspectionOrdering]);
 
   return {
-    backendStatus,
     cameraIds,
     modalSnapshot,
     previewImageUrlsByCameraId,

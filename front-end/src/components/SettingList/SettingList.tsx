@@ -50,14 +50,21 @@ type SettingListProps = {
   selectedCameraId: number | null;
 };
 
+type SaveFeedback = {
+  state: "saving" | "success" | "error";
+  text: string;
+  cameraId: number | null;
+};
+
 export function SettingList({ selectedCameraId }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
+  const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
   const requestIdRef = useRef(0);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
-  const canEditSettings = settingData.status.state === "ready";
+  const canEditSettings = !isBusy;
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "All camera products" : `Camera ${selectedCameraId} product`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
@@ -90,6 +97,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   }, [selectedCameraId]);
 
   const handleFieldChange = (fieldName: SettingFieldName) => (event: ChangeEvent<HTMLInputElement>) => {
+    setSaveFeedback(null);
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       form: updateSettingField(currentSettingData.form, fieldName, event.target.value),
@@ -97,6 +105,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   };
 
   const handleAnalysisFieldChange = (fieldName: AnalysisSettingFieldName) => (event: ChangeEvent<HTMLInputElement>) => {
+    setSaveFeedback(null);
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       form: updateAnalysisSettingField(
@@ -116,6 +125,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
     const formToSave = settingData.form;
     const requestId = ++requestIdRef.current;
+    setSaveFeedback({ state: "saving", text: "Сохранение...", cameraId: selectedCameraId });
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       status: SAVING_SETTING_STATUS,
@@ -126,6 +136,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       .then((nextSettingData) => {
         if (requestId === requestIdRef.current) {
           setSettingData(nextSettingData);
+          setSaveFeedback(resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId));
         }
       });
   };
@@ -137,6 +148,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
     const { form, analysisProductTypes } = settingData;
     const requestId = ++requestIdRef.current;
+    setSaveFeedback({ state: "saving", text: "Сохранение...", cameraId: selectedCameraId });
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       status: SAVING_SETTING_STATUS,
@@ -150,6 +162,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       .then((nextSettingData) => {
         if (requestId === requestIdRef.current) {
           setSettingData(nextSettingData);
+          setSaveFeedback(resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId));
         }
       });
   };
@@ -161,6 +174,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
     const { form, analysisProductTypes } = settingData;
     const requestId = ++requestIdRef.current;
+    setSaveFeedback({ state: "saving", text: "Сохранение...", cameraId: selectedCameraId });
     setSettingData((currentSettingData) => ({
       ...currentSettingData,
       status: SAVING_SETTING_STATUS,
@@ -174,6 +188,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       .then((nextSettingData) => {
         if (requestId === requestIdRef.current) {
           setSettingData(nextSettingData);
+          setSaveFeedback(resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId));
         }
       });
   };
@@ -185,7 +200,14 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
     >
       <div className="setting-list__header">
         <h2>Настройки</h2>
-        <strong data-status={settingData.status.state}>{settingData.status.text}</strong>
+        {saveFeedback?.cameraId === selectedCameraId && (
+          <strong
+            aria-live="polite"
+            data-status={saveFeedback.state}
+          >
+            {saveFeedback.text}
+          </strong>
+        )}
       </div>
 
       <form
@@ -326,4 +348,14 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       )}
     </aside>
   );
+}
+
+function resolveSaveFeedback(
+  status: "loading" | "ready" | "saving" | "error",
+  errorText: string,
+  cameraId: number | null,
+): SaveFeedback {
+  return status === "error"
+    ? { state: "error", text: errorText, cameraId }
+    : { state: "success", text: "Сохранено успешно", cameraId };
 }

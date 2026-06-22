@@ -79,39 +79,6 @@ h1 {
   gap: 5px;
 }
 
-.backend-status-row {
-  display: flex;
-  gap: 16px;
-  width: 30%;
-  align-items: center;
-  justify-content: center;
-  justify-self: flex-end;
-  max-height: 22px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.055);
-  color: #9aa8a4;
-}
-
-.backend-status-row strong {
-  overflow-wrap: anywhere;
-  color: #f4f7f5;
-  text-align: right;
-}
-
-.backend-status-row strong[data-status="ready"] {
-  color: #9becbd;
-}
-
-.backend-status-row strong[data-status="loading"] {
-  color: #ffd990;
-}
-
-.backend-status-row strong[data-status="error"] {
-  color: #ffabab;
-}
-
 .camera-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

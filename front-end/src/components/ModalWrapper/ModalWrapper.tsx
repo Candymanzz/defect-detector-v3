@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
@@ -49,7 +49,6 @@ export function ModalWrapper({
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
-  console.log(inspectResult?.frame_id, inspectResult);
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -192,30 +191,47 @@ function ImagePanel({
   roiPoints?: InterestPointNorm[];
   fetchPriority?: "high" | "low" | "auto";
 }) {
-  const svgPoints = roiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
+  const [imageSize, setImageSize] = useState({ width: 4, height: 3 });
+  const svgPoints = roiPoints
+    ?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`)
+    .join(" ");
+  const mediaStyle = {
+    "--media-aspect": imageSize.width / imageSize.height,
+  } as CSSProperties;
 
   return (
     <figure className="modal-image-panel">
       <figcaption>{label}</figcaption>
       <div className="modal-image-panel__image-wrap">
-        <PreviewImage
-          alt={label}
-          className="modal-image-panel__image"
-          decoding="async"
-          fetchPriority={fetchPriority}
-          placeholderClassName="modal-image-panel__placeholder"
-          src={imageUrl}
-        />
-        {imageUrl && svgPoints && roiPoints && roiPoints.length >= 3 && (
-          <svg
-            aria-hidden="true"
-            className="modal-image-panel__roi-overlay"
-            preserveAspectRatio="none"
-            viewBox="0 0 1 1"
-          >
-            <polygon points={svgPoints} />
-          </svg>
-        )}
+        <div
+          className="modal-image-panel__media"
+          style={mediaStyle}
+        >
+          <PreviewImage
+            alt={label}
+            className="modal-image-panel__image"
+            decoding="async"
+            fetchPriority={fetchPriority}
+            placeholderClassName="modal-image-panel__placeholder"
+            src={imageUrl}
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (naturalWidth > 0 && naturalHeight > 0) {
+                setImageSize({ width: naturalWidth, height: naturalHeight });
+              }
+            }}
+          />
+          {imageUrl && svgPoints && roiPoints && roiPoints.length >= 3 && (
+            <svg
+              aria-hidden="true"
+              className="modal-image-panel__roi-overlay"
+              preserveAspectRatio="xMidYMid meet"
+              viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+            >
+              <polygon points={svgPoints} />
+            </svg>
+          )}
+        </div>
       </div>
     </figure>
   );

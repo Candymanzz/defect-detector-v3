@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { HeatmapDescriptor } from "../../shared/ws";
 import {
   clearHeatmapCanvas,
@@ -121,7 +122,11 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
     <figure className="heatmap-viewer">
       <div
         className="heatmap-viewer__canvas-wrap"
-        style={{ aspectRatio: `${heatmap.width} / ${heatmap.height}` }}
+        style={
+          {
+            "--heatmap-aspect": heatmap.width / heatmap.height,
+          } as CSSProperties
+        }
       >
         {backgroundImageUrl && (
           <img

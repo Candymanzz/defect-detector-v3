@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getReferenceImage } from "../../shared/referenceImages";
 import type { InterestPointNorm } from "../../shared/ws";
 import { isValidRoiPolygon } from "./referenceRoi";
 
@@ -12,10 +13,16 @@ export function useReferenceRoi(
 ) {
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? cameraIds;
   const initialCameraId = resolveCameraId(activeCameraIds, initialSelectedCameraId);
-  const [roiPolygonsByCameraId, setRoiPolygonsByCameraId] = useState<Record<number, InterestPointNorm[]>>({});
-  const [jointRoiPolygonsByGroupKey, setJointRoiPolygonsByGroupKey] = useState<Record<string, InterestPointNorm[]>>({});
+  const [editedRoiPolygonsByCameraId, setEditedRoiPolygonsByCameraId] = useState<
+    Record<number, InterestPointNorm[]>
+  >({});
+  const [editedJointRoiPolygonsByGroupKey, setEditedJointRoiPolygonsByGroupKey] = useState<
+    Record<string, InterestPointNorm[]>
+  >({});
   const [selectedCameraIdState, setSelectedCameraIdState] = useState(initialCameraId);
   const [selectedRoiMode, setSelectedRoiMode] = useState<ReferenceRoiEditMode>("interest");
+  const roiPolygonsByCameraId = mergeStoredCameraRois(cameraIds, editedRoiPolygonsByCameraId);
+  const jointRoiPolygonsByGroupKey = mergeStoredJointRois(cameraGroups, editedJointRoiPolygonsByGroupKey);
   const selectedCameraId = resolveCameraId(activeCameraIds, selectedCameraIdState);
   const jointCameraId = activeCameraIds[0] ?? 0;
   const jointGroupKey = createGroupKey(activeCameraIds);
@@ -37,14 +44,14 @@ export function useReferenceRoi(
   const setRoiPolygonForCamera = (cameraId: number, points: InterestPointNorm[]) => {
     const targetCameraId = resolveCameraId(cameraIds, cameraId);
 
-    setRoiPolygonsByCameraId((prev) => ({
+    setEditedRoiPolygonsByCameraId((prev) => ({
       ...prev,
       [targetCameraId]: copyRoiPolygon(points),
     }));
   };
 
   const setJointRoi = (points: InterestPointNorm[]) => {
-    setJointRoiPolygonsByGroupKey((previous) => ({
+    setEditedJointRoiPolygonsByGroupKey((previous) => ({
       ...previous,
       [jointGroupKey]: copyRoiPolygon(points),
     }));
@@ -94,6 +101,46 @@ function resolveCameraId(cameraIds: number[], cameraId: number | null) {
   }
 
   return cameraIds[0] ?? cameraId ?? 0;
+}
+
+function mergeStoredCameraRois(
+  cameraIds: number[],
+  editedRois: Record<number, InterestPointNorm[]>,
+) {
+  const merged: Record<number, InterestPointNorm[]> = {};
+
+  for (const cameraId of cameraIds) {
+    const editedPoints = editedRois[cameraId];
+    const storedPoints = getReferenceImage(cameraId)?.roiPoints;
+    const points = editedPoints ?? storedPoints;
+
+    if (points) {
+      merged[cameraId] = copyRoiPolygon(points);
+    }
+  }
+
+  return merged;
+}
+
+function mergeStoredJointRois(
+  cameraGroups: number[][],
+  editedRois: Record<string, InterestPointNorm[]>,
+) {
+  const merged: Record<string, InterestPointNorm[]> = {};
+
+  for (const groupCameraIds of cameraGroups) {
+    const groupKey = createGroupKey(groupCameraIds);
+    const editedPoints = editedRois[groupKey];
+    const jointCameraId = groupCameraIds[0];
+    const storedPoints = getReferenceImage(jointCameraId)?.jointRoiPoints;
+    const points = editedPoints ?? storedPoints;
+
+    if (points) {
+      merged[groupKey] = copyRoiPolygon(points);
+    }
+  }
+
+  return merged;
 }
 
 function createGroupKey(cameraIds: number[]) {

@@ -2,10 +2,12 @@ import { useState } from "react";
 import { MainOverview } from "../components/MainOverview";
 import { SettingList } from "../components/SettingList";
 import logo from "../shared/assets/images/savt_logo_white.png";
+import { useBackendStatus } from "./useBackendStatus";
 import "./App.css";
 
 export function App() {
   const [selectedSettingsCameraId, setSelectedSettingsCameraId] = useState<number | null>(null);
+  const backendStatus = useBackendStatus();
 
   const handleSettingsCameraToggle = (cameraId: number) => {
     setSelectedSettingsCameraId((currentCameraId) => (currentCameraId === cameraId ? null : cameraId));
@@ -23,7 +25,12 @@ export function App() {
           />
           <h1 style={{ fontSize: "24px", fontWeight: "bold" }}>Автоматизация контроля качества</h1>
         </div>
-        <div className="app-header-right"></div>
+        <div className="app-header-right">
+          <div className="app-header-status">
+            <span>Статус</span>
+            <strong data-status={backendStatus.state}>{backendStatus.text}</strong>
+          </div>
+        </div>
       </header>
       <div className="app-content">
         <MainOverview

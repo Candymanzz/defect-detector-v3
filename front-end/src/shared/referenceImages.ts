@@ -5,6 +5,7 @@ type ReferenceImageListener = () => void;
 export type StoredReferenceImage = {
   imageUrl: string;
   roiPoints: InterestPointNorm[];
+  jointRoiPoints?: InterestPointNorm[];
 };
 
 const referenceImagesByCameraId = new Map<number, StoredReferenceImage>();
@@ -13,6 +14,9 @@ const pendingReferenceBundles = new Map<
   {
     bundle: ClientReferenceBundlePayload;
     fallbackImageUrlsByCameraId: Record<number, string>;
+    roiPointsByCameraId?: Record<number, InterestPointNorm[]>;
+    jointCameraId?: number;
+    jointRoiPoints?: InterestPointNorm[];
   }
 >();
 const listeners = new Set<ReferenceImageListener>();
@@ -40,19 +44,46 @@ export function resolveReferenceBundleImages(messageId: string, accepted: boolea
     commitReferenceBundleImages(
       pendingBundle.bundle,
       pendingBundle.fallbackImageUrlsByCameraId,
+      pendingBundle.roiPointsByCameraId,
+      pendingBundle.jointCameraId,
+      pendingBundle.jointRoiPoints,
     );
   }
+}
+
+export function stageReferenceBundleContours(
+  messageId: string,
+  roiPointsByCameraId: Record<number, InterestPointNorm[]>,
+  jointCameraId: number,
+  jointRoiPoints: InterestPointNorm[],
+) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) {
+    return;
+  }
+
+  pendingBundle.roiPointsByCameraId = Object.fromEntries(
+    Object.entries(roiPointsByCameraId).map(([cameraId, points]) => [
+      cameraId,
+      copyRoiPoints(points),
+    ]),
+  );
+  pendingBundle.jointCameraId = jointCameraId;
+  pendingBundle.jointRoiPoints = copyRoiPoints(jointRoiPoints);
 }
 
 export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,
   fallbackImageUrlsByCameraId: Record<number, string> = {},
+  roiPointsByCameraId?: Record<number, InterestPointNorm[]>,
+  jointCameraId?: number,
+  jointRoiPoints?: InterestPointNorm[],
 ) {
   const nextReferenceImagesByCameraId = new Map(referenceImagesByCameraId);
   const nextReferenceImageVersion = referenceImageVersion + 1;
   const updatedCameraIds = new Set<number>();
 
-  bundle.views.forEach((view) => {
+  bundle.views.forEach((view, viewIndex) => {
     const cameraId = view.frame.camera_id;
     updatedCameraIds.add(cameraId);
     const baseImageUrl =
@@ -62,7 +93,13 @@ export function commitReferenceBundleImages(
     if (baseImageUrl) {
       const referenceImage = {
         imageUrl: versionReferenceImageUrl(baseImageUrl, nextReferenceImageVersion),
-        roiPoints: copyRoiPoints(view.interest_polygon_norm),
+        roiPoints: copyRoiPoints(roiPointsByCameraId?.[cameraId] ?? view.interest_polygon_norm),
+        jointRoiPoints:
+          cameraId === jointCameraId && jointRoiPoints
+            ? copyRoiPoints(jointRoiPoints)
+            : viewIndex === bundle.joint_view_index && view.joint_roi
+              ? createNormalizedRoiPolygon(view.joint_roi, view.frame.width, view.frame.height)
+              : undefined,
       };
 
       nextReferenceImagesByCameraId.set(cameraId, referenceImage);
@@ -115,6 +152,32 @@ function copyRoiPoints(points: InterestPointNorm[]) {
     x: point.x,
     y: point.y,
   }));
+}
+
+function createNormalizedRoiPolygon(
+  roi: { x: number; y: number; width: number; height: number },
+  frameWidth: number,
+  frameHeight: number,
+) {
+  if (frameWidth <= 0 || frameHeight <= 0) {
+    return undefined;
+  }
+
+  const left = clamp01(roi.x / frameWidth);
+  const top = clamp01(roi.y / frameHeight);
+  const right = clamp01((roi.x + roi.width) / frameWidth);
+  const bottom = clamp01((roi.y + roi.height) / frameHeight);
+
+  return [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: right, y: bottom },
+    { x: left, y: bottom },
+  ];
+}
+
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value));
 }
 
 function createFrameImageUrl(frame: ShmFrameRefData) {

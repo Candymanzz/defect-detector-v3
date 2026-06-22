@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { SyntheticEvent } from "react";
 
 type PreviewImageProps = {
   src?: string;
@@ -8,6 +9,7 @@ type PreviewImageProps = {
   emptyLabel?: string;
   decoding?: "async" | "sync" | "auto";
   fetchPriority?: "high" | "low" | "auto";
+  onLoad?: (event: SyntheticEvent<HTMLImageElement>) => void;
 };
 
 export function PreviewImage({
@@ -18,6 +20,7 @@ export function PreviewImage({
   emptyLabel = "Нет изображения",
   decoding = "async",
   fetchPriority = "auto",
+  onLoad,
 }: PreviewImageProps) {
   const [failedSrc, setFailedSrc] = useState<string>();
   const failed = Boolean(src && failedSrc === src);
@@ -36,7 +39,10 @@ export function PreviewImage({
         hidden={failed}
         src={src}
         onError={() => setFailedSrc(src)}
-        onLoad={() => setFailedSrc((previousFailedSrc) => (previousFailedSrc === src ? undefined : previousFailedSrc))}
+        onLoad={(event) => {
+          setFailedSrc((previousFailedSrc) => (previousFailedSrc === src ? undefined : previousFailedSrc));
+          onLoad?.(event);
+        }}
       />
       {failed && <div className={placeholderClassName}>{emptyLabel}</div>}
     </>
