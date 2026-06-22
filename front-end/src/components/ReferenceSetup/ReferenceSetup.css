@@ -108,6 +108,19 @@
   background: rgba(34, 197, 94, 0.22);
 }
 
+.reference-setup__button--fp {
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.reference-setup__button--fp-save {
+  background: rgba(239, 68, 68, 0.16);
+}
+
+.reference-setup__button--active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.28);
+}
+
 .reference-setup__button:hover,
 .reference-setup__button:focus-visible,
 .reference-setup__group-tab:hover,
@@ -131,7 +144,7 @@
 }
 
 .reference-setup__editor {
-  width: 50%;
+  width: min(100%, 800px);
   height: 100%;
   flex: 0 1 auto;
   min-width: 0;

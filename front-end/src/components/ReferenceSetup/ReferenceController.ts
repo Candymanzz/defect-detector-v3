@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { MutableRefObject } from "react";
 import { orchestratorApi } from "../../shared/api";
-import { stageReferenceBundleContours } from "../../shared/referenceImages";
+import {
+  stageReferenceBundleContours,
+  updateReferenceFpZones,
+} from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { ServerWsMessage } from "../../shared/ws";
 import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
+import { useReferenceFpZones } from "./useReferenceFpZones";
 import { useReferenceFrames } from "./useReferenceFrames";
 import { useReferenceRoi } from "./useReferenceRoi";
 
@@ -24,10 +28,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const isReferencePreviewPausedRef = useRef(false);
   const hasReferenceRef = useRef(false);
   const pendingReferenceMessageIdsRef = useRef<Set<string>>(new Set());
+  const pendingFpZonesRef = useRef<{ cameraIds: number[]; zones: ReturnType<typeof referenceFpZonesCopy> } | null>(null);
+  const loadedFpZoneKeysRef = useRef<Set<string>>(new Set());
   const cameraGroups = splitCameraGroups(cameraIds);
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
   const referenceFrames = useReferenceFrames(cameraIds);
   const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId);
+  const referenceFpZones = useReferenceFpZones(cameraGroups, activeGroupIndex);
+  const setReferenceFpZones = referenceFpZones.setFpZones;
   const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
   const canSendAllReferences = Boolean(
@@ -35,8 +43,19 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       cameraGroups.every(
         (groupCameraIds) =>
           groupCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
-          referenceRoi.hasRequiredRoisForCameraIds(groupCameraIds),
+          referenceRoi.hasRequiredRoisForCameraIds(groupCameraIds) &&
+          referenceFpZones.hasValidFpZonesForCameraIds(groupCameraIds),
       ) &&
+      status.state === "open",
+  );
+  const activeJointCameraId = referenceRoi.getJointCameraIdForCameraIds(activeCameraIds);
+  const activeCameraKey = activeCameraIds.join(",");
+  const activeProductType =
+    referenceFrames.framesByCameraId[activeJointCameraId]?.detector.product_type;
+  const canSaveFpZones = Boolean(
+    activeCameraIds.length > 0 &&
+      referenceFrames.framesByCameraId[activeJointCameraId] &&
+      referenceFpZones.hasValidFpZonesForCameraIds(activeCameraIds) &&
       status.state === "open",
   );
 
@@ -102,6 +121,16 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           }
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;
+        case "server.fp_zones_ack":
+          if (message.payload.ok && pendingFpZonesRef.current) {
+            updateReferenceFpZones(
+              pendingFpZonesRef.current.cameraIds,
+              pendingFpZonesRef.current.zones,
+            );
+          }
+          pendingFpZonesRef.current = null;
+          setMessage(message.payload.ok ? "FP zones saved successfully" : "FP zones were not saved");
+          break;
         case "server.error":
           pendingReferenceMessageIdsRef.current.clear();
           resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
@@ -160,6 +189,35 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [cameraIds, refreshLatestImages]);
 
   useEffect(() => {
+    if (!activeCameraKey || !activeProductType) return;
+
+    const loadKey = `${activeCameraKey}:${activeProductType}`;
+    if (loadedFpZoneKeysRef.current.has(loadKey)) return;
+    loadedFpZoneKeysRef.current.add(loadKey);
+
+    let cancelled = false;
+    orchestratorApi
+      .getFpZones(activeProductType)
+      .then(({ zones }) => {
+        if (cancelled) return;
+        setReferenceFpZones(
+          zones.map((zone) => ({
+            id: zone.id,
+            note: zone.note ?? "",
+            points_norm_heatmap: zone.points_norm_heatmap,
+          })),
+        );
+      })
+      .catch(() => {
+        loadedFpZoneKeysRef.current.delete(loadKey);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCameraKey, activeProductType, setReferenceFpZones]);
+
+  useEffect(() => {
     if (status.state !== "open" || cameraIds.length === 0 || isReferencePreviewPausedRef.current) {
       return;
     }
@@ -190,6 +248,35 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     sendReferenceForGroups(cameraGroups);
   };
 
+  const handleSaveFpZones = () => {
+    if (!canSaveFpZones) {
+      setMessage("A frame and valid FP zone contours are required");
+      return;
+    }
+
+    const jointFrame = referenceFrames.framesByCameraId[activeJointCameraId];
+    if (!jointFrame) {
+      setMessage(`Reference frame for camera ${activeJointCameraId} is missing`);
+      return;
+    }
+
+    try {
+      const zones = referenceFpZones.getFpZonesForCameraIds(activeCameraIds);
+      orchestratorWs.sendFpZonesUpdate({
+        heatmap_width: jointFrame.current.width,
+        heatmap_height: jointFrame.current.height,
+        fp_zones: zones,
+      });
+      pendingFpZonesRef.current = {
+        cameraIds: [...activeCameraIds],
+        zones: referenceFpZonesCopy(zones),
+      };
+      setMessage("FP zones update sent");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const sendReferenceForGroups = (targetGroups: number[][]) => {
     const groupsToSend = targetGroups.filter((groupCameraIds) => groupCameraIds.length > 0);
     if (groupsToSend.length === 0) {
@@ -207,6 +294,11 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         setMessage(`ROI contours for cameras ${groupCameraIds.join(", ")} are required`);
         return;
       }
+
+      if (!referenceFpZones.hasValidFpZonesForCameraIds(groupCameraIds)) {
+        setMessage(`Each FP zone for cameras ${groupCameraIds.join(", ")} requires at least 3 points`);
+        return;
+      }
     }
 
     try {
@@ -219,6 +311,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           referenceFrames.framesByCameraId,
           referenceRoi.roiPolygonsByCameraId,
           referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
+          referenceFpZones.getFpZonesForCameraIds(groupCameraIds),
         );
         const messageId = orchestratorWs.sendReferenceBundle(payload, imageUrlsByCameraId);
         stageReferenceBundleContours(
@@ -275,11 +368,23 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     setActiveGroupIndex,
     cameraSlots,
     ...referenceRoi,
+    ...referenceFpZones,
     canSendAllReferences,
+    canSaveFpZones,
     handleSendAllReferences,
+    handleSaveFpZones,
     handleSelectCamera,
     handleSelectJointRoi,
   };
+}
+
+function referenceFpZonesCopy<T extends { id?: string; note: string; points_norm_heatmap: { x: number; y: number }[] }>(
+  zones: T[],
+) {
+  return zones.map((zone) => ({
+    ...zone,
+    points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({ ...point })),
+  }));
 }
 
 function splitCameraGroups(cameraIds: number[]) {

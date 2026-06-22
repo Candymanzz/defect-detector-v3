@@ -1,5 +1,6 @@
 import type {
   ClientReferenceBundlePayload,
+  FpZoneNorm,
   InterestPointNorm,
   PixelRoi,
   PreviewFramePayload,
@@ -13,6 +14,7 @@ export function createReferenceBundleFromCameraFrames(
   framesByCameraId: Record<number, PreviewFramePayload>,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
   jointRoiPolygon: InterestPointNorm[],
+  fpZones: FpZoneNorm[],
 ): ClientReferenceBundlePayload {
   if (cameraIds.length === 0) {
     throw new Error("Configured camera list is empty");
@@ -30,6 +32,14 @@ export function createReferenceBundleFromCameraFrames(
 
     if (!isValidRoiPolygon(roiPolygonsByCameraId[cameraId])) {
       throw new Error(`ROI contour for camera ${cameraId} is missing`);
+    }
+  }
+
+  for (const zone of fpZones) {
+    if (zone.points_norm_heatmap.length < 3) {
+      throw new Error(
+        `FP zone "${zone.note || zone.id || "unnamed"}" requires at least 3 points`,
+      );
     }
   }
 
@@ -68,7 +78,13 @@ export function createReferenceBundleFromCameraFrames(
     heatmap_width: jointFrame.current.width,
     heatmap_height: jointFrame.current.height,
     views,
-    fp_zones: [],
+    fp_zones: fpZones.map((zone) => ({
+      ...zone,
+      points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({
+        x: point.x,
+        y: point.y,
+      })),
+    })),
   };
 }
 

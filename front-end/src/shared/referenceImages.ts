@@ -1,11 +1,17 @@
 import { orchestratorApi } from "./api";
-import type { ClientReferenceBundlePayload, InterestPointNorm, ShmFrameRefData } from "./ws/types";
+import type {
+  ClientReferenceBundlePayload,
+  FpZoneNorm,
+  InterestPointNorm,
+  ShmFrameRefData,
+} from "./ws/types";
 
 type ReferenceImageListener = () => void;
 export type StoredReferenceImage = {
   imageUrl: string;
   roiPoints: InterestPointNorm[];
   jointRoiPoints?: InterestPointNorm[];
+  fpZones?: FpZoneNorm[];
 };
 
 const referenceImagesByCameraId = new Map<number, StoredReferenceImage>();
@@ -100,6 +106,7 @@ export function commitReferenceBundleImages(
             : viewIndex === bundle.joint_view_index && view.joint_roi
               ? createNormalizedRoiPolygon(view.joint_roi, view.frame.width, view.frame.height)
               : undefined,
+        fpZones: copyFpZones(bundle.fp_zones),
       };
 
       nextReferenceImagesByCameraId.set(cameraId, referenceImage);
@@ -151,6 +158,30 @@ function copyRoiPoints(points: InterestPointNorm[]) {
   return points.map((point) => ({
     x: point.x,
     y: point.y,
+  }));
+}
+
+export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[]) {
+  let changed = false;
+  for (const cameraId of cameraIds) {
+    const referenceImage = referenceImagesByCameraId.get(cameraId);
+    if (!referenceImage) continue;
+    referenceImagesByCameraId.set(cameraId, {
+      ...referenceImage,
+      fpZones: copyFpZones(zones),
+    });
+    changed = true;
+  }
+  if (changed) emitReferenceImageChange();
+}
+
+function copyFpZones(zones: FpZoneNorm[]) {
+  return zones.map((zone) => ({
+    ...zone,
+    points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({
+      x: point.x,
+      y: point.y,
+    })),
   }));
 }
 

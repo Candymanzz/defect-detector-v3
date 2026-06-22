@@ -3,6 +3,7 @@ import { HttpClient } from "./httpClient";
 import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
+  FpZonesResponse,
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
   InspectionStateResponse,
@@ -145,6 +146,12 @@ export const orchestratorApi = {
 
   async getDefaultAnalysisSettings() {
     return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/defaults`);
+  },
+
+  async getFpZones(productType: string) {
+    return http.json<FpZonesResponse>(
+      `/api/orchestrator/fp-zones/${encodeURIComponent(productType)}`,
+    );
   },
 
   async setAnalysisSettings(productType: string, update: AnalysisSettingsUpdateRequest) {

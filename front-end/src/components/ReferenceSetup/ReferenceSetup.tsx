@@ -1,7 +1,8 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
+import { FpZoneEditor } from "../FpZoneEditor";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { useReferenceSetupController } from "./ReferenceController";
 
@@ -23,7 +24,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     hasSelectedCameraRoi,
     hasJointRoi,
     canSendAllReferences,
+    canSaveFpZones,
     handleSendAllReferences,
+    handleSaveFpZones,
     handleSelectCamera,
     handleSelectJointRoi,
     selectedCameraId,
@@ -32,7 +35,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     roiPolygonsByCameraId,
     setJointRoiPolygon,
     setRoiPolygonForCamera,
+    fpZones,
+    setFpZones,
   } = useReferenceSetupController(onClose, initialCameraId);
+  const [isFpZoneMode, setIsFpZoneMode] = useState(false);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
@@ -42,6 +48,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     () => getReferenceImage(selectedCameraId),
     () => undefined,
   );
+  const fpZoneSlot = cameraSlots.find((slot) => slot.cameraId === jointCameraId) ?? selectedSlot;
 
   return (
     <div
@@ -98,6 +105,30 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             </label>
 
             <button
+              className={
+                isFpZoneMode
+                  ? "reference-setup__button reference-setup__button--fp reference-setup__button--active"
+                  : "reference-setup__button reference-setup__button--fp"
+              }
+              type="button"
+              disabled={!fpZoneSlot?.imageUrl}
+              onClick={() => setIsFpZoneMode(true)}
+            >
+              FP zones ({fpZones.length})
+            </button>
+
+            {isFpZoneMode && (
+              <button
+                className="reference-setup__button reference-setup__button--fp-save"
+                type="button"
+                disabled={!canSaveFpZones}
+                onClick={handleSaveFpZones}
+              >
+                Сохранить FP zones
+              </button>
+            )}
+
+            <button
               className="reference-setup__button reference-setup__button--primary"
               type="button"
               disabled={!canSendAllReferences}
@@ -109,7 +140,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
 
           <div className="reference-setup__workspace">
             <div className="reference-setup__editor">
-              {selectedSlot?.imageUrl && (
+              {isFpZoneMode && fpZoneSlot?.imageUrl ? (
+                <FpZoneEditor
+                  imageUrl={fpZoneSlot.imageUrl}
+                  zones={fpZones}
+                  disabled={status.state !== "open"}
+                  onChange={setFpZones}
+                />
+              ) : selectedSlot?.imageUrl ? (
                 <RoiContourEditor
                   key={editorKey}
                   imageUrl={selectedSlot.imageUrl}
@@ -123,7 +161,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     setRoiPolygonForCamera(selectedSlot.cameraId, points);
                   }}
                 />
-              )}
+              ) : null}
             </div>
 
             <div className="reference-setup__camera-list">
@@ -139,7 +177,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                         : "reference-setup__slot"
                     }
                     type="button"
-                    onClick={() => handleSelectCamera(slot.cameraId)}
+                    onClick={() => {
+                      setIsFpZoneMode(false);
+                      handleSelectCamera(slot.cameraId);
+                    }}
                   >
                     <strong>Camera {slot.cameraId}</strong>
                     <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
@@ -153,7 +194,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                         : "reference-setup__joint-trigger"
                     }
                     type="button"
-                    onClick={() => handleSelectJointRoi(slot.cameraId)}
+                    onClick={() => {
+                      setIsFpZoneMode(false);
+                      handleSelectJointRoi(slot.cameraId);
+                    }}
                   >
                     Joint
                     <span>
@@ -177,6 +221,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               {hasSelectedCameraRoi
                 ? `ROI задан для Camera ${selectedCameraId}`
                 : `Задайте ROI-контур для Camera ${selectedCameraId}: минимум 3 точки`}
+            </p>
+            <p className="reference-setup__roi-status">
+              {fpZones.length === 0
+                ? "FP zones не заданы (необязательно)"
+                : fpZones.every((zone) => zone.points_norm_heatmap.length >= 3)
+                  ? `FP zones заданы: ${fpZones.length}`
+                  : "Завершите контур FP zone: минимум 3 точки"}
             </p>
             <p className="reference-setup__roi-status">
               {selectedRoiMode === "joint"
