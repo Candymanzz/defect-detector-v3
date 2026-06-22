@@ -117,26 +117,7 @@ public final class ProductionInspectionOrchestrator {
             long inspectionCycleTimeoutMs,
             InspectionTriggerEvent event
     ) {
-        if (inspectionGate.shouldDiscardTriggerAtResumeBoundary(in.cameraId(), event.sequence())) {
-            svc.log().info(
-                    "integration cam={}: stale trigger skipped after resume sequence={} source={}",
-                    in.cameraId(),
-                    event.sequence(),
-                    event.source()
-            );
-            return;
-        }
-        boolean firstTriggerAfterResume = inspectionGate.isFirstTriggerAfterResume(
-                in.cameraId(),
-                event.sequence()
-        );
         PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId());
-        if (begin == PerCameraInspectionGate.BeginResult.IN_FLIGHT && firstTriggerAfterResume) {
-            boolean idle = inspectionGate.awaitInspectionIdle(in.cameraId(), inspectionCycleTimeoutMs);
-            begin = idle
-                    ? inspectionGate.tryBeginInspection(in.cameraId())
-                    : PerCameraInspectionGate.BeginResult.IN_FLIGHT;
-        }
         if (begin == PerCameraInspectionGate.BeginResult.DISABLED) {
             svc.log().debug(
                     "integration cam={}: trigger skipped — inspection disabled (source={})",
@@ -152,9 +133,6 @@ public final class ProductionInspectionOrchestrator {
                     event.source()
             );
             return;
-        }
-        if (firstTriggerAfterResume) {
-            inspectionGate.markResumeTriggerAccepted(in.cameraId());
         }
         long inspectionId = 0L;
         try {

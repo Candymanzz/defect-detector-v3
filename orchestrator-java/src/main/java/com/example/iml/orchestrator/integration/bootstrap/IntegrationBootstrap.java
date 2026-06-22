@@ -413,9 +413,6 @@ public final class IntegrationBootstrap {
                     triggerMode,
                     cfg.captureTriggerStaggerMs()
             );
-            inspectionGate.setTriggerBacklogDiscarder(
-                    triggerRuntime.bus()::discardPendingThroughCurrentSequence
-            );
             InspectionTriggerStrategy sharedTriggerStrategy;
             if (bucketInspectionConfig.enabled()) {
                 if (triggerMode != IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
