@@ -12,6 +12,7 @@ light_servers:
   duration_ms: 500
   # Пауза после POST On, до software trigger камеры (см. capture_trigger_mode).
   # Пауза после POST on (Hold/bank sync) до software trigger камеры
+   # Пауза после POST on (Hold/bank sync) до software trigger камеры11
   flash_lead_ms: 80
   settle_delay_ms: 200
   endpoints:
