@@ -10,15 +10,18 @@
     <Prefer32Bit>false</Prefer32Bit>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
-    <!-- MVS_ROOT или Hik MVS Client: C:\Program Files (x86)\MVS -->
+    <!-- SDK: LightServer.v3/ThirdParty/MVS/ (DotNet + Runtime/win64). Fallback: MVS_ROOT / установленный MVS Client -->
     <_MvsDefaultRoot>C:\Program Files (x86)\MVS</_MvsDefaultRoot>
+    <_MvsAltRoot>E:\MVS</_MvsAltRoot>
     <MvsInstallDir Condition="'$(MVS_ROOT)' != ''">$(MVS_ROOT)</MvsInstallDir>
     <MvsInstallDir Condition="'$(MvsInstallDir)' == '' and Exists('$(_MvsDefaultRoot)\Development')">$(_MvsDefaultRoot)</MvsInstallDir>
+    <MvsInstallDir Condition="'$(MvsInstallDir)' == '' and Exists('$(_MvsAltRoot)\Development')">$(_MvsAltRoot)</MvsInstallDir>
     <MvCameraControlNetDll Condition="Exists('$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll')">$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll</MvCameraControlNetDll>
     <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(MSBuildProjectDirectory)\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll')">$(MSBuildProjectDirectory)\ThirdParty\MVS\DotNet\MvCameraControl.Net.dll</MvCameraControlNetDll>
-    <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(_MvsDefaultRoot)\Development\DotNet\win64\netstandard2.0\MvCameraControl.Net.dll')">$(_MvsDefaultRoot)\Development\DotNet\win64\netstandard2.0\MvCameraControl.Net.dll</MvCameraControlNetDll>
-    <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(_MvsDefaultRoot)\Development\DotNet\win64\net40\MvCameraControl.Net.dll')">$(_MvsDefaultRoot)\Development\DotNet\win64\net40\MvCameraControl.Net.dll</MvCameraControlNetDll>
     <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(MvsInstallDir)\Development\DotNet\win64\netstandard2.0\MvCameraControl.Net.dll')">$(MvsInstallDir)\Development\DotNet\win64\netstandard2.0\MvCameraControl.Net.dll</MvCameraControlNetDll>
+    <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(MvsInstallDir)\Development\DotNet\win64\net40\MvCameraControl.Net.dll')">$(MvsInstallDir)\Development\DotNet\win64\net40\MvCameraControl.Net.dll</MvCameraControlNetDll>
+    <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(MvsInstallDir)\Development\DotNet\AnyCpu\netstandard2.0\MvCameraControl.Net.dll')">$(MvsInstallDir)\Development\DotNet\AnyCpu\netstandard2.0\MvCameraControl.Net.dll</MvCameraControlNetDll>
+    <MvCameraControlNetDll Condition="'$(MvCameraControlNetDll)' == '' and Exists('$(MvsInstallDir)\Development\DotNet\AnyCpu\net40\MvCameraControl.Net.dll')">$(MvsInstallDir)\Development\DotNet\AnyCpu\net40\MvCameraControl.Net.dll</MvCameraControlNetDll>
     <MvsRuntimeDir Condition="Exists('$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\Runtime\win64')">$(MSBuildProjectDirectory)\..\Test\ThirdParty\MVS\Runtime\win64</MvsRuntimeDir>
     <MvsRuntimeDir Condition="'$(MvsRuntimeDir)' == '' and Exists('$(MSBuildProjectDirectory)\ThirdParty\MVS\Runtime\win64')">$(MSBuildProjectDirectory)\ThirdParty\MVS\Runtime\win64</MvsRuntimeDir>
     <MvsRuntimeDir Condition="'$(MvsRuntimeDir)' == '' and Exists('$(_MvsDefaultRoot)\Applications\Win64')">$(_MvsDefaultRoot)\Applications\Win64</MvsRuntimeDir>
@@ -41,7 +44,7 @@
 
   <Target Name="ValidateMvsReference" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(MvCameraControlNetDll)')"
-           Text="MvCameraControl.Net.dll not found. Install Hik MVS Client or set MVS_ROOT to SDK root (e.g. C:\Program Files (x86)\MVS). Expected: $(MvsInstallDir)\Development\DotNet\win64\netstandard2.0\MvCameraControl.Net.dll" />
+           Text="MvCameraControl.Net.dll not found. Place SDK files in LightServer.v3/ThirdParty/MVS/DotNet/ or install MVS and set MVS_ROOT." />
   </Target>
 
   <ItemGroup Condition="Exists('$(MvsRuntimeDir)')">
