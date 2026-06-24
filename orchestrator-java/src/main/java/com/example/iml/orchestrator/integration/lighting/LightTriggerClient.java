@@ -92,13 +92,22 @@ public final class LightTriggerClient {
 
     private static List<EndpointRuntime> buildEndpoints(LightServersConfig cfg) {
         List<EndpointRuntime> list = new ArrayList<>();
-        java.util.Map<String, List<LightServersConfig.EndpointSpec>> comByBase = new java.util.LinkedHashMap<>();
         for (LightServersConfig.EndpointSpec spec : cfg.endpoints()) {
             if (!spec.enabled()) {
                 continue;
             }
             if (spec.type() == LightServersConfig.EndpointType.COM_IO) {
-                comByBase.computeIfAbsent(spec.baseUrl(), k -> new ArrayList<>()).add(spec);
+                LightEndpoint ep = new ComIoLightEndpoint(
+                        LOG,
+                        spec.id(),
+                        true,
+                        spec.baseUrl(),
+                        cfg.timeoutMs(),
+                        spec.comPort(),
+                        spec.channels(),
+                        spec.brightnessRaw()
+                );
+                list.add(new EndpointRuntime(ep, spec.brightnessPercent(), spec.brightnessRaw(), spec.cameraIds()));
                 continue;
             }
             LightEndpoint ep = new MvLeLightEndpoint(
@@ -112,51 +121,7 @@ public final class LightTriggerClient {
             );
             list.add(new EndpointRuntime(ep, spec.brightnessPercent(), spec.brightnessRaw(), spec.cameraIds()));
         }
-        for (var entry : comByBase.entrySet()) {
-            list.add(buildComBankRuntime(entry.getValue(), cfg.timeoutMs()));
-        }
         return List.copyOf(list);
-    }
-
-    /** Один POST /api/com/light на base_url — все COM из LightServer appsettings. */
-    private static EndpointRuntime buildComBankRuntime(List<LightServersConfig.EndpointSpec> specs, int timeoutMs) {
-        LightServersConfig.EndpointSpec first = specs.get(0);
-        String id = specs.size() == 1 ? first.id() : "com-bank";
-        int brightness = specs.stream().mapToInt(LightServersConfig.EndpointSpec::brightnessPercent).max().orElse(100);
-        int[] cameraIds = mergeCameraIds(specs);
-        int[] brightnessRaw = mergeBrightnessRaw(specs);
-        LightEndpoint ep = new ComIoLightEndpoint(LOG, id, true, first.baseUrl(), timeoutMs, brightnessRaw);
-        return new EndpointRuntime(ep, brightness, brightnessRaw, cameraIds);
-    }
-
-    private static int[] mergeBrightnessRaw(List<LightServersConfig.EndpointSpec> specs) {
-        int[] merged = null;
-        for (LightServersConfig.EndpointSpec spec : specs) {
-            if (spec.brightnessRaw() == null) {
-                continue;
-            }
-            if (merged == null) {
-                merged = spec.brightnessRaw();
-            } else if (!java.util.Arrays.equals(merged, spec.brightnessRaw())) {
-                return null;
-            }
-        }
-        return merged;
-    }
-
-    private static int[] mergeCameraIds(List<LightServersConfig.EndpointSpec> specs) {
-        boolean allCameras = false;
-        java.util.LinkedHashSet<Integer> ids = new java.util.LinkedHashSet<>();
-        for (LightServersConfig.EndpointSpec spec : specs) {
-            if (spec.cameraIds().length == 0) {
-                allCameras = true;
-                break;
-            }
-            for (int id : spec.cameraIds()) {
-                ids.add(id);
-            }
-        }
-        return allCameras ? new int[0] : ids.stream().mapToInt(Integer::intValue).toArray();
     }
 
     /** Яркость по умолчанию (глобальная из конфига / для всех endpoints). */
@@ -181,6 +146,11 @@ public final class LightTriggerClient {
 
     public List<String> endpointIds() {
         return endpoints.stream().filter(r -> r.endpoint.enabled()).map(r -> r.endpoint.id()).toList();
+    }
+
+    public int[] cameraIds(String endpointId) {
+        EndpointRuntime r = find(endpointId);
+        return r == null ? new int[0] : r.cameraIds.clone();
     }
 
     public boolean isEnabled() {

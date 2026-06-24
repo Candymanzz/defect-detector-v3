@@ -104,6 +104,7 @@ export type LightEndpointBrightness = {
   id: string;
   brightness_percent: number;
   mv_le_brightness: number;
+  camera_ids?: CameraId[];
 };
 
 export type LightBrightnessPercent = number | string;

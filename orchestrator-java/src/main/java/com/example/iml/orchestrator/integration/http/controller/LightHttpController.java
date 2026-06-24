@@ -210,6 +210,11 @@ public final class LightHttpController implements HttpController {
             ep.put("id", id);
             ep.put("brightness_percent", p);
             ep.put("mv_le_brightness", LightBrightnessScale.toMvLeBrightness(p));
+            ArrayNode cameraIds = JSON.createArrayNode();
+            for (int cameraId : lightClient.cameraIds(id)) {
+                cameraIds.add(cameraId);
+            }
+            ep.set("camera_ids", cameraIds);
             arr.add(ep);
         }
         return arr;

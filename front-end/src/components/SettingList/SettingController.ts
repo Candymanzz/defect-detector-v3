@@ -345,6 +345,12 @@ function resolveCameraBrightnessEndpoint(
   }
 
   const endpoints = lightBrightness.endpoints ?? [];
+  const cameraEndpoint = endpoints.find((endpoint) => endpoint.camera_ids?.includes(selectedCameraId));
+
+  if (cameraEndpoint) {
+    return cameraEndpoint;
+  }
+
   const cameraIdText = String(selectedCameraId);
   const expectedIds = new Set([
     cameraIdText,
