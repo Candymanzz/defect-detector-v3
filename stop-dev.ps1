@@ -20,8 +20,8 @@ if (Test-Path $PidFile) {
     Remove-Item $PidFile -Force
 }
 
-# Порты: Python, UI HTTP, WS, Vite, LightServer x2, fan-out stub
-foreach ($port in @(8000, 8099, 8765, 5173, 5079, 5080, 8088)) {
+# Порты: analisSurface pool 8000..8009 (python_parallelism), UI HTTP, WS, Vite, LightServer, fan-out stub
+foreach ($port in 8000..8009 + @(8099, 8765, 5173, 5079, 5080, 8088)) {
     Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
         ForEach-Object { Stop-PidSafe $_.OwningProcess }
 }
