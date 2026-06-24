@@ -25,7 +25,7 @@ public final class LightTriggerClient {
 
     private final boolean enabled;
     private final boolean failOnError;
-    private final int defaultBrightnessPercent;
+    private volatile int defaultBrightnessPercent;
     private final int durationMs;
     private final int timeoutMs;
     private final int settleDelayMs;
@@ -177,6 +177,11 @@ public final class LightTriggerClient {
     /** Установить одну яркость для всех enabled endpoints. */
     public void setBrightnessPercent(int percent) {
         int clamped = LightBrightnessScale.clampPercent(percent);
+        int defaultBefore = defaultBrightnessPercent;
+        defaultBrightnessPercent = clamped;
+        if (defaultBefore != clamped) {
+            LOG.info("light default brightness {}% -> {}%", defaultBefore, clamped);
+        }
         for (EndpointRuntime r : endpoints) {
             if (r.endpoint.enabled()) {
                 int before = r.brightnessPercent;
