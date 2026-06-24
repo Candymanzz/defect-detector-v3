@@ -135,6 +135,21 @@ public final class ComIoLightEndpoint implements LightEndpoint {
                 id, cameraId, frameId, phase, brightness);
     }
 
+    /** Один POST на весь COM-банк: одно значение яркости на все каналы (hold_mode). */
+    public void triggerAllChannels(int brightnessPercent) throws Exception {
+        if (!enabled) {
+            return;
+        }
+        int percent = LightBrightnessScale.clampPercent(brightnessPercent);
+        postState("On", Integer.toString(percent));
+        log.info("light {} COM bank on all channels brightness={}%", id, percent);
+    }
+
+    /** Ключ для дедупликации POST на один и тот же LightServer COM-банк. */
+    public String sharedBankKey() {
+        return lightUri.toString();
+    }
+
     @Override
     public void turnOffAll() throws Exception {
         if (!enabled) {

@@ -17,6 +17,8 @@ public record LightServersConfig(
         int flashLeadMs,
         int brightnessPercent,
         int durationMs,
+        /** Постоянная подсветка: включить при старте, не гасить после capture. */
+        boolean holdMode,
         List<EndpointSpec> endpoints
 ) {
 
@@ -66,15 +68,16 @@ public record LightServersConfig(
         int flashLeadMs = Math.max(0, YamlScalars.toInt(ls.get("flash_lead_ms"), 0));
         int brightness = YamlScalars.toInt(ls.get("brightness_percent"), YamlScalars.toInt(ls.get("brightness"), 100));
         int durationMs = YamlScalars.toInt(ls.get("duration_ms"), 180);
+        boolean holdMode = YamlScalars.toBool(ls.get("hold_mode"), false);
         int globalBrightness = LightBrightnessScale.clampPercent(brightness);
         int[] globalBrightnessRaw = parseBrightnessRaw(ls.get("brightness_raw"));
         List<EndpointSpec> endpoints = parseEndpoints(ls, globalBrightness, globalBrightnessRaw);
         return new LightServersConfig(enabled, failOnError, timeoutMs, settleDelayMs, flashLeadMs,
-                globalBrightness, durationMs, endpoints);
+                globalBrightness, durationMs, holdMode, endpoints);
     }
 
     public static LightServersConfig disabled() {
-        return new LightServersConfig(false, false, 1500, 0, 0, 100, 180, List.of());
+        return new LightServersConfig(false, false, 1500, 0, 0, 100, 180, false, List.of());
     }
 
     /** Базовый URL LightServer.v3 (первый enabled endpoint). */

@@ -190,6 +190,7 @@
   },
   "light_servers": {
     "enabled": true,
+    "hold_mode": true,
     "timeout_ms": 1500,
     "fail_on_error": false,
     "brightness_percent": 100,

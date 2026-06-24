@@ -27,9 +27,11 @@ public final class LightTriggerClient {
     private final boolean failOnError;
     private final int defaultBrightnessPercent;
     private final int durationMs;
+    private final boolean holdMode;
     private final int timeoutMs;
     private final int settleDelayMs;
     private final List<EndpointRuntime> endpoints;
+    private volatile boolean constantLightingEngaged;
     private final ExecutorService triggerExecutor;
     /** Один POST за раз — live_preview и capture не держат COM2 параллельно. */
     private final Object lightCommandLock = new Object();
@@ -69,6 +71,7 @@ public final class LightTriggerClient {
         this.failOnError = cfg.failOnError();
         this.defaultBrightnessPercent = cfg.brightnessPercent();
         this.durationMs = cfg.durationMs();
+        this.holdMode = cfg.holdMode();
         this.timeoutMs = Math.max(100, cfg.timeoutMs());
         this.settleDelayMs = Math.max(0, cfg.settleDelayMs());
         this.endpoints = buildEndpoints(cfg);
@@ -79,8 +82,8 @@ public final class LightTriggerClient {
             return t;
         });
         if (enabled) {
-            LOG.info("light_servers: {} endpoint(s) default_brightness_percent={} duration_ms={}",
-                    endpoints.size(), defaultBrightnessPercent, durationMs);
+            LOG.info("light_servers: {} endpoint(s) default_brightness_percent={} duration_ms={} hold_mode={}",
+                    endpoints.size(), defaultBrightnessPercent, durationMs, holdMode);
             for (EndpointRuntime r : endpoints) {
                 if (r.endpoint.enabled()) {
                     LOG.info("  light endpoint id={} type={} brightness_percent={}",
@@ -157,6 +160,31 @@ public final class LightTriggerClient {
         return enabled;
     }
 
+    public boolean isHoldMode() {
+        return holdMode;
+    }
+
+    /**
+     * Постоянная подсветка: один раз включить все endpoints и не гасить между кадрами.
+     */
+    public void engageConstantLighting() {
+        if (!enabled || !holdMode) {
+            return;
+        }
+        synchronized (lightCommandLock) {
+            if (constantLightingEngaged) {
+                return;
+            }
+            LOG.info("light hold_mode: включение всех endpoints (постоянная подсветка)");
+            if (!turnOnAllEndpointsLocked()) {
+                LOG.warn("light hold_mode: не удалось включить подсветку при старте");
+                return;
+            }
+            constantLightingEngaged = true;
+            sleepSettle();
+        }
+    }
+
     /** Дождаться инициализации COM-банка в LightServer (после {@code light_server_startup_delay_ms}). */
     public void awaitEndpointsReady() {
         if (!enabled) {
@@ -217,6 +245,13 @@ public final class LightTriggerClient {
             CaptureStep captureStep
     ) throws Exception {
         if (!enabled) {
+            captureStep.run();
+            return;
+        }
+        if (holdMode) {
+            if (!constantLightingEngaged) {
+                engageConstantLighting();
+            }
             captureStep.run();
             return;
         }
@@ -306,6 +341,38 @@ public final class LightTriggerClient {
         return false;
     }
 
+    private boolean turnOnAllEndpointsLocked() {
+        for (EndpointRuntime r : endpoints) {
+            if (r.endpoint.enabled()) {
+                r.endpoint.ensureReady();
+            }
+        }
+        RuntimeException lastError = null;
+        for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
+            try {
+                triggerAllEndpointsParallel(durationMs);
+                return true;
+            } catch (RuntimeException e) {
+                lastError = e;
+            }
+            if (attempt < MAX_TRIGGER_ATTEMPTS) {
+                try {
+                    Thread.sleep(RETRY_DELAY_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        if (lastError != null) {
+            if (failOnError) {
+                throw lastError;
+            }
+            LOG.warn("light hold_mode On failed: {}", lastError.getMessage());
+        }
+        return false;
+    }
+
     private void turnOffForCameraParallel(int cameraId) {
         List<String> errors = new ArrayList<>();
         List<Callable<Void>> async = new ArrayList<>();
@@ -329,6 +396,38 @@ public final class LightTriggerClient {
         errors.addAll(invokeLightTasks(async));
         if (!errors.isEmpty()) {
             throw new IllegalStateException("light Off failed: " + String.join("; ", errors));
+        }
+    }
+
+    private void triggerAllEndpointsParallel(int durationMs) {
+        List<String> errors = new ArrayList<>();
+        List<Callable<Void>> async = new ArrayList<>();
+        java.util.Set<String> comBanksTriggered = new java.util.LinkedHashSet<>();
+        for (EndpointRuntime r : endpoints) {
+            if (!r.endpoint.enabled()) {
+                continue;
+            }
+            int brightness = r.brightnessPercent;
+            if (r.endpoint instanceof ComIoLightEndpoint com) {
+                String bankKey = com.sharedBankKey();
+                if (!comBanksTriggered.add(bankKey)) {
+                    continue;
+                }
+                try {
+                    com.triggerAllChannels(defaultBrightnessPercent);
+                } catch (Exception e) {
+                    errors.add(e.getMessage() != null ? e.getMessage() : e.toString());
+                }
+            } else {
+                async.add(() -> {
+                    r.endpoint.trigger(-1, -1L, "hold", brightness, durationMs);
+                    return null;
+                });
+            }
+        }
+        errors.addAll(invokeLightTasks(async));
+        if (!errors.isEmpty()) {
+            throw new IllegalStateException("light hold_mode On failed: " + String.join("; ", errors));
         }
     }
 
