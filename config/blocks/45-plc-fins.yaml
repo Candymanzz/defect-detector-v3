@@ -1,0 +1,15 @@
+# Omron FINS/UDP — обмен с ПЛК (MAP 25_247).
+# Сигналы: plk/register-map.yaml
+
+plc_fins:
+  enabled: true
+  host: "192.168.1.100"
+  port: 9600
+  dest_node: 0
+  src_node: 0
+  response_timeout_ms: 1000
+  pulse_ms: 200
+  queue_size: 64
+  register_map_path: "plk/register-map.yaml"
+  vision_ready_signal: "vision_ready"
+  vision_fault_signal: "vision_fault"

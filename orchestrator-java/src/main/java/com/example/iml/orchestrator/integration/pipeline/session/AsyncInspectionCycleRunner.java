@@ -113,11 +113,8 @@ public final class AsyncInspectionCycleRunner {
                             in.triggerSequence(),
                             in.cameraId(),
                             decision,
-                            in.fanOut(),
-                            svc.fanOutEventFactory()
+                            in.fanOut()
                     );
-                } else if (in.fanOut() != null) {
-                    in.fanOut().publish(svc.fanOutEventFactory().toFanOut(decision));
                 }
                 try {
                     svc.afterInspectionSidecar().scheduleAfterInspection(

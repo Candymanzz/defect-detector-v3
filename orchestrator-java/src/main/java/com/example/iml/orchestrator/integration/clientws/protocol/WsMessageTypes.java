@@ -18,6 +18,7 @@ public final class WsMessageTypes {
 
     public static final String SERVER_HELLO = "server.hello";
     public static final String SERVER_INSPECT_RESULT = "server.inspect_result";
+    public static final String SERVER_INSPECT_BUCKET_RESULT = "server.inspect_bucket_result";
     /** Живой preview-кадр (без geometry/python), в т.ч. в {@code NO_REFERENCE}. */
     public static final String SERVER_PREVIEW_FRAME = "server.preview_frame";
     public static final String SERVER_STREAM_STARTED = "server.stream_started";

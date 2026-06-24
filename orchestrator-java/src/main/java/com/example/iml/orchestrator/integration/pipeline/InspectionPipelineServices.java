@@ -3,7 +3,6 @@ package com.example.iml.orchestrator.integration.pipeline;
 import com.example.iml.orchestrator.integration.pipeline.decision.InspectionDecisionPolicy;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceSnapshotBootstrap;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
-import com.example.iml.orchestrator.integration.pipeline.spi.FanOutEventFactory;
 import com.example.iml.orchestrator.integration.pipeline.spi.GeometryInspectStage;
 import com.example.iml.orchestrator.integration.pipeline.spi.PipelineRunTelemetry;
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
@@ -20,7 +19,6 @@ public record InspectionPipelineServices(
         GeometryInspectStage geometryStage,
         PythonInspectStage pythonStage,
         CameraCaptureStage captureStage,
-        FanOutEventFactory fanOutEventFactory,
         ReferenceSnapshotBootstrap referenceBootstrap,
         AfterInspectionSidecar afterInspectionSidecar
 ) {

@@ -1,131 +1,94 @@
 package com.example.iml.orchestrator.integration.fanout;
 
-import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
+import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
+import com.example.iml.orchestrator.integration.plc.PlcFinsConfig;
+import com.example.iml.orchestrator.integration.plc.PlcFinsPublisher;
+import com.example.iml.orchestrator.integration.plc.PlcRegisterMap;
+import com.example.iml.orchestrator.integration.plc.PlcRegisterMapLoader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Map;
 
 /**
- * Координация fan-out: робот (TCP) и HTTP-заглушка клиента по корневому YAML.
+ * Публикация итога инспекции по ведру: ПЛК (FINS) и UI (WebSocket).
  */
 public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink {
     private static final Logger log = LogManager.getLogger(FanOutCoordinator.class);
 
-    private final RobotTcpPublisher robotPublisher;
-    private final ClientHttpStubServer clientServer;
+    private final PlcFinsPublisher plcPublisher;
+    private final ClientWebSocketServer clientWsServer;
 
-    private FanOutCoordinator(RobotTcpPublisher robotPublisher, ClientHttpStubServer clientServer) {
-        this.robotPublisher = robotPublisher;
-        this.clientServer = clientServer;
+    private FanOutCoordinator(PlcFinsPublisher plcPublisher, ClientWebSocketServer clientWsServer) {
+        this.plcPublisher = plcPublisher;
+        this.clientWsServer = clientWsServer;
     }
 
-    public static FanOutCoordinator fromConfig(Map<String, Object> root) {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> fanout = (Map<String, Object>) root.get("fanout");
-        if (fanout == null) {
-            throw new IllegalStateException("fanout config section is missing");
-        }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> robotCfg = (Map<String, Object>) fanout.get("robot_tcp");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> clientCfg = (Map<String, Object>) fanout.get("client_http");
-        if (robotCfg == null || clientCfg == null) {
-            throw new IllegalStateException("fanout.robot_tcp or fanout.client_http is missing");
-        }
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> robotRoot = (Map<String, Object>) root.get("robot");
-        boolean robotEnabled = toBool(robotRoot == null ? null : robotRoot.get("enabled"), true);
-
-        String robotHost = String.valueOf(robotCfg.getOrDefault("host", "127.0.0.1"));
-        int robotPort = toInt(robotCfg.get("port"), 9999);
-        int robotQueue = toInt(robotCfg.get("queue_size"), 256);
-        int robotConnectTimeout = toInt(robotCfg.get("connect_timeout_ms"), 300);
-        int robotWriteTimeout = toInt(robotCfg.get("write_timeout_ms"), 300);
-
-        String clientHost = String.valueOf(clientCfg.getOrDefault("host", "127.0.0.1"));
-        int clientPort = toInt(clientCfg.get("port"), 8088);
-        int clientQueue = toInt(clientCfg.get("queue_size"), 128);
-        int clientDelay = toInt(clientCfg.get("artificial_delay_ms"), 0);
-
-        RobotTcpPublisher robotPublisher = null;
-        if (robotEnabled) {
-            robotPublisher = new RobotTcpPublisher(robotHost, robotPort, robotConnectTimeout, robotWriteTimeout, robotQueue);
-        } else {
-            log.info("fanout robot_tcp disabled (robot.enabled=false)");
-        }
-        try {
-            ClientHttpStubServer clientServer = new ClientHttpStubServer(clientHost, clientPort, clientQueue, clientDelay);
-            log.info("fanout started robot={}:{} (enabled={}) client_http={}:{} delayMs={}",
-                    robotHost, robotPort, robotEnabled, clientHost, clientPort, clientDelay);
-            return new FanOutCoordinator(robotPublisher, clientServer);
-        } catch (IOException e) {
-            if (robotPublisher != null) {
-                robotPublisher.close();
+    public static FanOutCoordinator fromConfig(
+            Map<String, Object> root,
+            Path projectRoot,
+            ClientWebSocketServer clientWsServer
+    ) {
+        PlcFinsPublisher plcPublisher = null;
+        PlcFinsConfig plcCfg = PlcFinsConfig.fromRoot(root, projectRoot);
+        if (plcCfg.enabled()) {
+            try {
+                PlcRegisterMap registerMap = PlcRegisterMapLoader.load(plcCfg.registerMapPath());
+                plcPublisher = PlcFinsPublisher.create(log, plcCfg, registerMap);
+                log.info(
+                        "inspection result plc_fins enabled host={}:{} map={} pulse_ms={}",
+                        plcCfg.host(),
+                        plcCfg.port(),
+                        plcCfg.registerMapPath(),
+                        plcCfg.pulseMs()
+                );
+            } catch (IOException e) {
+                throw new IllegalStateException("failed to start plc fins publisher", e);
             }
-            throw new IllegalStateException("failed to start client http stub", e);
+        } else {
+            log.info("inspection result plc_fins disabled (plc_fins.enabled=false)");
         }
-    }
-
-    public void publish(FanOutEvent event) {
-        if (robotPublisher != null) {
-            robotPublisher.publish(event);
+        if (clientWsServer == null) {
+            log.warn("inspection result client_ws unavailable — bucket verdict will not be sent to UI");
         }
-        clientServer.publish(event);
+        return new FanOutCoordinator(plcPublisher, clientWsServer);
     }
 
-    /** Per-frame событие — только HTTP-заглушка клиента (не робот). */
-    @Override
-    public void publishPerFrame(FanOutEvent event) {
-        clientServer.publish(event);
-    }
-
-    /** Итог по ведру: робот получает groupId:1/0, HTTP-заглушка — подробный JSON. */
     @Override
     public void publishBucket(BucketFanOutResult result) {
-        if (robotPublisher != null) {
-            robotPublisher.publishBucketSignal(new BucketRobotSignal(result.groupId(), result.overallPass()));
+        if (plcPublisher != null) {
+            plcPublisher.publishBucket(result);
         }
-        clientServer.publishBucket(result);
+        if (clientWsServer != null) {
+            clientWsServer.notifyInspectBucketResult(result);
+        }
+    }
+
+    public void signalVisionReady(boolean ready) {
+        if (plcPublisher != null) {
+            plcPublisher.setVisionReady(ready);
+        }
+    }
+
+    public void signalVisionFault(boolean fault) {
+        if (plcPublisher != null) {
+            plcPublisher.setVisionFault(fault);
+        }
     }
 
     public String metricsSummary() {
-        String robotPart = robotPublisher == null
-                ? "robot=disabled"
-                : ("robot.queueDepth=" + robotPublisher.queueDepth()
-                + " robot.dropped=" + robotPublisher.droppedTotal());
-        return robotPart
-                + " client.queueDepth=" + clientServer.queueDepth()
-                + " client.dropped=" + clientServer.droppedTotal();
+        String plcPart = plcPublisher == null
+                ? "plc=disabled"
+                : ("plc.dropped=" + plcPublisher.droppedTotal());
+        return plcPart + " client_ws=" + (clientWsServer == null ? "disabled" : "enabled");
     }
 
     @Override
     public void close() {
-        clientServer.close();
-        if (robotPublisher != null) {
-            robotPublisher.close();
-        }
-    }
-
-    private static boolean toBool(Object value, boolean fallback) {
-        if (value instanceof Boolean b) {
-            return b;
-        }
-        if (value == null) {
-            return fallback;
-        }
-        return Boolean.parseBoolean(String.valueOf(value));
-    }
-
-    private static int toInt(Object value, int fallback) {
-        if (value instanceof Number n) return n.intValue();
-        if (value == null) return fallback;
-        try {
-            return Integer.parseInt(String.valueOf(value));
-        } catch (NumberFormatException ignored) {
-            return fallback;
+        if (plcPublisher != null) {
+            plcPublisher.close();
         }
     }
 }

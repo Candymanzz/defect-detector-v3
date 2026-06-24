@@ -5,5 +5,5 @@ imports:
   - "blocks/10-cameras.yaml"
   - "blocks/20-detectors.yaml"
   - "blocks/30-ui-and-client.yaml"
-  - "blocks/40-fanout-and-robot.yaml"
+  - "blocks/45-plc-fins.yaml"
   - "blocks/50-lighting.yaml"

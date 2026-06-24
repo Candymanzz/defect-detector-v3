@@ -237,6 +237,7 @@
     "camera_parallelism": 10,
     "geometry_pool_size": 10,
     "python_parallelism": 10,
+    "python_server_pool_size": 1,
     "stage_queue_size": 20,
     "worker_command_timeout_ms": 30000,
     "worker_startup_stagger_ms": 1200,
@@ -270,7 +271,7 @@
       "inspect_workers": 10
     },
     "save_captures": {
-      "enabled": true,
+      "enabled": false,
       "directory": "testimage",
       "jpeg_quality": 0.92
     },

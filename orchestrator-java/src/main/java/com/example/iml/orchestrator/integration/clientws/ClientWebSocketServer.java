@@ -13,6 +13,7 @@ import com.example.iml.orchestrator.integration.clientws.service.ReferenceBundle
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferenceContext;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
@@ -211,6 +212,13 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 includeHeatmapFilePathInWs,
                 inspectionArtifactBundleId
         ));
+    }
+
+    public void notifyInspectBucketResult(BucketFanOutResult result) {
+        if (result == null) {
+            return;
+        }
+        broadcastOpenClients(conn -> outbound.sendInspectBucketResult(conn, result));
     }
 
     @Override
