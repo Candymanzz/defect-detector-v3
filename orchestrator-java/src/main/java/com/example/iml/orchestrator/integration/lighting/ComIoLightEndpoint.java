@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -25,6 +26,7 @@ import java.util.stream.IntStream;
 public final class ComIoLightEndpoint implements LightEndpoint {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Map<URI, BankState> BANK_STATES = new java.util.HashMap<>();
 
     private final Logger log;
     private final String id;
@@ -36,6 +38,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
     private final String comPort;
     private final int[] channels;
     private final int[] defaultBrightnessRaw;
+    private final BankState bankState;
     private volatile boolean bankReadyLogged;
     private volatile List<BankChannel> bankLayout = List.of();
 
@@ -60,6 +63,9 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         this.comPort = normalizeComPort(comPort);
         this.channels = channels == null || channels.length == 0 ? new int[]{1, 2, 3, 4} : channels.clone();
         this.defaultBrightnessRaw = defaultBrightnessRaw == null ? null : defaultBrightnessRaw.clone();
+        synchronized (BANK_STATES) {
+            this.bankState = BANK_STATES.computeIfAbsent(this.lightUri, ignored -> new BankState());
+        }
     }
 
     @Override
@@ -114,6 +120,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         }
         JsonNode root = MAPPER.readTree(response.body());
         bankLayout = parseBankLayout(root.path("devices"));
+        bankState.updateLayout(bankLayout);
         if (!root.path("initialized").asBoolean(false)) {
             return false;
         }
@@ -129,7 +136,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
-        String brightness = formatBrightnessCsv(brightnessPercent, defaultBrightnessRaw, bankLayout, comPort, channels);
+        String brightness = bankState.formatOnCsv(brightnessPercent, defaultBrightnessRaw, bankLayout, comPort, channels);
         postState("On", brightness);
         log.info("light {} COM bank on cam={} frame={} phase={} brightness={}",
                 id, cameraId, frameId, phase, brightness);
@@ -140,6 +147,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
+        bankState.clear();
         postState("Off", null);
         log.info("light {} COM bank off", id);
     }
@@ -149,6 +157,7 @@ public final class ComIoLightEndpoint implements LightEndpoint {
         if (!enabled) {
             return;
         }
+        bankState.clear();
         postState("Off", null);
         log.info("light {} COM bank off cam={}", id, cameraId);
     }
@@ -250,6 +259,59 @@ public final class ComIoLightEndpoint implements LightEndpoint {
                 }
             }
             return false;
+        }
+    }
+
+    private static final class BankState {
+        private List<BankChannel> layout = List.of();
+        private int[] percents = new int[0];
+
+        synchronized void updateLayout(List<BankChannel> nextLayout) {
+            if (nextLayout == null || nextLayout.isEmpty()) {
+                return;
+            }
+            if (layout.equals(nextLayout) && percents.length == nextLayout.size()) {
+                return;
+            }
+            layout = nextLayout;
+            percents = new int[nextLayout.size()];
+        }
+
+        synchronized String formatOnCsv(
+                int brightnessPercent,
+                int[] brightnessRaw,
+                List<BankChannel> fallbackLayout,
+                String comPort,
+                int[] channels
+        ) {
+            if (layout.isEmpty() && fallbackLayout != null && !fallbackLayout.isEmpty()) {
+                updateLayout(fallbackLayout);
+            }
+            if (layout.isEmpty() || comPort == null || comPort.isBlank() || channels == null || channels.length == 0) {
+                return formatBrightnessCsv(brightnessPercent, brightnessRaw);
+            }
+
+            int percent = LightBrightnessScale.clampPercent(brightnessPercent);
+            int sourceIndex = 0;
+            for (int i = 0; i < layout.size(); i++) {
+                BankChannel bankChannel = layout.get(i);
+                if (!bankChannel.matches(comPort, channels)) {
+                    continue;
+                }
+                int raw = brightnessRaw != null && brightnessRaw.length > 0
+                        ? brightnessRaw[Math.min(sourceIndex, brightnessRaw.length - 1)]
+                        : percent;
+                percents[i] = LightBrightnessScale.toPercent(raw, percent);
+                sourceIndex++;
+            }
+
+            return IntStream.of(percents)
+                    .mapToObj(Integer::toString)
+                    .collect(Collectors.joining(","));
+        }
+
+        synchronized void clear() {
+            Arrays.fill(percents, 0);
         }
     }
 }

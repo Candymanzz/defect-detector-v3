@@ -193,6 +193,7 @@
     "timeout_ms": 1500,
     "fail_on_error": false,
     "brightness_percent": 100,
+    "constant_on": true,
     "duration_ms": 180,
     "flash_lead_ms": 50,
     "settle_delay_ms": 100,

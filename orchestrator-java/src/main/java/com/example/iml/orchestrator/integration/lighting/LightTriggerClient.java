@@ -29,6 +29,7 @@ public final class LightTriggerClient {
     private final int durationMs;
     private final int timeoutMs;
     private final int settleDelayMs;
+    private final boolean constantOn;
     private final List<EndpointRuntime> endpoints;
     private final ExecutorService triggerExecutor;
     /** Один POST за раз — live_preview и capture не держат COM2 параллельно. */
@@ -71,6 +72,7 @@ public final class LightTriggerClient {
         this.durationMs = cfg.durationMs();
         this.timeoutMs = Math.max(100, cfg.timeoutMs());
         this.settleDelayMs = Math.max(0, cfg.settleDelayMs());
+        this.constantOn = cfg.constantOn();
         this.endpoints = buildEndpoints(cfg);
         int n = Math.max(1, (int) endpoints.stream().filter(r -> r.endpoint.enabled()).count());
         this.triggerExecutor = Executors.newFixedThreadPool(n, r -> {
@@ -79,8 +81,8 @@ public final class LightTriggerClient {
             return t;
         });
         if (enabled) {
-            LOG.info("light_servers: {} endpoint(s) default_brightness_percent={} duration_ms={}",
-                    endpoints.size(), defaultBrightnessPercent, durationMs);
+            LOG.info("light_servers: {} endpoint(s) default_brightness_percent={} duration_ms={} constant_on={}",
+                    endpoints.size(), defaultBrightnessPercent, durationMs, constantOn);
             for (EndpointRuntime r : endpoints) {
                 if (r.endpoint.enabled()) {
                     LOG.info("  light endpoint id={} type={} brightness_percent={}",
@@ -172,37 +174,46 @@ public final class LightTriggerClient {
                 LOG.warn("light {} ensureReady: {}", r.endpoint.id(), e.getMessage());
             }
         }
+        synchronized (lightCommandLock) {
+            applyConstantLightingLocked("startup");
+        }
     }
 
     /** Установить одну яркость для всех enabled endpoints. */
     public void setBrightnessPercent(int percent) {
-        int clamped = LightBrightnessScale.clampPercent(percent);
-        int defaultBefore = defaultBrightnessPercent;
-        defaultBrightnessPercent = clamped;
-        if (defaultBefore != clamped) {
-            LOG.info("light default brightness {}% -> {}%", defaultBefore, clamped);
-        }
-        for (EndpointRuntime r : endpoints) {
-            if (r.endpoint.enabled()) {
-                int before = r.brightnessPercent;
-                r.brightnessPercent = clamped;
-                if (before != clamped) {
-                    LOG.info("light {} brightness {}% -> {}%", r.endpoint.id(), before, clamped);
+        synchronized (lightCommandLock) {
+            int clamped = LightBrightnessScale.clampPercent(percent);
+            int defaultBefore = defaultBrightnessPercent;
+            defaultBrightnessPercent = clamped;
+            if (defaultBefore != clamped) {
+                LOG.info("light default brightness {}% -> {}%", defaultBefore, clamped);
+            }
+            for (EndpointRuntime r : endpoints) {
+                if (r.endpoint.enabled()) {
+                    int before = r.brightnessPercent;
+                    r.brightnessPercent = clamped;
+                    if (before != clamped) {
+                        LOG.info("light {} brightness {}% -> {}%", r.endpoint.id(), before, clamped);
+                    }
                 }
             }
+            applyConstantLightingLocked("brightness");
         }
     }
 
     public void setBrightnessPercent(String endpointId, int percent) {
-        EndpointRuntime r = find(endpointId);
-        if (r == null) {
-            throw new IllegalArgumentException("unknown light endpoint id: " + endpointId);
-        }
-        int clamped = LightBrightnessScale.clampPercent(percent);
-        int before = r.brightnessPercent;
-        r.brightnessPercent = clamped;
-        if (before != clamped) {
-            LOG.info("light {} brightness {}% -> {}%", endpointId, before, clamped);
+        synchronized (lightCommandLock) {
+            EndpointRuntime r = find(endpointId);
+            if (r == null) {
+                throw new IllegalArgumentException("unknown light endpoint id: " + endpointId);
+            }
+            int clamped = LightBrightnessScale.clampPercent(percent);
+            int before = r.brightnessPercent;
+            r.brightnessPercent = clamped;
+            if (before != clamped) {
+                LOG.info("light {} brightness {}% -> {}%", endpointId, before, clamped);
+            }
+            applyConstantLightingLocked("brightness");
         }
     }
 
@@ -226,6 +237,14 @@ public final class LightTriggerClient {
             return;
         }
         synchronized (lightCommandLock) {
+            if (constantOn) {
+                applyConstantLightingLocked(phase);
+                if (flashLeadMs > 0) {
+                    Thread.sleep(flashLeadMs);
+                }
+                captureStep.run();
+                return;
+            }
             if (!runSourceWithRetriesLocked(cameraId, frameId, phase, true)) {
                 LOG.warn("light On failed cam={} phase={} — skip Off and capture without lighting", cameraId, phase);
                 captureStep.run();
@@ -265,6 +284,49 @@ public final class LightTriggerClient {
         }
         LOG.info("light Off cam={} frame={} phase={}", cameraId, frameId, phase);
         runSourceWithRetries(cameraId, frameId, phase, false);
+    }
+
+    private void applyConstantLightingLocked(String phase) {
+        if (!constantOn || !enabled) {
+            return;
+        }
+        if (!runConstantOnWithRetriesLocked(phase)) {
+            String message = "constant light On failed phase=" + phase;
+            if (failOnError) {
+                throw new IllegalStateException(message);
+            }
+            LOG.warn(message);
+        }
+    }
+
+    private boolean runConstantOnWithRetriesLocked(String phase) {
+        for (EndpointRuntime r : endpoints) {
+            if (r.endpoint.enabled()) {
+                r.endpoint.ensureReady();
+            }
+        }
+        RuntimeException lastError = null;
+        for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
+            try {
+                triggerAllConfiguredParallel(-1, -1L, phase, durationMs);
+                sleepSettle();
+                return true;
+            } catch (RuntimeException e) {
+                lastError = e;
+            }
+            if (attempt < MAX_TRIGGER_ATTEMPTS) {
+                try {
+                    Thread.sleep(RETRY_DELAY_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        if (lastError != null) {
+            LOG.warn("constant light On failed phase={}: {}", phase, lastError.getMessage());
+        }
+        return false;
     }
 
     private boolean runSourceWithRetries(int cameraId, long frameId, String phase, boolean on) {
@@ -338,12 +400,35 @@ public final class LightTriggerClient {
     }
 
     private void triggerAllParallel(int cameraId, long frameId, String phase, int durationMs) {
+        triggerEndpointsParallel(
+                endpoints.stream().filter(r -> r.endpoint.enabled() && r.appliesTo(cameraId)).toList(),
+                cameraId,
+                frameId,
+                phase,
+                durationMs
+        );
+    }
+
+    private void triggerAllConfiguredParallel(int cameraId, long frameId, String phase, int durationMs) {
+        triggerEndpointsParallel(
+                endpoints.stream().filter(r -> r.endpoint.enabled()).toList(),
+                cameraId,
+                frameId,
+                phase,
+                durationMs
+        );
+    }
+
+    private void triggerEndpointsParallel(
+            List<EndpointRuntime> selectedEndpoints,
+            int cameraId,
+            long frameId,
+            String phase,
+            int durationMs
+    ) {
         List<String> errors = new ArrayList<>();
         List<Callable<Void>> async = new ArrayList<>();
-        for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled() || !r.appliesTo(cameraId)) {
-                continue;
-            }
+        for (EndpointRuntime r : selectedEndpoints) {
             int brightness = r.brightnessPercent;
             if (r.endpoint instanceof ComIoLightEndpoint com) {
                 try {
