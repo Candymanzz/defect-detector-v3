@@ -1,0 +1,83 @@
+,Дискретные выходы,,,,,NO/NC,,,,,Select,,,,,,Записываемые дискретные выходы,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,RF,,,,,RF,,,,,RF,,,,,,,,,,
+,,BOOL,W10.00,Авария,NO / NC --->,,BOOL,H10.00,Авария (NO/NC),Select --->,,WORD,D200,Авария (Select),,D280,,BOOL,110.00,,Y0
+,,BOOL,W10.01,Блокировка работы робота,,,BOOL,H10.01,Блокировка работы робота (NO/NC),,,WORD,D201,Блокировка работы робота (Select),,,,BOOL,110.01,,Y1
+,,BOOL,W10.02,Работа конвейера,,,BOOL,H10.02,Работа конвейера (NO/NC),,,WORD,D202,Работа конвейера (Select),,,,BOOL,110.02,,Y2
+,,BOOL,W10.03,Отбраковыватель линия 1,,,BOOL,H10.03,Отбраковыватель линия 1 (NO/NC),,,WORD,D203,Отбраковыватель линия 1 (Select),,,,BOOL,110.03,,Y3
+,,BOOL,W10.04,Отбраковыватель линия 2,,,BOOL,H10.04,Отбраковыватель линия 2 (NO/NC),,,WORD,D204,Отбраковыватель линия 2 (Select),,,,BOOL,110.04,,Y4
+,,BOOL,W10.05,,,,BOOL,H10.05, (NO/NC),,,WORD,D205, (Select),,,,BOOL,110.05,,Y5
+,,BOOL,W10.06,,,,BOOL,H10.06, (NO/NC),,,WORD,D206, (Select),,,,BOOL,110.06,,Y6
+,,BOOL,W10.07,,,,BOOL,H10.07, (NO/NC),,,WORD,D207, (Select),,,,BOOL,110.07,,Y7
+,,BOOL,W10.08,,,,BOOL,H10.08, (NO/NC),,,WORD,D208, (Select),,,,BOOL,110.08,,Y8
+,,BOOL,W10.09,,,,BOOL,H10.09, (NO/NC),,,WORD,D209, (Select),,,,BOOL,110.09,,Y9
+,,BOOL,W10.10,,,,BOOL,H10.10, (NO/NC),,,WORD,D210, (Select),,,,BOOL,110.10,,Y10
+,,BOOL,W10.11,,,,BOOL,H10.11, (NO/NC),,,WORD,D211, (Select),,,,BOOL,110.11,,Y11
+,,BOOL,W10.12,,,,BOOL,H10.12, (NO/NC),,,WORD,D212, (Select),,,,BOOL,110.12,,Y12
+,,BOOL,W10.13,,,,BOOL,H10.13, (NO/NC),,,WORD,D213, (Select),,,,BOOL,110.13,,Y13
+,,BOOL,W10.14,,,,BOOL,H10.14, (NO/NC),,,WORD,D214, (Select),,,,BOOL,110.14,,Y14
+,,BOOL,W10.15,,,,BOOL,H10.15, (NO/NC),,,WORD,D215, (Select),,,,BOOL,110.15,,Y15
+,,BOOL,W11.00,,NO / NC --->,,BOOL,H11.00, (NO/NC),Select --->,,WORD,D216, (Select),,D281,,BOOL,111.00,,Y16
+,,BOOL,W11.01,,,,BOOL,H11.01, (NO/NC),,,WORD,D217, (Select),,,,BOOL,111.01,,Y17
+,,BOOL,W11.02,,,,BOOL,H11.02, (NO/NC),,,WORD,D218, (Select),,,,BOOL,111.02,,Y18
+,,BOOL,W11.03,,,,BOOL,H11.03, (NO/NC),,,WORD,D219, (Select),,,,BOOL,111.03,,Y19
+,,BOOL,W11.04,,,,BOOL,H11.04, (NO/NC),,,WORD,D220, (Select),,,,BOOL,111.04,,Y20
+,,BOOL,W11.05,,,,BOOL,H11.05, (NO/NC),,,WORD,D221, (Select),,,,BOOL,111.05,,Y21
+,,BOOL,W11.06,,,,BOOL,H11.06, (NO/NC),,,WORD,D222, (Select),,,,BOOL,111.06,,Y22
+,,BOOL,W11.07,,,,BOOL,H11.07, (NO/NC),,,WORD,D223, (Select),,,,BOOL,111.07,,Y23
+,,BOOL,W11.08,,,,BOOL,H11.08, (NO/NC),,,WORD,D224, (Select),,,,BOOL,111.08,,Y24
+,,BOOL,W11.09,,,,BOOL,H11.09, (NO/NC),,,WORD,D225, (Select),,,,BOOL,111.09,,Y25
+,,BOOL,W11.10,,,,BOOL,H11.10, (NO/NC),,,WORD,D226, (Select),,,,BOOL,111.10,,Y26
+,,BOOL,W11.11,,,,BOOL,H11.11, (NO/NC),,,WORD,D227, (Select),,,,BOOL,111.11,,Y27
+,,BOOL,W11.12,,,,BOOL,H11.12, (NO/NC),,,WORD,D228, (Select),,,,BOOL,111.12,,Y28
+,,BOOL,W11.13,,,,BOOL,H11.13, (NO/NC),,,WORD,D229, (Select),,,,BOOL,111.13,,Y29
+,,BOOL,W11.14,,,,BOOL,H11.14, (NO/NC),,,WORD,D230, (Select),,,,BOOL,111.14,,Y30
+,,BOOL,W11.15,,,,BOOL,H11.15, (NO/NC),,,WORD,D231, (Select),,,,BOOL,111.15,,Y31
+,,BOOL,W12.00,,NO / NC --->,,BOOL,H12.00, (NO/NC),Select --->,,WORD,D232, (Select),,D282,,BOOL,112.00,,Y32
+,,BOOL,W12.01,,,,BOOL,H12.01, (NO/NC),,,WORD,D233, (Select),,,,BOOL,112.01,,Y33
+,,BOOL,W12.02,,,,BOOL,H12.02, (NO/NC),,,WORD,D234, (Select),,,,BOOL,112.02,,Y34
+,,BOOL,W12.03,,,,BOOL,H12.03, (NO/NC),,,WORD,D235, (Select),,,,BOOL,112.03,,Y35
+,,BOOL,W12.04,,,,BOOL,H12.04, (NO/NC),,,WORD,D236, (Select),,,,BOOL,112.04,,Y36
+,,BOOL,W12.05,,,,BOOL,H12.05, (NO/NC),,,WORD,D237, (Select),,,,BOOL,112.05,,Y37
+,,BOOL,W12.06,,,,BOOL,H12.06, (NO/NC),,,WORD,D238, (Select),,,,BOOL,112.06,,Y38
+,,BOOL,W12.07,,,,BOOL,H12.07, (NO/NC),,,WORD,D239, (Select),,,,BOOL,112.07,,Y39
+,,BOOL,W12.08,,,,BOOL,H12.08, (NO/NC),,,WORD,D240, (Select),,,,BOOL,112.08,,Y40
+,,BOOL,W12.09,,,,BOOL,H12.09, (NO/NC),,,WORD,D241, (Select),,,,BOOL,112.09,,Y41
+,,BOOL,W12.10,,,,BOOL,H12.10, (NO/NC),,,WORD,D242, (Select),,,,BOOL,112.10,,Y42
+,,BOOL,W12.11,,,,BOOL,H12.11, (NO/NC),,,WORD,D243, (Select),,,,BOOL,112.11,,Y43
+,,BOOL,W12.12,,,,BOOL,H12.12, (NO/NC),,,WORD,D244, (Select),,,,BOOL,112.12,,Y44
+,,BOOL,W12.13,,,,BOOL,H12.13, (NO/NC),,,WORD,D245, (Select),,,,BOOL,112.13,,Y45
+,,BOOL,W12.14,,,,BOOL,H12.14, (NO/NC),,,WORD,D246, (Select),,,,BOOL,112.14,,Y46
+,,BOOL,W12.15,,,,BOOL,H12.15, (NO/NC),,,WORD,D247, (Select),,,,BOOL,112.15,,Y47
+,,BOOL,W13.00,,NO / NC --->,,BOOL,H13.00, (NO/NC),Select --->,,WORD,D248, (Select),,D283,,BOOL,113.00,,Y48
+,,BOOL,W13.01,,,,BOOL,H13.01, (NO/NC),,,WORD,D249, (Select),,,,BOOL,113.01,,Y49
+,,BOOL,W13.02,,,,BOOL,H13.02, (NO/NC),,,WORD,D250, (Select),,,,BOOL,113.02,,Y50
+,,BOOL,W13.03,,,,BOOL,H13.03, (NO/NC),,,WORD,D251, (Select),,,,BOOL,113.03,,Y51
+,,BOOL,W13.04,,,,BOOL,H13.04, (NO/NC),,,WORD,D252, (Select),,,,BOOL,113.04,,Y52
+,,BOOL,W13.05,,,,BOOL,H13.05, (NO/NC),,,WORD,D253, (Select),,,,BOOL,113.05,,Y53
+,,BOOL,W13.06,,,,BOOL,H13.06, (NO/NC),,,WORD,D254, (Select),,,,BOOL,113.06,,Y54
+,,BOOL,W13.07,,,,BOOL,H13.07, (NO/NC),,,WORD,D255, (Select),,,,BOOL,113.07,,Y55
+,,BOOL,W13.08,,,,BOOL,H13.08, (NO/NC),,,WORD,D256, (Select),,,,BOOL,113.08,,Y56
+,,BOOL,W13.09,,,,BOOL,H13.09, (NO/NC),,,WORD,D257, (Select),,,,BOOL,113.09,,Y57
+,,BOOL,W13.10,,,,BOOL,H13.10, (NO/NC),,,WORD,D258, (Select),,,,BOOL,113.10,,Y58
+,,BOOL,W13.11,,,,BOOL,H13.11, (NO/NC),,,WORD,D259, (Select),,,,BOOL,113.11,,Y59
+,,BOOL,W13.12,,,,BOOL,H13.12, (NO/NC),,,WORD,D260, (Select),,,,BOOL,113.12,,Y60
+,,BOOL,W13.13,,,,BOOL,H13.13, (NO/NC),,,WORD,D261, (Select),,,,BOOL,113.13,,Y61
+,,BOOL,W13.14,,,,BOOL,H13.14, (NO/NC),,,WORD,D262, (Select),,,,BOOL,113.14,,Y62
+,,BOOL,W13.15,,,,BOOL,H13.15, (NO/NC),,,WORD,D263, (Select),,,,BOOL,113.15,,Y63
+,,BOOL,W14.00,,NO / NC --->,,BOOL,H14.00, (NO/NC),Select --->,,WORD,D264, (Select),,D284,,BOOL,114.00,,Y64
+,,BOOL,W14.01,,,,BOOL,H14.01, (NO/NC),,,WORD,D265, (Select),,,,BOOL,114.01,,Y65
+,,BOOL,W14.02,,,,BOOL,H14.02, (NO/NC),,,WORD,D266, (Select),,,,BOOL,114.02,,Y66
+,,BOOL,W14.03,,,,BOOL,H14.03, (NO/NC),,,WORD,D267, (Select),,,,BOOL,114.03,,Y67
+,,BOOL,W14.04,,,,BOOL,H14.04, (NO/NC),,,WORD,D268, (Select),,,,BOOL,114.04,,Y68
+,,BOOL,W14.05,,,,BOOL,H14.05, (NO/NC),,,WORD,D269, (Select),,,,BOOL,114.05,,Y69
+,,BOOL,W14.06,,,,BOOL,H14.06, (NO/NC),,,WORD,D270, (Select),,,,BOOL,114.06,,Y70
+,,BOOL,W14.07,,,,BOOL,H14.07, (NO/NC),,,WORD,D271, (Select),,,,BOOL,114.07,,Y71
+,,BOOL,W14.08,,,,BOOL,H14.08, (NO/NC),,,WORD,D272, (Select),,,,BOOL,114.08,,Y72
+,,BOOL,W14.09,,,,BOOL,H14.09, (NO/NC),,,WORD,D273, (Select),,,,BOOL,114.09,,Y73
+,,BOOL,W14.10,,,,BOOL,H14.10, (NO/NC),,,WORD,D274, (Select),,,,BOOL,114.10,,Y74
+,,BOOL,W14.11,,,,BOOL,H14.11, (NO/NC),,,WORD,D275, (Select),,,,BOOL,114.11,,Y75
+,,BOOL,W14.12,,,,BOOL,H14.12, (NO/NC),,,WORD,D276, (Select),,,,BOOL,114.12,,Y76
+,,BOOL,W14.13,,,,BOOL,H14.13, (NO/NC),,,WORD,D277, (Select),,,,BOOL,114.13,,Y77
+,,BOOL,W14.14,,,,BOOL,H14.14, (NO/NC),,,WORD,D278, (Select),,,,BOOL,114.14,,Y78
+,,BOOL,W14.15,,,,BOOL,H14.15, (NO/NC),,,WORD,D279, (Select),,,,BOOL,114.15,,Y79

@@ -1,0 +1,64 @@
+# Нормализованная карта сигналов техзрения (MAP 25_247).
+# Источник: plk/25_247_MAP - Входы.csv, Состояния-неисправности-управление.csv
+# Адреса W0.xx — рабочая область; CIO — зеркало в логике ПЛК (уточнить, куда писать по FINS).
+
+version: 1
+map_id: "25_247"
+
+# MVP: исходящие сигналы PC → PLC
+signals:
+  - name: vision_ready
+    description: Техзрение готовность
+    area: W
+    address: "0.04"
+    data_type: bool
+    direction: pc_to_plc
+    mirror:
+      area: CIO
+      address: "140.02"
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: vision_fault
+    description: Техзрение ошибка (авария системы зрения)
+    area: W
+    address: "0.05"
+    data_type: bool
+    direction: pc_to_plc
+    mirror:
+      area: CIO
+      address: "190.00"
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: reject_line_1
+    description: Техзрение брак линия 1 (ведро камер 0–4)
+    area: W
+    address: "0.06"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 0
+    mirror:
+      area: CIO
+      address: "140.08"
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: reject_line_2
+    description: Техзрение брак линия 2 (ведро камер 5–9)
+    area: W
+    address: "0.07"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 1
+    mirror:
+      area: CIO
+      address: "140.09"
+    source_csv: "25_247_MAP - Входы.csv"
+
+# Входящие от ПЛК (фаза 2 — триггер инспекции)
+inputs:
+  - name: robot_trigger
+    description: Робот триггер
+    area: W
+    address: "0.02"
+    data_type: bool
+    direction: plc_to_pc
+    source_csv: "25_247_MAP - Входы.csv"

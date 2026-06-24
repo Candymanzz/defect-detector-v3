@@ -1,0 +1,163 @@
+,Дискретные входы,,,,,NO/NC,,,,,Select,,,,,,Прочитанные дискретные входы,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,RF,,,,,RF,,,,,RF,,,,,,,,,,
+,,BOOL,W0.00,Робот работа,NO / NC --->,,BOOL,H0.00,Робот работа (NO/NC),Select --->,,WORD,D0,Робот работа (Select),,D80,,BOOL,10.00,,X0
+,,BOOL,W0.01,Робот направление движения,,,BOOL,H0.01,Робот направление движения (NO/NC),,,WORD,D1,Робот направление движения (Select),,,,BOOL,10.01,,X1
+,,BOOL,W0.02,Робот триггер,,,BOOL,H0.02,Робот триггер (NO/NC),,,WORD,D2,Робот триггер (Select),,,,BOOL,10.02,,X2
+,,BOOL,W0.03,Контроль движения ленты,,,BOOL,H0.03,Контроль движения ленты (NO/NC),,,WORD,D3,Контроль движения ленты (Select),,,,BOOL,10.03,,X3
+,,BOOL,W0.04,Техзрение готовность,,,BOOL,H0.04,Техзрение готовность (NO/NC),,,WORD,D4,Техзрение готовность (Select),,,,BOOL,10.04,,X4
+,,BOOL,W0.05,Техзрение ошибка,,,BOOL,H0.05,Техзрение ошибка (NO/NC),,,WORD,D5,Техзрение ошибка (Select),,,,BOOL,10.05,,X5
+,,BOOL,W0.06,Техзрение брак линия 1,,,BOOL,H0.06,Техзрение брак линия 1 (NO/NC),,,WORD,D6,Техзрение брак линия 1 (Select),,,,BOOL,10.06,,X6
+,,BOOL,W0.07,Техзрение брак линия 2,,,BOOL,H0.07,Техзрение брак линия 2 (NO/NC),,,WORD,D7,Техзрение брак линия 2 (Select),,,,BOOL,10.07,,X7
+,,BOOL,W0.08,,,,BOOL,H0.08, (NO/NC),,,WORD,D8, (Select),,,,BOOL,10.08,,X8
+,,BOOL,W0.09,,,,BOOL,H0.09, (NO/NC),,,WORD,D9, (Select),,,,BOOL,10.09,,X9
+,,BOOL,W0.10,,,,BOOL,H0.10, (NO/NC),,,WORD,D10, (Select),,,,BOOL,10.10,,X10
+,,BOOL,W0.11,,,,BOOL,H0.11, (NO/NC),,,WORD,D11, (Select),,,,BOOL,10.11,,X11
+,,BOOL,W0.12,,,,BOOL,H0.12, (NO/NC),,,WORD,D12, (Select),,,,BOOL,10.12,,X12
+,,BOOL,W0.13,,,,BOOL,H0.13, (NO/NC),,,WORD,D13, (Select),,,,BOOL,10.13,,X13
+,,BOOL,W0.14,,,,BOOL,H0.14, (NO/NC),,,WORD,D14, (Select),,,,BOOL,10.14,,X14
+,,BOOL,W0.15,,,,BOOL,H0.15, (NO/NC),,,WORD,D15, (Select),,,,BOOL,10.15,,X15
+,,BOOL,W1.00,,NO / NC --->,,BOOL,H1.00, (NO/NC),Select --->,,WORD,D16, (Select),,D81,,BOOL,11.00,,X16
+,,BOOL,W1.01,,,,BOOL,H1.01, (NO/NC),,,WORD,D17, (Select),,,,BOOL,11.01,,X17
+,,BOOL,W1.02,,,,BOOL,H1.02, (NO/NC),,,WORD,D18, (Select),,,,BOOL,11.02,,X18
+,,BOOL,W1.03,,,,BOOL,H1.03, (NO/NC),,,WORD,D19, (Select),,,,BOOL,11.03,,X19
+,,BOOL,W1.04,,,,BOOL,H1.04, (NO/NC),,,WORD,D20, (Select),,,,BOOL,11.04,,X20
+,,BOOL,W1.05,,,,BOOL,H1.05, (NO/NC),,,WORD,D21, (Select),,,,BOOL,11.05,,X21
+,,BOOL,W1.06,,,,BOOL,H1.06, (NO/NC),,,WORD,D22, (Select),,,,BOOL,11.06,,X22
+,,BOOL,W1.07,,,,BOOL,H1.07, (NO/NC),,,WORD,D23, (Select),,,,BOOL,11.07,,X23
+,,BOOL,W1.08,,,,BOOL,H1.08, (NO/NC),,,WORD,D24, (Select),,,,BOOL,11.08,,X24
+,,BOOL,W1.09,,,,BOOL,H1.09, (NO/NC),,,WORD,D25, (Select),,,,BOOL,11.09,,X25
+,,BOOL,W1.10,,,,BOOL,H1.10, (NO/NC),,,WORD,D26, (Select),,,,BOOL,11.10,,X26
+,,BOOL,W1.11,,,,BOOL,H1.11, (NO/NC),,,WORD,D27, (Select),,,,BOOL,11.11,,X27
+,,BOOL,W1.12,,,,BOOL,H1.12, (NO/NC),,,WORD,D28, (Select),,,,BOOL,11.12,,X28
+,,BOOL,W1.13,,,,BOOL,H1.13, (NO/NC),,,WORD,D29, (Select),,,,BOOL,11.13,,X29
+,,BOOL,W1.14,,,,BOOL,H1.14, (NO/NC),,,WORD,D30, (Select),,,,BOOL,11.14,,X30
+,,BOOL,W1.15,,,,BOOL,H1.15, (NO/NC),,,WORD,D31, (Select),,,,BOOL,11.15,,X31
+,,BOOL,W2.00,,NO / NC --->,,BOOL,H2.00, (NO/NC),Select --->,,WORD,D32, (Select),,D82,,BOOL,12.00,,X32
+,,BOOL,W2.01,,,,BOOL,H2.01, (NO/NC),,,WORD,D33, (Select),,,,BOOL,12.01,,X33
+,,BOOL,W2.02,,,,BOOL,H2.02, (NO/NC),,,WORD,D34, (Select),,,,BOOL,12.02,,X34
+,,BOOL,W2.03,,,,BOOL,H2.03, (NO/NC),,,WORD,D35, (Select),,,,BOOL,12.03,,X35
+,,BOOL,W2.04,,,,BOOL,H2.04, (NO/NC),,,WORD,D36, (Select),,,,BOOL,12.04,,X36
+,,BOOL,W2.05,,,,BOOL,H2.05, (NO/NC),,,WORD,D37, (Select),,,,BOOL,12.05,,X37
+,,BOOL,W2.06,,,,BOOL,H2.06, (NO/NC),,,WORD,D38, (Select),,,,BOOL,12.06,,X38
+,,BOOL,W2.07,,,,BOOL,H2.07, (NO/NC),,,WORD,D39, (Select),,,,BOOL,12.07,,X39
+,,BOOL,W2.08,,,,BOOL,H2.08, (NO/NC),,,WORD,D40, (Select),,,,BOOL,12.08,,X40
+,,BOOL,W2.09,,,,BOOL,H2.09, (NO/NC),,,WORD,D41, (Select),,,,BOOL,12.09,,X41
+,,BOOL,W2.10,,,,BOOL,H2.10, (NO/NC),,,WORD,D42, (Select),,,,BOOL,12.10,,X42
+,,BOOL,W2.11,,,,BOOL,H2.11, (NO/NC),,,WORD,D43, (Select),,,,BOOL,12.11,,X43
+,,BOOL,W2.12,,,,BOOL,H2.12, (NO/NC),,,WORD,D44, (Select),,,,BOOL,12.12,,X44
+,,BOOL,W2.13,,,,BOOL,H2.13, (NO/NC),,,WORD,D45, (Select),,,,BOOL,12.13,,X45
+,,BOOL,W2.14,,,,BOOL,H2.14, (NO/NC),,,WORD,D46, (Select),,,,BOOL,12.14,,X46
+,,BOOL,W2.15,,,,BOOL,H2.15, (NO/NC),,,WORD,D47, (Select),,,,BOOL,12.15,,X47
+,,BOOL,W3.00,,NO / NC --->,,BOOL,H3.00, (NO/NC),Select --->,,WORD,D48, (Select),,D83,,BOOL,13.00,,X48
+,,BOOL,W3.01,,,,BOOL,H3.01, (NO/NC),,,WORD,D49, (Select),,,,BOOL,13.01,,X49
+,,BOOL,W3.02,,,,BOOL,H3.02, (NO/NC),,,WORD,D50, (Select),,,,BOOL,13.02,,X50
+,,BOOL,W3.03,,,,BOOL,H3.03, (NO/NC),,,WORD,D51, (Select),,,,BOOL,13.03,,X51
+,,BOOL,W3.04,,,,BOOL,H3.04, (NO/NC),,,WORD,D52, (Select),,,,BOOL,13.04,,X52
+,,BOOL,W3.05,,,,BOOL,H3.05, (NO/NC),,,WORD,D53, (Select),,,,BOOL,13.05,,X53
+,,BOOL,W3.06,,,,BOOL,H3.06, (NO/NC),,,WORD,D54, (Select),,,,BOOL,13.06,,X54
+,,BOOL,W3.07,,,,BOOL,H3.07, (NO/NC),,,WORD,D55, (Select),,,,BOOL,13.07,,X55
+,,BOOL,W3.08,,,,BOOL,H3.08, (NO/NC),,,WORD,D56, (Select),,,,BOOL,13.08,,X56
+,,BOOL,W3.09,,,,BOOL,H3.09, (NO/NC),,,WORD,D57, (Select),,,,BOOL,13.09,,X57
+,,BOOL,W3.10,,,,BOOL,H3.10, (NO/NC),,,WORD,D58, (Select),,,,BOOL,13.10,,X58
+,,BOOL,W3.11,,,,BOOL,H3.11, (NO/NC),,,WORD,D59, (Select),,,,BOOL,13.11,,X59
+,,BOOL,W3.12,,,,BOOL,H3.12, (NO/NC),,,WORD,D60, (Select),,,,BOOL,13.12,,X60
+,,BOOL,W3.13,,,,BOOL,H3.13, (NO/NC),,,WORD,D61, (Select),,,,BOOL,13.13,,X61
+,,BOOL,W3.14,,,,BOOL,H3.14, (NO/NC),,,WORD,D62, (Select),,,,BOOL,13.14,,X62
+,,BOOL,W3.15,,,,BOOL,H3.15, (NO/NC),,,WORD,D63, (Select),,,,BOOL,13.15,,X63
+,,BOOL,W4.00,,NO / NC --->,,BOOL,H4.00, (NO/NC),Select --->,,WORD,D64, (Select),,D84,,BOOL,14.00,,X64
+,,BOOL,W4.01,,,,BOOL,H4.01, (NO/NC),,,WORD,D65, (Select),,,,BOOL,14.01,,X65
+,,BOOL,W4.02,,,,BOOL,H4.02, (NO/NC),,,WORD,D66, (Select),,,,BOOL,14.02,,X66
+,,BOOL,W4.03,,,,BOOL,H4.03, (NO/NC),,,WORD,D67, (Select),,,,BOOL,14.03,,X67
+,,BOOL,W4.04,,,,BOOL,H4.04, (NO/NC),,,WORD,D68, (Select),,,,BOOL,14.04,,X68
+,,BOOL,W4.05,,,,BOOL,H4.05, (NO/NC),,,WORD,D69, (Select),,,,BOOL,14.05,,X69
+,,BOOL,W4.06,,,,BOOL,H4.06, (NO/NC),,,WORD,D70, (Select),,,,BOOL,14.06,,X70
+,,BOOL,W4.07,,,,BOOL,H4.07, (NO/NC),,,WORD,D71, (Select),,,,BOOL,14.07,,X71
+,,BOOL,W4.08,,,,BOOL,H4.08, (NO/NC),,,WORD,D72, (Select),,,,BOOL,14.08,,X72
+,,BOOL,W4.09,,,,BOOL,H4.09, (NO/NC),,,WORD,D73, (Select),,,,BOOL,14.09,,X73
+,,BOOL,W4.10,,,,BOOL,H4.10, (NO/NC),,,WORD,D74, (Select),,,,BOOL,14.10,,X74
+,,BOOL,W4.11,,,,BOOL,H4.11, (NO/NC),,,WORD,D75, (Select),,,,BOOL,14.11,,X75
+,,BOOL,W4.12,,,,BOOL,H4.12, (NO/NC),,,WORD,D76, (Select),,,,BOOL,14.12,,X76
+,,BOOL,W4.13,,,,BOOL,H4.13, (NO/NC),,,WORD,D77, (Select),,,,BOOL,14.13,,X77
+,,BOOL,W4.14,,,,BOOL,H4.14, (NO/NC),,,WORD,D78, (Select),,,,BOOL,14.14,,X78
+,,BOOL,W4.15,,,,BOOL,H4.15, (NO/NC),,,WORD,D79, (Select),,,,BOOL,14.15,,X79
+,,,,,,,,,,,,,,,,D85,,BOOL,15.00,,X80
+,,,,,,,,,,,,,,,,,,BOOL,15.01,,X81
+,,,,,,,,,,,,,,,,,,BOOL,15.02,,X82
+,,,,,,,,,,,,,,,,,,BOOL,15.03,,X83
+,,,,,,,,,,,,,,,,,,BOOL,15.04,,X84
+,,,,,,,,,,,,,,,,,,BOOL,15.05,,X85
+,,,,,,,,,,,,,,,,,,BOOL,15.06,,X86
+,,,,,,,,,,,,,,,,,,BOOL,15.07,,X87
+,,,,,,,,,,,,,,,,,,BOOL,15.08,,X88
+,,,,,,,,,,,,,,,,,,BOOL,15.09,,X89
+,,,,,,,,,,,,,,,,,,BOOL,15.10,,X90
+,,,,,,,,,,,,,,,,,,BOOL,15.11,,X91
+,,,,,,,,,,,,,,,,,,BOOL,15.12,,X92
+,,,,,,,,,,,,,,,,,,BOOL,15.13,,X93
+,,,,,,,,,,,,,,,,,,BOOL,15.14,,X94
+,,,,,,,,,,,,,,,,,,BOOL,15.15,,X95
+,,,,,,,,,,,,,,,,D86,,BOOL,16.00,,X96
+,,,,,,,,,,,,,,,,,,BOOL,16.01,,X97
+,,,,,,,,,,,,,,,,,,BOOL,16.02,,X98
+,,,,,,,,,,,,,,,,,,BOOL,16.03,,X99
+,,,,,,,,,,,,,,,,,,BOOL,16.04,,X100
+,,,,,,,,,,,,,,,,,,BOOL,16.05,,X101
+,,,,,,,,,,,,,,,,,,BOOL,16.06,,X102
+,,,,,,,,,,,,,,,,,,BOOL,16.07,,X103
+,,,,,,,,,,,,,,,,,,BOOL,16.08,,X104
+,,,,,,,,,,,,,,,,,,BOOL,16.09,,X105
+,,,,,,,,,,,,,,,,,,BOOL,16.10,,X106
+,,,,,,,,,,,,,,,,,,BOOL,16.11,,X107
+,,,,,,,,,,,,,,,,,,BOOL,16.12,,X108
+,,,,,,,,,,,,,,,,,,BOOL,16.13,,X109
+,,,,,,,,,,,,,,,,,,BOOL,16.14,,X110
+,,,,,,,,,,,,,,,,,,BOOL,16.15,,X111
+,,,,,,,,,,,,,,,,D87,,BOOL,17.00,,X112
+,,,,,,,,,,,,,,,,,,BOOL,17.01,,X113
+,,,,,,,,,,,,,,,,,,BOOL,17.02,,X114
+,,,,,,,,,,,,,,,,,,BOOL,17.03,,X115
+,,,,,,,,,,,,,,,,,,BOOL,17.04,,X116
+,,,,,,,,,,,,,,,,,,BOOL,17.05,,X117
+,,,,,,,,,,,,,,,,,,BOOL,17.06,,X118
+,,,,,,,,,,,,,,,,,,BOOL,17.07,,X119
+,,,,,,,,,,,,,,,,,,BOOL,17.08,,X120
+,,,,,,,,,,,,,,,,,,BOOL,17.09,,X121
+,,,,,,,,,,,,,,,,,,BOOL,17.10,,X122
+,,,,,,,,,,,,,,,,,,BOOL,17.11,,X123
+,,,,,,,,,,,,,,,,,,BOOL,17.12,,X124
+,,,,,,,,,,,,,,,,,,BOOL,17.13,,X125
+,,,,,,,,,,,,,,,,,,BOOL,17.14,,X126
+,,,,,,,,,,,,,,,,,,BOOL,17.15,,X127
+,,,,,,,,,,,,,,,,D88,,BOOL,18.00,,X128
+,,,,,,,,,,,,,,,,,,BOOL,18.01,,X129
+,,,,,,,,,,,,,,,,,,BOOL,18.02,,X130
+,,,,,,,,,,,,,,,,,,BOOL,18.03,,X131
+,,,,,,,,,,,,,,,,,,BOOL,18.04,,X132
+,,,,,,,,,,,,,,,,,,BOOL,18.05,,X133
+,,,,,,,,,,,,,,,,,,BOOL,18.06,,X134
+,,,,,,,,,,,,,,,,,,BOOL,18.07,,X135
+,,,,,,,,,,,,,,,,,,BOOL,18.08,,X136
+,,,,,,,,,,,,,,,,,,BOOL,18.09,,X137
+,,,,,,,,,,,,,,,,,,BOOL,18.10,,X138
+,,,,,,,,,,,,,,,,,,BOOL,18.11,,X139
+,,,,,,,,,,,,,,,,,,BOOL,18.12,,X140
+,,,,,,,,,,,,,,,,,,BOOL,18.13,,X141
+,,,,,,,,,,,,,,,,,,BOOL,18.14,,X142
+,,,,,,,,,,,,,,,,,,BOOL,18.15,,X143
+,,,,,,,,,,,,,,,,D89,,BOOL,19.00,,X144
+,,,,,,,,,,,,,,,,,,BOOL,19.01,,X145
+,,,,,,,,,,,,,,,,,,BOOL,19.02,,X146
+,,,,,,,,,,,,,,,,,,BOOL,19.03,,X147
+,,,,,,,,,,,,,,,,,,BOOL,19.04,,X148
+,,,,,,,,,,,,,,,,,,BOOL,19.05,,X149
+,,,,,,,,,,,,,,,,,,BOOL,19.06,,X150
+,,,,,,,,,,,,,,,,,,BOOL,19.07,,X151
+,,,,,,,,,,,,,,,,,,BOOL,19.08,,X152
+,,,,,,,,,,,,,,,,,,BOOL,19.09,,X153
+,,,,,,,,,,,,,,,,,,BOOL,19.10,,X154
+,,,,,,,,,,,,,,,,,,BOOL,19.11,,X155
+,,,,,,,,,,,,,,,,,,BOOL,19.12,,X156
+,,,,,,,,,,,,,,,,,,BOOL,19.13,,X157
+,,,,,,,,,,,,,,,,,,BOOL,19.14,,X158
+,,,,,,,,,,,,,,,,,,BOOL,19.15,,X159
