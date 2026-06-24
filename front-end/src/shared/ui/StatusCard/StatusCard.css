@@ -109,18 +109,6 @@
   font-weight: 800;
 }
 
-.camera-card__open {
-  border: 1px solid #00ff00;
-  color: #00ff00;
-}
-
-.camera-card__open:hover,
-.camera-card__open:focus-visible {
-  border-color: #3b8f3b;
-  color: #3b8f3b;
-  outline: none;
-}
-
 .camera-card__stop {
   border: 1px solid #ff7373;
   color: #ff9b9b;

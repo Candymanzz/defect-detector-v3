@@ -13,6 +13,7 @@ import {
 } from "./SettingController";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
+import { Button } from "../../shared/ui/Button";
 import type { AnalysisSettingFieldName, SettingFieldName } from "./type";
 import "./SettingList.css";
 
@@ -136,7 +137,9 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       .then((nextSettingData) => {
         if (requestId === requestIdRef.current) {
           setSettingData(nextSettingData);
-          setSaveFeedback(resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId));
+          setSaveFeedback(
+            resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
+          );
         }
       });
   };
@@ -162,7 +165,9 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       .then((nextSettingData) => {
         if (requestId === requestIdRef.current) {
           setSettingData(nextSettingData);
-          setSaveFeedback(resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId));
+          setSaveFeedback(
+            resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
+          );
         }
       });
   };
@@ -188,7 +193,9 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       .then((nextSettingData) => {
         if (requestId === requestIdRef.current) {
           setSettingData(nextSettingData);
-          setSaveFeedback(resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId));
+          setSaveFeedback(
+            resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
+          );
         }
       });
   };
@@ -241,14 +248,13 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
               onChange={handleFieldChange("brightnessPercent")}
             />
           </label>
-          <button
+          <Button
             className="setting-list__brightness-save"
-            type="button"
             disabled={!canEditSettings}
             onClick={handleBrightnessSave}
           >
             Сохранить яркость
-          </button>
+          </Button>
         </section>
 
         <label className="setting-list__field setting-list__card">
@@ -263,14 +269,13 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
             onChange={handleFieldChange("maxShiftMm")}
           />
         </label>
-        <button
+        <Button
           className="setting-list__inline-save"
-          type="button"
           disabled={!canEditSettings}
           onClick={handleMaxShiftSave}
         >
           Save max shift
-        </button>
+        </Button>
 
         <section className="setting-list__analysis">
           <div className="setting-list__section-header">
@@ -306,29 +311,29 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
         </section>
 
         <div className="setting-list__actions">
-          <button
+          <Button
             className="setting-list__submit"
             type="submit"
             disabled={!canEditSettings}
           >
             Сохранить настройки
-          </button>
-          <button
-            className="setting-list__submit setting-list__submit--secondary"
-            type="button"
+          </Button>
+          <Button
+            className="setting-list__submit"
+            variant="warning"
             disabled={isBusy}
             onClick={() => setIsReferenceSetupOpen(true)}
           >
             Задать эталон
-          </button>
-          <button
-            className="setting-list__submit setting-list__submit--secondary"
-            type="button"
+          </Button>
+          <Button
+            className="setting-list__submit"
+            variant="warning"
             disabled={isBusy}
             onClick={() => setIsServerStreamOpen(true)}
           >
             Открыть стрим
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -342,7 +347,6 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
         <ServerStream
           isOpen
           cameraId={streamCameraId}
-          title={`Camera ${streamCameraId}`}
           onClose={() => setIsServerStreamOpen(false)}
         />
       )}

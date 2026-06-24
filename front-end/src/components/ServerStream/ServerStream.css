@@ -42,6 +42,38 @@
   line-height: 1.2;
 }
 
+.server-stream__heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.server-stream__heading h2 {
+  width: 100%;
+}
+
+.server-stream__camera-selector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #c7d2ce;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.server-stream__camera-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.server-stream__camera-tile {
+  min-width: 38px;
+  min-height: 32px;
+  padding: 5px 10px;
+}
+
 .server-stream__connection,
 .server-stream__status {
   color: #9aa8a4;
@@ -83,10 +115,6 @@
 .server-stream__button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
-}
-
-.server-stream__button--start {
-  background: #1e7b5a;
 }
 
 .server-stream__button--stop {

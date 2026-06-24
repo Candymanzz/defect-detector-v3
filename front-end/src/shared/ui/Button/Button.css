@@ -1,0 +1,59 @@
+.button {
+  min-height: 32px;
+  padding: 6px 6px;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.button.button--primary {
+  border: 1px solid #65d994;
+  border-radius: 6px;
+  background: rgba(0, 217, 107, 0.12);
+  color: #8bf0b4;
+  font-weight: 700;
+}
+
+.button.button--primary:not(:disabled):hover,
+.button.button--primary:not(:disabled):focus-visible {
+  border-color: #8bf0b4;
+  background: rgba(0, 217, 107, 0.2);
+  color: #b8f8d1;
+}
+
+.button.button--primary:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.button.button--primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.button.button--warning {
+  border: 1px solid #facc15;
+  border-radius: 6px;
+  background: rgba(250, 204, 21, 0.12);
+  color: #fde047;
+  font-weight: 700;
+}
+
+.button.button--warning:not(:disabled):hover,
+.button.button--warning:not(:disabled):focus-visible {
+  border-color: #fde047;
+  background: rgba(250, 204, 21, 0.2);
+  color: #fef08a;
+}
+
+.button.button--warning:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.button.button--warning:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

@@ -4,6 +4,7 @@ import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
 import { FpZoneEditor } from "../FpZoneEditor";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
+import { Button } from "../../shared/ui/Button";
 import { useReferenceSetupController } from "./ReferenceController";
 
 type ReferenceSetupProps = {
@@ -128,14 +129,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </button>
             )}
 
-            <button
-              className="reference-setup__button reference-setup__button--primary"
-              type="button"
+            <Button
+              className="reference-setup__button"
               disabled={!canSendAllReferences}
               onClick={handleSendAllReferences}
             >
               Задать эталон
-            </button>
+            </Button>
           </div>
 
           <div className="reference-setup__workspace">

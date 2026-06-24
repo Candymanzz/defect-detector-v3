@@ -33,7 +33,7 @@ export function InspectionHistory({ cameraIds, historyByCameraId }: InspectionHi
         className="inspection-history"
         aria-label="Последние инспекции"
       >
-        <header>Inspection History</header>
+        <header>Последние инспекции</header>
         <div className="inspection-history__tiles">
           {items.map((item) => (
             <button
@@ -67,10 +67,7 @@ export function InspectionHistory({ cameraIds, historyByCameraId }: InspectionHi
   );
 }
 
-function createInspectionHistoryTiles(
-  cameraIds: number[],
-  historyByCameraId: Record<number, InspectionHistoryItem[]>,
-) {
+function createInspectionHistoryTiles(cameraIds: number[], historyByCameraId: Record<number, InspectionHistoryItem[]>) {
   const groups: InspectionHistoryTile[] = [];
   const historyItems = cameraIds
     .flatMap((cameraId) => historyByCameraId[cameraId] ?? [])
@@ -86,8 +83,7 @@ function createInspectionHistoryTiles(
         group.inspectionId === groupId &&
         group.results.some(
           (result) =>
-            result.inspectResult.camera_id === item.inspectResult.camera_id &&
-            result.frameId === item.frameId,
+            result.inspectResult.camera_id === item.inspectResult.camera_id && result.frameId === item.frameId,
         ),
     );
     if (exactFrameGroup) {
@@ -104,12 +100,8 @@ function createInspectionHistoryTiles(
     );
     if (matchingCycleGroup) {
       matchingCycleGroup.results.push(item);
-      matchingCycleGroup.result =
-        matchingCycleGroup.result === "fail" || item.result === "fail" ? "fail" : "pass";
-      matchingCycleGroup.serverTsMs = Math.max(
-        matchingCycleGroup.serverTsMs,
-        item.inspectResult.server_ts_ms,
-      );
+      matchingCycleGroup.result = matchingCycleGroup.result === "fail" || item.result === "fail" ? "fail" : "pass";
+      matchingCycleGroup.serverTsMs = Math.max(matchingCycleGroup.serverTsMs, item.inspectResult.server_ts_ms);
       continue;
     }
 
@@ -126,9 +118,7 @@ function createInspectionHistoryTiles(
   return groups
     .map((group) => ({
       ...group,
-      results: [...group.results].sort(
-        (left, right) => left.inspectResult.camera_id - right.inspectResult.camera_id,
-      ),
+      results: [...group.results].sort((left, right) => left.inspectResult.camera_id - right.inspectResult.camera_id),
     }))
     .sort((left, right) => right.serverTsMs - left.serverTsMs)
     .slice(0, INSPECTION_HISTORY_LIMIT);
@@ -136,9 +126,7 @@ function createInspectionHistoryTiles(
 
 function replaceCameraResult(group: InspectionHistoryTile, item: InspectionHistoryItem) {
   const resultIndex = group.results.findIndex(
-    (result) =>
-      result.inspectResult.camera_id === item.inspectResult.camera_id &&
-      result.frameId === item.frameId,
+    (result) => result.inspectResult.camera_id === item.inspectResult.camera_id && result.frameId === item.frameId,
   );
   if (resultIndex < 0) {
     return;
@@ -152,10 +140,6 @@ function replaceCameraResult(group: InspectionHistoryTile, item: InspectionHisto
   group.serverTsMs = Math.max(group.serverTsMs, item.inspectResult.server_ts_ms);
 }
 
-function createInspectionGroupKey(
-  source: "inspection" | "frame",
-  inspectionId: string,
-  item: InspectionHistoryItem,
-) {
+function createInspectionGroupKey(source: "inspection" | "frame", inspectionId: string, item: InspectionHistoryItem) {
   return `${source}:${inspectionId}:${item.inspectResult.server_ts_ms}:${item.inspectResult.camera_id}:${item.frameId}`;
 }

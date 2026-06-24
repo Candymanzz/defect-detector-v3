@@ -1,11 +1,8 @@
-import { useState } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
-import { ServerStream } from "../ServerStream";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
-import type { SelectedCamera } from "./type";
 import { resolveCardInspectImageUrl } from "./MainController";
 import { useMainOverview } from "./useMainOverview";
 import "./MainOverview.css";
@@ -18,7 +15,6 @@ type MainOverviewProps = {
 };
 
 export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
-  const [streamCamera, setStreamCamera] = useState<SelectedCamera | null>(null);
   const controller = useMainOverview();
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
   const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
@@ -116,28 +112,10 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
               )}
             </button>
           }
-          headerActions={
-            <button
-              className="modal__action"
-              type="button"
-              onClick={() => setStreamCamera(controller.modalSnapshot)}
-            >
-              Открыть стрим
-            </button>
-          }
           inspectResult={controller.modalSnapshot.inspectResult}
           title={`${controller.modalSnapshot.objectName} / Camera ${controller.modalSnapshot.cameraId}`}
           onInspectionSelect={controller.selectModalInspection}
           onClose={controller.closeInspectionModal}
-        />
-      )}
-
-      {streamCamera && (
-        <ServerStream
-          isOpen
-          cameraId={streamCamera.cameraId}
-          title={`${streamCamera.objectName} / Camera ${streamCamera.cameraId}`}
-          onClose={() => setStreamCamera(null)}
         />
       )}
     </div>

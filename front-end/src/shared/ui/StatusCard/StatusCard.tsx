@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { Button } from "../Button";
 import { PreviewImage } from "../PreviewImage";
 import "./StatusCard.css";
 
@@ -93,16 +94,15 @@ export function StatusCard({
           >
             {inspectionActionLabel}
           </button>
-          <button
+          <Button
             className="camera-card__open"
-            type="button"
             onClick={(event) => {
               event.stopPropagation();
               onOpen();
             }}
           >
             Открыть
-          </button>
+          </Button>
         </div>
       </div>
       {inspectionStatus && <div className="camera-card__stop-status">{inspectionStatus}</div>}

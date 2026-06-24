@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { orchestratorApi } from "../../shared/api";
+import { Button } from "../../shared/ui/Button";
 import { useStreamController } from "./StreamController";
 import "./ServerStream.css";
 
@@ -10,6 +12,9 @@ type ServerStreamProps = {
 };
 
 export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamProps) {
+  const [selectedCameraId, setSelectedCameraId] = useState(cameraId);
+  const [cameraIds, setCameraIds] = useState<number[]>([cameraId]);
+  const [pendingCameraId, setPendingCameraId] = useState<number | null>(null);
   const {
     status,
     streamState,
@@ -20,13 +25,36 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
     canStop,
     startStream,
     stopStream,
+    prepareCameraSwitch,
     handleStreamImageError,
-  } =
-    useStreamController({
-      cameraId,
-      enabled: isOpen,
-    });
-  const streamTitle = title ?? `Стрим камеры ${cameraId}`;
+  } = useStreamController({
+    cameraId: selectedCameraId,
+    enabled: isOpen,
+  });
+  const streamTitle = title ?? "Стрим камер";
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let isActive = true;
+    orchestratorApi
+      .listCameras()
+      .then(({ cameras }) => {
+        if (!isActive) {
+          return;
+        }
+        setCameraIds([...new Set([cameraId, ...cameras])].sort((left, right) => left - right));
+      })
+      .catch(() => {
+        // Keep the initially selected camera available if the camera list cannot be loaded.
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [cameraId, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -42,6 +70,20 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  const handleCameraChange = async (nextCameraId: number) => {
+    if (nextCameraId === selectedCameraId || pendingCameraId !== null) {
+      return;
+    }
+
+    setPendingCameraId(nextCameraId);
+    const previousStreamStopped = await stopStream();
+    if (previousStreamStopped) {
+      prepareCameraSwitch();
+      setSelectedCameraId(nextCameraId);
+    }
+    setPendingCameraId(null);
+  };
 
   if (!isOpen) {
     return null;
@@ -60,7 +102,7 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="server-stream__header">
-          <div>
+          <div className="server-stream__heading">
             <h2>{streamTitle}</h2>
             <span
               className="server-stream__connection"
@@ -68,6 +110,31 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
             >
               WS: {status.state}
             </span>
+            <div
+              aria-label="Выбор камеры"
+              className="server-stream__camera-selector"
+              role="group"
+            >
+              <span>Камеры</span>
+              <div className="server-stream__camera-tiles">
+                {cameraIds.map((availableCameraId) => {
+                  const isActive = availableCameraId === selectedCameraId;
+
+                  return (
+                    <Button
+                      key={availableCameraId}
+                      aria-pressed={isActive}
+                      className="server-stream__camera-tile"
+                      disabled={pendingCameraId !== null}
+                      variant={isActive ? "primary" : "warning"}
+                      onClick={() => void handleCameraChange(availableCameraId)}
+                    >
+                      {availableCameraId}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <button
             aria-label="Закрыть стрим"
@@ -107,19 +174,18 @@ export function ServerStream({ isOpen, cameraId, title, onClose }: ServerStreamP
           </span>
 
           <div className="server-stream__controls">
-            <button
-              className="server-stream__button server-stream__button--start"
+            <Button
+              className="server-stream__button"
               disabled={!canStart}
-              type="button"
               onClick={startStream}
             >
               Пуск стрима
-            </button>
+            </Button>
             <button
               className="server-stream__button server-stream__button--stop"
               disabled={!canStop}
               type="button"
-              onClick={stopStream}
+              onClick={() => void stopStream()}
             >
               Стоп стрим
             </button>

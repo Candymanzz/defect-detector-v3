@@ -15,6 +15,7 @@ type UseStreamControllerOptions = {
 
 const DEFAULT_MAX_FPS = 20;
 const FIRST_FRAME_TIMEOUT_MS = 5000;
+const STOP_ACK_TIMEOUT_MS = 5000;
 
 export function useStreamController({
   cameraId,
@@ -29,6 +30,8 @@ export function useStreamController({
   const streamStateRef = useRef(streamState);
   const autoStartAttemptedRef = useRef(false);
   const firstFrameTimerRef = useRef<number | null>(null);
+  const stopAckTimerRef = useRef<number | null>(null);
+  const stopAckResolverRef = useRef<((stopped: boolean) => void) | null>(null);
 
   useEffect(() => {
     streamStateRef.current = streamState;
@@ -39,6 +42,15 @@ export function useStreamController({
       window.clearTimeout(firstFrameTimerRef.current);
       firstFrameTimerRef.current = null;
     }
+  }, []);
+
+  const resolveStopAck = useCallback((stopped: boolean) => {
+    if (stopAckTimerRef.current !== null) {
+      window.clearTimeout(stopAckTimerRef.current);
+      stopAckTimerRef.current = null;
+    }
+    stopAckResolverRef.current?.(stopped);
+    stopAckResolverRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -89,6 +101,7 @@ export function useStreamController({
           setMjpegUrl(undefined);
           setStreamState("idle");
           setMessage("Stream stopped");
+          resolveStopAck(true);
           return;
 
         case "server.error":
@@ -100,6 +113,7 @@ export function useStreamController({
           setMjpegUrl(undefined);
           setStreamState("error");
           setMessage(`${wsMessage.payload.code}: ${wsMessage.payload.message}`);
+          resolveStopAck(false);
           return;
 
         default:
@@ -119,8 +133,9 @@ export function useStreamController({
         }
       }
       clearFirstFrameTimer();
+      resolveStopAck(false);
     };
-  }, [cameraId, clearFirstFrameTimer, enabled]);
+  }, [cameraId, clearFirstFrameTimer, enabled, resolveStopAck]);
 
   const startStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
@@ -151,25 +166,43 @@ export function useStreamController({
     setMessage("MJPEG stream image failed to load");
   }, [clearFirstFrameTimer]);
 
-  const stopStream = useCallback(() => {
+  const stopStream = useCallback(async () => {
     if (!orchestratorWs.isOpen) {
       setStreamState("error");
       setMessage("WebSocket is not open yet");
-      return;
+      return false;
+    }
+
+    if (streamStateRef.current === "idle") {
+      return true;
     }
 
     try {
       clearFirstFrameTimer();
       setStreamState("stopping");
       setMessage("Stopping stream...");
+      const stopAck = new Promise<boolean>((resolve) => {
+        resolveStopAck(false);
+        stopAckResolverRef.current = resolve;
+        stopAckTimerRef.current = window.setTimeout(() => {
+          stopAckTimerRef.current = null;
+          stopAckResolverRef.current = null;
+          setStreamState("error");
+          setMessage("Timed out while stopping the previous stream");
+          resolve(false);
+        }, STOP_ACK_TIMEOUT_MS);
+      });
       orchestratorWs.sendStreamStop({
         camera_id: cameraId,
       });
+      return await stopAck;
     } catch (error) {
+      resolveStopAck(false);
       setStreamState("error");
       setMessage(errorMessage(error));
+      return false;
     }
-  }, [cameraId, clearFirstFrameTimer]);
+  }, [cameraId, clearFirstFrameTimer, resolveStopAck]);
 
   const isPlaying = streamState === "playing";
   const isBusy = streamState === "starting" || streamState === "stopping";
@@ -184,6 +217,10 @@ export function useStreamController({
     startStream();
   }, [autoStart, enabled, isSocketOpen, startStream, streamState]);
 
+  const prepareCameraSwitch = useCallback(() => {
+    autoStartAttemptedRef.current = false;
+  }, []);
+
   return {
     status,
     streamState,
@@ -195,6 +232,7 @@ export function useStreamController({
     canStop: enabled && isSocketOpen && (isPlaying || streamState === "starting"),
     startStream,
     stopStream,
+    prepareCameraSwitch,
     handleStreamImageError,
   };
 }
