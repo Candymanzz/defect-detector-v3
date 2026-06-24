@@ -1,7 +1,7 @@
 # Подсветка → LightServer.v3: COM = POST /api/com/light { state: On|Off, brightness: "80,..." } (банк COM из appsettings);
 # сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость оркестратора: 0…100%.
 light_servers:
-  enabled: false
+  enabled: true
   fail_on_error: true
   # COM: первый POST может занять 8–12 s, если банк ещё не initialized (оркестратор ждёт GET /api/com/light)
   timeout_ms: 20000
