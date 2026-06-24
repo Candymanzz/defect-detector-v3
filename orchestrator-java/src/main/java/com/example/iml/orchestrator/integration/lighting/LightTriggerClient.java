@@ -34,6 +34,7 @@ public final class LightTriggerClient {
     private final ExecutorService triggerExecutor;
     /** Один POST за раз — live_preview и capture не держат COM2 параллельно. */
     private final Object lightCommandLock = new Object();
+    private volatile boolean constantLightingApplied;
 
     private static final class EndpointRuntime {
         final LightEndpoint endpoint;
@@ -197,6 +198,7 @@ public final class LightTriggerClient {
                     }
                 }
             }
+            constantLightingApplied = false;
             applyConstantLightingLocked("brightness");
         }
     }
@@ -213,6 +215,7 @@ public final class LightTriggerClient {
             if (before != clamped) {
                 LOG.info("light {} brightness {}% -> {}%", endpointId, before, clamped);
             }
+            constantLightingApplied = false;
             applyConstantLightingLocked("brightness");
         }
     }
@@ -238,7 +241,7 @@ public final class LightTriggerClient {
         }
         synchronized (lightCommandLock) {
             if (constantOn) {
-                applyConstantLightingLocked(phase);
+                ensureConstantLightingAppliedLocked(phase);
                 if (flashLeadMs > 0) {
                     Thread.sleep(flashLeadMs);
                 }
@@ -283,7 +286,15 @@ public final class LightTriggerClient {
             return;
         }
         LOG.info("light Off cam={} frame={} phase={}", cameraId, frameId, phase);
+        constantLightingApplied = false;
         runSourceWithRetries(cameraId, frameId, phase, false);
+    }
+
+    private void ensureConstantLightingAppliedLocked(String phase) {
+        if (constantLightingApplied) {
+            return;
+        }
+        applyConstantLightingLocked(phase);
     }
 
     private void applyConstantLightingLocked(String phase) {
@@ -296,7 +307,10 @@ public final class LightTriggerClient {
                 throw new IllegalStateException(message);
             }
             LOG.warn(message);
+            constantLightingApplied = false;
+            return;
         }
+        constantLightingApplied = true;
     }
 
     private boolean runConstantOnWithRetriesLocked(String phase) {
@@ -498,6 +512,7 @@ public final class LightTriggerClient {
         if (!enabled) {
             return;
         }
+        constantLightingApplied = false;
         List<Callable<Void>> tasks = new ArrayList<>();
         for (EndpointRuntime r : endpoints) {
             if (!r.endpoint.enabled()) {
