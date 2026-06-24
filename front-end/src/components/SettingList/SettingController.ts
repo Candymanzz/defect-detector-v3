@@ -66,7 +66,7 @@ export async function saveBrightnessData(
   const brightnessPercent = clampBrightness(form.brightnessPercent);
   const lightBrightness = await orchestratorApi.getLightBrightness();
 
-  await orchestratorApi.setLightBrightness(
+  const nextLightBrightness = await orchestratorApi.setLightBrightness(
     createBrightnessUpdate(lightBrightness, selectedCameraId, brightnessPercent),
   );
 
@@ -77,7 +77,7 @@ export async function saveBrightnessData(
     },
     form: {
       ...form,
-      brightnessPercent,
+      brightnessPercent: readBrightnessPercent(nextLightBrightness, selectedCameraId),
     },
     analysisProductTypes,
   };
@@ -115,6 +115,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
 export async function saveSettingData(form: SettingForm, selectedCameraId: number | null = null): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
   const cameraList = selectedCameraId === null ? await orchestratorApi.listCameras() : null;
+  const lightBrightness = await orchestratorApi.getLightBrightness();
   const analysisSaveRequests =
     selectedCameraId === null
       ? createAllCameraAnalysisSaveRequests(cameraList?.cameras ?? [], normalizedForm.analysisSettings)
@@ -125,7 +126,12 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
           ),
         ];
 
-  await Promise.all(analysisSaveRequests);
+  const [, nextLightBrightness] = await Promise.all([
+    Promise.all(analysisSaveRequests),
+    orchestratorApi.setLightBrightness(
+      createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedForm.brightnessPercent),
+    ),
+  ]);
 
   const nextData = await loadSettingData(selectedCameraId);
 
@@ -133,7 +139,7 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
     ...nextData,
     form: {
       ...nextData.form,
-      brightnessPercent: normalizedForm.brightnessPercent,
+      brightnessPercent: readBrightnessPercent(nextLightBrightness, selectedCameraId),
       analysisSettings: normalizedForm.analysisSettings,
     },
     status: {
