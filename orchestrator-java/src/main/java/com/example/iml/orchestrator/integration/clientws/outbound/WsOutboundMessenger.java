@@ -10,6 +10,7 @@ import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferen
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.clientws.util.WsTextUtil;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,6 +22,7 @@ import org.java_websocket.WebSocket;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -141,6 +143,68 @@ public final class WsOutboundMessenger {
         } catch (ClientWsSendFailedException e) {
             log.debug("client_ws inspect_result send failed: {}", e.getMessage());
         }
+    }
+
+    public void sendInspectBucketResult(WebSocket conn, BucketFanOutResult result) {
+        try {
+            sendRaw(conn, buildInspectBucketResultJson(result), WsMessageTypes.SERVER_INSPECT_BUCKET_RESULT);
+            log.info(
+                    "client_ws sent type={} group_id={} trigger_sequence={} pass={}",
+                    WsMessageTypes.SERVER_INSPECT_BUCKET_RESULT,
+                    result.groupId(),
+                    result.triggerSequence(),
+                    result.overallPass()
+            );
+        } catch (ClientWsJsonSerializationException e) {
+            log.debug("client_ws inspect_bucket_result build failed: {}", e.getMessage());
+        } catch (ClientWsSendFailedException e) {
+            log.debug("client_ws inspect_bucket_result send failed: {}", e.getMessage());
+        }
+    }
+
+    private String buildInspectBucketResultJson(BucketFanOutResult result) throws ClientWsJsonSerializationException {
+        ObjectNode root = JSON.createObjectNode();
+        root.put("type", WsMessageTypes.SERVER_INSPECT_BUCKET_RESULT);
+        root.put("protocol_version", cfg.protocolVersion());
+        root.put("message_id", UUID.randomUUID().toString());
+        ObjectNode payload = JSON.createObjectNode();
+        payload.put("group_id", result.groupId());
+        payload.put("trigger_sequence", result.triggerSequence());
+        payload.put("overall_pass", result.overallPass());
+        ArrayNode cameraIds = JSON.createArrayNode();
+        for (Integer cameraId : result.bucketCameraIds()) {
+            cameraIds.add(cameraId);
+        }
+        payload.set("bucket_camera_ids", cameraIds);
+        ArrayNode frames = JSON.createArrayNode();
+        for (Map.Entry<Integer, InspectionDecision> entry : result.frameDecisions().entrySet()) {
+            InspectionDecision decision = entry.getValue();
+            if (decision == null) {
+                continue;
+            }
+            ObjectNode frame = JSON.createObjectNode();
+            frame.put("camera_id", decision.cameraId());
+            frame.put("frame_id", Long.toString(decision.frameId()));
+            frame.put("overall_pass", decision.overallPass());
+            frame.put("action", decision.action());
+            frame.put("anomaly_score", decision.anomalyScore());
+            frame.put("python_status", decision.pythonStatus());
+            frame.put("geometry_status", decision.geometryStatus());
+            frames.add(frame);
+        }
+        payload.set("frames", frames);
+        ArrayNode rejectCameraIds = JSON.createArrayNode();
+        for (Integer cameraId : result.bucketCameraIds()) {
+            InspectionDecision decision = result.frameDecisions().get(cameraId);
+            if (decision != null && !decision.overallPass()) {
+                rejectCameraIds.add(cameraId);
+            }
+        }
+        payload.set("reject_camera_ids", rejectCameraIds);
+        payload.put("session_state", sessionState.get().name());
+        payload.put("server_ts_ms", System.currentTimeMillis());
+        root.set("payload", payload);
+        return writeJson(root);
     }
 
     public void sendStreamStarted(WebSocket conn, int cameraId, int maxFps, String httpPath, String mjpegPath) {

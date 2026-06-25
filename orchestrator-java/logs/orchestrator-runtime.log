@@ -19057,3 +19057,7 @@ java.io.IOException: EOF
 2026-06-19 15:40:08.434 INFO  [stage-decision] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.inspect_result camera_id=9 frame_id=53
 2026-06-19 15:40:08.451 INFO  [stage-decision] c.e.i.o.i.b.IntegrationBootstrap - inspection_timing cam=9 frame=53 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=1375
 2026-06-19 15:40:08.452 INFO  [stage-decision] c.e.i.o.i.b.IntegrationBootstrap - stage_timing cam=9 frame=53 total_ms=293516 pipeline_ms=1737 reference_ms=0 capture_ms=414 python_ms=1288 geometry_ms=24 decision_ms=0 fanout_ms=11 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-06-24 22:35:56.740 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-06-24 22:35:56.745 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-06-24 22:35:56.748 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-06-24 22:35:56.749 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]

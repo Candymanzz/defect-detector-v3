@@ -1,11 +1,9 @@
 package com.example.iml.orchestrator.integration.fanout;
 
 /**
- * Приёмник fan-out: per-frame события и итог по ведру.
+ * Приёмник итога инспекции по ведру (линия / группа камер).
  */
 public interface BucketFanOutSink {
-
-    void publishPerFrame(FanOutEvent event);
 
     void publishBucket(BucketFanOutResult result);
 }

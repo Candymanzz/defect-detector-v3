@@ -28,7 +28,6 @@ import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceSnapshotBootstrap;
 import com.example.iml.orchestrator.integration.pipeline.decision.DefaultInspectionDecisionAggregator;
-import com.example.iml.orchestrator.integration.pipeline.fanoutbridge.InspectionDecisionToFanOutEvent;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectGeometryExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPythonExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
@@ -144,7 +143,6 @@ public final class IntegrationBootstrap {
                 new InspectGeometryExecutor(log, geometrySnapshotCache, geometryRuntimeConfig),
                 new InspectPythonExecutor(log, geometryRuntimeConfig),
                 captureCoordinator,
-                new InspectionDecisionToFanOutEvent(),
                 referenceBootstrap,
                 uiSidecar
         );
@@ -288,7 +286,7 @@ public final class IntegrationBootstrap {
                 }
             }
             final PipelineStagesLog pipelineStagesLog = pipelineStagesLogMutable;
-            FanOutCoordinator activeFanOut = FanOutCoordinator.fromConfig(root);
+            FanOutCoordinator activeFanOut = FanOutCoordinator.fromConfig(root, projectRoot, clientWsServer);
             fanOut = activeFanOut;
             log.info("integration parallel settings: camera_parallelism={} geometry_pool_size={}", cfg.cameraParallelism(), geometryPool.size());
             List<Map<String, Object>> activeCameras = new ArrayList<>();
@@ -527,12 +525,16 @@ public final class IntegrationBootstrap {
                     return null;
                 });
             }
+            activeFanOut.signalVisionReady(true);
             List<Future<Void>> futures = cameraExecutor.invokeAll(tasks);
             for (Future<Void> future : futures) {
                 future.get();
             }
         } catch (Exception e) {
             log.error("Integration bootstrap failed", e);
+            if (fanOut != null) {
+                fanOut.signalVisionFault(true);
+            }
         } finally {
             if (bucketLineTriggerBroadcaster != null) {
                 bucketLineTriggerBroadcaster.close();

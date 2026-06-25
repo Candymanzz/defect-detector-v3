@@ -3,7 +3,6 @@ package com.example.iml.orchestrator.integration.pipeline.bucket;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutSink;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
-import com.example.iml.orchestrator.integration.pipeline.spi.FanOutEventFactory;
 import org.apache.logging.log4j.Logger;
 
 import java.util.HashMap;
@@ -18,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Собирает per-frame решения по trigger sequence и группе камер;
- * каждое ведро публикует свой 1/0 роботу независимо от других.
+ * каждое ведро публикует вердикт на ПЛК и UI независимо от других.
  */
 public final class BucketInspectionAggregator implements AutoCloseable {
 
@@ -72,14 +71,10 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             long triggerSequence,
             int cameraId,
             InspectionDecision decision,
-            BucketFanOutSink fanOut,
-            FanOutEventFactory fanOutEventFactory
+            BucketFanOutSink fanOut
     ) {
         Integer groupId = groupIdByCamera.get(cameraId);
         if (groupId == null) {
-            if (fanOut != null && fanOutEventFactory != null) {
-                fanOut.publishPerFrame(fanOutEventFactory.toFanOut(decision));
-            }
             return;
         }
         if (triggerSequence <= 0L) {
@@ -102,29 +97,25 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 return;
             }
             state.frameDecisions.put(cameraId, decision);
-            scheduleTimeoutIfNeeded(state, fanOut, fanOutEventFactory);
+            scheduleTimeoutIfNeeded(state, fanOut);
             if (state.frameDecisions.size() >= group.cameraIds().size()) {
-                publishBucket(state, fanOut, fanOutEventFactory, false);
+                publishBucket(state, fanOut, false);
             }
         }
     }
 
-    private void scheduleTimeoutIfNeeded(
-            BucketState state,
-            BucketFanOutSink fanOut,
-            FanOutEventFactory fanOutEventFactory
-    ) {
+    private void scheduleTimeoutIfNeeded(BucketState state, BucketFanOutSink fanOut) {
         if (state.timeoutFuture != null) {
             return;
         }
         state.timeoutFuture = timeoutExecutor.schedule(
-                () -> onTimeout(state.key(), fanOut, fanOutEventFactory),
+                () -> onTimeout(state.key(), fanOut),
                 timeoutMs,
                 TimeUnit.MILLISECONDS
         );
     }
 
-    private void onTimeout(BucketKey key, BucketFanOutSink fanOut, FanOutEventFactory fanOutEventFactory) {
+    private void onTimeout(BucketKey key, BucketFanOutSink fanOut) {
         BucketState state = buckets.get(key);
         if (state == null) {
             return;
@@ -141,16 +132,11 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                     state.group.cameraIds().size(),
                     state.frameDecisions.keySet()
             );
-            publishBucket(state, fanOut, fanOutEventFactory, true);
+            publishBucket(state, fanOut, true);
         }
     }
 
-    private void publishBucket(
-            BucketState state,
-            BucketFanOutSink fanOut,
-            FanOutEventFactory fanOutEventFactory,
-            boolean timedOut
-    ) {
+    private void publishBucket(BucketState state, BucketFanOutSink fanOut, boolean timedOut) {
         if (state.published) {
             return;
         }
