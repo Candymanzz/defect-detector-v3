@@ -17,16 +17,17 @@ type ModalWrapperProps = {
   referenceRoiPoints?: InterestPointNorm[];
   referenceJointRoiPoints?: InterestPointNorm[];
   inspectionItems?: InspectionNavigationItem[];
-  selectedInspectionFrameId?: string;
+  selectedInspectionKey?: string;
   dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
-  onInspectionSelect?: (frameId: string) => void;
+  onInspectionSelect?: (inspectionKey: string) => void;
   onClose: () => void;
 };
 
 type InspectionNavigationItem = {
   frameId: string;
   inspectionId: string;
+  inspectionKey: string;
   result: "pass" | "fail";
 };
 
@@ -41,7 +42,7 @@ export function ModalWrapper({
   referenceRoiPoints,
   referenceJointRoiPoints,
   inspectionItems = [],
-  selectedInspectionFrameId,
+  selectedInspectionKey,
   dangerHeaderAction,
   headerActions,
   onInspectionSelect,
@@ -129,7 +130,7 @@ export function ModalWrapper({
         {inspectionItems.length > 0 && (
           <InspectionNavigation
             items={inspectionItems}
-            selectedFrameId={selectedInspectionFrameId}
+            selectedInspectionKey={selectedInspectionKey}
             onSelect={onInspectionSelect}
           />
         )}
@@ -151,12 +152,12 @@ export function ModalWrapper({
 
 function InspectionNavigation({
   items,
-  selectedFrameId,
+  selectedInspectionKey,
   onSelect,
 }: {
   items: InspectionNavigationItem[];
-  selectedFrameId?: string;
-  onSelect?: (frameId: string) => void;
+  selectedInspectionKey?: string;
+  onSelect?: (inspectionKey: string) => void;
 }) {
   return (
     <section
@@ -168,12 +169,12 @@ function InspectionNavigation({
         {items.map((item) => (
           <button
             className="modal-inspection-navigation__tile"
-            data-active={item.frameId === selectedFrameId}
+            data-active={item.inspectionKey === selectedInspectionKey}
             data-result={item.result}
-            key={item.frameId}
+            key={item.inspectionKey}
             type="button"
-            aria-pressed={item.frameId === selectedFrameId}
-            onClick={() => onSelect?.(item.frameId)}
+            aria-pressed={item.inspectionKey === selectedInspectionKey}
+            onClick={() => onSelect?.(item.inspectionKey)}
           >
             {item.inspectionId}
           </button>

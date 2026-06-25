@@ -99,6 +99,20 @@ export function resolveCardInspectImageUrl(
   );
 }
 
+export function resolveCardImageUrl(
+  inspectResult: InspectResultPayload | undefined,
+  artifactInspectResult: InspectResultPayload | undefined,
+  fallbackImageUrl: string | undefined,
+) {
+  const fallbackInspectResult = inspectResult ?? artifactInspectResult;
+  return (
+    resolveCardInspectImageUrl(inspectResult, artifactInspectResult) ??
+    (artifactInspectResult ? resolveImmutableInspectionImageUrl(artifactInspectResult) : undefined) ??
+    (fallbackInspectResult ? createWsFrameImageUrl(fallbackInspectResult) : undefined) ??
+    fallbackImageUrl
+  );
+}
+
 export function createModalInspectionSnapshot(
   camera: SelectedCamera,
   inspectResult: InspectResultPayload | undefined,
@@ -131,12 +145,12 @@ export function createModalInspectionSnapshot(
   };
 }
 
-export function selectModalInspection(currentSnapshot: ModalInspectionSnapshot | null, frameId: string) {
-  if (!currentSnapshot || currentSnapshot.inspectResult?.frame_id === frameId) {
+export function selectModalInspection(currentSnapshot: ModalInspectionSnapshot | null, inspectionKey: string) {
+  if (!currentSnapshot || createInspectionResultKey(currentSnapshot.inspectResult) === inspectionKey) {
     return currentSnapshot;
   }
 
-  const item = currentSnapshot.inspectionItems.find((candidate) => candidate.frameId === frameId);
+  const item = currentSnapshot.inspectionItems.find((candidate) => createInspectionItemKey(candidate) === inspectionKey);
   return item ? updateModalSnapshotResult(currentSnapshot, item.inspectResult) : currentSnapshot;
 }
 
@@ -170,7 +184,8 @@ export function hasImmutableInspectArtifact(inspectResult: InspectResultPayload)
 }
 
 export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
-  return [nextItem, ...items.filter((item) => item.frameId !== nextItem.frameId)].sort((left, right) =>
+  const nextKey = createInspectionItemKey(nextItem);
+  return [nextItem, ...items.filter((item) => createInspectionItemKey(item) !== nextKey)].sort((left, right) =>
     compareFrameIds(right.frameId, left.frameId),
   );
 }
@@ -180,9 +195,18 @@ export function resolveInspectionId(inspectResult: InspectResultPayload) {
 }
 
 export function upsertModalInspectionItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
-  return [...items.filter((item) => item.frameId !== nextItem.frameId), nextItem]
+  const nextKey = createInspectionItemKey(nextItem);
+  return [...items.filter((item) => createInspectionItemKey(item) !== nextKey), nextItem]
     .sort((left, right) => compareFrameIds(left.frameId, right.frameId))
     .slice(-INSPECTION_HISTORY_LIMIT);
+}
+
+export function createInspectionItemKey(item: InspectionHistoryItem) {
+  return `${item.inspectionId}:${item.frameId}`;
+}
+
+export function createInspectionResultKey(inspectResult: InspectResultPayload | undefined) {
+  return inspectResult ? `${resolveInspectionId(inspectResult)}:${inspectResult.frame_id}` : undefined;
 }
 
 export function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): InspectResultPayload | undefined {

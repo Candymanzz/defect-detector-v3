@@ -9,6 +9,7 @@ import type { InspectResultPayload } from "../../shared/ws";
 import {
   compareInspectResults,
   createInspectionControlStates,
+  createInspectionResultKey,
   createMainOverviewErrorData,
   createModalInspectionSnapshot,
   createWsFrameImageUrl,
@@ -146,8 +147,8 @@ export function useMainOverview() {
     [],
   );
 
-  const selectModalInspection = useCallback((frameId: string) => {
-    setModalSnapshot((currentSnapshot) => selectModalInspectionSnapshot(currentSnapshot, frameId));
+  const selectModalInspection = useCallback((inspectionKey: string) => {
+    setModalSnapshot((currentSnapshot) => selectModalInspectionSnapshot(currentSnapshot, inspectionKey));
   }, []);
 
   const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
@@ -421,8 +422,9 @@ function addModalInspectionItem(
     };
 
     if (
-      currentSnapshot.inspectResult?.frame_id === inspectResult.frame_id &&
+      createInspectionResultKey(currentSnapshot.inspectResult) === createInspectionResultKey(inspectResult) &&
       hasDisplayableInspectImage(inspectResult) &&
+      currentSnapshot.inspectResult &&
       !hasDisplayableInspectImage(currentSnapshot.inspectResult)
     ) {
       return updateModalSnapshotResult(nextSnapshot, inspectResult);

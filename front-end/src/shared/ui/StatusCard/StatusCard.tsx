@@ -9,6 +9,7 @@ type StatusCardProps = {
   imageUrl?: string;
   currentFrameId?: string;
   inspectionFrameId?: string;
+  inspectionId?: string;
   isSelected?: boolean;
   isInspectionEnabled?: boolean;
   isInspectionActionDisabled?: boolean;
@@ -26,6 +27,7 @@ export function StatusCard({
   imageUrl,
   currentFrameId,
   inspectionFrameId,
+  inspectionId,
   isSelected = false,
   isInspectionEnabled = true,
   isInspectionActionDisabled = false,
@@ -75,8 +77,8 @@ export function StatusCard({
       </div>
 
       <div className="camera-card__frame-ids">
-        <span>Live preview frame: {currentFrameId ?? "-"}</span>
-        <span>Latest decision frame: {inspectionFrameId ?? "-"}</span>
+        <span title={currentFrameId}>frame: {currentFrameId ?? "-"}</span>
+        <span title={inspectionId ?? inspectionFrameId}>inspection: {inspectionId ?? inspectionFrameId ?? "-"}</span>
       </div>
 
       <div className="camera-card__footer">

@@ -2,8 +2,14 @@ import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { StatusCard } from "../../shared/ui/StatusCard";
-import { createCameraCards, createSelectedCamera } from "./MainController";
-import { resolveCardInspectImageUrl } from "./MainController";
+import {
+  createCameraCards,
+  createInspectionItemKey,
+  createInspectionResultKey,
+  createSelectedCamera,
+  resolveInspectionId,
+  resolveCardImageUrl,
+} from "./MainController";
 import { useMainOverview } from "./useMainOverview";
 import "./MainOverview.css";
 
@@ -34,7 +40,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
               const inspectionControlState = controller.inspectionControlByCameraId[camera.cameraId];
               const inspectResult = controller.inspectResultsByCameraId[camera.cameraId];
               const artifactInspectResult = controller.inspectArtifactResultsByCameraId[camera.cameraId];
-              const inspectImageUrl = resolveCardInspectImageUrl(inspectResult, artifactInspectResult);
+              const inspectImageUrl = resolveCardImageUrl(inspectResult, artifactInspectResult, camera.imageUrl);
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
@@ -47,6 +53,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   imageUrl={controller.hasReference ? inspectImageUrl : camera.imageUrl}
                   currentFrameId={controller.previewFrameIdsByCameraId[camera.cameraId]}
                   inspectionFrameId={inspectResult?.frame_id}
+                  inspectionId={inspectResult ? resolveInspectionId(inspectResult) : undefined}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
                   isInspectionEnabled={isInspectionEnabled}
                   isInspectionActionDisabled={isInspectionActionPending}
@@ -86,12 +93,13 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           referenceImageUrl={controller.modalSnapshot.referenceImageUrl}
           referenceRoiPoints={controller.modalSnapshot.referenceRoiPoints}
           referenceJointRoiPoints={controller.modalSnapshot.referenceJointRoiPoints}
-          inspectionItems={controller.modalSnapshot.inspectionItems.map(({ frameId, inspectionId, result }) => ({
+          inspectionItems={controller.modalSnapshot.inspectionItems.map(({ frameId, inspectionId, result, inspectResult }) => ({
             frameId,
             inspectionId,
+            inspectionKey: createInspectionItemKey({ frameId, inspectionId, result, inspectResult }),
             result,
           }))}
-          selectedInspectionFrameId={controller.modalSnapshot.inspectResult?.frame_id}
+          selectedInspectionKey={createInspectionResultKey(controller.modalSnapshot.inspectResult)}
           dangerHeaderAction={
             <button
               className={

@@ -23,11 +23,15 @@ export function PreviewImage({
   onLoad,
 }: PreviewImageProps) {
   const [failedSrc, setFailedSrc] = useState<string>();
+  const [loadedSrc, setLoadedSrc] = useState(src);
   const failed = Boolean(src && failedSrc === src);
 
   if (!src) {
     return <div className={placeholderClassName}>{emptyLabel}</div>;
   }
+
+  const visibleSrc = loadedSrc ?? src;
+  const isLoadingNextSrc = src !== visibleSrc && !failed;
 
   return (
     <>
@@ -36,15 +40,32 @@ export function PreviewImage({
         className={className}
         decoding={decoding}
         fetchPriority={fetchPriority}
-        hidden={failed}
-        src={src}
-        onError={() => setFailedSrc(src)}
+        hidden={failed && src === visibleSrc}
+        src={visibleSrc}
+        onError={() => setFailedSrc(visibleSrc)}
         onLoad={(event) => {
-          setFailedSrc((previousFailedSrc) => (previousFailedSrc === src ? undefined : previousFailedSrc));
+          setFailedSrc((previousFailedSrc) => (previousFailedSrc === visibleSrc ? undefined : previousFailedSrc));
+          setLoadedSrc(visibleSrc);
           onLoad?.(event);
         }}
       />
-      {failed && <div className={placeholderClassName}>{emptyLabel}</div>}
+      {isLoadingNextSrc && (
+        <img
+          alt=""
+          aria-hidden="true"
+          decoding={decoding}
+          fetchPriority={fetchPriority}
+          hidden
+          src={src}
+          onError={() => setFailedSrc(src)}
+          onLoad={(event) => {
+            setFailedSrc((previousFailedSrc) => (previousFailedSrc === src ? undefined : previousFailedSrc));
+            setLoadedSrc(src);
+            onLoad?.(event);
+          }}
+        />
+      )}
+      {failed && src === visibleSrc && <div className={placeholderClassName}>{emptyLabel}</div>}
     </>
   );
 }
