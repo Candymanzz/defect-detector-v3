@@ -30925,3 +30925,319 @@ java.lang.IllegalStateException: inspection_bucket.mode=ten_cameras requires at 
 2026-06-25 12:30:34.913 INFO  [live-preview] c.e.i.o.i.b.IntegrationBootstrap - live_preview_stats camera=9 fps=0.20 dropped_ticks=0 avg_encode_ms=215.08 avg_ws_send_ms=0.01
 2026-06-25 12:30:35.039 INFO  [live-preview] c.e.i.o.i.b.IntegrationBootstrap - live_preview_stats camera=7 fps=0.20 dropped_ticks=0 avg_encode_ms=264.12 avg_ws_send_ms=0.01
 2026-06-25 12:30:35.073 INFO  [live-preview] c.e.i.o.i.b.IntegrationBootstrap - live_preview_stats camera=1 fps=0.20 dropped_ticks=0 avg_encode_ms=184.91 avg_ws_send_ms=0.01
+2026-06-26 02:27:01.020 INFO  [main] c.e.i.o.c.StartupConfigurationReporter - ???????????: ????? ? ???????? ?????? 1 (C:\Users\Administrator\Documents\GitHub\defect-detector-v3\config\config.yaml) — ?????: 10
+2026-06-26 02:27:01.022 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   control_pipe: \\.\pipe\iml-orchestrator
+2026-06-26 02:27:01.022 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   control_pipe_linux: /tmp/iml-orchestrator.sock
+2026-06-26 02:27:01.023 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   client.url: ws://127.0.0.1:8765
+2026-06-26 02:27:01.023 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   client_ws: enabled=true host=127.0.0.1 port=8765 path=/
+2026-06-26 02:27:01.024 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - configured cameras: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+2026-06-26 02:27:01.045 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - capture_frame_downscale enabled scale=0.5 apply_inspection=true apply_reference=true apply_client_reference=true
+2026-06-26 02:27:01.059 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface with command=[C:\Users\Administrator\Documents\GitHub\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-06-26 02:27:10.077 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analisSurface ready index=0 url=http://127.0.0.1:8000 command=[C:\Users\Administrator\Documents\GitHub\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000] cwd=C:\Users\Administrator\Documents\GitHub\defect-detector-v3\analisSurface\backend
+2026-06-26 02:27:10.077 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analisSurface pool ready size=1 ports=8000..8000
+2026-06-26 02:27:10.153 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-0->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.158 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-1->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.162 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-2->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.166 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-3->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.171 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-4->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.176 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-5->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.180 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-6->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.184 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-7->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.188 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-8->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.193 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-9->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-35a4680a6a32} base_url=http://127.0.0.1:8000
+2026-06-26 02:27:10.193 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - python detector transport=http servers=1 clients=10 autostart=true urls=[http://127.0.0.1:8000]
+2026-06-26 02:27:10.196 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-06-26 02:27:11.145 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-0 health => {service=java-geometry-service, status=ok}
+2026-06-26 02:27:11.146 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-06-26 02:27:11.990 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-1 health => {service=java-geometry-service, status=ok}
+2026-06-26 02:27:11.991 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-06-26 02:27:12.843 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-2 health => {status=ok, service=java-geometry-service}
+2026-06-26 02:27:12.844 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-06-26 02:27:13.706 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-3 health => {status=ok, service=java-geometry-service}
+2026-06-26 02:27:13.707 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-06-26 02:27:14.556 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-4 health => {service=java-geometry-service, status=ok}
+2026-06-26 02:27:14.557 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-06-26 02:27:15.411 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-5 health => {status=ok, service=java-geometry-service}
+2026-06-26 02:27:15.412 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-06-26 02:27:16.252 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-6 health => {status=ok, service=java-geometry-service}
+2026-06-26 02:27:16.253 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-06-26 02:27:17.085 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-7 health => {service=java-geometry-service, status=ok}
+2026-06-26 02:27:17.086 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-06-26 02:27:17.929 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-8 health => {status=ok, service=java-geometry-service}
+2026-06-26 02:27:17.930 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-06-26 02:27:18.788 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-9 health => {status=ok, service=java-geometry-service}
+2026-06-26 02:27:18.790 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server with command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-06-26 02:27:26.794 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - started light-server (LightServer.v3) command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080] contentRoot=C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\bin\Release\net10.0
+2026-06-26 02:27:26.795 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service gpio-udp-bridge with command=[dotnet, exec, tools/GpioUdpBridge/bin/Release/net10.0/GpioUdpBridge.dll]
+2026-06-26 02:27:26.796 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - started gpio-udp-bridge (DI ? UDP orchestrator) command=[dotnet, exec, tools/GpioUdpBridge/bin/Release/net10.0/GpioUdpBridge.dll]
+2026-06-26 02:27:26.810 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light_servers: 3 endpoint(s) default_brightness_percent=20 duration_ms=500 hold_mode=true
+2026-06-26 02:27:26.811 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light endpoint id=light-com2 type=ComIoLightEndpoint brightness_percent=80
+2026-06-26 02:27:26.811 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light endpoint id=light-com3-lan4 type=ComIoLightEndpoint brightness_percent=80
+2026-06-26 02:27:26.811 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light endpoint id=light-com3-lan5 type=ComIoLightEndpoint brightness_percent=80
+2026-06-26 02:27:26.812 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration.reference_source=client — ?????? ?????? ????? client.reference_bundle (WebSocket)
+2026-06-26 02:27:26.812 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light_servers: ??????? ????????????? (????? ?????????? ?? ???????????)
+2026-06-26 02:27:26.837 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui http started on 127.0.0.1:8099 (front controller)
+2026-06-26 02:27:26.851 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - client_api enabled (same port as ui_http): kopcheni_proxy=true kopcheni_base_url=http://127.0.0.1:8000
+2026-06-26 02:27:26.852 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui visuals use analisSurface HTTP (analis-surface-http-0->srv0) async_enabled=true store_heatmap_u8=true
+2026-06-26 02:27:26.852 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui artifact publisher started parallelism=2 queue_size=8
+2026-06-26 02:27:26.853 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - camera_worker config=C:\Users\Administrator\Documents\GitHub\defect-detector-v3\config\config.json
+2026-06-26 02:27:26.853 INFO  [WebSocketSelector-58] c.e.i.o.i.b.IntegrationBootstrap - client_ws listening ws://127.0.0.1:8765/ replace_session=true read_idle_timeout_ms=90000 ping_interval_ms=20000
+2026-06-26 02:27:26.855 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - timing_stages_log enabled jsonl=C:\Users\Administrator\Documents\GitHub\defect-detector-v3\logs\pipeline-stages.jsonl (????? .txt ? ??? ?? ??????? ??????)
+2026-06-26 02:27:26.864 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=192.168.1.231:9600 map=C:\Users\Administrator\Documents\GitHub\defect-detector-v3\plk\register-map.yaml pulse_ms=200
+2026-06-26 02:27:26.865 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration parallel settings: camera_parallelism=10 geometry_pool_size=10
+2026-06-26 02:27:26.868 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-06-26 02:27:27.000 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light light-com2 COM bank ready (initialized), devices=[{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}]
+2026-06-26 02:27:27.007 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light light-com3-lan4 COM bank ready (initialized), devices=[{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}]
+2026-06-26 02:27:27.010 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light light-com3-lan5 COM bank ready (initialized), devices=[{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}]
+2026-06-26 02:27:27.011 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light_servers hold_mode=true — ?????????? ????????? ? ????
+2026-06-26 02:27:27.011 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light hold_mode: ????????? ???? endpoints (?????????? ?????????)
+2026-06-26 02:27:27.552 INFO  [WebSocketWorker-45] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.hello session_state=NO_REFERENCE
+2026-06-26 02:27:27.555 INFO  [WebSocketWorker-45] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_enable
+2026-06-26 02:27:27.716 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=0 health type=2 header={status=ok, service=camera-worker, camera_id=0, detector=v1, ip=169.254.19.11, shm_name=/iml_cam_0_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:28.254 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light light-com2 COM On -> {"success":true,"message":"??? COM ???????? ????????????, ??????? %: 20,20,20,20,20,20,20,20.","error":null,"state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 02:27:28.254 INFO  [light-startup-warmup] c.e.i.o.i.l.LightTriggerClient - light light-com2 COM bank on all channels brightness=20%
+2026-06-26 02:27:28.809 ERROR [gpio-udp-bridge-watch] c.e.i.o.i.b.IntegrationBootstrap - gpio-udp-bridge exited immediately — ?????? DI ?? ????????. ????????? run.ps1 ?? ?????????????? ??? ???????: tools/GpioUdpBridge/bin/Release/net10.0/GpioUdpBridge.exe --monitor
+2026-06-26 02:27:28.920 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-06-26 02:27:29.667 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=1 health type=2 header={status=ok, service=camera-worker, camera_id=1, detector=v1, ip=169.254.103.219, shm_name=/iml_cam_1_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:30.881 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-06-26 02:27:31.626 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=2 health type=2 header={status=ok, service=camera-worker, camera_id=2, detector=v1, ip=169.254.79.219, shm_name=/iml_cam_2_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:32.842 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-06-26 02:27:33.592 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=3 health type=2 header={status=ok, service=camera-worker, camera_id=3, detector=v1, ip=169.254.98.219, shm_name=/iml_cam_3_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:34.803 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-06-26 02:27:35.560 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=4 health type=2 header={status=ok, service=camera-worker, camera_id=4, detector=v1, ip=169.254.101.219, shm_name=/iml_cam_4_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:36.769 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-06-26 02:27:37.522 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=5 health type=2 header={status=ok, service=camera-worker, camera_id=5, detector=v1, ip=169.254.19.12, shm_name=/iml_cam_5_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:38.724 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-06-26 02:27:39.475 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=6 health type=2 header={status=ok, service=camera-worker, camera_id=6, detector=v1, ip=169.254.105.1, shm_name=/iml_cam_6_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:40.677 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-06-26 02:27:41.411 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=7 health type=2 header={status=ok, service=camera-worker, camera_id=7, detector=v1, ip=169.254.97.219, shm_name=/iml_cam_7_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:42.614 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-06-26 02:27:43.351 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=8 health type=2 header={status=ok, service=camera-worker, camera_id=8, detector=v1, ip=169.254.92.219, shm_name=/iml_cam_8_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:44.554 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-06-26 02:27:45.292 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=9 health type=2 header={status=ok, service=camera-worker, camera_id=9, detector=v1, ip=169.254.83.219, shm_name=/iml_cam_9_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-06-26 02:27:46.496 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - client_stream ready default_max_fps=20 cap=30
+2026-06-26 02:27:46.497 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - pipeline settings: queue_size=20 python_parallelism=10
+2026-06-26 02:27:46.509 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection bucket enabled groups=[BucketGroup[id=0, cameraIds=[0, 1, 2, 3, 4]], BucketGroup[id=1, cameraIds=[5, 6, 7, 8, 9]]] cameras=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9] timeout_ms=3500 line_broadcast_interval_ms=3500
+2026-06-26 02:27:46.510 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=100 post_trigger_settle_ms=0 inter_wait_frame_ms=0
+2026-06-26 02:27:46.512 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - bucket line trigger broadcaster started interval_ms=3500
+2026-06-26 02:27:46.512 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - continuous_inspection enabled cycle_delay_ms=3500
+2026-06-26 02:27:46.512 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection gate per-camera in-flight enabled timeout_ms=3500 cameras=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=5: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=7: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=3: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=9: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=4: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=1: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=8: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=2: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=6: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: continuous_inspection enabled
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: continuous_inspection enabled
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: continuous_inspection enabled
+2026-06-26 02:27:46.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=0: waiting for client.reference_bundle (integration.reference_source=client)
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: continuous_inspection enabled
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: continuous_inspection enabled
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: continuous_inspection enabled
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: continuous_inspection enabled
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: continuous_inspection enabled
+2026-06-26 02:27:46.517 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: continuous_inspection enabled
+2026-06-26 02:27:46.518 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: continuous_inspection enabled
+2026-06-26 02:27:47.517 WARN  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins worker error: FINS timeout host=192.168.1.231:9600
+2026-06-26 02:27:50.027 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:50.028 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:53.521 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=3 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:27:57.022 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=4 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:00.516 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=5 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:04.015 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=6 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:07.515 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=7 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:11.023 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=8 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:14.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=9 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:18.016 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=10 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:21.514 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=11 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:25.027 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=12 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:28.526 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=13 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:32.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=14 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:35.528 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=15 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:39.026 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=16 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:42.519 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=17 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:46.014 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [bucket-line-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_trigger trigger_sequence=18 cameras=10 stagger_ms=0 mode=simultaneous
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
+2026-06-26 02:28:49.525 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: trigger skipped — no client.reference_bundle yet (????????? ?????? ????? UI)
