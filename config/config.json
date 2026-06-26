@@ -257,7 +257,7 @@
       "line_broadcast_interval_ms": 3500
     },
     "continuous_inspection": {
-      "enabled": false,
+      "enabled": true,
       "cycle_delay_ms": 3500
     },
     "capture_frame_downscale": {

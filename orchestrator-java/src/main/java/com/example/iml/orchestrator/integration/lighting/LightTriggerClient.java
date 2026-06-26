@@ -202,6 +202,25 @@ public final class LightTriggerClient {
         }
     }
 
+    /**
+     * COM-банк и hold_mode в фоне — старт оркестратора, камер и ПЛК не ждёт вспышки.
+     */
+    public void startBackgroundWarmup() {
+        if (!enabled) {
+            return;
+        }
+        Thread t = new Thread(() -> {
+            LOG.info("light_servers: фоновая инициализация (старт приложения не блокируется)");
+            awaitEndpointsReady();
+            if (holdMode) {
+                LOG.info("light_servers hold_mode=true — постоянная подсветка в фоне");
+                engageConstantLighting();
+            }
+        }, "light-startup-warmup");
+        t.setDaemon(true);
+        t.start();
+    }
+
     /** Установить одну яркость для всех enabled endpoints. */
     public void setBrightnessPercent(int percent) {
         int clamped = LightBrightnessScale.clampPercent(percent);
@@ -303,12 +322,19 @@ public final class LightTriggerClient {
         }
     }
 
-    private boolean runSourceWithRetriesLocked(int cameraId, long frameId, String phase, boolean on) {
+    private void ensureReadyIfStrict() {
+        if (!failOnError) {
+            return;
+        }
         for (EndpointRuntime r : endpoints) {
             if (r.endpoint.enabled()) {
                 r.endpoint.ensureReady();
             }
         }
+    }
+
+    private boolean runSourceWithRetriesLocked(int cameraId, long frameId, String phase, boolean on) {
+        ensureReadyIfStrict();
         RuntimeException lastError = null;
         for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
             try {
@@ -342,11 +368,7 @@ public final class LightTriggerClient {
     }
 
     private boolean turnOnAllEndpointsLocked() {
-        for (EndpointRuntime r : endpoints) {
-            if (r.endpoint.enabled()) {
-                r.endpoint.ensureReady();
-            }
-        }
+        ensureReadyIfStrict();
         RuntimeException lastError = null;
         for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
             try {
@@ -395,7 +417,11 @@ public final class LightTriggerClient {
         }
         errors.addAll(invokeLightTasks(async));
         if (!errors.isEmpty()) {
-            throw new IllegalStateException("light Off failed: " + String.join("; ", errors));
+            String detail = String.join("; ", errors);
+            if (failOnError) {
+                throw new IllegalStateException("light Off failed: " + detail);
+            }
+            LOG.warn("light Off failed cam={}: {}", cameraId, detail);
         }
     }
 

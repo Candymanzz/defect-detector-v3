@@ -207,12 +207,7 @@ public final class IntegrationBootstrap {
         }
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
         if (lightClient.isEnabled()) {
-            log.info("waiting for LightServer COM bank (GET /api/com/light)...");
-            lightClient.awaitEndpointsReady();
-            if (lightClient.isHoldMode()) {
-                log.info("light_servers hold_mode=true — постоянная подсветка, без On/Off на каждый кадр");
-                lightClient.engageConstantLighting();
-            }
+            lightClient.startBackgroundWarmup();
         }
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
         Map<Integer, String> detectorByCamera = new LinkedHashMap<>();

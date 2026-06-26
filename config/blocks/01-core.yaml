@@ -67,7 +67,7 @@ integration:
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
   dev_auto_trigger_stub:
     enabled: false
-    interval_ms: 5000
+    interval_ms: 3500
   # Внешний триггер: оркестратор слушает UDP :9100; кнопка DI → GpioUdpBridge (не LightServer).
   inspection_trigger:
     udp:
@@ -92,7 +92,7 @@ integration:
     max_fps_cap: 30
   # Непрерывный цикл по таймеру. Выключить при физической кнопке / UDP-триггере (GpioUdpBridge → :9100).
   continuous_inspection:
-    enabled: false
+    enabled: true
     cycle_delay_ms: 3500
   timing_stages_log:
     enabled: true

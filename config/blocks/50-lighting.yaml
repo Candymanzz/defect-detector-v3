@@ -4,7 +4,8 @@ light_servers:
   enabled: true
   # Постоянная подсветка: включить при старте, не гасить после каждого capture/preview.
   hold_mode: true
-  fail_on_error: true
+  # false — оркестратор, камеры и ПЛК стартуют даже если LightServer/COM недоступны
+  fail_on_error: false
   # COM: первый POST может занять 8–12 s, если банк ещё не initialized (оркестратор ждёт GET /api/com/light)
   timeout_ms: 20000
   brightness_percent: 20
