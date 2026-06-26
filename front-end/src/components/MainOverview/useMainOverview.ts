@@ -5,7 +5,7 @@ import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
 import { compareFrameIds } from "../../shared/lib/frameIds";
 import { orchestratorWs } from "../../shared/ws";
-import type { InspectResultPayload } from "../../shared/ws";
+import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import {
   compareInspectResults,
   createInspectionControlStates,
@@ -215,6 +215,7 @@ export function useMainOverview() {
         }
         latestPreviewFrameIdByCameraIdRef.current[cameraId] = previewFrame.frame_id;
         latestPreviewTimestampByCameraIdRef.current[cameraId] = previewFrame.server_ts_ms;
+        logMainPreviewFrame(previewFrame);
         setPreviewFrameIdsByCameraId((previousFrameIds) => ({
           ...previousFrameIds,
           [cameraId]: previewFrame.frame_id,
@@ -239,6 +240,7 @@ export function useMainOverview() {
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+      logMainInspectionFrame(inspectResult);
       logMissingInspectionResults(latestInspectionIdByCameraIdRef, inspectResult);
       setHasReference(true);
       addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
@@ -314,6 +316,27 @@ export function useMainOverview() {
     selectModalInspection,
     closeInspectionModal,
   };
+}
+
+function logMainPreviewFrame(previewFrame: InspectResultPayload | PreviewFramePayload) {
+  console.info("[main] current stream frame", {
+    cameraId: previewFrame.camera_id,
+    frameId: previewFrame.frame_id,
+    currentFrameId: previewFrame.current.frame_id,
+    shmName: previewFrame.current.shm_name,
+    serverTsMs: previewFrame.server_ts_ms,
+  });
+}
+
+function logMainInspectionFrame(inspectResult: InspectResultPayload) {
+  console.info("[main] inspection frame", {
+    cameraId: inspectResult.camera_id,
+    inspectionId: resolveInspectionId(inspectResult),
+    frameId: inspectResult.frame_id,
+    inspectedCurrentFrameId: inspectResult.current.frame_id,
+    artifactBundleId: inspectResult.artifact_bundle_id,
+    serverTsMs: inspectResult.server_ts_ms,
+  });
 }
 
 function logMissingInspectionResults(
