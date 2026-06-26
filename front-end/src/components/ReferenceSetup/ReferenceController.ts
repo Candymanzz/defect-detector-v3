@@ -310,14 +310,17 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       startReferenceResumeTimeout(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
       pendingReferenceMessageIdsRef.current.clear();
       for (const groupCameraIds of groupsToSend) {
+        const jointCameraId = referenceRoi.getJointCameraIdForCameraIds(groupCameraIds);
+        const jointRoiPolygon = referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds);
         const payload = createReferenceBundleFromCameraFrames(
           groupCameraIds,
-          referenceRoi.getJointCameraIdForCameraIds(groupCameraIds),
+          jointCameraId,
           referenceFrames.framesByCameraId,
           referenceRoi.roiPolygonsByCameraId,
-          referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
+          jointRoiPolygon,
           referenceFpZones.getFpZonesForCameraIds(groupCameraIds),
         );
+        logReferenceBundlePayload(payload);
         const messageId = orchestratorWs.sendReferenceBundle(payload, imageUrlsByCameraId);
         stageReferenceBundleContours(
           messageId,
@@ -327,8 +330,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
               referenceRoi.roiPolygonsByCameraId[cameraId] ?? [],
             ]),
           ),
-          referenceRoi.getJointCameraIdForCameraIds(groupCameraIds),
-          referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
+          jointCameraId,
+          jointRoiPolygon,
         );
         pendingReferenceMessageIdsRef.current.add(messageId);
       }
@@ -337,7 +340,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           ? `Reference bundle sent for cameras ${groupsToSend[0].join(", ")}`
           : `Reference bundles sent for ${groupsToSend.length} groups`,
       );
-      resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
     } catch (error) {
       pendingReferenceMessageIdsRef.current.clear();
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
@@ -381,6 +383,23 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     handleSelectCamera,
     handleSelectJointRoi,
   };
+}
+
+function logReferenceBundlePayload(payload: ReturnType<typeof createReferenceBundleFromCameraFrames>) {
+  console.info("[reference] bundle sent", {
+    productType: payload.product_type,
+    cameras: payload.views.map((view) => view.frame.camera_id),
+    frames: payload.views.map((view) => ({
+      cameraId: view.frame.camera_id,
+      frameId: view.frame.frame_id,
+      shmName: view.frame.shm_name,
+      interestPoints: view.interest_polygon_norm.length,
+      hasJointRoi: Boolean(view.joint_roi),
+    })),
+    jointViewIndex: payload.joint_view_index,
+    jointCameraId: payload.views[payload.joint_view_index]?.frame.camera_id,
+    fpZones: payload.fp_zones.length,
+  });
 }
 
 function referenceFpZonesCopy<T extends { id?: string; note: string; points_norm_heatmap: { x: number; y: number }[] }>(

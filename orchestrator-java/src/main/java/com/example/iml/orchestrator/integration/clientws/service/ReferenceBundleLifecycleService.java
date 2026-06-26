@@ -27,10 +27,11 @@ public final class ReferenceBundleLifecycleService {
         applyBundleToPipeline(ctx, snap);
         transitionToOperational(ctx, conn, requestRoot);
         ctx.log().info(
-                "client_ws reference bundle accepted product_type={} joint_view_index={} fp_zones={}",
+                "client_ws reference bundle accepted product_type={} joint_view_index={} fp_zones={} views={}",
                 snap.productType(),
                 snap.jointViewIndex(),
-                snap.fpZones().size()
+                snap.fpZones().size(),
+                referenceViewsSummary(snap)
         );
     }
 
@@ -48,10 +49,11 @@ public final class ReferenceBundleLifecycleService {
             ctx.outbound().sendSessionState(conn, ClientWsSessionState.OPERATIONAL);
         }
         ctx.log().info(
-                "client_ws reference bundle applied from draft product_type={} joint_view_index={} fp_zones={}",
+                "client_ws reference bundle applied from draft product_type={} joint_view_index={} fp_zones={} views={}",
                 snap.productType(),
                 snap.jointViewIndex(),
-                snap.fpZones().size()
+                snap.fpZones().size(),
+                referenceViewsSummary(snap)
         );
     }
 
@@ -78,5 +80,22 @@ public final class ReferenceBundleLifecycleService {
         ctx.outbound().sendSessionState(conn, ClientWsSessionState.READY);
         ctx.setSessionState(ClientWsSessionState.OPERATIONAL);
         ctx.outbound().sendSessionState(conn, ClientWsSessionState.OPERATIONAL);
+    }
+
+    private static String referenceViewsSummary(ReferenceBundleSnapshot snap) {
+        StringBuilder out = new StringBuilder("[");
+        for (int i = 0; i < snap.views().size(); i++) {
+            if (i > 0) {
+                out.append(", ");
+            }
+            var frame = snap.views().get(i).frame();
+            out.append("view")
+                    .append(i)
+                    .append(":cam")
+                    .append(frame.cameraId())
+                    .append("#frame")
+                    .append(frame.frameId());
+        }
+        return out.append("]").toString();
     }
 }

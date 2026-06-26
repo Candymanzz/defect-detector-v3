@@ -45,6 +45,7 @@ export function resolveReferenceBundleImages(messageId: string, accepted: boolea
     return;
   }
   pendingReferenceBundles.delete(messageId);
+  logReferenceBundleAck(messageId, accepted, pendingBundle.bundle);
 
   if (accepted) {
     commitReferenceBundleImages(
@@ -137,6 +138,22 @@ export function commitReferenceBundleImages(
   referenceImageVersion = nextReferenceImageVersion;
 
   emitReferenceImageChange();
+}
+
+function logReferenceBundleAck(messageId: string, accepted: boolean, bundle: ClientReferenceBundlePayload) {
+  console.info("[reference] bundle ack", {
+    messageId,
+    accepted,
+    productType: bundle.product_type,
+    cameras: bundle.views.map((view) => view.frame.camera_id),
+    frames: bundle.views.map((view) => ({
+      cameraId: view.frame.camera_id,
+      frameId: view.frame.frame_id,
+      hasJointRoi: Boolean(view.joint_roi),
+    })),
+    jointViewIndex: bundle.joint_view_index,
+    jointCameraId: bundle.views[bundle.joint_view_index]?.frame.camera_id,
+  });
 }
 
 export function getReferenceImageUrl(cameraId?: number) {

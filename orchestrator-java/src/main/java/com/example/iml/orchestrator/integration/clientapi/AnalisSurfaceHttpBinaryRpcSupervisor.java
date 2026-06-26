@@ -315,6 +315,27 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                     new byte[0]
             );
         }
+        String productType = String.valueOf(header.get("product_type"));
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String signature = referenceSignature(
+                String.valueOf(header.getOrDefault("shm_name", "")),
+                header.get("shm_offset"),
+                header.get("width"),
+                header.get("height"),
+                header.get("stride")
+        );
+        String cacheKey = runtimeKey(productType, cameraId);
+        if (signature.equals(SHARED_REFERENCE_SIGNATURES.get(cacheKey))) {
+            Map<String, Object> h = new LinkedHashMap<>();
+            h.put("status", "ok");
+            h.put("skipped", true);
+            h.put("reason", "reference_already_uploaded");
+            h.put("product_type", productType);
+            h.put("camera_id", cameraId);
+            LOG.debug("{} upload-ref-shm skipped duplicate product_type={} camera_id={} shm={}",
+                    name, productType, cameraId, header.get("shm_name"));
+            return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, h, new byte[0]);
+        }
         HttpResponse<byte[]> resp = httpPostJson("/upload-ref-shm", body);
         if (resp.statusCode() / 100 != 2) {
             throw new IOException(errorMessage("upload-ref-shm", resp));
