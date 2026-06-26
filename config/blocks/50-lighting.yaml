@@ -17,13 +17,13 @@ light_servers:
   flash_lead_ms: 0
   settle_delay_ms: 0
   endpoints:
-    # COM1: 2 вспышки → LAN1 (cam 0), LAN3 (cam 1)
-    - id: light-com1
+    # COM2 (MV-LE200): 2 вспышки → cam 0, cam 1 (на жокее COM1 нет в EnumDevices)
+    - id: light-com2
       enabled: true
       type: com_io
       base_url: "http://127.0.0.1:5080"
-      com_port: "COM1"
-      com_ports: "COM1"
+      com_port: "COM2"
+      com_ports: "COM2"
       brightness_percent: 80
       channels: [1, 2]
       camera_ids: [0, 1]
