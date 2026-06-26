@@ -27,7 +27,7 @@ integration:
   reference_source: client
   # Preview + вспышка On/Off по таймеру — всегда, без эталона. Инспекция — только после reference_bundle.
   live_preview:
-    enabled: true
+    enabled: false
     flash_on_tick: false
     # Реже инспекции (3.5 с), чтобы preview не конкурировал с GigE при 10 камерах.
     interval_ms: 8000
@@ -36,9 +36,9 @@ integration:
   capture_trigger_stagger_ms: 0
   simultaneous_line_capture:
     enabled: true
-    barrier_wait_ms: 1500
-    post_trigger_settle_ms: 50
-    inter_wait_frame_ms: 120
+    barrier_wait_ms: 100
+    post_trigger_settle_ms: 0
+    inter_wait_frame_ms: 0
   geometry_pool_size: 10
   python_parallelism: 10
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
@@ -68,23 +68,31 @@ integration:
   dev_auto_trigger_stub:
     enabled: false
     interval_ms: 5000
-  # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
+  # Внешний триггер: оркестратор слушает UDP :9100; кнопка DI → GpioUdpBridge (не LightServer).
   inspection_trigger:
     udp:
       enabled: true
       bind_host: "0.0.0.0"
       bind_port: 9100
-      # discrete: UDP 0x01 или "1" — общий триггер на все камеры; 0x00/"0" — без действия
       format: discrete
       debounce_ms: 100
-      # allowed_remote_hosts: ["192.168.1.50"]
+  gpio_trigger_bridge:
+    enabled: true
+  gpio_trigger_command_windows:
+    - "dotnet"
+    - "exec"
+    - "tools/GpioUdpBridge/bin/Release/net10.0/GpioUdpBridge.dll"
+  gpio_trigger_command_linux:
+    - "dotnet"
+    - "exec"
+    - "tools/GpioUdpBridge/bin/Release/net10.0/GpioUdpBridge.dll"
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20
     max_fps_cap: 30
-  # Непрерывный цикл: вспышка → capture → geometry → python → вердикт (ПЛК + WebSocket UI).
+  # Непрерывный цикл по таймеру. Выключить при физической кнопке / UDP-триггере (GpioUdpBridge → :9100).
   continuous_inspection:
-    enabled: true
+    enabled: false
     cycle_delay_ms: 3500
   timing_stages_log:
     enabled: true

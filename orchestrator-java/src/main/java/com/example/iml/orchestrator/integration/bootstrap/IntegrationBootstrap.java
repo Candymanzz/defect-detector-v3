@@ -15,6 +15,7 @@ import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
+import com.example.iml.orchestrator.integration.trigger.GpioTriggerBridgeLauncher;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -107,6 +108,7 @@ public final class IntegrationBootstrap {
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);
         AnalisSurfaceLauncher analisSurfaceLauncher = new AnalisSurfaceLauncher(log);
         LightServerLauncher lightServerLauncher = new LightServerLauncher(log);
+        GpioTriggerBridgeLauncher gpioTriggerBridgeLauncher = new GpioTriggerBridgeLauncher(log);
         UiArtifactsSidecar uiSidecar = new UiArtifactsSidecar(log);
         GeometrySnapshotCache geometrySnapshotCache = new GeometrySnapshotCache();
         GeometryRuntimeConfig geometryRuntimeConfig = new GeometryRuntimeConfig();
@@ -191,6 +193,8 @@ public final class IntegrationBootstrap {
         );
         ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
                 integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        ExternalServiceProcess gpioTriggerBridgeProcess = gpioTriggerBridgeLauncher.startIfConfigured(
+                integration, projectRoot, isWindows);
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
@@ -484,7 +488,7 @@ public final class IntegrationBootstrap {
                 InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
                 if (triggerCfg.udp().enabled()) {
                     log.info(
-                            "inspection_trigger external udp {}:{} format={}",
+                            "inspection_trigger external udp {}:{} format={} (камеры ждут UDP; DI → GpioUdpBridge)",
                             triggerCfg.udp().bindHost(),
                             triggerCfg.udp().bindPort(),
                             triggerCfg.udp().format()
@@ -592,6 +596,7 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
+                    gpioTriggerBridgeProcess,
                     analisSurfaceProcesses,
                     lightClient,
                     uiVisualsPython,

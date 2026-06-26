@@ -13,10 +13,35 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
 Set-Location $RepoRoot
 
+function Test-IsAdmin {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-IsAdmin)) {
+    Write-Host ""
+    Write-Host "GPIO-кнопка (GpioUdpBridge / WinIO) требует прав администратора." -ForegroundColor Yellow
+    Write-Host "Перезапуск с elevation..." -ForegroundColor Yellow
+    $argList = @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "`"$PSCommandPath`""
+    )
+    if ($NoFrontend) { $argList += "-NoFrontend" }
+    if ($Config -ne "config\config.yaml") {
+        $argList += "-Config"
+        $argList += "`"$Config`""
+    }
+    Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $argList | Out-Null
+    exit 0
+}
+
 $OrchestratorJar = Join-Path $RepoRoot "orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar"
 $GeometryJar = Join-Path $RepoRoot "java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar"
 $PythonExe = Join-Path $RepoRoot "analisSurface\backend\.venv\Scripts\python.exe"
 $LightServerDll = Join-Path $RepoRoot "LightServer.v3\bin\Release\net10.0\LightServer.dll"
+$GpioBridgeDll = Join-Path $RepoRoot "tools\GpioUdpBridge\bin\Release\net10.0\GpioUdpBridge.dll"
 $CameraWorker = Join-Path $RepoRoot "camera-worker\build\Debug\camera_worker.exe"
 $CameraWorkerAlt = Join-Path $RepoRoot "camera-worker\build\Release\camera_worker.exe"
 $FrontEndDir = Join-Path $RepoRoot "front-end"
@@ -80,6 +105,9 @@ if (-not (Test-Path $PythonExe)) {
 }
 if (-not (Test-Path $LightServerDll)) {
     throw "LightServer.dll missing. Run: .\rebuild-and-run.ps1"
+}
+if (-not (Test-Path $GpioBridgeDll)) {
+    throw "GpioUdpBridge.dll missing. Run: .\rebuild-and-run.ps1"
 }
 if (-not ((Test-Path $CameraWorker) -or (Test-Path $CameraWorkerAlt))) {
     throw "camera_worker.exe missing. Run: .\rebuild-and-run.ps1"

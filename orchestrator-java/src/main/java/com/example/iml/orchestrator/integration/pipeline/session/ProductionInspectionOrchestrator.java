@@ -139,8 +139,8 @@ public final class ProductionInspectionOrchestrator {
             AsyncInspectionCycleInput cycleIn = resolveCycleInput(in, referenceFromClient, referenceByCamera);
             if (cycleIn == null) {
                 if (referenceFromClient) {
-                    svc.log().debug(
-                            "integration cam={}: trigger skipped — no client.reference_bundle yet",
+                    svc.log().info(
+                            "integration cam={}: trigger skipped — no client.reference_bundle yet (отправьте эталон через UI)",
                             in.cameraId()
                     );
                 }

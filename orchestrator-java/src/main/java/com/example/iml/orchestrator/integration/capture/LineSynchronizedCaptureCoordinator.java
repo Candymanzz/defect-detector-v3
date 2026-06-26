@@ -214,12 +214,18 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         }
 
         long tTriggerDone = System.nanoTime();
-        int okCount = 0;
-        for (int i = 0; i < entries.size(); i++) {
-            Map.Entry<Integer, WorkerProcessSupervisor> entry = entries.get(i);
+        List<Callable<Map.Entry<Integer, BinaryProtocol.Message>>> waitTasks = new ArrayList<>(entries.size());
+        for (Map.Entry<Integer, WorkerProcessSupervisor> entry : entries) {
             int camId = entry.getKey();
             WorkerProcessSupervisor worker = entry.getValue();
-            BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId);
+            waitTasks.add(() -> Map.entry(camId, waitFrameWithRetry(worker, camId)));
+        }
+        List<Future<Map.Entry<Integer, BinaryProtocol.Message>>> waitFutures = lineCaptureExecutor.invokeAll(waitTasks);
+        int okCount = 0;
+        for (Future<Map.Entry<Integer, BinaryProtocol.Message>> future : waitFutures) {
+            Map.Entry<Integer, BinaryProtocol.Message> result = future.get();
+            int camId = result.getKey();
+            BinaryProtocol.Message msg = result.getValue();
             if (!isUsableCapture(msg)) {
                 if (lenient) {
                     LOG.warn("line capture cam={} skipped (lenient): {}", camId, describeCapture(msg));
@@ -229,13 +235,10 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             }
             round.results.put(camId, msg);
             okCount++;
-            if (interWaitFrameMs > 0 && i + 1 < entries.size()) {
-                Thread.sleep(interWaitFrameMs);
-            }
         }
 
         LOG.info(
-                "line capture complete cameras={}/{} trigger_phase_ms={} wait_frame_sequential_ms={} lenient={}",
+                "line capture complete cameras={}/{} trigger_phase_ms={} wait_frame_parallel_ms={} lenient={}",
                 okCount,
                 entries.size(),
                 (tTriggerDone - t0) / 1_000_000L,

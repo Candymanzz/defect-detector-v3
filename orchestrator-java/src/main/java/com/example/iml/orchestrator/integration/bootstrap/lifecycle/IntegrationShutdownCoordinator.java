@@ -35,6 +35,7 @@ public final class IntegrationShutdownCoordinator {
             List<? extends BinaryRpcSupervisor> pythonPool,
             List<? extends BinaryRpcSupervisor> geometryPool,
             ExternalServiceProcess lightServerProcess,
+            ExternalServiceProcess gpioTriggerBridgeProcess,
             List<ExternalServiceProcess> analisSurfaceProcesses,
             LightTriggerClient lightTriggerClient,
             BinaryRpcSupervisor uiVisualsPython,
@@ -94,6 +95,9 @@ public final class IntegrationShutdownCoordinator {
         }
         if (r.lightServerProcess != null) {
             r.lightServerProcess.close();
+        }
+        if (r.gpioTriggerBridgeProcess != null) {
+            r.gpioTriggerBridgeProcess.close();
         }
         if (r.analisSurfaceProcesses != null) {
             for (ExternalServiceProcess process : r.analisSurfaceProcesses) {

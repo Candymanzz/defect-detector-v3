@@ -23,6 +23,8 @@ $PythonVenv = Join-Path $PythonBackend ".venv"
 $PythonExe = Join-Path $PythonVenv "Scripts\python.exe"
 $LightServerProj = Join-Path $RepoRoot "LightServer.v3\LightServer.csproj"
 $LightServerDll = Join-Path $RepoRoot "LightServer.v3\bin\Release\net10.0\LightServer.dll"
+$GpioBridgeProj = Join-Path $RepoRoot "tools\GpioUdpBridge\GpioUdpBridge.csproj"
+$GpioBridgeDll = Join-Path $RepoRoot "tools\GpioUdpBridge\bin\Release\net10.0\GpioUdpBridge.dll"
 $CameraWorkerDir = Join-Path $RepoRoot "camera-worker"
 $FrontEndDir = Join-Path $RepoRoot "front-end"
 $NpmCmd = "C:\Program Files\nodejs\npm.cmd"
@@ -121,6 +123,11 @@ if (-not $SkipLightServer) {
 } elseif (-not (Test-Path $LightServerDll)) {
     throw "LightServer.dll missing and -SkipLightServer was set"
 }
+
+Invoke-BuildStep "Build GpioUdpBridge (Release)" {
+    dotnet build $GpioBridgeProj -c Release
+}
+if (-not (Test-Path $GpioBridgeDll)) { throw "Build failed: $GpioBridgeDll" }
 
 if (-not $SkipCameraWorker) {
   if (Get-Command cmake -ErrorAction SilentlyContinue) {
