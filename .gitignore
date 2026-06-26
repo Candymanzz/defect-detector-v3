@@ -5,7 +5,6 @@
 /scripts/
 /script/
 /docs/
-/logs/
 .dev-stack.pids.json
 
 # Build outputs (GitHub rejects files > 100 MB)

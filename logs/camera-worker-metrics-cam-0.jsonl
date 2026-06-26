@@ -1,0 +1,5 @@
+{"ts_ns":26259116628000,"camera_id":0,"capture_total":0,"capture_dropped":0,"latency_ns_min":0,"latency_ns_avg":0,"latency_ns_max":0,"last_frame_id":0,"last_slot_index":-1,"ring_slots":4,"frame_bytes":15040512}
+{"ts_ns":23849340633200,"camera_id":0,"capture_total":0,"capture_dropped":0,"latency_ns_min":0,"latency_ns_avg":0,"latency_ns_max":0,"last_frame_id":0,"last_slot_index":-1,"ring_slots":4,"frame_bytes":15040512}
+{"ts_ns":24065874289500,"camera_id":0,"capture_total":0,"capture_dropped":0,"latency_ns_min":0,"latency_ns_avg":0,"latency_ns_max":0,"last_frame_id":0,"last_slot_index":-1,"ring_slots":4,"frame_bytes":15040512}
+{"ts_ns":5027579830100,"camera_id":0,"capture_total":1000,"capture_dropped":16,"latency_ns_min":36065100,"latency_ns_avg":248762758,"latency_ns_max":720618700,"last_frame_id":1000,"last_slot_index":3,"ring_slots":4,"frame_bytes":15040512}
+{"ts_ns":5899398252600,"camera_id":0,"capture_total":0,"capture_dropped":0,"latency_ns_min":0,"latency_ns_avg":0,"latency_ns_max":0,"last_frame_id":0,"last_slot_index":-1,"ring_slots":4,"frame_bytes":15040512}
