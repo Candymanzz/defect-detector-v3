@@ -21,6 +21,7 @@ public final class WsMessageTypes {
     public static final String SERVER_INSPECT_BUCKET_RESULT = "server.inspect_bucket_result";
     /** Живой preview-кадр (без geometry/python), в т.ч. в {@code NO_REFERENCE}. */
     public static final String SERVER_PREVIEW_FRAME = "server.preview_frame";
+    public static final String SERVER_PREVIEW_BATCH = "server.preview_batch";
     public static final String SERVER_STREAM_STARTED = "server.stream_started";
     public static final String SERVER_STREAM_STOPPED = "server.stream_stopped";
     public static final String SERVER_REFERENCE_BUNDLE_ACK = "server.reference_bundle_ack";

@@ -1,11 +1,13 @@
 package com.example.iml.orchestrator.integration.preview;
 
+import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.diagnostics.CaptureSyncDiagnostics;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -19,6 +21,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,7 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Периодический capture + JPEG на ui_http + {@code server.preview_frame} по WebSocket.
+ * Периодический capture + JPEG на ui_http + {@code server.preview_batch} по WebSocket.
  * Не зависит от эталона (инспекция geometry+python — только после {@code client.reference_bundle}).
  */
 public final class LivePreviewPublisher implements AutoCloseable {
@@ -52,6 +56,9 @@ public final class LivePreviewPublisher implements AutoCloseable {
     private final ConcurrentHashMap<Integer, AtomicBoolean> tickInProgressByCamera = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, PreviewMetrics> metricsByCamera = new ConcurrentHashMap<>();
     private final List<CameraPreviewTarget> previewTargets;
+    private final CaptureSyncDiagnostics syncDiag;
+    private volatile LineSynchronizedCaptureCoordinator lineCaptureCoordinator;
+    private final AtomicLong previewLineSequence = new AtomicLong(0L);
 
     private LivePreviewPublisher(
             Logger log,
@@ -68,7 +75,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
             CameraStreamService cameraStreamService,
             LivePreviewGate previewGate,
             PerCameraInspectionGate inspectionGate,
-            List<CameraPreviewTarget> previewTargets
+            List<CameraPreviewTarget> previewTargets,
+            CaptureSyncDiagnostics syncDiag
     ) {
         this.log = log;
         this.cfg = cfg;
@@ -87,6 +95,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
         this.previewGate = previewGate;
         this.inspectionGate = inspectionGate;
         this.previewTargets = previewTargets == null ? List.of() : List.copyOf(previewTargets);
+        this.syncDiag = syncDiag;
     }
 
     public static LivePreviewPublisher start(
@@ -156,7 +165,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 cameraStreamService,
                 previewGate,
                 inspectionGate,
-                targets
+                targets,
+                new CaptureSyncDiagnostics(log, "preview", Math.max(2000L, intervalMs))
         );
         for (CameraPreviewTarget target : targets) {
             int cameraId = target.cameraId();
@@ -178,6 +188,10 @@ public final class LivePreviewPublisher implements AutoCloseable {
         return publisher;
     }
 
+    public void setLineCaptureCoordinator(LineSynchronizedCaptureCoordinator lineCaptureCoordinator) {
+        this.lineCaptureCoordinator = lineCaptureCoordinator;
+    }
+
     private void tickAllGuarded() {
         if (closed.get()) {
             return;
@@ -185,10 +199,25 @@ public final class LivePreviewPublisher implements AutoCloseable {
         if (!cycleInProgress.compareAndSet(false, true)) {
             return;
         }
+        long lineSeq = 1_000_000_000L + previewLineSequence.incrementAndGet();
+        LineSynchronizedCaptureCoordinator lineCapture = lineCaptureCoordinator;
+        if (lineCapture != null && lineCapture.isEnabled()) {
+            scheduler.execute(() -> {
+                try {
+                    tickLineBatchGuarded(lineSeq, lineCapture);
+                } finally {
+                    cycleInProgress.set(false);
+                }
+            });
+            return;
+        }
         try {
+            List<Integer> cameraIds = previewTargets.stream().map(CameraPreviewTarget::cameraId).collect(Collectors.toList());
+            long round = syncDiag.beginRound(cameraIds);
             for (CameraPreviewTarget target : previewTargets) {
                 scheduler.execute(
                         () -> tickGuarded(
+                                round,
                                 target.cameraId(),
                                 target.productType(),
                                 target.detectorId(),
@@ -201,7 +230,209 @@ public final class LivePreviewPublisher implements AutoCloseable {
         }
     }
 
-    private void tickGuarded(int cameraId, String productType, String detectorId, WorkerProcessSupervisor worker) {
+    private void tickLineBatchGuarded(long lineSeq, LineSynchronizedCaptureCoordinator lineCapture) {
+        if (closed.get()) {
+            return;
+        }
+        if (previewGate != null && previewGate.isPaused()) {
+            return;
+        }
+        if (inspectionGate != null && inspectionGate.hasAnyInspectionInFlight()) {
+            for (CameraPreviewTarget target : previewTargets) {
+                metricsByCamera(target.cameraId()).droppedTicks.increment();
+            }
+            return;
+        }
+        List<Integer> cameraIds = previewTargets.stream().map(CameraPreviewTarget::cameraId).collect(Collectors.toList());
+        long round = syncDiag.beginRound(cameraIds);
+        List<CameraPreviewTarget> activeTargets = new ArrayList<>();
+        for (CameraPreviewTarget target : previewTargets) {
+            int cameraId = target.cameraId();
+            if (inspectionGate != null && inspectionGate.isInspectionInFlight(cameraId)) {
+                syncDiag.recordCaptureSkipped(round, cameraId, "inspection_in_flight");
+                metricsByCamera(cameraId).droppedTicks.increment();
+                continue;
+            }
+            if (cameraStreamService != null && cameraStreamService.isStreaming(cameraId)) {
+                syncDiag.recordCaptureSkipped(round, cameraId, "client_stream_active");
+                continue;
+            }
+            activeTargets.add(target);
+        }
+        if (activeTargets.isEmpty()) {
+            return;
+        }
+        long captureStartedNs = System.nanoTime();
+        try {
+            Map<Integer, WorkerProcessSupervisor> workersByCamera = new LinkedHashMap<>();
+            for (CameraPreviewTarget target : activeTargets) {
+                workersByCamera.put(target.cameraId(), target.worker());
+            }
+            Map<Integer, BinaryProtocol.Message> captured;
+            try {
+                captured = capturePreviewLineBatch(lineCapture, lineSeq, workersByCamera);
+            } catch (Exception batchError) {
+                log.warn("live_preview line batch failed: {}", batchError.getMessage());
+                captured = capturePreviewSoloSequential(activeTargets);
+            }
+            if (captured == null || captured.isEmpty()) {
+                log.warn("live_preview: no usable frames after line batch");
+                return;
+            }
+            for (CameraPreviewTarget target : activeTargets) {
+                BinaryProtocol.Message msg = captured.get(target.cameraId());
+                if (!hasUsableCaptureHeader(msg)) {
+                    syncDiag.recordCaptureFail(round, target.cameraId(), "missing after batch", elapsedMs(captureStartedNs));
+                    continue;
+                }
+                Map<String, Object> header = msg.header();
+                syncDiag.recordCaptureOk(
+                        round,
+                        target.cameraId(),
+                        YamlScalars.toLong(header.get("frame_id"), -1L),
+                        YamlScalars.toLong(header.get("capture_started_ns"), 0L),
+                        YamlScalars.toLong(header.get("capture_latency_ns"), 0L),
+                        elapsedMs(captureStartedNs)
+                );
+            }
+            publishPreviewCaptures(round, lineSeq, activeTargets, captured);
+        } catch (Exception e) {
+            log.warn("live_preview tick failed: {}", e.getMessage());
+        } finally {
+            for (CameraPreviewTarget target : activeTargets) {
+                metricsByCamera(target.cameraId()).maybeLog(log, target.cameraId());
+            }
+        }
+    }
+
+    private Map<Integer, BinaryProtocol.Message> capturePreviewLineBatch(
+            LineSynchronizedCaptureCoordinator lineCapture,
+            long lineSeq,
+            Map<Integer, WorkerProcessSupervisor> workersByCamera
+    ) throws Exception {
+        if (cfg.flashOnTick()) {
+            int flashCameraId = workersByCamera.keySet().stream().sorted().findFirst().orElse(0);
+            final Map<Integer, BinaryProtocol.Message>[] capturedHolder = new Map[1];
+            lightClient.runCaptureWithLighting(flashCameraId, -1L, "preview", flashLeadMs, () -> {
+                try {
+                    capturedHolder[0] = lineCapture.captureLineBatch(lineSeq, workersByCamera, true);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            return capturedHolder[0];
+        }
+        return lineCapture.captureLineBatch(lineSeq, workersByCamera, true);
+    }
+
+    private Map<Integer, BinaryProtocol.Message> capturePreviewSoloSequential(List<CameraPreviewTarget> activeTargets) {
+        Map<Integer, BinaryProtocol.Message> captured = new LinkedHashMap<>();
+        for (CameraPreviewTarget target : activeTargets) {
+            int cameraId = target.cameraId();
+            try {
+                BinaryProtocol.Message msg;
+                synchronized (target.worker()) {
+                    msg = target.worker().command(Map.of("op", "capture", "sync", true));
+                }
+                if (hasUsableCaptureHeader(msg)) {
+                    captured.put(cameraId, msg);
+                }
+            } catch (Exception e) {
+                log.warn("live_preview solo cam={}: {}", cameraId, e.getMessage());
+            }
+        }
+        return captured;
+    }
+
+    private void publishPreviewCaptures(
+            long round,
+            long lineSeq,
+            List<CameraPreviewTarget> activeTargets,
+            Map<Integer, BinaryProtocol.Message> captured
+    ) {
+        boolean imagesEnabled = previewGate == null || previewGate.areImagesEnabled();
+        long serverTsMs = System.currentTimeMillis();
+        List<PreviewWsFrame> wsFrames = new ArrayList<>(captured.size());
+        for (CameraPreviewTarget target : activeTargets) {
+            int cameraId = target.cameraId();
+            BinaryProtocol.Message capture = captured.get(cameraId);
+            if (!hasUsableCaptureHeader(capture)) {
+                continue;
+            }
+            PreviewMetrics metrics = metricsByCamera(cameraId);
+            Map<String, Object> header = capture.header();
+            long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
+            String shmName = String.valueOf(header.get("shm_name"));
+            int width = YamlScalars.toInt(header.get("width"), 0);
+            int height = YamlScalars.toInt(header.get("height"), 0);
+            int stride = YamlScalars.toInt(header.get("stride"), 0);
+            long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
+            String httpPath = null;
+            if (imagesEnabled) {
+                long encodeStarted = System.nanoTime();
+                PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
+                metrics.encodeNs.add(System.nanoTime() - encodeStarted);
+                if (jpeg.path == null || !Files.isRegularFile(jpeg.path)) {
+                    if (jpeg.error != null) {
+                        syncDiag.recordCaptureFail(round, cameraId, "jpeg: " + jpeg.error, 0L);
+                        log.warn("live_preview cam={} frame={}: {}", cameraId, frameId, jpeg.error);
+                    }
+                    continue;
+                }
+                uiServer.update(
+                        cameraId,
+                        frameId,
+                        target.productType(),
+                        target.detectorId(),
+                        shmName,
+                        width,
+                        height,
+                        jpeg.path,
+                        jpeg.width,
+                        jpeg.height,
+                        null,
+                        0,
+                        0,
+                        null
+                );
+                httpPath = "/api/camera/" + cameraId + "/current.jpg";
+            }
+            wsFrames.add(new PreviewWsFrame(cameraId, target.productType(), target.detectorId(), header, httpPath));
+        }
+        if (!wsFrames.isEmpty()) {
+            notifyPreviewBatch(round, lineSeq, serverTsMs, wsFrames);
+        }
+    }
+
+    private PreviewMetrics metricsByCamera(int cameraId) {
+        return metricsByCamera.computeIfAbsent(cameraId, ignored -> new PreviewMetrics());
+    }
+
+    private void notifyPreviewBatch(long round, long lineSeq, long serverTsMs, List<PreviewWsFrame> frames) {
+        if (clientWs == null || frames.isEmpty()) {
+            return;
+        }
+        long wsStarted = System.nanoTime();
+        clientWs.notifyPreviewBatch(lineSeq, serverTsMs, frames);
+        long wsNs = System.nanoTime() - wsStarted;
+        long perCameraWsNs = wsNs / Math.max(1, frames.size());
+        for (PreviewWsFrame frame : frames) {
+            PreviewMetrics metrics = metricsByCamera(frame.cameraId());
+            metrics.wsNs.add(perCameraWsNs);
+            metrics.frames.increment();
+            long frameId = YamlScalars.toLong(frame.captureHeader().get("frame_id"), -1L);
+            syncDiag.recordWsSend(round, frame.cameraId(), frameId);
+        }
+        log.info("live_preview batch published line_seq={} cameras={}", lineSeq, frames.size());
+    }
+
+    private void tickGuarded(
+            long round,
+            int cameraId,
+            String productType,
+            String detectorId,
+            WorkerProcessSupervisor worker
+    ) {
         AtomicBoolean inProgress = tickInProgressByCamera.computeIfAbsent(cameraId, ignored -> new AtomicBoolean(false));
         PreviewMetrics metrics = metricsByCamera.computeIfAbsent(cameraId, ignored -> new PreviewMetrics());
         if (!inProgress.compareAndSet(false, true)) {
@@ -210,18 +441,26 @@ public final class LivePreviewPublisher implements AutoCloseable {
             return;
         }
         try {
-            tick(cameraId, productType, detectorId, worker, metrics);
+            tick(round, cameraId, productType, detectorId, worker, metrics);
         } finally {
             inProgress.set(false);
             metrics.maybeLog(log, cameraId);
         }
     }
 
-    private void tick(int cameraId, String productType, String detectorId, WorkerProcessSupervisor worker, PreviewMetrics metrics) {
+    private void tick(
+            long round,
+            int cameraId,
+            String productType,
+            String detectorId,
+            WorkerProcessSupervisor worker,
+            PreviewMetrics metrics
+    ) {
         if (closed.get()) {
             return;
         }
         if (previewGate != null && previewGate.isPaused()) {
+            syncDiag.recordCaptureSkipped(round, cameraId, "preview_paused");
             return;
         }
         // Capture reuses the camera SHM buffer, so preview must not overwrite
@@ -229,11 +468,14 @@ public final class LivePreviewPublisher implements AutoCloseable {
         if (inspectionGate != null && (inspectionGate.isInspectionInFlight(cameraId)
                 || inspectionGate.hasAnyInspectionInFlight())) {
             metrics.droppedTicks.increment();
+            syncDiag.recordCaptureSkipped(round, cameraId, "inspection_in_flight");
             return;
         }
         if (cameraStreamService != null && cameraStreamService.isStreaming(cameraId)) {
+            syncDiag.recordCaptureSkipped(round, cameraId, "client_stream_active");
             return;
         }
+        long captureStartedNs = System.nanoTime();
         try {
             BinaryProtocol.Message capture;
             synchronized (worker) {
@@ -254,6 +496,12 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 }
             }
             if (capture == null || capture.header() == null) {
+                syncDiag.recordCaptureFail(
+                        round,
+                        cameraId,
+                        capture == null ? "null message" : "message without header",
+                        elapsedMs(captureStartedNs)
+                );
                 log.warn(
                         "live_preview cam={}: capture returned {}",
                         cameraId,
@@ -264,6 +512,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
             Map<String, Object> header = capture.header();
             long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
             if (frameId < 0) {
+                syncDiag.recordCaptureFail(round, cameraId, "invalid frame_id: " + header.get("frame_id"), elapsedMs(captureStartedNs));
                 log.warn(
                         "live_preview cam={}: invalid frame_id in capture header: {}",
                         cameraId,
@@ -276,6 +525,12 @@ public final class LivePreviewPublisher implements AutoCloseable {
             int height = YamlScalars.toInt(header.get("height"), 0);
             int stride = YamlScalars.toInt(header.get("stride"), 0);
             if (shmName.isBlank() || width <= 0 || height <= 0) {
+                syncDiag.recordCaptureFail(
+                        round,
+                        cameraId,
+                        "invalid geometry shm=" + shmName + " w=" + width + " h=" + height,
+                        elapsedMs(captureStartedNs)
+                );
                 log.warn(
                         "live_preview cam={}: invalid capture geometry frame={} shm='{}' width={} height={} stride={}",
                         cameraId,
@@ -288,9 +543,19 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 return;
             }
 
+            long orchMs = elapsedMs(captureStartedNs);
+            syncDiag.recordCaptureOk(
+                    round,
+                    cameraId,
+                    frameId,
+                    YamlScalars.toLong(header.get("capture_started_ns"), 0L),
+                    YamlScalars.toLong(header.get("capture_latency_ns"), 0L),
+                    orchMs
+            );
+
             long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
             if (previewGate != null && !previewGate.areImagesEnabled()) {
-                notifyPreviewFrame(cameraId, productType, detectorId, header, null, metrics);
+                notifyPreviewFrame(round, cameraId, productType, detectorId, header, null, metrics, frameId);
                 return;
             }
 
@@ -299,6 +564,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
             metrics.encodeNs.add(System.nanoTime() - encodeStarted);
             if (jpeg.path == null || !Files.isRegularFile(jpeg.path)) {
                 if (jpeg.error != null) {
+                    syncDiag.recordCaptureFail(round, cameraId, "jpeg: " + jpeg.error, elapsedMs(captureStartedNs));
                     log.warn("live_preview cam={} frame={}: {}", cameraId, frameId, jpeg.error);
                 }
                 return;
@@ -320,27 +586,37 @@ public final class LivePreviewPublisher implements AutoCloseable {
                     null
             );
             notifyPreviewFrame(
+                    round,
                     cameraId,
                     productType,
                     detectorId,
                     header,
                     "/api/camera/" + cameraId + "/current.jpg",
-                    metrics
+                    metrics,
+                    frameId
             );
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            syncDiag.recordCaptureFail(round, cameraId, "interrupted", elapsedMs(captureStartedNs));
         } catch (Exception e) {
+            syncDiag.recordCaptureFail(round, cameraId, e.getMessage(), elapsedMs(captureStartedNs));
             log.debug("live_preview cam={}: {}", cameraId, e.getMessage());
         }
     }
 
+    private static long elapsedMs(long startedNs) {
+        return (System.nanoTime() - startedNs) / 1_000_000L;
+    }
+
     private void notifyPreviewFrame(
+            long round,
             int cameraId,
             String productType,
             String detectorId,
             Map<String, Object> header,
             String httpPath,
-            PreviewMetrics metrics
+            PreviewMetrics metrics,
+            long frameId
     ) {
         if (clientWs == null) {
             return;
@@ -349,6 +625,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
         clientWs.notifyPreviewFrame(cameraId, productType, detectorId, header, httpPath);
         metrics.wsNs.add(System.nanoTime() - wsStarted);
         metrics.frames.increment();
+        syncDiag.recordWsSend(round, cameraId, frameId);
     }
 
     private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride, long shmOffset) {
@@ -427,6 +704,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
             return;
         }
         scheduler.shutdownNow();
+        syncDiag.close();
         try {
             if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
                 scheduler.shutdownNow();

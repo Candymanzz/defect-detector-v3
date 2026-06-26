@@ -18,6 +18,7 @@ import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.stream.ClientStreamConfig;
+import com.example.iml.orchestrator.integration.preview.PreviewWsFrame;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
@@ -162,6 +163,13 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             return;
         }
         broadcastOpenClients(conn -> outbound.sendPreviewFrame(conn, cameraId, productType, detectorId, captureHeader, httpPath));
+    }
+
+    public void notifyPreviewBatch(long lineSeq, long serverTsMs, List<PreviewWsFrame> frames) {
+        if (frames == null || frames.isEmpty()) {
+            return;
+        }
+        broadcastOpenClients(conn -> outbound.sendPreviewBatch(conn, lineSeq, serverTsMs, frames));
     }
 
     public void notifyInspectResult(

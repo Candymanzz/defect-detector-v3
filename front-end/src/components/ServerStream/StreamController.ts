@@ -92,6 +92,15 @@ export function useStreamController({
           clearFirstFrameTimer();
           return;
 
+        case "server.preview_batch":
+          if (streamStateRef.current !== "playing") {
+            return;
+          }
+          if (wsMessage.payload.frames.some((frame) => frame.camera_id === cameraId)) {
+            clearFirstFrameTimer();
+          }
+          return;
+
         case "server.stream_stopped":
           if (wsMessage.payload.camera_id !== cameraId) {
             return;

@@ -60,6 +60,7 @@ public interface CameraCaptureStage {
             WorkerProcessSupervisor worker,
             LightTriggerClient lightClient,
             ExecutorService captureStageExecutor,
+            long triggerSequence,
             String debugLogSuffix
     );
 
@@ -71,6 +72,7 @@ public interface CameraCaptureStage {
             int flashLeadMs,
             WorkerProcessSupervisor worker,
             LightTriggerClient lightClient,
+            long triggerSequence,
             String debugLogSuffix
     );
 }

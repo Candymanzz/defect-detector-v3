@@ -2,13 +2,13 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>D:\visionGay\defect-detector-v3\camera-worker\build\x64\Release\ZERO_CHECK</FullPath>
+      <FullPath>C:\Users\Administrator\Documents\GitHub\defect-detector-v3\camera-worker\build\x64\Release\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>D:\visionGay\defect-detector-v3\camera-worker\build\Release\camera_worker.exe</FullPath>
+      <FullPath>C:\Users\Administrator\Documents\GitHub\defect-detector-v3\camera-worker\build\Release\camera_worker.exe</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>D:\visionGay\defect-detector-v3\camera-worker\build\x64\Release\ALL_BUILD</FullPath>
+      <FullPath>C:\Users\Administrator\Documents\GitHub\defect-detector-v3\camera-worker\build\x64\Release\ALL_BUILD</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

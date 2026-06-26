@@ -5,7 +5,7 @@ import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
 import { compareFrameIds } from "../../shared/lib/frameIds";
 import { orchestratorWs } from "../../shared/ws";
-import type { InspectResultPayload } from "../../shared/ws";
+import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import {
   compareInspectResults,
   createInspectionControlStates,
@@ -201,34 +201,30 @@ export function useMainOverview() {
       }
 
       if (message.type === "server.preview_frame") {
-        const previewFrame = message.payload;
-        const cameraId = previewFrame.camera_id;
-        const previousTimestamp = latestPreviewTimestampByCameraIdRef.current[cameraId] ?? 0;
-        if (previewFrame.server_ts_ms < previousTimestamp) {
-          return;
-        }
+        applyPreviewFrames(
+          [message.payload],
+          latestPreviewFrameIdByCameraIdRef,
+          latestPreviewTimestampByCameraIdRef,
+          setPreviewFrameIdsByCameraId,
+          pendingPreviewUrlsByCameraIdRef,
+          previewUpdateFrameRef,
+          setPreviewImageUrlsByCameraId,
+          resetCameraInspectionOrdering,
+        );
+        return;
+      }
 
-        const previousFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
-        if (previousFrameId && compareFrameIds(previewFrame.frame_id, previousFrameId) < 0) {
-          resetCameraInspectionOrdering(cameraId);
-        }
-        latestPreviewFrameIdByCameraIdRef.current[cameraId] = previewFrame.frame_id;
-        latestPreviewTimestampByCameraIdRef.current[cameraId] = previewFrame.server_ts_ms;
-        setPreviewFrameIdsByCameraId((previousFrameIds) => ({
-          ...previousFrameIds,
-          [cameraId]: previewFrame.frame_id,
-        }));
-
-        const imageUrl = createWsFrameImageUrl(previewFrame);
-        if (imageUrl) {
-          queuePreviewImageUpdate(
-            cameraId,
-            imageUrl,
-            pendingPreviewUrlsByCameraIdRef,
-            previewUpdateFrameRef,
-            setPreviewImageUrlsByCameraId,
-          );
-        }
+      if (message.type === "server.preview_batch") {
+        applyPreviewFrames(
+          message.payload.frames,
+          latestPreviewFrameIdByCameraIdRef,
+          latestPreviewTimestampByCameraIdRef,
+          setPreviewFrameIdsByCameraId,
+          pendingPreviewUrlsByCameraIdRef,
+          previewUpdateFrameRef,
+          setPreviewImageUrlsByCameraId,
+          resetCameraInspectionOrdering,
+        );
         return;
       }
 
@@ -339,23 +335,62 @@ function logMissingInspectionResults(
   }
 }
 
-function queuePreviewImageUpdate(
-  cameraId: number,
-  imageUrl: string,
-  pendingUrlsRef: React.MutableRefObject<CameraImageUrlsById>,
-  animationFrameRef: React.MutableRefObject<number | null>,
-  setPreviewUrls: Dispatch<SetStateAction<CameraImageUrlsById>>,
+function applyPreviewFrames(
+  frames: PreviewFramePayload[],
+  latestPreviewFrameIdByCameraIdRef: React.MutableRefObject<Record<number, string>>,
+  latestPreviewTimestampByCameraIdRef: React.MutableRefObject<Record<number, number>>,
+  setPreviewFrameIdsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
+  pendingPreviewUrlsByCameraIdRef: React.MutableRefObject<CameraImageUrlsById>,
+  previewUpdateFrameRef: React.MutableRefObject<number | null>,
+  setPreviewImageUrlsByCameraId: Dispatch<SetStateAction<CameraImageUrlsById>>,
+  resetCameraInspectionOrdering: (cameraId: number) => void,
 ) {
-  pendingUrlsRef.current[cameraId] = imageUrl;
-  if (animationFrameRef.current !== null) {
+  if (frames.length === 0) {
     return;
   }
 
-  animationFrameRef.current = window.requestAnimationFrame(() => {
-    animationFrameRef.current = null;
-    const pendingPreviewUrls = pendingUrlsRef.current;
-    pendingUrlsRef.current = {};
-    setPreviewUrls((previousImageUrls) => ({
+  const nextFrameIds: Record<number, string> = {};
+  for (const previewFrame of frames) {
+    const cameraId = previewFrame.camera_id;
+    const previousTimestamp = latestPreviewTimestampByCameraIdRef.current[cameraId] ?? 0;
+    if (previewFrame.server_ts_ms < previousTimestamp) {
+      continue;
+    }
+
+    const previousFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
+    if (previousFrameId && compareFrameIds(previewFrame.frame_id, previousFrameId) < 0) {
+      resetCameraInspectionOrdering(cameraId);
+    }
+    latestPreviewFrameIdByCameraIdRef.current[cameraId] = previewFrame.frame_id;
+    latestPreviewTimestampByCameraIdRef.current[cameraId] = previewFrame.server_ts_ms;
+    nextFrameIds[cameraId] = previewFrame.frame_id;
+
+    const imageUrl = createWsFrameImageUrl(previewFrame);
+    if (imageUrl) {
+      pendingPreviewUrlsByCameraIdRef.current[cameraId] = imageUrl;
+    }
+  }
+
+  if (Object.keys(nextFrameIds).length > 0) {
+    setPreviewFrameIdsByCameraId((previousFrameIds) => ({
+      ...previousFrameIds,
+      ...nextFrameIds,
+    }));
+  }
+
+  if (Object.keys(pendingPreviewUrlsByCameraIdRef.current).length === 0) {
+    return;
+  }
+
+  if (previewUpdateFrameRef.current !== null) {
+    return;
+  }
+
+  previewUpdateFrameRef.current = window.requestAnimationFrame(() => {
+    previewUpdateFrameRef.current = null;
+    const pendingPreviewUrls = pendingPreviewUrlsByCameraIdRef.current;
+    pendingPreviewUrlsByCameraIdRef.current = {};
+    setPreviewImageUrlsByCameraId((previousImageUrls) => ({
       ...previousImageUrls,
       ...pendingPreviewUrls,
     }));

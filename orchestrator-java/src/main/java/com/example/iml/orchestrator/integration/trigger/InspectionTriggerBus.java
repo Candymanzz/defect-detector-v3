@@ -1,5 +1,8 @@
 package com.example.iml.orchestrator.integration.trigger;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,6 +21,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * Шина внешних триггеров: UDP и другие транспорты публикуют сюда, пайплайн камеры — читает.
  */
 public final class InspectionTriggerBus implements AutoCloseable {
+
+    private static final Logger LOG = LogManager.getLogger(InspectionTriggerBus.class);
 
     private final Map<Integer, BlockingQueue<InspectionTriggerEvent>> perCamera = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(0);
@@ -61,6 +66,11 @@ public final class InspectionTriggerBus implements AutoCloseable {
         List<Integer> cameraIds = new ArrayList<>(perCamera.keySet());
         Collections.sort(cameraIds);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
+            LOG.info(
+                    "sync_diag channel=inspect event=line_trigger trigger_sequence={} cameras={} stagger_ms=0 mode=simultaneous",
+                    seq,
+                    cameraIds.size()
+            );
             int published = 0;
             for (Integer cameraId : cameraIds) {
                 if (offerToCamera(cameraId, receivedAt, raw.source(), seq)) {
@@ -69,6 +79,12 @@ public final class InspectionTriggerBus implements AutoCloseable {
             }
             return published;
         }
+        LOG.info(
+                "sync_diag channel=inspect event=line_trigger trigger_sequence={} cameras={} stagger_ms={} mode=staggered",
+                seq,
+                cameraIds.size(),
+                captureTriggerStaggerMs
+        );
         for (int i = 0; i < cameraIds.size(); i++) {
             int cameraId = cameraIds.get(i);
             long delayMs = (long) i * captureTriggerStaggerMs;

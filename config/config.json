@@ -7,9 +7,11 @@
   },
   "capture_source": "hik",
   "capture_trigger_mode": "software",
-  "frame_timeout_ms": 8000,
-  "gige_inter_packet_delay": 8000,
-  "gige_frame_transfer_delay_step": 7000000,
+  "frame_timeout_ms": 15000,
+  "gige_switch_buffer_kb": 48,
+  "gige_inter_packet_delay": 80000,
+  "gige_frame_transfer_delay_step": 0,
+  "gige_ftd_cameras_per_link": 10,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
     "control_pipe_linux": "/tmp/iml-orchestrator.sock"

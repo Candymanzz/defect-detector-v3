@@ -8,11 +8,15 @@ frame:
 
 capture_source: "hik"
 capture_trigger_mode: "software"
-frame_timeout_ms: 8000
+frame_timeout_ms: 15000
+# Коммутатор: egress-буфер ~48 КБ — только один GigE-поток на uplink; слоты 0..9 по camera_id.
+gige_switch_buffer_kb: 48
 # GigE: межпакетная задержка (GevSCPD) и сдвиг старта передачи (GevSCFTD, тики ~8 нс).
-gige_inter_packet_delay: 8000
-# GevSCFTD step ≈ 125% payload; для Mono8 (~5 МБ) ~7000000, для BGR8 — ~20000000.
-gige_frame_transfer_delay_step: 7000000
+gige_inter_packet_delay: 80000
+# 0 = авто (≥96 мс для Mono8 2448×2048 на 1 Gb/s); не меньше времени передачи кадра.
+gige_frame_transfer_delay_step: 0
+# При switch_buffer_kb>96: camera_id % N на линк; при 48 КБ игнорируется — полная сериализация.
+gige_ftd_cameras_per_link: 10
 
 orchestrator:
   control_pipe: "\\\\.\\pipe\\iml-orchestrator"
@@ -28,8 +32,13 @@ integration:
     # Реже инспекции (3.5 с), чтобы preview не конкурировал с GigE при 10 камерах.
     interval_ms: 8000
   camera_parallelism: 10
-  # Программный сдвиг триггера между камерами (мс), дополняет GevSCFTD на камере.
-  capture_trigger_stagger_ms: 140
+  # 0 = все камеры получают триггер одновременно; разнесение трафика — GevSCFTD в camera-worker.
+  capture_trigger_stagger_ms: 0
+  simultaneous_line_capture:
+    enabled: true
+    barrier_wait_ms: 1500
+    post_trigger_settle_ms: 50
+    inter_wait_frame_ms: 120
   geometry_pool_size: 10
   python_parallelism: 10
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.

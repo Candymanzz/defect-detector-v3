@@ -106,6 +106,11 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         case "server.preview_frame":
           handlePreviewFrame(message.payload);
           break;
+        case "server.preview_batch":
+          for (const previewFrame of message.payload.frames) {
+            handlePreviewFrame(previewFrame);
+          }
+          break;
         case "server.stream_started":
         case "server.stream_stopped":
           // Temporarily disabled: ReferenceSetup does not manage server streams.

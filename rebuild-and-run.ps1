@@ -126,9 +126,26 @@ if (-not $SkipCameraWorker) {
   if (Get-Command cmake -ErrorAction SilentlyContinue) {
     Invoke-BuildStep "Build camera-worker" {
         Push-Location $CameraWorkerDir
-        if (-not (Test-Path "build")) {
-            cmake -B build -DCMAKE_BUILD_TYPE=Release
+        $mvsDevRoot = $null
+        if ($env:MVS_ROOT) {
+            if (Test-Path (Join-Path $env:MVS_ROOT "Includes\MvCameraControl.h")) {
+                $mvsDevRoot = $env:MVS_ROOT
+            } elseif (Test-Path (Join-Path $env:MVS_ROOT "Development\Includes\MvCameraControl.h")) {
+                $mvsDevRoot = Join-Path $env:MVS_ROOT "Development"
+            }
+        } else {
+            foreach ($candidate in @("E:\MVS\Development", "C:\Program Files (x86)\MVS\Development")) {
+                if (Test-Path (Join-Path $candidate "Includes\MvCameraControl.h")) {
+                    $mvsDevRoot = $candidate
+                    break
+                }
+            }
         }
+        $cmakeArgs = @("-B", "build", "-DCMAKE_BUILD_TYPE=Release")
+        if ($mvsDevRoot) {
+            $cmakeArgs += "-DMVS_ROOT=$($mvsDevRoot -replace '\\','/')"
+        }
+        cmake @cmakeArgs
         cmake --build build --config Release
         Pop-Location
     }
