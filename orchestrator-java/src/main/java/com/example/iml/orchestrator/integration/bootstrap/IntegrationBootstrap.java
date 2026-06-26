@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.bootstrap;
 
+import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
 import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfig;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownCoordinator;
 import com.example.iml.orchestrator.integration.camera.WorkerIpcMode;
@@ -270,6 +271,7 @@ public final class IntegrationBootstrap {
 
         LivePreviewPublisher livePreview = null;
         LivePreviewGate livePreviewGate = new LivePreviewGate();
+        LineSynchronizedCaptureCoordinator lineCaptureCoordinator = null;
         CameraStreamService cameraStreamService = null;
         InspectionTriggerRuntime triggerRuntime = null;
         BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster = null;
@@ -370,6 +372,9 @@ public final class IntegrationBootstrap {
                     livePreviewGate,
                     inspectionGate
             );
+            if (livePreview != null && lineCaptureCoordinator != null) {
+                livePreview.setLineCaptureCoordinator(lineCaptureCoordinator);
+            }
             cameraExecutor = Executors.newFixedThreadPool(cfg.cameraParallelism(), r -> {
                 Thread t = new Thread(r, "camera-flow");
                 t.setDaemon(true);
@@ -406,6 +411,31 @@ public final class IntegrationBootstrap {
                         bucketInspectionConfig.allCameraIds(),
                         bucketInspectionConfig.timeoutMs(),
                         bucketInspectionConfig.lineBroadcastIntervalMs()
+                );
+            }
+            boolean lineCaptureSyncEnabled = parseSimultaneousLineCaptureEnabled(integration);
+            long lineCaptureBarrierMs = parseSimultaneousLineCaptureBarrierMs(integration);
+            long postTriggerSettleMs = parseSimultaneousLineCapturePostTriggerSettleMs(integration);
+            long interWaitFrameMs = parseSimultaneousLineCaptureInterWaitFrameMs(integration);
+            if (lineCaptureSyncEnabled && inspectionCameraIds.size() > 1) {
+                lineCaptureCoordinator = new LineSynchronizedCaptureCoordinator(
+                        inspectionCameraIds,
+                        lineCaptureBarrierMs,
+                        postTriggerSettleMs,
+                        interWaitFrameMs
+                );
+                captureCoordinator.setLineCaptureCoordinator(lineCaptureCoordinator);
+            } else if (cfg.captureTriggerStaggerMs() > 0) {
+                log.info(
+                        "inspection trigger stagger enabled delay_ms={} cameras={}",
+                        cfg.captureTriggerStaggerMs(),
+                        inspectionCameraIds.size()
+                );
+            } else {
+                log.info(
+                        "line synchronized capture disabled (enabled={} cameras={})",
+                        lineCaptureSyncEnabled,
+                        inspectionCameraIds.size()
                 );
             }
             triggerRuntime = InspectionTriggerRuntime.start(
@@ -598,5 +628,50 @@ public final class IntegrationBootstrap {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean parseSimultaneousLineCaptureEnabled(Map<String, Object> integration) {
+        if (integration == null) {
+            return true;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return true;
+        }
+        return YamlScalars.toBool(map.get("enabled"), true);
+    }
+
+    private static long parseSimultaneousLineCaptureBarrierMs(Map<String, Object> integration) {
+        if (integration == null) {
+            return 1500L;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return 1500L;
+        }
+        return Math.max(100L, YamlScalars.toLong(map.get("barrier_wait_ms"), 1500L));
+    }
+
+    private static long parseSimultaneousLineCapturePostTriggerSettleMs(Map<String, Object> integration) {
+        if (integration == null) {
+            return 50L;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return 50L;
+        }
+        return Math.max(0L, YamlScalars.toLong(map.get("post_trigger_settle_ms"), 50L));
+    }
+
+    private static long parseSimultaneousLineCaptureInterWaitFrameMs(Map<String, Object> integration) {
+        if (integration == null) {
+            return 60L;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return 60L;
+        }
+        return Math.max(0L, YamlScalars.toLong(map.get("inter_wait_frame_ms"), 60L));
     }
 }

@@ -19,6 +19,7 @@ export type ServerWsMessageType =
   | "server.state"
   | "server.inspect_result"
   | "server.preview_frame"
+  | "server.preview_batch"
   | "server.stream_started"
   | "server.stream_stopped"
   | "server.reference_bundle_ack"
@@ -109,6 +110,14 @@ export type ServerInspectResultMessage = ServerWsEnvelope<"server.inspect_result
 
 export type ServerPreviewFrameMessage = ServerWsEnvelope<"server.preview_frame", PreviewFramePayload>;
 
+export type PreviewBatchPayload = {
+  line_seq: number;
+  server_ts_ms: number;
+  frames: PreviewFramePayload[];
+};
+
+export type ServerPreviewBatchMessage = ServerWsEnvelope<"server.preview_batch", PreviewBatchPayload>;
+
 export type ServerStreamStartedMessage = ServerWsEnvelope<
   "server.stream_started",
   {
@@ -182,6 +191,7 @@ export type ServerWsMessage =
   | ServerStateMessage
   | ServerInspectResultMessage
   | ServerPreviewFrameMessage
+  | ServerPreviewBatchMessage
   | ServerStreamStartedMessage
   | ServerStreamStoppedMessage
   | ServerReferenceBundleAckMessage
@@ -196,6 +206,7 @@ export type ServerWsPayloadByType = {
   "server.state": ServerStateMessage["payload"];
   "server.inspect_result": InspectResultPayload;
   "server.preview_frame": PreviewFramePayload;
+  "server.preview_batch": PreviewBatchPayload;
   "server.stream_started": ServerStreamStartedMessage["payload"];
   "server.stream_stopped": ServerStreamStoppedMessage["payload"];
   "server.reference_bundle_ack": ServerReferenceBundleAckMessage["payload"];

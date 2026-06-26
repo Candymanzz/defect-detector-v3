@@ -42,6 +42,7 @@ public final class AsyncInspectionCycleRunner {
                 in.worker(),
                 in.lightClient(),
                 in.captureStageExecutor(),
+                in.triggerSequence(),
                 "current capture"
         );
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {

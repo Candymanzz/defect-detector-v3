@@ -284,6 +284,7 @@ function normalizeServerMessage(parsed: unknown): ServerWsMessage {
     candidate.type === "server.state" ||
     candidate.type === "server.inspect_result" ||
     candidate.type === "server.preview_frame" ||
+    candidate.type === "server.preview_batch" ||
     candidate.type === "server.stream_started" ||
     candidate.type === "server.stream_stopped" ||
     candidate.type === "server.reference_bundle_ack" ||

@@ -74,6 +74,7 @@ typedef struct {
     uint64_t latency_ns_sum;
     uint64_t last_capture_started_ns;
     uint64_t last_capture_latency_ns;
+    uint64_t pending_trigger_fired_ns;
     uint64_t last_frame_id;
     int last_slot_index;
     FILE *metrics_log_file;
@@ -83,6 +84,8 @@ typedef struct {
     int trigger_mode;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
+    int gige_ftd_cameras_per_link;
+    int gige_switch_buffer_kb;
     size_t gige_payload_bytes;
     int pixel_format_pref;
     int hik_pixel_format_active;
@@ -230,6 +233,8 @@ typedef struct {
     int trigger_mode;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
+    int gige_ftd_cameras_per_link;
+    int gige_switch_buffer_kb;
     int frame_width;
     int frame_height;
     int pixel_format_pref;
@@ -811,6 +816,23 @@ static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t
     return configured;
 }
 
+/** Коммутатор с крошечным egress-буфером (≤96 КБ) не выдерживает два GigE-потока — слот = camera_id. */
+static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
+    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 5;
+    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96) {
+        return (unsigned int)st->camera_id;
+    }
+    return (unsigned int)(st->camera_id % per_link);
+}
+
+static int hik_effective_inter_packet_delay(const worker_state_t *st) {
+    int delay = st->gige_inter_packet_delay;
+    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96 && delay < 80000) {
+        return 80000;
+    }
+    return delay;
+}
+
 /**
  * Сдвиг старта передачи кадра по сети после триггера (GevSCFTD).
  * Экспозиция у всех камер в один момент; на гигабитный линк данные идут со сдвигом.
@@ -823,16 +845,17 @@ static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
     if (step == 0u) {
         return;
     }
-    unsigned int delay = (unsigned int)st->camera_id * step;
-    if (delay == 0) {
-        return;
-    }
+    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 5;
+    unsigned int index = hik_frame_transfer_slot_index(st);
+    unsigned int delay = index * step;
     int r = MV_CC_SetIntValue(st->hik_handle, "GevSCFTD", delay);
     if (r != MV_OK) {
-        fprintf(stderr, "hik: GevSCFTD=%u not applied cam=%d (0x%x)\n", delay, st->camera_id, r);
+        fprintf(stderr, "hik: GevSCFTD=%u not applied cam=%d index=%u per_link=%d (0x%x)\n", delay,
+                st->camera_id, index, per_link, r);
     } else {
-        fprintf(stderr, "hik: GevSCFTD=%u cam=%d (frame transfer delay, exposure stays sync)\n", delay,
-                st->camera_id);
+        fprintf(stderr,
+                "hik: GevSCFTD=%u cam=%d index=%u per_link=%d switch_buf_kb=%d (frame transfer delay, exposure stays sync)\n",
+                delay, st->camera_id, index, per_link, st->gige_switch_buffer_kb);
     }
 }
 
@@ -865,7 +888,7 @@ static void hik_apply_gige_stream_tuning(worker_state_t *st) {
     if (!st->hik_handle) {
         return;
     }
-    hik_apply_gige_inter_packet_delay(st->hik_handle, st->gige_inter_packet_delay);
+    hik_apply_gige_inter_packet_delay(st->hik_handle, hik_effective_inter_packet_delay(st));
     hik_apply_gige_frame_transfer_delay(st);
     (void)MV_CC_SetImageNodeNum(st->hik_handle, 5);
 }
@@ -1131,11 +1154,35 @@ static void shutdown_aravis(worker_state_t *st) {
 }
 #endif
 
-static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, char *err,
-                               size_t err_len) {
+static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_len) {
+    if (strcmp(st->capture_source, "hik") != 0) {
+        snprintf(err, err_len, "trigger_only unsupported for source=%s", st->capture_source);
+        return -1;
+    }
+#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+    if (st->trigger_mode != TRIGGER_MODE_SOFTWARE) {
+        snprintf(err, err_len, "trigger_only requires software trigger mode");
+        return -1;
+    }
+    (void)hik_flush_image_buffer(st);
+    int nRet = hik_fire_software_trigger(st);
+    if (nRet != MV_OK) {
+        snprintf(err, err_len, "hik software trigger failed: 0x%x", nRet);
+        return -1;
+    }
+    st->pending_trigger_fired_ns = now_ns();
+    return 0;
+#else
+    snprintf(err, err_len, "trigger_only requires hik/MVS on Windows");
+    return -1;
+#endif
+}
+
+static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
+                               char *err, size_t err_len) {
     if (strcmp(st->capture_source, "hik") == 0) {
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
-        int use_sync = sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE;
+        int use_sync = !wait_only && (sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE);
         MV_FRAME_OUT_INFO_EX info;
         memset(&info, 0, sizeof(info));
         int nRet;
@@ -1264,13 +1311,13 @@ static void stream_lock_leave(worker_state_t *st) {
 #endif
 }
 
-static int capture_frame_to_shm(worker_state_t *st, int sync_capture, char *err, size_t err_len) {
+static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_only, char *err, size_t err_len) {
     uint64_t capture_started_ns = now_ns();
     uint64_t frame_id = st->next_frame_id;
     int slot_index = (int)((frame_id - 1) % (uint64_t)st->ring_slots);
     size_t slot_offset = (size_t)slot_index * st->frame_bytes;
     uint8_t *frame = st->shm_base + slot_offset;
-    if (capture_from_source(st, frame, frame_id, sync_capture, err, err_len) != 0) {
+    if (capture_from_source(st, frame, frame_id, sync_capture, wait_only, err, err_len) != 0) {
         st->capture_dropped++;
         return -1;
     }
@@ -1287,6 +1334,12 @@ static int capture_frame_to_shm(worker_state_t *st, int sync_capture, char *err,
     st->last_slot_index = slot_index;
     st->stream_last_timestamp_ns = timestamp_ns;
     st->next_frame_id++;
+    fprintf(stderr,
+            "sync_diag channel=worker event=capture_ok cam=%d frame=%llu latency_ms=%llu capture_started_ns=%llu\n",
+            st->camera_id,
+            (unsigned long long)st->last_frame_id,
+            (unsigned long long)(capture_latency_ns / 1000000ull),
+            (unsigned long long)capture_started_ns);
     if ((st->capture_total % METRICS_LOG_EVERY) == 0) {
         log_metrics(st);
     }
@@ -1356,7 +1409,7 @@ static void *stream_thread_proc(void *param) {
         }
         stream_lock_enter(st);
         char cap_err[256] = {0};
-        if (capture_frame_to_shm(st, 0, cap_err, sizeof(cap_err)) != 0) {
+        if (capture_frame_to_shm(st, 0, 0, cap_err, sizeof(cap_err)) != 0) {
             fprintf(stderr, "stream capture failed camera=%d: %s\n", st->camera_id,
                     cap_err[0] ? cap_err : "unknown");
         }
@@ -1429,6 +1482,10 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->trigger_mode = cam_cfg ? cam_cfg->trigger_mode : TRIGGER_MODE_CONTINUOUS;
     st->gige_inter_packet_delay = cam_cfg ? cam_cfg->gige_inter_packet_delay : 0;
     st->gige_frame_transfer_delay_step = cam_cfg ? cam_cfg->gige_frame_transfer_delay_step : 0;
+    st->gige_ftd_cameras_per_link = cam_cfg && cam_cfg->gige_ftd_cameras_per_link > 0
+                                            ? cam_cfg->gige_ftd_cameras_per_link
+                                            : 5;
+    st->gige_switch_buffer_kb = cam_cfg ? cam_cfg->gige_switch_buffer_kb : 0;
     st->pixel_format_pref = cam_cfg ? cam_cfg->pixel_format_pref : PIXEL_PREF_BGR8;
     st->hik_pixel_format_active = st->pixel_format_pref;
     st->gige_payload_bytes = 0;
@@ -1767,9 +1824,18 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
             }
             char cap_err[256] = {0};
             int sync_capture = 0;
+            int trigger_only = 0;
+            int wait_frame = 0;
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "sync", &sync_capture);
+            (void)json_find_bool(header_buf, (int)strlen(header_buf), "trigger_only", &trigger_only);
+            (void)json_find_bool(header_buf, (int)strlen(header_buf), "wait_frame", &wait_frame);
             stream_lock_enter(&st);
-            int cap_rc = capture_frame_to_shm(&st, sync_capture, cap_err, sizeof(cap_err));
+            int cap_rc;
+            if (trigger_only) {
+                cap_rc = fire_software_trigger_only(&st, cap_err, sizeof(cap_err));
+            } else {
+                cap_rc = capture_frame_to_shm(&st, sync_capture, wait_frame, cap_err, sizeof(cap_err));
+            }
             stream_lock_leave(&st);
             if (cap_rc != 0) {
                 char escaped[320];
@@ -1781,7 +1847,13 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
                 continue;
             }
             char out[1200];
-            format_capture_json(&st, out, sizeof(out));
+            if (trigger_only) {
+                snprintf(out, sizeof(out),
+                         "{\"status\":\"triggered\",\"camera_id\":%d,\"trigger_fired_ns\":%llu}",
+                         st.camera_id, (unsigned long long)st.pending_trigger_fired_ns);
+            } else {
+                format_capture_json(&st, out, sizeof(out));
+            }
             write_message(out_stream, MSG_RESPONSE, out);
         } else if (strcmp(op, "start_stream") == 0) {
             int fps = STREAM_FPS_DEFAULT;
@@ -1931,6 +2003,8 @@ int main(int argc, char **argv) {
     load_camera_config(js, (int)jslen, camera_id, &cam_cfg);
     (void)json_find_int(js, (int)jslen, "gige_inter_packet_delay", &cam_cfg.gige_inter_packet_delay);
     (void)json_find_int(js, (int)jslen, "gige_frame_transfer_delay_step", &cam_cfg.gige_frame_transfer_delay_step);
+    (void)json_find_int(js, (int)jslen, "gige_ftd_cameras_per_link", &cam_cfg.gige_ftd_cameras_per_link);
+    (void)json_find_int(js, (int)jslen, "gige_switch_buffer_kb", &cam_cfg.gige_switch_buffer_kb);
     load_frame_config(js, (int)jslen, &cam_cfg);
 
     fprintf(stderr, "worker start config version=%s path=%s camera=%d mode=%s\n", version, path, camera_id,
