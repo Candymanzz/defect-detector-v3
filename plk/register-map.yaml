@@ -53,8 +53,24 @@ signals:
       address: "140.09"
     source_csv: "25_247_MAP - Входы.csv"
 
-# Входящие от ПЛК (фаза 2 — триггер инспекции)
+# Входящие от ПЛК (фаза 2 — триггер инспекции; на KROBOT читаются напрямую через GPIO)
 inputs:
+  - name: robot_work
+    description: Робот работа (конвейер запущен)
+    area: W
+    address: "0.00"
+    data_type: bool
+    direction: plc_to_pc
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: robot_direction
+    description: Робот направление движения (съёмка при 1)
+    area: W
+    address: "0.01"
+    data_type: bool
+    direction: plc_to_pc
+    source_csv: "25_247_MAP - Входы.csv"
+
   - name: robot_trigger
     description: Робот триггер
     area: W

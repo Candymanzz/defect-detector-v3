@@ -438,12 +438,24 @@ public final class IntegrationBootstrap {
                         inspectionCameraIds.size()
                 );
             }
+            final java.util.concurrent.atomic.AtomicBoolean softwareVisionReady = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final InspectionTriggerRuntime[] triggerRuntimeHolder = new InspectionTriggerRuntime[1];
+            java.lang.Runnable refreshVisionReady = () -> {
+                InspectionTriggerRuntime runtime = triggerRuntimeHolder[0];
+                if (activeFanOut != null) {
+                    activeFanOut.signalVisionReady(
+                            softwareVisionReady.get() && (runtime == null || runtime.isLineWorkActive())
+                    );
+                }
+            };
             triggerRuntime = InspectionTriggerRuntime.start(
                     log,
                     integration,
                     inspectionCameraIds,
                     triggerMode,
-                    cfg.captureTriggerStaggerMs()
+                    cfg.captureTriggerStaggerMs(),
+                    refreshVisionReady,
+                    triggerRuntimeHolder
             );
             InspectionTriggerStrategy sharedTriggerStrategy;
             if (bucketInspectionConfig.enabled()) {
@@ -482,6 +494,18 @@ public final class IntegrationBootstrap {
                 log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
             } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
                 InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
+                if (triggerCfg.gpio().enabled()) {
+                    log.info(
+                            "inspection_trigger external gpio backend={} com_port={} di={}/{}/{} poll_ms={} debounce_ms={}",
+                            triggerCfg.gpio().backend(),
+                            triggerCfg.gpio().comPort(),
+                            triggerCfg.gpio().workPort(),
+                            triggerCfg.gpio().directionPort(),
+                            triggerCfg.gpio().triggerPort(),
+                            triggerCfg.gpio().pollIntervalMs(),
+                            triggerCfg.gpio().debounceMs()
+                    );
+                }
                 if (triggerCfg.udp().enabled()) {
                     log.info(
                             "inspection_trigger external udp {}:{} format={}",
@@ -489,8 +513,9 @@ public final class IntegrationBootstrap {
                             triggerCfg.udp().bindPort(),
                             triggerCfg.udp().format()
                     );
-                } else {
-                    log.warn("inspection_trigger external mode but udp.enabled=false");
+                }
+                if (!triggerCfg.gpio().enabled() && !triggerCfg.udp().enabled()) {
+                    log.warn("inspection_trigger external mode but gpio and udp are both disabled");
                 }
             }
             int inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(integration);
@@ -555,7 +580,8 @@ public final class IntegrationBootstrap {
                     return null;
                 });
             }
-            activeFanOut.signalVisionReady(true);
+            softwareVisionReady.set(true);
+            refreshVisionReady.run();
             List<Future<Void>> futures = cameraExecutor.invokeAll(tasks);
             for (Future<Void> future : futures) {
                 future.get();
