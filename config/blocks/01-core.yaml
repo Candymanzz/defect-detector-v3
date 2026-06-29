@@ -28,8 +28,8 @@ integration:
     # Реже инспекции (3.5 с), чтобы preview не конкурировал с GigE при 10 камерах.
     interval_ms: 8000
   camera_parallelism: 10
-  # Программный сдвиг триггера между камерами (мс), дополняет GevSCFTD на камере.
-  capture_trigger_stagger_ms: 140
+  # 0 = съёмка синхронная; последовательная передача с камер на свитч регулируется GevSCFTD.
+  capture_trigger_stagger_ms: 0
   geometry_pool_size: 10
   python_parallelism: 10
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
