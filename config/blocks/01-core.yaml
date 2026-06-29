@@ -12,7 +12,8 @@ frame_timeout_ms: 8000
 # GigE: межпакетная задержка (GevSCPD) и сдвиг старта передачи (GevSCFTD, тики ~8 нс).
 gige_inter_packet_delay: 8000
 # GevSCFTD step ≈ 125% payload; для Mono8 (~5 МБ) ~7000000, для BGR8 — ~20000000.
-gige_frame_transfer_delay_step: 7000000
+# Разнос передачи по сети при одновременной экспозиции (cam_id × step).
+gige_frame_transfer_delay_step: 8000000
 
 orchestrator:
   control_pipe: "\\\\.\\pipe\\iml-orchestrator"
@@ -28,7 +29,7 @@ integration:
     # Реже инспекции (3.5 с), чтобы preview не конкурировал с GigE при 10 камерах.
     interval_ms: 8000
   camera_parallelism: 10
-  # 0 = съёмка синхронная; последовательная передача с камер на свитч регулируется GevSCFTD.
+  # 0 = один общий триггер на все камеры: съёмка одновременно; разнос по GigE — GevSCFTD.
   capture_trigger_stagger_ms: 0
   geometry_pool_size: 10
   python_parallelism: 10
@@ -37,8 +38,8 @@ integration:
   stage_queue_size: 20
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000
-  # Пауза между последовательным запуском воркеров камер (смягчает пик инициализации SDK/MVS).
-  worker_startup_stagger_ms: 1200
+  # Пауза между последовательным запуском воркеров (MVS SDK + открытие камеры на свитче).
+  worker_startup_stagger_ms: 1800
   # Таймаут health/check для внешних сервисов (geometry/python bridge).
   service_command_timeout_ms: 15000
   worker_ipc_mode: "stdio"
