@@ -212,23 +212,23 @@
         "camera_ids": [0, 1]
       },
       {
-        "id": "light-com3-lan4",
+        "id": "light-com2-lan4",
         "enabled": true,
         "type": "com_io",
         "base_url": "http://127.0.0.1:5080",
-        "com_port": "COM3",
-        "com_ports": "COM3",
+        "com_port": "COM2",
+        "com_ports": "COM2",
         "brightness_percent": 80,
         "channels": [1, 2],
         "camera_ids": [2]
       },
       {
-        "id": "light-com3-lan5",
+        "id": "light-com2-lan5",
         "enabled": true,
         "type": "com_io",
         "base_url": "http://127.0.0.1:5080",
-        "com_port": "COM3",
-        "com_ports": "COM3",
+        "com_port": "COM2",
+        "com_ports": "COM2",
         "brightness_percent": 80,
         "channels": [3, 4],
         "camera_ids": [3]

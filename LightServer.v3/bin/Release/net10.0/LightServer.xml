@@ -22,7 +22,7 @@
         <member name="M:LightServer.Controllers.CameraFlashController.SetPair(LightServer.Models.CameraPairFlashRequest)">
             <summary>
             Камеры 1..8: установить мощность левой/правой вспышки.
-            1,2 -> COM3 (1/2, 3/4), 3,4 -> COM2 (1/2, 3/4),
+            1..4 -> COM2 (1/2, 3/4). COM3 зарезервирован для DI (MvIO).
             5,6 -> 169.254.213.1 (1/2, 3/4), 7,8 -> 169.254.213.2 (1/2, 3/4).
             </summary>
         </member>

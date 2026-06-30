@@ -18,7 +18,7 @@ public sealed class CameraFlashController : ControllerBase
 
     /// <summary>
     /// Камеры 1..8: установить мощность левой/правой вспышки.
-    /// 1,2 -> COM3 (1/2, 3/4), 3,4 -> COM2 (1/2, 3/4),
+    /// 1..4 -> COM2 (1/2, 3/4). COM3 зарезервирован для DI (MvIO).
     /// 5,6 -> 169.254.213.1 (1/2, 3/4), 7,8 -> 169.254.213.2 (1/2, 3/4).
     /// </summary>
     [HttpPost("pair")]
@@ -156,8 +156,8 @@ public sealed class CameraFlashController : ControllerBase
     {
         return cameraNumber switch
         {
-            1 => new PairTarget("COM3", null, 1, 2),
-            2 => new PairTarget("COM3", null, 3, 4),
+            1 => new PairTarget("COM2", null, 1, 2),
+            2 => new PairTarget("COM2", null, 3, 4),
             3 => new PairTarget("COM2", null, 1, 2),
             4 => new PairTarget("COM2", null, 3, 4),
             5 => new PairTarget(null, "169.254.213.1", 1, 2),
