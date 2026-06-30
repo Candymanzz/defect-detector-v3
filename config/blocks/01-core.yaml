@@ -25,9 +25,9 @@ orchestrator:
 # camera — эталон снимается с камеры при старте; client — только client.reference_bundle по WebSocket.
 integration:
   reference_source: client
-  # Preview + вспышка On/Off по таймеру — всегда, без эталона. Инспекция — только после reference_bundle.
+  # Preview по таймеру — выключен; съёмка только по DI-триггеру (inspection_trigger.gpio).
   live_preview:
-    enabled: true
+    enabled: false
     flash_on_tick: false
     # Реже инспекции (3.5 с), чтобы preview не конкурировал с GigE при 10 камерах.
     interval_ms: 8000
