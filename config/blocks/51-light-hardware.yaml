@@ -1,0 +1,65 @@
+# Конфигурация вспышек для LightServer.v3 (авто-поиск: config/blocks/51-light-hardware.yaml).
+# Оркестратор и другие сервисы этот файл не читают.
+
+light_hardware:
+  initialize_on_startup: true
+
+  devices:
+    - id: com1
+      enabled: true
+      type: com
+      com_port: COM1
+      channels: 2
+    - id: com2
+      enabled: true
+      type: com
+      com_port: COM2
+      channels: 4
+    - id: com3
+      enabled: true
+      type: com
+      com_port: COM3
+      channels: 4
+    - id: mv-le-1
+      enabled: true
+      type: ethernet
+      ip: "169.254.57.1"
+      channels: 4
+    - id: mv-le-2
+      enabled: true
+      type: ethernet
+      ip: "169.254.213.2"
+      channels: 4
+
+  # POST /api/camera-flash/pair — routes с 2+ каналами; /single — routes с 1 каналом
+  camera_routes:
+    - camera_number: 1
+      device_id: com3
+      channels: [1, 2]
+    - camera_number: 2
+      device_id: com3
+      channels: [3, 4]
+    - camera_number: 3
+      device_id: com2
+      channels: [1, 2]
+    - camera_number: 4
+      device_id: com2
+      channels: [3, 4]
+    - camera_number: 5
+      device_id: mv-le-1
+      channels: [1, 2]
+    - camera_number: 6
+      device_id: mv-le-1
+      channels: [3, 4]
+    - camera_number: 7
+      device_id: mv-le-2
+      channels: [1, 2]
+    - camera_number: 8
+      device_id: mv-le-2
+      channels: [3, 4]
+    - camera_number: 9
+      device_id: com1
+      channels: [1]
+    - camera_number: 10
+      device_id: com1
+      channels: [2]

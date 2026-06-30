@@ -33,6 +33,7 @@
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
     <PackageReference Include="System.IO.Ports" Version="10.0.8" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
   <ItemGroup Condition="Exists('$(MvCameraControlNetDll)')">

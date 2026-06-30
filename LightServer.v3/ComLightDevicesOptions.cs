@@ -14,6 +14,8 @@ public sealed class ComLightDevicesOptions
 
 public sealed class ComLightDeviceEntry
 {
+    public string? DeviceId { get; set; }
+
     public string ComPort { get; set; } = "";
 
     /// <summary>Только из JSON (без default — иначе [1,2] превращается в [1,2,3,4,1,2]).</summary>

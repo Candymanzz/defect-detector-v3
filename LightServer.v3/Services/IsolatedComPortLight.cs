@@ -26,6 +26,8 @@ public sealed class IsolatedComPortLight : IDisposable
     public string ComPort { get; }
     public int[] Channels { get; }
 
+    public bool IsOpen => _device != null;
+
     public IsolatedComPortLight(
         string comPort,
         int[] channels,

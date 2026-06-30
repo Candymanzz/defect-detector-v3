@@ -1,10 +1,9 @@
 namespace LightServer.Models;
 
 /// <summary>
-/// POST /api/com/light — одним запросом все COM из appsettings.
+/// POST /api/com/light — одним запросом все COM из light_hardware.yaml.
 /// <para>state: on | off</para>
-/// <para>brightness: яркость вспышек в % через запятую (0–100). Пример: "100" или "100,80,90,100,100,100,100,100,100,100".
-/// Порядок: COM1 (2 канала), COM2 (4), COM3 (4). Пусто при on → 100% на всех.</para>
+/// <para>brightness: яркость в % через запятую (0–100). Порядок — по подключённым COM (см. GET /api/com/light → channelOrder). Одно значение — на все подключённые каналы.</para>
 /// </summary>
 public sealed class ComLightStateRequest
 {
@@ -27,6 +26,7 @@ public sealed class ComLightApplyResultItem
 {
     public string ComPort { get; set; } = "";
     public bool Success { get; set; }
+    public bool Skipped { get; set; }
     public string? Message { get; set; }
     public string? Error { get; set; }
     public string LightControllerSource { get; set; } = "";
