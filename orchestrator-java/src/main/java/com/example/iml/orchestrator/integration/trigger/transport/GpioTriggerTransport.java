@@ -27,8 +27,14 @@ public final class GpioTriggerTransport implements TriggerTransport {
     private DiscreteInputSnapshotSource snapshotSource;
     private Thread pollThread;
     private long lastFireMs;
+    private boolean lastLoggedWork;
+    private boolean lastLoggedDirection;
     private boolean lastLoggedTriggerActive;
     private boolean diStateInitialized;
+    private DiscreteInputSnapshot lastSnapshot;
+    private long lastHeartbeatMs;
+
+    private static final long HEARTBEAT_INTERVAL_MS = 5000L;
 
     public GpioTriggerTransport(
             Logger log,
@@ -40,7 +46,11 @@ public final class GpioTriggerTransport implements TriggerTransport {
         this.config = config;
         this.bus = bus;
         this.onLineWorkChanged = onLineWorkChanged == null ? () -> { } : onLineWorkChanged;
-        this.evaluator = new LineDiscreteTriggerEvaluator(config.requireWork(), config.requireDirection());
+        this.evaluator = new LineDiscreteTriggerEvaluator(
+                config.requireWork(),
+                config.requireDirection(),
+                config.triggerEdge()
+        );
     }
 
     public boolean isLineWorkActive() {
@@ -66,11 +76,12 @@ public final class GpioTriggerTransport implements TriggerTransport {
 
     private void pollLoop() {
         log.info(
-                "discrete_trigger started backend={} poll_ms={} debounce_ms={} active={} com_port={} di={}/{}/{} require_work={} require_direction={}",
+                "discrete_trigger started backend={} poll_ms={} debounce_ms={} active={} edge={} com_port={} di={}/{}/{} require_work={} require_direction={}",
                 config.backend(),
                 config.pollIntervalMs(),
                 config.debounceMs(),
                 config.activeValue(),
+                config.triggerEdge(),
                 config.comPort(),
                 config.workPort(),
                 config.directionPort(),
@@ -83,21 +94,23 @@ public final class GpioTriggerTransport implements TriggerTransport {
             evaluator.armTriggerState(initial.trigger());
             logDiStateIfChanged(initial);
             log.info(
-                    "discrete_trigger armed DI{} level={} (no capture until 0→1 rising edge)",
+                    "discrete_trigger armed DI{} level={} — {}",
                     config.triggerPort(),
-                    initial.trigger() ? 1 : 0
+                    initial.trigger() ? 1 : 0,
+                    armHint(initial.trigger())
             );
-        } catch (Exception e) {
-            log.warn("discrete_trigger arm failed: {}", e.getMessage());
+        } catch (Throwable t) {
+            log.warn("discrete_trigger arm failed: {}", t.toString());
         }
         while (running.get() && !Thread.currentThread().isInterrupted()) {
             try {
                 pollOnce();
+                maybeLogHeartbeat();
                 Thread.sleep(config.pollIntervalMs());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                log.warn("discrete_trigger poll error: {}", e.getMessage());
+            } catch (Throwable t) {
+                log.warn("discrete_trigger poll error: {}", t.toString());
                 sleepQuietly(Math.max(config.pollIntervalMs(), 50));
             }
         }
@@ -106,6 +119,7 @@ public final class GpioTriggerTransport implements TriggerTransport {
 
     private void pollOnce() throws Exception {
         DiscreteInputSnapshot snapshot = snapshotSource.readSnapshot();
+        lastSnapshot = snapshot;
         logDiStateIfChanged(snapshot);
         updateLineWork(snapshot.work());
         LineDiscreteTriggerEvaluator.Decision decision = evaluator.evaluate(
@@ -116,12 +130,12 @@ public final class GpioTriggerTransport implements TriggerTransport {
         switch (decision) {
             case NONE -> { }
             case SKIP_NOT_READY -> log.info(
-                    "discrete_trigger skip rising edge on DI{}: work=0 (need DI{}=1)",
+                    "discrete_trigger skip edge on DI{}: work=0 (need DI{}=1)",
                     config.triggerPort(),
                     config.workPort()
             );
             case SKIP_WRONG_DIRECTION -> log.info(
-                    "discrete_trigger skip rising edge on DI{}: direction=0 (need DI{}=1)",
+                    "discrete_trigger skip edge on DI{}: direction=0 (need DI{}=1)",
                     config.triggerPort(),
                     config.directionPort()
             );
@@ -129,9 +143,32 @@ public final class GpioTriggerTransport implements TriggerTransport {
         }
     }
 
+    private void maybeLogHeartbeat() {
+        long now = System.currentTimeMillis();
+        if (now - lastHeartbeatMs < HEARTBEAT_INTERVAL_MS || lastSnapshot == null) {
+            return;
+        }
+        lastHeartbeatMs = now;
+        log.info(
+                "discrete_trigger heartbeat di work={} direction={} trigger={} edge={} — если при движении станка цифры не меняются, импульс не на VC3704 COM3 DI{}/{}/{}",
+                lastSnapshot.work() ? 1 : 0,
+                lastSnapshot.direction() ? 1 : 0,
+                lastSnapshot.trigger() ? 1 : 0,
+                config.triggerEdge(),
+                config.workPort(),
+                config.directionPort(),
+                config.triggerPort()
+        );
+    }
+
     private void logDiStateIfChanged(DiscreteInputSnapshot snapshot) {
-        if (!diStateInitialized || snapshot.trigger() != lastLoggedTriggerActive) {
+        if (!diStateInitialized
+                || snapshot.work() != lastLoggedWork
+                || snapshot.direction() != lastLoggedDirection
+                || snapshot.trigger() != lastLoggedTriggerActive) {
             diStateInitialized = true;
+            lastLoggedWork = snapshot.work();
+            lastLoggedDirection = snapshot.direction();
             lastLoggedTriggerActive = snapshot.trigger();
             log.info(
                     "discrete_trigger di work={} direction={} trigger={} (ports {}/{}/{})",
@@ -143,6 +180,18 @@ public final class GpioTriggerTransport implements TriggerTransport {
                     config.triggerPort()
             );
         }
+    }
+
+    private String armHint(boolean triggerActive) {
+        return switch (config.triggerEdge()) {
+            case RISING -> triggerActive
+                    ? "DI3 уже HIGH — ждём импульс 1→0→1"
+                    : "съёмка на фронте 0→1";
+            case FALLING -> triggerActive
+                    ? "съёмка на спаде 1→0"
+                    : "DI3 уже LOW — ждём импульс 0→1→0";
+            case BOTH -> "съёмка на любом фронте DI3";
+        };
     }
 
     private void updateLineWork(boolean work) {
@@ -165,8 +214,9 @@ public final class GpioTriggerTransport implements TriggerTransport {
         int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("discrete"));
         if (published > 0) {
             log.info(
-                    "discrete_trigger FIRE DI{} rising edge -> line broadcast cameras={}",
+                    "discrete_trigger FIRE DI{} {} edge -> line broadcast cameras={}",
                     config.triggerPort(),
+                    config.triggerEdge(),
                     published
             );
         }

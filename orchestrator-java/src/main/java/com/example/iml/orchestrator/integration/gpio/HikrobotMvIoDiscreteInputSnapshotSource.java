@@ -24,10 +24,11 @@ public final class HikrobotMvIoDiscreteInputSnapshotSource implements DiscreteIn
 
     @Override
     public DiscreteInputSnapshot readSnapshot() {
+        boolean[] levels = client.readInputLevels();
         return new DiscreteInputSnapshot(
-                client.readPortActive(workPort),
-                client.readPortActive(directionPort),
-                client.readPortActive(triggerPort)
+                levels[workPort - 1],
+                levels[directionPort - 1],
+                levels[triggerPort - 1]
         );
     }
 

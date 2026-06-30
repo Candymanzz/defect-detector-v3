@@ -71,7 +71,7 @@ integration:
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
     # Hikrobot VC3704: U01/DI1=работа, U02/DI2=направление, U03/DI3=триггер (съёмка при фронте 0→1).
-    # COM-порт VC в MVS (Serial Port → COM_Port#COMn). LightServer использует COM1/COM2 для вспышек.
+    # COM-порт VC в MVS: Serial Port → COM_Port#COM3 (MV-VC3704). COM1 — вспышки LightServer, не VC3704.
     gpio:
       enabled: true
       backend: hikrobot_mv_io
@@ -85,6 +85,8 @@ integration:
       poll_interval_ms: 2
       debounce_ms: 100
       active_value: 1
+      # rising: импульс 0→1 (покой LOW). falling: импульс 1→0 (покой HIGH, как при включённых 3 линиях).
+      trigger_edge: falling
     udp:
       enabled: false
       bind_host: "0.0.0.0"
@@ -148,7 +150,7 @@ integration:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  # LightServer.v3 — не автозапускать при GPIO на COM3 (конфликт с MvIOInterfaceBox).
+  # LightServer.v3 — не автозапускать при GPIO hikrobot_mv_io (конфликт COM с MvIOInterfaceBox).
   # light_server_command_windows:
   #   - "dotnet"
   #   - "exec"

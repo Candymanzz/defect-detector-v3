@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.trigger.config;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdge;
 
 import java.util.Map;
 
@@ -22,6 +23,7 @@ public record GpioTriggerConfig(
         int pollIntervalMs,
         int debounceMs,
         int activeValue,
+        TriggerEdge triggerEdge,
         GpioLineConfig work,
         GpioLineConfig direction,
         GpioLineConfig trigger
@@ -41,6 +43,7 @@ public record GpioTriggerConfig(
                 2,
                 100,
                 1,
+                TriggerEdge.RISING,
                 GpioLineConfig.fromPath(""),
                 GpioLineConfig.fromPath(""),
                 GpioLineConfig.fromPath("")
@@ -89,6 +92,9 @@ public record GpioTriggerConfig(
         boolean requireWork = YamlScalars.toBool(gpio.get("require_work"), defaults.requireWork());
         boolean requireDirection = YamlScalars.toBool(gpio.get("require_direction"), defaults.requireDirection());
         int activeValue = GpioLineConfig.parseActiveValue(gpio.get("active_value"), defaults.activeValue());
+        TriggerEdge triggerEdge = TriggerEdge.parse(
+                gpio.get("trigger_edge") != null ? String.valueOf(gpio.get("trigger_edge")) : null
+        );
         GpioLineConfig work = GpioLineConfig.parsePathObject(gpio.get("work"), "");
         GpioLineConfig direction = GpioLineConfig.parsePathObject(gpio.get("direction"), "");
         GpioLineConfig trigger = GpioLineConfig.parsePathObject(gpio.get("trigger"), "");
@@ -105,6 +111,7 @@ public record GpioTriggerConfig(
                 pollIntervalMs,
                 debounceMs,
                 activeValue,
+                triggerEdge,
                 work,
                 direction,
                 trigger

@@ -1,7 +1,6 @@
 package com.example.iml.orchestrator.integration.hikrobot.mvio;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.ptr.ByteByReference;
 import com.sun.jna.ptr.PointerByReference;
 
 import java.nio.file.Files;
@@ -9,6 +8,8 @@ import java.nio.file.Path;
 
 /** Сессия MvIOInterfaceBox: DI1/DI2/DI3 → работа / направление / триггер. */
 public final class HikrobotMvIoClient implements AutoCloseable {
+
+    private static final byte READ_ALL_PORTS_MASK = (byte) 0xFF;
 
     private final MvIoInterfaceBoxLibrary library;
     private final int activeLevel;
@@ -25,21 +26,41 @@ public final class HikrobotMvIoClient implements AutoCloseable {
         openSession(comPort);
     }
 
+    /** Активен ли вход port (1..8) относительно {@code active_value} из конфига. */
     public boolean readPortActive(int port) {
         synchronized (lock) {
-            ensureOpen();
-            if (port < 1 || port > 32) {
-                throw new IllegalArgumentException("DI port must be 1..32, got " + port);
-            }
-            ByteByReference level = new ByteByReference((byte) 0);
-            int ret = library.MV_IO_GetInputLevel(handle, (byte) port, level);
-            if (ret != 0) {
-                throw new IllegalStateException(
-                        String.format("MV_IO_GetInputLevel(port=%d) failed: 0x%08X", port, ret)
-                );
-            }
-            return (level.getValue() & 0xFF) == activeLevel;
+            MvIoInputLevel input = fetchInputLevels();
+            return isActive(input.levelForPort(port));
         }
+    }
+
+    /** Уровни DI1..DI8 за один вызов SDK. */
+    public boolean[] readInputLevels() {
+        synchronized (lock) {
+            MvIoInputLevel input = fetchInputLevels();
+            boolean[] levels = new boolean[8];
+            for (int port = 1; port <= 8; port++) {
+                levels[port - 1] = isActive(input.levelForPort(port));
+            }
+            return levels;
+        }
+    }
+
+    private MvIoInputLevel fetchInputLevels() {
+        ensureOpen();
+        MvIoInputLevel input = new MvIoInputLevel();
+        input.nPortNumber = READ_ALL_PORTS_MASK;
+        input.write();
+        int ret = library.MV_IO_GetInputLevel(handle, input);
+        if (ret != 0) {
+            throw new IllegalStateException("MV_IO_GetInputLevel failed: 0x" + Integer.toHexString(ret));
+        }
+        input.read();
+        return input;
+    }
+
+    private boolean isActive(byte rawLevel) {
+        return (rawLevel & 0xFF) == activeLevel;
     }
 
     private void openSession(String comPort) {

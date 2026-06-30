@@ -2,7 +2,7 @@ package com.example.iml.orchestrator.integration.trigger.gpio;
 
 /**
  * Логика трёх дискретных входов линии:
- * работа=1, направление=1, фронт триггера 0→1 → съёмка.
+ * работа=1, направление=1, фронт триггера → съёмка.
  */
 public final class LineDiscreteTriggerEvaluator {
 
@@ -15,6 +15,7 @@ public final class LineDiscreteTriggerEvaluator {
 
     private final boolean requireWork;
     private final boolean requireDirection;
+    private final TriggerEdge triggerEdge;
     private boolean previousTriggerActive;
 
     public LineDiscreteTriggerEvaluator() {
@@ -22,8 +23,17 @@ public final class LineDiscreteTriggerEvaluator {
     }
 
     public LineDiscreteTriggerEvaluator(boolean requireWork, boolean requireDirection) {
+        this(requireWork, requireDirection, TriggerEdge.RISING);
+    }
+
+    public LineDiscreteTriggerEvaluator(boolean requireWork, boolean requireDirection, TriggerEdge triggerEdge) {
         this.requireWork = requireWork;
         this.requireDirection = requireDirection;
+        this.triggerEdge = triggerEdge == null ? TriggerEdge.RISING : triggerEdge;
+    }
+
+    public TriggerEdge triggerEdge() {
+        return triggerEdge;
     }
 
     /** Запомнить текущий уровень DI3 без генерации фронта (при старте опроса). */
@@ -33,8 +43,14 @@ public final class LineDiscreteTriggerEvaluator {
 
     public Decision evaluate(boolean workActive, boolean directionActive, boolean triggerActive) {
         boolean risingEdge = triggerActive && !previousTriggerActive;
+        boolean fallingEdge = !triggerActive && previousTriggerActive;
         previousTriggerActive = triggerActive;
-        if (!risingEdge) {
+        boolean edge = switch (triggerEdge) {
+            case RISING -> risingEdge;
+            case FALLING -> fallingEdge;
+            case BOTH -> risingEdge || fallingEdge;
+        };
+        if (!edge) {
             return Decision.NONE;
         }
         if (requireWork && !workActive) {

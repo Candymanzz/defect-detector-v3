@@ -38,9 +38,10 @@ class LineDiscreteTriggerEvaluatorTest {
     }
 
     @Test
-    void firesOnDi3OnlyWhenWorkAndDirectionNotRequired() {
-        LineDiscreteTriggerEvaluator di3Only = new LineDiscreteTriggerEvaluator(false, false);
-        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, di3Only.evaluate(false, false, false));
-        assertEquals(LineDiscreteTriggerEvaluator.Decision.FIRE, di3Only.evaluate(false, false, true));
+    void firesOnFallingEdgeWhenIdleHigh() {
+        LineDiscreteTriggerEvaluator falling = new LineDiscreteTriggerEvaluator(true, true, TriggerEdge.FALLING);
+        falling.armTriggerState(true);
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, falling.evaluate(true, true, true));
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.FIRE, falling.evaluate(true, true, false));
     }
 }
