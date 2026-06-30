@@ -17,6 +17,7 @@ LightServer/obj/
 /backend/app/services/__pycache__
 /backend/app/__pycache__
 /LightServer.v3/obj
+/LightServer.v3/bin/
 /backend/app/api/__pycache__
 /backend/app/__pycache__
 .DS_Store
@@ -29,11 +30,6 @@ LightServer/obj/
 /megaOrchestratoraue228-main
 c_capture/camera_server
 /test-pr-ph
-LightServer.v3/bin/Debug/net10.0/appsettings.json
-LightServer.v3/bin/Debug/net10.0/LightServer.dll
-LightServer.v3/bin/Debug/net10.0/LightServer.exe
-LightServer.v3/bin/Debug/net10.0/LightServer.pdb
-LightServer.v3/bin/Debug/net10.0/LightServer.xml
 /LightServer.v3/logs
 defect-detector-v3
 /camera-worker/build/Release
