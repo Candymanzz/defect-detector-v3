@@ -75,7 +75,7 @@ integration:
     gpio:
       enabled: true
       backend: hikrobot_mv_io
-      com_port: "COM2"
+      com_port: "COM3"
       work_port: 1
       direction_port: 2
       trigger_port: 3
