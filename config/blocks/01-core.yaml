@@ -70,12 +70,12 @@ integration:
     interval_ms: 5000
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
-    # Hikrobot VC: U01/DI1=работа, U02/DI2=направление, U03/DI3=триггер (съёмка при фронте 0→1).
-    # Оркестратор читает DI через MvIOInterfaceBox.dll (JNA). LightServer — только вспышки.
+    # Hikrobot VC3704: U01/DI1=работа, U02/DI2=направление, U03/DI3=триггер (съёмка при фронте 0→1).
+    # COM-порт VC в MVS (Serial Port → COM_Port#COMn). LightServer использует COM1/COM2 для вспышек.
     gpio:
       enabled: true
       backend: hikrobot_mv_io
-      com_port: "COM2"
+      com_port: "COM3"
       work_port: 1
       direction_port: 2
       trigger_port: 3

@@ -27,6 +27,8 @@ public final class GpioTriggerTransport implements TriggerTransport {
     private DiscreteInputSnapshotSource snapshotSource;
     private Thread pollThread;
     private long lastFireMs;
+    private boolean lastLoggedTriggerActive;
+    private boolean diStateInitialized;
 
     public GpioTriggerTransport(
             Logger log,
@@ -89,6 +91,7 @@ public final class GpioTriggerTransport implements TriggerTransport {
 
     private void pollOnce() throws Exception {
         DiscreteInputSnapshot snapshot = snapshotSource.readSnapshot();
+        logDiStateIfChanged(snapshot);
         updateLineWork(snapshot.work());
         LineDiscreteTriggerEvaluator.Decision decision = evaluator.evaluate(
                 snapshot.work(),
@@ -97,9 +100,33 @@ public final class GpioTriggerTransport implements TriggerTransport {
         );
         switch (decision) {
             case NONE -> { }
-            case SKIP_NOT_READY -> log.debug("discrete_trigger skip: conveyor not running (work=0)");
-            case SKIP_WRONG_DIRECTION -> log.debug("discrete_trigger skip: direction=0 (no capture this way)");
+            case SKIP_NOT_READY -> log.info(
+                    "discrete_trigger skip rising edge on DI{}: work=0 (need DI{}=1)",
+                    config.triggerPort(),
+                    config.workPort()
+            );
+            case SKIP_WRONG_DIRECTION -> log.info(
+                    "discrete_trigger skip rising edge on DI{}: direction=0 (need DI{}=1)",
+                    config.triggerPort(),
+                    config.directionPort()
+            );
             case FIRE -> publishDebounced();
+        }
+    }
+
+    private void logDiStateIfChanged(DiscreteInputSnapshot snapshot) {
+        if (!diStateInitialized || snapshot.trigger() != lastLoggedTriggerActive) {
+            diStateInitialized = true;
+            lastLoggedTriggerActive = snapshot.trigger();
+            log.info(
+                    "discrete_trigger di work={} direction={} trigger={} (ports {}/{}/{})",
+                    snapshot.work() ? 1 : 0,
+                    snapshot.direction() ? 1 : 0,
+                    snapshot.trigger() ? 1 : 0,
+                    config.workPort(),
+                    config.directionPort(),
+                    config.triggerPort()
+            );
         }
     }
 
