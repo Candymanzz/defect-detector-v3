@@ -52,10 +52,15 @@ internal static class Program
                 $"({sdkVersion.Year:D4}-{sdkVersion.Month:D2}-{sdkVersion.Day:D2})");
         }
 
+        if (options.ConfigPath != null)
+            Console.WriteLine($"Конфиг: {options.ConfigPath}");
+
         using var session = new IoBoxSession(options.ComPort);
         Console.WriteLine($"Открываю {options.ComPort}...");
         session.Open();
         Console.WriteLine($"Подключено: {session.OpenedComName}");
+
+        string inputsLabel = string.Join(", ", options.InputPorts.Select(static p => $"DI{p}"));
 
         if (!session.TryReadFirmwareVersion(out MvIoNative.MvIoVersion firmware))
         {
@@ -63,7 +68,7 @@ internal static class Program
             throw new InvalidOperationException(
                 $"{options.ComPort} открылся, но на нём нет IO box (MV-LE подсветка без DI). " +
                 (ioCom != null
-                    ? $"Используйте: dotnet run -- --com {ioCom} --input {options.InputPort}"
+                    ? $"Используйте com_port: {ioCom} в конфиге или --com {ioCom}"
                     : "Запустите: dotnet run -- --probe"));
         }
 
@@ -82,14 +87,16 @@ internal static class Program
             return 0;
         }
 
-        Console.WriteLine($"Мониторинг DI{options.InputPort}. Ctrl+C для выхода.");
+        Console.WriteLine($"Мониторинг {inputsLabel}. Ctrl+C для выхода.");
         Console.WriteLine("0 = LOW, 1 = HIGH. Нажатие кнопки обычно меняет уровень.");
+
+        var inputSet = new HashSet<int>(options.InputPorts);
 
         if (options.UseEdgeCallback)
         {
             session.RegisterEdgeCallback((port, edge) =>
             {
-                if (port != options.InputPort)
+                if (!inputSet.Contains(port))
                     return;
 
                 string edgeName = edge switch
@@ -103,7 +110,7 @@ internal static class Program
             Console.WriteLine("Edge callback включён. Ожидаю фронты...");
         }
 
-        int? lastLevel = null;
+        var lastLevels = new Dictionary<int, int?>();
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
         {
@@ -113,13 +120,17 @@ internal static class Program
 
         while (!cts.IsCancellationRequested)
         {
-            byte level = session.ReadInputLevel(options.InputPort);
-            if (lastLevel != level)
+            foreach (int inputPort in options.InputPorts)
             {
-                string state = DescribeButtonTransition(lastLevel, level);
-                Console.WriteLine(
-                    $"[{Timestamp()}] DI{options.InputPort}: {DescribeLevel(level)} (raw={level}){state}");
-                lastLevel = level;
+                byte level = session.ReadInputLevel(inputPort);
+                lastLevels.TryGetValue(inputPort, out int? lastLevel);
+                if (lastLevel != level)
+                {
+                    string state = DescribeButtonTransition(lastLevel, level);
+                    Console.WriteLine(
+                        $"[{Timestamp()}] DI{inputPort}: {DescribeLevel(level)} (raw={level}){state}");
+                    lastLevels[inputPort] = level;
+                }
             }
 
             Thread.Sleep(options.PollIntervalMs);
@@ -197,15 +208,20 @@ internal static class Program
             IoInputMonitor — чтение Digital Input с MV IO Box (MvIOInterfaceBox.dll)
 
             Использование:
+              IoInputMonitor
               IoInputMonitor --com COM3 --input 3
               IoInputMonitor --probe
               IoInputMonitor --com COM3 --scan
               IoInputMonitor --list
 
+            Конфиг (по умолчанию config/blocks/52-io-input.yaml):
+              com_port, poll_interval_ms, inputs: [3, ...]
+              Переопределение: IO_INPUT_CONFIG или --io-config=путь
+
             Параметры:
-              --com COMx       COM-порт IO box (по умолчанию COM3)
-              --input N        Номер DI 1..8 (по умолчанию 3)
-              --poll MS        Интервал опроса, мс (по умолчанию 100)
+              --com COMx       COM-порт IO box (переопределяет конфиг)
+              --input N        DI 1..8 (переопределяет inputs из конфига)
+              --poll MS        Интервал опроса, мс (переопределяет конфиг)
               --edge           Дополнительно слушать edge callback SDK
               --scan           Однократно показать DI1..DI8 и выйти
               --probe          Найти, на каком COM висит IO box с DI
@@ -214,7 +230,7 @@ internal static class Program
 
             Примечания:
               - COM1/COM2 часто заняты MV-LE (подсветка), DI там нет.
-              - IO box с DI3 обычно на отдельном COM (у вас COM3).
+              - IO box с DI обычно на отдельном COM (у вас COM3).
               - Закройте MVS Client / LightServer, если COM занят.
             """);
     }
@@ -222,20 +238,22 @@ internal static class Program
     private sealed class MonitorOptions
     {
         public string ComPort { get; set; } = "COM3";
-        public int InputPort { get; set; } = 3;
+        public int[] InputPorts { get; set; } = [3];
         public int PollIntervalMs { get; set; } = 100;
         public bool UseEdgeCallback { get; set; }
         public bool ScanAll { get; set; }
         public bool ProbePorts { get; set; }
         public bool ListPorts { get; set; }
         public bool ShowHelp { get; set; }
+        public string? ConfigPath { get; set; }
 
         public static MonitorOptions Parse(string[] args)
         {
             if (args.Length == 0)
-                return new MonitorOptions();
+                return FromConfig(args);
 
-            var options = new MonitorOptions();
+            var options = FromConfig(args);
+
             for (int i = 0; i < args.Length; i++)
             {
                 string arg = args[i];
@@ -260,23 +278,47 @@ internal static class Program
                         options.ComPort = RequireValue(args, ref i, "--com");
                         break;
                     case "--input":
-                        options.InputPort = int.Parse(RequireValue(args, ref i, "--input"));
+                        options.InputPorts = [int.Parse(RequireValue(args, ref i, "--input"))];
                         break;
                     case "--poll":
                         options.PollIntervalMs = int.Parse(RequireValue(args, ref i, "--poll"));
                         break;
                     default:
+                        if (arg.StartsWith(IoInputConfigLoader.ConfigCliPrefix, StringComparison.OrdinalIgnoreCase))
+                            break;
                         throw new ArgumentException($"Неизвестный аргумент: {arg}");
                 }
             }
 
-            if (options.InputPort is < 1 or > 8)
-                throw new ArgumentOutOfRangeException(nameof(options.InputPort), "DI должен быть 1..8.");
+            Validate(options);
+            return options;
+        }
+
+        private static MonitorOptions FromConfig(string[] args)
+        {
+            IoInputConfigLoadResult loaded = IoInputConfigLoader.Load(args);
+            return new MonitorOptions
+            {
+                ComPort = loaded.Options.ComPort,
+                InputPorts = loaded.Options.InputPorts,
+                PollIntervalMs = loaded.Options.PollIntervalMs,
+                ConfigPath = loaded.ConfigPath
+            };
+        }
+
+        private static void Validate(MonitorOptions options)
+        {
+            if (options.InputPorts.Length == 0)
+                throw new ArgumentException("Список inputs пуст — укажите DI 1..8 в конфиге или --input N.");
+
+            foreach (int port in options.InputPorts)
+            {
+                if (port is < 1 or > 8)
+                    throw new ArgumentOutOfRangeException(nameof(options.InputPorts), "DI должен быть 1..8.");
+            }
 
             if (options.PollIntervalMs < 10)
                 throw new ArgumentOutOfRangeException(nameof(options.PollIntervalMs), "poll >= 10 мс.");
-
-            return options;
         }
 
         private static string RequireValue(string[] args, ref int index, string name)

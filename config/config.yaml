@@ -8,3 +8,4 @@ imports:
   - "blocks/45-plc-fins.yaml"
   - "blocks/50-lighting.yaml"
   - "blocks/51-light-hardware.yaml"
+  - "blocks/52-io-input.yaml"

@@ -1,0 +1,9 @@
+# IoInputMonitor — мониторинг Digital Input с MV IO Box.
+# Авто-поиск: config/blocks/52-io-input.yaml (или IO_INPUT_CONFIG / --io-config=).
+
+io_input:
+  com_port: COM3
+  poll_interval_ms: 100
+  inputs:
+    - 1
+    - 3
