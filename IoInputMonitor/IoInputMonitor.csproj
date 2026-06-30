@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IoInputMonitor</RootNamespace>
+    <AssemblyName>IoInputMonitor</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <MvIoRuntimeDir>$(MSBuildProjectDirectory)\ThirdParty\MVS\IO\win64</MvIoRuntimeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="10.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="$(MvIoRuntimeDir)\*.dll">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="ValidateMvIoDll" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(MvIoRuntimeDir)\MvIOInterfaceBox.dll')"
+           Text="MvIOInterfaceBox.dll not found. Place SDK files in IoInputMonitor/ThirdParty/MVS/IO/win64/." />
+  </Target>
+
+</Project>

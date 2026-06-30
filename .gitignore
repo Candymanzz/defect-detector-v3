@@ -38,3 +38,6 @@ LightServer.v3/bin/Debug/net10.0/LightServer.xml
 defect-detector-v3
 /camera-worker/build/Release
 camera-worker/build/Release/camera_worker.exe
+/IoInputMonitor/bin
+/IoInputMonitor/obj
+/LightServer.v3/bin
