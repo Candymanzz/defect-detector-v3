@@ -1,7 +1,7 @@
 # Подсветка → LightServer.v3: COM = POST /api/com/light { state: On|Off, brightness: "80,..." } (банк COM из appsettings);
 # сеть MV-LE = POST /api/light (deviceIndex из GET /api/devices). Яркость оркестратора: 0…100%.
 light_servers:
-  enabled: true
+  enabled: false
   # Постоянная подсветка: включить при старте, не гасить после каждого capture/preview.
   hold_mode: true
   fail_on_error: true

@@ -191,7 +191,7 @@
     }
   },
   "light_servers": {
-    "enabled": true,
+    "enabled": false,
     "hold_mode": true,
     "timeout_ms": 1500,
     "fail_on_error": false,
