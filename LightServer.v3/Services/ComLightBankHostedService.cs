@@ -19,9 +19,9 @@ public sealed class ComLightBankHostedService : IHostedService
         if (!_options.InitializeOnStartup)
             return Task.CompletedTask;
 
-        // В фоне: синхронный EnumDevices/Open 3×COM блокировал Kestrel — казалось, что «Building…» завис.
-        // Первый POST ждёт тот же lock в EnsureInitialized(), если фон ещё не закончил.
-        Console.WriteLine("[LightServer] Инициализация COM-банка в фоне (COM1–COM3)…");
+        // В фоне: синхронный EnumDevices/Open блокировал Kestrel — казалось, что «Building…» завис.
+        int deviceCount = _options.Devices.Count(static d => !string.IsNullOrWhiteSpace(d.ComPort));
+        Console.WriteLine($"[LightServer] Инициализация COM-банка в фоне ({deviceCount} порт(ов))…");
         _ = Task.Run(() =>
         {
             try

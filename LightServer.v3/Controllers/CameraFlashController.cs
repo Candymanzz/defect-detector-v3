@@ -10,27 +10,31 @@ namespace LightServer.Controllers;
 public sealed class CameraFlashController : ControllerBase
 {
     private readonly LightControlService _light;
-    private static readonly int[] AllNetworkChannels = [1, 2, 3, 4];
+    private readonly LightHardwareRegistry _hardware;
     private static readonly ConcurrentDictionary<string, int[]> NetworkBrightnessState = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object NetworkStateLock = new();
 
-    public CameraFlashController(LightControlService light) => _light = light;
+    public CameraFlashController(LightControlService light, LightHardwareRegistry hardware)
+    {
+        _light = light;
+        _hardware = hardware;
+    }
 
     /// <summary>
-    /// Камеры 1..8: установить мощность левой/правой вспышки.
-    /// 1,2 -> COM3 (1/2, 3/4), 3,4 -> COM2 (1/2, 3/4),
-    /// 5,6 -> 169.254.213.1 (1/2, 3/4), 7,8 -> 169.254.213.2 (1/2, 3/4).
+    /// Камеры с двумя каналами в camera_routes (light_hardware.yaml): левая/правая вспышка.
     /// </summary>
     [HttpPost("pair")]
     public ActionResult<object> SetPair([FromBody] CameraPairFlashRequest request)
     {
-        if (request.CameraNumber is < 1 or > 8)
-            return BadRequest(new { success = false, error = "cameraNumber должен быть в диапазоне 1..8." });
+        _hardware.EnsureFresh();
+
         if (!IsPowerInRange(request.LeftPower) || !IsPowerInRange(request.RightPower))
             return BadRequest(new { success = false, error = "leftPower/rightPower должны быть в диапазоне 0..255." });
 
-        var target = ResolvePairTarget(request.CameraNumber);
-        int[] channels = [target.LeftChannel, target.RightChannel];
+        if (!TryResolveRoute(request.CameraNumber, minChannels: 2, maxChannels: null, out RouteTarget? target, out string? routeError))
+            return BadRequest(new { success = false, error = routeError });
+
+        int[] channels = [target!.Channels[0], target.Channels[1]];
         int[] brightness = [request.LeftPower, request.RightPower];
 
         if (target.ComPort != null)
@@ -50,6 +54,7 @@ public sealed class CameraFlashController : ControllerBase
                 {
                     success = true,
                     cameraNumber = request.CameraNumber,
+                    deviceId = target.DeviceId,
                     route = "com",
                     comPort = target.ComPort,
                     channels,
@@ -59,6 +64,7 @@ public sealed class CameraFlashController : ControllerBase
                 {
                     success = false,
                     cameraNumber = request.CameraNumber,
+                    deviceId = target.DeviceId,
                     route = "com",
                     comPort = target.ComPort,
                     channels,
@@ -67,23 +73,37 @@ public sealed class CameraFlashController : ControllerBase
                 });
         }
 
+        int[] allChannels = target.DeviceChannels;
         var (netOk, netError, resolvedIndex) = _light.SetLightNetwork(
             new LightCommandRequest
             {
                 IpAddress = target.IpAddress,
                 LightControllerSource = "On",
-                Channels = AllNetworkChannels,
-                Brightness = BuildMergedNetworkBrightness(target.IpAddress!, target.LeftChannel, target.RightChannel, request.LeftPower, request.RightPower)
+                Channels = allChannels,
+                Brightness = BuildMergedNetworkBrightness(
+                    target.IpAddress!,
+                    allChannels,
+                    target.Channels[0],
+                    target.Channels[1],
+                    request.LeftPower,
+                    request.RightPower)
             });
 
         if (netOk)
-            RememberNetworkBrightness(target.IpAddress!, target.LeftChannel, target.RightChannel, request.LeftPower, request.RightPower);
+            RememberNetworkBrightness(
+                target.IpAddress!,
+                allChannels,
+                target.Channels[0],
+                target.Channels[1],
+                request.LeftPower,
+                request.RightPower);
 
         return netOk
             ? Ok(new
             {
                 success = true,
                 cameraNumber = request.CameraNumber,
+                deviceId = target.DeviceId,
                 route = "network",
                 ipAddress = target.IpAddress,
                 deviceIndex = resolvedIndex,
@@ -94,6 +114,7 @@ public sealed class CameraFlashController : ControllerBase
             {
                 success = false,
                 cameraNumber = request.CameraNumber,
+                deviceId = target.DeviceId,
                 route = "network",
                 ipAddress = target.IpAddress,
                 channels,
@@ -103,25 +124,29 @@ public sealed class CameraFlashController : ControllerBase
     }
 
     /// <summary>
-    /// Камеры 9..10: установить мощность одной вспышки.
-    /// 9 -> COM1 ch1, 10 -> COM1 ch2.
+    /// Одна вспышка: camera_routes с ровно одним каналом (channels: [1] или channels: 1).
     /// </summary>
     [HttpPost("single")]
     public ActionResult<object> SetSingle([FromBody] CameraSingleFlashRequest request)
     {
-        if (request.CameraNumber is < 9 or > 10)
-            return BadRequest(new { success = false, error = "cameraNumber должен быть 9 или 10." });
+        _hardware.EnsureFresh();
+
         if (!IsPowerInRange(request.Power))
             return BadRequest(new { success = false, error = "power должен быть в диапазоне 0..255." });
 
-        int channel = request.CameraNumber == 9 ? 1 : 2;
-        int[] channels = [channel];
+        if (!TryResolveRoute(request.CameraNumber, minChannels: 1, maxChannels: 1, out RouteTarget? target, out string? routeError))
+            return BadRequest(new { success = false, error = routeError });
+
+        int[] channels = [target.Channels[0]];
         int[] brightness = [request.Power];
+
+        if (target.ComPort == null)
+            return BadRequest(new { success = false, error = $"cameraNumber {request.CameraNumber}: single поддерживает только COM-устройства." });
 
         var (ok, error) = _light.ApplyComPort(
             new LightCommandRequestCom
             {
-                ComPort = "COM1",
+                ComPort = target.ComPort,
                 LightControllerSource = "On",
                 Channels = channels,
                 Brightness = brightness
@@ -133,8 +158,9 @@ public sealed class CameraFlashController : ControllerBase
             {
                 success = true,
                 cameraNumber = request.CameraNumber,
+                deviceId = target.DeviceId,
                 route = "com",
-                comPort = "COM1",
+                comPort = target.ComPort,
                 channels,
                 brightness
             })
@@ -142,34 +168,105 @@ public sealed class CameraFlashController : ControllerBase
             {
                 success = false,
                 cameraNumber = request.CameraNumber,
+                deviceId = target.DeviceId,
                 route = "com",
-                comPort = "COM1",
+                comPort = target.ComPort,
                 channels,
                 brightness,
                 error
             });
     }
 
-    private static bool IsPowerInRange(int value) => value is >= 0 and <= 255;
-
-    private static PairTarget ResolvePairTarget(int cameraNumber)
+    /// <summary>Загруженные camera_routes (для отладки, без перезапуска сервера).</summary>
+    [HttpGet("routes")]
+    public ActionResult<object> ListRoutes()
     {
-        return cameraNumber switch
+        _hardware.EnsureFresh();
+        var routes = _hardware.CameraRoutes.Select(r => new
         {
-            1 => new PairTarget("COM3", null, 1, 2),
-            2 => new PairTarget("COM3", null, 3, 4),
-            3 => new PairTarget("COM2", null, 1, 2),
-            4 => new PairTarget("COM2", null, 3, 4),
-            5 => new PairTarget(null, "169.254.213.1", 1, 2),
-            6 => new PairTarget(null, "169.254.213.1", 3, 4),
-            7 => new PairTarget(null, "169.254.213.2", 1, 2),
-            8 => new PairTarget(null, "169.254.213.2", 3, 4),
-            _ => throw new ArgumentOutOfRangeException(nameof(cameraNumber), cameraNumber, "cameraNumber вне диапазона 1..8")
-        };
+            cameraNumber = r.CameraNumber,
+            deviceId = r.DeviceId,
+            channels = r.Channels,
+            mode = r.Channels.Length == 1 ? "single" : r.Channels.Length >= 2 ? "pair" : "unknown"
+        });
+        return Ok(new
+        {
+            configPath = _hardware.ConfigPath,
+            loadedFromYaml = _hardware.LoadedFromYaml,
+            routes
+        });
     }
+
+    private bool TryResolveRoute(int cameraNumber, int minChannels, int? maxChannels, out RouteTarget? target, out string? error)
+    {
+        target = null;
+        error = null;
+
+        if (!_hardware.TryGetRoute(cameraNumber, out LightCameraRouteEntry route))
+        {
+            error = $"cameraNumber {cameraNumber} не найден в camera_routes (config/blocks/51-light-hardware.yaml).";
+            return false;
+        }
+
+        if (route.Channels.Length < minChannels)
+        {
+            error = $"cameraNumber {cameraNumber}: нужно минимум {minChannels} канал(а) в camera_routes, задано {route.Channels.Length}.";
+            return false;
+        }
+
+        if (maxChannels is int max && route.Channels.Length > max)
+        {
+            error = max == 1
+                ? $"cameraNumber {cameraNumber}: для single нужен 1 канал в camera_routes (сейчас {route.Channels.Length}: [{string.Join(", ", route.Channels)}]). Используйте POST /api/camera-flash/pair или задайте channels: [N]."
+                : $"cameraNumber {cameraNumber}: слишком много каналов ({route.Channels.Length}), максимум {max}.";
+            return false;
+        }
+
+        if (!_hardware.TryGetDevice(route.DeviceId, out LightHardwareDeviceEntry device))
+        {
+            error = $"cameraNumber {cameraNumber}: device_id '{route.DeviceId}' не найден в devices.";
+            return false;
+        }
+
+        if (!device.Enabled)
+        {
+            error = $"cameraNumber {cameraNumber}: устройство '{route.DeviceId}' отключено (enabled: false).";
+            return false;
+        }
+
+        if (device.IsCom)
+        {
+            if (device.ComPort.Length == 0)
+            {
+                error = $"устройство '{route.DeviceId}': не указан com_port.";
+                return false;
+            }
+
+            target = new RouteTarget(route.DeviceId, device.ComPort, null, route.Channels, device.Channels);
+            return true;
+        }
+
+        if (device.IsEthernet)
+        {
+            if (string.IsNullOrWhiteSpace(device.Ip))
+            {
+                error = $"устройство '{route.DeviceId}': не указан ip.";
+                return false;
+            }
+
+            target = new RouteTarget(route.DeviceId, null, device.Ip, route.Channels, device.Channels);
+            return true;
+        }
+
+        error = $"устройство '{route.DeviceId}': неизвестный type '{device.Type}' (ожидается com или ethernet).";
+        return false;
+    }
+
+    private static bool IsPowerInRange(int value) => value is >= 0 and <= 255;
 
     private static int[] BuildMergedNetworkBrightness(
         string ipAddress,
+        int[] deviceChannels,
         int leftChannel,
         int rightChannel,
         int leftPower,
@@ -177,18 +274,20 @@ public sealed class CameraFlashController : ControllerBase
     {
         lock (NetworkStateLock)
         {
-            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing) && existing.Length == 4
+            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing)
+                && existing.Length == deviceChannels.Length
                 ? (int[])existing.Clone()
-                : [0, 0, 0, 0];
+                : new int[deviceChannels.Length];
 
-            merged[leftChannel - 1] = leftPower;
-            merged[rightChannel - 1] = rightPower;
+            SetChannelBrightness(merged, deviceChannels, leftChannel, leftPower);
+            SetChannelBrightness(merged, deviceChannels, rightChannel, rightPower);
             return merged;
         }
     }
 
     private static void RememberNetworkBrightness(
         string ipAddress,
+        int[] deviceChannels,
         int leftChannel,
         int rightChannel,
         int leftPower,
@@ -196,15 +295,28 @@ public sealed class CameraFlashController : ControllerBase
     {
         lock (NetworkStateLock)
         {
-            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing) && existing.Length == 4
+            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing)
+                && existing.Length == deviceChannels.Length
                 ? (int[])existing.Clone()
-                : [0, 0, 0, 0];
+                : new int[deviceChannels.Length];
 
-            merged[leftChannel - 1] = leftPower;
-            merged[rightChannel - 1] = rightPower;
+            SetChannelBrightness(merged, deviceChannels, leftChannel, leftPower);
+            SetChannelBrightness(merged, deviceChannels, rightChannel, rightPower);
             NetworkBrightnessState[ipAddress] = merged;
         }
     }
 
-    private sealed record PairTarget(string? ComPort, string? IpAddress, int LeftChannel, int RightChannel);
+    private static void SetChannelBrightness(int[] merged, int[] deviceChannels, int channel, int power)
+    {
+        int index = Array.IndexOf(deviceChannels, channel);
+        if (index >= 0)
+            merged[index] = power;
+    }
+
+    private sealed record RouteTarget(
+        string DeviceId,
+        string? ComPort,
+        string? IpAddress,
+        int[] Channels,
+        int[] DeviceChannels);
 }

@@ -1,11 +1,11 @@
 namespace LightServer;
 
-/// <summary>Порты для SetEnumSerialPorts перед перечислением COM-устройств (appsettings: SerialLight:EnumPorts).</summary>
+/// <summary>Порты для SetEnumSerialPorts перед перечислением COM-устройств (из light_hardware.yaml или appsettings).</summary>
 public sealed class SerialLightOptions
 {
     public const string SectionName = "SerialLight";
 
-    /// <summary>Только из appsettings (без default — иначе порты дублируются при bind).</summary>
+    /// <summary>Из light_hardware.yaml (COM-устройства) или appsettings (legacy).</summary>
     public string[] EnumPorts { get; set; } = [];
 
     /// <summary>Не закрывать MV-LE после каждого POST /api/com/light (On/Off быстрее).</summary>

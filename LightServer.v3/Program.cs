@@ -1,5 +1,6 @@
 using System.Reflection;
 using LightServer;
+using LightServer.Configuration;
 using LightServer.Logging;
 using LightServer.Services;
 using Microsoft.Extensions.Options;
@@ -27,9 +28,19 @@ else
     builder.Logging.AddFilter(_ => false);
 }
 
+LightHardwareLoadResult hardwareLoad = LightConfigLoader.Load(args);
+builder.Services.AddSingleton(hardwareLoad);
+builder.Services.AddSingleton<LightHardwareRegistry>();
+
+if (hardwareLoad.LoadedFromYaml && hardwareLoad.ConfigPath != null)
+    Console.WriteLine($"[LightServer] light hardware config: {hardwareLoad.ConfigPath}");
+else if (hardwareLoad.Warning != null)
+    Console.WriteLine($"[LightServer] {hardwareLoad.Warning}");
+
 builder.Services.Configure<SerialLightOptions>(builder.Configuration.GetSection(SerialLightOptions.SectionName));
 builder.Services.Configure<ComLightDevicesOptions>(builder.Configuration.GetSection(ComLightDevicesOptions.SectionName));
-builder.Services.AddSingleton<IPostConfigureOptions<ComLightDevicesOptions>, ComLightDevicesOptionsPostConfigure>();
+builder.Services.AddSingleton<IPostConfigureOptions<ComLightDevicesOptions>, LightHardwareBindingPostConfigure>();
+builder.Services.AddSingleton<IPostConfigureOptions<SerialLightOptions>, LightHardwareBindingPostConfigure>();
 builder.Services.Configure<IoControllerOptions>(builder.Configuration.GetSection(IoControllerOptions.SectionName));
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -66,7 +77,11 @@ if (logEnabled)
         comDevices.Devices.Length,
         logFilePath);
     if (comDevices.Devices.Length == 0)
-        app.Logger.LogWarning("ComLightDevices:Devices пуст — проверьте appsettings.json рядом с {DllDir}", AppContext.BaseDirectory);
+    {
+        app.Logger.LogWarning(
+            "COM-устройства не настроены — задайте config/blocks/51-light-hardware.yaml или ComLightDevices в appsettings.json ({DllDir})",
+            AppContext.BaseDirectory);
+    }
 
     app.UseMiddleware<HttpExchangeLoggingMiddleware>();
 }

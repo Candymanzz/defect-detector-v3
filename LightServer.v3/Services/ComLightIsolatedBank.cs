@@ -15,6 +15,8 @@ public sealed class ComLightIsolatedBank : IDisposable
     private readonly SerialLightOptions _serialOptions;
     private readonly ILogger<ComLightIsolatedBank> _log;
     private readonly object _initLock = new();
+    private readonly HashSet<string> _readyPorts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _skippedPorts = new(StringComparer.OrdinalIgnoreCase);
     private bool _initialized;
     private string? _initError;
     private List<IDeviceInfo>? _bankDeviceList;
@@ -47,14 +49,26 @@ public sealed class ComLightIsolatedBank : IDisposable
 
     public IReadOnlyCollection<string> ConfiguredComPorts => _ports.Keys.ToList();
 
+    public IReadOnlyCollection<string> ReadyComPorts => _readyPorts.ToList();
+
+    public IReadOnlyDictionary<string, string> SkippedPorts => _skippedPorts;
+
     public bool IsInitialized => _initialized;
+
+    public bool IsPartial => _initialized && _skippedPorts.Count > 0;
+
+    public bool IsPortReady(string comPort) =>
+        _readyPorts.Contains(MvsComPortEnumerator.NormalizeComPort(comPort));
 
     public (bool ok, string? error) InitializeAll()
     {
         lock (_initLock)
         {
-            if (_initialized && string.IsNullOrEmpty(_initError))
-                return (true, null);
+            if (_initialized && _readyPorts.Count > 0)
+                return (true, _initError);
+
+            _readyPorts.Clear();
+            _skippedPorts.Clear();
 
             if (_ports.Count == 0)
             {
@@ -79,32 +93,53 @@ public sealed class ComLightIsolatedBank : IDisposable
                 list.Count,
                 string.Join(", ", comToIndex.Select(static kv => $"{kv.Key}:{kv.Value}")));
 
+            string seen = string.Join("; ", list.Select(MvsComPortEnumerator.DescribeDevice));
+
             foreach (string com in portOrder)
             {
                 if (!comToIndex.TryGetValue(com, out int idx))
                 {
-                    string seen = string.Join("; ", list.Select(MvsComPortEnumerator.DescribeDevice));
-                    _initError = $"{com} не найден в EnumDevices. Видно: [{seen}]";
-                    _initialized = false;
-                    _log.LogError("IsolatedBank: {Error}", _initError);
-                    return (false, _initError);
+                    string reason = $"{com} не найден в EnumDevices. Видно: [{seen}]";
+                    _skippedPorts[com] = reason;
+                    _log.LogWarning("IsolatedBank: пропуск {Com}: {Reason}", com, reason);
+                    continue;
                 }
 
                 var (ok, err) = _ports[com].OpenFromBankEnumeration(list, idx);
                 if (!ok)
                 {
-                    _initError = err;
-                    _initialized = false;
-                    _log.LogError("IsolatedBank: {Com} не открылся: {Error}", com, err);
-                    return (false, err);
+                    string reason = err ?? $"{com} не открылся.";
+                    _skippedPorts[com] = reason;
+                    _log.LogWarning("IsolatedBank: пропуск {Com}: {Reason}", com, reason);
+                    continue;
                 }
 
+                _readyPorts.Add(com);
             }
 
-            _initError = null;
+            if (_readyPorts.Count == 0)
+            {
+                _initError = _skippedPorts.Count > 0
+                    ? string.Join("; ", _skippedPorts.Select(static kv => kv.Value))
+                    : "Ни один COM не открылся.";
+                _initialized = false;
+                _log.LogError("IsolatedBank: {Error}", _initError);
+                return (false, _initError);
+            }
+
             _initialized = true;
-            _log.LogInformation("IsolatedBank: готово {Ports}", string.Join(", ", _ports.Keys));
-            return (true, null);
+            if (_skippedPorts.Count > 0)
+            {
+                _initError = $"Частично: готовы [{string.Join(", ", _readyPorts)}], пропущены [{string.Join(", ", _skippedPorts.Keys)}].";
+                _log.LogWarning("IsolatedBank: {Summary}", _initError);
+            }
+            else
+            {
+                _initError = null;
+                _log.LogInformation("IsolatedBank: готово {Ports}", string.Join(", ", _readyPorts));
+            }
+
+            return (true, _initError);
         }
     }
 
@@ -125,6 +160,9 @@ public sealed class ComLightIsolatedBank : IDisposable
 
         Parallel.ForEach(commands, cmd =>
         {
+            if (TryRecordSkipped(cmd.ComPort, results))
+                return;
+
             if (!_ports.TryGetValue(cmd.ComPort, out IsolatedComPortLight? port))
             {
                 results[cmd.ComPort] = (false, "COM не в конфиге isolated bank.");
@@ -150,6 +188,9 @@ public sealed class ComLightIsolatedBank : IDisposable
 
         Parallel.ForEach(commands, cmd =>
         {
+            if (TryRecordSkipped(cmd.ComPort, results))
+                return;
+
             if (!_ports.TryGetValue(cmd.ComPort, out IsolatedComPortLight? port))
             {
                 results[cmd.ComPort] = (false, "COM не в конфиге isolated bank.");
@@ -202,6 +243,9 @@ public sealed class ComLightIsolatedBank : IDisposable
 
         Parallel.ForEach(commands, cmd =>
         {
+            if (TryRecordSkipped(cmd.ComPort, results))
+                return;
+
             if (!_ports.TryGetValue(cmd.ComPort, out IsolatedComPortLight? port))
             {
                 results[cmd.ComPort] = (false, "COM не в конфиге isolated bank.");
@@ -213,6 +257,21 @@ public sealed class ComLightIsolatedBank : IDisposable
         });
 
         return BuildResults(commands, results);
+    }
+
+    private bool TryRecordSkipped(
+        string comPort,
+        ConcurrentDictionary<string, (bool Ok, string? Message)> results)
+    {
+        string com = MvsComPortEnumerator.NormalizeComPort(comPort);
+        if (_readyPorts.Contains(com))
+            return false;
+
+        string reason = _skippedPorts.TryGetValue(com, out string? detail)
+            ? $"пропущен: {detail}"
+            : "пропущен: не инициализирован";
+        results[com] = (false, reason);
+        return true;
     }
 
     private static IReadOnlyList<(string ComPort, bool Ok, string? Message)> BuildResults(

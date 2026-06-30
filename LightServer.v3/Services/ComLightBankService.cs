@@ -28,23 +28,30 @@ public sealed class ComLightBankService
         _log = log;
     }
 
-    public bool IsInitialized => _initialized;
+    public bool IsInitialized => _initialized && _isolatedBank.ReadyComPorts.Count > 0;
+
+    public bool IsPartial => _isolatedBank.IsPartial;
 
     public IReadOnlyList<ComLightDeviceEntry> ConfiguredDevices => _uniqueDevices;
 
+    public IReadOnlyList<ComLightDeviceEntry> ReadyDevices =>
+        _uniqueDevices.Where(d => _isolatedBank.IsPortReady(d.ComPort)).ToList();
+
+    public IReadOnlyDictionary<string, string> SkippedPorts => _isolatedBank.SkippedPorts;
+
     public (bool ok, string? error) EnsureInitialized()
     {
-        if (_initialized)
-            return string.IsNullOrEmpty(_initError) ? (true, null) : (false, _initError);
+        if (_initialized && _isolatedBank.ReadyComPorts.Count > 0)
+            return (true, _initError);
 
         lock (_initLock)
         {
-            if (_initialized)
-                return string.IsNullOrEmpty(_initError) ? (true, null) : (false, _initError);
+            if (_initialized && _isolatedBank.ReadyComPorts.Count > 0)
+                return (true, _initError);
 
             if (_uniqueDevices.Length == 0)
             {
-                _initError = "ComLightDevices:Devices пуст — задайте COM1/COM2/COM3 в appsettings.json.";
+                _initError = "COM-устройства не настроены — задайте config/blocks/51-light-hardware.yaml или ComLightDevices в appsettings.json.";
                 _initialized = false;
                 return (false, _initError);
             }
@@ -53,9 +60,17 @@ public sealed class ComLightBankService
             _initError = err;
             _initialized = ok;
             if (ok)
-                _log.LogInformation("ComLightBank: открыто {Count} COM ({Ports})",
+            {
+                _log.LogInformation(
+                    "ComLightBank: готово {ReadyCount}/{Total} COM ({ReadyPorts})",
+                    _isolatedBank.ReadyComPorts.Count,
                     _uniqueDevices.Length,
-                    string.Join(", ", _uniqueDevices.Select(static d => d.ComPort)));
+                    string.Join(", ", _isolatedBank.ReadyComPorts));
+                if (_isolatedBank.SkippedPorts.Count > 0)
+                    _log.LogWarning(
+                        "ComLightBank: пропущены {Skipped}",
+                        string.Join(", ", _isolatedBank.SkippedPorts.Keys));
+            }
             else
                 _log.LogError("ComLightBank: инициализация не удалась: {Error}", err);
 
@@ -63,7 +78,7 @@ public sealed class ComLightBankService
         }
     }
 
-  /// <summary>on/off для всех COM; brightness — % через запятую (0–100), по умолчанию 100.</summary>
+    /// <summary>on/off для всех COM; brightness — % через запятую (0–100), по умолчанию 100.</summary>
     public ComLightStateResponse SetState(string? state, string? brightnessCsv)
     {
         string normalized = (state ?? "off").Trim();
@@ -100,14 +115,15 @@ public sealed class ComLightBankService
             return new ComLightStateResponse
             {
                 Success = off.Success,
-                Message = off.Success ? "Все COM выключены." : null,
+                Message = off.Success ? BuildOffMessage(off.Results) : null,
                 Error = off.Error,
                 State = "off",
                 Results = off.Results
             };
         }
 
-        int totalChannels = _uniqueDevices.Sum(static d => d.Channels.Length);
+        IReadOnlyList<ComLightDeviceEntry> activeDevices = ReadyDevices;
+        int totalChannels = activeDevices.Sum(static d => d.Channels.Length);
         int[] percents;
         try
         {
@@ -124,42 +140,29 @@ public sealed class ComLightBankService
             };
         }
 
-        List<ComPortFlashCommand> flashCommands = BuildFlashCommands(percents);
+        List<ComPortFlashCommand> flashCommands = BuildFlashCommands(activeDevices, percents);
         var cmdByCom = flashCommands.ToDictionary(static c => c.ComPort, static c => c, StringComparer.OrdinalIgnoreCase);
         var applied = _isolatedBank.ApplyAllOn(flashCommands);
-        var results = applied.Select(r =>
-        {
-            cmdByCom.TryGetValue(r.ComPort, out ComPortFlashCommand cmd);
-            return new ComLightApplyResultItem
-            {
-                ComPort = r.ComPort,
-                Success = r.Ok,
-                Message = r.Ok ? r.Message : null,
-                Error = r.Ok ? null : r.Message,
-                LightControllerSource = "On",
-                Channels = cmd.Channels,
-                Brightness = cmd.Brightness
-            };
-        }).ToList();
+        var results = MergeResults(applied, cmdByCom, "On");
 
-        bool allOk = results.All(static r => r.Success);
+        bool success = EvaluateSuccess(results);
         string appliedCsv = string.Join(",", percents);
         return new ComLightStateResponse
         {
-            Success = allOk,
-            Message = allOk ? $"Все COM включены одновременно, яркость %: {appliedCsv}." : null,
-            Error = allOk ? null : "Часть COM не включилась.",
+            Success = success,
+            Message = success ? BuildOnMessage(results, appliedCsv) : null,
+            Error = success ? null : "Часть подключённых COM не включилась.",
             State = "on",
             Brightness = appliedCsv,
             Results = results
         };
     }
 
-    private List<ComPortFlashCommand> BuildFlashCommands(int[] percents)
+    private List<ComPortFlashCommand> BuildFlashCommands(IReadOnlyList<ComLightDeviceEntry> devices, int[] percents)
     {
-        var commands = new List<ComPortFlashCommand>(_uniqueDevices.Length);
+        var commands = new List<ComPortFlashCommand>(devices.Count);
         int idx = 0;
-        foreach (ComLightDeviceEntry entry in _uniqueDevices)
+        foreach (ComLightDeviceEntry entry in devices)
         {
             int n = entry.Channels.Length;
             int[] raw = new int[n];
@@ -179,26 +182,97 @@ public sealed class ComLightBankService
             .ToList();
         var cmdByCom = flashCommands.ToDictionary(static c => c.ComPort, static c => c, StringComparer.OrdinalIgnoreCase);
         var applied = _isolatedBank.ApplyAllOff(flashCommands);
-        var results = applied.Select(r => new ComLightApplyResultItem
-        {
-            ComPort = r.ComPort,
-            Success = r.Ok,
-            Message = r.Ok ? r.Message : null,
-            Error = r.Ok ? null : r.Message,
-            LightControllerSource = "Off",
-            Channels = cmdByCom[r.ComPort].Channels
-        }).ToList();
+        var results = MergeResults(applied, cmdByCom, "Off");
 
-        bool allOk = results.All(static r => r.Success);
+        bool success = EvaluateSuccess(results);
         return new ComLightApplyResponse
         {
-            Success = allOk,
-            Error = allOk ? null : "Не все COM выключились.",
+            Success = success,
+            Error = success ? null : "Не все подключённые COM выключились.",
             Results = results
         };
     }
 
-    /// <summary>Проценты 0–100; одно значение — на все каналы; N значений — по порядку COM1→COM3.</summary>
+    private List<ComLightApplyResultItem> MergeResults(
+        IReadOnlyList<(string ComPort, bool Ok, string? Message)> applied,
+        IReadOnlyDictionary<string, ComPortFlashCommand> cmdByCom,
+        string source)
+    {
+        var byPort = applied.ToDictionary(static r => r.ComPort, static r => r, StringComparer.OrdinalIgnoreCase);
+        var merged = new List<ComLightApplyResultItem>(_uniqueDevices.Length);
+
+        foreach (ComLightDeviceEntry device in _uniqueDevices)
+        {
+            cmdByCom.TryGetValue(device.ComPort, out ComPortFlashCommand cmd);
+            int[] channels = cmd.Channels.Length > 0 ? cmd.Channels : device.Channels;
+
+            if (!_isolatedBank.IsPortReady(device.ComPort))
+            {
+                string detail = _isolatedBank.SkippedPorts.TryGetValue(device.ComPort, out string? reason)
+                    ? reason
+                    : "не подключён";
+                merged.Add(new ComLightApplyResultItem
+                {
+                    ComPort = device.ComPort,
+                    Success = false,
+                    Skipped = true,
+                    Error = $"пропущен: {detail}",
+                    LightControllerSource = source,
+                    Channels = channels
+                });
+                continue;
+            }
+
+            if (!byPort.TryGetValue(device.ComPort, out var row))
+            {
+                merged.Add(new ComLightApplyResultItem
+                {
+                    ComPort = device.ComPort,
+                    Success = false,
+                    Error = "нет ответа",
+                    LightControllerSource = source,
+                    Channels = channels
+                });
+                continue;
+            }
+
+            merged.Add(new ComLightApplyResultItem
+            {
+                ComPort = device.ComPort,
+                Success = row.Ok,
+                Message = row.Ok ? row.Message : null,
+                Error = row.Ok ? null : row.Message,
+                LightControllerSource = source,
+                Channels = channels,
+                Brightness = source == "On" && cmd.Brightness.Length > 0 ? cmd.Brightness : null
+            });
+        }
+
+        return merged;
+    }
+
+    private static bool EvaluateSuccess(IReadOnlyList<ComLightApplyResultItem> results) =>
+        results.Where(static r => !r.Skipped).All(static r => r.Success)
+        && results.Any(static r => !r.Skipped);
+
+    private static string BuildOnMessage(IReadOnlyList<ComLightApplyResultItem> results, string appliedCsv)
+    {
+        var skipped = results.Where(static r => r.Skipped).Select(static r => r.ComPort).ToList();
+        string baseMsg = $"Подключённые COM включены, яркость %: {appliedCsv}.";
+        return skipped.Count == 0
+            ? baseMsg
+            : $"{baseMsg} Пропущены: {string.Join(", ", skipped)}.";
+    }
+
+    private static string BuildOffMessage(IReadOnlyList<ComLightApplyResultItem> results)
+    {
+        var skipped = results.Where(static r => r.Skipped).Select(static r => r.ComPort).ToList();
+        return skipped.Count == 0
+            ? "Все подключённые COM выключены."
+            : $"Подключённые COM выключены. Пропущены: {string.Join(", ", skipped)}.";
+    }
+
+    /// <summary>Проценты 0–100; одно значение — на все каналы; N значений — по порядку подключённых устройств из конфига.</summary>
     private static int[] ParseBrightnessPercents(string? csv, int channelCount)
     {
         if (channelCount <= 0)
@@ -253,8 +327,9 @@ public sealed class ComLightBankService
                 continue;
             list.Add(new ComLightDeviceEntry
             {
+                DeviceId = d.DeviceId,
                 ComPort = NormalizeComPort(com),
-                Channels = NormalizeChannels(d.Channels, com),
+                Channels = NormalizeChannels(d.Channels),
                 TimerArmSource = d.TimerArmSource
             });
         }
@@ -262,8 +337,7 @@ public sealed class ComLightBankService
         return list.OrderBy(static d => d.ComPort, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    /// <summary>Уникальные каналы 1–4; fallback по COM.</summary>
-    private static int[] NormalizeChannels(int[] channels, string comPort)
+    private static int[] NormalizeChannels(int[] channels)
     {
         var unique = new List<int>(4);
         if (channels != null)
@@ -275,12 +349,7 @@ public sealed class ComLightBankService
             }
         }
 
-        if (unique.Count > 0)
-            return unique.ToArray();
-
-        return string.Equals(comPort, "COM1", StringComparison.OrdinalIgnoreCase)
-            ? [1, 2]
-            : [1, 2, 3, 4];
+        return unique.ToArray();
     }
 
     private static string NormalizeComPort(string raw) => MvsComPortEnumerator.NormalizeComPort(raw);
