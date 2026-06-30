@@ -27,4 +27,20 @@ class LineDiscreteTriggerEvaluatorTest {
         assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, evaluator.evaluate(true, false, false));
         assertEquals(LineDiscreteTriggerEvaluator.Decision.SKIP_WRONG_DIRECTION, evaluator.evaluate(true, false, true));
     }
+
+    @Test
+    void doesNotFireOnStartupWhenTriggerAlreadyHigh() {
+        LineDiscreteTriggerEvaluator armed = new LineDiscreteTriggerEvaluator();
+        armed.armTriggerState(true);
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, armed.evaluate(true, true, true));
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, armed.evaluate(true, true, false));
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.FIRE, armed.evaluate(true, true, true));
+    }
+
+    @Test
+    void firesOnDi3OnlyWhenWorkAndDirectionNotRequired() {
+        LineDiscreteTriggerEvaluator di3Only = new LineDiscreteTriggerEvaluator(false, false);
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, di3Only.evaluate(false, false, false));
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.FIRE, di3Only.evaluate(false, false, true));
+    }
 }

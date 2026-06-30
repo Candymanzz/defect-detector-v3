@@ -5,7 +5,9 @@ import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
+import com.example.iml.orchestrator.integration.trigger.config.GpioTriggerConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.diagnostics.CaptureSyncDiagnostics;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
@@ -116,6 +118,20 @@ public final class LivePreviewPublisher implements AutoCloseable {
             PerCameraInspectionGate inspectionGate
     ) {
         LivePreviewConfig cfg = LivePreviewConfig.fromRootYaml(rootYaml);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> integration = rootYaml != null && rootYaml.get("integration") instanceof Map<?, ?> im
+                ? (Map<String, Object>) im
+                : null;
+        IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
+                IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
+        GpioTriggerConfig gpioTrigger = GpioTriggerConfig.parse(integration);
+        if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL && gpioTrigger.enabled()) {
+            log.info(
+                    "live_preview disabled: external GPIO trigger DI{} — inspection capture only on discrete rising edge",
+                    gpioTrigger.triggerPort()
+            );
+            return null;
+        }
         if (!cfg.enabled() || uiServer == null || workersByCamera == null || workersByCamera.isEmpty()) {
             return null;
         }

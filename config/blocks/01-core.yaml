@@ -79,6 +79,9 @@ integration:
       work_port: 1
       direction_port: 2
       trigger_port: 3
+      # true = съёмка только при DI1=1 и DI2=1 и фронте DI3; false = игнорировать этот вход.
+      require_work: true
+      require_direction: true
       poll_interval_ms: 2
       debounce_ms: 100
       active_value: 1
@@ -145,16 +148,16 @@ integration:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  # LightServer.v3 — COM IO + MV-LE на одном порту.
-  light_server_command_windows:
-    - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5080"
-  light_server_command_linux:
-    - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5080"
+  # LightServer.v3 — не автозапускать при GPIO на COM3 (конфликт с MvIOInterfaceBox).
+  # light_server_command_windows:
+  #   - "dotnet"
+  #   - "exec"
+  #   - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
+  #   - "--urls"
+  #   - "http://127.0.0.1:5080"
+  # light_server_command_linux:
+  #   - "dotnet"
+  #   - "exec"
+  #   - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
+  #   - "--urls"
+  #   - "http://127.0.0.1:5080"

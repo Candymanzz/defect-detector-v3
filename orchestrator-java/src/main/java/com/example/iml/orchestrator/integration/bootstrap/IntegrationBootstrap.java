@@ -41,6 +41,7 @@ import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadca
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
+import com.example.iml.orchestrator.integration.trigger.config.GpioTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
@@ -189,8 +190,18 @@ public final class IntegrationBootstrap {
                 cfg.serviceCommandTimeoutMs(),
                 cfg.geometryPoolSize()
         );
-        ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
-                integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        GpioTriggerConfig gpioTriggerForCom = GpioTriggerConfig.parse(integration);
+        ExternalServiceProcess lightServerProcess;
+        if (gpioTriggerForCom.enabled() && "hikrobot_mv_io".equalsIgnoreCase(gpioTriggerForCom.backend())) {
+            log.info(
+                    "skipping light-server autostart: inspection_trigger.gpio uses {} (MvIOInterfaceBox needs exclusive COM)",
+                    gpioTriggerForCom.comPort()
+            );
+            lightServerProcess = null;
+        } else {
+            lightServerProcess = lightServerLauncher.startIfConfigured(
+                    integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        }
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
@@ -495,6 +506,12 @@ public final class IntegrationBootstrap {
             } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
                 InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
                 if (triggerCfg.gpio().enabled()) {
+                    log.info(
+                            "inspection capture mode=external_gpio only DI{} rising edge (require_work={} require_direction={})",
+                            triggerCfg.gpio().triggerPort(),
+                            triggerCfg.gpio().requireWork(),
+                            triggerCfg.gpio().requireDirection()
+                    );
                     log.info(
                             "inspection_trigger external gpio backend={} com_port={} di={}/{}/{} poll_ms={} debounce_ms={}",
                             triggerCfg.gpio().backend(),

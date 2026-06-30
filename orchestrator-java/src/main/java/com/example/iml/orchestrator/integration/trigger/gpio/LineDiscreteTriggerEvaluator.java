@@ -13,7 +13,23 @@ public final class LineDiscreteTriggerEvaluator {
         SKIP_WRONG_DIRECTION
     }
 
+    private final boolean requireWork;
+    private final boolean requireDirection;
     private boolean previousTriggerActive;
+
+    public LineDiscreteTriggerEvaluator() {
+        this(true, true);
+    }
+
+    public LineDiscreteTriggerEvaluator(boolean requireWork, boolean requireDirection) {
+        this.requireWork = requireWork;
+        this.requireDirection = requireDirection;
+    }
+
+    /** Запомнить текущий уровень DI3 без генерации фронта (при старте опроса). */
+    public void armTriggerState(boolean triggerActive) {
+        previousTriggerActive = triggerActive;
+    }
 
     public Decision evaluate(boolean workActive, boolean directionActive, boolean triggerActive) {
         boolean risingEdge = triggerActive && !previousTriggerActive;
@@ -21,10 +37,10 @@ public final class LineDiscreteTriggerEvaluator {
         if (!risingEdge) {
             return Decision.NONE;
         }
-        if (!workActive) {
+        if (requireWork && !workActive) {
             return Decision.SKIP_NOT_READY;
         }
-        if (!directionActive) {
+        if (requireDirection && !directionActive) {
             return Decision.SKIP_WRONG_DIRECTION;
         }
         return Decision.FIRE;

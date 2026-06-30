@@ -16,6 +16,8 @@ public record GpioTriggerConfig(
         int workPort,
         int directionPort,
         int triggerPort,
+        boolean requireWork,
+        boolean requireDirection,
         String dllDirectory,
         int pollIntervalMs,
         int debounceMs,
@@ -33,6 +35,8 @@ public record GpioTriggerConfig(
                 1,
                 2,
                 3,
+                true,
+                true,
                 "",
                 2,
                 100,
@@ -82,6 +86,8 @@ public record GpioTriggerConfig(
                 : defaults.dllDirectory();
         int pollIntervalMs = Math.max(1, YamlScalars.toInt(gpio.get("poll_interval_ms"), defaults.pollIntervalMs()));
         int debounceMs = Math.max(0, YamlScalars.toInt(gpio.get("debounce_ms"), defaults.debounceMs()));
+        boolean requireWork = YamlScalars.toBool(gpio.get("require_work"), defaults.requireWork());
+        boolean requireDirection = YamlScalars.toBool(gpio.get("require_direction"), defaults.requireDirection());
         int activeValue = GpioLineConfig.parseActiveValue(gpio.get("active_value"), defaults.activeValue());
         GpioLineConfig work = GpioLineConfig.parsePathObject(gpio.get("work"), "");
         GpioLineConfig direction = GpioLineConfig.parsePathObject(gpio.get("direction"), "");
@@ -93,6 +99,8 @@ public record GpioTriggerConfig(
                 workPort,
                 directionPort,
                 triggerPort,
+                requireWork,
+                requireDirection,
                 dllDirectory,
                 pollIntervalMs,
                 debounceMs,

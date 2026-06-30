@@ -20,7 +20,7 @@ public final class GpioTriggerTransport implements TriggerTransport {
     private final GpioTriggerConfig config;
     private final InspectionTriggerBus bus;
     private final Runnable onLineWorkChanged;
-    private final LineDiscreteTriggerEvaluator evaluator = new LineDiscreteTriggerEvaluator();
+    private final LineDiscreteTriggerEvaluator evaluator;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean lineWorkActive = new AtomicBoolean(false);
 
@@ -40,6 +40,7 @@ public final class GpioTriggerTransport implements TriggerTransport {
         this.config = config;
         this.bus = bus;
         this.onLineWorkChanged = onLineWorkChanged == null ? () -> { } : onLineWorkChanged;
+        this.evaluator = new LineDiscreteTriggerEvaluator(config.requireWork(), config.requireDirection());
     }
 
     public boolean isLineWorkActive() {
@@ -65,7 +66,7 @@ public final class GpioTriggerTransport implements TriggerTransport {
 
     private void pollLoop() {
         log.info(
-                "discrete_trigger started backend={} poll_ms={} debounce_ms={} active={} com_port={} di={}/{}/{}",
+                "discrete_trigger started backend={} poll_ms={} debounce_ms={} active={} com_port={} di={}/{}/{} require_work={} require_direction={}",
                 config.backend(),
                 config.pollIntervalMs(),
                 config.debounceMs(),
@@ -73,8 +74,22 @@ public final class GpioTriggerTransport implements TriggerTransport {
                 config.comPort(),
                 config.workPort(),
                 config.directionPort(),
-                config.triggerPort()
+                config.triggerPort(),
+                config.requireWork(),
+                config.requireDirection()
         );
+        try {
+            DiscreteInputSnapshot initial = snapshotSource.readSnapshot();
+            evaluator.armTriggerState(initial.trigger());
+            logDiStateIfChanged(initial);
+            log.info(
+                    "discrete_trigger armed DI{} level={} (no capture until 0→1 rising edge)",
+                    config.triggerPort(),
+                    initial.trigger() ? 1 : 0
+            );
+        } catch (Exception e) {
+            log.warn("discrete_trigger arm failed: {}", e.getMessage());
+        }
         while (running.get() && !Thread.currentThread().isInterrupted()) {
             try {
                 pollOnce();
@@ -149,7 +164,11 @@ public final class GpioTriggerTransport implements TriggerTransport {
         }
         int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("discrete"));
         if (published > 0) {
-            log.info("discrete_trigger line broadcast cameras={}", published);
+            log.info(
+                    "discrete_trigger FIRE DI{} rising edge -> line broadcast cameras={}",
+                    config.triggerPort(),
+                    published
+            );
         }
     }
 
