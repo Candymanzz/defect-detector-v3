@@ -3,13 +3,24 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace IoInputMonitor;
 
+public enum IoInputEdgeMode
+{
+    Rising,
+    Falling,
+    Both
+}
+
 public sealed class IoInputOptions
 {
     public string ComPort { get; set; } = "COM3";
 
     public int[] InputPorts { get; set; } = [3];
 
-    public int PollIntervalMs { get; set; } = 100;
+    public IoInputEdgeMode EdgeMode { get; set; } = IoInputEdgeMode.Both;
+
+    public bool ConfigureSdk { get; set; } = true;
+
+    public int DebounceMs { get; set; } = 50;
 }
 
 public sealed class IoInputConfigLoadResult
@@ -120,7 +131,23 @@ public static class IoInputConfigLoader
         {
             ComPort = string.IsNullOrWhiteSpace(section.ComPort) ? "COM3" : section.ComPort.Trim(),
             InputPorts = inputs,
-            PollIntervalMs = section.PollIntervalMs is >= 10 ? section.PollIntervalMs.Value : 100
+            EdgeMode = ParseEdgeMode(section.Edge),
+            ConfigureSdk = section.ConfigureSdk ?? true,
+            DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50
+        };
+    }
+
+    internal static IoInputEdgeMode ParseEdgeMode(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return IoInputEdgeMode.Rising;
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "rising" => IoInputEdgeMode.Rising,
+            "falling" => IoInputEdgeMode.Falling,
+            "both" => IoInputEdgeMode.Both,
+            _ => IoInputEdgeMode.Rising
         };
     }
 
@@ -150,8 +177,12 @@ public static class IoInputConfigLoader
     {
         public string? ComPort { get; set; }
 
-        public int? PollIntervalMs { get; set; }
-
         public List<int>? Inputs { get; set; }
+
+        public string? Edge { get; set; }
+
+        public bool? ConfigureSdk { get; set; }
+
+        public int? DebounceMs { get; set; }
     }
 }

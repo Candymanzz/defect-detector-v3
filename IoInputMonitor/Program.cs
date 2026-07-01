@@ -87,30 +87,93 @@ internal static class Program
             return 0;
         }
 
-        Console.WriteLine($"Мониторинг {inputsLabel}. Ctrl+C для выхода.");
-        Console.WriteLine("0 = LOW, 1 = HIGH. Нажатие кнопки обычно меняет уровень.");
+        Console.WriteLine(
+            $"Мониторинг {inputsLabel} (edge={options.EdgeMode}, debounce={options.DebounceMs} мс). Ctrl+C для выхода.");
 
         var inputSet = new HashSet<int>(options.InputPorts);
+        var portPressed = new Dictionary<int, bool>();
+        var lastLoggedTicks = new Dictionary<(int Port, MvIoNative.IoEdgeType Edge), long>();
+        object sessionLock = new();
+        object consoleLock = new();
 
-        if (options.UseEdgeCallback)
+        foreach (int inputPort in options.InputPorts)
         {
-            session.RegisterEdgeCallback((port, edge) =>
-            {
-                if (!inputSet.Contains(port))
-                    return;
-
-                string edgeName = edge switch
-                {
-                    MvIoNative.IoEdgeType.Rising => "RISING",
-                    MvIoNative.IoEdgeType.Falling => "FALLING",
-                    _ => edge.ToString()
-                };
-                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}");
-            });
-            Console.WriteLine("Edge callback включён. Ожидаю фронты...");
+            byte level = session.ReadInputLevel(inputPort);
+            portPressed[inputPort] = level == (byte)MvIoNative.IoLevel.High;
+            Console.WriteLine(
+                $"[{Timestamp()}] DI{inputPort}: начальный уровень {DescribeLevel(level)} (raw={level})");
+            PrintPortInputParam(session, inputPort);
         }
 
-        var lastLevels = new Dictionary<int, int?>();
+        uint debounceMs = (uint)options.DebounceMs;
+        if (ShouldConfigureSdk(options))
+        {
+            foreach (int inputPort in options.InputPorts)
+            {
+                MvIoNative.IoEdgeType initialEdge = NextEdgeToArm(options.EdgeMode, portPressed[inputPort]);
+                session.ConfigureInputEdge(inputPort, (uint)initialEdge, debounceMs);
+            }
+
+            if (options.EdgeMode == IoInputEdgeMode.Both)
+            {
+                Console.WriteLine(
+                    "both: динамическое перевооружение фронта после каждого события " +
+                    "(SDK поддерживает один фильтр на порт — это самый быстрый событийный режим).");
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                "configure_sdk=false — параметры порта не меняем, используем настройку устройства/MVS.");
+        }
+
+        session.RegisterEdgeCallback((port, edge) =>
+        {
+            if (!inputSet.Contains(port))
+                return;
+
+            bool shouldLog = options.EdgeMode switch
+            {
+                IoInputEdgeMode.Both =>
+                    TryTransitionPressed(portPressed, port, edge) &&
+                    ShouldLogWithRefractory(lastLoggedTicks, port, edge, options.DebounceMs),
+                IoInputEdgeMode.Rising when edge == MvIoNative.IoEdgeType.Rising =>
+                    ShouldLogWithRefractory(lastLoggedTicks, port, edge, options.DebounceMs),
+                IoInputEdgeMode.Falling when edge == MvIoNative.IoEdgeType.Falling =>
+                    ShouldLogWithRefractory(lastLoggedTicks, port, edge, options.DebounceMs),
+                _ => false
+            };
+
+            if (!shouldLog)
+                return;
+
+            string edgeName = edge switch
+            {
+                MvIoNative.IoEdgeType.Rising => "RISING",
+                MvIoNative.IoEdgeType.Falling => "FALLING",
+                _ => edge.ToString()
+            };
+            string action = edge switch
+            {
+                MvIoNative.IoEdgeType.Rising => "  <- замыкание (LOW -> HIGH)",
+                MvIoNative.IoEdgeType.Falling => "  <- размыкание (HIGH -> LOW)",
+                _ => ""
+            };
+
+            lock (consoleLock)
+            {
+                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}");
+            }
+
+            if (options.EdgeMode == IoInputEdgeMode.Both && ShouldConfigureSdk(options))
+            {
+                bool pressed = portPressed.TryGetValue(port, out bool p) && p;
+                MvIoNative.IoEdgeType nextEdge = NextEdgeToArm(IoInputEdgeMode.Both, pressed);
+                ReArmEdge(session, sessionLock, port, nextEdge, debounceMs);
+            }
+        });
+        Console.WriteLine("Ожидаю фронты...");
+
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
         {
@@ -118,26 +181,77 @@ internal static class Program
             cts.Cancel();
         };
 
-        while (!cts.IsCancellationRequested)
-        {
-            foreach (int inputPort in options.InputPorts)
-            {
-                byte level = session.ReadInputLevel(inputPort);
-                lastLevels.TryGetValue(inputPort, out int? lastLevel);
-                if (lastLevel != level)
-                {
-                    string state = DescribeButtonTransition(lastLevel, level);
-                    Console.WriteLine(
-                        $"[{Timestamp()}] DI{inputPort}: {DescribeLevel(level)} (raw={level}){state}");
-                    lastLevels[inputPort] = level;
-                }
-            }
-
-            Thread.Sleep(options.PollIntervalMs);
-        }
+        cts.Token.WaitHandle.WaitOne();
 
         Console.WriteLine("Остановлено.");
         return 0;
+    }
+
+    private static bool ShouldLogWithRefractory(
+        Dictionary<(int Port, MvIoNative.IoEdgeType Edge), long> lastLoggedTicks,
+        int port,
+        MvIoNative.IoEdgeType edge,
+        int refractoryMs)
+    {
+        long now = Environment.TickCount64;
+        var key = (port, edge);
+        if (lastLoggedTicks.TryGetValue(key, out long last) && now - last < refractoryMs)
+            return false;
+
+        lastLoggedTicks[key] = now;
+        return true;
+    }
+
+    private static bool TryTransitionPressed(
+        Dictionary<int, bool> portPressed,
+        int port,
+        MvIoNative.IoEdgeType edge)
+    {
+        bool target = edge == MvIoNative.IoEdgeType.Rising;
+        if (portPressed.TryGetValue(port, out bool current) && current == target)
+            return false;
+
+        portPressed[port] = target;
+        return true;
+    }
+
+    private static MvIoNative.IoEdgeType NextEdgeToArm(IoInputEdgeMode edgeMode, bool pressed) =>
+        edgeMode switch
+        {
+            IoInputEdgeMode.Falling => MvIoNative.IoEdgeType.Falling,
+            IoInputEdgeMode.Both when pressed => MvIoNative.IoEdgeType.Falling,
+            _ => MvIoNative.IoEdgeType.Rising
+        };
+
+    private static bool ShouldConfigureSdk(MonitorOptions options) =>
+        options.EdgeMode == IoInputEdgeMode.Both || options.ConfigureSdk;
+
+    private static void ReArmEdge(
+        IoBoxSession session,
+        object sessionLock,
+        int port,
+        MvIoNative.IoEdgeType edge,
+        uint debounceMs)
+    {
+        lock (sessionLock)
+        {
+            if (!session.TryConfigureInputEdge(port, (uint)edge, debounceMs))
+            {
+                Console.Error.WriteLine(
+                    $"[{Timestamp()}] DI{port}: не удалось перевооружить фронт {IoBoxSession.DescribeEdge((uint)edge)}");
+            }
+        }
+    }
+
+    private static void PrintPortInputParam(IoBoxSession session, int inputPort)
+    {
+        if (!session.TryReadPortInputParam(inputPort, out MvIoNative.MvIoSetInput param))
+            return;
+
+        string edge = IoBoxSession.DescribeEdge(param.Edge);
+        string notice = param.Enable == 1 ? "вкл" : "выкл";
+        Console.WriteLine(
+            $"DI{inputPort}: устройство edge={edge}, уведомления={notice}, debounce={param.Glitch} мс");
     }
 
     private static void RunProbe()
@@ -168,19 +282,6 @@ internal static class Program
             _ => $"UNKNOWN({level})"
         };
 
-    private static string DescribeButtonTransition(int? previous, byte current)
-    {
-        if (previous is null)
-            return "";
-
-        return (previous.Value, current) switch
-        {
-            (0, 1) => "  <- замыкание (LOW -> HIGH)",
-            (1, 0) => "  <- размыкание (HIGH -> LOW)",
-            _ => ""
-        };
-    }
-
     private static string Timestamp() =>
         DateTime.Now.ToString("HH:mm:ss.fff");
 
@@ -205,7 +306,8 @@ internal static class Program
     {
         Console.WriteLine(
             """
-            IoInputMonitor — чтение Digital Input с MV IO Box (MvIOInterfaceBox.dll)
+            IoInputMonitor — события Digital Input с MV IO Box (MvIOInterfaceBox.dll)
+            Мониторинг через edge callback SDK, без периодического опроса.
 
             Использование:
               IoInputMonitor
@@ -215,14 +317,15 @@ internal static class Program
               IoInputMonitor --list
 
             Конфиг (по умолчанию config/blocks/52-io-input.yaml):
-              com_port, poll_interval_ms, inputs: [3, ...]
-              Переопределение: IO_INPUT_CONFIG или --io-config=путь
+              com_port, inputs, edge (rising|falling|both), debounce_ms, configure_sdk
+              rising — только замыкание (LOW→HIGH)
+              falling — только размыкание (HIGH→LOW)
+              both — оба фронта через динамическое перевооружение SDK (событийно, без polling)
+              configure_sdk: false — не вызывать SetInput, использовать настройку MVS/устройства
 
             Параметры:
               --com COMx       COM-порт IO box (переопределяет конфиг)
               --input N        DI 1..8 (переопределяет inputs из конфига)
-              --poll MS        Интервал опроса, мс (переопределяет конфиг)
-              --edge           Дополнительно слушать edge callback SDK
               --scan           Однократно показать DI1..DI8 и выйти
               --probe          Найти, на каком COM висит IO box с DI
               --list           Показать COM-порты Windows
@@ -239,8 +342,9 @@ internal static class Program
     {
         public string ComPort { get; set; } = "COM3";
         public int[] InputPorts { get; set; } = [3];
-        public int PollIntervalMs { get; set; } = 100;
-        public bool UseEdgeCallback { get; set; }
+        public IoInputEdgeMode EdgeMode { get; set; } = IoInputEdgeMode.Rising;
+        public bool ConfigureSdk { get; set; }
+        public int DebounceMs { get; set; } = 50;
         public bool ScanAll { get; set; }
         public bool ProbePorts { get; set; }
         public bool ListPorts { get; set; }
@@ -271,17 +375,11 @@ internal static class Program
                     case "--probe":
                         options.ProbePorts = true;
                         break;
-                    case "--edge":
-                        options.UseEdgeCallback = true;
-                        break;
                     case "--com":
                         options.ComPort = RequireValue(args, ref i, "--com");
                         break;
                     case "--input":
                         options.InputPorts = [int.Parse(RequireValue(args, ref i, "--input"))];
-                        break;
-                    case "--poll":
-                        options.PollIntervalMs = int.Parse(RequireValue(args, ref i, "--poll"));
                         break;
                     default:
                         if (arg.StartsWith(IoInputConfigLoader.ConfigCliPrefix, StringComparison.OrdinalIgnoreCase))
@@ -301,7 +399,9 @@ internal static class Program
             {
                 ComPort = loaded.Options.ComPort,
                 InputPorts = loaded.Options.InputPorts,
-                PollIntervalMs = loaded.Options.PollIntervalMs,
+                EdgeMode = loaded.Options.EdgeMode,
+                ConfigureSdk = loaded.Options.ConfigureSdk,
+                DebounceMs = loaded.Options.DebounceMs,
                 ConfigPath = loaded.ConfigPath
             };
         }
@@ -317,8 +417,8 @@ internal static class Program
                     throw new ArgumentOutOfRangeException(nameof(options.InputPorts), "DI должен быть 1..8.");
             }
 
-            if (options.PollIntervalMs < 10)
-                throw new ArgumentOutOfRangeException(nameof(options.PollIntervalMs), "poll >= 10 мс.");
+            if (options.DebounceMs is < 0 or > 1000)
+                throw new ArgumentOutOfRangeException(nameof(options.DebounceMs), "debounce_ms должен быть 0..1000.");
         }
 
         private static string RequireValue(string[] args, ref int index, string name)

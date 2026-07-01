@@ -61,14 +61,69 @@ internal sealed class IoBoxSession : IDisposable
         return MvIoNative.GetFirmwareVersion(_handle, ref version) == MvIoNative.MvOk;
     }
 
-    public MvIoNative.MvIoVersion ReadFirmwareVersion()
+    public void ConfigureInputEdge(int portNumber, uint edge, uint debounceMs, uint delayMs = 0)
     {
         EnsureOpen();
-        var version = new MvIoNative.MvIoVersion { Reserved = new uint[8] };
-        int ret = MvIoNative.GetFirmwareVersion(_handle, ref version);
+        if (portNumber is < 1 or > 8)
+            throw new ArgumentOutOfRangeException(nameof(portNumber), "DI должен быть 1..8.");
+
+        var input = new MvIoNative.MvIoSetInput
+        {
+            Port = MvIoNative.PortMaskForUint(portNumber),
+            Enable = 1,
+            Edge = edge,
+            DelayTime = delayMs,
+            Glitch = debounceMs,
+            Reserved = new uint[8]
+        };
+
+        int ret = MvIoNative.SetInput(_handle, ref input);
         if (ret != MvIoNative.MvOk)
-            throw new InvalidOperationException($"MV_IO_GetFirmwareVersion failed: 0x{ret:x8}");
-        return version;
+        {
+            throw new InvalidOperationException(
+                $"MV_IO_SetInput failed for DI{portNumber}: 0x{ret:x8}");
+        }
+    }
+
+    public bool TryConfigureInputEdge(int portNumber, uint edge, uint debounceMs, uint delayMs = 0)
+    {
+        try
+        {
+            ConfigureInputEdge(portNumber, edge, debounceMs, delayMs);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public bool TryReadPortInputParam(int portNumber, out MvIoNative.MvIoSetInput input)
+    {
+        EnsureOpen();
+        input = new MvIoNative.MvIoSetInput
+        {
+            Port = MvIoNative.PortMaskForUint(portNumber),
+            Reserved = new uint[8]
+        };
+
+        return MvIoNative.GetPortInputParam(_handle, ref input) == MvIoNative.MvOk;
+    }
+
+    public static string DescribeEdge(uint edge) =>
+        edge switch
+        {
+            (uint)MvIoNative.IoEdgeType.Rising => "rising",
+            (uint)MvIoNative.IoEdgeType.Falling => "falling",
+            _ => $"unknown({edge})"
+        };
+
+    public void ResetParam()
+    {
+        EnsureOpen();
+        int ret = MvIoNative.ResetParam(_handle);
+        if (ret != MvIoNative.MvOk)
+            throw new InvalidOperationException($"MV_IO_ResetParam failed: 0x{ret:x8}");
     }
 
     public byte ReadInputLevel(int portNumber)
@@ -89,6 +144,20 @@ internal sealed class IoBoxSession : IDisposable
         }
 
         return MvIoNative.ReadLevel(levels, portNumber);
+    }
+
+    public bool TryReadInputLevel(int portNumber, out byte level)
+    {
+        level = 0;
+        try
+        {
+            level = ReadInputLevel(portNumber);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public MvIoNative.MvIoInputLevel ReadAllInputLevels(byte portMask = 0xFF)
@@ -112,18 +181,7 @@ internal sealed class IoBoxSession : IDisposable
         EnsureOpen();
         _edgeCallback = (IntPtr _, ref MvIoNative.MvIoInputEdge edge, IntPtr __) =>
         {
-            int port = edge.PortNumber switch
-            {
-                (byte)MvIoNative.IoPortNumber.Port1 => 1,
-                (byte)MvIoNative.IoPortNumber.Port2 => 2,
-                (byte)MvIoNative.IoPortNumber.Port3 => 3,
-                (byte)MvIoNative.IoPortNumber.Port4 => 4,
-                (byte)MvIoNative.IoPortNumber.Port5 => 5,
-                (byte)MvIoNative.IoPortNumber.Port6 => 6,
-                (byte)MvIoNative.IoPortNumber.Port7 => 7,
-                (byte)MvIoNative.IoPortNumber.Port8 => 8,
-                _ => edge.PortNumber
-            };
+            int port = MvIoNative.PortFromMask(edge.PortNumber);
             onEdge(port, edge.EdgeType);
         };
 

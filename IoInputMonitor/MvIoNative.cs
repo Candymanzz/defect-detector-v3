@@ -24,11 +24,24 @@ internal static class MvIoNative
         High = 1,
     }
 
-    public enum IoEdgeType : ushort
+    public enum IoEdgeType : uint
     {
         Unknown = 0,
         Rising = 1,
         Falling = 2,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MvIoSetInput
+    {
+        public uint Port;
+        public uint Enable;
+        public uint Edge;
+        public uint DelayTime;
+        public uint Glitch;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public uint[] Reserved;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
@@ -107,8 +120,33 @@ internal static class MvIoNative
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_GetInputLevel")]
     public static extern int GetInputLevel(IntPtr handle, ref MvIoInputLevel inputLevel);
 
+    [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_SetInput")]
+    public static extern int SetInput(IntPtr handle, ref MvIoSetInput input);
+
+    [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_GetPortInputParam")]
+    public static extern int GetPortInputParam(IntPtr handle, ref MvIoSetInput input);
+
+    [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_ResetParam")]
+    public static extern int ResetParam(IntPtr handle);
+
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_RegisterEdgeDetectionCallBack")]
     public static extern int RegisterEdgeDetectionCallback(IntPtr handle, EdgeDetectionCallback callback, IntPtr user);
+
+    public static int PortFromMask(byte portMask) =>
+        portMask switch
+        {
+            (byte)IoPortNumber.Port1 => 1,
+            (byte)IoPortNumber.Port2 => 2,
+            (byte)IoPortNumber.Port3 => 3,
+            (byte)IoPortNumber.Port4 => 4,
+            (byte)IoPortNumber.Port5 => 5,
+            (byte)IoPortNumber.Port6 => 6,
+            (byte)IoPortNumber.Port7 => 7,
+            (byte)IoPortNumber.Port8 => 8,
+            _ => portMask
+        };
+
+    public static uint PortMaskForUint(int portNumber) => PortMaskFor(portNumber);
 
     public static byte PortMaskFor(int portNumber) =>
         portNumber switch

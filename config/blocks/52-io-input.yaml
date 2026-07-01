@@ -3,7 +3,8 @@
 
 io_input:
   com_port: COM3
-  poll_interval_ms: 100
+  edge: both            # rising | falling | both
+  debounce_ms: 50       # аппаратный debounce (nGlitch) + фильтр дребезга в ПО
+  configure_sdk: true   # both всегда требует SetInput; для rising/falling можно false
   inputs:
-    - 1
     - 3
