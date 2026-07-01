@@ -4,7 +4,7 @@
 io_input:
   com_port: COM3
   edge: both            # rising | falling | both
-  debounce_ms: 50       # аппаратный debounce (nGlitch) + фильтр дребезга в ПО
+  debounce_ms: 10       # аппаратный debounce (nGlitch) + фильтр дребезга в ПО (крч это время сколько сигнал должен так просуществовать чтобы быть отправленым)
   configure_sdk: true   # both всегда требует SetInput; для rising/falling можно false
   inputs:
     - 3
