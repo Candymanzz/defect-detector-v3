@@ -8,8 +8,9 @@ import java.net.http.HttpResponse;
 /**
  * HTTP LightServer.v3 (Swagger v1, {@code /swagger/v1/swagger.json}).
  * <ul>
- *   <li>COM банк: {@code GET /api/com/devices?ports=...}, {@code POST /api/com/light} {@code { state, brightness }}</li>
- *   <li>Сеть MV-LE: {@code GET /api/devices}, {@code POST /api/light} {@code { deviceIndex, lightControllerSource, channels, brightness }}</li>
+ *   <li>COM банк: {@code POST /api/com/light} {@code { state, brightness }} — вкл/выкл</li>
+ *   <li>Яркость по камере: {@code POST /api/camera-flash/pair|single}</li>
+ *   <li>Сеть MV-LE (legacy): {@code POST /api/light}</li>
  * </ul>
  */
 public final class LightServerV3Http {
@@ -18,6 +19,8 @@ public final class LightServerV3Http {
     public static final String PATH_COM_LIGHT = "/api/com/light";
     public static final String PATH_NETWORK_DEVICES = "/api/devices";
     public static final String PATH_NETWORK_LIGHT = "/api/light";
+    public static final String PATH_CAMERA_FLASH_PAIR = "/api/camera-flash/pair";
+    public static final String PATH_CAMERA_FLASH_SINGLE = "/api/camera-flash/single";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

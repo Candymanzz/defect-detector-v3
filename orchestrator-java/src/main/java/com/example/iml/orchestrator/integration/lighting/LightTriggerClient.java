@@ -1,159 +1,121 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Параллельный HTTP-триггер всех enabled endpoints LightServer.v3 (COM IO + MV-LE).
- * Яркость 0…100% задаётся глобально и отдельно по {@code id} каждого endpoint.
+ * HTTP-триггер вспышек LightServer.v3: три типа URL — вкл, выкл, яркость ({@code /api/camera-flash/pair|single}).
  */
 public final class LightTriggerClient {
 
     private static final Logger LOG = LogManager.getLogger(LightTriggerClient.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_TRIGGER_ATTEMPTS = 10;
     private static final long RETRY_DELAY_MS = 200L;
 
     private final boolean enabled;
     private final boolean failOnError;
     private final int defaultBrightnessPercent;
-    private final int durationMs;
     private final boolean holdMode;
     private final int timeoutMs;
     private final int settleDelayMs;
-    private final List<EndpointRuntime> endpoints;
+    private final String onUrl;
+    private final String offUrl;
+    private final String brightnessPairUrl;
+    private final String brightnessSingleUrl;
+    private final String statusUrl;
+    private final HttpClient httpClient;
+    private final Duration timeout;
+    private final Duration statusPollTimeout;
+    private final List<LightServersConfig.CameraFlashSpec> cameras;
+    private final Map<Integer, LightServersConfig.CameraFlashSpec> cameraById;
     private volatile boolean constantLightingEngaged;
-    private final ExecutorService triggerExecutor;
-    /** Один POST за раз — live_preview и capture не держат COM2 параллельно. */
-    private final Object lightCommandLock = new Object();
-
-    private static final class EndpointRuntime {
-        final LightEndpoint endpoint;
-        volatile int brightnessPercent;
-        final int[] brightnessRaw;
-        final int[] cameraIds;
-
-        EndpointRuntime(LightEndpoint endpoint, int brightnessPercent, int[] brightnessRaw, int[] cameraIds) {
-            this.endpoint = endpoint;
-            this.brightnessPercent = brightnessPercent;
-            this.brightnessRaw = brightnessRaw;
-            this.cameraIds = cameraIds == null ? new int[0] : cameraIds;
-        }
-
-        boolean appliesTo(int cameraId) {
-            if (cameraIds.length == 0) {
-                return true;
-            }
-            for (int id : cameraIds) {
-                if (id == cameraId) {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
+    private final Object lightCommandLock;
 
     public static LightTriggerClient fromRootYaml(Map<String, Object> root) {
         return new LightTriggerClient(LightServersConfig.fromRootYaml(root));
     }
 
     public LightTriggerClient(LightServersConfig cfg) {
-        this.enabled = cfg.enabled() && !cfg.endpoints().isEmpty();
+        this.enabled = cfg.enabled();
         this.failOnError = cfg.failOnError();
         this.defaultBrightnessPercent = cfg.brightnessPercent();
-        this.durationMs = cfg.durationMs();
         this.holdMode = cfg.holdMode();
         this.timeoutMs = Math.max(100, cfg.timeoutMs());
         this.settleDelayMs = Math.max(0, cfg.settleDelayMs());
-        this.endpoints = buildEndpoints(cfg);
-        int n = Math.max(1, (int) endpoints.stream().filter(r -> r.endpoint.enabled()).count());
-        this.triggerExecutor = Executors.newFixedThreadPool(n, r -> {
-            Thread t = new Thread(r, "light-trigger");
-            t.setDaemon(true);
-            return t;
-        });
+        this.onUrl = cfg.onUrl();
+        this.offUrl = cfg.offUrl();
+        this.brightnessPairUrl = cfg.brightnessPairUrl();
+        this.brightnessSingleUrl = cfg.brightnessSingleUrl();
+        this.statusUrl = cfg.statusUrl();
+        this.timeout = Duration.ofMillis(this.timeoutMs);
+        this.statusPollTimeout = Duration.ofMillis(Math.min(3000, Math.max(500, this.timeoutMs / 5)));
+        this.httpClient = HttpClient.newBuilder().connectTimeout(this.timeout).build();
+        this.cameras = new ArrayList<>(cfg.cameras());
+        this.cameraById = indexCameras(this.cameras);
+        this.constantLightingEngaged = false;
+        this.lightCommandLock = new Object();
         if (enabled) {
-            LOG.info("light_servers: {} endpoint(s) default_brightness_percent={} duration_ms={} hold_mode={}",
-                    endpoints.size(), defaultBrightnessPercent, durationMs, holdMode);
-            for (EndpointRuntime r : endpoints) {
-                if (r.endpoint.enabled()) {
-                    LOG.info("  light endpoint id={} type={} brightness_percent={}",
-                            r.endpoint.id(), r.endpoint.getClass().getSimpleName(), r.brightnessPercent);
-                }
-            }
-        }
-    }
-
-    private static List<EndpointRuntime> buildEndpoints(LightServersConfig cfg) {
-        List<EndpointRuntime> list = new ArrayList<>();
-        for (LightServersConfig.EndpointSpec spec : cfg.endpoints()) {
-            if (!spec.enabled()) {
-                continue;
-            }
-            if (spec.type() == LightServersConfig.EndpointType.COM_IO) {
-                LightEndpoint ep = new ComIoLightEndpoint(
-                        LOG,
-                        spec.id(),
-                        true,
-                        spec.baseUrl(),
-                        cfg.timeoutMs(),
-                        spec.comPort(),
-                        spec.channels(),
-                        spec.brightnessRaw()
-                );
-                list.add(new EndpointRuntime(ep, spec.brightnessPercent(), spec.brightnessRaw(), spec.cameraIds()));
-                continue;
-            }
-            LightEndpoint ep = new MvLeLightEndpoint(
-                    LOG,
-                    spec.id(),
-                    true,
-                    spec.baseUrl(),
-                    cfg.timeoutMs(),
-                    spec.deviceIndex(),
-                    spec.channels()
+            LOG.info(
+                    "light_servers: on={} off={} brightness_pair={} brightness_single={} cameras={} default_brightness_percent={} hold_mode={}",
+                    onUrl, offUrl, brightnessPairUrl, brightnessSingleUrl, cameras.size(), defaultBrightnessPercent, holdMode
             );
-            list.add(new EndpointRuntime(ep, spec.brightnessPercent(), spec.brightnessRaw(), spec.cameraIds()));
+            for (LightServersConfig.CameraFlashSpec c : cameras) {
+                LOG.info("  light camera id={} mode={} brightness_percent={}", c.cameraId(), c.mode(), c.brightnessPercent());
+            }
         }
-        return List.copyOf(list);
     }
 
-    /** Яркость по умолчанию (глобальная из конфига / для всех endpoints). */
+    private static Map<Integer, LightServersConfig.CameraFlashSpec> indexCameras(
+            List<LightServersConfig.CameraFlashSpec> cameras
+    ) {
+        Map<Integer, LightServersConfig.CameraFlashSpec> out = new LinkedHashMap<>();
+        for (LightServersConfig.CameraFlashSpec c : cameras) {
+            out.put(c.cameraId(), c);
+        }
+        return out;
+    }
+
     public int brightnessPercent() {
         return defaultBrightnessPercent;
     }
 
     public int brightnessPercent(String endpointId) {
-        EndpointRuntime r = find(endpointId);
-        return r == null ? defaultBrightnessPercent : r.brightnessPercent;
+        Integer cameraId = parseCameraIdFromEndpoint(endpointId);
+        if (cameraId == null) {
+            return defaultBrightnessPercent;
+        }
+        LightServersConfig.CameraFlashSpec spec = cameraById.get(cameraId);
+        return spec == null ? defaultBrightnessPercent : spec.brightnessPercent();
     }
 
     public Map<String, Integer> brightnessByEndpoint() {
         Map<String, Integer> out = new LinkedHashMap<>();
-        for (EndpointRuntime r : endpoints) {
-            if (r.endpoint.enabled()) {
-                out.put(r.endpoint.id(), r.brightnessPercent);
-            }
+        for (LightServersConfig.CameraFlashSpec c : cameras) {
+            out.put(c.endpointId(), c.brightnessPercent());
         }
         return Map.copyOf(out);
     }
 
     public List<String> endpointIds() {
-        return endpoints.stream().filter(r -> r.endpoint.enabled()).map(r -> r.endpoint.id()).toList();
+        return cameras.stream().map(LightServersConfig.CameraFlashSpec::endpointId).toList();
     }
 
     public int[] cameraIds(String endpointId) {
-        EndpointRuntime r = find(endpointId);
-        return r == null ? new int[0] : r.cameraIds.clone();
+        Integer cameraId = parseCameraIdFromEndpoint(endpointId);
+        return cameraId == null ? new int[0] : new int[]{cameraId};
     }
 
     public boolean isEnabled() {
@@ -164,9 +126,6 @@ public final class LightTriggerClient {
         return holdMode;
     }
 
-    /**
-     * Постоянная подсветка: один раз включить все endpoints и не гасить между кадрами.
-     */
     public void engageConstantLighting() {
         if (!enabled || !holdMode) {
             return;
@@ -175,8 +134,8 @@ public final class LightTriggerClient {
             if (constantLightingEngaged) {
                 return;
             }
-            LOG.info("light hold_mode: включение всех endpoints (постоянная подсветка)");
-            if (!turnOnAllEndpointsLocked()) {
+            LOG.info("light hold_mode: яркость по камерам → POST on");
+            if (!applyAllCameraBrightnessLocked() || !postOnLocked(defaultBrightnessPercent)) {
                 LOG.warn("light hold_mode: не удалось включить подсветку при старте");
                 return;
             }
@@ -185,47 +144,48 @@ public final class LightTriggerClient {
         }
     }
 
-    /** Дождаться инициализации COM-банка в LightServer (после {@code light_server_startup_delay_ms}). */
+    /** Дождаться инициализации COM-банка в LightServer ({@code GET status_url}). */
     public void awaitEndpointsReady() {
         if (!enabled) {
             return;
         }
-        for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled()) {
-                continue;
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+        while (System.nanoTime() < deadlineNanos) {
+            try {
+                if (pollBankInitialized()) {
+                    return;
+                }
+            } catch (Exception e) {
+                LOG.debug("light COM bank status poll: {}", e.getMessage());
             }
             try {
-                r.endpoint.ensureReady();
-            } catch (Exception e) {
-                LOG.warn("light {} ensureReady: {}", r.endpoint.id(), e.getMessage());
+                Thread.sleep(400L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
             }
         }
+        LOG.warn("light COM bank not initialized within {} ms — первый POST on может занять 8–12 s", timeout.toMillis());
     }
 
-    /** Установить одну яркость для всех enabled endpoints. */
     public void setBrightnessPercent(int percent) {
         int clamped = LightBrightnessScale.clampPercent(percent);
-        for (EndpointRuntime r : endpoints) {
-            if (r.endpoint.enabled()) {
-                int before = r.brightnessPercent;
-                r.brightnessPercent = clamped;
-                if (before != clamped) {
-                    LOG.info("light {} brightness {}% -> {}%", r.endpoint.id(), before, clamped);
-                }
+        List<Integer> ids = cameras.stream().map(LightServersConfig.CameraFlashSpec::cameraId).toList();
+        synchronized (lightCommandLock) {
+            for (int cameraId : ids) {
+                updateCameraBrightness(cameraId, clamped, clamped, clamped);
             }
         }
     }
 
     public void setBrightnessPercent(String endpointId, int percent) {
-        EndpointRuntime r = find(endpointId);
-        if (r == null) {
+        Integer cameraId = parseCameraIdFromEndpoint(endpointId);
+        if (cameraId == null) {
             throw new IllegalArgumentException("unknown light endpoint id: " + endpointId);
         }
         int clamped = LightBrightnessScale.clampPercent(percent);
-        int before = r.brightnessPercent;
-        r.brightnessPercent = clamped;
-        if (before != clamped) {
-            LOG.info("light {} brightness {}% -> {}%", endpointId, before, clamped);
+        synchronized (lightCommandLock) {
+            updateCameraBrightness(cameraId, clamped, clamped, clamped);
         }
     }
 
@@ -233,10 +193,6 @@ public final class LightTriggerClient {
         lightOn(cameraId, frameId, phase);
     }
 
-    /**
-     * Цикл съёмки: {@code POST ... state=on} → пауза → capture → {@code state=off}.
-     * Иначе MV-LE/COM остаются в On и подсветка горит постоянно.
-     */
     public void runCaptureWithLighting(
             int cameraId,
             long frameId,
@@ -256,7 +212,7 @@ public final class LightTriggerClient {
             return;
         }
         synchronized (lightCommandLock) {
-            if (!runSourceWithRetriesLocked(cameraId, frameId, phase, true)) {
+            if (!postOnWithRetriesLocked(defaultBrightnessPercent)) {
                 LOG.warn("light On failed cam={} phase={} — skip Off and capture without lighting", cameraId, phase);
                 captureStep.run();
                 return;
@@ -267,7 +223,7 @@ public final class LightTriggerClient {
             try {
                 captureStep.run();
             } finally {
-                runSourceWithRetriesLocked(cameraId, frameId, phase, false);
+                postOffWithRetriesLocked();
                 sleepSettle();
             }
         }
@@ -278,218 +234,230 @@ public final class LightTriggerClient {
         void run() throws Exception;
     }
 
-    /** {@code state=on} на все enabled endpoints (LightServer.v3). */
     public boolean lightOn(int cameraId, long frameId, String phase) {
         if (!enabled) {
             return false;
         }
-        LOG.info("light On cam={} frame={} phase={} brightness={}",
-                cameraId, frameId, phase, brightnessByEndpoint());
-        return runSourceWithRetries(cameraId, frameId, phase, true);
+        LOG.info("light On cam={} frame={} phase={} brightness={}", cameraId, frameId, phase, brightnessByEndpoint());
+        synchronized (lightCommandLock) {
+            return postOnWithRetriesLocked(defaultBrightnessPercent);
+        }
     }
 
-    /** {@code state=off} — погасить после съёмки. */
     public void lightOff(int cameraId, long frameId, String phase) {
         if (!enabled) {
             return;
         }
         LOG.info("light Off cam={} frame={} phase={}", cameraId, frameId, phase);
-        runSourceWithRetries(cameraId, frameId, phase, false);
-    }
-
-    private boolean runSourceWithRetries(int cameraId, long frameId, String phase, boolean on) {
         synchronized (lightCommandLock) {
-            return runSourceWithRetriesLocked(cameraId, frameId, phase, on);
+            postOffWithRetriesLocked();
         }
     }
 
-    private boolean runSourceWithRetriesLocked(int cameraId, long frameId, String phase, boolean on) {
-        for (EndpointRuntime r : endpoints) {
-            if (r.endpoint.enabled()) {
-                r.endpoint.ensureReady();
+    public void forceAllOff() {
+        if (!enabled) {
+            return;
+        }
+        synchronized (lightCommandLock) {
+            postOffWithRetriesLocked();
+        }
+    }
+
+    public void shutdown() {
+        forceAllOff();
+    }
+
+    private void updateCameraBrightness(int cameraId, int percent, int leftPercent, int rightPercent) {
+        LightServersConfig.CameraFlashSpec existing = cameraById.get(cameraId);
+        if (existing == null) {
+            throw new IllegalArgumentException("unknown camera id: " + cameraId);
+        }
+        int before = existing.brightnessPercent();
+        LightServersConfig.CameraFlashSpec updated = new LightServersConfig.CameraFlashSpec(
+                cameraId, existing.mode(), percent, leftPercent, rightPercent
+        );
+        cameraById.put(cameraId, updated);
+        for (int i = 0; i < cameras.size(); i++) {
+            if (cameras.get(i).cameraId() == cameraId) {
+                cameras.set(i, updated);
+                break;
             }
         }
+        if (before != percent) {
+            LOG.info("light camera-{} brightness {}% -> {}%", cameraId, before, percent);
+        }
+        try {
+            pushCameraBrightness(updated);
+        } catch (Exception e) {
+            LOG.warn("light camera-{} brightness push failed: {}", cameraId, e.getMessage());
+        }
+    }
+
+    private boolean applyAllCameraBrightnessLocked() {
+        List<String> errors = new ArrayList<>();
+        for (LightServersConfig.CameraFlashSpec spec : cameras) {
+            try {
+                pushCameraBrightness(spec);
+            } catch (Exception e) {
+                errors.add("camera-" + spec.cameraId() + ": " + e.getMessage());
+            }
+        }
+        if (!errors.isEmpty()) {
+            if (failOnError) {
+                throw new IllegalStateException("light brightness apply failed: " + String.join("; ", errors));
+            }
+            LOG.warn("light brightness apply partial failure: {}", String.join("; ", errors));
+            return false;
+        }
+        return true;
+    }
+
+    private boolean postOnWithRetriesLocked(int brightnessPercent) {
         RuntimeException lastError = null;
         for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
             try {
-                if (on) {
-                    triggerAllParallel(cameraId, frameId, phase, durationMs);
-                    sleepSettle();
-                } else {
-                    turnOffForCameraParallel(cameraId);
-                }
+                postOn(brightnessPercent);
+                sleepSettle();
                 return true;
             } catch (RuntimeException e) {
                 lastError = e;
             }
             if (attempt < MAX_TRIGGER_ATTEMPTS) {
-                try {
-                    Thread.sleep(RETRY_DELAY_MS);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+                sleepRetryDelay();
             }
         }
         if (lastError == null) {
-            return !on;
+            return false;
         }
-        if (failOnError && on) {
+        if (failOnError) {
             throw lastError;
         }
-        LOG.warn("light {} failed cam={} phase={}: {}", on ? "On" : "Off", cameraId, phase, lastError.getMessage());
+        LOG.warn("light On failed: {}", lastError.getMessage());
         return false;
     }
 
-    private boolean turnOnAllEndpointsLocked() {
-        for (EndpointRuntime r : endpoints) {
-            if (r.endpoint.enabled()) {
-                r.endpoint.ensureReady();
-            }
-        }
+    private void postOffWithRetriesLocked() {
         RuntimeException lastError = null;
         for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
             try {
-                triggerAllEndpointsParallel(durationMs);
-                return true;
+                postOff();
+                return;
             } catch (RuntimeException e) {
                 lastError = e;
             }
             if (attempt < MAX_TRIGGER_ATTEMPTS) {
-                try {
-                    Thread.sleep(RETRY_DELAY_MS);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+                sleepRetryDelay();
             }
         }
         if (lastError != null) {
             if (failOnError) {
                 throw lastError;
             }
-            LOG.warn("light hold_mode On failed: {}", lastError.getMessage());
-        }
-        return false;
-    }
-
-    private void turnOffForCameraParallel(int cameraId) {
-        List<String> errors = new ArrayList<>();
-        List<Callable<Void>> async = new ArrayList<>();
-        for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled() || !r.appliesTo(cameraId)) {
-                continue;
-            }
-            if (r.endpoint instanceof ComIoLightEndpoint com) {
-                try {
-                    com.turnOffForCamera(cameraId);
-                } catch (Exception e) {
-                    errors.add(e.getMessage() != null ? e.getMessage() : e.toString());
-                }
-            } else {
-                async.add(() -> {
-                    r.endpoint.turnOffForCamera(cameraId);
-                    return null;
-                });
-            }
-        }
-        errors.addAll(invokeLightTasks(async));
-        if (!errors.isEmpty()) {
-            throw new IllegalStateException("light Off failed: " + String.join("; ", errors));
+            LOG.warn("light Off failed: {}", lastError.getMessage());
         }
     }
 
-    private void triggerAllEndpointsParallel(int durationMs) {
-        List<String> errors = new ArrayList<>();
-        List<Callable<Void>> async = new ArrayList<>();
-        java.util.Set<String> comBanksTriggered = new java.util.LinkedHashSet<>();
-        for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled()) {
-                continue;
-            }
-            int brightness = r.brightnessPercent;
-            if (r.endpoint instanceof ComIoLightEndpoint com) {
-                String bankKey = com.sharedBankKey();
-                if (!comBanksTriggered.add(bankKey)) {
-                    continue;
-                }
-                try {
-                    com.triggerAllChannels(defaultBrightnessPercent);
-                } catch (Exception e) {
-                    errors.add(e.getMessage() != null ? e.getMessage() : e.toString());
-                }
-            } else {
-                async.add(() -> {
-                    r.endpoint.trigger(-1, -1L, "hold", brightness, durationMs);
-                    return null;
-                });
-            }
-        }
-        errors.addAll(invokeLightTasks(async));
-        if (!errors.isEmpty()) {
-            throw new IllegalStateException("light hold_mode On failed: " + String.join("; ", errors));
-        }
-    }
-
-    private void triggerAllParallel(int cameraId, long frameId, String phase, int durationMs) {
-        List<String> errors = new ArrayList<>();
-        List<Callable<Void>> async = new ArrayList<>();
-        for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled() || !r.appliesTo(cameraId)) {
-                continue;
-            }
-            int brightness = r.brightnessPercent;
-            if (r.endpoint instanceof ComIoLightEndpoint com) {
-                try {
-                    com.trigger(cameraId, frameId, phase, brightness, durationMs);
-                } catch (Exception e) {
-                    errors.add(e.getMessage() != null ? e.getMessage() : e.toString());
-                }
-            } else {
-                async.add(() -> {
-                    r.endpoint.trigger(cameraId, frameId, phase, brightness, durationMs);
-                    return null;
-                });
-            }
-        }
-        errors.addAll(invokeLightTasks(async));
-        if (!errors.isEmpty()) {
-            throw new IllegalStateException("light trigger failed: " + String.join("; ", errors));
-        }
-    }
-
-    private List<String> invokeLightTasks(List<Callable<Void>> tasks) {
-        if (tasks.isEmpty()) {
-            return List.of();
-        }
-        List<String> errors = new ArrayList<>();
+    private boolean postOnLocked(int brightnessPercent) {
         try {
-            List<Future<Void>> futures = triggerExecutor.invokeAll(tasks);
-            for (Future<Void> f : futures) {
-                try {
-                    f.get();
-                } catch (Exception e) {
-                    Throwable c = e.getCause() != null ? e.getCause() : e;
-                    errors.add(c.getMessage() != null ? c.getMessage() : c.toString());
-                }
+            postOn(brightnessPercent);
+            sleepSettle();
+            return true;
+        } catch (RuntimeException e) {
+            if (failOnError) {
+                throw e;
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("light command interrupted", e);
+            LOG.warn("light On failed: {}", e.getMessage());
+            return false;
         }
-        return errors;
     }
 
-    private EndpointRuntime find(String endpointId) {
+    private void postOn(int brightnessPercent) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("state", "on");
+        body.put("brightness", Integer.toString(LightBrightnessScale.clampPercent(brightnessPercent)));
+        postJson(onUrl, body, "On");
+    }
+
+    private void postOff() {
+        Map<String, Object> body = Map.of("state", "off");
+        postJson(offUrl, body, "Off");
+    }
+
+    private void pushCameraBrightness(LightServersConfig.CameraFlashSpec spec) throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("cameraNumber", spec.cameraNumber());
+        if (spec.mode() == LightServersConfig.FlashMode.SINGLE) {
+            body.put("power", spec.power255());
+            postJson(brightnessSingleUrl, body, "brightness-single camera-" + spec.cameraId());
+        } else {
+            body.put("leftPower", spec.leftPower255());
+            body.put("rightPower", spec.rightPower255());
+            postJson(brightnessPairUrl, body, "brightness-pair camera-" + spec.cameraId());
+        }
+    }
+
+    private void postJson(String url, Map<String, Object> body, String label) {
+        try {
+            byte[] json = MAPPER.writeValueAsBytes(body);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(timeout)
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(json))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            LightServerV3Http.requireLightCommandSuccess("light", "POST", url, response);
+            if (response.body() != null && !response.body().isBlank()) {
+                LOG.info("light {} -> {}", label, response.body());
+            }
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException(label + " failed: " + e.getMessage(), e);
+        }
+    }
+
+    private boolean pollBankInitialized() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(statusUrl))
+                .timeout(statusPollTimeout)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() / 100 != 2 || response.body() == null || response.body().isBlank()) {
+            return false;
+        }
+        JsonNode root = MAPPER.readTree(response.body());
+        return root.path("initialized").asBoolean(false);
+    }
+
+    private static Integer parseCameraIdFromEndpoint(String endpointId) {
         if (endpointId == null || endpointId.isBlank()) {
             return null;
         }
-        for (EndpointRuntime r : endpoints) {
-            if (endpointId.equals(r.endpoint.id())) {
-                return r;
+        if (endpointId.startsWith("camera-") || endpointId.startsWith("camera_")) {
+            try {
+                return Integer.parseInt(endpointId.substring(endpointId.indexOf('-') >= 0
+                        ? endpointId.indexOf('-') + 1
+                        : endpointId.indexOf('_') + 1));
+            } catch (NumberFormatException ignored) {
+                return null;
             }
         }
-        return null;
+        if (endpointId.startsWith("cam-") || endpointId.startsWith("cam_")) {
+            try {
+                return Integer.parseInt(endpointId.substring(4));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        try {
+            return Integer.parseInt(endpointId);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private void sleepSettle() {
@@ -503,46 +471,11 @@ public final class LightTriggerClient {
         }
     }
 
-    public void forceAllOff() {
-        if (!enabled) {
-            return;
-        }
-        List<Callable<Void>> tasks = new ArrayList<>();
-        for (EndpointRuntime r : endpoints) {
-            if (!r.endpoint.enabled()) {
-                continue;
-            }
-            tasks.add(() -> {
-                try {
-                    r.endpoint.turnOffAll();
-                } catch (Exception e) {
-                    LOG.warn("light {} turnOffAll: {}", r.endpoint.id(), e.getMessage());
-                }
-                return null;
-            });
-        }
-        if (tasks.isEmpty()) {
-            return;
-        }
+    private void sleepRetryDelay() {
         try {
-            triggerExecutor.invokeAll(tasks);
+            Thread.sleep(RETRY_DELAY_MS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOG.warn("light forceAllOff interrupted");
-        }
-    }
-
-    public void shutdown() {
-        forceAllOff();
-        triggerExecutor.shutdownNow();
-        MvLeLightEndpoint.shutdownScheduler();
-        try {
-            if (!triggerExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
-                triggerExecutor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            triggerExecutor.shutdownNow();
         }
     }
 }

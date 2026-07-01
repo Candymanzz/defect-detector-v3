@@ -1,13 +1,15 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Конфигурация подсветки через единый LightServer.v3 ({@code light_servers} или legacy {@code light_server}).
+ * Конфигурация подсветки через LightServer.v3: три типа URL — вкл, выкл, яркость по камерам.
  */
 public record LightServersConfig(
         boolean enabled,
@@ -19,30 +21,46 @@ public record LightServersConfig(
         int durationMs,
         /** Постоянная подсветка: включить при старте, не гасить после capture. */
         boolean holdMode,
-        List<EndpointSpec> endpoints
+        String baseUrl,
+        String onUrl,
+        String offUrl,
+        String brightnessPairUrl,
+        String brightnessSingleUrl,
+        String statusUrl,
+        List<CameraFlashSpec> cameras
 ) {
 
-    public enum EndpointType {
-        /** COM банк: POST /api/com/light { state, brightness } */
-        COM_IO,
-        /** MV-LE по сети: POST /api/light */
-        MV_LE
+    public enum FlashMode {
+        PAIR,
+        SINGLE
     }
 
-    public record EndpointSpec(
-            String id,
-            boolean enabled,
-            EndpointType type,
-            String baseUrl,
-            String comPort,
-            String comPortsQuery,
-            int deviceIndex,
-            int[] channels,
+    public record CameraFlashSpec(
+            int cameraId,
+            FlashMode mode,
             int brightnessPercent,
-            int[] brightnessRaw,
-            /** Пусто — endpoint для всех камер; иначе только перечисленные ID. */
-            int[] cameraIds
+            int leftPercent,
+            int rightPercent
     ) {
+        public String endpointId() {
+            return "camera-" + cameraId;
+        }
+
+        public int cameraNumber() {
+            return cameraId + 1;
+        }
+
+        public int power255() {
+            return LightBrightnessScale.toMvLeBrightness(brightnessPercent);
+        }
+
+        public int leftPower255() {
+            return LightBrightnessScale.toMvLeBrightness(leftPercent);
+        }
+
+        public int rightPower255() {
+            return LightBrightnessScale.toMvLeBrightness(rightPercent);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -70,24 +88,66 @@ public record LightServersConfig(
         int durationMs = YamlScalars.toInt(ls.get("duration_ms"), 180);
         boolean holdMode = YamlScalars.toBool(ls.get("hold_mode"), false);
         int globalBrightness = LightBrightnessScale.clampPercent(brightness);
-        int[] globalBrightnessRaw = parseBrightnessRaw(ls.get("brightness_raw"));
-        List<EndpointSpec> endpoints = parseEndpoints(ls, globalBrightness, globalBrightnessRaw);
-        return new LightServersConfig(enabled, failOnError, timeoutMs, settleDelayMs, flashLeadMs,
-                globalBrightness, durationMs, holdMode, endpoints);
+
+        String baseUrl = trimSlash(String.valueOf(ls.getOrDefault("base_url", "http://127.0.0.1:5080")));
+        UrlPaths urls = parseUrls(ls, baseUrl);
+        List<CameraFlashSpec> cameras = parseCameras(ls, root, globalBrightness);
+
+        if (cameras.isEmpty() && ls.containsKey("endpoints")) {
+            cameras = migrateLegacyEndpoints(ls, globalBrightness);
+        }
+        if (cameras.isEmpty() && root != null) {
+            cameras = defaultCamerasFromRoot(root, globalBrightness);
+        }
+
+        return new LightServersConfig(
+                enabled,
+                failOnError,
+                timeoutMs,
+                settleDelayMs,
+                flashLeadMs,
+                globalBrightness,
+                durationMs,
+                holdMode,
+                baseUrl,
+                urls.onUrl(),
+                urls.offUrl(),
+                urls.brightnessPairUrl(),
+                urls.brightnessSingleUrl(),
+                urls.statusUrl(),
+                cameras
+        );
     }
 
     public static LightServersConfig disabled() {
-        return new LightServersConfig(false, false, 1500, 0, 0, 100, 180, false, List.of());
+        return new LightServersConfig(
+                false, false, 1500, 0, 0, 100, 180, false,
+                "http://127.0.0.1:5080",
+                LightServerV3Http.PATH_COM_LIGHT,
+                LightServerV3Http.PATH_COM_LIGHT,
+                LightServerV3Http.PATH_CAMERA_FLASH_PAIR,
+                LightServerV3Http.PATH_CAMERA_FLASH_SINGLE,
+                LightServerV3Http.PATH_COM_LIGHT,
+                List.of()
+        );
     }
 
-    /** Базовый URL LightServer.v3 (первый enabled endpoint). */
-    public String upstreamBaseUrl() {
-        for (EndpointSpec ep : endpoints) {
-            if (ep.enabled() && ep.baseUrl() != null && !ep.baseUrl().isBlank()) {
-                return trimSlash(ep.baseUrl());
+    public boolean hasCameras() {
+        return !cameras.isEmpty();
+    }
+
+    public CameraFlashSpec camera(int cameraId) {
+        for (CameraFlashSpec spec : cameras) {
+            if (spec.cameraId() == cameraId) {
+                return spec;
             }
         }
-        return "http://127.0.0.1:5080";
+        return null;
+    }
+
+    /** Базовый URL LightServer.v3. */
+    public String upstreamBaseUrl() {
+        return baseUrl == null || baseUrl.isBlank() ? "http://127.0.0.1:5080" : baseUrl;
     }
 
     /** {@code flash_lead_ms} из {@code light_servers} или legacy {@code light_server}. */
@@ -106,72 +166,165 @@ public record LightServersConfig(
         return 0;
     }
 
-    private static Map<String, Object> legacyFromSingle(Map<String, Object> lightServer) {
-        Map<String, Object> ls = new java.util.LinkedHashMap<>(lightServer);
-        if (!ls.containsKey("endpoints")) {
-            List<Map<String, Object>> endpoints = new ArrayList<>();
-            Map<String, Object> ep = new java.util.LinkedHashMap<>();
-            ep.put("id", "light-com");
-            ep.put("enabled", true);
-            ep.put("type", "com_io");
-            ep.put("base_url", lightServer.getOrDefault("base_url", "http://127.0.0.1:5080"));
-            ep.put("com_port", lightServer.getOrDefault("com_port", "COM1"));
-            endpoints.add(ep);
-            ls.put("endpoints", endpoints);
-        }
-        return ls;
+    private record UrlPaths(
+            String onUrl,
+            String offUrl,
+            String brightnessPairUrl,
+            String brightnessSingleUrl,
+            String statusUrl
+    ) {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<EndpointSpec> parseEndpoints(Map<String, Object> ls, int globalBrightness, int[] globalBrightnessRaw) {
-        Object raw = ls.get("endpoints");
+    private static UrlPaths parseUrls(Map<String, Object> ls, String baseUrl) {
+        Object urlsObj = ls.get("urls");
+        Map<String, Object> urls = urlsObj instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+
+        String on = resolveUrl(
+                urls.get("on"),
+                ls.get("on_url"),
+                LightServerV3Http.PATH_COM_LIGHT,
+                baseUrl
+        );
+        String off = resolveUrl(
+                urls.get("off"),
+                ls.get("off_url"),
+                LightServerV3Http.PATH_COM_LIGHT,
+                baseUrl
+        );
+        String pair = resolveUrl(
+                urls.get("brightness_pair"),
+                ls.get("brightness_pair_url"),
+                LightServerV3Http.PATH_CAMERA_FLASH_PAIR,
+                baseUrl
+        );
+        String single = resolveUrl(
+                urls.get("brightness_single"),
+                ls.get("brightness_single_url"),
+                LightServerV3Http.PATH_CAMERA_FLASH_SINGLE,
+                baseUrl
+        );
+        String status = resolveUrl(
+                urls.get("status"),
+                ls.get("status_url"),
+                LightServerV3Http.PATH_COM_LIGHT,
+                baseUrl
+        );
+        return new UrlPaths(on, off, pair, single, status);
+    }
+
+    private static String resolveUrl(Object nested, Object flat, String defaultPath, String baseUrl) {
+        String raw = nested != null ? String.valueOf(nested) : flat != null ? String.valueOf(flat) : defaultPath;
+        raw = raw.trim();
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            return trimSlash(raw);
+        }
+        if (raw.isEmpty()) {
+            raw = defaultPath;
+        }
+        if (!raw.startsWith("/")) {
+            raw = "/" + raw;
+        }
+        return trimSlash(baseUrl) + raw;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<CameraFlashSpec> parseCameras(
+            Map<String, Object> ls,
+            Map<String, Object> root,
+            int globalBrightness
+    ) {
+        Object raw = ls.get("cameras");
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
             return List.of();
         }
-        List<EndpointSpec> out = new ArrayList<>();
+        List<CameraFlashSpec> out = new ArrayList<>();
         for (Object o : list) {
             if (!(o instanceof Map<?, ?> em)) {
                 continue;
             }
             Map<String, Object> m = (Map<String, Object>) em;
-            String id = String.valueOf(m.getOrDefault("id", "light"));
-            boolean en = YamlScalars.toBool(m.get("enabled"), true);
-            EndpointType type = parseEndpointType(String.valueOf(m.getOrDefault("type", "com_io")));
-            String baseUrl = trimSlash(String.valueOf(m.getOrDefault("base_url", "http://127.0.0.1:5080")));
-            String comPort = String.valueOf(m.getOrDefault("com_port", "COM1")).trim();
-            String comPortsQuery = m.containsKey("com_ports") ? String.valueOf(m.get("com_ports")) : null;
-            int deviceIndex = YamlScalars.toInt(m.get("device_index"), 0);
-            int[] channels = parseChannels(m.get("channels"));
-            int epBrightness = LightBrightnessScale.clampPercent(
-                    YamlScalars.toInt(m.get("brightness_percent"), globalBrightness));
-            int[] epRaw = parseBrightnessRaw(m.get("brightness_raw"));
-            if (epRaw == null) {
-                epRaw = globalBrightnessRaw;
+            int cameraId = YamlScalars.toInt(m.get("camera_id"), YamlScalars.toInt(m.get("id"), -1));
+            if (cameraId < 0) {
+                continue;
             }
-            int[] cameraIds = parseCameraIds(m.get("camera_ids"));
-            out.add(new EndpointSpec(id, en, type, baseUrl, comPort, comPortsQuery, deviceIndex, channels, epBrightness, epRaw, cameraIds));
+            FlashMode mode = parseFlashMode(String.valueOf(m.getOrDefault("mode", defaultModeNameForCameraId(cameraId))));
+            int percent = LightBrightnessScale.clampPercent(
+                    YamlScalars.toInt(m.get("brightness_percent"), globalBrightness));
+            int left = LightBrightnessScale.clampPercent(
+                    YamlScalars.toInt(m.get("left_percent"), percent));
+            int right = LightBrightnessScale.clampPercent(
+                    YamlScalars.toInt(m.get("right_percent"), percent));
+            out.add(new CameraFlashSpec(cameraId, mode, percent, left, right));
         }
         return List.copyOf(out);
     }
 
-    private static EndpointType parseEndpointType(String typeStr) {
-        String t = typeStr == null ? "" : typeStr.trim().toLowerCase();
+    private static List<CameraFlashSpec> defaultCamerasFromRoot(Map<String, Object> root, int globalBrightness) {
+        List<Integer> ids = ConfiguredCameras.enabledIds(root);
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<CameraFlashSpec> out = new ArrayList<>(ids.size());
+        for (int cameraId : ids) {
+            FlashMode mode = defaultModeForCameraId(cameraId);
+            out.add(new CameraFlashSpec(cameraId, mode, globalBrightness, globalBrightness, globalBrightness));
+        }
+        return List.copyOf(out);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<CameraFlashSpec> migrateLegacyEndpoints(Map<String, Object> ls, int globalBrightness) {
+        Object raw = ls.get("endpoints");
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, CameraFlashSpec> byCamera = new LinkedHashMap<>();
+        for (Object o : list) {
+            if (!(o instanceof Map<?, ?> em)) {
+                continue;
+            }
+            Map<String, Object> m = (Map<String, Object>) em;
+            if (!YamlScalars.toBool(m.get("enabled"), true)) {
+                continue;
+            }
+            int percent = LightBrightnessScale.clampPercent(
+                    YamlScalars.toInt(m.get("brightness_percent"), globalBrightness));
+            int[] cameraIds = parseCameraIds(m.get("camera_ids"));
+            if (cameraIds.length == 0) {
+                continue;
+            }
+            for (int cameraId : cameraIds) {
+                FlashMode mode = defaultModeForCameraId(cameraId);
+                byCamera.put(cameraId, new CameraFlashSpec(cameraId, mode, percent, percent, percent));
+            }
+        }
+        return List.copyOf(byCamera.values());
+    }
+
+    private static Map<String, Object> legacyFromSingle(Map<String, Object> lightServer) {
+        Map<String, Object> ls = new LinkedHashMap<>(lightServer);
+        if (!ls.containsKey("base_url")) {
+            ls.put("base_url", "http://127.0.0.1:5080");
+        }
+        return ls;
+    }
+
+    private static FlashMode parseFlashMode(String modeStr) {
+        String t = modeStr == null ? "" : modeStr.trim().toLowerCase();
         return switch (t) {
-            case "mv_le", "mv-le", "mvle" -> EndpointType.MV_LE;
-            case "com_io", "com-io", "com", "trigger_inspection", "trigger-inspection" -> EndpointType.COM_IO;
-            default -> EndpointType.COM_IO;
+            case "single", "one", "1" -> FlashMode.SINGLE;
+            default -> FlashMode.PAIR;
         };
     }
 
-    private static int[] parseBrightnessRaw(Object raw) {
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            return null;
-        }
-        int[] values = new int[list.size()];
-        for (int i = 0; i < list.size(); i++) {
-            values[i] = Math.max(0, Math.min(255, YamlScalars.toInt(list.get(i), 0)));
-        }
-        return values;
+    /** Камеры 9–10 (id 8–9) — single; остальные — pair (см. 51-light-hardware.yaml). */
+    private static FlashMode defaultModeForCameraId(int cameraId) {
+        return cameraId >= 8 ? FlashMode.SINGLE : FlashMode.PAIR;
+    }
+
+    private static String defaultModeNameForCameraId(int cameraId) {
+        return defaultModeForCameraId(cameraId) == FlashMode.SINGLE ? "single" : "pair";
     }
 
     private static int[] parseCameraIds(Object raw) {
@@ -183,17 +336,6 @@ public record LightServersConfig(
             ids[i] = YamlScalars.toInt(list.get(i), -1);
         }
         return ids;
-    }
-
-    private static int[] parseChannels(Object raw) {
-        if (raw instanceof List<?> list && !list.isEmpty()) {
-            int[] ch = new int[list.size()];
-            for (int i = 0; i < list.size(); i++) {
-                ch[i] = YamlScalars.toInt(list.get(i), i + 1);
-            }
-            return ch;
-        }
-        return new int[]{1, 2, 3, 4};
     }
 
     private static String trimSlash(String url) {
