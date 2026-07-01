@@ -21,6 +21,8 @@ public sealed class IoInputOptions
     public bool ConfigureSdk { get; set; } = true;
 
     public int DebounceMs { get; set; } = 50;
+
+    public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
 }
 
 public sealed class IoInputConfigLoadResult
@@ -133,7 +135,40 @@ public static class IoInputConfigLoader
             InputPorts = inputs,
             EdgeMode = ParseEdgeMode(section.Edge),
             ConfigureSdk = section.ConfigureSdk ?? true,
-            DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50
+            DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50,
+            UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs)
+        };
+    }
+
+    private static IoInputUdpPublishOptions ParseUdpPublish(IoInputUdpPublishYaml? raw, int[] defaultInputs)
+    {
+        if (raw == null)
+            return new IoInputUdpPublishOptions();
+
+        int[] publishInputs = ParseInputPorts(raw.Inputs);
+        if (publishInputs.Length == 0)
+            publishInputs = defaultInputs;
+
+        return new IoInputUdpPublishOptions
+        {
+            Enabled = raw.Enabled ?? false,
+            Host = string.IsNullOrWhiteSpace(raw.Host) ? "127.0.0.1" : raw.Host.Trim(),
+            Port = raw.Port is > 0 and <= 65535 ? raw.Port.Value : 9100,
+            Format = ParseUdpFormat(raw.Format),
+            PublishInputs = publishInputs,
+            SendInitialState = raw.SendInitialState ?? false
+        };
+    }
+
+    internal static IoInputUdpPayloadFormat ParseUdpFormat(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return IoInputUdpPayloadFormat.Byte;
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "text" or "ascii" or "string" => IoInputUdpPayloadFormat.Text,
+            _ => IoInputUdpPayloadFormat.Byte
         };
     }
 
@@ -184,5 +219,27 @@ public static class IoInputConfigLoader
         public bool? ConfigureSdk { get; set; }
 
         public int? DebounceMs { get; set; }
+
+        public IoInputPublishYaml? Publish { get; set; }
+    }
+
+    private sealed class IoInputPublishYaml
+    {
+        public IoInputUdpPublishYaml? Udp { get; set; }
+    }
+
+    private sealed class IoInputUdpPublishYaml
+    {
+        public bool? Enabled { get; set; }
+
+        public string? Host { get; set; }
+
+        public int? Port { get; set; }
+
+        public string? Format { get; set; }
+
+        public List<int>? Inputs { get; set; }
+
+        public bool? SendInitialState { get; set; }
     }
 }

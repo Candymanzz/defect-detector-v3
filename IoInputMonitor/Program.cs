@@ -127,6 +127,13 @@ internal static class Program
                 "configure_sdk=false — параметры порта не меняем, используем настройку устройства/MVS.");
         }
 
+        using var udpPublisher = IoInputUdpPublisher.TryCreate(options.UdpPublish, options.InputPorts);
+        if (udpPublisher != null && options.UdpPublish.SendInitialState)
+        {
+            foreach (int inputPort in options.InputPorts)
+                udpPublisher.Publish(inputPort, portPressed[inputPort]);
+        }
+
         session.RegisterEdgeCallback((port, edge) =>
         {
             if (!inputSet.Contains(port))
@@ -160,10 +167,17 @@ internal static class Program
                 _ => ""
             };
 
+            bool closed = options.EdgeMode == IoInputEdgeMode.Both
+                ? portPressed[port]
+                : edge == MvIoNative.IoEdgeType.Rising;
+
             lock (consoleLock)
             {
-                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}");
+                string udpSuffix = udpPublisher != null ? $"  [udp {(closed ? 1 : 0)}]" : "";
+                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
             }
+
+            udpPublisher?.Publish(port, closed);
 
             if (options.EdgeMode == IoInputEdgeMode.Both && ShouldConfigureSdk(options))
             {
@@ -322,6 +336,7 @@ internal static class Program
               falling — только размыкание (HIGH→LOW)
               both — оба фронта через динамическое перевооружение SDK (событийно, без polling)
               configure_sdk: false — не вызывать SetInput, использовать настройку MVS/устройства
+              publish.udp — UDP 1/0 при смене состояния (1=замкнуто/HIGH, 0=разомкнуто/LOW)
 
             Параметры:
               --com COMx       COM-порт IO box (переопределяет конфиг)
@@ -345,6 +360,7 @@ internal static class Program
         public IoInputEdgeMode EdgeMode { get; set; } = IoInputEdgeMode.Rising;
         public bool ConfigureSdk { get; set; }
         public int DebounceMs { get; set; } = 50;
+        public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
         public bool ScanAll { get; set; }
         public bool ProbePorts { get; set; }
         public bool ListPorts { get; set; }
@@ -402,6 +418,7 @@ internal static class Program
                 EdgeMode = loaded.Options.EdgeMode,
                 ConfigureSdk = loaded.Options.ConfigureSdk,
                 DebounceMs = loaded.Options.DebounceMs,
+                UdpPublish = loaded.Options.UdpPublish,
                 ConfigPath = loaded.ConfigPath
             };
         }

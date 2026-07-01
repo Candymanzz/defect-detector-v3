@@ -1,10 +1,21 @@
 # IoInputMonitor — мониторинг Digital Input с MV IO Box.
+
 # Авто-поиск: config/blocks/52-io-input.yaml (или IO_INPUT_CONFIG / --io-config=).
+
 
 io_input:
   com_port: COM3
   edge: both            # rising | falling | both
-  debounce_ms: 10       # аппаратный debounce (nGlitch) + фильтр дребезга в ПО (крч это время сколько сигнал должен так просуществовать чтобы быть отправленым)
-  configure_sdk: true   # both всегда требует SetInput; для rising/falling можно false
+  debounce_ms: 0
+  configure_sdk: true
   inputs:
     - 3
+
+  publish:
+    udp:
+      enabled: true
+      host: 127.0.0.1
+      port: 9100          # куда слушает потребитель (оркестратор: inspection_trigger.udp.bind_port)
+      format: byte        # byte = 0x00/0x01 | text = "0"/"1"
+      inputs: [3]         # какие DI публиковать; по умолчанию = inputs
+      send_initial_state: false
