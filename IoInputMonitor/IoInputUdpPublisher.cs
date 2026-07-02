@@ -1,14 +1,27 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Channels;
 
 namespace IoInputMonitor;
 
 public enum IoInputUdpPayloadFormat
 {
+    /// <summary>Legacy: один байт 0/1 без номера DI.</summary>
     Byte,
-    Text
+
+    /// <summary>Legacy: текст "0"/"1" без номера DI.</summary>
+    Text,
+
+    /// <summary>JSON: {"di":3,"value":1} — value 1=замкнуто, 0=разомкнуто.</summary>
+    Json,
+
+    /// <summary>Текст: "3:1" — di:value.</summary>
+    TextDi,
+
+    /// <summary>Два байта: [di, value].</summary>
+    ByteDi
 }
 
 public sealed class IoInputUdpPublishOptions
@@ -19,7 +32,7 @@ public sealed class IoInputUdpPublishOptions
 
     public int Port { get; set; } = 9100;
 
-    public IoInputUdpPayloadFormat Format { get; set; } = IoInputUdpPayloadFormat.Byte;
+    public IoInputUdpPayloadFormat Format { get; set; } = IoInputUdpPayloadFormat.Json;
 
     public int[] PublishInputs { get; set; } = [];
 
@@ -36,6 +49,7 @@ internal sealed class IoInputUdpPublisher : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _worker;
     private UdpClient? _client;
+    private bool _disposed;
 
     private IoInputUdpPublisher(IoInputUdpPublishOptions options, IEnumerable<int> defaultInputs)
     {
@@ -81,13 +95,11 @@ internal sealed class IoInputUdpPublisher : IDisposable
         {
             _client = new UdpClient();
             Console.WriteLine(
-                $"UDP publish → {_options.Host}:{_options.Port} " +
-                $"format={_options.Format.ToString().ToLowerInvariant()} " +
-                $"(1=замкнуто/HIGH, 0=разомкнуто/LOW)");
+                $"UDP publish → {_options.Host}:{_options.Port} format={FormatDescription(_options.Format)}");
 
             await foreach (IoInputStateChange change in _channel.Reader.ReadAllAsync(_cts.Token))
             {
-                byte[] payload = BuildPayload(change.Closed);
+                byte[] payload = BuildPayload(change.Port, change.Closed);
                 try
                 {
                     await _client.SendAsync(payload, remote, _cts.Token);
@@ -109,18 +121,47 @@ internal sealed class IoInputUdpPublisher : IDisposable
         }
     }
 
-    private byte[] BuildPayload(bool closed) =>
-        _options.Format switch
+    internal static byte[] BuildPayload(IoInputUdpPayloadFormat format, int diPort, bool closed)
+    {
+        int value = closed ? 1 : 0;
+        return format switch
         {
-            IoInputUdpPayloadFormat.Text => Encoding.UTF8.GetBytes(closed ? "1" : "0"),
-            _ => [(byte)(closed ? 1 : 0)]
+            IoInputUdpPayloadFormat.Text => Encoding.UTF8.GetBytes(value.ToString()),
+            IoInputUdpPayloadFormat.Byte => [(byte)value],
+            IoInputUdpPayloadFormat.Json => Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(new { di = diPort, value })),
+            IoInputUdpPayloadFormat.TextDi => Encoding.UTF8.GetBytes($"{diPort}:{value}"),
+            IoInputUdpPayloadFormat.ByteDi =>
+            [
+                (byte)diPort,
+                (byte)value
+            ],
+            _ => Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { di = diPort, value }))
         };
+    }
+
+    private byte[] BuildPayload(int diPort, bool closed) =>
+        BuildPayload(_options.Format, diPort, closed);
+
+    private static string FormatDescription(IoInputUdpPayloadFormat format) => format switch
+    {
+        IoInputUdpPayloadFormat.Byte => "byte (legacy 0/1)",
+        IoInputUdpPayloadFormat.Text => "text (legacy \"0\"/\"1\")",
+        IoInputUdpPayloadFormat.Json => "json {\"di\":N,\"value\":0|1}",
+        IoInputUdpPayloadFormat.TextDi => "text_di \"N:0|1\"",
+        IoInputUdpPayloadFormat.ByteDi => "byte_di [di,value]",
+        _ => format.ToString().ToLowerInvariant()
+    };
 
     private static string Timestamp() =>
         DateTime.Now.ToString("HH:mm:ss.fff");
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _channel.Writer.TryComplete();
         _cts.Cancel();
         try

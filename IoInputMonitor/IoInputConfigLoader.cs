@@ -163,12 +163,16 @@ public static class IoInputConfigLoader
     internal static IoInputUdpPayloadFormat ParseUdpFormat(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
-            return IoInputUdpPayloadFormat.Byte;
+            return IoInputUdpPayloadFormat.Json;
 
         return raw.Trim().ToLowerInvariant() switch
         {
+            "byte" => IoInputUdpPayloadFormat.Byte,
             "text" or "ascii" or "string" => IoInputUdpPayloadFormat.Text,
-            _ => IoInputUdpPayloadFormat.Byte
+            "json" => IoInputUdpPayloadFormat.Json,
+            "text_di" or "di_text" or "di" => IoInputUdpPayloadFormat.TextDi,
+            "byte_di" or "di_byte" or "bytes" => IoInputUdpPayloadFormat.ByteDi,
+            _ => IoInputUdpPayloadFormat.Json
         };
     }
 
