@@ -173,7 +173,7 @@ internal static class Program
 
             lock (consoleLock)
             {
-                string udpSuffix = udpPublisher != null ? $"  [udp {(closed ? 1 : 0)}]" : "";
+                string udpSuffix = udpPublisher != null ? $"  [udp {port}:{(closed ? 1 : 0)}]" : "";
                 Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
             }
 

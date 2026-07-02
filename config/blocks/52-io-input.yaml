@@ -10,12 +10,13 @@ io_input:
   configure_sdk: true
   inputs:
     - 3
+    - 4
 
   publish:
     udp:
       enabled: true
       host: 127.0.0.1
       port: 9100          # куда слушает потребитель (оркестратор: inspection_trigger.udp.bind_port)
-      format: byte        # byte = 0x00/0x01 | text = "0"/"1"
-      inputs: [3]         # какие DI публиковать; по умолчанию = inputs
+      format: json        # json {"di":3,"value":1} | text_di "3:1" | byte_di | byte/text (legacy 0/1)
+      inputs: [3, 4]         # какие DI публиковать; по умолчанию = inputs
       send_initial_state: false
