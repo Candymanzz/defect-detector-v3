@@ -74,17 +74,23 @@ integration:
       enabled: true
       bind_host: "0.0.0.0"
       bind_port: 9100
-      # discrete: UDP 0x01 или "1" — общий триггер на все камеры; 0x00/"0" — без действия
-      format: discrete
+      # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер
+      format: io_input
       debounce_ms: 100
-      # allowed_remote_hosts: ["192.168.1.50"]
+      # allowed_remote_hosts: ["127.0.0.1"]
+    io_input:
+      work_port: 1
+      direction_port: 2
+      trigger_port: 3
+      payload_format: json
+      debounce_ms: 100
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20
     max_fps_cap: 30
   # Непрерывный цикл: вспышка → capture → geometry → python → вердикт (ПЛК + WebSocket UI).
   continuous_inspection:
-    enabled: true
+    enabled: false
     cycle_delay_ms: 3500
   timing_stages_log:
     enabled: true
