@@ -86,6 +86,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                 geometryRuntimeConfig.applyToGeometryHeader(gHeader, productType);
             }
             BinaryInspectHeaders.applyMainRoiFromPolygon(gHeader, state.capture(), activeReference);
+            BinaryInspectHeaders.syncWrinklesRoiFromMainRoi(gHeader);
             geometrySlots.acquire();
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);

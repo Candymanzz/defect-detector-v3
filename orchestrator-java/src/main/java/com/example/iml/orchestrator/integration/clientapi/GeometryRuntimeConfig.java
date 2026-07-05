@@ -90,7 +90,14 @@ public final class GeometryRuntimeConfig {
     }
 
     public void applyToGeometryHeader(Map<String, Object> header, String analysisProfile) {
-        profileOverrides(analysisProfile).forEach((key, value) -> applyGeometryEntry(header, key, value));
+        boolean clientReferenceBundle = YamlScalars.toBool(header.get("client_reference_bundle"), false);
+        boolean hasReferenceJointRoi = header.get("jointRoi") != null;
+        profileOverrides(analysisProfile).forEach((key, value) -> {
+            if (clientReferenceBundle && hasReferenceJointRoi && "jointRoi".equals(key)) {
+                return;
+            }
+            applyGeometryEntry(header, key, value);
+        });
     }
 
     /** Порог чувствительности для python {@code inspect_shm} (поверх {@code python_detector.fallback_threshold}). */
@@ -149,32 +156,43 @@ public final class GeometryRuntimeConfig {
             String analysisProfile
     ) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("mainRoi", yamlGeometry != null && yamlGeometry.get("main_roi") != null ? yamlGeometry.get("main_roi") : Map.of("x", 0, "y", 0, "width", 2448, "height", 2048));
-        m.put("jointRoi", yamlGeometry == null ? null : yamlGeometry.get("joint_roi"));
-        m.put("wrinklesRoi", yamlGeometry == null ? null : yamlGeometry.get("wrinkles_roi"));
+        Object defaultMainRoi = yamlGeometry != null && yamlGeometry.get("main_roi") != null
+                ? yamlGeometry.get("main_roi")
+                : Map.of("x", 0, "y", 0, "width", 2448, "height", 2048);
+        m.put("mainRoi", defaultMainRoi);
+        m.put("wrinklesRoi", defaultMainRoi);
         m.put("pixelsToMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("pixels_to_mm"), 0.01));
         m.put("maxShiftMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_shift_mm"), 0.5));
         m.put("maxRotationDeg", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_rotation_deg"), 1.0));
-        m.put("maxConcentricityMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_concentricity_mm"), 0.2));
-        double jointDefault = YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_defect_mm"), 0.3);
-        m.put("maxJointDefectMm", jointDefault);
-        m.put("jointThreshold", jointDefault);
+        m.put("maxJointDefectMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_defect_mm"), 0.3));
         double thresholdDefault = defaultPythonThreshold(pythonYaml);
         m.put("threshold", thresholdDefault);
         m.put("maxWrinklesScore", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_wrinkles_score"), thresholdDefault));
         applyToGeometryHeader(m, analysisProfile);
+        m.put("wrinklesRoi", m.get("mainRoi"));
         return m;
     }
 
     private void applyGeometryEntry(Map<String, Object> header, String key, Object value) {
+        if ("wrinklesRoi".equals(key)) {
+            return;
+        }
         if ("threshold".equals(key)) {
             double t = YamlScalars.toDouble(value, 0.25);
             header.put("threshold", t);
             header.put("maxWrinklesScore", t);
             return;
         }
+        if ("mainRoi".equals(key)) {
+            header.put("mainRoi", value);
+            header.put("wrinklesRoi", value);
+            return;
+        }
         if ("jointThreshold".equals(key) || "maxJointDefectMm".equals(key)) {
             header.put("maxJointDefectMm", YamlScalars.toDouble(value, 0.3));
+            return;
+        }
+        if ("maxConcentricityMm".equals(key)) {
             return;
         }
         header.put(key, value);

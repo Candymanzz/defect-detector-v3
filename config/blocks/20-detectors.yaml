@@ -1,14 +1,11 @@
 java_geometry:
   pixels_to_mm: 0.01
+  # Fallback ROI, если эталон не задан с клиента; морщины используют тот же ROI, что interest с эталона.
   main_roi: { x: 0, y: 0, width: 2448, height: 2048 }
-  joint_roi: null
-  wrinkles_roi: null
   max_shift_mm: 0.5
   max_rotation_deg: 1.0
-  max_concentricity_mm: 0.2
   max_joint_defect_mm: 0.3
-  # Совпадает с python_detector.fallback_threshold, если не задан runtime threshold с фронта.
-  # 0.45 снижает ложный брак на стабильных одинаковых кадрах.
+  # Порог морщин (геометрия: смещение + стык + морщины в переданном ROI).
   max_wrinkles_score: 0.45
 
 python_detector:

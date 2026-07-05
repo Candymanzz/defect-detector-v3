@@ -479,3 +479,4 @@ public final class LightTriggerClient {
         }
     }
 }
+

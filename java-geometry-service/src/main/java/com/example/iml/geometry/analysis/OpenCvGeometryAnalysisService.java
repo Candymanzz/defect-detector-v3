@@ -99,11 +99,20 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     }
 
     public InspectionResponse inspectMats(Mat reference, Mat current, InspectionRequest request, boolean includeDebugImage) {
+        return inspectMats(reference, current, request, includeDebugImage, null);
+    }
+
+    public InspectionResponse inspectMats(
+            Mat reference,
+            Mat current,
+            InspectionRequest request,
+            boolean includeDebugImage,
+            String referenceCacheKey
+    ) {
         Mat alignedCurrent = null;
         Mat debug = null;
         Mat referenceRoi = null;
         Mat currentRoi = null;
-        Mat alignedCurrentRoi = null;
         Mat roiMask = null;
         AlignmentResult alignment = null;
         List<NormPoint> mainPolygon = request.mainRoiPolygonNorm();
@@ -111,8 +120,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             validateInputFrames(reference, current);
 
             Rect mainRect = resolveMainRect(request, current.cols(), current.rows());
-            referenceRoi = new Mat(reference, mainRect);
-            currentRoi = new Mat(current, mainRect);
+            referenceRoi = new Mat(reference, mainRect).clone();
+            currentRoi = new Mat(current, mainRect).clone();
             if (mainPolygon != null && mainPolygon.size() >= 3) {
                 roiMask = RoiPolygonMask.maskForRect(mainPolygon, mainRect, current.cols(), current.rows());
                 RoiPolygonMask.applyMask(referenceRoi, roiMask);
@@ -120,63 +129,34 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             }
 
             long tAlign0 = System.nanoTime();
-            alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm());
+            alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm(), referenceCacheKey);
             recordStage("align", tAlign0);
             long tWarp0 = System.nanoTime();
             alignedCurrent = warpCurrentToReference(current, alignment.homographyRefToCurrent, mainRect);
-            alignedCurrentRoi = new Mat(alignedCurrent, mainRect);
             if (roiMask != null) {
+                Mat alignedCurrentRoi = new Mat(alignedCurrent, mainRect);
                 RoiPolygonMask.applyMask(alignedCurrentRoi, roiMask);
+                alignedCurrentRoi.release();
             }
             recordStage("warp", tWarp0);
 
-            ConcentricityResult concentricity;
-            JointResult joint;
-            WrinklesResult wrinkles;
-            if (parallelPostStages) {
-                final Mat alignedCurrentForParallel = alignedCurrent;
-                final Mat alignedCurrentRoiForParallel = alignedCurrentRoi;
-                long tConcentricity0 = System.nanoTime();
-                CompletableFuture<ConcentricityResult> concentricityFuture =
-                        CompletableFuture.supplyAsync(() -> {
-                            ConcentricityResult r = estimateConcentricity(alignedCurrentRoiForParallel, request.pixelsToMm());
-                            recordStage("concentricity", tConcentricity0);
-                            return r;
-                        });
-                long tJoint0 = System.nanoTime();
-                CompletableFuture<JointResult> jointFuture =
-                        CompletableFuture.supplyAsync(() -> {
-                            JointResult r = inspectJoint(alignedCurrentForParallel, request.jointRoi(), request.pixelsToMm());
-                            recordStage("joint", tJoint0);
-                            return r;
-                        });
-                long tWrinkles0 = System.nanoTime();
-                CompletableFuture<WrinklesResult> wrinklesFuture =
-                        CompletableFuture.supplyAsync(() -> {
-                            WrinklesResult r = inspectWrinkles(reference, alignedCurrentForParallel, request.wrinklesRoi());
-                            recordStage("wrinkles", tWrinkles0);
-                            return r;
-                        });
-                concentricity = joinStage(concentricityFuture, "concentricity");
-                joint = joinStage(jointFuture, "joint");
-                wrinkles = joinStage(wrinklesFuture, "wrinkles");
-            } else {
-                long tConcentricity0 = System.nanoTime();
-                concentricity = estimateConcentricity(alignedCurrentRoi, request.pixelsToMm());
-                recordStage("concentricity", tConcentricity0);
-                long tJoint0 = System.nanoTime();
-                joint = inspectJoint(alignedCurrent, request.jointRoi(), request.pixelsToMm());
-                recordStage("joint", tJoint0);
-                long tWrinkles0 = System.nanoTime();
-                wrinkles = inspectWrinkles(reference, alignedCurrent, request.wrinklesRoi());
-                recordStage("wrinkles", tWrinkles0);
-            }
+            long tJoint0 = System.nanoTime();
+            JointResult joint = inspectJoint(alignedCurrent, request.jointRoi(), request.pixelsToMm());
+            recordStage("joint", tJoint0);
+
+            long tWrinkles0 = System.nanoTime();
+            WrinklesResult wrinkles = inspectWrinkles(
+                    reference,
+                    alignedCurrent,
+                    resolveWrinklesRoi(request)
+            );
+            recordStage("wrinkles", tWrinkles0);
 
             String debugBase64 = "";
             if (includeDebugImage) {
                 long tDebug0 = System.nanoTime();
                 debug = alignedCurrent.clone();
-                drawDebug(debug, mainRect, alignment, concentricity, request);
+                drawDebug(debug, mainRect, alignment, request);
                 debugBase64 = imageCodec.encodeBase64Png(debug);
                 recordStage("debug", tDebug0);
             }
@@ -184,21 +164,20 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             boolean alignmentPass = Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
                     && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg();
-            boolean concentricityPass = concentricity.deviationMm <= request.maxConcentricityMm();
-            boolean jointPass = joint.defectMm <= request.maxJointDefectMm();
+            boolean jointPass = request.jointRoi() == null || joint.defectMm <= request.maxJointDefectMm();
             boolean wrinklesPass = wrinkles.score <= request.maxWrinklesScore();
-            boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass;
+            boolean overallPass = alignmentPass && jointPass && wrinklesPass;
 
             return new InspectionResponse(
                     alignment.shiftXmm,
                     alignment.shiftYmm,
                     alignment.rotationDeg,
                     homographyToArray(alignment.homographyRefToCurrent),
-                    concentricity.deviationMm,
+                    0.0,
                     joint.defectMm,
                     wrinkles.score,
                     alignmentPass,
-                    concentricityPass,
+                    true,
                     jointPass,
                     wrinklesPass,
                     overallPass,
@@ -206,7 +185,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     overallPass ? "PASS" : "FAIL"
             );
         } finally {
-            release(referenceRoi, currentRoi, alignedCurrentRoi, roiMask, debug, alignedCurrent);
+            release(referenceRoi, currentRoi, roiMask, debug, alignedCurrent);
             if (alignment != null && alignment.homographyRefToCurrent != null) {
                 alignment.homographyRefToCurrent.release();
             }
@@ -255,13 +234,13 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
-    private AlignmentResult alignByHomography(Mat referenceRoi, Mat currentRoi, double pixelsToMm) {
+    private AlignmentResult alignByHomography(Mat referenceRoi, Mat currentRoi, double pixelsToMm, String referenceCacheKey) {
         Mat curGray = new Mat();
         Mat curGrayScaled = null;
         Mat curDescriptors = new Mat();
         MatOfKeyPoint curKeypoints = new MatOfKeyPoint();
         try {
-            PreparedReference preparedReference = getOrBuildPreparedReference(referenceRoi);
+            PreparedReference preparedReference = getOrBuildPreparedReference(referenceRoi, referenceCacheKey);
             Imgproc.cvtColor(currentRoi, curGray, Imgproc.COLOR_BGR2GRAY);
             ResizeResult curResize = resizeForProcessing(curGray, MAX_ALIGNMENT_DIM);
             curGrayScaled = curResize.mat;
@@ -331,19 +310,24 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
-    private PreparedReference getOrBuildPreparedReference(Mat referenceRoi) {
-        if (!referenceCacheEnabled) {
-            return buildPreparedReference(referenceRoi);
-        }
-        long dataAddr = referenceRoi.dataAddr();
-        int rows = referenceRoi.rows();
-        int cols = referenceRoi.cols();
+    public void clearPreparedReferenceCache() {
         PreparedReference cached = preparedReferenceCache;
-        if (cached != null && cached.dataAddr == dataAddr && cached.rows == rows && cached.cols == cols) {
+        preparedReferenceCache = null;
+        if (cached != null) {
+            cached.descriptors.release();
+        }
+    }
+
+    private PreparedReference getOrBuildPreparedReference(Mat referenceRoi, String referenceCacheKey) {
+        if (!referenceCacheEnabled) {
+            return buildPreparedReference(referenceRoi, referenceCacheKey);
+        }
+        PreparedReference cached = preparedReferenceCache;
+        if (cached != null && matchesPreparedReference(cached, referenceCacheKey, referenceRoi)) {
             return cached;
         }
 
-        PreparedReference next = buildPreparedReference(referenceRoi);
+        PreparedReference next = buildPreparedReference(referenceRoi, referenceCacheKey);
         if (preparedReferenceCache != null) {
             preparedReferenceCache.descriptors.release();
         }
@@ -351,7 +335,20 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         return next;
     }
 
-    private PreparedReference buildPreparedReference(Mat referenceRoi) {
+    private static boolean matchesPreparedReference(
+            PreparedReference cached,
+            String referenceCacheKey,
+            Mat referenceRoi
+    ) {
+        if (referenceCacheKey != null && !referenceCacheKey.isBlank()) {
+            return referenceCacheKey.equals(cached.cacheKey);
+        }
+        return cached.dataAddr == referenceRoi.dataAddr()
+                && cached.rows == referenceRoi.rows()
+                && cached.cols == referenceRoi.cols();
+    }
+
+    private PreparedReference buildPreparedReference(Mat referenceRoi, String referenceCacheKey) {
         long dataAddr = referenceRoi.dataAddr();
         int rows = referenceRoi.rows();
         int cols = referenceRoi.cols();
@@ -367,6 +364,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             Mat descriptorsClone = refDescriptors.clone();
             KeyPoint[] keypointsCopy = refKeypoints.toArray();
             PreparedReference next = new PreparedReference(
+                    referenceCacheKey,
                     dataAddr,
                     rows,
                     cols,
@@ -714,11 +712,17 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
+    private static RoiRect resolveWrinklesRoi(InspectionRequest request) {
+        if (request.wrinklesRoi() != null) {
+            return request.wrinklesRoi();
+        }
+        return request.mainRoi();
+    }
+
     private void drawDebug(
             Mat debugFrame,
             Rect mainRect,
             AlignmentResult alignment,
-            ConcentricityResult concentricity,
             InspectionRequest request
     ) {
         if (request.mainRoiPolygonNorm() != null && request.mainRoiPolygonNorm().size() >= 3) {
@@ -741,21 +745,13 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 2
         );
 
-        if (concentricity.capCenter != null && concentricity.labelCenter != null) {
-            Point cap = shiftPoint(concentricity.capCenter, mainRect);
-            Point label = shiftPoint(concentricity.labelCenter, mainRect);
-            Imgproc.circle(debugFrame, cap, 6, new Scalar(255, 0, 0), 2);
-            Imgproc.circle(debugFrame, label, 6, new Scalar(0, 255, 255), 2);
-            Imgproc.line(debugFrame, cap, label, new Scalar(255, 0, 255), 2);
-        }
-
         if (request.jointRoi() != null) {
             Rect r = toSafeRect(request.jointRoi(), debugFrame.cols(), debugFrame.rows());
             Imgproc.rectangle(debugFrame, r, new Scalar(0, 165, 255), 2);
         }
 
         if (request.wrinklesRoi() != null) {
-            Rect r = toSafeRect(request.wrinklesRoi(), debugFrame.cols(), debugFrame.rows());
+            Rect r = toSafeRect(resolveWrinklesRoi(request), debugFrame.cols(), debugFrame.rows());
             Imgproc.rectangle(debugFrame, r, new Scalar(255, 255, 255), 2);
         }
     }
@@ -837,6 +833,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     }
 
     private static final class PreparedReference {
+        final String cacheKey;
         final long dataAddr;
         final int rows;
         final int cols;
@@ -845,7 +842,17 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         final Mat descriptors;
         final KeyPoint[] keypoints;
 
-        private PreparedReference(long dataAddr, int rows, int cols, double scaleX, double scaleY, Mat descriptors, KeyPoint[] keypoints) {
+        private PreparedReference(
+                String cacheKey,
+                long dataAddr,
+                int rows,
+                int cols,
+                double scaleX,
+                double scaleY,
+                Mat descriptors,
+                KeyPoint[] keypoints
+        ) {
+            this.cacheKey = cacheKey;
             this.dataAddr = dataAddr;
             this.rows = rows;
             this.cols = cols;

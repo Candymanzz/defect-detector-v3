@@ -146,13 +146,10 @@
       "width": 2448,
       "height": 2048
     },
-    "joint_roi": null,
-    "wrinkles_roi": null,
     "max_shift_mm": 0.5,
     "max_rotation_deg": 1.0,
-    "max_concentricity_mm": 0.2,
     "max_joint_defect_mm": 0.3,
-    "max_wrinkles_score": 0.25
+    "max_wrinkles_score": 0.45
   },
   "python_detector": {
     "base_url": "http://127.0.0.1:8000",

@@ -19061,3 +19061,27 @@ java.io.IOException: EOF
 2026-06-24 22:35:56.745 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
 2026-06-24 22:35:56.748 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
 2026-06-24 22:35:56.749 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-05 13:33:01.769 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-05 13:33:01.773 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-05 13:33:01.774 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-05 13:33:01.774 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-05 13:33:01.774 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-05 13:33:01.775 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-05 13:33:01.775 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-05 13:33:01.776 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-05 13:33:01.776 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-05 13:33:01.776 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-05 13:39:01.508 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-05 13:39:01.512 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-05 13:39:01.512 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-05 13:39:01.512 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-05 13:39:01.513 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-05 13:39:01.513 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-05 13:39:01.514 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-05 13:39:01.514 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-05 13:39:01.514 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-05 13:39:01.514 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-05 13:43:39.552 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-05 13:43:39.559 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-05 13:43:39.563 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-05 13:43:39.563 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
