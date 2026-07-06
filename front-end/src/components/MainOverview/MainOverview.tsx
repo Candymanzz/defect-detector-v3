@@ -35,6 +35,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
               const inspectResult = controller.inspectResultsByCameraId[camera.cameraId];
               const artifactInspectResult = controller.inspectArtifactResultsByCameraId[camera.cameraId];
               const inspectImageUrl = resolveCardInspectImageUrl(inspectResult, artifactInspectResult);
+              const displayFrameId = controller.previewFrameIdsByCameraId[camera.cameraId] ?? inspectResult?.frame_id;
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
@@ -45,7 +46,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   cameraId={camera.cameraId}
                   objectName={camera.objectName}
                   imageUrl={controller.hasReference ? inspectImageUrl : camera.imageUrl}
-                  currentFrameId={controller.previewFrameIdsByCameraId[camera.cameraId]}
+                  currentFrameId={displayFrameId}
                   inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
                   isInspectionEnabled={isInspectionEnabled}

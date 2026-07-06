@@ -14,7 +14,6 @@ type UseStreamControllerOptions = {
 };
 
 const DEFAULT_MAX_FPS = 20;
-const FIRST_FRAME_TIMEOUT_MS = 5000;
 const STOP_ACK_TIMEOUT_MS = 5000;
 
 export function useStreamController({
@@ -74,13 +73,6 @@ export function useStreamController({
           setStreamState("playing");
           setMessage(`Stream started: ${wsMessage.payload.max_fps} FPS`);
           clearFirstFrameTimer();
-          firstFrameTimerRef.current = window.setTimeout(() => {
-            if (streamStateRef.current === "playing") {
-              setMjpegUrl(undefined);
-              setStreamState("error");
-              setMessage("Stream started, but no camera frames were received");
-            }
-          }, FIRST_FRAME_TIMEOUT_MS);
           return;
         }
 

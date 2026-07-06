@@ -9,9 +9,6 @@ import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import org.apache.logging.log4j.Logger;
 import org.java_websocket.WebSocket;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -33,10 +30,6 @@ public final class CameraStreamService implements AutoCloseable {
     private final Logger log;
     private final ClientStreamConfig cfg;
     private final Map<Integer, WorkerProcessSupervisor> workersByCamera;
-    private final Map<Integer, String> analysisProfileByCamera;
-    private final Map<Integer, String> detectorByCamera;
-    private final UiHttpServer uiServer;
-    private final ClientWebSocketServer clientWs;
     private final Map<String, Object> uiCfg;
     private final ScheduledExecutorService scheduler;
     private final ConcurrentHashMap<Integer, StreamSession> sessions = new ConcurrentHashMap<>();
@@ -57,10 +50,6 @@ public final class CameraStreamService implements AutoCloseable {
         this.log = log;
         this.cfg = cfg == null ? ClientStreamConfig.defaults() : cfg;
         this.workersByCamera = workersByCamera == null ? Map.of() : workersByCamera;
-        this.analysisProfileByCamera = analysisProfileByCamera == null ? Map.of() : analysisProfileByCamera;
-        this.detectorByCamera = detectorByCamera == null ? Map.of() : detectorByCamera;
-        this.uiServer = uiServer;
-        this.clientWs = clientWs;
         this.uiCfg = uiCfg == null ? Map.of() : uiCfg;
         this.mjpegHub = new MjpegStreamHub(log);
         this.scheduler = Executors.newScheduledThreadPool(
@@ -114,7 +103,7 @@ public final class CameraStreamService implements AutoCloseable {
         }
         int fps = cfg.clampFps(requestedFps);
         long intervalMs = Math.max(1, 1000L / fps);
-        String httpPath = "/api/camera/" + cameraId + "/current.jpg";
+        String httpPath = null;
         String mjpegPath = mjpegPath(cameraId);
         StreamSession session = new StreamSession(wsNotify, fps);
         metricsByCamera.putIfAbsent(cameraId, new StreamMetrics());
@@ -145,8 +134,7 @@ public final class CameraStreamService implements AutoCloseable {
         StreamSession session = sessions.get(cameraId);
         boolean active = session != null && session.running.get();
         int fps = active ? session.fps : 0;
-        String httpPath = "/api/camera/" + cameraId + "/current.jpg";
-        return new StreamStatus(cameraId, active, fps, httpPath, mjpegPath(cameraId));
+        return new StreamStatus(cameraId, active, fps, null, mjpegPath(cameraId));
     }
 
     public void stop(int cameraId) {
@@ -225,55 +213,18 @@ public final class CameraStreamService implements AutoCloseable {
                 return;
             }
 
-            String productType = analysisProfileByCamera.getOrDefault(cameraId, "camera-" + cameraId);
-            String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
             long encodeStarted = System.nanoTime();
-            PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
+            JpegBytes jpeg = encodePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
             metrics.encodeNs.add(System.nanoTime() - encodeStarted);
-            if (jpeg.path == null || !Files.isRegularFile(jpeg.path)) {
+            if (jpeg.bytes == null || jpeg.bytes.length == 0) {
                 if (jpeg.error != null) {
                     log.warn("client_stream cam={} frame={}: {}", cameraId, frameId, jpeg.error);
                 }
                 return;
             }
-            if (uiServer != null) {
-                uiServer.update(
-                        cameraId,
-                        frameId,
-                        productType,
-                        detectorId,
-                        shmName,
-                        width,
-                        height,
-                        jpeg.path,
-                        jpeg.width,
-                        jpeg.height,
-                        null,
-                        0,
-                        0,
-                        null
-                );
-            }
-            try {
-                byte[] jpegBytes = Files.readAllBytes(jpeg.path);
-                mjpegHub.publish(cameraId, jpegBytes);
-                maybeNotifyStreamStarted(session, cameraId);
-            } catch (IOException e) {
-                log.debug("client_stream mjpeg publish camera={}: {}", cameraId, e.getMessage());
-                return;
-            }
-            if (clientWs != null) {
-                long wsStarted = System.nanoTime();
-                clientWs.notifyPreviewFrame(
-                        cameraId,
-                        productType,
-                        detectorId,
-                        header,
-                        "/api/camera/" + cameraId + "/current.jpg"
-                );
-                metrics.wsNs.add(System.nanoTime() - wsStarted);
-                metrics.frames.increment();
-            }
+            mjpegHub.publish(cameraId, jpeg.bytes);
+            maybeNotifyStreamStarted(session, cameraId);
+            metrics.frames.increment();
             metrics.maybeLog(log, cameraId);
         } catch (Exception e) {
             session.notePollError(log, cameraId, e.getMessage());
@@ -289,8 +240,7 @@ public final class CameraStreamService implements AutoCloseable {
         if (outbound == null || session.connection == null || !session.connection.isOpen()) {
             return;
         }
-        String httpPath = "/api/camera/" + cameraId + "/current.jpg";
-        outbound.sendStreamStarted(session.connection, cameraId, session.fps, httpPath, mjpegPath(cameraId));
+        outbound.sendStreamStarted(session.connection, cameraId, session.fps, null, mjpegPath(cameraId));
         log.info("client_stream ws stream_started camera={} after first published frame", cameraId);
     }
 
@@ -305,14 +255,14 @@ public final class CameraStreamService implements AutoCloseable {
         return capture.header() == null ? "worker_error" : String.valueOf(capture.header());
     }
 
-    private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride, long shmOffset) {
+    private JpegBytes encodePreviewJpeg(int cameraId, String shmName, int width, int height, int stride, long shmOffset) {
         int previewMaxW = YamlScalars.toInt(uiCfg.get("client_preview_max_width"), 0);
         int qualPct = YamlScalars.toInt(uiCfg.get("client_preview_jpeg_quality"), 58);
         qualPct = Math.min(100, Math.max(5, qualPct));
         float q = qualPct / 100f;
-        UiHttpServer.ClientPreviewArtifact art = UiHttpServer.writeCurrentJpegFromBgrShm(
+        UiHttpServer.ClientPreviewBytes jpeg = UiHttpServer.encodeCurrentJpegFromBgrShm(
                 shmName, width, height, stride, shmOffset, previewMaxW, q, cameraId);
-        return new PathHolder(art.path(), art.width(), art.height(), art.error());
+        return new JpegBytes(jpeg.bytes(), jpeg.width(), jpeg.height(), jpeg.error());
     }
 
     @Override
@@ -353,7 +303,7 @@ public final class CameraStreamService implements AutoCloseable {
         }
     }
 
-    private record PathHolder(Path path, int width, int height, String error) {
+    private record JpegBytes(byte[] bytes, int width, int height, String error) {
     }
 
     private static final class StreamMetrics {
@@ -361,7 +311,6 @@ public final class CameraStreamService implements AutoCloseable {
 
         final LongAdder frames = new LongAdder();
         final LongAdder encodeNs = new LongAdder();
-        final LongAdder wsNs = new LongAdder();
         final AtomicLong lastLogAtMs = new AtomicLong(System.currentTimeMillis());
 
         void maybeLog(Logger log, int cameraId) {
@@ -375,17 +324,14 @@ public final class CameraStreamService implements AutoCloseable {
             }
             long frameCount = frames.sumThenReset();
             long encodeTotalNs = encodeNs.sumThenReset();
-            long wsTotalNs = wsNs.sumThenReset();
             double sec = LOG_EVERY_MS / 1000.0;
             double fps = frameCount / sec;
             double avgEncodeMs = frameCount == 0 ? 0.0 : (encodeTotalNs / 1_000_000.0) / frameCount;
-            double avgWsMs = frameCount == 0 ? 0.0 : (wsTotalNs / 1_000_000.0) / frameCount;
             log.info(
-                    "client_stream_stats camera={} fps={} avg_encode_ms={} avg_ws_send_ms={}",
+                    "client_stream_stats camera={} fps={} avg_encode_ms={}",
                     cameraId,
                     String.format("%.2f", fps),
-                    String.format("%.2f", avgEncodeMs),
-                    String.format("%.2f", avgWsMs)
+                    String.format("%.2f", avgEncodeMs)
             );
         }
     }

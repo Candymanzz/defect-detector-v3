@@ -86,17 +86,17 @@ export function resolveCardInspectImageUrl(
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
 ) {
-  if (
-    !inspectResult ||
-    !artifactInspectResult?.artifact_bundle_id ||
-    artifactInspectResult.frame_id !== inspectResult.frame_id
-  ) {
+  if (!inspectResult) {
     return undefined;
   }
 
-  return orchestratorApi.url(
-    `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
-  );
+  if (artifactInspectResult?.artifact_bundle_id && artifactInspectResult.frame_id === inspectResult.frame_id) {
+    return orchestratorApi.url(
+      `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
+    );
+  }
+
+  return createWsFrameImageUrl(inspectResult);
 }
 
 export function createModalInspectionSnapshot(

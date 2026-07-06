@@ -21,6 +21,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.MappedByteBuffer;
@@ -56,6 +57,16 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
 
         public static ClientPreviewArtifact failed(String error) {
             return new ClientPreviewArtifact(null, 0, 0, error);
+        }
+    }
+
+    public record ClientPreviewBytes(byte[] bytes, int width, int height, String error) {
+        public static ClientPreviewBytes ok(byte[] bytes, int width, int height) {
+            return new ClientPreviewBytes(bytes, width, height, null);
+        }
+
+        public static ClientPreviewBytes failed(String error) {
+            return new ClientPreviewBytes(null, 0, 0, error);
         }
     }
 
@@ -275,6 +286,25 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         return writePreviewJpeg(source, previewMaxWidth, quality, cameraId);
     }
 
+    public static ClientPreviewBytes encodeCurrentJpegFromBgrShm(
+            String shmName,
+            int width,
+            int height,
+            int stride,
+            long shmOffset,
+            int previewMaxWidth,
+            float quality,
+            int cameraId
+    ) {
+        BufferedImage source;
+        try {
+            source = readBgrImageFromShm(shmName, width, height, stride, shmOffset, cameraId);
+        } catch (Exception e) {
+            return previewBytesFailed(e.getMessage());
+        }
+        return encodePreviewJpeg(source, previewMaxWidth, quality);
+    }
+
     public static InspectionPreviewArtifacts writeInspectionJpegsFromBgrShm(
             String shmName,
             int width,
@@ -343,6 +373,38 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             float quality,
             int cameraId
     ) {
+        PreviewImage preview = preparePreviewImage(source, previewMaxWidth);
+        try {
+            Path out = cameraId >= 0
+                    ? writeStablePreviewJpeg(cameraId, preview.image, quality)
+                    : writeTempPreviewJpeg(preview.image, quality);
+            if (out == null) {
+                return previewJpegFailed("jpeg encode failed cameraId=" + cameraId);
+            }
+            return ClientPreviewArtifact.ok(out, preview.width, preview.height);
+        } catch (Exception e) {
+            return previewJpegFailed("exception: " + e.getMessage());
+        }
+    }
+
+    private static ClientPreviewBytes encodePreviewJpeg(
+            BufferedImage source,
+            int previewMaxWidth,
+            float quality
+    ) {
+        PreviewImage preview = preparePreviewImage(source, previewMaxWidth);
+        try {
+            byte[] bytes = encodeJpeg(preview.image, quality);
+            if (bytes == null || bytes.length == 0) {
+                return previewBytesFailed("jpeg encode failed");
+            }
+            return ClientPreviewBytes.ok(bytes, preview.width, preview.height);
+        } catch (Exception e) {
+            return previewBytesFailed("exception: " + e.getMessage());
+        }
+    }
+
+    private static PreviewImage preparePreviewImage(BufferedImage source, int previewMaxWidth) {
         int outW = source.getWidth();
         int outH = source.getHeight();
         BufferedImage output = source;
@@ -358,22 +420,17 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                 graphics.dispose();
             }
         }
-        try {
-            Path out = cameraId >= 0
-                    ? writeStablePreviewJpeg(cameraId, output, quality)
-                    : writeTempPreviewJpeg(output, quality);
-            if (out == null) {
-                return previewJpegFailed("jpeg encode failed cameraId=" + cameraId);
-            }
-            return ClientPreviewArtifact.ok(out, outW, outH);
-        } catch (Exception e) {
-            return previewJpegFailed("exception: " + e.getMessage());
-        }
+        return new PreviewImage(output, outW, outH);
     }
 
     private static ClientPreviewArtifact previewJpegFailed(String reason) {
         LOG.debug("preview jpeg failed: {}", reason);
         return ClientPreviewArtifact.failed(reason);
+    }
+
+    private static ClientPreviewBytes previewBytesFailed(String reason) {
+        LOG.debug("preview jpeg bytes failed: {}", reason);
+        return ClientPreviewBytes.failed(reason);
     }
 
     private static Path writeTempPreviewJpeg(BufferedImage image, float quality) throws IOException {
@@ -445,5 +502,31 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         } finally {
             writer.dispose();
         }
+    }
+
+    private static byte[] encodeJpeg(BufferedImage image, float quality) throws IOException {
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+        if (!writers.hasNext()) {
+            return null;
+        }
+        ImageWriter writer = writers.next();
+        float q = Math.min(1f, Math.max(0.05f, quality));
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            writer.setOutput(ios);
+            ImageWriteParam p = writer.getDefaultWriteParam();
+            if (p.canWriteCompressed()) {
+                p.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                p.setCompressionQuality(q);
+            }
+            writer.write(null, new IIOImage(image, null, null), p);
+            ios.flush();
+            return baos.toByteArray();
+        } finally {
+            writer.dispose();
+        }
+    }
+
+    private record PreviewImage(BufferedImage image, int width, int height) {
     }
 }

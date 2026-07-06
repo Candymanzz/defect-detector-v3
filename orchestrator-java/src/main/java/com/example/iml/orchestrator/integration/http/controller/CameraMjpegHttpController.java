@@ -11,7 +11,6 @@ import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Files;
 
 /**
  * {@code GET /api/camera/{id}/stream.mjpeg} — MJPEG пока активен клиентский стрим (WS {@code stream_start}).
@@ -19,11 +18,9 @@ import java.nio.file.Files;
 public final class CameraMjpegHttpController implements HttpController {
 
     private final CameraStreamServiceHolder streamHolder;
-    private final CameraPreviewStore previewStore;
 
     public CameraMjpegHttpController(CameraStreamServiceHolder streamHolder, CameraPreviewStore previewStore) {
         this.streamHolder = streamHolder;
-        this.previewStore = previewStore;
     }
 
     @Override
@@ -57,29 +54,11 @@ public final class CameraMjpegHttpController implements HttpController {
         ex.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
         ex.getResponseHeaders().set("Connection", "close");
         ex.sendResponseHeaders(200, 0);
-        byte[] bootstrap = readBootstrapJpeg(cameraId);
         try (OutputStream os = ex.getResponseBody()) {
-            streams.mjpegHub().serve(cameraId, os, bootstrap, null);
+            streams.mjpegHub().serve(cameraId, os, null, null);
         } catch (IOException e) {
             // клиент отключился
         }
-    }
-
-    private byte[] readBootstrapJpeg(int cameraId) {
-        if (previewStore == null) {
-            return null;
-        }
-        return previewStore.latest(cameraId)
-                .map(CameraPreviewStore.Latest::currentJpeg)
-                .filter(path -> path != null && Files.isRegularFile(path))
-                .map(path -> {
-                    try {
-                        return Files.readAllBytes(path);
-                    } catch (IOException e) {
-                        return null;
-                    }
-                })
-                .orElse(null);
     }
 
     private static int parseCameraId(String uri) {
