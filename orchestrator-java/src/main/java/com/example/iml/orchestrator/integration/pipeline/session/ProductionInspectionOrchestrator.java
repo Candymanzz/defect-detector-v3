@@ -26,10 +26,11 @@ public final class ProductionInspectionOrchestrator {
             ReferenceSource referenceSource,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
             PerCameraInspectionGate inspectionGate,
-            long inspectionCycleTimeoutMs
+            long inspectionCycleTimeoutMs,
+            boolean captureWithoutReference
     ) throws Exception {
         boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
-        logTriggerMode(svc, in, triggerMode, triggerStrategy, referenceFromClient);
+        logTriggerMode(svc, in, triggerMode, triggerStrategy, referenceFromClient, captureWithoutReference);
         runTriggerDrivenLoop(
                 svc,
                 in,
@@ -37,7 +38,8 @@ public final class ProductionInspectionOrchestrator {
                 referenceFromClient,
                 referenceByCamera,
                 inspectionGate,
-                inspectionCycleTimeoutMs
+                inspectionCycleTimeoutMs,
+                captureWithoutReference
         );
     }
 
@@ -46,14 +48,20 @@ public final class ProductionInspectionOrchestrator {
             AsyncInspectionCycleInput in,
             IntegrationFeatureConfig.InspectionTriggerMode mode,
             InspectionTriggerStrategy strategy,
-            boolean referenceFromClient
+            boolean referenceFromClient,
+            boolean captureWithoutReference
     ) {
         int cameraId = in.cameraId();
         switch (mode) {
             case TIMER -> {
-                if (referenceFromClient) {
+                if (referenceFromClient && !captureWithoutReference) {
                     svc.log().info(
                             "integration cam={}: timer trigger — inspection only after client.reference_bundle",
+                            cameraId
+                    );
+                } else if (referenceFromClient) {
+                    svc.log().info(
+                            "integration cam={}: timer trigger — capture without reference enabled",
                             cameraId
                     );
                 } else {
@@ -65,9 +73,14 @@ public final class ProductionInspectionOrchestrator {
             }
             case CONTINUOUS -> svc.log().info("integration cam={}: continuous_inspection enabled", cameraId);
             case EXTERNAL -> {
-                if (referenceFromClient) {
+                if (referenceFromClient && !captureWithoutReference) {
                     svc.log().info(
                             "integration cam={}: waiting for external trigger (e.g. UDP) after client.reference_bundle",
+                            cameraId
+                    );
+                } else if (referenceFromClient) {
+                    svc.log().info(
+                            "integration cam={}: waiting for external trigger — capture without reference, full inspection after reference_bundle",
                             cameraId
                     );
                 } else {
@@ -88,7 +101,8 @@ public final class ProductionInspectionOrchestrator {
             boolean referenceFromClient,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
             PerCameraInspectionGate inspectionGate,
-            long inspectionCycleTimeoutMs
+            long inspectionCycleTimeoutMs,
+            boolean captureWithoutReference
     ) throws Exception {
         while (!Thread.currentThread().isInterrupted()) {
             InspectionTriggerEvent event = triggerStrategy.awaitNext(in.cameraId());
@@ -99,6 +113,7 @@ public final class ProductionInspectionOrchestrator {
                     referenceByCamera,
                     inspectionGate,
                     inspectionCycleTimeoutMs,
+                    captureWithoutReference,
                     event
             );
             int delay = triggerStrategy.postCycleDelayMs();
@@ -115,6 +130,7 @@ public final class ProductionInspectionOrchestrator {
             Map<Integer, ReferenceSnapshot> referenceByCamera,
             PerCameraInspectionGate inspectionGate,
             long inspectionCycleTimeoutMs,
+            boolean captureWithoutReference,
             InspectionTriggerEvent event
     ) {
         PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId());
@@ -136,7 +152,8 @@ public final class ProductionInspectionOrchestrator {
         }
         long inspectionId = 0L;
         try {
-            AsyncInspectionCycleInput cycleIn = resolveCycleInput(in, referenceFromClient, referenceByCamera);
+            AsyncInspectionCycleInput cycleIn = resolveCycleInput(
+                    in, referenceFromClient, referenceByCamera, captureWithoutReference);
             if (cycleIn == null) {
                 if (referenceFromClient) {
                     svc.log().debug(
@@ -149,12 +166,22 @@ public final class ProductionInspectionOrchestrator {
             cycleIn = cycleIn.withTriggerSequence(event.sequence());
             inspectionId = inspectionGate.nextInspectionId(in.cameraId());
             cycleIn = cycleIn.withInspectionId(inspectionId);
-            svc.log().info(
-                    "integration cam={}: inspection started inspection_id={} source={}",
-                    in.cameraId(),
-                    inspectionId,
-                    event.source()
-            );
+            boolean captureOnly = cycleIn.activeReference() == null || !cycleIn.activeReference().isUsable();
+            if (captureOnly) {
+                svc.log().info(
+                        "integration cam={}: capture started capture_id={} source={} (no reference — frame only)",
+                        in.cameraId(),
+                        inspectionId,
+                        event.source()
+                );
+            } else {
+                svc.log().info(
+                        "integration cam={}: inspection started inspection_id={} source={}",
+                        in.cameraId(),
+                        inspectionId,
+                        event.source()
+                );
+            }
             AsyncInspectionCycleRunner.run(svc, cycleIn, null, inspectionCycleTimeoutMs, inspectionGate);
         } catch (TimeoutException e) {
             svc.log().warn(
@@ -180,14 +207,15 @@ public final class ProductionInspectionOrchestrator {
     private static AsyncInspectionCycleInput resolveCycleInput(
             AsyncInspectionCycleInput in,
             boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera
+            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            boolean captureWithoutReference
     ) {
         if (!referenceFromClient) {
             return in;
         }
         ReferenceSnapshot ref = referenceByCamera.get(in.cameraId());
         if (ref == null) {
-            return null;
+            return captureWithoutReference ? in : null;
         }
         String productType = ref.productType() != null && !ref.productType().isBlank()
                 ? ref.productType()

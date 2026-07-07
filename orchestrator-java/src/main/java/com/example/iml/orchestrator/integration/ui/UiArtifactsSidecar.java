@@ -368,6 +368,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         );
                         if (ws != null) {
                             try {
+                                String frameHttpPath = resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur);
                                 ws.notifyInspectResult(
                                         cameraId,
                                         productType,
@@ -378,11 +379,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                         null,
                                         0,
                                         0,
-                                        resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur),
+                                        frameHttpPath,
                                         null,
                                         false,
                                         bundleId
                                 );
+                                if (activeReference == null || activeReference.header() == null) {
+                                    ws.notifyPreviewFrame(cameraId, productType, detectorId, cap, frameHttpPath);
+                                }
                             } catch (Exception e) {
                                 log.debug("client_ws inspect_result frame-ready cam={}: {}", cameraId, e.getMessage());
                             }

@@ -44,7 +44,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
                   key={camera.cameraId}
                   cameraId={camera.cameraId}
                   objectName={camera.objectName}
-                  imageUrl={controller.hasReference ? inspectImageUrl : camera.imageUrl}
+                  imageUrl={inspectImageUrl ?? camera.imageUrl}
                   currentFrameId={controller.previewFrameIdsByCameraId[camera.cameraId]}
                   inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}

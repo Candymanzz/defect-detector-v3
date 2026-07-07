@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.trigger.config;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 
 import java.util.Map;
 
@@ -12,11 +13,13 @@ public record IoInputDiscreteConfig(
         int directionPort,
         int triggerPort,
         int debounceMs,
-        String payloadFormat
+        String payloadFormat,
+        boolean stubWorkActive,
+        TriggerEdgeMode triggerEdge
 ) {
 
     public static IoInputDiscreteConfig defaults() {
-        return new IoInputDiscreteConfig(1, 2, 3, 100, "json");
+        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING);
     }
 
     public static IoInputDiscreteConfig parse(Map<String, Object> integration, int udpDebounceMs) {
@@ -43,7 +46,17 @@ public record IoInputDiscreteConfig(
         String payloadFormat = io.get("payload_format") != null
                 ? String.valueOf(io.get("payload_format")).trim().toLowerCase()
                 : defaults.payloadFormat();
-        return new IoInputDiscreteConfig(workPort, directionPort, triggerPort, debounceMs, payloadFormat);
+        boolean stubWorkActive = YamlScalars.toBool(io.get("stub_work_active"), defaults.stubWorkActive());
+        TriggerEdgeMode triggerEdge = TriggerEdgeMode.fromConfig(io.get("trigger_edge"));
+        return new IoInputDiscreteConfig(
+                workPort,
+                directionPort,
+                triggerPort,
+                debounceMs,
+                payloadFormat,
+                stubWorkActive,
+                triggerEdge
+        );
     }
 
     private static IoInputDiscreteConfig withDebounce(IoInputDiscreteConfig defaults, int udpDebounceMs) {
@@ -53,7 +66,9 @@ public record IoInputDiscreteConfig(
                 defaults.directionPort(),
                 defaults.triggerPort(),
                 debounceMs,
-                defaults.payloadFormat()
+                defaults.payloadFormat(),
+                defaults.stubWorkActive(),
+                defaults.triggerEdge()
         );
     }
 

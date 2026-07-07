@@ -25,20 +25,26 @@ orchestrator:
 # camera — эталон снимается с камеры при старте; client — только client.reference_bundle по WebSocket.
 integration:
   reference_source: client
-  # Preview + вспышка On/Off по таймеру — всегда, без эталона. Инспекция — только после reference_bundle.
+  # Съёмка по внешнему триггеру даже без client.reference_bundle (geometry/python — после эталона).
+  capture_without_reference: true
+  # Автосъёмка для UI отключена — кадры только по внешнему триггеру (IoInputMonitor → inspection_trigger).
   live_preview:
-    enabled: true
+    enabled: false
     flash_on_tick: false
-    # Реже инспекции (3.5 с), чтобы preview не конкурировал с GigE при 10 камерах.
     interval_ms: 8000
   camera_parallelism: 10
   # 0 = все камеры получают триггер одновременно; разнесение трафика — GevSCFTD в camera-worker.
   capture_trigger_stagger_ms: 0
   simultaneous_line_capture:
     enabled: true
-    barrier_wait_ms: 1500
-    post_trigger_settle_ms: 50
-    inter_wait_frame_ms: 120
+    barrier_wait_ms: 100
+    post_trigger_settle_ms: 0
+    inter_wait_frame_ms: 0
+    parallel_wait_frame: true
+    # true = trigger_only сразу по UDP на все 10 камер параллельно (экспозиция без ожидания барьера Java).
+    # Барьер Java-потоков добавлял десятки–сотни мс — при быстром конвейере ведро уже уехало.
+    # Одновременность съёмки: invokeAll(trigger_only) на все камеры в один момент.
+    immediate_prefire: true
   geometry_pool_size: 10
   python_parallelism: 10
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
@@ -76,14 +82,18 @@ integration:
       bind_port: 9100
       # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер
       format: io_input
-      debounce_ms: 100
+      debounce_ms: 0
       # allowed_remote_hosts: ["127.0.0.1"]
     io_input:
       work_port: 1
       direction_port: 2
       trigger_port: 3
+      # rising = съёмка при замыкании DI3 (0→1); falling = при размыкании (1→0)
+      trigger_edge: rising
       payload_format: json
-      debounce_ms: 100
+      debounce_ms: 0
+      # Временно: DI1 считается активным без сигнала (пока плохо подключён).
+      stub_work_active: true
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20

@@ -30,6 +30,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
     private final boolean downscaleInspectionCapture;
     private final boolean downscaleReferenceCapture;
     private final boolean downscaleClientReferenceBundle;
+    private final boolean captureWithoutReference;
     private volatile CameraStreamService cameraStreamService;
     private volatile LineSynchronizedCaptureCoordinator lineCaptureCoordinator;
 
@@ -39,7 +40,8 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             CaptureFrameDownscaleService captureDownscale,
             boolean downscaleInspectionCapture,
             boolean downscaleReferenceCapture,
-            boolean downscaleClientReferenceBundle
+            boolean downscaleClientReferenceBundle,
+            boolean captureWithoutReference
     ) {
         this.log = log;
         this.jpegWriter = jpegWriter;
@@ -47,6 +49,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
         this.downscaleInspectionCapture = downscaleInspectionCapture;
         this.downscaleReferenceCapture = downscaleReferenceCapture;
         this.downscaleClientReferenceBundle = downscaleClientReferenceBundle;
+        this.captureWithoutReference = captureWithoutReference;
     }
 
     public void setCameraStreamService(CameraStreamService cameraStreamService) {
@@ -126,7 +129,10 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
     ) {
         try {
             if (activeReference == null || activeReference.header() == null) {
-                throw new IllegalStateException("no reference snapshot; wait for reference bootstrap or send client.reference_bundle");
+                if (!captureWithoutReference) {
+                    throw new IllegalStateException(
+                            "no reference snapshot; wait for reference bootstrap or send client.reference_bundle");
+                }
             }
             CameraStreamService streams = cameraStreamService;
             if (streams != null && streams.isStreaming(cameraId)) {
@@ -134,7 +140,9 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                         "camera " + cameraId + " client stream is active; send client.stream_stop before inspection capture");
             }
             long t0 = System.nanoTime();
-            long refFrameId = YamlScalars.toLong(activeReference.header().get("frame_id"), -1L);
+            long refFrameId = activeReference != null && activeReference.header() != null
+                    ? YamlScalars.toLong(activeReference.header().get("frame_id"), -1L)
+                    : -1L;
             final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
             LineSynchronizedCaptureCoordinator lineCapture = lineCaptureCoordinator;
             lightClient.runCaptureWithLighting(cameraId, refFrameId, "capture", flashLeadMs, () -> {

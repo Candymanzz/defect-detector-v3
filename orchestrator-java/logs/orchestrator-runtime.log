@@ -19099,3 +19099,273 @@ java.io.IOException: EOF
 2026-07-05 14:00:26.848 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
 2026-07-05 14:00:26.851 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
 2026-07-05 14:00:26.851 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-06 14:00:49.003 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-06 14:00:49.008 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-06 14:00:49.010 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-06 14:00:49.011 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-06 14:00:49.048 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-06 14:00:49.049 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-06 14:00:49.049 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-06 14:00:49.049 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-06 14:00:49.049 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-06 14:00:49.050 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-06 14:00:49.050 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-06 14:00:49.050 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-06 14:00:49.051 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-06 14:00:49.051 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-06 20:55:25.857 INFO  [main] c.e.i.o.c.StartupConfigurationReporter - ???????????: ????? ? ???????? ?????? 1 (D:\visionGay\defect-detector-v3\config\config.yaml) — ?????: 10
+2026-07-06 20:55:25.859 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   control_pipe: \\.\pipe\iml-orchestrator
+2026-07-06 20:55:25.859 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   control_pipe_linux: /tmp/iml-orchestrator.sock
+2026-07-06 20:55:25.860 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   client.url: ws://127.0.0.1:8765
+2026-07-06 20:55:25.860 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   client_ws: enabled=true host=127.0.0.1 port=8765 path=/
+2026-07-06 20:55:25.861 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - configured cameras: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+2026-07-06 20:55:25.874 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - capture_frame_downscale enabled scale=0.5 apply_inspection=true apply_reference=true apply_client_reference=true
+2026-07-06 20:55:25.886 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface with command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-07-06 20:55:31.198 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analisSurface ready index=0 url=http://127.0.0.1:8000 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000] cwd=D:\visionGay\defect-detector-v3\analisSurface\backend
+2026-07-06 20:55:31.198 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analisSurface pool ready size=1 ports=8000..8000
+2026-07-06 20:55:31.280 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-0->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.284 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-1->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.289 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-2->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.293 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-3->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.297 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-4->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.301 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-5->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.306 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-6->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.310 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-7->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.313 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-8->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.318 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-9->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-5e45df4b6cd4} base_url=http://127.0.0.1:8000
+2026-07-06 20:55:31.318 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - python detector transport=http servers=1 clients=10 autostart=true urls=[http://127.0.0.1:8000]
+2026-07-06 20:55:31.322 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-07-06 20:55:32.293 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-0 health => {status=ok, service=java-geometry-service}
+2026-07-06 20:55:32.294 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-07-06 20:55:33.193 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-1 health => {status=ok, service=java-geometry-service}
+2026-07-06 20:55:33.194 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-07-06 20:55:34.191 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-2 health => {status=ok, service=java-geometry-service}
+2026-07-06 20:55:34.192 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-07-06 20:55:35.107 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-3 health => {service=java-geometry-service, status=ok}
+2026-07-06 20:55:35.108 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-07-06 20:55:36.035 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-4 health => {status=ok, service=java-geometry-service}
+2026-07-06 20:55:36.036 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-07-06 20:55:36.986 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-5 health => {status=ok, service=java-geometry-service}
+2026-07-06 20:55:36.987 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-07-06 20:55:37.952 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-6 health => {status=ok, service=java-geometry-service}
+2026-07-06 20:55:37.953 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-07-06 20:55:38.872 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-7 health => {status=ok, service=java-geometry-service}
+2026-07-06 20:55:38.873 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-07-06 20:55:39.780 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-8 health => {service=java-geometry-service, status=ok}
+2026-07-06 20:55:39.781 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-07-06 20:55:40.695 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-9 health => {service=java-geometry-service, status=ok}
+2026-07-06 20:55:40.696 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server with command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-07-06 20:55:48.698 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - started light-server (LightServer.v3) command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080] contentRoot=D:\visionGay\defect-detector-v3
+2026-07-06 20:55:48.699 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - light_servers flash_lead_ms=80 (????? ????? ?????? POST ???????, ????? capture)
+2026-07-06 20:55:48.702 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration.reference_source=client — ?????? ?????? ????? client.reference_bundle (WebSocket)
+2026-07-06 20:55:48.719 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui http started on 127.0.0.1:8099 (front controller)
+2026-07-06 20:55:48.739 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - client_api enabled (same port as ui_http): kopcheni_proxy=true kopcheni_base_url=http://127.0.0.1:8000
+2026-07-06 20:55:48.739 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui visuals use analisSurface HTTP (analis-surface-http-0->srv0) async_enabled=true store_heatmap_u8=true
+2026-07-06 20:55:48.740 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui artifact publisher started parallelism=2 queue_size=8
+2026-07-06 20:55:48.740 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - camera_worker config=D:\visionGay\defect-detector-v3\config\config.json
+2026-07-06 20:55:48.741 INFO  [WebSocketSelector-51] c.e.i.o.i.b.IntegrationBootstrap - client_ws listening ws://127.0.0.1:8765/ replace_session=true read_idle_timeout_ms=90000 ping_interval_ms=20000
+2026-07-06 20:55:48.742 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - timing_stages_log enabled jsonl=D:\visionGay\defect-detector-v3\logs\pipeline-stages.jsonl (????? .txt ? ??? ?? ??????? ??????)
+2026-07-06 20:55:48.749 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=192.168.1.100:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=200
+2026-07-06 20:55:48.750 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration parallel settings: camera_parallelism=10 geometry_pool_size=10
+2026-07-06 20:55:48.752 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-07-06 20:55:49.743 INFO  [WebSocketWorker-38] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.hello session_state=NO_REFERENCE
+2026-07-06 20:55:49.746 INFO  [WebSocketWorker-38] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_enable
+2026-07-06 20:55:51.216 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=0 health type=2 header={status=ok, service=camera-worker, camera_id=0, detector=v1, ip=169.254.183.102, shm_name=/iml_cam_0_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:55:52.423 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-07-06 20:55:54.887 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=1 health type=2 header={status=ok, service=camera-worker, camera_id=1, detector=v1, ip=169.254.183.101, shm_name=/iml_cam_1_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:55:56.089 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-07-06 20:55:58.523 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=2 health type=2 header={status=ok, service=camera-worker, camera_id=2, detector=v1, ip=169.254.28.111, shm_name=/iml_cam_2_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:55:59.730 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-07-06 20:56:02.176 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=3 health type=2 header={status=ok, service=camera-worker, camera_id=3, detector=v1, ip=169.254.28.112, shm_name=/iml_cam_3_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:56:03.380 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-07-06 20:56:05.818 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=4 health type=2 header={status=ok, service=camera-worker, camera_id=4, detector=v1, ip=169.254.137.105, shm_name=/iml_cam_4_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:56:07.020 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-07-06 20:56:09.448 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=5 health type=2 header={status=ok, service=camera-worker, camera_id=5, detector=v1, ip=169.254.137.106, shm_name=/iml_cam_5_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:56:10.661 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-07-06 20:56:13.090 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=6 health type=2 header={status=ok, service=camera-worker, camera_id=6, detector=v1, ip=169.254.28.1, shm_name=/iml_cam_6_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:56:14.299 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-07-06 20:56:16.733 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=7 health type=2 header={status=ok, service=camera-worker, camera_id=7, detector=v1, ip=169.254.28.9, shm_name=/iml_cam_7_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:56:17.947 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-07-06 20:56:20.377 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=8 health type=2 header={status=ok, service=camera-worker, camera_id=8, detector=v1, ip=169.254.213.107, shm_name=/iml_cam_8_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:56:21.593 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-07-06 20:56:24.020 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - worker cam=9 health type=2 header={status=ok, service=camera-worker, camera_id=9, detector=v1, ip=169.254.213.108, shm_name=/iml_cam_9_frame, ring_slots=4, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-07-06 20:56:25.231 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - client_stream ready default_max_fps=20 cap=30
+2026-07-06 20:56:25.233 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - pipeline settings: queue_size=20 python_parallelism=10
+2026-07-06 20:56:25.244 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection bucket enabled groups=[BucketGroup[id=0, cameraIds=[0, 1, 2, 3, 4]], BucketGroup[id=1, cameraIds=[5, 6, 7, 8, 9]]] cameras=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9] timeout_ms=3500 line_broadcast_interval_ms=3500
+2026-07-06 20:56:25.245 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=1500 post_trigger_settle_ms=50 inter_wait_frame_ms=120
+2026-07-06 20:56:25.249 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection_trigger external io_input 0.0.0.0:9100 di=1/2/3 trigger_edge=FALLING payload_format=json debounce_ms=100 stub_work=true
+2026-07-06 20:56:25.249 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.249 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger listening 0.0.0.0:9100 payload_format=json di=1/2/3 trigger_edge=FALLING debounce_ms=100 stub_work=true
+2026-07-06 20:56:25.249 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection gate per-camera in-flight enabled timeout_ms=3500 cameras=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=1: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=2: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=7: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=8: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=6: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=4: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=5: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=3: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.252 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=9: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.253 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=0: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:25.254 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-07-06 20:56:26.267 WARN  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins worker error: FINS timeout host=192.168.1.100:9600
+2026-07-06 20:56:32.202 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:56:34.749 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:56:41.439 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:56:42.965 INFO  [WebSocketSelector-51] c.e.i.o.i.b.IntegrationBootstrap - client_ws closed code=1001 reason= remote=true
+2026-07-06 20:56:43.053 INFO  [WebSocketWorker-39] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.hello session_state=NO_REFERENCE
+2026-07-06 20:56:43.058 INFO  [WebSocketWorker-39] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_enable
+2026-07-06 20:56:43.059 INFO  [WebSocketWorker-39] c.e.i.o.i.b.IntegrationBootstrap - client_ws preview images enabled
+2026-07-06 20:56:44.017 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:56:49.247 INFO  [WebSocketSelector-51] c.e.i.o.i.b.IntegrationBootstrap - client_ws closed code=1006 reason= remote=true
+2026-07-06 20:56:50.739 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:56:53.282 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:56:59.988 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:57:02.558 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:57:09.286 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:57:11.828 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:57:18.565 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:57:21.125 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:57:21.469 INFO  [WebSocketWorker-40] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.hello session_state=NO_REFERENCE
+2026-07-06 20:57:21.474 INFO  [WebSocketWorker-40] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_enable
+2026-07-06 20:57:21.474 INFO  [WebSocketWorker-40] c.e.i.o.i.b.IntegrationBootstrap - client_ws preview images enabled
+2026-07-06 20:57:27.840 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:57:30.411 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:57:37.118 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:57:39.678 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:57:46.412 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:57:48.982 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:57:55.673 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:57:58.225 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:58:04.960 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:58:07.527 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:58:14.253 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:58:16.808 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:58:23.559 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:58:26.122 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:58:32.847 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:58:35.413 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:58:42.115 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:58:44.657 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:58:51.405 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:58:53.952 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:59:00.670 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:59:03.233 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:59:09.959 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:59:12.523 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:59:19.229 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:59:21.774 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:59:28.508 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:59:31.084 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:59:37.816 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:59:40.372 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:59:47.089 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:59:49.644 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 20:59:56.369 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 20:59:58.931 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:00:05.637 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:00:08.213 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:00:14.925 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:00:17.503 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:00:24.208 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:00:26.786 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:00:33.497 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:00:36.055 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:00:42.785 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:00:45.322 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:00:52.041 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:00:54.635 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:01:01.324 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:01:03.890 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:01:10.611 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:01:13.171 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:01:19.886 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:01:22.427 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:01:29.155 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:01:31.721 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:01:38.431 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:01:41.002 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:01:47.716 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:01:50.254 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:01:56.953 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:01:59.508 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:02:06.216 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:02:08.776 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:02:15.496 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:02:18.053 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:02:24.763 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:02:27.334 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:02:34.045 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:02:36.622 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:02:43.319 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:02:45.874 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:02:52.594 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:02:55.151 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:03:01.887 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:03:04.445 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:03:11.174 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:03:13.751 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:03:20.467 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:03:23.025 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:03:29.757 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:03:32.306 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:03:39.039 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:03:41.596 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:03:48.328 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:03:50.885 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:03:57.615 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:04:00.170 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:04:06.890 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:04:09.451 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:04:16.183 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:04:18.743 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:04:25.437 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:04:28.000 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:04:34.731 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:04:37.276 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:04:44.019 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:04:46.585 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:04:53.279 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:04:55.872 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:05:02.629 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:05:05.221 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:05:11.977 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:05:14.555 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:05:21.290 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:05:23.828 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:05:30.545 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:05:33.116 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:05:39.833 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:05:42.396 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:05:49.134 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:05:51.699 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:05:58.419 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:06:00.982 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:06:07.699 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:06:10.263 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:06:16.999 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:06:19.536 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:06:26.261 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:06:28.839 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:06:35.575 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:06:38.137 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:06:44.823 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:06:47.381 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:06:54.117 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:06:56.674 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:07:03.404 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:07:05.947 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:07:12.638 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:07:15.206 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:07:21.908 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-06 21:07:24.478 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
+2026-07-06 21:07:31.186 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1

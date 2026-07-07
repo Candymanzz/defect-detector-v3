@@ -28,6 +28,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     private final AtomicLong sequence = new AtomicLong(0);
     private final int captureTriggerStaggerMs;
     private final ScheduledExecutorService staggerScheduler;
+    private volatile LineTriggerListener lineTriggerListener;
 
     public InspectionTriggerBus(Collection<Integer> cameraIds) {
         this(cameraIds, 0);
@@ -51,6 +52,10 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return perCamera.containsKey(cameraId);
     }
 
+    public void setLineTriggerListener(LineTriggerListener lineTriggerListener) {
+        this.lineTriggerListener = lineTriggerListener;
+    }
+
     /** Публикует событие; broadcast — во все очереди; неизвестная камера — false. */
     public boolean publish(InspectionTriggerEvent raw) {
         if (raw.broadcast()) {
@@ -63,6 +68,10 @@ public final class InspectionTriggerBus implements AutoCloseable {
     public int publishBroadcast(InspectionTriggerEvent raw) {
         long seq = sequence.incrementAndGet();
         Instant receivedAt = raw.receivedAt() == null ? java.time.Instant.now() : raw.receivedAt();
+        LineTriggerListener listener = lineTriggerListener;
+        if (listener != null) {
+            listener.onLineTrigger(seq, receivedAt);
+        }
         List<Integer> cameraIds = new ArrayList<>(perCamera.keySet());
         Collections.sort(cameraIds);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {

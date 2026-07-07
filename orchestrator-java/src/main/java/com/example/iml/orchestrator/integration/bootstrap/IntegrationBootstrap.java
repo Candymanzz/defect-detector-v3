@@ -133,7 +133,8 @@ public final class IntegrationBootstrap {
                 captureDownscaleService,
                 captureDownscaleCfg.applyToInspectionCapture(),
                 captureDownscaleCfg.applyToReferenceCapture(),
-                captureDownscaleCfg.applyToClientReferenceBundle()
+                captureDownscaleCfg.applyToClientReferenceBundle(),
+                IntegrationFeatureConfig.parseCaptureWithoutReference(integration)
         );
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
         ReferenceSnapshotBootstrap referenceBootstrap = new ReferenceSnapshotBootstrap(log, captureCoordinator, pipelineTelemetry);
@@ -417,13 +418,18 @@ public final class IntegrationBootstrap {
             long lineCaptureBarrierMs = parseSimultaneousLineCaptureBarrierMs(integration);
             long postTriggerSettleMs = parseSimultaneousLineCapturePostTriggerSettleMs(integration);
             long interWaitFrameMs = parseSimultaneousLineCaptureInterWaitFrameMs(integration);
+            boolean parallelWaitFrame = parseSimultaneousLineCaptureParallelWaitFrame(integration);
+            boolean immediatePrefire = parseSimultaneousLineCaptureImmediatePrefire(integration);
             if (lineCaptureSyncEnabled && inspectionCameraIds.size() > 1) {
                 lineCaptureCoordinator = new LineSynchronizedCaptureCoordinator(
                         inspectionCameraIds,
                         lineCaptureBarrierMs,
                         postTriggerSettleMs,
-                        interWaitFrameMs
+                        interWaitFrameMs,
+                        parallelWaitFrame,
+                        immediatePrefire
                 );
+                lineCaptureCoordinator.bindWorkers(workersByCamera);
                 captureCoordinator.setLineCaptureCoordinator(lineCaptureCoordinator);
             } else if (cfg.captureTriggerStaggerMs() > 0) {
                 log.info(
@@ -457,6 +463,16 @@ public final class IntegrationBootstrap {
                     refreshVisionReady,
                     triggerRuntimeHolder
             );
+            if (lineCaptureCoordinator != null) {
+                final LineSynchronizedCaptureCoordinator lineCaptureRef = lineCaptureCoordinator;
+                triggerRuntime.bus().setLineTriggerListener((seq, at) -> {
+                    if (inspectionGate.hasAnyInspectionInFlight()) {
+                        log.debug("line prefire skipped seq={} — previous inspection in flight", seq);
+                        return;
+                    }
+                    lineCaptureRef.prefireLineTrigger(seq, at.toEpochMilli());
+                });
+            }
             InspectionTriggerStrategy sharedTriggerStrategy;
             if (bucketInspectionConfig.enabled()) {
                 if (triggerMode != IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
@@ -496,14 +512,16 @@ public final class IntegrationBootstrap {
                 InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
                 if (triggerCfg.usesIoInputMonitor()) {
                     log.info(
-                            "inspection_trigger external io_input {}:{} di={}/{}/{} payload_format={} debounce_ms={}",
+                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} payload_format={} debounce_ms={} stub_work={}",
                             triggerCfg.udp().bindHost(),
                             triggerCfg.udp().bindPort(),
                             triggerCfg.ioInput().workPort(),
                             triggerCfg.ioInput().directionPort(),
                             triggerCfg.ioInput().triggerPort(),
+                            triggerCfg.ioInput().triggerEdge(),
                             triggerCfg.ioInput().payloadFormat(),
-                            triggerCfg.ioInput().debounceMs()
+                            triggerCfg.ioInput().debounceMs(),
+                            triggerCfg.ioInput().stubWorkActive()
                     );
                 } else if (triggerCfg.udp().enabled()) {
                     log.info(
@@ -517,6 +535,10 @@ public final class IntegrationBootstrap {
                 }
             }
             int inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(integration);
+            boolean captureWithoutReference = IntegrationFeatureConfig.parseCaptureWithoutReference(integration);
+            if (captureWithoutReference) {
+                log.info("integration capture_without_reference enabled — trigger capture without client.reference_bundle");
+            }
             log.info(
                     "inspection gate per-camera in-flight enabled timeout_ms={} cameras={}",
                     inspectionCycleTimeoutMs,
@@ -573,7 +595,8 @@ public final class IntegrationBootstrap {
                             pipelineStagesLog,
                             inspectionGate,
                             inspectionCycleTimeoutMs,
-                            activeBucketAggregator
+                            activeBucketAggregator,
+                            captureWithoutReference
                     );
                     return null;
                 });
@@ -668,34 +691,56 @@ public final class IntegrationBootstrap {
 
     private static long parseSimultaneousLineCaptureBarrierMs(Map<String, Object> integration) {
         if (integration == null) {
-            return 1500L;
+            return 250L;
         }
         Object raw = integration.get("simultaneous_line_capture");
         if (!(raw instanceof Map<?, ?> map)) {
-            return 1500L;
+            return 250L;
         }
-        return Math.max(100L, YamlScalars.toLong(map.get("barrier_wait_ms"), 1500L));
+        return Math.max(50L, YamlScalars.toLong(map.get("barrier_wait_ms"), 250L));
+    }
+
+    private static boolean parseSimultaneousLineCaptureParallelWaitFrame(Map<String, Object> integration) {
+        if (integration == null) {
+            return true;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return true;
+        }
+        return YamlScalars.toBool(map.get("parallel_wait_frame"), true);
+    }
+
+    private static boolean parseSimultaneousLineCaptureImmediatePrefire(Map<String, Object> integration) {
+        if (integration == null) {
+            return true;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return true;
+        }
+        return YamlScalars.toBool(map.get("immediate_prefire"), true);
     }
 
     private static long parseSimultaneousLineCapturePostTriggerSettleMs(Map<String, Object> integration) {
         if (integration == null) {
-            return 50L;
+            return 0L;
         }
         Object raw = integration.get("simultaneous_line_capture");
         if (!(raw instanceof Map<?, ?> map)) {
-            return 50L;
+            return 0L;
         }
-        return Math.max(0L, YamlScalars.toLong(map.get("post_trigger_settle_ms"), 50L));
+        return Math.max(0L, YamlScalars.toLong(map.get("post_trigger_settle_ms"), 0L));
     }
 
     private static long parseSimultaneousLineCaptureInterWaitFrameMs(Map<String, Object> integration) {
         if (integration == null) {
-            return 60L;
+            return 0L;
         }
         Object raw = integration.get("simultaneous_line_capture");
         if (!(raw instanceof Map<?, ?> map)) {
-            return 60L;
+            return 0L;
         }
-        return Math.max(0L, YamlScalars.toLong(map.get("inter_wait_frame_ms"), 60L));
+        return Math.max(0L, YamlScalars.toLong(map.get("inter_wait_frame_ms"), 0L));
     }
 }

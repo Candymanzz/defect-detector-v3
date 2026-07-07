@@ -57,7 +57,7 @@
       "id": 3,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.28.219112",
+      "ip": "169.254.28.112",
       "analysis_profile": "bench-lan4",
       "exposure_us": 12000,
       "capture_trigger_mode": "software",
@@ -206,7 +206,6 @@
     "settle_delay_ms": 100
   },
   "integration": {
-    "camera_parallelism": 10,
     "geometry_pool_size": 10,
     "python_parallelism": 10,
     "python_server_pool_size": 1,
@@ -218,7 +217,7 @@
     "worker_named_pipe_template": "\\\\.\\pipe\\iml-camera-%d-binary",
     "worker_named_pipe_template_linux": "/tmp/iml-camera-%d.pipe",
     "worker_named_pipe_connect_timeout_ms": 3000,
-    "light_server_startup_delay_ms": 5000,
+    "light_server_startup_delay_ms": 8000,
     "inspection_cycle_timeout_ms": 3500,
     "inspection_bucket": {
       "enabled": true,
@@ -227,7 +226,7 @@
       "line_broadcast_interval_ms": 3500
     },
     "continuous_inspection": {
-      "enabled": true,
+      "enabled": false,
       "cycle_delay_ms": 3500
     },
     "capture_frame_downscale": {
@@ -237,10 +236,12 @@
       "apply_to_reference_capture": true,
       "apply_to_client_reference_bundle": true
     },
-    "reference_source": "client",
     "analis_surface_autostart": {
       "enabled": true,
-      "inspect_workers": 10
+      "inspect_workers": 10,
+      "working_dir": "analisSurface/backend",
+      "startup_timeout_ms": 180000,
+      "health_path": "/health"
     },
     "save_captures": {
       "enabled": false,

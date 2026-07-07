@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
+import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,6 +32,10 @@ public final class AsyncInspectionCycleRunner {
     ) throws TimeoutException {
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
             svc.log().info("integration cam={}: inspection cycle cancelled before start", in.cameraId());
+            return;
+        }
+        if (isCaptureOnly(in)) {
+            runCaptureOnly(svc, in, timeoutMs, inspectionGate);
             return;
         }
         CompletableFuture<PipelineState> captureFuture = svc.captureStage().scheduleCapture(
@@ -251,6 +256,111 @@ public final class AsyncInspectionCycleRunner {
                     decisionFuture
             );
         }
+    }
+
+    private static boolean isCaptureOnly(AsyncInspectionCycleInput in) {
+        ReferenceSnapshot reference = in.activeReference();
+        return reference == null || !reference.isUsable();
+    }
+
+    private static void runCaptureOnly(
+            InspectionPipelineServices svc,
+            AsyncInspectionCycleInput in,
+            long timeoutMs,
+            PerCameraInspectionGate inspectionGate
+    ) throws TimeoutException {
+        CompletableFuture<PipelineState> captureFuture = svc.captureStage().scheduleCapture(
+                in.projectRoot(),
+                in.saveCaptures(),
+                in.cameraId(),
+                in.activeReference(),
+                in.flashLeadMs(),
+                in.worker(),
+                in.lightClient(),
+                in.captureStageExecutor(),
+                in.triggerSequence(),
+                "capture without reference"
+        );
+        PipelineState state;
+        try {
+            if (timeoutMs > 0) {
+                state = captureFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
+            } else {
+                state = captureFuture.join();
+            }
+        } catch (TimeoutException e) {
+            captureFuture.cancel(true);
+            throw e;
+        } catch (ExecutionException e) {
+            if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+                captureFuture.cancel(true);
+                svc.log().info("integration cam={}: capture-only cycle cancelled", in.cameraId());
+                return;
+            }
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new RuntimeException(cause);
+        } catch (InterruptedException e) {
+            if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+                captureFuture.cancel(true);
+                Thread.currentThread().interrupt();
+                svc.log().info("integration cam={}: capture-only cycle interrupted by cancel", in.cameraId());
+                return;
+            }
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        if (state == null || state.capture() == null || state.capture().header() == null) {
+            svc.log().warn("integration cam={}: capture-only skipped — empty capture response", in.cameraId());
+            return;
+        }
+        long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
+        InspectionDecision decision = new InspectionDecision(
+                in.cameraId(),
+                frameId,
+                false,
+                "CAPTURE",
+                0.0,
+                "NO_REFERENCE",
+                "SKIPPED"
+        );
+        boolean published = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
+            try {
+                svc.afterInspectionSidecar().scheduleAfterInspection(
+                        in.uiServer(),
+                        in.uiCfg(),
+                        in.uiVisualsPython(),
+                        in.uiArtifactsExecutor(),
+                        in.cameraId(),
+                        in.productType(),
+                        in.detectorId(),
+                        in.inspectionId(),
+                        in.activeReference(),
+                        decision,
+                        state.capture(),
+                        null,
+                        null
+                );
+            } catch (RuntimeException e) {
+                svc.log().warn(
+                        "capture-only ui publish failed camera_id={} frame_id={}: {}",
+                        in.cameraId(),
+                        frameId,
+                        e.getMessage()
+                );
+            }
+        });
+        if (!published) {
+            svc.log().info("integration cam={}: capture-only frame suppressed by client stop", in.cameraId());
+            return;
+        }
+        svc.log().info(
+                "integration cam={}: capture-only frame={} delivered to ui (geometry/python skipped — no reference)",
+                in.cameraId(),
+                frameId
+        );
     }
 
     private static boolean awaitPythonOrCancel(

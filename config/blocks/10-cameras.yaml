@@ -4,7 +4,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.183.102"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-0-cmd"
@@ -14,7 +14,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.183.101"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-1-cmd"
@@ -24,7 +24,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.28.111"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-2-cmd"
@@ -34,7 +34,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.28.112"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-3-cmd"
@@ -44,7 +44,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.137.105"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-4-cmd"
@@ -54,7 +54,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.137.106"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-5-cmd"
@@ -64,7 +64,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.28.1"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-6-cmd"
@@ -74,7 +74,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.28.9"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-7-cmd"
@@ -84,7 +84,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.213.107"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-8-cmd"
@@ -94,7 +94,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.213.108"
-    exposure_us: 12000
+    exposure_us: 6000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-9-cmd"

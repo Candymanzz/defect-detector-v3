@@ -4,4 +4,8 @@ import java.util.Map;
 
 /** Эталонный кадр в SHM для текущего product_type. */
 public record ReferenceSnapshot(String productType, Map<String, Object> header) {
+
+    public boolean isUsable() {
+        return header != null && header.get("shm_name") != null;
+    }
 }

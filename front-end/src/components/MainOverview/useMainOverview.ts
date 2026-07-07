@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api";
-import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { isCaptureOnlyInspectResult, resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
 import { compareFrameIds } from "../../shared/lib/frameIds";
 import { orchestratorWs } from "../../shared/ws";
@@ -234,6 +234,22 @@ export function useMainOverview() {
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+
+      if (isCaptureOnlyInspectResult(inspectResult)) {
+        const imageUrl = createWsFrameImageUrl(inspectResult);
+        if (imageUrl) {
+          setPreviewImageUrlsByCameraId((previousUrls) => ({
+            ...previousUrls,
+            [cameraId]: imageUrl,
+          }));
+          setPreviewFrameIdsByCameraId((previousFrameIds) => ({
+            ...previousFrameIds,
+            [cameraId]: inspectResult.frame_id,
+          }));
+        }
+        return;
+      }
+
       logMissingInspectionResults(latestInspectionIdByCameraIdRef, inspectResult);
       setHasReference(true);
       addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
