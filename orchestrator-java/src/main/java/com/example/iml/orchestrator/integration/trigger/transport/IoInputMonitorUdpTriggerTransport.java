@@ -15,10 +15,13 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Приём DI от {@code IoInputMonitor} по UDP и оценка линии (работа / направление / триггер).
+ * Постоянный UDP-слушатель DI3 (триггер). DI2 (направление) учитывается с опросом и таймаутом.
  */
 public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport {
 
@@ -28,14 +31,16 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private final InspectionTriggerBus bus;
     private final Runnable onLineWorkChanged;
     private final LineDiscreteTriggerEvaluator evaluator;
+    private final IoInputDirectionLatch directionLatch = new IoInputDirectionLatch();
+    private final ScheduledExecutorService directionWaitExecutor;
+    private final IoInputDirectionWaiter directionWaiter;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean lineWorkActive = new AtomicBoolean(false);
 
     private volatile boolean workActive;
+    private volatile boolean directionRawActive;
     private volatile boolean directionActive;
     private volatile boolean triggerActive;
-    /** Направление в момент замыкания DI3 (для falling edge, когда DI2 уже разомкнулся). */
-    private volatile boolean directionAtTriggerArm;
     private long lastFireMs;
     private Thread listenerThread;
     private DatagramSocket socket;
@@ -53,6 +58,21 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         this.bus = bus;
         this.onLineWorkChanged = onLineWorkChanged == null ? () -> { } : onLineWorkChanged;
         this.evaluator = new LineDiscreteTriggerEvaluator(ioInputConfig.triggerEdge());
+        this.directionWaitExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "io-input-direction-wait");
+            t.setDaemon(true);
+            return t;
+        });
+        this.directionWaiter = new IoInputDirectionWaiter(
+                log,
+                directionWaitExecutor,
+                ioInputConfig.directionWaitMs(),
+                ioInputConfig.directionPollMs(),
+                () -> directionLatch.isSatisfied(directionActive),
+                this::isEffectiveWork,
+                this::publishDebounced,
+                this::logDirectionWaitTimeout
+        );
         if (ioInputConfig.stubWorkActive()) {
             workActive = true;
             lineWorkActive.set(true);
@@ -79,7 +99,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             socket = new DatagramSocket(new InetSocketAddress(bindAddress, udpConfig.bindPort()));
             socket.setReuseAddress(true);
             log.info(
-                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} debounce_ms={} stub_work={}",
+                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                     udpConfig.bindHost(),
                     udpConfig.bindPort(),
                     ioInputConfig.payloadFormat(),
@@ -87,6 +107,10 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     ioInputConfig.directionPort(),
                     ioInputConfig.triggerPort(),
                     ioInputConfig.triggerEdge(),
+                    ioInputConfig.requireDirection(),
+                    ioInputConfig.directionInvert(),
+                    ioInputConfig.directionWaitMs(),
+                    ioInputConfig.directionPollMs(),
                     ioInputConfig.debounceMs(),
                     ioInputConfig.stubWorkActive()
             );
@@ -129,56 +153,146 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (port == ioInputConfig.workPort()) {
             workActive = active;
             updateLineWork(active);
-        } else if (port == ioInputConfig.directionPort()) {
-            if (directionActive != active) {
-                log.info("io_input_trigger direction {} -> {}", directionActive ? 1 : 0, active ? 1 : 0);
+            if (ioInputConfig.requireDirection()) {
+                evaluateTriggerDecision(port, active);
             }
-            directionActive = active;
-        } else if (port == ioInputConfig.triggerPort()) {
-            if (active && !triggerActive) {
-                directionAtTriggerArm = directionActive;
-                log.info(
-                        "io_input_trigger trigger arm direction={} (DI3 0->1)",
-                        directionAtTriggerArm ? 1 : 0
-                );
-            } else if (!active && triggerActive) {
-                log.info("io_input_trigger trigger release (DI3 1->0) latched_direction={}", directionAtTriggerArm ? 1 : 0);
-            }
-            triggerActive = active;
-        } else if (port > 0) {
-            log.debug("io_input_trigger ignored di={} value={}", port, active ? 1 : 0);
-            return;
-        } else {
-            log.debug("io_input_trigger legacy payload without di port ignored");
             return;
         }
+        if (port == ioInputConfig.directionPort()) {
+            boolean mapped = mapDirection(active);
+            if (directionActive != mapped) {
+                if (ioInputConfig.directionInvert()) {
+                    log.info(
+                            "io_input_trigger direction raw {} -> {} (effective {} -> {})",
+                            directionRawActive() ? 1 : 0,
+                            active ? 1 : 0,
+                            directionActive ? 1 : 0,
+                            mapped ? 1 : 0
+                    );
+                } else {
+                    log.info("io_input_trigger direction {} -> {}", directionActive ? 1 : 0, mapped ? 1 : 0);
+                }
+            }
+            directionRawActive = active;
+            directionActive = mapped;
+            directionLatch.onDirectionChange(active, triggerActive);
+            if (ioInputConfig.requireDirection()) {
+                directionWaiter.onDirectionReadyEvent();
+                if (triggerActive) {
+                    evaluateTriggerDecision(port, active);
+                }
+            }
+            return;
+        }
+        if (port == ioInputConfig.triggerPort()) {
+            if (active && !triggerActive) {
+                directionLatch.onTriggerArm(directionActive);
+                log.info(
+                        "io_input_trigger DI3 capture edge direction={}",
+                        directionActive ? 1 : 0
+                );
+            } else if (!active && triggerActive) {
+                log.info(
+                        "io_input_trigger DI3 release direction={} seen={}",
+                        directionActive ? 1 : 0,
+                        directionLatch.seenWhileTriggered() ? 1 : 0
+                );
+                if (directionWaiter.isWaiting()) {
+                    directionWaiter.cancel("DI3 released before direction");
+                }
+                triggerActive = active;
+                evaluateTriggerDecision(port, active);
+                directionLatch.onTriggerRelease();
+                return;
+            }
+            triggerActive = active;
+            evaluateTriggerDecision(port, active);
+            return;
+        }
+        if (port > 0) {
+            log.debug("io_input_trigger ignored di={} value={}", port, active ? 1 : 0);
+        } else {
+            log.debug("io_input_trigger legacy payload without di port ignored");
+        }
+    }
 
-        boolean effectiveWork = ioInputConfig.stubWorkActive() || workActive;
-        boolean effectiveDirection = resolveDirectionForTriggerEvaluation(port, active);
+    private void evaluateTriggerDecision(int changedPort, boolean changedActive) {
+        boolean effectiveWork = isEffectiveWork();
+        boolean effectiveDirection = resolveDirectionForTriggerEvaluation(changedPort, changedActive);
         LineDiscreteTriggerEvaluator.Decision decision = evaluator.evaluate(
                 effectiveWork,
                 effectiveDirection,
-                triggerActive
+                triggerActive,
+                ioInputConfig.requireDirection()
         );
         switch (decision) {
             case NONE -> { }
             case SKIP_NOT_READY -> log.info("io_input_trigger skip: conveyor not running (work=0)");
-            case SKIP_WRONG_DIRECTION -> log.info(
-                    "io_input_trigger skip: direction=0 at trigger edge (latched={} current={})",
-                    directionAtTriggerArm ? 1 : 0,
-                    directionActive ? 1 : 0
-            );
-            case FIRE -> publishDebounced();
+            case SKIP_WRONG_DIRECTION -> handleMissingDirection();
+            case FIRE -> {
+                if (ioInputConfig.requireDirection()) {
+                    log.info(
+                            "io_input_trigger capture on DI3 edge direction={}",
+                            effectiveDirection ? 1 : 0
+                    );
+                } else {
+                    log.info(
+                            "io_input_trigger capture on DI3 edge (direction={} tracked only)",
+                            directionActive ? 1 : 0
+                    );
+                }
+                publishDebounced();
+            }
         }
     }
 
+    private void handleMissingDirection() {
+        if (ioInputConfig.requireDirection() && ioInputConfig.directionWaitMs() > 0 && isEffectiveWork()) {
+            directionWaiter.begin("DI3 edge, polling DI2");
+            return;
+        }
+        log.info(
+                "io_input_trigger skip: DI2 direction=0 at DI3 edge (latched={} current={})",
+                directionLatch.atTriggerArm() ? 1 : 0,
+                directionActive ? 1 : 0
+        );
+    }
+
+    private void logDirectionWaitTimeout() {
+        log.info(
+                "io_input_trigger skip: direction timeout after {} ms (latched={} current={} seen={})",
+                ioInputConfig.directionWaitMs(),
+                directionLatch.atTriggerArm() ? 1 : 0,
+                directionActive ? 1 : 0,
+                directionLatch.seenWhileTriggered() ? 1 : 0
+        );
+    }
+
     private boolean resolveDirectionForTriggerEvaluation(int changedPort, boolean changedActive) {
+        if (!ioInputConfig.requireDirection()) {
+            return true;
+        }
         if (changedPort == ioInputConfig.triggerPort()
                 && !changedActive
                 && ioInputConfig.triggerEdge() == TriggerEdgeMode.FALLING) {
-            return directionAtTriggerArm;
+            return directionLatch.effectiveForFallingEdge(directionActive);
+        }
+        if (triggerActive) {
+            return directionLatch.isSatisfied(directionActive);
         }
         return directionActive;
+    }
+
+    private boolean isEffectiveWork() {
+        return ioInputConfig.stubWorkActive() || workActive;
+    }
+
+    private boolean mapDirection(boolean rawDiActive) {
+        return ioInputConfig.directionInvert() ? !rawDiActive : rawDiActive;
+    }
+
+    private boolean directionRawActive() {
+        return directionRawActive;
     }
 
     private void updateLineWork(boolean work) {
@@ -213,6 +327,16 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     @Override
     public void close() {
         running.set(false);
+        directionWaiter.close();
+        directionWaitExecutor.shutdown();
+        try {
+            if (!directionWaitExecutor.awaitTermination(500L, TimeUnit.MILLISECONDS)) {
+                directionWaitExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            directionWaitExecutor.shutdownNow();
+        }
         closeSocket();
         if (listenerThread != null) {
             listenerThread.interrupt();

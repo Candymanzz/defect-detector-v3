@@ -327,6 +327,14 @@ public final class AsyncInspectionCycleRunner {
                 "SKIPPED"
         );
         boolean published = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
+            if (in.bucketAggregator() != null) {
+                in.bucketAggregator().recordFrameResult(
+                        in.triggerSequence(),
+                        in.cameraId(),
+                        decision,
+                        in.fanOut()
+                );
+            }
             try {
                 svc.afterInspectionSidecar().scheduleAfterInspection(
                         in.uiServer(),
@@ -356,6 +364,21 @@ public final class AsyncInspectionCycleRunner {
             svc.log().info("integration cam={}: capture-only frame suppressed by client stop", in.cameraId());
             return;
         }
+        long captureMs = state.captureMs();
+        svc.pipelineTelemetry().logInspectionCycle(
+                in.pipelineStagesLog(),
+                Map.of("capture_only", true),
+                in.cameraId(),
+                in.productType(),
+                in.detectorId(),
+                0L,
+                captureMs,
+                state,
+                decision,
+                System.nanoTime(),
+                System.nanoTime(),
+                System.nanoTime()
+        );
         svc.log().info(
                 "integration cam={}: capture-only frame={} delivered to ui (geometry/python skipped — no reference)",
                 in.cameraId(),

@@ -5,11 +5,56 @@ import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * DI2 часто размыкается раньше DI3; при falling edge направление берётся с момента замыкания DI3.
+ * DI3 также может прийти раньше DI2 — направление фиксируется в latch на время импульса.
  */
 class IoInputMonitorTriggerSequenceTest {
+
+    @Test
+    void risingSequenceWithDirectionAfterTriggerUsesLatch() {
+        IoInputDirectionLatch latch = new IoInputDirectionLatch();
+        LineDiscreteTriggerEvaluator evaluator = new LineDiscreteTriggerEvaluator(TriggerEdgeMode.RISING);
+        boolean triggerActive = false;
+
+        latch.onTriggerArm(false);
+        triggerActive = true;
+        assertEquals(
+                LineDiscreteTriggerEvaluator.Decision.SKIP_WRONG_DIRECTION,
+                evaluator.evaluate(true, latch.isSatisfied(false), triggerActive)
+        );
+
+        latch.onDirectionChange(true, true);
+        assertEquals(
+                LineDiscreteTriggerEvaluator.Decision.NONE,
+                evaluator.evaluate(true, latch.isSatisfied(false), triggerActive)
+        );
+        assertTrue(latch.isSatisfied(false));
+    }
+
+    @Test
+    void fallingEdgeUsesLatchSeenBeforeReleaseClearsState() {
+        IoInputDirectionLatch latch = new IoInputDirectionLatch();
+        LineDiscreteTriggerEvaluator evaluator = new LineDiscreteTriggerEvaluator(TriggerEdgeMode.FALLING);
+        boolean triggerActive = false;
+
+        latch.onTriggerArm(true);
+        triggerActive = true;
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, evaluator.evaluate(true, true, triggerActive));
+
+        latch.onDirectionChange(true, true);
+        assertTrue(latch.seenWhileTriggered());
+
+        triggerActive = false;
+        boolean directionForFall = latch.effectiveForFallingEdge(false);
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.FIRE, evaluator.evaluate(true, directionForFall, triggerActive));
+
+        latch.onTriggerRelease();
+        assertFalse(latch.effectiveForFallingEdge(false));
+    }
 
     @Test
     void fallingEdgeFiresWhenDirectionWasActiveAtTriggerArmEvenIfReleasedBeforeFall() {
@@ -18,14 +63,12 @@ class IoInputMonitorTriggerSequenceTest {
         boolean triggerActive = false;
         boolean directionAtTriggerArm = false;
 
-        // DI2 rising
         directionActive = true;
         assertEquals(
                 LineDiscreteTriggerEvaluator.Decision.NONE,
                 evaluator.evaluate(true, directionActive, triggerActive)
         );
 
-        // DI3 rising — latch direction
         directionAtTriggerArm = directionActive;
         triggerActive = true;
         assertEquals(
@@ -33,14 +76,12 @@ class IoInputMonitorTriggerSequenceTest {
                 evaluator.evaluate(true, directionActive, triggerActive)
         );
 
-        // DI2 falling before DI3 falling
         directionActive = false;
         assertEquals(
                 LineDiscreteTriggerEvaluator.Decision.NONE,
                 evaluator.evaluate(true, directionActive, triggerActive)
         );
 
-        // DI3 falling — use latched direction
         triggerActive = false;
         assertEquals(
                 LineDiscreteTriggerEvaluator.Decision.FIRE,

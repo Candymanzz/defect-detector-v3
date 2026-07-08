@@ -88,10 +88,15 @@ integration:
       work_port: 1
       direction_port: 2
       trigger_port: 3
-      # rising = съёмка при замыкании DI3 (0→1); falling = при размыкании (1→0)
+      # rising = съёмка при замыкании DI3 (0→1, контакт замкнулся).
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
+      # DI2=1 на линии = прямой ход → съёмка; DI2=0 = обратный ход → пропуск.
+      require_direction: true
+      direction_invert: false
+      direction_wait_ms: 0
+      direction_poll_ms: 50
       # Временно: DI1 считается активным без сигнала (пока плохо подключён).
       stub_work_active: true
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).

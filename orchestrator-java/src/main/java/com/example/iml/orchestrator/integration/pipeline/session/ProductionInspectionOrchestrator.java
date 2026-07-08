@@ -157,7 +157,7 @@ public final class ProductionInspectionOrchestrator {
             if (cycleIn == null) {
                 if (referenceFromClient) {
                     svc.log().debug(
-                            "integration cam={}: trigger skipped — no client.reference_bundle yet",
+                            "integration cam={}: trigger skipped — no client.reference_bundle (capture_without_reference=false)",
                             in.cameraId()
                     );
                 }
@@ -204,7 +204,7 @@ public final class ProductionInspectionOrchestrator {
         }
     }
 
-    private static AsyncInspectionCycleInput resolveCycleInput(
+    static AsyncInspectionCycleInput resolveCycleInput(
             AsyncInspectionCycleInput in,
             boolean referenceFromClient,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
@@ -214,13 +214,17 @@ public final class ProductionInspectionOrchestrator {
             return in;
         }
         ReferenceSnapshot ref = referenceByCamera.get(in.cameraId());
-        if (ref == null) {
-            return captureWithoutReference ? in : null;
+        if (ref != null && ref.isUsable()) {
+            String productType = ref.productType() != null && !ref.productType().isBlank()
+                    ? ref.productType()
+                    : in.productType();
+            return in.withPerCycleIdentity(productType, ref, in.referenceMsFinal());
         }
-        String productType = ref.productType() != null && !ref.productType().isBlank()
-                ? ref.productType()
-                : in.productType();
-        return in.withPerCycleIdentity(productType, ref, in.referenceMsFinal());
+        if (!captureWithoutReference) {
+            return null;
+        }
+        // Эталон ещё не задан: снимаем кадр по триггеру, geometry/python — после reference_bundle.
+        return in.withPerCycleIdentity(in.productType(), null, 0L);
     }
 
     private static void sleepInterruptibly(int delayMs) throws InterruptedException {

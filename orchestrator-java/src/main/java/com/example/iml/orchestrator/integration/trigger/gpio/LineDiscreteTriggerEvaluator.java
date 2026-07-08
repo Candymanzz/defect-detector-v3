@@ -25,6 +25,10 @@ public final class LineDiscreteTriggerEvaluator {
     }
 
     public Decision evaluate(boolean workActive, boolean directionActive, boolean triggerActive) {
+        return evaluate(workActive, directionActive, triggerActive, true);
+    }
+
+    public Decision evaluate(boolean workActive, boolean directionActive, boolean triggerActive, boolean requireDirection) {
         boolean edgeDetected = switch (triggerEdge) {
             case RISING -> triggerActive && !previousTriggerActive;
             case FALLING -> !triggerActive && previousTriggerActive;
@@ -36,7 +40,7 @@ public final class LineDiscreteTriggerEvaluator {
         if (!workActive) {
             return Decision.SKIP_NOT_READY;
         }
-        if (!directionActive) {
+        if (requireDirection && !directionActive) {
             return Decision.SKIP_WRONG_DIRECTION;
         }
         return Decision.FIRE;

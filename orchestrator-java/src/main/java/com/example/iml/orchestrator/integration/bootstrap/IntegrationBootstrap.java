@@ -512,14 +512,17 @@ public final class IntegrationBootstrap {
                 InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
                 if (triggerCfg.usesIoInputMonitor()) {
                     log.info(
-                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} payload_format={} debounce_ms={} stub_work={}",
+                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} require_direction={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                             triggerCfg.udp().bindHost(),
                             triggerCfg.udp().bindPort(),
                             triggerCfg.ioInput().workPort(),
                             triggerCfg.ioInput().directionPort(),
                             triggerCfg.ioInput().triggerPort(),
                             triggerCfg.ioInput().triggerEdge(),
-                            triggerCfg.ioInput().payloadFormat(),
+                            triggerCfg.ioInput().requireDirection(),
+                            triggerCfg.ioInput().directionInvert(),
+                            triggerCfg.ioInput().directionWaitMs(),
+                            triggerCfg.ioInput().directionPollMs(),
                             triggerCfg.ioInput().debounceMs(),
                             triggerCfg.ioInput().stubWorkActive()
                     );

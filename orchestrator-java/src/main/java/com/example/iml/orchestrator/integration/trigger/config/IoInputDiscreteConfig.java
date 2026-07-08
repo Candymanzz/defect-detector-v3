@@ -15,11 +15,15 @@ public record IoInputDiscreteConfig(
         int debounceMs,
         String payloadFormat,
         boolean stubWorkActive,
-        TriggerEdgeMode triggerEdge
+        TriggerEdgeMode triggerEdge,
+        boolean requireDirection,
+        boolean directionInvert,
+        int directionWaitMs,
+        int directionPollMs
 ) {
 
     public static IoInputDiscreteConfig defaults() {
-        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING);
+        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, false, 5000, 50);
     }
 
     public static IoInputDiscreteConfig parse(Map<String, Object> integration, int udpDebounceMs) {
@@ -48,6 +52,10 @@ public record IoInputDiscreteConfig(
                 : defaults.payloadFormat();
         boolean stubWorkActive = YamlScalars.toBool(io.get("stub_work_active"), defaults.stubWorkActive());
         TriggerEdgeMode triggerEdge = TriggerEdgeMode.fromConfig(io.get("trigger_edge"));
+        boolean requireDirection = YamlScalars.toBool(io.get("require_direction"), defaults.requireDirection());
+        boolean directionInvert = YamlScalars.toBool(io.get("direction_invert"), defaults.directionInvert());
+        int directionWaitMs = Math.max(0, YamlScalars.toInt(io.get("direction_wait_ms"), defaults.directionWaitMs()));
+        int directionPollMs = Math.max(1, YamlScalars.toInt(io.get("direction_poll_ms"), defaults.directionPollMs()));
         return new IoInputDiscreteConfig(
                 workPort,
                 directionPort,
@@ -55,7 +63,11 @@ public record IoInputDiscreteConfig(
                 debounceMs,
                 payloadFormat,
                 stubWorkActive,
-                triggerEdge
+                triggerEdge,
+                requireDirection,
+                directionInvert,
+                directionWaitMs,
+                directionPollMs
         );
     }
 
@@ -68,7 +80,11 @@ public record IoInputDiscreteConfig(
                 debounceMs,
                 defaults.payloadFormat(),
                 defaults.stubWorkActive(),
-                defaults.triggerEdge()
+                defaults.triggerEdge(),
+                defaults.requireDirection(),
+                defaults.directionInvert(),
+                defaults.directionWaitMs(),
+                defaults.directionPollMs()
         );
     }
 
