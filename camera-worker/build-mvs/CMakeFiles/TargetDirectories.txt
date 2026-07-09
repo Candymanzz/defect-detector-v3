@@ -1,0 +1,3 @@
+D:/visionGay/defect-detector-v3/camera-worker/build-mvs/CMakeFiles/camera_worker.dir
+D:/visionGay/defect-detector-v3/camera-worker/build-mvs/CMakeFiles/ALL_BUILD.dir
+D:/visionGay/defect-detector-v3/camera-worker/build-mvs/CMakeFiles/ZERO_CHECK.dir

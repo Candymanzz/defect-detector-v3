@@ -89,7 +89,7 @@ integration:
       direction_port: 2
       trigger_port: 3
       # rising = съёмка при замыкании DI3 (0→1, контакт замкнулся).
-      trigger_edge: rising
+      trigger_edge: falling
       payload_format: json
       debounce_ms: 0
       # DI2=1 на линии = прямой ход → съёмка; DI2=0 = обратный ход → пропуск.
