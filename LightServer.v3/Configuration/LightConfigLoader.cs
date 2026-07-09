@@ -164,7 +164,10 @@ public static class LightConfigLoader
         };
     }
 
-    /// <summary>devices: channels: 2 → [1,2]; channels: [1,3] → явный список.</summary>
+    /// <summary>
+    /// devices.channels: число N → [1..N] (сколько каналов у контроллера для банка on/off).
+    /// camera_routes.channels — другая семантика, см. ParseRouteChannels.
+    /// </summary>
     internal static int[] ParseDeviceChannels(object? raw)
     {
         switch (raw)

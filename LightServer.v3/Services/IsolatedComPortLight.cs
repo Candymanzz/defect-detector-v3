@@ -110,6 +110,7 @@ public sealed class IsolatedComPortLight : IDisposable
         }
 
         _device = device;
+        // BankFlashMode On/Direct → broadcast On; Trigger → Timer arm + software trigger (две фазы в банке).
         _flashPlan = UseBankDirectOn()
             ? MvLeFlashSync.CreateBankDirectPlan(device)
             : MvLeFlashSync.ResolveBankFlashPlan(device, _options.FlashSyncMode);

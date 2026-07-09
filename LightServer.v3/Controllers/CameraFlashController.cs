@@ -11,6 +11,7 @@ public sealed class CameraFlashController : ControllerBase
 {
     private readonly LightControlService _light;
     private readonly LightHardwareRegistry _hardware;
+    // Ethernet MV-LE: /pair меняет 2 канала, но SDK пишет все 4 — храним последние значения по IP.
     private static readonly ConcurrentDictionary<string, int[]> NetworkBrightnessState = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object NetworkStateLock = new();
 

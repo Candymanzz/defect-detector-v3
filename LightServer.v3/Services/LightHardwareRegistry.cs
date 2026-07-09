@@ -37,6 +37,7 @@ public sealed class LightHardwareRegistry
 
     public void EnsureFresh()
     {
+        // Hot-reload camera_routes/devices для /pair и /routes; COM-банк перечитывает только при рестарте.
         if (string.IsNullOrEmpty(ConfigPath) || !File.Exists(ConfigPath))
             return;
 

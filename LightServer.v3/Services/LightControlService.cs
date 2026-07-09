@@ -219,7 +219,10 @@ public sealed class LightControlService
         public MvLeSerialLightSessions.OpenSession? Session { get; init; }
     }
 
-    /// <summary>Все COM: prep всех, затем trigger подряд без паузы (один SDK lock на fire).</summary>
+    /// <summary>
+    /// Legacy-банк через общие сессии (MvLeSerialLightSessions).
+    /// Основной путь on/off — ComLightIsolatedBank; этот метод — для совместимости.
+    /// </summary>
     public IReadOnlyList<(string ComPort, bool Ok, string? Message)> ApplyBankOnSimultaneous(
         IReadOnlyList<ComPortFlashApply> commands)
     {
@@ -565,6 +568,7 @@ public sealed class LightControlService
                     && (session?.ApplyState.WasOff == true
                         || !(session?.ApplyState.IsHardwareArmed == true && session.ApplyState.CanSkipBrightness(channels, appliedBrightness))));
 
+            // Уже armed (Timer+яркость) — только trigger/broadcast, без повторной записи каналов.
             if ((flashSync.UseDeferredTimer || flashSync.UseHoldTimerRise)
                 && source.Equals("On", StringComparison.OrdinalIgnoreCase)
                 && session?.ApplyState.IsHardwareArmed == true

@@ -4,7 +4,10 @@ using MvCameraControl;
 
 namespace LightServer.Services;
 
-/// <summary>SetEnumSerialPorts глобален в MVS — сериализуем только перечисление, не работу с открытым device.</summary>
+/// <summary>
+/// SetEnumSerialPorts — глобальный фильтр MVS SDK: влияет на все потоки.
+/// EnumGate сериализует только перечисление; открытые device работают параллельно (IsolatedComPortLight).
+/// </summary>
 internal static class MvsComPortEnumerator
 {
     private static readonly Regex ComNumberRegex = new(@"COM(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);

@@ -212,6 +212,7 @@ public sealed class ComLightIsolatedBank : IDisposable
         if (fireList.Count == 0)
             return BuildResults(commands, results);
 
+        // Barrier: все COM завершили prep → одновременный software trigger (синхронная вспышка стоек).
         var sw = Stopwatch.StartNew();
         var barrier = new Barrier(fireList.Count);
         Parallel.ForEach(fireList, item =>
