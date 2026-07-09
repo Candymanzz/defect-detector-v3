@@ -11,6 +11,7 @@ import {
   updateAnalysisSettingField,
   updateSettingField,
 } from "./SettingController";
+import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
 import { Button } from "../../shared/ui/Button";
@@ -60,6 +61,7 @@ type SaveFeedback = {
 export function SettingList({ selectedCameraId }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
+  const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
   const requestIdRef = useRef(0);
@@ -319,6 +321,13 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
             Сохранить настройки
           </Button>
           <Button
+            className="setting-list__submit setting-list__submit--wide"
+            disabled={isBusy}
+            onClick={() => setIsCameraSettingsOpen(true)}
+          >
+            Настройки камер
+          </Button>
+          <Button
             className="setting-list__submit"
             variant="warning"
             disabled={isBusy}
@@ -337,6 +346,13 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
         </div>
       </form>
 
+      {isCameraSettingsOpen && (
+        <CameraSettingsModal
+          isOpen
+          initialCameraId={selectedCameraId}
+          onClose={() => setIsCameraSettingsOpen(false)}
+        />
+      )}
       {isReferenceSetupOpen && (
         <ReferenceSetup
           initialCameraId={selectedCameraId}
