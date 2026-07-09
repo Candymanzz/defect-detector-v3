@@ -19369,3 +19369,5 @@ java.io.IOException: EOF
 2026-07-06 21:07:21.908 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
 2026-07-06 21:07:24.478 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 1 -> 0
 2026-07-06 21:07:31.186 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger direction 0 -> 1
+2026-07-09 14:33:05.724 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-09 14:33:05.799 WARN  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness push failed: brightness-pair camera-3 failed: null

@@ -27,7 +27,7 @@ public final class LightTriggerClient {
 
     private final boolean enabled;
     private final boolean failOnError;
-    private final int defaultBrightnessPercent;
+    private volatile int defaultBrightnessPercent;
     private final boolean holdMode;
     private final int timeoutMs;
     private final int settleDelayMs;
@@ -126,22 +126,35 @@ public final class LightTriggerClient {
         return holdMode;
     }
 
+    /**
+     * При старте оркестратора: выставить яркость по камерам и включить вспышки.
+     * В {@code hold_mode} подсветка остаётся включённой между кадрами.
+     */
+    public void startupEngage() {
+        if (!enabled) {
+            return;
+        }
+        synchronized (lightCommandLock) {
+            if (holdMode && constantLightingEngaged) {
+                return;
+            }
+            LOG.info("light startup: яркость по камерам → POST on (hold_mode={})", holdMode);
+            if (!applyAllCameraBrightnessLocked() || !postOnWithRetriesLocked(defaultBrightnessPercent)) {
+                LOG.warn("light startup: не удалось включить подсветку");
+                return;
+            }
+            if (holdMode) {
+                constantLightingEngaged = true;
+            }
+            sleepSettle();
+        }
+    }
+
     public void engageConstantLighting() {
         if (!enabled || !holdMode) {
             return;
         }
-        synchronized (lightCommandLock) {
-            if (constantLightingEngaged) {
-                return;
-            }
-            LOG.info("light hold_mode: яркость по камерам → POST on");
-            if (!applyAllCameraBrightnessLocked() || !postOnLocked(defaultBrightnessPercent)) {
-                LOG.warn("light hold_mode: не удалось включить подсветку при старте");
-                return;
-            }
-            constantLightingEngaged = true;
-            sleepSettle();
-        }
+        startupEngage();
     }
 
     /** Дождаться инициализации COM-банка в LightServer ({@code GET status_url}). */
@@ -172,9 +185,11 @@ public final class LightTriggerClient {
         int clamped = LightBrightnessScale.clampPercent(percent);
         List<Integer> ids = cameras.stream().map(LightServersConfig.CameraFlashSpec::cameraId).toList();
         synchronized (lightCommandLock) {
+            defaultBrightnessPercent = clamped;
             for (int cameraId : ids) {
                 updateCameraBrightness(cameraId, clamped, clamped, clamped);
             }
+            refreshHoldLightingIfEngaged();
         }
     }
 
@@ -267,6 +282,13 @@ public final class LightTriggerClient {
         forceAllOff();
     }
 
+    private void refreshHoldLightingIfEngaged() {
+        if (holdMode && constantLightingEngaged) {
+            postOnWithRetriesLocked(defaultBrightnessPercent);
+            sleepSettle();
+        }
+    }
+
     private void updateCameraBrightness(int cameraId, int percent, int leftPercent, int rightPercent) {
         LightServersConfig.CameraFlashSpec existing = cameraById.get(cameraId);
         if (existing == null) {
@@ -354,20 +376,6 @@ public final class LightTriggerClient {
                 throw lastError;
             }
             LOG.warn("light Off failed: {}", lastError.getMessage());
-        }
-    }
-
-    private boolean postOnLocked(int brightnessPercent) {
-        try {
-            postOn(brightnessPercent);
-            sleepSettle();
-            return true;
-        } catch (RuntimeException e) {
-            if (failOnError) {
-                throw e;
-            }
-            LOG.warn("light On failed: {}", e.getMessage());
-            return false;
         }
     }
 
@@ -479,5 +487,3 @@ public final class LightTriggerClient {
         }
     }
 }
-
-

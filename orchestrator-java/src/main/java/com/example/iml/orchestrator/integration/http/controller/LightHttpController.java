@@ -261,7 +261,7 @@ public final class LightHttpController implements HttpController {
     }
 
     private boolean requireLight(HttpRequestContext ctx) throws IOException {
-        if (lightClient == null) {
+        if (lightClient == null || !lightClient.isEnabled()) {
             HttpResponses.sendJsonError(ctx, 503, "light_servers disabled");
             return false;
         }
