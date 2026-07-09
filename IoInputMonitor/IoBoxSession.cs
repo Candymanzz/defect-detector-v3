@@ -1,5 +1,6 @@
 namespace IoInputMonitor;
 
+/// <summary>Сессия с IO box: CreateHandle → Open(COM) → DI / edge callback → Close.</summary>
 internal sealed class IoBoxSession : IDisposable
 {
     private IntPtr _handle;
@@ -25,6 +26,7 @@ internal sealed class IoBoxSession : IDisposable
 
         string? opened = null;
         var tried = new List<string>();
+        // SDK иногда принимает "COM3", иногда "Com3" — пробуем оба варианта.
         foreach (string candidate in BuildComCandidates(ComPort))
         {
             var serial = new MvIoNative.MvIoSerial
@@ -179,8 +181,10 @@ internal sealed class IoBoxSession : IDisposable
     public void RegisterEdgeCallback(Action<int, MvIoNative.IoEdgeType> onEdge)
     {
         EnsureOpen();
+        // Делегат должен жить, пока открыт handle — храним в поле _edgeCallback.
         _edgeCallback = (IntPtr _, ref MvIoNative.MvIoInputEdge edge, IntPtr __) =>
         {
+            // edge.PortNumber — маска (0x04 = DI3), конвертируем в 1..8.
             int port = MvIoNative.PortFromMask(edge.PortNumber);
             onEdge(port, edge.EdgeType);
         };

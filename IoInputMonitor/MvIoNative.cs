@@ -2,12 +2,17 @@ using System.Runtime.InteropServices;
 
 namespace IoInputMonitor;
 
+/// <summary>
+/// P/Invoke к MvIOInterfaceBox.dll (Hikrobot MV IO Box).
+/// Порты DI — битовые маски: DI1=0x01, DI2=0x02, … DI8=0x80 (см. IoPortNumber).
+/// </summary>
 internal static class MvIoNative
 {
     public const int MvOk = 0;
 
     public enum IoPortNumber : byte
     {
+        // SDK использует битовую маску, а не номер 1..8 напрямую.
         Port1 = 0x1,
         Port2 = 0x2,
         Port3 = 0x4,
@@ -162,6 +167,7 @@ internal static class MvIoNative
             _ => throw new ArgumentOutOfRangeException(nameof(portNumber), portNumber, "DI port must be 1..8.")
         };
 
+    // GetInputLevel возвращает Level0..Level7 — это DI1..DI8, не «уровни 0..7».
     public static byte ReadLevel(in MvIoInputLevel levels, int portNumber) =>
         portNumber switch
         {
