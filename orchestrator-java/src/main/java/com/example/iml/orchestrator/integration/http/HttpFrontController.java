@@ -4,6 +4,8 @@ package com.example.iml.orchestrator.integration.http;
 
 import com.example.iml.orchestrator.integration.http.controller.CameraMjpegHttpController;
 import com.example.iml.orchestrator.integration.http.controller.CameraPreviewHttpController;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsService;
+import com.example.iml.orchestrator.integration.http.controller.CameraSettingsHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.ClientApiHttpController;
 
@@ -116,6 +118,13 @@ public final class HttpFrontController {
             );
             router.register(HttpRoute.regex("GET", Pattern.compile("^/api/camera/\\d+/stream\\.mjpeg$"), mjpeg));
         }
+
+        CameraSettingsHttpController cameraSettings = new CameraSettingsHttpController(
+                new CameraSettingsService(ctx.cameraWorkersHolder(), ctx.cameraStreamHolder())
+        );
+        router.register(HttpRoute.regex("GET", Pattern.compile("^/api/camera/\\d+/settings$"), cameraSettings));
+        router.register(HttpRoute.regex("PATCH", Pattern.compile("^/api/camera/\\d+/settings$"), cameraSettings));
+        router.register(HttpRoute.regex("PUT", Pattern.compile("^/api/camera/\\d+/settings$"), cameraSettings));
 
         router.register(HttpRoute.prefix("GET", "/api/camera/", camera::handleCameraPath));
 

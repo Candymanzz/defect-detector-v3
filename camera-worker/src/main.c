@@ -81,6 +81,9 @@ typedef struct {
     char capture_source[32];
     int frame_timeout_ms;
     int exposure_us;
+    float gain_db;
+    float gamma;
+    int black_level;
     int trigger_mode;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
@@ -221,6 +224,31 @@ static int json_find_int(const char *js, int jslen, const char *key, int *out) {
             memcpy(buf, js + v.start, (size_t)n);
             buf[n] = '\0';
             *out = atoi(buf);
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int json_find_float(const char *js, int jslen, const char *key, float *out) {
+    jsmn_parser p;
+    jsmntok_t tok[TOK_POOL];
+    jsmn_init(&p);
+    int r = jsmn_parse(&p, js, (size_t)jslen, tok, TOK_POOL);
+    if (r < 1 || tok[0].type != JSMN_OBJECT) {
+        return -1;
+    }
+    for (int i = 1; i < r - 1; i++) {
+        if (jsoneq(js, &tok[i], key) == 0) {
+            jsmntok_t v = tok[i + 1];
+            int n = v.end - v.start;
+            if (n <= 0 || n >= 63) {
+                return -1;
+            }
+            char buf[64];
+            memcpy(buf, js + v.start, (size_t)n);
+            buf[n] = '\0';
+            *out = (float)atof(buf);
             return 0;
         }
     }
@@ -647,6 +675,218 @@ static void hik_apply_exposure(void *handle, int exposure_us) {
     }
 }
 
+static int hik_read_float(void *handle, const char *name, float *out) {
+    MVCC_FLOATVALUE val;
+    memset(&val, 0, sizeof(val));
+    int r = MV_CC_GetFloatValue(handle, name, &val);
+    if (r != MV_OK) {
+        return r;
+    }
+    *out = val.fCurValue;
+    return MV_OK;
+}
+
+static int hik_apply_gain(void *handle, float gain_db) {
+    (void)MV_CC_SetEnumValueByString(handle, "GainAuto", "Off");
+    int r = MV_CC_SetFloatValue(handle, "Gain", gain_db);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: Gain=%.3f dB not applied (0x%x)\n", gain_db, r);
+        return r;
+    }
+    fprintf(stderr, "hik: Gain=%.3f dB\n", gain_db);
+    return MV_OK;
+}
+
+static int hik_apply_gamma(void *handle, float gamma) {
+    int r = MV_CC_SetFloatValue(handle, "Gamma", gamma);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: Gamma=%.3f not applied (0x%x)\n", gamma, r);
+        return r;
+    }
+    fprintf(stderr, "hik: Gamma=%.3f\n", gamma);
+    return MV_OK;
+}
+
+static int hik_apply_black_level(void *handle, int black_level) {
+    int r = MV_CC_SetIntValue(handle, "BlackLevel", (unsigned int)black_level);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: BlackLevel=%d not applied (0x%x)\n", black_level, r);
+        return r;
+    }
+    fprintf(stderr, "hik: BlackLevel=%d\n", black_level);
+    return MV_OK;
+}
+
+static void hik_read_runtime_tuning(worker_state_t *st) {
+    if (!st->hik_handle) {
+        return;
+    }
+    float value = 0.0f;
+    if (hik_read_float(st->hik_handle, "Gain", &value) == MV_OK) {
+        st->gain_db = value;
+    }
+    if (hik_read_float(st->hik_handle, "Gamma", &value) == MV_OK) {
+        st->gamma = value;
+    }
+    MVCC_INTVALUE black;
+    memset(&black, 0, sizeof(black));
+    if (MV_CC_GetIntValue(st->hik_handle, "BlackLevel", &black) == MV_OK) {
+        st->black_level = (int)black.nCurValue;
+    }
+}
+
+static void format_settings_json(const worker_state_t *st, char *out, size_t out_len) {
+    int exposure_us = st->exposure_us;
+    float gain_db = st->gain_db;
+    float gamma = st->gamma;
+    int black_level = st->black_level;
+    int mvs_available = 0;
+#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+    mvs_available = st->hik_handle != NULL;
+    if (st->hik_handle) {
+        float value = 0.0f;
+        if (hik_read_float(st->hik_handle, "ExposureTime", &value) == MV_OK) {
+            exposure_us = (int)value;
+        }
+        if (hik_read_float(st->hik_handle, "Gain", &value) == MV_OK) {
+            gain_db = value;
+        }
+        if (hik_read_float(st->hik_handle, "Gamma", &value) == MV_OK) {
+            gamma = value;
+        }
+        MVCC_INTVALUE black;
+        memset(&black, 0, sizeof(black));
+        if (MV_CC_GetIntValue(st->hik_handle, "BlackLevel", &black) == MV_OK) {
+            black_level = (int)black.nCurValue;
+        }
+    }
+#endif
+    const char *configured_trigger = trigger_mode_name(
+            st->stream_active ? st->stream_restore_trigger_mode : st->trigger_mode);
+    const char *effective_trigger = trigger_mode_name(
+            st->stream_active ? TRIGGER_MODE_CONTINUOUS : st->trigger_mode);
+    snprintf(out, out_len,
+             "{\"status\":\"ok\",\"camera_id\":%d,\"exposure_us\":%d,\"gain_db\":%.3f,\"gamma\":%.3f,"
+             "\"black_level\":%d,\"capture_trigger_mode\":\"%s\",\"effective_trigger_mode\":\"%s\","
+             "\"pixel_format\":\"%s\",\"width\":%d,\"height\":%d,\"frame_timeout_ms\":%d,"
+             "\"streaming\":%s,\"mvs_available\":%s}",
+             st->camera_id,
+             exposure_us,
+             gain_db,
+             gamma,
+             black_level,
+             configured_trigger,
+             effective_trigger,
+             pixel_format_pref_name(st->hik_pixel_format_active),
+             st->width,
+             st->height,
+             st->frame_timeout_ms,
+             st->stream_active ? "true" : "false",
+             mvs_available ? "true" : "false");
+}
+
+static int apply_settings_from_header(worker_state_t *st, const char *header_json, char *err, size_t err_len) {
+    int has_exposure = 0;
+    int exposure_us = 0;
+    int has_gain = 0;
+    float gain_db = 0.0f;
+    int has_gamma = 0;
+    float gamma = 0.0f;
+    int has_black = 0;
+    int black_level = 0;
+    int has_timeout = 0;
+    int frame_timeout_ms = 0;
+    char mode[32] = {0};
+    int has_mode = 0;
+
+    if (json_find_int(header_json, (int)strlen(header_json), "exposure_us", &exposure_us) == 0) {
+        has_exposure = 1;
+    }
+    if (json_find_float(header_json, (int)strlen(header_json), "gain_db", &gain_db) == 0) {
+        has_gain = 1;
+    }
+    if (json_find_float(header_json, (int)strlen(header_json), "gamma", &gamma) == 0) {
+        has_gamma = 1;
+    }
+    if (json_find_int(header_json, (int)strlen(header_json), "black_level", &black_level) == 0) {
+        has_black = 1;
+    }
+    if (json_find_int(header_json, (int)strlen(header_json), "frame_timeout_ms", &frame_timeout_ms) == 0) {
+        has_timeout = 1;
+    }
+    if (json_find_string(header_json, (int)strlen(header_json), "capture_trigger_mode", mode, sizeof(mode)) == 0) {
+        has_mode = 1;
+    }
+
+    if (!has_exposure && !has_gain && !has_gamma && !has_black && !has_timeout && !has_mode) {
+        snprintf(err, err_len, "no_supported_settings_in_request");
+        return -1;
+    }
+    if (has_mode && st->stream_active) {
+        snprintf(err, err_len, "capture_trigger_mode_locked_during_stream");
+        return -1;
+    }
+    if (has_exposure && exposure_us <= 0) {
+        snprintf(err, err_len, "exposure_us_must_be_positive");
+        return -1;
+    }
+    if (has_timeout && frame_timeout_ms <= 0) {
+        snprintf(err, err_len, "frame_timeout_ms_must_be_positive");
+        return -1;
+    }
+
+    stream_lock_enter(st);
+#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+    if (st->hik_handle) {
+        if (has_exposure) {
+            hik_apply_exposure(st->hik_handle, exposure_us);
+            st->exposure_us = exposure_us;
+        }
+        if (has_gain) {
+            if (hik_apply_gain(st->hik_handle, gain_db) == MV_OK) {
+                st->gain_db = gain_db;
+            }
+        }
+        if (has_gamma) {
+            if (hik_apply_gamma(st->hik_handle, gamma) == MV_OK) {
+                st->gamma = gamma;
+            }
+        }
+        if (has_black) {
+            if (hik_apply_black_level(st->hik_handle, black_level) == MV_OK) {
+                st->black_level = black_level;
+            }
+        }
+    } else
+#endif
+    {
+        if (has_exposure) {
+            st->exposure_us = exposure_us;
+        }
+        if (has_gain) {
+            st->gain_db = gain_db;
+        }
+        if (has_gamma) {
+            st->gamma = gamma;
+        }
+        if (has_black) {
+            st->black_level = black_level;
+        }
+    }
+    if (has_timeout) {
+        st->frame_timeout_ms = frame_timeout_ms;
+    }
+    if (has_mode) {
+        int new_mode = parse_trigger_mode(mode);
+        st->trigger_mode = new_mode;
+#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+        hik_configure_trigger_mode(st);
+#endif
+    }
+    stream_lock_leave(st);
+    return 0;
+}
+
 static void hik_configure_trigger_mode(worker_state_t *st) {
     if (!st->hik_handle) {
         return;
@@ -1012,6 +1252,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     }
     hik_disable_auto_white_balance(st->hik_handle);
     hik_apply_exposure(st->hik_handle, st->exposure_us);
+    hik_read_runtime_tuning(st);
     hik_configure_trigger_mode(st);
 
     MVCC_INTVALUE payload;
@@ -1479,6 +1720,9 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
         snprintf(st->ip, sizeof(st->ip), "127.0.0.1");
     }
     st->exposure_us = cam_cfg ? cam_cfg->exposure_us : 0;
+    st->gain_db = 0.0f;
+    st->gamma = 1.0f;
+    st->black_level = 0;
     st->trigger_mode = cam_cfg ? cam_cfg->trigger_mode : TRIGGER_MODE_CONTINUOUS;
     st->gige_inter_packet_delay = cam_cfg ? cam_cfg->gige_inter_packet_delay : 0;
     st->gige_frame_transfer_delay_step = cam_cfg ? cam_cfg->gige_frame_transfer_delay_step : 0;
@@ -1886,6 +2130,23 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
             }
             char out[1200];
             format_capture_json(&st, out, sizeof(out));
+            write_message(out_stream, MSG_RESPONSE, out);
+        } else if (strcmp(op, "get_settings") == 0) {
+            char out[1024];
+            format_settings_json(&st, out, sizeof(out));
+            write_message(out_stream, MSG_RESPONSE, out);
+        } else if (strcmp(op, "set_settings") == 0) {
+            char settings_err[256] = {0};
+            if (apply_settings_from_header(&st, header_buf, settings_err, sizeof(settings_err)) != 0) {
+                char escaped[320];
+                json_escape(settings_err[0] ? settings_err : "set_settings_failed", escaped, sizeof(escaped));
+                char out_err[512];
+                snprintf(out_err, sizeof(out_err), "{\"error\":\"set_settings_failed\",\"reason\":\"%s\"}", escaped);
+                write_message(out_stream, MSG_ERROR, out_err);
+                continue;
+            }
+            char out[1024];
+            format_settings_json(&st, out, sizeof(out));
             write_message(out_stream, MSG_RESPONSE, out);
         } else if (strcmp(op, "set_reference") == 0) {
             write_message(out_stream, MSG_ERROR,

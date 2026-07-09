@@ -290,6 +290,82 @@
         }
       }
     },
+    "/api/camera/{cameraId}/settings": {
+      "servers": [
+        {
+          "url": "http://127.0.0.1:8099"
+        }
+      ],
+      "get": {
+        "tags": [
+          "ui_http"
+        ],
+        "summary": "Текущие настройки камеры (MVS / camera-worker)",
+        "description": "JSON: exposure_us, gain_db, gamma, black_level, capture_trigger_mode, pixel_format, streaming и др.",
+        "parameters": [
+          {
+            "name": "cameraId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Настройки камеры"
+          },
+          "404": {
+            "description": "Камера не найдена"
+          },
+          "502": {
+            "description": "Ошибка camera-worker"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "ui_http"
+        ],
+        "summary": "Изменить настройки камеры онлайн",
+        "description": "Поддерживаются exposure_us, gain_db, gamma, black_level, capture_trigger_mode, frame_timeout_ms. trigger mode нельзя менять во время стрима.",
+        "parameters": [
+          {
+            "name": "cameraId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Настройки применены"
+          },
+          "409": {
+            "description": "Конфликт (например trigger mode во время стрима)"
+          },
+          "502": {
+            "description": "Ошибка camera-worker"
+          }
+        }
+      }
+    },
     "/api/geometry/cameras": {
       "servers": [
         {

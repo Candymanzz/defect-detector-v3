@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.http.HttpApplicationContext;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.http.HttpFrontController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -221,6 +222,12 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     public void attachCameraStreamService(CameraStreamService cameraStreamService) {
         if (httpContext != null && httpContext.cameraStreamHolder() != null) {
             httpContext.cameraStreamHolder().set(cameraStreamService);
+        }
+    }
+
+    public void attachCameraWorkers(java.util.Map<Integer, WorkerProcessSupervisor> workersByCamera) {
+        if (httpContext != null && httpContext.cameraWorkersHolder() != null) {
+            httpContext.cameraWorkersHolder().set(workersByCamera);
         }
     }
 

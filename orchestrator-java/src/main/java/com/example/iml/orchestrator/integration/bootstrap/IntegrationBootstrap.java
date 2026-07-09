@@ -335,6 +335,7 @@ public final class IntegrationBootstrap {
             }
             ClientStreamConfig clientStreamCfg = ClientStreamConfig.fromRootYaml(root);
             if (uiServer != null && !workersByCamera.isEmpty()) {
+                uiServer.attachCameraWorkers(workersByCamera);
                 cameraStreamService = new CameraStreamService(
                         log,
                         clientStreamCfg,
