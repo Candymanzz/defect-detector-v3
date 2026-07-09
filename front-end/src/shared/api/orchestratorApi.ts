@@ -3,6 +3,8 @@ import { HttpClient } from "./httpClient";
 import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
+  CameraRuntimeSettings,
+  CameraRuntimeSettingsUpdate,
   FpZonesResponse,
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
@@ -37,6 +39,17 @@ export const orchestratorApi = {
 
   async getLatestSnapshot(cameraId: number) {
     return http.json<UiLatestSnapshot>(`/api/camera/${cameraId}/latest.json`);
+  },
+
+  async getCameraSettings(cameraId: number) {
+    return http.json<CameraRuntimeSettings>(`/api/camera/${cameraId}/settings`);
+  },
+
+  async updateCameraSettings(cameraId: number, update: CameraRuntimeSettingsUpdate) {
+    return http.json<CameraRuntimeSettings>(`/api/camera/${cameraId}/settings`, {
+      method: "PATCH",
+      body: update,
+    });
   },
 
   currentFrameUrl(cameraId: number, version?: string | number) {

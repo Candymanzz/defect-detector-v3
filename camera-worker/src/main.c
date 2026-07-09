@@ -117,6 +117,12 @@ typedef struct {
 #endif
 } worker_state_t;
 
+static void stream_lock_enter(worker_state_t *st);
+static void stream_lock_leave(worker_state_t *st);
+#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+static void hik_configure_trigger_mode(worker_state_t *st);
+#endif
+
 static int jsoneq(const char *json, const jsmntok_t *tok, const char *s) {
     if (tok->type != JSMN_STRING) return -1;
     size_t slen = strlen(s);

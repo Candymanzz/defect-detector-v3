@@ -31,6 +31,33 @@ export type UiCameraList = {
   cameras: CameraId[];
 };
 
+export type CameraTriggerMode = "continuous" | "software" | "line0" | "line1";
+
+export type CameraRuntimeSettings = {
+  status?: string;
+  camera_id: CameraId;
+  exposure_us: number;
+  gain_db: number;
+  gamma: number;
+  black_level: number;
+  capture_trigger_mode: CameraTriggerMode | string;
+  effective_trigger_mode?: CameraTriggerMode | string;
+  pixel_format?: string;
+  width?: number;
+  height?: number;
+  frame_timeout_ms: number;
+  streaming?: boolean;
+  mvs_available?: boolean;
+  ok?: true;
+};
+
+export type CameraRuntimeSettingsUpdate = Partial<
+  Pick<
+    CameraRuntimeSettings,
+    "exposure_us" | "gain_db" | "gamma" | "black_level" | "capture_trigger_mode" | "frame_timeout_ms"
+  >
+>;
+
 export type UiCaptureSize = {
   width: number;
   height: number;
