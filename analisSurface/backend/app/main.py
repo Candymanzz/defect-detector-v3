@@ -79,6 +79,7 @@ async def add_application_id_to_json(request: Request, call_next) -> Response:
 
 @app.get("/health")
 async def health() -> dict:
+    """GET /health — общий liveness (отличается от /detector/health для оркестратора)."""
     return {
         "status": "ok",
         "service": "kopcheni-service",

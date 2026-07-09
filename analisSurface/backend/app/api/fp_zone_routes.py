@@ -1,3 +1,5 @@
+"""FP-зоны (false positive): области известного шума на heatmap для fp-recheck."""
+
 from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspection_service
@@ -10,6 +12,11 @@ router = APIRouter()
 
 @router.post("/fp-zones", response_model=FPZoneResponse)
 async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
+    """POST /fp-zones — добавить зону ложного срабатывания.
+
+    points — полигон на heatmap (норм. координаты); heatmap_w/h — размер heatmap при разметке.
+    При создании сохраняется baseline активности diff в зоне.
+    """
     points = [(p.x, p.y) for p in payload.points]
     try:
         zone = inspection_service.add_fp_zone(
@@ -26,6 +33,7 @@ async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
 
 @router.get("/fp-zones/{product_type}", response_model=FPZoneListResponse)
 async def get_fp_zones(product_type: str) -> FPZoneListResponse:
+    """GET /fp-zones/{product_type} — список FP-зон (может быть пустым)."""
     zones = inspection_service.get_fp_zones(product_type)
     return FPZoneListResponse(
         product_type=product_type,
@@ -35,6 +43,7 @@ async def get_fp_zones(product_type: str) -> FPZoneListResponse:
 
 @router.delete("/fp-zones/{zone_id}")
 async def delete_fp_zone(zone_id: str) -> dict:
+    """DELETE /fp-zones/{zone_id} — удалить зону по UUID."""
     deleted = inspection_service.delete_fp_zone(zone_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="FP zone not found")

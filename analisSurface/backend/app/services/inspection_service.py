@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 
 class InspectionService:
+    """Ядро инспекции: выравнивание, diff, детекция аномалий, FP-recheck, вердикт.
+
+    Публичная точка входа для анализа — inspect_frame().
+    CRUD по ROI/зонам и загрузка JSON вынесены в отдельные методы без алгоритмической логики.
+    """
     def __init__(self) -> None:
         self.references: Dict[str, np.ndarray] = {}
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
@@ -243,12 +248,14 @@ class InspectionService:
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
     ) -> InspectionResult:
+        # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         settings = self.get_analysis_settings(product_type)
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
+        # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography).
         aligned = self._align_to_reference(
             frame,
             reference,
@@ -256,20 +263,25 @@ class InspectionService:
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
 
+        # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
 
+        # 3. Карта отличий эталон vs выровненный кадр.
         diff_map = self._compute_advanced_difference(aligned, reference, settings)
 
+        # 4. Бинарная маска дефектов + глобальный score по diff.
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
+        # 5. Ослабить ложняки в FP-зонах (известный шум/текст).
         fp_recheck = self._recheck_fp_zones(product_type, diff_map, segmentation_mask, raw_score, settings)
         filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
 
+        # 6. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
         inspection_threshold = (
             threshold if threshold is not None else settings.default_threshold
         )
@@ -298,12 +310,14 @@ class InspectionService:
                 )
             )
 
+        # Итог = максимум по зонам; брак если хотя бы одна зона превысила свой порог.
         zone_scores = [main_roi_score, *(entry.anomaly_score for entry in sub_zone_scores)]
         anomaly_score = float(max(zone_scores)) if zone_scores else 0.0
         main_failed = main_roi_score >= inspection_threshold
         sub_failed = any(entry.status == "БРАК" for entry in sub_zone_scores)
         status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
 
+        # 7. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         heatmap_u8 = None
         if include_visuals:
             heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
@@ -485,6 +499,7 @@ class InspectionService:
         segmentation_mask: np.ndarray,
         points: list[Tuple[float, float]],
     ) -> dict[str, float]:
+        """Сводные метрики активности внутри полигона — для FP-recheck и score по ROI."""
         h, w = diff_map.shape[:2]
         zone_mask = polygon_mask_from_norm_points(w, h, points) > 0
         if not np.any(zone_mask):
@@ -494,6 +509,7 @@ class InspectionService:
         seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
         zone_diff = diff_gray[zone_mask]
         zone_active = seg_gray[zone_mask] > 0
+        # q90 diff — типичная «энергия» отличия; active_ratio — доля пикселей в маске дефекта.
         diff_q90 = float(np.percentile(zone_diff, 90))
         diff_max = float(np.max(zone_diff))
         active_ratio = float(np.mean(zone_active))
@@ -501,6 +517,7 @@ class InspectionService:
         return {"diff_q90": diff_q90, "diff_max": diff_max, "active_ratio": active_ratio, "score": score}
 
     def _should_suppress_fp_zone(self, zone: FPZone, activity: dict[str, float]) -> bool:
+        """True = всплеск в зоне похож на известный шум (baseline), можно игнорировать."""
         has_baseline = any(
             value > 0.0
             for value in (
@@ -532,6 +549,7 @@ class InspectionService:
         region_mask: np.ndarray,
         settings: AnalysisSettings,
     ) -> float:
+        """Score одной области: повторный прогон детектора на маске + метрики активности."""
         if not np.any(region_mask):
             return 0.0
         masked_diff = diff_map.copy()
@@ -565,6 +583,7 @@ class InspectionService:
         raw_score: float,
         settings: AnalysisSettings,
     ) -> dict:
+        """Если аномалия попала в FP-зону с похожим профилем — вырезать и пересчитать score."""
         zones = self.get_fp_zones(product_type)
         if not zones or not settings.fp_recheck_enabled:
             return {
@@ -697,6 +716,11 @@ class InspectionService:
         product_type: str,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
     ) -> np.ndarray:
+        """Привести current к системе координат reference.
+
+        Приоритет: гомография от java-geometry → ORB-матчи + findHomography → resize.
+        После warp всегда ECC-подстройка микросдвига.
+        """
         geometry_aligned = self._align_with_geometry_homography(
             current,
             reference,
@@ -711,6 +735,7 @@ class InspectionService:
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
+        # Lowe ratio test: оставляем только однозначные дескрипторные соответствия.
         matches = self._matcher.knnMatch(des_cur, des_ref, k=2)
         good_matches = []
         for pair in matches:
@@ -740,6 +765,7 @@ class InspectionService:
         reference: np.ndarray,
         alignment_h_ref_to_cur: Optional[list[list[float]]],
     ) -> Optional[np.ndarray]:
+        """H из оркестратора: ref→cur; WARP_INVERSE_MAP применяет обратное отображение cur→ref."""
         if alignment_h_ref_to_cur is None:
             return None
         try:
@@ -767,6 +793,7 @@ class InspectionService:
         reference: np.ndarray,
         settings: AnalysisSettings,
     ) -> np.ndarray:
+        """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
             aligned = cv2.resize(aligned, (reference.shape[1], reference.shape[0]))
 
@@ -861,6 +888,7 @@ class InspectionService:
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
 
     def _refine_alignment_ecc(self, aligned: np.ndarray, reference: np.ndarray) -> np.ndarray:
+        """Доточить affine-сдвиг пирамидальным ECC (после грубой гомографии)."""
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         aligned_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
         # Pyramid ECC (4 levels) with phase-correlation bootstrap.
@@ -917,6 +945,11 @@ class InspectionService:
         diff_map: np.ndarray,
         settings: AnalysisSettings,
     ) -> Tuple[float, np.ndarray]:
+        """Вернуть (score 0..1, маска дефектов BGR).
+
+        Сначала эвристика по connected components на diff_map;
+        при use_patchcore — объединение с PatchCore, берётся max(score).
+        """
         # Heuristic fallback score with emphasis on strong local differences.
         # This helps thin/high-contrast defects (e.g. scratches) score higher than
         # broad low-contrast texture/background changes.

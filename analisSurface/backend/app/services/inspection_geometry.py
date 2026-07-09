@@ -1,3 +1,9 @@
+"""Геометрия ROI: нормализованные полигоны [0,1] → маски и обрезка кадров.
+
+Все координаты в API задаются относительно размера изображения (0 = левый/верхний край,
+1 = правый/нижний). Пиксельные маски строятся через polygon_mask_from_norm_points().
+"""
+
 from typing import Tuple
 
 import cv2
@@ -40,6 +46,7 @@ def mask_to_polygon(
     reference: np.ndarray,
     polygon: list[Tuple[float, float]],
 ) -> Tuple[np.ndarray, np.ndarray]:
+    """Обнулить пиксели вне ROI на обоих кадрах перед сравнением."""
     height, width = reference.shape[:2]
     mask = polygon_mask_from_norm_points(width, height, polygon)
 
@@ -83,6 +90,7 @@ def combine_region_masks(
     include_polygon: list[Tuple[float, float]] | None,
     exclude_polygons: list[list[Tuple[float, float]]],
 ) -> np.ndarray:
+    """Маска main ROI: внутри include_polygon, минус дырки sub-zones (exclude_polygons)."""
     if include_polygon is not None and len(include_polygon) >= 3:
         region_mask = polygon_mask_from_norm_points(width, height, include_polygon) > 0
     else:

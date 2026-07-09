@@ -4,6 +4,8 @@ from typing import Any
 
 @dataclass
 class AnalysisSettings:
+    """Параметры алгоритма на product_type; подробности — docs/ANALYSIS_SETTINGS.md."""
+
     default_threshold: float = 0.25
     use_patchcore: bool = True
     min_defect_area: int = 6
