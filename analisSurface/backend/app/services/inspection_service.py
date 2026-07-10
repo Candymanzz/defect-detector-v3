@@ -217,6 +217,12 @@ class InspectionService:
                 return True
         return False
 
+    def delete_all_fp_zones(self) -> int:
+        deleted_count = sum(len(zones) for zones in self.fp_zones.values())
+        self.fp_zones = {}
+        self._save_fp_zones()
+        return deleted_count
+
     def inspect(
         self,
         product_type: str,

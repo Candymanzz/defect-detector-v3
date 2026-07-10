@@ -41,6 +41,13 @@ async def get_fp_zones(product_type: str) -> FPZoneListResponse:
     )
 
 
+@router.delete("/fp-zones")
+async def delete_all_fp_zones() -> dict:
+    """DELETE /fp-zones — удалить все FP-зоны (все product_type) и очистить fp_zones.json."""
+    deleted_count = inspection_service.delete_all_fp_zones()
+    return {"deleted": True, "zones_count": deleted_count}
+
+
 @router.delete("/fp-zones/{zone_id}")
 async def delete_fp_zone(zone_id: str) -> dict:
     """DELETE /fp-zones/{zone_id} — удалить зону по UUID."""
