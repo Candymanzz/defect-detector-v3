@@ -161,7 +161,9 @@ export type LightBrightnessUpdateRequest = {
 };
 
 export type LightBrightnessUpdateResponse = {
-  ok: true;
+  ok: boolean;
+  hardware_applied?: boolean;
+  hardware_errors?: string[];
   default_brightness_percent: number;
   endpoints: LightEndpointBrightness[];
   brightness_percent?: number;

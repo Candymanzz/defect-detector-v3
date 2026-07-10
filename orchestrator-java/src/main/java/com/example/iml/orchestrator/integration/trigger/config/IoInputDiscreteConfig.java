@@ -17,13 +17,15 @@ public record IoInputDiscreteConfig(
         boolean stubWorkActive,
         TriggerEdgeMode triggerEdge,
         boolean requireDirection,
+        boolean requireWork,
+        boolean di3Only,
         boolean directionInvert,
         int directionWaitMs,
         int directionPollMs
 ) {
 
     public static IoInputDiscreteConfig defaults() {
-        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, false, 5000, 50);
+        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, 5000, 50);
     }
 
     public static IoInputDiscreteConfig parse(Map<String, Object> integration, int udpDebounceMs) {
@@ -51,8 +53,16 @@ public record IoInputDiscreteConfig(
                 ? String.valueOf(io.get("payload_format")).trim().toLowerCase()
                 : defaults.payloadFormat();
         boolean stubWorkActive = YamlScalars.toBool(io.get("stub_work_active"), defaults.stubWorkActive());
-        TriggerEdgeMode triggerEdge = TriggerEdgeMode.fromConfig(io.get("trigger_edge"));
-        boolean requireDirection = YamlScalars.toBool(io.get("require_direction"), defaults.requireDirection());
+        boolean di3Only = YamlScalars.toBool(io.get("di3_only"), defaults.di3Only());
+        TriggerEdgeMode triggerEdge = di3Only
+                ? TriggerEdgeMode.RISING
+                : TriggerEdgeMode.fromConfig(io.get("trigger_edge"));
+        boolean requireDirection = di3Only
+                ? false
+                : YamlScalars.toBool(io.get("require_direction"), defaults.requireDirection());
+        boolean requireWork = di3Only
+                ? false
+                : YamlScalars.toBool(io.get("require_work"), defaults.requireWork());
         boolean directionInvert = YamlScalars.toBool(io.get("direction_invert"), defaults.directionInvert());
         int directionWaitMs = Math.max(0, YamlScalars.toInt(io.get("direction_wait_ms"), defaults.directionWaitMs()));
         int directionPollMs = Math.max(1, YamlScalars.toInt(io.get("direction_poll_ms"), defaults.directionPollMs()));
@@ -65,6 +75,8 @@ public record IoInputDiscreteConfig(
                 stubWorkActive,
                 triggerEdge,
                 requireDirection,
+                requireWork,
+                di3Only,
                 directionInvert,
                 directionWaitMs,
                 directionPollMs
@@ -82,6 +94,8 @@ public record IoInputDiscreteConfig(
                 defaults.stubWorkActive(),
                 defaults.triggerEdge(),
                 defaults.requireDirection(),
+                defaults.requireWork(),
+                defaults.di3Only(),
                 defaults.directionInvert(),
                 defaults.directionWaitMs(),
                 defaults.directionPollMs()

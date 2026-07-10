@@ -74,7 +74,7 @@ public final class InspectionHeaderMapper {
 
     public static RoiRect roiOrDefault(Object o) {
         if (o == null) {
-            return new RoiRect(0, 0, 2448, 2048);
+            return new RoiRect(0, 0, 1224, 1024);
         }
         return roi(o);
     }

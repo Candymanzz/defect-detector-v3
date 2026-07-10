@@ -99,7 +99,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             socket = new DatagramSocket(new InetSocketAddress(bindAddress, udpConfig.bindPort()));
             socket.setReuseAddress(true);
             log.info(
-                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
+                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} require_work={} di3_only={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                     udpConfig.bindHost(),
                     udpConfig.bindPort(),
                     ioInputConfig.payloadFormat(),
@@ -108,6 +108,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     ioInputConfig.triggerPort(),
                     ioInputConfig.triggerEdge(),
                     ioInputConfig.requireDirection(),
+                    ioInputConfig.requireWork(),
+                    ioInputConfig.di3Only(),
                     ioInputConfig.directionInvert(),
                     ioInputConfig.directionWaitMs(),
                     ioInputConfig.directionPollMs(),
@@ -153,7 +155,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (port == ioInputConfig.workPort()) {
             workActive = active;
             updateLineWork(active);
-            if (ioInputConfig.requireDirection()) {
+            if (!ioInputConfig.di3Only() && ioInputConfig.requireDirection()) {
                 evaluateTriggerDecision(port, active);
             }
             return;
@@ -176,6 +178,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             directionRawActive = active;
             directionActive = mapped;
             directionLatch.onDirectionChange(active, triggerActive);
+            if (ioInputConfig.di3Only()) {
+                return;
+            }
             if (ioInputConfig.requireDirection()) {
                 directionWaiter.onDirectionReadyEvent();
                 if (triggerActive) {
@@ -223,14 +228,17 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 effectiveWork,
                 effectiveDirection,
                 triggerActive,
-                ioInputConfig.requireDirection()
+                ioInputConfig.requireDirection(),
+                ioInputConfig.requireWork()
         );
         switch (decision) {
             case NONE -> { }
             case SKIP_NOT_READY -> log.info("io_input_trigger skip: conveyor not running (work=0)");
             case SKIP_WRONG_DIRECTION -> handleMissingDirection();
             case FIRE -> {
-                if (ioInputConfig.requireDirection()) {
+                if (ioInputConfig.di3Only()) {
+                    log.info("io_input_trigger capture on DI3 edge (di3_only=true)");
+                } else if (ioInputConfig.requireDirection()) {
                     log.info(
                             "io_input_trigger capture on DI3 edge direction={}",
                             effectiveDirection ? 1 : 0

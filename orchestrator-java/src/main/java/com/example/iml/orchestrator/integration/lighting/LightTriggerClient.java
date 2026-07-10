@@ -138,9 +138,9 @@ public final class LightTriggerClient {
             if (holdMode && constantLightingEngaged) {
                 return;
             }
-            LOG.info("light startup: яркость по камерам → POST on (hold_mode={})", holdMode);
-            if (!applyAllCameraBrightnessLocked() || !postOnWithRetriesLocked(defaultBrightnessPercent)) {
-                LOG.warn("light startup: не удалось включить подсветку");
+            LOG.info("light startup: яркость по камерам (hold_mode={})", holdMode);
+            if (!engageLightingLocked()) {
+                LOG.warn("light startup: не удалось включить подсветку — capture продолжит без блокирующей повторной инициализации");
                 return;
             }
             if (holdMode) {
@@ -182,26 +182,57 @@ public final class LightTriggerClient {
     }
 
     public void setBrightnessPercent(int percent) {
-        int clamped = LightBrightnessScale.clampPercent(percent);
-        List<Integer> ids = cameras.stream().map(LightServersConfig.CameraFlashSpec::cameraId).toList();
-        synchronized (lightCommandLock) {
-            defaultBrightnessPercent = clamped;
-            for (int cameraId : ids) {
-                updateCameraBrightness(cameraId, clamped, clamped, clamped);
-            }
-            refreshHoldLightingIfEngaged();
-        }
+        applyBrightnessUpdate(LightBrightnessUpdate.globalOnly(percent));
     }
 
     public void setBrightnessPercent(String endpointId, int percent) {
+        applyBrightnessUpdate(new LightBrightnessUpdate(null, Map.of(endpointId, percent)));
+    }
+
+    public LightBrightnessApplyResult applyBrightnessUpdate(LightBrightnessUpdate update) {
+        if (update == null || update.isEmpty()) {
+            return LightBrightnessApplyResult.none();
+        }
+        LightBrightnessApplyResult result = LightBrightnessApplyResult.none();
+        if (update.globalPercent() != null) {
+            result = LightBrightnessApplyResult.merge(result, applyGlobalBrightness(update.globalPercent()));
+        }
+        for (Map.Entry<String, Integer> entry : update.perEndpoint().entrySet()) {
+            result = LightBrightnessApplyResult.merge(result, applyEndpointBrightness(entry.getKey(), entry.getValue()));
+        }
+        return result;
+    }
+
+    private LightBrightnessApplyResult applyGlobalBrightness(int percent) {
+        int clamped = LightBrightnessScale.clampPercent(percent);
+        List<LightServersConfig.CameraFlashSpec> toPush;
+        synchronized (lightCommandLock) {
+            defaultBrightnessPercent = clamped;
+            toPush = new ArrayList<>(cameras.size());
+            for (LightServersConfig.CameraFlashSpec existing : cameras) {
+                toPush.add(replaceCameraBrightnessMemory(existing.cameraId(), clamped, clamped, clamped));
+            }
+        }
+        if (!enabled) {
+            return LightBrightnessApplyResult.none();
+        }
+        return new LightBrightnessApplyResult(pushCameraBrightnessBatch(toPush));
+    }
+
+    private LightBrightnessApplyResult applyEndpointBrightness(String endpointId, int percent) {
         Integer cameraId = parseCameraIdFromEndpoint(endpointId);
         if (cameraId == null) {
             throw new IllegalArgumentException("unknown light endpoint id: " + endpointId);
         }
         int clamped = LightBrightnessScale.clampPercent(percent);
+        LightServersConfig.CameraFlashSpec toPush;
         synchronized (lightCommandLock) {
-            updateCameraBrightness(cameraId, clamped, clamped, clamped);
+            toPush = replaceCameraBrightnessMemory(cameraId, clamped, clamped, clamped);
         }
+        if (!enabled) {
+            return LightBrightnessApplyResult.none();
+        }
+        return new LightBrightnessApplyResult(pushCameraBrightnessIfEnabled(toPush));
     }
 
     public void trigger(int cameraId, long frameId, String phase) {
@@ -220,14 +251,20 @@ public final class LightTriggerClient {
             return;
         }
         if (holdMode) {
+            // Подсветка включается один раз при старте (IntegrationBootstrap.startupEngage).
+            // Повторная инициализация здесь блокировала потоки camera-flow на HTTP к LightServer
+            // и разрушала барьер line synchronized capture (камеры приходили в разное время).
             if (!constantLightingEngaged) {
-                engageConstantLighting();
+                LOG.warn(
+                        "light hold_mode: подсветка не была включена при старте — capture без блокирующей инициализации cam={}",
+                        cameraId
+                );
             }
             captureStep.run();
             return;
         }
         synchronized (lightCommandLock) {
-            if (!postOnWithRetriesLocked(defaultBrightnessPercent)) {
+            if (!engageCameraLightingLocked(cameraId)) {
                 LOG.warn("light On failed cam={} phase={} — skip Off and capture without lighting", cameraId, phase);
                 captureStep.run();
                 return;
@@ -255,7 +292,7 @@ public final class LightTriggerClient {
         }
         LOG.info("light On cam={} frame={} phase={} brightness={}", cameraId, frameId, phase, brightnessByEndpoint());
         synchronized (lightCommandLock) {
-            return postOnWithRetriesLocked(defaultBrightnessPercent);
+            return engageCameraLightingLocked(cameraId);
         }
     }
 
@@ -282,14 +319,49 @@ public final class LightTriggerClient {
         forceAllOff();
     }
 
-    private void refreshHoldLightingIfEngaged() {
-        if (holdMode && constantLightingEngaged) {
-            postOnWithRetriesLocked(defaultBrightnessPercent);
-            sleepSettle();
+    /**
+     * Включить подсветку: по камерам через {@code /api/camera-flash/*} (уже задаёт яркость и On),
+     * без глобального {@code POST /api/com/light}, который перезаписывает все каналы одной яркостью.
+     */
+    private boolean engageLightingLocked() {
+        if (hasPerCameraRoutes()) {
+            return applyAllCameraBrightnessLocked();
         }
+        return postOnWithRetriesLocked(defaultBrightnessPercent);
     }
 
-    private void updateCameraBrightness(int cameraId, int percent, int leftPercent, int rightPercent) {
+    private boolean engageCameraLightingLocked(int cameraId) {
+        LightServersConfig.CameraFlashSpec spec = cameraById.get(cameraId);
+        if (spec != null) {
+            try {
+                pushCameraBrightness(spec);
+                sleepSettle();
+                return true;
+            } catch (Exception e) {
+                if (failOnError) {
+                    throw new IllegalStateException("light camera-" + cameraId + " on failed", e);
+                }
+                LOG.warn("light camera-{} on failed: {}", cameraId, formatError(e));
+                return false;
+            }
+        }
+        if (hasPerCameraRoutes()) {
+            LOG.warn("light camera-{} not configured in light_servers.cameras", cameraId);
+            return false;
+        }
+        return postOnWithRetriesLocked(defaultBrightnessPercent);
+    }
+
+    private boolean hasPerCameraRoutes() {
+        return !cameras.isEmpty();
+    }
+
+    private LightServersConfig.CameraFlashSpec replaceCameraBrightnessMemory(
+            int cameraId,
+            int percent,
+            int leftPercent,
+            int rightPercent
+    ) {
         LightServersConfig.CameraFlashSpec existing = cameraById.get(cameraId);
         if (existing == null) {
             throw new IllegalArgumentException("unknown camera id: " + cameraId);
@@ -308,10 +380,35 @@ public final class LightTriggerClient {
         if (before != percent) {
             LOG.info("light camera-{} brightness {}% -> {}%", cameraId, before, percent);
         }
+        return updated;
+    }
+
+    private List<String> pushCameraBrightnessBatch(List<LightServersConfig.CameraFlashSpec> specs) {
+        return pushCameraBrightnessIfEnabled(specs);
+    }
+
+    private List<String> pushCameraBrightnessIfEnabled(List<LightServersConfig.CameraFlashSpec> specs) {
+        if (!enabled || specs == null || specs.isEmpty()) {
+            return List.of();
+        }
+        List<String> errors = new ArrayList<>();
+        for (LightServersConfig.CameraFlashSpec spec : specs) {
+            errors.addAll(pushCameraBrightnessIfEnabled(spec));
+        }
+        return errors;
+    }
+
+    private List<String> pushCameraBrightnessIfEnabled(LightServersConfig.CameraFlashSpec spec) {
+        if (!enabled) {
+            return List.of();
+        }
         try {
-            pushCameraBrightness(updated);
+            pushCameraBrightness(spec);
+            return List.of();
         } catch (Exception e) {
-            LOG.warn("light camera-{} brightness push failed: {}", cameraId, e.getMessage());
+            String message = formatError(e);
+            LOG.warn("light camera-{} brightness push failed: {}", spec.cameraId(), message);
+            return List.of("camera-" + spec.cameraId() + ": " + message);
         }
     }
 
@@ -422,8 +519,13 @@ public final class LightTriggerClient {
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalStateException(label + " failed: " + e.getMessage(), e);
+            throw new IllegalStateException(label + " failed: " + formatError(e), e);
         }
+    }
+
+    private static String formatError(Throwable e) {
+        String message = e.getMessage();
+        return message != null && !message.isBlank() ? message : e.getClass().getSimpleName();
     }
 
     private boolean pollBankInitialized() throws Exception {

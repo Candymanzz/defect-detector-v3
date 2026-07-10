@@ -158,10 +158,10 @@ public final class GeometryRuntimeConfig {
         Map<String, Object> m = new LinkedHashMap<>();
         Object defaultMainRoi = yamlGeometry != null && yamlGeometry.get("main_roi") != null
                 ? yamlGeometry.get("main_roi")
-                : Map.of("x", 0, "y", 0, "width", 2448, "height", 2048);
+                : Map.of("x", 0, "y", 0, "width", 1224, "height", 1024);
         m.put("mainRoi", defaultMainRoi);
         m.put("wrinklesRoi", defaultMainRoi);
-        m.put("pixelsToMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("pixels_to_mm"), 0.01));
+        m.put("pixelsToMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("pixels_to_mm"), 0.02));
         m.put("maxShiftMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_shift_mm"), 0.5));
         m.put("maxRotationDeg", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_rotation_deg"), 1.0));
         m.put("maxJointDefectMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_defect_mm"), 0.3));

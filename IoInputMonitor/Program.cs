@@ -130,8 +130,14 @@ internal static class Program
         using var udpPublisher = IoInputUdpPublisher.TryCreate(options.UdpPublish, options.InputPorts);
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
+            int triggerPort = options.UdpPublish.TriggerPort;
             foreach (int inputPort in options.InputPorts)
+            {
+                if (!options.UdpPublish.SendInitialTriggerState && inputPort == triggerPort)
+                    continue;
+
                 udpPublisher.Publish(inputPort, portPressed[inputPort]);
+            }
         }
 
         session.RegisterEdgeCallback((port, edge) =>
@@ -183,7 +189,8 @@ internal static class Program
             {
                 bool pressed = portPressed.TryGetValue(port, out bool p) && p;
                 MvIoNative.IoEdgeType nextEdge = NextEdgeToArm(IoInputEdgeMode.Both, pressed);
-                ReArmEdge(session, sessionLock, port, nextEdge, debounceMs);
+                int rearmPort = port;
+                Task.Run(() => ReArmEdge(session, sessionLock, rearmPort, nextEdge, debounceMs));
             }
         });
         Console.WriteLine("Ожидаю фронты...");

@@ -46,6 +46,12 @@ class LineDiscreteTriggerEvaluatorTest {
     }
 
     @Test
+    void firesOnTriggerRisingEdgeWhenWorkNotRequired() {
+        LineDiscreteTriggerEvaluator evaluator = new LineDiscreteTriggerEvaluator(TriggerEdgeMode.RISING);
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.FIRE, evaluator.evaluate(false, false, true, false, false));
+    }
+
+    @Test
     void skipsWhenDirectionInactiveOnRisingEdge() {
         LineDiscreteTriggerEvaluator evaluator = new LineDiscreteTriggerEvaluator(TriggerEdgeMode.RISING);
         assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, evaluator.evaluate(true, false, false));

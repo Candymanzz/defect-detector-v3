@@ -1,22 +1,32 @@
 version: 1
 
 frame:
-  width: 2448
-  height: 2048
+  width: 1224
+  height: 1024
   # Mono8: ~3x меньше GigE-трафика; camera-worker конвертирует в BGR8 для пайплайна.
   format: Mono8
+  # Binning 2×2 в MVS; если SDK вернёт 0x80000109 — worker применит ROI 1224×1024 по центру.
+  binning_horizontal: 2
+  binning_vertical: 2
+  binning_mode: "Sum"
 
 capture_source: "hik"
+# software: экспозиция по команде ПК (trigger_only) сразу после DI3 (~30 мс IPC), все 10 камер параллельно.
+# line0 + hardware_line_trigger (ниже): экспозиция строго в момент DI3→Line0 (идеал для конвейера).
 capture_trigger_mode: "software"
 frame_timeout_ms: 15000
-# Коммутатор: egress-буфер ~48 КБ — только один GigE-поток на uplink; слоты 0..9 по camera_id.
+# GigE-топология: 5 коммутаторов, на каждом 2 камеры (пары id: 0+1, 2+3, … 8+9).
+# gige_switch_buffer_kb — физический egress коммутатора (48 КБ). Не завышать в конфиге:
+# это не увеличит железо, только ослабит защиту от потерь пакетов.
+gige_switch_count: 5
+gige_cameras_per_switch: 2
 gige_switch_buffer_kb: 48
-# GigE: межпакетная задержка (GevSCPD) и сдвиг старта передачи (GevSCFTD, тики ~8 нс).
-gige_inter_packet_delay: 80000
-# 0 = авто (≥96 мс для Mono8 2448×2048 на 1 Gb/s); не меньше времени передачи кадра.
+# GevSCPD: выше = меньше burst на 48 КБ коммутаторе (тики, типично 80000–150000).
+gige_inter_packet_delay: 120000
+# 0 = авто (≥96 мс между камерами на одном коммутаторе); при 48 КБ ×2 умножается в worker.
 gige_frame_transfer_delay_step: 0
-# При switch_buffer_kb>96: camera_id % N на линк; при 48 КБ игнорируется — полная сериализация.
-gige_ftd_cameras_per_link: 10
+# 2 = две камеры на коммутатор; передача волнами 0,2,4,6,8 затем 1,3,5,7,9.
+gige_ftd_cameras_per_link: 2
 
 orchestrator:
   control_pipe: "\\\\.\\pipe\\iml-orchestrator"
@@ -37,13 +47,15 @@ integration:
   capture_trigger_stagger_ms: 0
   simultaneous_line_capture:
     enabled: true
-    barrier_wait_ms: 100
+    barrier_wait_ms: 0
     post_trigger_settle_ms: 0
-    inter_wait_frame_ms: 0
+    inter_wait_frame_ms: 220
     parallel_wait_frame: true
-    # true = trigger_only сразу по UDP на все 10 камер параллельно (экспозиция без ожидания барьера Java).
-    # Барьер Java-потоков добавлял десятки–сотни мс — при быстром конвейере ведро уже уехало.
-    # Одновременность съёмки: invokeAll(trigger_only) на все камеры в один момент.
+    # 2 волны wait_frame: чётные id (по одной камере на коммутатор), затем нечётные — без перегруза 48 КБ.
+    transfer_wait_waves: 2
+    # true только если DI3 разведён на Line0 всех камер (идеальная одновременность в момент DI3).
+    hardware_line_trigger: false
+    # DI3 → сразу trigger_only (экспозиция); wait_frame+pin в фоне — инспекция не задерживает следующий DI3.
     immediate_prefire: true
   geometry_pool_size: 10
   python_parallelism: 10
@@ -88,17 +100,18 @@ integration:
       work_port: 1
       direction_port: 2
       trigger_port: 3
+      # true = только DI3 (фронт trigger_edge), DI1/DI2 не блокируют съёмку.
+      di3_only: true
       # rising = съёмка при замыкании DI3 (0→1, контакт замкнулся).
-      trigger_edge: falling
+      trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      # DI2=1 на линии = прямой ход → съёмка; DI2=0 = обратный ход → пропуск.
-      require_direction: true
+      require_direction: false
+      require_work: false
+      stub_work_active: false
       direction_invert: false
       direction_wait_ms: 0
-      direction_poll_ms: 50
-      # Временно: DI1 считается активным без сигнала (пока плохо подключён).
-      stub_work_active: true
+      direction_poll_ms: 0
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20
@@ -110,10 +123,10 @@ integration:
   timing_stages_log:
     enabled: true
     file: "logs/pipeline-stages.jsonl"
-  # Downscale перед geometry/python: ~4× быстрее ORB/diff/anomalib при SLA 3.5 с.
+  # Downscale на ПК отключён: разрешение уже уменьшено binning 2×2 на камере.
   capture_frame_downscale:
-    enabled: true
-    scale: 0.5
+    enabled: false
+    scale: 1.0
     apply_to_inspection_capture: true
     apply_to_reference_capture: true
     apply_to_client_reference_bundle: true

@@ -144,11 +144,14 @@ public final class ProductionInspectionOrchestrator {
         }
         if (begin == PerCameraInspectionGate.BeginResult.IN_FLIGHT) {
             svc.log().warn(
-                    "integration cam={}: trigger skipped — previous inspection still in flight (source={})",
+                    "integration cam={}: unexpected in-flight gate (capture already at DI3 prefire); retrying (source={})",
                     in.cameraId(),
                     event.source()
             );
-            return;
+            begin = inspectionGate.tryBeginInspection(in.cameraId());
+            if (begin != PerCameraInspectionGate.BeginResult.STARTED) {
+                return;
+            }
         }
         long inspectionId = 0L;
         try {

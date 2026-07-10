@@ -397,8 +397,23 @@ public final class IntegrationBootstrap {
             AtomicInteger pythonRoundRobin = new AtomicInteger(0);
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection =
                     IntegrationFeatureConfig.parseContinuousInspection(integration);
+            InspectionTriggerConfig inspectionTriggerConfig = InspectionTriggerConfig.parse(integration);
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
-                    IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
+                    inspectionTriggerConfig.ioInput().di3Only()
+                            ? IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL
+                            : IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
+            if (inspectionTriggerConfig.ioInput().di3Only()) {
+                log.info(
+                        "inspection_trigger di3_only=true — съёмка только по фронту DI{} (DI1/DI2 игнорируются)",
+                        inspectionTriggerConfig.ioInput().triggerPort()
+                );
+                if (IntegrationFeatureConfig.parseDevAutoTriggerStub(integration).enabled()) {
+                    log.warn("di3_only=true: dev_auto_trigger_stub включён в конфиге, но игнорируется");
+                }
+                if (continuousInspection.enabled()) {
+                    log.warn("di3_only=true: continuous_inspection включён в конфиге, но игнорируется");
+                }
+            }
             BucketInspectionConfig bucketInspectionConfig =
                     BucketInspectionConfig.parse(integration, workersByCamera.keySet());
             List<Integer> inspectionCameraIds = bucketInspectionConfig.enabled()
@@ -421,6 +436,9 @@ public final class IntegrationBootstrap {
             long interWaitFrameMs = parseSimultaneousLineCaptureInterWaitFrameMs(integration);
             boolean parallelWaitFrame = parseSimultaneousLineCaptureParallelWaitFrame(integration);
             boolean immediatePrefire = parseSimultaneousLineCaptureImmediatePrefire(integration);
+            boolean hardwareLineTrigger = parseSimultaneousLineCaptureHardwareLineTrigger(integration, root);
+            int transferWaitWaves = parseSimultaneousLineCaptureTransferWaitWaves(integration, root);
+            boolean captureWithoutReference = IntegrationFeatureConfig.parseCaptureWithoutReference(integration);
             if (lineCaptureSyncEnabled && inspectionCameraIds.size() > 1) {
                 lineCaptureCoordinator = new LineSynchronizedCaptureCoordinator(
                         inspectionCameraIds,
@@ -428,10 +446,22 @@ public final class IntegrationBootstrap {
                         postTriggerSettleMs,
                         interWaitFrameMs,
                         parallelWaitFrame,
-                        immediatePrefire
+                        immediatePrefire,
+                        hardwareLineTrigger,
+                        transferWaitWaves
                 );
                 lineCaptureCoordinator.bindWorkers(workersByCamera);
                 captureCoordinator.setLineCaptureCoordinator(lineCaptureCoordinator);
+                logGigeTopologyForLineCapture(log, root, hardwareLineTrigger);
+                if (hardwareLineTrigger) {
+                    log.info(
+                            "hardware_line_trigger: экспозиция по DI3→Line0, Java только wait_frame (без trigger_only/settle/barrier)"
+                    );
+                    log.warn(
+                            "hardware_line_trigger требует физическую разводку DI3→Line0 всех камер; "
+                                    + "без неё wait_frame будет timeout (0x80000007)"
+                    );
+                }
             } else if (cfg.captureTriggerStaggerMs() > 0) {
                 log.info(
                         "inspection trigger stagger enabled delay_ms={} cameras={}",
@@ -467,10 +497,6 @@ public final class IntegrationBootstrap {
             if (lineCaptureCoordinator != null) {
                 final LineSynchronizedCaptureCoordinator lineCaptureRef = lineCaptureCoordinator;
                 triggerRuntime.bus().setLineTriggerListener((seq, at) -> {
-                    if (inspectionGate.hasAnyInspectionInFlight()) {
-                        log.debug("line prefire skipped seq={} — previous inspection in flight", seq);
-                        return;
-                    }
                     lineCaptureRef.prefireLineTrigger(seq, at.toEpochMilli());
                 });
             }
@@ -510,17 +536,19 @@ public final class IntegrationBootstrap {
             } else if (continuousInspection.enabled()) {
                 log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
             } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
-                InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
+                InspectionTriggerConfig triggerCfg = inspectionTriggerConfig;
                 if (triggerCfg.usesIoInputMonitor()) {
                     log.info(
-                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} require_direction={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
+                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} di3_only={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                             triggerCfg.udp().bindHost(),
                             triggerCfg.udp().bindPort(),
                             triggerCfg.ioInput().workPort(),
                             triggerCfg.ioInput().directionPort(),
                             triggerCfg.ioInput().triggerPort(),
                             triggerCfg.ioInput().triggerEdge(),
+                            triggerCfg.ioInput().di3Only(),
                             triggerCfg.ioInput().requireDirection(),
+                            triggerCfg.ioInput().requireWork(),
                             triggerCfg.ioInput().directionInvert(),
                             triggerCfg.ioInput().directionWaitMs(),
                             triggerCfg.ioInput().directionPollMs(),
@@ -539,7 +567,6 @@ public final class IntegrationBootstrap {
                 }
             }
             int inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(integration);
-            boolean captureWithoutReference = IntegrationFeatureConfig.parseCaptureWithoutReference(integration);
             if (captureWithoutReference) {
                 log.info("integration capture_without_reference enabled — trigger capture without client.reference_bundle");
             }
@@ -701,7 +728,7 @@ public final class IntegrationBootstrap {
         if (!(raw instanceof Map<?, ?> map)) {
             return 250L;
         }
-        return Math.max(50L, YamlScalars.toLong(map.get("barrier_wait_ms"), 250L));
+        return Math.max(0L, YamlScalars.toLong(map.get("barrier_wait_ms"), 250L));
     }
 
     private static boolean parseSimultaneousLineCaptureParallelWaitFrame(Map<String, Object> integration) {
@@ -746,5 +773,70 @@ public final class IntegrationBootstrap {
             return 0L;
         }
         return Math.max(0L, YamlScalars.toLong(map.get("inter_wait_frame_ms"), 0L));
+    }
+
+    private static int parseSimultaneousLineCaptureTransferWaitWaves(
+            Map<String, Object> integration,
+            Map<String, Object> root
+    ) {
+        if (integration != null) {
+            Object raw = integration.get("simultaneous_line_capture");
+            if (raw instanceof Map<?, ?> map && map.containsKey("transfer_wait_waves")) {
+                return Math.max(1, YamlScalars.toInt(map.get("transfer_wait_waves"), 1));
+            }
+        }
+        int bufferKb = YamlScalars.toInt(root != null ? root.get("gige_switch_buffer_kb") : null, 0);
+        int perLink = YamlScalars.toInt(root != null ? root.get("gige_ftd_cameras_per_link") : null, 0);
+        if (bufferKb > 0 && bufferKb <= 96 && perLink == 2) {
+            return 2;
+        }
+        return 1;
+    }
+
+    private static boolean parseSimultaneousLineCaptureHardwareLineTrigger(
+            Map<String, Object> integration,
+            Map<String, Object> root
+    ) {
+        if (integration != null) {
+            Object raw = integration.get("simultaneous_line_capture");
+            if (raw instanceof Map<?, ?> map && map.containsKey("hardware_line_trigger")) {
+                return YamlScalars.toBool(map.get("hardware_line_trigger"), false);
+            }
+        }
+        String mode = String.valueOf(root.getOrDefault("capture_trigger_mode", "software")).trim().toLowerCase();
+        return mode.equals("line0") || mode.equals("line1") || mode.equals("line") || mode.equals("hardware");
+    }
+
+    private static void logGigeTopologyForLineCapture(
+            org.apache.logging.log4j.Logger log,
+            Map<String, Object> root,
+            boolean hardwareLineTrigger
+    ) {
+        if (root == null) {
+            return;
+        }
+        int switches = YamlScalars.toInt(root.get("gige_switch_count"), 0);
+        int perSwitch = YamlScalars.toInt(root.get("gige_cameras_per_switch"), 0);
+        int perLink = YamlScalars.toInt(root.get("gige_ftd_cameras_per_link"), 0);
+        int bufferKb = YamlScalars.toInt(root.get("gige_switch_buffer_kb"), 0);
+        String exposureMode = hardwareLineTrigger
+                ? "DI3→Line0 (hardware, все камеры в один электрический момент)"
+                : "software trigger_only (все камеры параллельно, ~10 мс разброс IPC)";
+        log.info(
+                "gige topology: switches={} cameras_per_switch={} ftd_per_link={} switch_buffer_kb={} — "
+                        + "передача: {} волн wait_frame (48 КБ: не более 1 камеры на коммутатор одновременно); экспозиция: {}",
+                switches > 0 ? switches : "?",
+                perSwitch > 0 ? perSwitch : "?",
+                perLink > 0 ? perLink : "?",
+                bufferKb,
+                bufferKb > 0 && bufferKb <= 96 && perLink == 2 ? "2" : "1",
+                exposureMode
+        );
+        if (!hardwareLineTrigger && perLink > 0 && perLink != 2) {
+            log.warn(
+                    "gige_ftd_cameras_per_link={} — для 5×2 ожидается 2 (пары id 0+1, 2+3, … на коммутаторе)",
+                    perLink
+            );
+        }
     }
 }

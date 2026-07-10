@@ -37,12 +37,12 @@ public final class BinaryInspectHeaders {
         gHeader.put("reference_width", activeReference.header().get("width"));
         gHeader.put("reference_height", activeReference.header().get("height"));
         gHeader.put("reference_stride", activeReference.header().get("stride"));
-        Object mainRoi = geometryCfg == null ? Map.of("x", 0, "y", 0, "width", 2448, "height", 2048) : geometryCfg.get("main_roi");
+        Object mainRoi = geometryCfg == null ? Map.of("x", 0, "y", 0, "width", 1224, "height", 1024) : geometryCfg.get("main_roi");
         Object mainRoiPolygon = resolveMainRoiPolygonNorm(activeReference, geometryCfg);
         if (mainRoiPolygon instanceof List<?> poly && poly.size() >= 3) {
             gHeader.put("mainRoiPolygonNorm", poly);
-            int fw = YamlScalars.toInt(activeReference.header().get("width"), YamlScalars.toInt(capture.header().get("width"), 2448));
-            int fh = YamlScalars.toInt(activeReference.header().get("height"), YamlScalars.toInt(capture.header().get("height"), 2048));
+            int fw = YamlScalars.toInt(activeReference.header().get("width"), YamlScalars.toInt(capture.header().get("width"), 1224));
+            int fh = YamlScalars.toInt(activeReference.header().get("height"), YamlScalars.toInt(capture.header().get("height"), 1024));
             @SuppressWarnings("unchecked")
             Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi((List<Map<String, Object>>) poly, fw, fh);
             if (bbox != null) {
@@ -56,7 +56,7 @@ public final class BinaryInspectHeaders {
             gHeader.put("client_reference_bundle", true);
         }
         gHeader.put("jointRoi", resolveJointRoi(cameraId, activeReference, geometryCfg));
-        gHeader.put("pixelsToMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.01));
+        gHeader.put("pixelsToMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.02));
         gHeader.put("maxShiftMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_shift_mm"), 0.5));
         gHeader.put("maxRotationDeg", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_rotation_deg"), 1.0));
         gHeader.put("maxJointDefectMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_defect_mm"), 0.3));
@@ -124,11 +124,11 @@ public final class BinaryInspectHeaders {
         }
         int fw = YamlScalars.toInt(
                 activeReference != null && activeReference.header() != null ? activeReference.header().get("width") : null,
-                YamlScalars.toInt(capture.header().get("width"), 2448)
+                YamlScalars.toInt(capture.header().get("width"), 1224)
         );
         int fh = YamlScalars.toInt(
                 activeReference != null && activeReference.header() != null ? activeReference.header().get("height") : null,
-                YamlScalars.toInt(capture.header().get("height"), 2048)
+                YamlScalars.toInt(capture.header().get("height"), 1024)
         );
         Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi((List<Map<String, Object>>) poly, fw, fh);
         if (bbox != null) {

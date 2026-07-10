@@ -42,7 +42,8 @@
 #define MSG_COMMAND 1
 #define MSG_RESPONSE 2
 #define MSG_ERROR 3
-#define RING_SLOTS 4
+/* Ring buffer per camera: inspection reads pinned copy in orchestrator; 8 slots for back-to-back triggers. */
+#define RING_SLOTS 8
 #define METRICS_LOG_EVERY 1000
 #define STREAM_FPS_DEFAULT 20
 #define STREAM_FPS_MIN 1
@@ -92,6 +93,9 @@ typedef struct {
     size_t gige_payload_bytes;
     int pixel_format_pref;
     int hik_pixel_format_active;
+    int binning_horizontal;
+    int binning_vertical;
+    char binning_mode[16];
     uint64_t started_ns;
     int capture_backend_ready;
     char capture_backend_info[128];
@@ -272,6 +276,9 @@ typedef struct {
     int frame_width;
     int frame_height;
     int pixel_format_pref;
+    int binning_horizontal;
+    int binning_vertical;
+    char binning_mode[16];
 } worker_camera_config_t;
 
 enum {
@@ -406,6 +413,21 @@ static void load_frame_config(const char *js, int jslen, worker_camera_config_t 
             if (json_copy_token_string(js, &tok[i + 1], fmt, sizeof(fmt)) == 0) {
                 cfg->pixel_format_pref = parse_pixel_format_pref(fmt);
             }
+            i++;
+        } else if (jsoneq(js, &tok[i], "binning_horizontal") == 0 && tok[i + 1].type == JSMN_PRIMITIVE) {
+            char buf[16];
+            if (json_copy_token_string(js, &tok[i + 1], buf, sizeof(buf)) == 0) {
+                cfg->binning_horizontal = atoi(buf);
+            }
+            i++;
+        } else if (jsoneq(js, &tok[i], "binning_vertical") == 0 && tok[i + 1].type == JSMN_PRIMITIVE) {
+            char buf[16];
+            if (json_copy_token_string(js, &tok[i + 1], buf, sizeof(buf)) == 0) {
+                cfg->binning_vertical = atoi(buf);
+            }
+            i++;
+        } else if (jsoneq(js, &tok[i], "binning_mode") == 0 && tok[i + 1].type == JSMN_STRING) {
+            (void)json_copy_token_string(js, &tok[i + 1], cfg->binning_mode, sizeof(cfg->binning_mode));
             i++;
         }
     }
@@ -1062,21 +1084,41 @@ static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t
     return configured;
 }
 
-/** Коммутатор с крошечным egress-буфером (≤96 КБ) не выдерживает два GigE-потока — слот = camera_id. */
+/**
+ * Слот GevSCFTD: сдвиг старта передачи кадра (экспозиция у всех синхронна).
+ * per_link=2 + 5 коммутаторов: 0,2,4,6,8 (слот 0) параллельно, затем 1,3,5,7,9 (слот 1).
+ * Legacy: один uplink на все 10 камер (per_link>2, буфер ≤96 КБ) — полная сериализация по camera_id.
+ */
 static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
-    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 5;
-    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96) {
+    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
+    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96 && per_link > 2) {
         return (unsigned int)st->camera_id;
     }
-    return (unsigned int)(st->camera_id % per_link);
+    if (per_link <= 0) {
+        per_link = 2;
+    }
+    return (unsigned int)((unsigned int)st->camera_id % (unsigned int)per_link);
 }
 
 static int hik_effective_inter_packet_delay(const worker_state_t *st) {
     int delay = st->gige_inter_packet_delay;
-    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96 && delay < 80000) {
-        return 80000;
+    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
+    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96) {
+        int min_delay = (per_link == 2) ? 120000 : 80000;
+        if (delay < min_delay) {
+            return min_delay;
+        }
     }
     return delay;
+}
+
+/** При 48–96 КБ и 2 камерах на коммутатор — удвоенный GevSCFTD между парой. */
+static unsigned int hik_gige_ftd_delay_multiplier(const worker_state_t *st) {
+    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
+    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96 && per_link == 2) {
+        return 2u;
+    }
+    return 1u;
 }
 
 /**
@@ -1091,21 +1133,22 @@ static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
     if (step == 0u) {
         return;
     }
-    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 5;
+    int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
     unsigned int index = hik_frame_transfer_slot_index(st);
-    unsigned int delay = index * step;
+    unsigned int mult = hik_gige_ftd_delay_multiplier(st);
+    unsigned int delay = index * step * mult;
     int r = MV_CC_SetIntValue(st->hik_handle, "GevSCFTD", delay);
     if (r != MV_OK) {
         fprintf(stderr, "hik: GevSCFTD=%u not applied cam=%d index=%u per_link=%d (0x%x)\n", delay,
                 st->camera_id, index, per_link, r);
     } else {
         fprintf(stderr,
-                "hik: GevSCFTD=%u cam=%d index=%u per_link=%d switch_buf_kb=%d (frame transfer delay, exposure stays sync)\n",
-                delay, st->camera_id, index, per_link, st->gige_switch_buffer_kb);
+                "hik: GevSCFTD=%u cam=%d index=%u per_link=%d mult=%u switch_buf_kb=%d topology=per_switch_pair "
+                "(transfer stagger only; exposure at trigger)\n",
+                delay, st->camera_id, index, per_link, mult, st->gige_switch_buffer_kb);
     }
 }
 
-/** Автобаланс белого выключает «плывущий» цвет между кадрами (GenICam BalanceWhiteAuto). */
 static void hik_disable_auto_white_balance(void *handle) {
     int r = MV_CC_SetEnumValueByString(handle, "BalanceWhiteAuto", "Off");
     if (r != MV_OK) {
@@ -1136,7 +1179,196 @@ static void hik_apply_gige_stream_tuning(worker_state_t *st) {
     }
     hik_apply_gige_inter_packet_delay(st->hik_handle, hik_effective_inter_packet_delay(st));
     hik_apply_gige_frame_transfer_delay(st);
-    (void)MV_CC_SetImageNodeNum(st->hik_handle, 5);
+    int image_nodes = (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96) ? 8 : 5;
+    (void)MV_CC_SetImageNodeNum(st->hik_handle, image_nodes);
+}
+
+static unsigned int hik_align_down_u(unsigned int value, unsigned int inc) {
+    if (inc <= 1u) {
+        return value;
+    }
+    return (value / inc) * inc;
+}
+
+static int hik_verify_frame_size(void *handle, int camera_id, int target_w, int target_h) {
+    MVCC_INTVALUE width;
+    MVCC_INTVALUE height;
+    memset(&width, 0, sizeof(width));
+    memset(&height, 0, sizeof(height));
+    if (MV_CC_GetIntValue(handle, "Width", &width) != MV_OK
+        || MV_CC_GetIntValue(handle, "Height", &height) != MV_OK) {
+        return 0;
+    }
+    if ((int)width.nCurValue == target_w && (int)height.nCurValue == target_h) {
+        fprintf(stderr,
+                "hik: cam=%d frame geometry ok Width=%u Height=%u\n",
+                camera_id,
+                width.nCurValue,
+                height.nCurValue);
+        return 1;
+    }
+    fprintf(stderr,
+            "hik: cam=%d frame geometry mismatch target=%dx%d camera=%ux%u\n",
+            camera_id,
+            target_w,
+            target_h,
+            width.nCurValue,
+            height.nCurValue);
+    return 0;
+}
+
+static unsigned int hik_int_inc(const MVCC_INTVALUE *v) {
+    return v != NULL && v->nInc > 0 ? v->nInc : 1u;
+}
+
+static int hik_try_set_binning_factor(void *handle, int camera_id, int factor, const char *mode) {
+    int applied = 0;
+    if (mode != NULL && mode[0] != '\0') {
+        int r = MV_CC_SetEnumValueByString(handle, "BinningMode", mode);
+        if (r == MV_OK) {
+            applied = 1;
+        } else {
+            fprintf(stderr, "hik: cam=%d BinningMode=%s via string (0x%x)\n", camera_id, mode, r);
+        }
+    }
+    int r_enum = MV_CC_SetEnumValue(handle, "BinningHorizontal", (unsigned int)factor);
+    int r_enum_v = MV_CC_SetEnumValue(handle, "BinningVertical", (unsigned int)factor);
+    if (r_enum == MV_OK && r_enum_v == MV_OK) {
+        fprintf(stderr, "hik: cam=%d binning=%dx%d mode=%s (SetEnumValue)\n", camera_id, factor, factor,
+                mode != NULL && mode[0] != '\0' ? mode : "default");
+        return 1;
+    }
+    char factor_str[8];
+    snprintf(factor_str, sizeof(factor_str), "%d", factor);
+    int r_str_h = MV_CC_SetEnumValueByString(handle, "BinningHorizontal", factor_str);
+    int r_str_v = MV_CC_SetEnumValueByString(handle, "BinningVertical", factor_str);
+    if (r_str_h == MV_OK && r_str_v == MV_OK) {
+        fprintf(stderr, "hik: cam=%d binning=%dx%d mode=%s (SetEnumValueByString)\n", camera_id, factor, factor,
+                mode != NULL && mode[0] != '\0' ? mode : "default");
+        return 1;
+    }
+    int r_int_h = MV_CC_SetIntValue(handle, "BinningHorizontal", (unsigned int)factor);
+    int r_int_v = MV_CC_SetIntValue(handle, "BinningVertical", (unsigned int)factor);
+    if (r_int_h == MV_OK && r_int_v == MV_OK) {
+        fprintf(stderr, "hik: cam=%d binning=%dx%d mode=%s (SetIntValue)\n", camera_id, factor, factor,
+                mode != NULL && mode[0] != '\0' ? mode : "default");
+        return 1;
+    }
+    fprintf(stderr,
+            "hik: cam=%d binning apply failed enum_h=0x%x enum_v=0x%x str_h=0x%x str_v=0x%x int_h=0x%x int_v=0x%x applied_mode=%d\n",
+            camera_id,
+            r_enum,
+            r_enum_v,
+            r_str_h,
+            r_str_v,
+            r_int_h,
+            r_int_v,
+            applied);
+    (void)applied;
+    return 0;
+}
+
+static int hik_apply_roi_center_crop(void *handle, int camera_id, int target_w, int target_h) {
+    MVCC_INTVALUE width;
+    MVCC_INTVALUE height;
+    MVCC_INTVALUE offset_x;
+    MVCC_INTVALUE offset_y;
+    memset(&width, 0, sizeof(width));
+    memset(&height, 0, sizeof(height));
+    memset(&offset_x, 0, sizeof(offset_x));
+    memset(&offset_y, 0, sizeof(offset_y));
+    if (MV_CC_GetIntValue(handle, "Width", &width) != MV_OK
+        || MV_CC_GetIntValue(handle, "Height", &height) != MV_OK
+        || MV_CC_GetIntValue(handle, "OffsetX", &offset_x) != MV_OK
+        || MV_CC_GetIntValue(handle, "OffsetY", &offset_y) != MV_OK) {
+        fprintf(stderr, "hik: cam=%d ROI: Width/Height/Offset read failed\n", camera_id);
+        return -1;
+    }
+    unsigned int full_w = width.nMax > 0 ? width.nMax : width.nCurValue;
+    unsigned int full_h = height.nMax > 0 ? height.nMax : height.nCurValue;
+    if (full_w < (unsigned int)target_w || full_h < (unsigned int)target_h) {
+        fprintf(stderr,
+                "hik: cam=%d ROI: sensor %ux%u smaller than target %dx%d\n",
+                camera_id,
+                full_w,
+                full_h,
+                target_w,
+                target_h);
+        return -1;
+    }
+    unsigned int ox_inc = hik_int_inc(&offset_x);
+    unsigned int oy_inc = hik_int_inc(&offset_y);
+    unsigned int crop_x = hik_align_down_u((full_w - (unsigned int)target_w) / 2u, ox_inc);
+    unsigned int crop_y = hik_align_down_u((full_h - (unsigned int)target_h) / 2u, oy_inc);
+
+    (void)MV_CC_SetIntValue(handle, "OffsetX", 0u);
+    (void)MV_CC_SetIntValue(handle, "OffsetY", 0u);
+    int r_w = MV_CC_SetIntValue(handle, "Width", (unsigned int)target_w);
+    int r_h = MV_CC_SetIntValue(handle, "Height", (unsigned int)target_h);
+    int r_ox = MV_CC_SetIntValue(handle, "OffsetX", crop_x);
+    int r_oy = MV_CC_SetIntValue(handle, "OffsetY", crop_y);
+    if (r_w != MV_OK || r_h != MV_OK || r_ox != MV_OK || r_oy != MV_OK) {
+        fprintf(stderr,
+                "hik: cam=%d ROI set failed w=0x%x h=0x%x ox=0x%x oy=0x%x\n",
+                camera_id,
+                r_w,
+                r_h,
+                r_ox,
+                r_oy);
+        return -1;
+    }
+    fprintf(stderr,
+            "hik: cam=%d ROI center crop %ux%u -> %dx%d offset=%ux%u\n",
+            camera_id,
+            full_w,
+            full_h,
+            target_w,
+            target_h,
+            crop_x,
+            crop_y);
+    return 0;
+}
+
+static int hik_apply_frame_geometry(worker_state_t *st, char *err, size_t err_len) {
+    if (!st->hik_handle) {
+        return 0;
+    }
+    int target_w = st->width;
+    int target_h = st->height;
+    int bh = st->binning_horizontal > 0 ? st->binning_horizontal : 1;
+    int bv = st->binning_vertical > 0 ? st->binning_vertical : 1;
+    int want_reduce = target_w > 0 && target_h > 0
+            && (bh > 1 || bv > 1 || target_w < 2448 || target_h < 2048);
+
+    if (!want_reduce) {
+        return 0;
+    }
+    if (hik_verify_frame_size(st->hik_handle, st->camera_id, target_w, target_h)) {
+        return 0;
+    }
+
+    int factor = bh > bv ? bh : bv;
+    if (factor > 1) {
+        const char *mode = st->binning_mode[0] != '\0' ? st->binning_mode : "Sum";
+        if (hik_try_set_binning_factor(st->hik_handle, st->camera_id, factor, mode)
+            && hik_verify_frame_size(st->hik_handle, st->camera_id, target_w, target_h)) {
+            return 0;
+        }
+        fprintf(stderr, "hik: cam=%d binning not effective, fallback to ROI\n", st->camera_id);
+    }
+
+    if (hik_apply_roi_center_crop(st->hik_handle, st->camera_id, target_w, target_h) == 0
+        && hik_verify_frame_size(st->hik_handle, st->camera_id, target_w, target_h)) {
+        return 0;
+    }
+
+    snprintf(err,
+             err_len,
+             "hik: cam=%d failed to set frame %dx%d (binning 0x80000109? set in MVS or check ROI)",
+             st->camera_id,
+             target_w,
+             target_h);
+    return -1;
 }
 
 static int hik_apply_pixel_format(void *handle, int camera_id, int pixel_format_pref, int *active_pref_out) {
@@ -1247,6 +1479,13 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
             (void)MV_CC_SetIntValue(st->hik_handle, "GevSCPSPacketSize", (unsigned int)packetSize);
             fprintf(stderr, "hik: GevSCPSPacketSize=%d cam=%d\n", packetSize, st->camera_id);
         }
+    }
+    if (hik_apply_frame_geometry(st, err, err_len) != 0) {
+        MV_CC_CloseDevice(st->hik_handle);
+        MV_CC_DestroyHandle(st->hik_handle);
+        st->hik_handle = NULL;
+        MV_CC_Finalize();
+        return -1;
     }
     if (hik_apply_pixel_format(st->hik_handle, st->camera_id, st->pixel_format_pref, &st->hik_pixel_format_active) != 0) {
         snprintf(err, err_len, "hik: failed to set pixel format (%s)", pixel_format_pref_name(st->pixel_format_pref));
@@ -1734,13 +1973,19 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->gige_frame_transfer_delay_step = cam_cfg ? cam_cfg->gige_frame_transfer_delay_step : 0;
     st->gige_ftd_cameras_per_link = cam_cfg && cam_cfg->gige_ftd_cameras_per_link > 0
                                             ? cam_cfg->gige_ftd_cameras_per_link
-                                            : 5;
+                                            : 2;
     st->gige_switch_buffer_kb = cam_cfg ? cam_cfg->gige_switch_buffer_kb : 0;
     st->pixel_format_pref = cam_cfg ? cam_cfg->pixel_format_pref : PIXEL_PREF_BGR8;
     st->hik_pixel_format_active = st->pixel_format_pref;
+    st->binning_horizontal = cam_cfg ? cam_cfg->binning_horizontal : 1;
+    st->binning_vertical = cam_cfg ? cam_cfg->binning_vertical : 1;
+    st->binning_mode[0] = '\0';
+    if (cam_cfg && cam_cfg->binning_mode[0] != '\0') {
+        snprintf(st->binning_mode, sizeof(st->binning_mode), "%s", cam_cfg->binning_mode);
+    }
     st->gige_payload_bytes = 0;
-    st->width = cam_cfg && cam_cfg->frame_width > 0 ? cam_cfg->frame_width : 2448;
-    st->height = cam_cfg && cam_cfg->frame_height > 0 ? cam_cfg->frame_height : 2048;
+    st->width = cam_cfg && cam_cfg->frame_width > 0 ? cam_cfg->frame_width : 1224;
+    st->height = cam_cfg && cam_cfg->frame_height > 0 ? cam_cfg->frame_height : 1024;
     st->stride = st->width * 3;
     st->frame_bytes = (size_t)st->stride * (size_t)st->height;
     st->ring_slots = RING_SLOTS;
@@ -2277,11 +2522,14 @@ int main(int argc, char **argv) {
     fprintf(stderr, "worker start config version=%s path=%s camera=%d mode=%s\n", version, path, camera_id,
             binary_mode ? "binary-stdio" : (named_pipe_mode ? "named-pipe" : "stdout"));
     fprintf(stderr,
-            "capture source=%s frame=%dx%d format_pref=%s frame_timeout_ms=%d ip=%s exposure_us=%d trigger=%s\n",
+            "capture source=%s frame=%dx%d format_pref=%s binning=%dx%d mode=%s frame_timeout_ms=%d ip=%s exposure_us=%d trigger=%s\n",
             capture_source,
-            cam_cfg.frame_width > 0 ? cam_cfg.frame_width : 2448,
-            cam_cfg.frame_height > 0 ? cam_cfg.frame_height : 2048,
+            cam_cfg.frame_width > 0 ? cam_cfg.frame_width : 1224,
+            cam_cfg.frame_height > 0 ? cam_cfg.frame_height : 1024,
             pixel_format_pref_name(cam_cfg.pixel_format_pref),
+            cam_cfg.binning_horizontal > 0 ? cam_cfg.binning_horizontal : 1,
+            cam_cfg.binning_vertical > 0 ? cam_cfg.binning_vertical : 1,
+            cam_cfg.binning_mode[0] != '\0' ? cam_cfg.binning_mode : "off",
             frame_timeout_ms, cam_cfg.ip, cam_cfg.exposure_us,
             trigger_mode_name(cam_cfg.trigger_mode));
 

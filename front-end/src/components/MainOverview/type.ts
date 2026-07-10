@@ -24,7 +24,7 @@ export type InspectionControlState = {
 export type InspectionHistoryItem = {
   frameId: string;
   inspectionId: string;
-  result: "pass" | "fail";
+  result: "pass" | "fail" | "capture";
   inspectResult: InspectResultPayload;
 };
 

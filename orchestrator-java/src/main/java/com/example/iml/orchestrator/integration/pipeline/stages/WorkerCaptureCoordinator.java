@@ -158,9 +158,21 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             });
             BinaryProtocol.Message capture = captureHolder[0];
             if (!hasUsableCaptureHeader(capture)) {
-                capture = worker.command(Map.of("op", "capture", "sync", true));
-                if (log.isDebugEnabled()) {
-                    log.debug("worker cam={} fallback capture (line/sync response had no usable frame header)", cameraId);
+                boolean lineMode = lineCapture != null && lineCapture.isEnabled() && triggerSequence > 0L;
+                if (!lineMode) {
+                    capture = worker.command(Map.of("op", "capture", "sync", true));
+                    if (log.isDebugEnabled()) {
+                        log.debug(
+                                "worker cam={} fallback capture (line/sync response had no usable frame header)",
+                                cameraId
+                        );
+                    }
+                } else {
+                    log.warn(
+                            "worker cam={} line capture seq={} had no usable frame — skip sync fallback to avoid double exposure",
+                            cameraId,
+                            triggerSequence
+                    );
                 }
             }
             if (!hasUsableCaptureHeader(capture)) {

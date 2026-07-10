@@ -85,9 +85,29 @@ export function createInspectionControlStates(inspectionStatus: {
 export function resolveCardInspectImageUrl(
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
+  previewFrameId?: string,
+  previewImageUrl?: string,
 ) {
+  if (inspectResult && hasDisplayableInspectImage(inspectResult)) {
+    if (
+      artifactInspectResult?.artifact_bundle_id &&
+      artifactInspectResult.frame_id === inspectResult.frame_id
+    ) {
+      return orchestratorApi.url(
+        `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
+      );
+    }
+    return createWsFrameImageUrl(inspectResult);
+  }
+
+  if (previewFrameId && previewImageUrl) {
+    if (!inspectResult || compareFrameIds(previewFrameId, inspectResult.frame_id) > 0) {
+      return previewImageUrl;
+    }
+  }
+
   if (!inspectResult) {
-    return undefined;
+    return previewImageUrl;
   }
 
   if (

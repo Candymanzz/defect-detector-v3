@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Барьер на линии: параллельный {@code trigger_only} (одна экспозиция),
  * затем {@code wait_frame} (параллельно или последовательно).
  * При {@code immediate_prefire} команда trigger_only уходит сразу по UDP line-broadcast.
+ * При {@code hardware_line_trigger} DI3 идёт на Line0 камер — Java только {@code wait_frame}, без {@code trigger_only}.
  */
 public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
 
@@ -39,10 +40,16 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private final long postTriggerSettleMs;
     private final long interWaitFrameMs;
     private final boolean parallelWaitFrame;
+    private final int transferWaitWaves;
     private final boolean immediatePrefire;
+    private final boolean hardwareLineTrigger;
     private final ExecutorService lineCaptureExecutor;
+    private final LineFramePinService framePinService = new LineFramePinService();
     private final ConcurrentHashMap<Long, Round> rounds = new ConcurrentHashMap<>();
+    private final Object lineCaptureSerialLock = new Object();
+    private final Object triggerOnlyLock = new Object();
     private volatile Map<Integer, WorkerProcessSupervisor> lineWorkers = Map.of();
+    private static final long FRAMES_READY_WAIT_MS = 30_000L;
 
     public LineSynchronizedCaptureCoordinator(Collection<Integer> cameraIds, long barrierWaitMs) {
         this(cameraIds, barrierWaitMs, 0L, 0L, true, false);
@@ -75,29 +82,80 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             boolean parallelWaitFrame,
             boolean immediatePrefire
     ) {
+        this(cameraIds, barrierWaitMs, postTriggerSettleMs, interWaitFrameMs, parallelWaitFrame, immediatePrefire, false, 1);
+    }
+
+    public LineSynchronizedCaptureCoordinator(
+            Collection<Integer> cameraIds,
+            long barrierWaitMs,
+            long postTriggerSettleMs,
+            long interWaitFrameMs,
+            boolean parallelWaitFrame,
+            boolean immediatePrefire,
+            boolean hardwareLineTrigger
+    ) {
+        this(
+                cameraIds,
+                barrierWaitMs,
+                postTriggerSettleMs,
+                interWaitFrameMs,
+                parallelWaitFrame,
+                immediatePrefire,
+                hardwareLineTrigger,
+                1
+        );
+    }
+
+    public LineSynchronizedCaptureCoordinator(
+            Collection<Integer> cameraIds,
+            long barrierWaitMs,
+            long postTriggerSettleMs,
+            long interWaitFrameMs,
+            boolean parallelWaitFrame,
+            boolean immediatePrefire,
+            boolean hardwareLineTrigger,
+            int transferWaitWaves
+    ) {
         this.expectedParties = Math.max(1, cameraIds.size());
-        this.barrierWaitMs = Math.max(50L, barrierWaitMs);
+        this.barrierWaitMs = hardwareLineTrigger
+                ? Math.max(0L, barrierWaitMs)
+                : Math.max(50L, barrierWaitMs);
         this.postTriggerSettleMs = Math.max(0L, postTriggerSettleMs);
         this.interWaitFrameMs = Math.max(0L, interWaitFrameMs);
         this.parallelWaitFrame = parallelWaitFrame;
+        this.transferWaitWaves = Math.max(1, transferWaitWaves);
         this.immediatePrefire = immediatePrefire;
+        this.hardwareLineTrigger = hardwareLineTrigger;
         this.lineCaptureExecutor = Executors.newFixedThreadPool(
                 Math.max(1, this.expectedParties),
                 r -> {
                     Thread t = new Thread(r, "line-capture");
                     t.setDaemon(true);
+                    t.setPriority(Thread.MAX_PRIORITY);
                     return t;
                 }
         );
         LOG.info(
-                "line synchronized capture enabled expected_cameras={} barrier_wait_ms={} post_trigger_settle_ms={} inter_wait_frame_ms={} parallel_wait_frame={} immediate_prefire={}",
+                "line synchronized capture enabled expected_cameras={} barrier_wait_ms={} post_trigger_settle_ms={} inter_wait_frame_ms={} parallel_wait_frame={} transfer_wait_waves={} immediate_prefire={} hardware_line_trigger={}",
                 this.expectedParties,
                 this.barrierWaitMs,
                 this.postTriggerSettleMs,
                 this.interWaitFrameMs,
                 this.parallelWaitFrame,
-                this.immediatePrefire
+                this.transferWaitWaves,
+                this.immediatePrefire,
+                this.hardwareLineTrigger
         );
+        if (hardwareLineTrigger) {
+            LOG.info(
+                    "line capture: hardware_line_trigger — экспозиция по DI3→Line0, Java только wait_frame (capture_trigger_mode=line0)"
+            );
+        } else if (immediatePrefire) {
+            LOG.info(
+                    "line capture: DI3 trigger_only immediately (exposure at DI3+IPC ~30ms); latch+pin async (transfer_wait_waves={})",
+                    transferWaitWaves
+            );
+        }
     }
 
     public void bindWorkers(Map<Integer, WorkerProcessSupervisor> workersByCamera) {
@@ -109,34 +167,103 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     }
 
     /**
-     * Немедленный параллельный {@code trigger_only} по всем камерам (с UDP-потока, до очереди camera-flow).
+     * DI3: немедленный {@code trigger_only} (экспозиция), затем асинхронный {@code wait_frame}+pin.
+     * Инспекция не блокирует следующий триггер — кадр копируется в отдельный SHM ({@link LineFramePinService}).
      */
     public void prefireLineTrigger(long triggerSequence, long triggerReceivedEpochMs) {
-        if (!immediatePrefire || !isEnabled() || triggerSequence <= 0L || lineWorkers.isEmpty()) {
+        if (hardwareLineTrigger || !immediatePrefire || !isEnabled() || triggerSequence <= 0L || lineWorkers.isEmpty()) {
             return;
         }
         Round round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round());
         if (!round.triggerPrefired.compareAndSet(false, true)) {
             return;
         }
+        pruneOldRounds(triggerSequence);
+        long triggerEpochMs = triggerReceivedEpochMs > 0L ? triggerReceivedEpochMs : System.currentTimeMillis();
+        round.triggerEpochMs = triggerEpochMs;
         long t0 = System.nanoTime();
         try {
-            dispatchTriggerOnly(round, lineWorkers);
-            long prefireMs = (System.nanoTime() - t0) / 1_000_000L;
-            long sinceUdpMs = triggerReceivedEpochMs > 0L
-                    ? Math.max(0L, System.currentTimeMillis() - triggerReceivedEpochMs)
-                    : -1L;
+            synchronized (triggerOnlyLock) {
+                dispatchTriggerOnly(round, lineWorkers);
+            }
+            long triggerMs = (System.nanoTime() - t0) / 1_000_000L;
+            long sinceUdpMs = Math.max(0L, System.currentTimeMillis() - triggerEpochMs);
             LOG.info(
-                    "sync_diag channel=inspect event=line_prefire trigger_sequence={} cameras={} prefire_ms={} since_udp_ms={} mode=simultaneous_parallel",
+                    "sync_diag channel=inspect event=line_prefire trigger_sequence={} cameras={} trigger_only_ms={} latch_wait_ms=async since_udp_ms={} hardware={}",
                     triggerSequence,
                     lineWorkers.size(),
-                    prefireMs,
-                    sinceUdpMs >= 0 ? sinceUdpMs : "unknown"
+                    triggerMs,
+                    sinceUdpMs,
+                    hardwareLineTrigger
             );
         } catch (Exception e) {
             round.triggerPrefired.set(false);
-            LOG.warn("line prefire failed seq={}: {}", triggerSequence, e.getMessage());
+            round.failure = e;
+            round.framesReady.countDown();
+            LOG.warn("line prefire trigger_only failed seq={}: {}", triggerSequence, e.getMessage());
+            return;
         }
+        lineCaptureExecutor.submit(() -> latchRoundAsync(round, triggerSequence, triggerEpochMs));
+    }
+
+    private void latchRoundAsync(Round round, long triggerSequence, long triggerEpochMs) {
+        synchronized (lineCaptureSerialLock) {
+            long t0 = System.nanoTime();
+            try {
+                long waitMs = latchAllFramesAfterTrigger(round, lineWorkers, triggerSequence);
+                long sinceUdpMs = Math.max(0L, System.currentTimeMillis() - triggerEpochMs);
+                LOG.info(
+                        "sync_diag channel=inspect event=line_prefire_latch trigger_sequence={} cameras={} latch_wait_ms={} since_udp_ms={}",
+                        triggerSequence,
+                        lineWorkers.size(),
+                        waitMs,
+                        sinceUdpMs
+                );
+            } catch (Exception e) {
+                round.failure = e;
+                LOG.warn("line prefire latch failed seq={}: {}", triggerSequence, e.getMessage());
+            } finally {
+                round.framesReady.countDown();
+            }
+            long latchTotalMs = (System.nanoTime() - t0) / 1_000_000L;
+            if (latchTotalMs > 500L) {
+                LOG.debug("line latch executor held lock ms={} seq={}", latchTotalMs, triggerSequence);
+            }
+        }
+    }
+
+    private long latchAllFramesAfterTrigger(
+            Round round,
+            Map<Integer, WorkerProcessSupervisor> workers,
+            long triggerSequence
+    ) throws Exception {
+        if (!round.framesLatched.compareAndSet(false, true)) {
+            return 0L;
+        }
+        long t0 = System.nanoTime();
+        List<Map.Entry<Integer, WorkerProcessSupervisor>> entries = new ArrayList<>(workers.entrySet());
+        entries.sort(Map.Entry.comparingByKey());
+        for (Map.Entry<Integer, WorkerProcessSupervisor> entry : entries) {
+            round.participants.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        int okCount = collectWaitFrames(round, entries, false);
+        long waitMs = (System.nanoTime() - t0) / 1_000_000L;
+        LOG.info(
+                "sync_diag channel=inspect event=line_latch trigger_sequence={} cameras={}/{} wait_ms={}",
+                triggerSequence,
+                okCount,
+                entries.size(),
+                waitMs
+        );
+        if (okCount < entries.size()) {
+            throw new IllegalStateException("line latch incomplete: " + okCount + "/" + entries.size());
+        }
+        return waitMs;
+    }
+
+    /** @deprecated use {@link #prefireLineTrigger} */
+    public void captureLineAtTrigger(long triggerSequence, long triggerReceivedEpochMs) {
+        prefireLineTrigger(triggerSequence, triggerReceivedEpochMs);
     }
 
     public boolean isEnabled() {
@@ -201,13 +328,56 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         if (!isEnabled() || triggerSequence <= 0L) {
             return worker.command(Map.of("op", "capture", "sync", true));
         }
-        Round round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round());
-        round.arrive(cameraId, worker);
+        Round round = rounds.get(triggerSequence);
+        if (round == null) {
+            round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round());
+        }
         if (round.triggerPrefired.get()) {
-            BinaryProtocol.Message capture = waitFrameForCamera(round, cameraId, worker);
-            round.releaseParticipant();
+            if (!round.framesReady.await(FRAMES_READY_WAIT_MS, TimeUnit.MILLISECONDS)) {
+                throw new IllegalStateException("line latch timed out cam=" + cameraId + " seq=" + triggerSequence);
+            }
+            if (round.failure != null) {
+                throw round.failure;
+            }
+            BinaryProtocol.Message capture = round.results.get(cameraId);
+            if (!isUsableCapture(capture)) {
+                throw new IllegalStateException(
+                        "line latched frame missing cam=" + cameraId + " seq=" + triggerSequence + ": "
+                                + describeCapture(capture)
+                );
+            }
+            round.consumedFrames.incrementAndGet();
+            long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
+            LOG.debug(
+                    "sync_diag channel=inspect event=line_frame_from_latch cam={} seq={} frame_id={}",
+                    cameraId,
+                    triggerSequence,
+                    frameId
+            );
             return capture;
         }
+
+        round.arrive(cameraId, worker);
+
+        if (hardwareLineTrigger) {
+            BinaryProtocol.Message capture = waitFrameForCamera(round, cameraId, worker);
+            round.releaseParticipant();
+            if (!isUsableCapture(capture)) {
+                throw new IllegalStateException(
+                        "line wait_frame unusable cam=" + cameraId + " seq=" + triggerSequence + ": "
+                                + describeCapture(capture)
+                );
+            }
+            long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
+            LOG.debug(
+                    "sync_diag channel=inspect event=line_frame_from_hw cam={} seq={} frame_id={}",
+                    cameraId,
+                    triggerSequence,
+                    frameId
+            );
+            return capture;
+        }
+
         awaitBarrier(round);
         fireIfLeader(round, triggerSequence);
         if (!round.fireDone.await(FIRE_DONE_WAIT_MS, TimeUnit.MILLISECONDS)) {
@@ -285,7 +455,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         entries.sort(Map.Entry.comparingByKey());
 
         List<Callable<Void>> triggerTasks = new ArrayList<>(entries.size());
-        if (!round.triggerPrefired.get()) {
+        if (!hardwareLineTrigger && !round.triggerPrefired.get()) {
             for (Map.Entry<Integer, WorkerProcessSupervisor> entry : entries) {
                 WorkerProcessSupervisor worker = entry.getValue();
                 triggerTasks.add(() -> {
@@ -306,6 +476,9 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     "sync_diag channel=inspect event=line_trigger_only_dispatched cameras={} trigger_phase_ms=0 prefire=true",
                     entries.size()
             );
+            if (postTriggerSettleMs > 0) {
+                Thread.sleep(postTriggerSettleMs);
+            }
         } else {
             LOG.info(
                     "sync_diag channel=inspect event=line_trigger_only_dispatched cameras={} trigger_phase_ms={}",
@@ -335,7 +508,35 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             boolean lenient
     ) throws Exception {
         if (parallelWaitFrame) {
-            return collectWaitFramesParallel(round, entries, lenient);
+            if (transferWaitWaves <= 1) {
+                return collectWaitFramesParallel(round, entries, lenient);
+            }
+            int okCount = 0;
+            for (int wave = 0; wave < transferWaitWaves; wave++) {
+                List<Map.Entry<Integer, WorkerProcessSupervisor>> waveEntries = new ArrayList<>();
+                for (Map.Entry<Integer, WorkerProcessSupervisor> entry : entries) {
+                    if (entry.getKey() % transferWaitWaves == wave) {
+                        waveEntries.add(entry);
+                    }
+                }
+                if (waveEntries.isEmpty()) {
+                    continue;
+                }
+                LOG.info(
+                        "sync_diag channel=inspect event=line_wait_wave wave={}/{} cameras={}",
+                        wave + 1,
+                        transferWaitWaves,
+                        waveEntries.size()
+                );
+                okCount += collectWaitFramesParallel(round, waveEntries, lenient);
+                if (wave + 1 < transferWaitWaves) {
+                    long waveGapMs = Math.max(interWaitFrameMs, transferWaveGapMs());
+                    if (waveGapMs > 0L) {
+                        Thread.sleep(waveGapMs);
+                    }
+                }
+            }
+            return okCount;
         }
         int okCount = 0;
         for (int i = 0; i < entries.size(); i++) {
@@ -350,7 +551,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                 }
                 throw new IllegalStateException("cam=" + camId + " wait_frame failed: " + describeCapture(msg));
             }
-            round.results.put(camId, msg);
+            round.results.put(camId, framePinService.pinCapture(msg, camId));
             okCount++;
             if (interWaitFrameMs > 0 && i + 1 < entries.size()) {
                 Thread.sleep(interWaitFrameMs);
@@ -391,7 +592,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     "line capture unusable cam=" + cameraId + ": " + describeCapture(msg)
             );
         }
-        round.results.put(cameraId, msg);
+        round.results.put(cameraId, framePinService.pinCapture(msg, cameraId));
         return msg;
     }
 
@@ -413,7 +614,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     }
                     throw new IllegalStateException("cam=" + camId + " wait_frame failed: " + describeCapture(msg));
                 }
-                round.results.put(camId, msg);
+                round.results.put(camId, framePinService.pinCapture(msg, camId));
                 return 1;
             });
         }
@@ -440,7 +641,10 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     describeCapture(last)
             );
             if (attempt < WAIT_FRAME_MAX_ATTEMPTS) {
-                Thread.sleep(WAIT_FRAME_RETRY_MS);
+                long retryMs = hardwareLineTrigger ? 0L : WAIT_FRAME_RETRY_MS;
+                if (retryMs > 0L) {
+                    Thread.sleep(retryMs);
+                }
             }
         }
         return last;
@@ -468,6 +672,27 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         return String.valueOf(capture.header());
     }
 
+    private long transferWaveGapMs() {
+        return transferWaitWaves > 1 ? 220L : 0L;
+    }
+
+    private void pruneOldRounds(long currentSequence) {
+        long cutoff = currentSequence - 32L;
+        if (cutoff <= 0L) {
+            return;
+        }
+        rounds.entrySet().removeIf(entry -> {
+            if (entry.getKey() >= cutoff) {
+                return false;
+            }
+            Round round = entry.getValue();
+            if (round.consumedFrames.get() < expectedParties) {
+                return false;
+            }
+            return true;
+        });
+    }
+
     private void invokeAll(List<Callable<Void>> tasks) throws Exception {
         List<Future<Void>> futures = lineCaptureExecutor.invokeAll(tasks);
         for (Future<Void> future : futures) {
@@ -480,13 +705,19 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         final ConcurrentHashMap<Integer, BinaryProtocol.Message> results = new ConcurrentHashMap<>();
         final AtomicBoolean fired = new AtomicBoolean(false);
         final AtomicBoolean triggerPrefired = new AtomicBoolean(false);
+        final AtomicBoolean framesLatched = new AtomicBoolean(false);
+        final CountDownLatch framesReady = new CountDownLatch(1);
+        final AtomicInteger consumedFrames = new AtomicInteger(0);
         final CountDownLatch fireDone = new CountDownLatch(1);
+        final AtomicInteger framesPending = new AtomicInteger(0);
         final AtomicInteger activeParticipants = new AtomicInteger(0);
         final Object awaitLock = new Object();
         volatile long deadlineMs = System.currentTimeMillis() + barrierWaitMs;
         volatile long firstArriveMs;
         volatile long lastArriveMs;
-        volatile Exception failure;
+        volatile long prefireStartedNs;
+        volatile long triggerEpochMs;
+        volatile Exception failure = null;
 
         void arrive(int cameraId, WorkerProcessSupervisor worker) {
             participants.put(cameraId, worker);
@@ -503,9 +734,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         }
 
         void releaseParticipant() {
-            if (activeParticipants.decrementAndGet() == 0) {
-                rounds.entrySet().removeIf(e -> e.getValue() == this);
-            }
+            activeParticipants.decrementAndGet();
         }
     }
 }

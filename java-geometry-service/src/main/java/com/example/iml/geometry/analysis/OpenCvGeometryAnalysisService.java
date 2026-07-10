@@ -20,8 +20,6 @@ import java.util.concurrent.CompletionException;
 
 public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
 
-    private static final int EXPECTED_WIDTH = 2448;
-    private static final int EXPECTED_HEIGHT = 2048;
     private static final int MAX_ALIGNMENT_DIM = 640;
     private static final int MAX_CIRCLE_DIM = 320;
     private static final int ORB_FEATURES = 1500;
@@ -791,9 +789,6 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     private void validateInputFrames(Mat reference, Mat current) {
         if (reference.cols() != current.cols() || reference.rows() != current.rows()) {
             throw new IllegalArgumentException("Reference and current frame dimensions must match.");
-        }
-        if (reference.cols() != EXPECTED_WIDTH || reference.rows() != EXPECTED_HEIGHT) {
-            throw new IllegalArgumentException("Expected frame resolution is 2448x2048.");
         }
     }
 

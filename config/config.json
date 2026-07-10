@@ -1,17 +1,22 @@
 {
   "version": 1,
   "frame": {
-    "width": 2448,
-    "height": 2048,
-    "format": "Mono8"
+    "width": 1224,
+    "height": 1024,
+    "format": "Mono8",
+    "binning_horizontal": 2,
+    "binning_vertical": 2,
+    "binning_mode": "Sum"
   },
   "capture_source": "hik",
   "capture_trigger_mode": "software",
   "frame_timeout_ms": 15000,
+  "gige_switch_count": 5,
+  "gige_cameras_per_switch": 2,
   "gige_switch_buffer_kb": 48,
-  "gige_inter_packet_delay": 80000,
+  "gige_inter_packet_delay": 120000,
   "gige_frame_transfer_delay_step": 0,
-  "gige_ftd_cameras_per_link": 10,
+  "gige_ftd_cameras_per_link": 2,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
     "control_pipe_linux": "/tmp/iml-orchestrator.sock"
@@ -139,12 +144,12 @@
     }
   ],
   "java_geometry": {
-    "pixels_to_mm": 0.01,
+    "pixels_to_mm": 0.02,
     "main_roi": {
       "x": 0,
       "y": 0,
-      "width": 2448,
-      "height": 2048
+      "width": 1224,
+      "height": 1024
     },
     "max_shift_mm": 0.5,
     "max_rotation_deg": 1.0,
@@ -158,8 +163,8 @@
         "name": "main",
         "x": 0,
         "y": 0,
-        "width": 2448,
-        "height": 2048
+        "width": 1224,
+        "height": 1024
       }
     ],
     "fallback_threshold": 0.25
@@ -188,7 +193,7 @@
     }
   },
   "light_servers": {
-    "enabled": true,
+    "enabled": false,
     "base_url": "http://127.0.0.1:5080",
     "urls": {
       "on": "/api/com/light",
@@ -230,8 +235,8 @@
       "cycle_delay_ms": 3500
     },
     "capture_frame_downscale": {
-      "enabled": true,
-      "scale": 0.5,
+      "enabled": false,
+      "scale": 1.0,
       "apply_to_inspection_capture": true,
       "apply_to_reference_capture": true,
       "apply_to_client_reference_bundle": true

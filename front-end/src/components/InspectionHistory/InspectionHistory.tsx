@@ -14,8 +14,8 @@ type InspectionHistoryProps = {
 type InspectionHistoryTile = {
   groupKey: string;
   inspectionId: string;
-  groupSource: "inspection" | "frame";
-  result: "pass" | "fail";
+  groupSource: "inspection" | "frame" | "bucket";
+  result: "pass" | "fail" | "capture";
   serverTsMs: number;
   results: InspectionHistoryItem[];
 };
@@ -41,7 +41,9 @@ export function InspectionHistory({ cameraIds, historyByCameraId }: InspectionHi
               data-result={item.result}
               key={item.groupKey}
               type="button"
-              title={`Inspection ${item.inspectionId}: ${item.result === "pass" ? "Годен" : "Брак"}`}
+              title={`Inspection ${item.inspectionId}: ${
+                item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "Съёмка"
+              }`}
               onClick={() =>
                 setSelectedInspection({
                   inspectionId: item.inspectionId,
@@ -100,7 +102,12 @@ function createInspectionHistoryTiles(cameraIds: number[], historyByCameraId: Re
     );
     if (matchingCycleGroup) {
       matchingCycleGroup.results.push(item);
-      matchingCycleGroup.result = matchingCycleGroup.result === "fail" || item.result === "fail" ? "fail" : "pass";
+      matchingCycleGroup.result =
+        matchingCycleGroup.result === "fail" || item.result === "fail"
+          ? "fail"
+          : matchingCycleGroup.result === "capture" || item.result === "capture"
+            ? "capture"
+            : "pass";
       matchingCycleGroup.serverTsMs = Math.max(matchingCycleGroup.serverTsMs, item.inspectResult.server_ts_ms);
       continue;
     }
@@ -136,7 +143,11 @@ function replaceCameraResult(group: InspectionHistoryTile, item: InspectionHisto
   if (!current.inspectResult.artifact_bundle_id && item.inspectResult.artifact_bundle_id) {
     group.results[resultIndex] = item;
   }
-  group.result = group.results.some((result) => result.result === "fail") ? "fail" : "pass";
+  group.result = group.results.some((result) => result.result === "fail")
+    ? "fail"
+    : group.results.some((result) => result.result === "capture")
+      ? "capture"
+      : "pass";
   group.serverTsMs = Math.max(group.serverTsMs, item.inspectResult.server_ts_ms);
 }
 

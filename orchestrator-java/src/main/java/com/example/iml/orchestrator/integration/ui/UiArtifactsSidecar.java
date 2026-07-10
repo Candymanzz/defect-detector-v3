@@ -186,8 +186,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         ClientWebSocketServer ws = clientWebSocketServer;
         String shmName = String.valueOf(cap.get("shm_name"));
         long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
-        int width = YamlScalars.toInt(cap.get("width"), 2448);
-        int height = YamlScalars.toInt(cap.get("height"), 2048);
+        int width = YamlScalars.toInt(cap.get("width"), 1224);
+        int height = YamlScalars.toInt(cap.get("height"), 1024);
         int stride = YamlScalars.toInt(cap.get("stride"), width * 3);
         HeatmapArtifact resolvedSourceHeatmap = resolveHeatmapArtifact(
                 pyResp == null ? null : pyResp.header(),
@@ -304,7 +304,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 );
                         UiHttpServer.ClientPreviewArtifact frameArtifact = previews.frame();
                         if (frameArtifact.path() == null && frameArtifact.error() != null) {
-                            log.debug("ui sidecar cam={} preview jpeg: {}", cameraId, frameArtifact.error());
+                            log.warn("ui sidecar cam={} preview jpeg: {}", cameraId, frameArtifact.error());
                         }
                         currentJpeg = frameArtifact.path();
                         currentJpegW = frameArtifact.width();
@@ -625,11 +625,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
 
         String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
+        boolean linePinned = YamlScalars.toBool(captureHeader.get("line_pinned"), false);
+        if (linePinned && sourceOffset == 0L) {
+            long fileSize = Files.size(source);
+            if (fileSize < frameBytes) {
+                throw new IOException("pinned SHM is smaller than the captured frame");
+            }
+            return new FrozenFrame(source, "/" + base, false);
+        }
         if (sourceOffset == 0L && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
             return new FrozenFrame(source, "/" + base, false);
         }
 
-        String frozenName = "iml_ui_inspect_cam_" + cameraId;
+        String frozenName = "iml_ui_inspect_cam_" + cameraId + "_f" + frameId;
         Path target = FrameJpegWriter.imlShmFilePath(frozenName);
         Files.createDirectories(target.getParent());
         try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);

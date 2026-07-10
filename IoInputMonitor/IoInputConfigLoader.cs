@@ -156,7 +156,10 @@ public static class IoInputConfigLoader
             Port = raw.Port is > 0 and <= 65535 ? raw.Port.Value : 9100,
             Format = ParseUdpFormat(raw.Format),
             PublishInputs = publishInputs,
-            SendInitialState = raw.SendInitialState ?? false
+            SendInitialState = raw.SendInitialState ?? false,
+            TriggerPort = raw.TriggerPort is >= 1 and <= 8 ? raw.TriggerPort.Value : 3,
+            LowLatencyTrigger = raw.LowLatencyTrigger ?? true,
+            SendInitialTriggerState = raw.SendInitialTriggerState ?? false
         };
     }
 
@@ -245,5 +248,11 @@ public static class IoInputConfigLoader
         public List<int>? Inputs { get; set; }
 
         public bool? SendInitialState { get; set; }
+
+        public int? TriggerPort { get; set; }
+
+        public bool? LowLatencyTrigger { get; set; }
+
+        public bool? SendInitialTriggerState { get; set; }
     }
 }

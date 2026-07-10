@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.http.controller;
 import com.example.iml.orchestrator.integration.http.HttpController;
 import com.example.iml.orchestrator.integration.http.HttpRequestContext;
 import com.example.iml.orchestrator.integration.http.HttpResponses;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessApplyResult;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessCommands;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessScale;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
@@ -161,15 +162,26 @@ public final class LightHttpController implements HttpController {
                     "brightness_percent and/or endpoints{id: percent} required (0..100)");
             return;
         }
-        applyBrightnessUpdate(merged);
+        LightBrightnessApplyResult applyResult = applyBrightnessUpdate(merged);
         LOG.info("light brightness updated via {} {} -> {}", ctx.method(), ctx.path(), lightClient.brightnessByEndpoint());
+        if (applyResult.hasHardwareErrors()) {
+            LOG.warn("light brightness hardware errors: {}", String.join("; ", applyResult.hardwareErrors()));
+        }
         int defaultPercent = lightClient.brightnessPercent();
         ObjectNode ok = JSON.createObjectNode();
-        ok.put("ok", true);
+        ok.put("ok", !applyResult.hasHardwareErrors());
+        ok.put("hardware_applied", !applyResult.hasHardwareErrors());
         ok.put("default_brightness_percent", defaultPercent);
         ok.put("brightness_percent", defaultPercent);
         ok.set("endpoints", buildEndpointsNode());
-        HttpResponses.sendJson(ctx, 200, ok);
+        if (applyResult.hasHardwareErrors()) {
+            ArrayNode errors = JSON.createArrayNode();
+            for (String error : applyResult.hardwareErrors()) {
+                errors.add(error);
+            }
+            ok.set("hardware_errors", errors);
+        }
+        HttpResponses.sendJson(ctx, applyResult.hasHardwareErrors() ? 502 : 200, ok);
     }
 
     private static LightBrightnessUpdate mergeUpdates(LightBrightnessUpdate a, LightBrightnessUpdate b) {
@@ -185,11 +197,11 @@ public final class LightHttpController implements HttpController {
         return new LightBrightnessUpdate(global, per);
     }
 
-    private void applyBrightnessUpdate(LightBrightnessUpdate update) {
+    private LightBrightnessApplyResult applyBrightnessUpdate(LightBrightnessUpdate update) {
         if (update == null || update.isEmpty()) {
-            return;
+            return LightBrightnessApplyResult.none();
         }
-        LightBrightnessUpdate.apply(lightClient, update);
+        return LightBrightnessUpdate.apply(lightClient, update);
     }
 
     private void sendBrightness(HttpRequestContext ctx) throws IOException {

@@ -24,7 +24,7 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.MappedByteBuffer;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -333,12 +333,22 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                         "shm size mismatch fileSize=" + fileSize + " need=" + need + " shmOffset=" + shmOffset
                 );
             }
-            MappedByteBuffer buf = ch.map(FileChannel.MapMode.READ_ONLY, shmOffset, need);
+            // Avoid FileChannel.map here: on Windows a mapped section keeps the SHM file locked and
+            // breaks the next freeze/JPEG write into iml_ui_inspect_cam_*.
+            byte[] raw = new byte[Math.toIntExact(need)];
+            ByteBuffer readBuf = ByteBuffer.wrap(raw);
+            int totalRead = 0;
+            while (totalRead < need) {
+                int read = ch.read(readBuf, shmOffset + totalRead);
+                if (read <= 0) {
+                    throw new IOException("shm read incomplete at offset=" + (shmOffset + totalRead));
+                }
+                totalRead += read;
+            }
             BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
             byte[] dst = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
             for (int y = 0; y < height; y++) {
-                buf.position(y * stride);
-                buf.get(dst, y * width * 3, width * 3);
+                System.arraycopy(raw, y * stride, dst, y * width * 3, width * 3);
             }
             return img;
         }

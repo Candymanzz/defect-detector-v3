@@ -63,8 +63,8 @@ public final class ShmMatReader {
 
     public Mat readShmMat(Map<String, Object> h) {
         String shmName = str(h.get("shm_name"));
-        int width = (int) num(h.get("width"), 2448);
-        int height = (int) num(h.get("height"), 2048);
+        int width = (int) num(h.get("width"), 1224);
+        int height = (int) num(h.get("height"), 1024);
         int stride = (int) num(h.get("stride"), width * 3);
         int offset = (int) num(h.get("shm_offset"), 0);
         Path shmPath = resolveShmPath(shmName);

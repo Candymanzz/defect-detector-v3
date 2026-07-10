@@ -6,38 +6,43 @@ light_hardware:
 
   devices:
     - id: com1
-      enabled: true
+      enabled: false
       type: com
       com_port: COM1
       channels: 2
     - id: com2
-      enabled: true
+      enabled: false
       type: com
       com_port: COM2
       channels: 4
     - id: com3
-      enabled: true
+      enabled: false
       type: com
       com_port: COM3
       channels: 4
     - id: mv-le-1
       enabled: true
       type: ethernet
-      ip: "169.254.57.1"
+      ip: "192.168.1.103"
       channels: 4
     - id: mv-le-2
       enabled: true
       type: ethernet
-      ip: "169.254.213.2"
+      ip: "192.168.1.9"
+      channels: 4
+    - id: mv-le-3
+      enabled: true
+      type: ethernet
+      ip: "169.254.220.1"
       channels: 4
 
   # POST /api/camera-flash/pair — routes с 2+ каналами; /single — routes с 1 каналом
   camera_routes:
     - camera_number: 1
-      device_id: com3
+      device_id: mv-le-3
       channels: [1, 2]
     - camera_number: 2
-      device_id: com3
+      device_id: mv-le-3
       channels: [3, 4]
     - camera_number: 3
       device_id: com2

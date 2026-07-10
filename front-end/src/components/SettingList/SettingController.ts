@@ -66,9 +66,13 @@ export async function saveBrightnessData(
   const brightnessPercent = clampBrightness(form.brightnessPercent);
   const lightBrightness = await orchestratorApi.getLightBrightness();
 
-  await orchestratorApi.setLightBrightness(
+  const response = await orchestratorApi.setLightBrightness(
     createBrightnessUpdate(lightBrightness, selectedCameraId, brightnessPercent),
   );
+
+  if (response.hardware_errors?.length) {
+    throw new Error(response.hardware_errors.join("; "));
+  }
 
   return {
     status: {
