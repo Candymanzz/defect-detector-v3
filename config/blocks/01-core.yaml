@@ -49,7 +49,7 @@ integration:
     enabled: true
     barrier_wait_ms: 0
     post_trigger_settle_ms: 0
-    inter_wait_frame_ms: 220
+    inter_wait_frame_ms: 80
     parallel_wait_frame: true
     # 2 волны wait_frame: чётные id (по одной камере на коммутатор), затем нечётные — без перегруза 48 КБ.
     transfer_wait_waves: 2
@@ -100,18 +100,15 @@ integration:
       work_port: 1
       direction_port: 2
       trigger_port: 3
-      # true = только DI3 (фронт trigger_edge), DI1/DI2 не блокируют съёмку.
+      # Prefire на DI3↑ при DI2=1; dispatch на DI3↓ при DI2=0 после 1→0 в импульсе.
+      direction_latch_on_work: false
       di3_only: true
-      # rising = съёмка при замыкании DI3 (0→1, контакт замкнулся).
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: false
+      require_direction: true
       require_work: false
-      stub_work_active: false
-      direction_invert: false
-      direction_wait_ms: 0
-      direction_poll_ms: 0
+      direction_poll_ms: 1
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20
@@ -182,3 +179,29 @@ integration:
     - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
     - "--urls"
     - "http://127.0.0.1:5080"
+  # IoInputMonitor — DI1/DI2/DI3 → UDP :9100 (см. blocks/52-io-input.yaml).
+  io_input_monitor_autostart:
+    enabled: true
+    startup_delay_ms: 500
+    working_dir: "."
+  io_input_monitor_command_windows:
+    - "dotnet"
+    - "exec"
+    - "IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll"
+  io_input_monitor_command_linux:
+    - "dotnet"
+    - "exec"
+    - "IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll"
+  # Front-end (Vite + Electron) — npm run dev в front-end/.
+  frontend_autostart:
+    enabled: true
+    startup_delay_ms: 3000
+    working_dir: "front-end"
+  frontend_command_windows:
+    - "npm.cmd"
+    - "run"
+    - "dev"
+  frontend_command_linux:
+    - "npm"
+    - "run"
+    - "dev"

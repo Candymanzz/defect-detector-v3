@@ -9,6 +9,7 @@ param(
     [switch]$NoFrontend,
     [switch]$SkipCameraWorker,
     [switch]$SkipLightServer,
+    [switch]$SkipIoInputMonitor,
     [string]$Config = "config\config.yaml"
 )
 
@@ -23,6 +24,8 @@ $PythonVenv = Join-Path $PythonBackend ".venv"
 $PythonExe = Join-Path $PythonVenv "Scripts\python.exe"
 $LightServerProj = Join-Path $RepoRoot "LightServer.v3\LightServer.csproj"
 $LightServerDll = Join-Path $RepoRoot "LightServer.v3\bin\Release\net10.0\LightServer.dll"
+$IoInputMonitorProj = Join-Path $RepoRoot "IoInputMonitor\IoInputMonitor.csproj"
+$IoInputMonitorDll = Join-Path $RepoRoot "IoInputMonitor\bin\Release\net10.0\IoInputMonitor.dll"
 $CameraWorkerDir = Join-Path $RepoRoot "camera-worker"
 $FrontEndDir = Join-Path $RepoRoot "front-end"
 $NpmCmd = "C:\Program Files\nodejs\npm.cmd"
@@ -120,6 +123,20 @@ if (-not $SkipLightServer) {
     }
 } elseif (-not (Test-Path $LightServerDll)) {
     throw "LightServer.dll missing and -SkipLightServer was set"
+}
+
+if (-not $SkipIoInputMonitor) {
+    Write-Step "Build IoInputMonitor (Release)"
+    dotnet build $IoInputMonitorProj -c Release
+    if ($LASTEXITCODE -ne 0) {
+        if (Test-Path $IoInputMonitorDll) {
+            Write-Host "WARN: IoInputMonitor build failed, using existing DLL." -ForegroundColor Yellow
+        } else {
+            throw "IoInputMonitor build failed and no Release DLL found. Use -SkipIoInputMonitor if IO box unavailable"
+        }
+    }
+} elseif (-not (Test-Path $IoInputMonitorDll)) {
+    throw "IoInputMonitor.dll missing and -SkipIoInputMonitor was set"
 }
 
 if (-not $SkipCameraWorker) {

@@ -38,14 +38,15 @@ import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspec
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadcaster;
+import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
-import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
+import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
@@ -107,6 +108,7 @@ public final class IntegrationBootstrap {
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);
         AnalisSurfaceLauncher analisSurfaceLauncher = new AnalisSurfaceLauncher(log);
         LightServerLauncher lightServerLauncher = new LightServerLauncher(log);
+        IntegrationExternalProcessLauncher externalProcessLauncher = new IntegrationExternalProcessLauncher(log);
         UiArtifactsSidecar uiSidecar = new UiArtifactsSidecar(log);
         GeometrySnapshotCache geometrySnapshotCache = new GeometrySnapshotCache();
         GeometryRuntimeConfig geometryRuntimeConfig = new GeometryRuntimeConfig();
@@ -192,6 +194,31 @@ public final class IntegrationBootstrap {
         );
         ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
                 integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        InspectionTriggerConfig inspectionTriggerConfigEarly = InspectionTriggerConfig.parse(integration);
+        ExternalServiceProcess ioInputMonitorProcess = inspectionTriggerConfigEarly.usesIoInputMonitor()
+                ? externalProcessLauncher.startIfConfigured(
+                        integration,
+                        projectRoot,
+                        isWindows,
+                        "io_input_monitor_autostart",
+                        "io_input_monitor_command_windows",
+                        "io_input_monitor_command_linux",
+                        "io-input-monitor",
+                        "."
+                )
+                : null;
+        ExternalServiceProcess frontendProcess = shouldAutostartFrontend()
+                ? externalProcessLauncher.startIfConfigured(
+                        integration,
+                        projectRoot,
+                        isWindows,
+                        "frontend_autostart",
+                        "frontend_command_windows",
+                        "frontend_command_linux",
+                        "frontend",
+                        "front-end"
+                )
+                : null;
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
@@ -397,15 +424,17 @@ public final class IntegrationBootstrap {
             AtomicInteger pythonRoundRobin = new AtomicInteger(0);
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection =
                     IntegrationFeatureConfig.parseContinuousInspection(integration);
-            InspectionTriggerConfig inspectionTriggerConfig = InspectionTriggerConfig.parse(integration);
+            InspectionTriggerConfig inspectionTriggerConfig = inspectionTriggerConfigEarly;
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
                     inspectionTriggerConfig.ioInput().di3Only()
+                            || inspectionTriggerConfig.ioInput().directionLatchOnWork()
                             ? IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL
                             : IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
             if (inspectionTriggerConfig.ioInput().di3Only()) {
                 log.info(
-                        "inspection_trigger di3_only=true — съёмка только по фронту DI{} (DI1/DI2 игнорируются)",
-                        inspectionTriggerConfig.ioInput().triggerPort()
+                        "inspection_trigger di3_only=true — съёмка по фронту DI{}, направление по текущему DI{}",
+                        inspectionTriggerConfig.ioInput().triggerPort(),
+                        inspectionTriggerConfig.ioInput().directionPort()
                 );
                 if (IntegrationFeatureConfig.parseDevAutoTriggerStub(integration).enabled()) {
                     log.warn("di3_only=true: dev_auto_trigger_stub включён в конфиге, но игнорируется");
@@ -413,6 +442,19 @@ public final class IntegrationBootstrap {
                 if (continuousInspection.enabled()) {
                     log.warn("di3_only=true: continuous_inspection включён в конфиге, но игнорируется");
                 }
+            }
+            if (inspectionTriggerConfig.ioInput().di3Only()
+                    && inspectionTriggerConfig.ioInput().requireDirection()
+                    && !inspectionTriggerConfig.ioInput().directionLatchOnWork()) {
+                log.info(
+                        "inspection_trigger auto direction — prefire на DI3↑ при DI2=1, dispatch на DI3↓ при DI2=0"
+                );
+            }
+            if (inspectionTriggerConfig.ioInput().directionLatchOnWork()) {
+                log.info(
+                        "inspection_trigger direction_latch_on_work=true — DI2 фиксируется при DI1↑, съёмка только по DI{}",
+                        inspectionTriggerConfig.ioInput().triggerPort()
+                );
             }
             BucketInspectionConfig bucketInspectionConfig =
                     BucketInspectionConfig.parse(integration, workersByCamera.keySet());
@@ -539,7 +581,7 @@ public final class IntegrationBootstrap {
                 InspectionTriggerConfig triggerCfg = inspectionTriggerConfig;
                 if (triggerCfg.usesIoInputMonitor()) {
                     log.info(
-                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} di3_only={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
+                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                             triggerCfg.udp().bindHost(),
                             triggerCfg.udp().bindPort(),
                             triggerCfg.ioInput().workPort(),
@@ -547,6 +589,8 @@ public final class IntegrationBootstrap {
                             triggerCfg.ioInput().triggerPort(),
                             triggerCfg.ioInput().triggerEdge(),
                             triggerCfg.ioInput().di3Only(),
+                            triggerCfg.ioInput().directionLatchOnWork(),
+                            triggerCfg.ioInput().directionArmNextDi3(),
                             triggerCfg.ioInput().requireDirection(),
                             triggerCfg.ioInput().requireWork(),
                             triggerCfg.ioInput().directionInvert(),
@@ -670,6 +714,8 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
+                    ioInputMonitorProcess,
+                    frontendProcess,
                     analisSurfaceProcesses,
                     lightClient,
                     uiVisualsPython,
@@ -838,5 +884,11 @@ public final class IntegrationBootstrap {
                     perLink
             );
         }
+    }
+
+    /** {@code IML_FRONTEND_AUTOSTART=false} — отключить UI при {@code run.ps1 -NoFrontend}. */
+    private static boolean shouldAutostartFrontend() {
+        String raw = System.getenv("IML_FRONTEND_AUTOSTART");
+        return raw == null || !raw.equalsIgnoreCase("false");
     }
 }

@@ -49,11 +49,51 @@ class IoInputMonitorTriggerSequenceTest {
         assertTrue(latch.seenWhileTriggered());
 
         triggerActive = false;
-        boolean directionForFall = latch.effectiveForFallingEdge(false);
-        assertEquals(LineDiscreteTriggerEvaluator.Decision.FIRE, evaluator.evaluate(true, directionForFall, triggerActive));
+        assertEquals(
+                LineDiscreteTriggerEvaluator.Decision.FIRE,
+                evaluator.evaluate(true, latch.effectiveForFallingEdge(true), triggerActive)
+        );
+        assertFalse(latch.effectiveForFallingEdge(false));
 
         latch.onTriggerRelease();
         assertFalse(latch.effectiveForFallingEdge(false));
+    }
+
+    @Test
+    void fallingEdgeSkipsOppositeDirectionArmHighReleaseLow() {
+        IoInputDirectionLatch latch = new IoInputDirectionLatch();
+        LineDiscreteTriggerEvaluator evaluator = new LineDiscreteTriggerEvaluator(TriggerEdgeMode.FALLING);
+        boolean triggerActive = false;
+
+        latch.onTriggerArm(true);
+        triggerActive = true;
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, evaluator.evaluate(true, true, triggerActive));
+
+        latch.onDirectionChange(false, true);
+        triggerActive = false;
+        assertFalse(latch.effectiveForFallingEdge(false));
+        assertEquals(
+                LineDiscreteTriggerEvaluator.Decision.SKIP_WRONG_DIRECTION,
+                evaluator.evaluate(true, latch.effectiveForFallingEdge(false), triggerActive)
+        );
+    }
+
+    @Test
+    void forwardLineSequenceFiresOnFallingRelease() {
+        IoInputDirectionLatch latch = new IoInputDirectionLatch();
+        LineDiscreteTriggerEvaluator evaluator = new LineDiscreteTriggerEvaluator(TriggerEdgeMode.FALLING);
+        boolean triggerActive = false;
+
+        latch.onTriggerArm(false);
+        triggerActive = true;
+        assertEquals(LineDiscreteTriggerEvaluator.Decision.NONE, evaluator.evaluate(true, false, triggerActive));
+
+        latch.onDirectionChange(true, true);
+        triggerActive = false;
+        assertEquals(
+                LineDiscreteTriggerEvaluator.Decision.FIRE,
+                evaluator.evaluate(true, latch.effectiveForFallingEdge(true), triggerActive)
+        );
     }
 
     @Test

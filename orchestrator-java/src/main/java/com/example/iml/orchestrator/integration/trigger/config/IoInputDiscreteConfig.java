@@ -19,13 +19,15 @@ public record IoInputDiscreteConfig(
         boolean requireDirection,
         boolean requireWork,
         boolean di3Only,
+        boolean directionLatchOnWork,
+        boolean directionArmNextDi3,
         boolean directionInvert,
         int directionWaitMs,
         int directionPollMs
 ) {
 
     public static IoInputDiscreteConfig defaults() {
-        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, 5000, 50);
+        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, false, false, 5000, 50);
     }
 
     public static IoInputDiscreteConfig parse(Map<String, Object> integration, int udpDebounceMs) {
@@ -54,14 +56,18 @@ public record IoInputDiscreteConfig(
                 : defaults.payloadFormat();
         boolean stubWorkActive = YamlScalars.toBool(io.get("stub_work_active"), defaults.stubWorkActive());
         boolean di3Only = YamlScalars.toBool(io.get("di3_only"), defaults.di3Only());
-        TriggerEdgeMode triggerEdge = di3Only
-                ? TriggerEdgeMode.RISING
-                : TriggerEdgeMode.fromConfig(io.get("trigger_edge"));
-        boolean requireDirection = di3Only
-                ? false
-                : YamlScalars.toBool(io.get("require_direction"), defaults.requireDirection());
-        boolean requireWork = di3Only
-                ? false
+        boolean directionLatchOnWork = YamlScalars.toBool(
+                io.get("direction_latch_on_work"),
+                defaults.directionLatchOnWork()
+        );
+        boolean directionArmNextDi3 = YamlScalars.toBool(
+                io.get("direction_arm_next_di3"),
+                defaults.directionArmNextDi3()
+        );
+        TriggerEdgeMode triggerEdge = TriggerEdgeMode.fromConfig(io.get("trigger_edge"));
+        boolean requireDirection = YamlScalars.toBool(io.get("require_direction"), defaults.requireDirection());
+        boolean requireWork = directionLatchOnWork
+                ? YamlScalars.toBool(io.get("require_work"), true)
                 : YamlScalars.toBool(io.get("require_work"), defaults.requireWork());
         boolean directionInvert = YamlScalars.toBool(io.get("direction_invert"), defaults.directionInvert());
         int directionWaitMs = Math.max(0, YamlScalars.toInt(io.get("direction_wait_ms"), defaults.directionWaitMs()));
@@ -77,6 +83,8 @@ public record IoInputDiscreteConfig(
                 requireDirection,
                 requireWork,
                 di3Only,
+                directionLatchOnWork,
+                directionArmNextDi3,
                 directionInvert,
                 directionWaitMs,
                 directionPollMs
@@ -96,6 +104,8 @@ public record IoInputDiscreteConfig(
                 defaults.requireDirection(),
                 defaults.requireWork(),
                 defaults.di3Only(),
+                defaults.directionLatchOnWork(),
+                defaults.directionArmNextDi3(),
                 defaults.directionInvert(),
                 defaults.directionWaitMs(),
                 defaults.directionPollMs()

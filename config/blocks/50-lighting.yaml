@@ -2,7 +2,7 @@
 # Маршруты вспышек (camera_number ↔ device/channel) — в config/blocks/51-light-hardware.yaml.
 light_servers:
   # false — если COM1–COM3 не подключены (иначе LightServer падает на EnumDevices).
-  enabled: false
+  enabled: true
   base_url: "http://127.0.0.1:5080"
   urls:
     on: /api/com/light

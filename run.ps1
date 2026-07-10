@@ -1,4 +1,4 @@
-# Simple launch: cleanup stale processes, then orchestrator + front-end.
+# Simple launch: cleanup stale processes, then orchestrator (autostarts IoInputMonitor + front-end).
 # Usage:
 #   .\run.ps1
 #   .\run.ps1 -NoFrontend
@@ -17,6 +17,7 @@ $OrchestratorJar = Join-Path $RepoRoot "orchestrator-java\target\orchestrator-0.
 $GeometryJar = Join-Path $RepoRoot "java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar"
 $PythonExe = Join-Path $RepoRoot "analisSurface\backend\.venv\Scripts\python.exe"
 $LightServerDll = Join-Path $RepoRoot "LightServer.v3\bin\Release\net10.0\LightServer.dll"
+$IoInputMonitorDll = Join-Path $RepoRoot "IoInputMonitor\bin\Release\net10.0\IoInputMonitor.dll"
 $CameraWorker = Join-Path $RepoRoot "camera-worker\build\Debug\camera_worker.exe"
 $CameraWorkerAlt = Join-Path $RepoRoot "camera-worker\build\Release\camera_worker.exe"
 $FrontEndDir = Join-Path $RepoRoot "front-end"
@@ -81,35 +82,32 @@ if (-not (Test-Path $PythonExe)) {
 if (-not (Test-Path $LightServerDll)) {
     throw "LightServer.dll missing. Run: .\rebuild-and-run.ps1"
 }
+if (-not (Test-Path $IoInputMonitorDll)) {
+    throw "IoInputMonitor.dll missing. Run: .\rebuild-and-run.ps1"
+}
 if (-not ((Test-Path $CameraWorker) -or (Test-Path $CameraWorkerAlt))) {
     throw "camera_worker.exe missing. Run: .\rebuild-and-run.ps1"
 }
-
-$pids = @{ orchestrator = $null; frontend = $null; python = $null }
 
 if (-not $NoFrontend) {
     if (-not (Test-Path $NpmCmd)) { throw "npm.cmd not found: $NpmCmd" }
     if (-not (Test-Path (Join-Path $FrontEndDir "node_modules"))) {
         throw "front-end/node_modules missing. Run: .\rebuild-and-run.ps1"
     }
-
-    Write-Step "Start front-end (separate window)"
-    $frontProc = Start-Process -FilePath "cmd.exe" `
-        -ArgumentList "/k", "cd /d `"$FrontEndDir`" && `"$NpmCmd`" run dev" `
-        -PassThru -WindowStyle Normal
-    $pids.frontend = $frontProc.Id
-    Write-Host "  Front-end window PID $($pids.frontend)" -ForegroundColor Gray
+} else {
+    $env:IML_FRONTEND_AUTOSTART = "false"
 }
 
-Save-Pids $pids
+Save-Pids @{ orchestrator = $null; frontend = $null; python = $null }
 
 Write-Host ""
 Write-Host "Starting orchestrator (logs below). Ctrl+C = stop all." -ForegroundColor Green
 Write-Host "  API : http://127.0.0.1:8099" -ForegroundColor Gray
 Write-Host "  WS  : ws://127.0.0.1:8765" -ForegroundColor Gray
 if (-not $NoFrontend) {
-    Write-Host "  UI  : http://localhost:5173" -ForegroundColor Gray
+    Write-Host "  UI  : http://localhost:5173 (autostart by orchestrator)" -ForegroundColor Gray
 }
+Write-Host "  IoInputMonitor + LightServer + analisSurface — autostart by orchestrator" -ForegroundColor Gray
 Write-Host ""
 
 try {

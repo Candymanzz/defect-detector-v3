@@ -15,7 +15,8 @@ class IoInputDirectionLatchTest {
 
         latch.onDirectionChange(true, true);
         assertTrue(latch.isSatisfied(false));
-        assertTrue(latch.effectiveForFallingEdge(false));
+        assertTrue(latch.effectiveForFallingEdge(true));
+        assertFalse(latch.effectiveForFallingEdge(false));
     }
 
     @Test

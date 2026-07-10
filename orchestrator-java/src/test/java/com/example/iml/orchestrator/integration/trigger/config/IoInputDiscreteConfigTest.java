@@ -28,25 +28,46 @@ class IoInputDiscreteConfigTest {
     }
 
     @Test
-    void di3OnlyDisablesWorkAndDirectionRequirements() {
+    void directionLatchOnWorkDefaultsRequireWorkTrue() {
         Map<String, Object> integration = Map.of(
                 "inspection_trigger",
                 Map.of(
                         "io_input",
-                        Map.of("di3_only", true)
+                        Map.of("direction_latch_on_work", true)
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertTrue(cfg.directionLatchOnWork());
+        assertTrue(cfg.requireWork());
+        assertTrue(cfg.requireDirection());
+    }
+
+    @Test
+    void di3OnlyKeepsDirectionRequirementWhenConfigured() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of(
+                                "di3_only", true,
+                                "require_direction", true,
+                                "require_work", false
+                        )
                 )
         );
 
         IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
 
         assertTrue(cfg.di3Only());
-        assertFalse(cfg.requireDirection());
+        assertTrue(cfg.requireDirection());
         assertFalse(cfg.requireWork());
         assertEquals(TriggerEdgeMode.RISING, cfg.triggerEdge());
     }
 
     @Test
-    void di3OnlyForcesRisingEvenWhenConfigSaysFalling() {
+    void di3OnlyRespectsConfiguredTriggerEdge() {
         Map<String, Object> integration = Map.of(
                 "inspection_trigger",
                 Map.of(
@@ -57,6 +78,6 @@ class IoInputDiscreteConfigTest {
 
         IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
 
-        assertEquals(TriggerEdgeMode.RISING, cfg.triggerEdge());
+        assertEquals(TriggerEdgeMode.FALLING, cfg.triggerEdge());
     }
 }

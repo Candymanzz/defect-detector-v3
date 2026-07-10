@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Постоянный UDP-слушатель DI3 (триггер). DI2 (направление) учитывается с опросом и таймаутом.
+ * UDP-слушатель DI: DI2 — текущее направление, DI3 — триггер съёмки.
  */
 public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport {
 
@@ -32,6 +32,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private final Runnable onLineWorkChanged;
     private final LineDiscreteTriggerEvaluator evaluator;
     private final IoInputDirectionLatch directionLatch = new IoInputDirectionLatch();
+    private final IoInputDirectionAutoCapture directionAutoCapture = new IoInputDirectionAutoCapture();
+    private final IoInputWorkSessionDirection workSessionDirection = new IoInputWorkSessionDirection();
     private final ScheduledExecutorService directionWaitExecutor;
     private final IoInputDirectionWaiter directionWaiter;
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -41,6 +43,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile boolean directionRawActive;
     private volatile boolean directionActive;
     private volatile boolean triggerActive;
+    private volatile boolean captureFiredThisPulse;
+    private volatile long pendingPrefireSequence;
     private long lastFireMs;
     private Thread listenerThread;
     private DatagramSocket socket;
@@ -68,14 +72,17 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 directionWaitExecutor,
                 ioInputConfig.directionWaitMs(),
                 ioInputConfig.directionPollMs(),
-                () -> directionLatch.isSatisfied(directionActive),
-                this::isEffectiveWork,
-                this::publishDebounced,
+                () -> directionActive,
+                () -> !ioInputConfig.requireWork() || isEffectiveWork(),
+                () -> tryCommitLineCapture("direction wait", false),
                 this::logDirectionWaitTimeout
         );
         if (ioInputConfig.stubWorkActive()) {
             workActive = true;
             lineWorkActive.set(true);
+            if (ioInputConfig.directionLatchOnWork()) {
+                workSessionDirection.onWorkStarted(directionActive, log);
+            }
         }
     }
 
@@ -99,7 +106,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             socket = new DatagramSocket(new InetSocketAddress(bindAddress, udpConfig.bindPort()));
             socket.setReuseAddress(true);
             log.info(
-                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} require_work={} di3_only={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
+                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                     udpConfig.bindHost(),
                     udpConfig.bindPort(),
                     ioInputConfig.payloadFormat(),
@@ -110,6 +117,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     ioInputConfig.requireDirection(),
                     ioInputConfig.requireWork(),
                     ioInputConfig.di3Only(),
+                    ioInputConfig.directionLatchOnWork(),
+                    ioInputConfig.directionArmNextDi3(),
                     ioInputConfig.directionInvert(),
                     ioInputConfig.directionWaitMs(),
                     ioInputConfig.directionPollMs(),
@@ -153,14 +162,31 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         int port = change.diPort();
         boolean active = change.active();
         if (port == ioInputConfig.workPort()) {
+            boolean previousWork = workActive;
             workActive = active;
             updateLineWork(active);
-            if (!ioInputConfig.di3Only() && ioInputConfig.requireDirection()) {
+            if (ioInputConfig.directionLatchOnWork()) {
+                if (active && !previousWork) {
+                    workSessionDirection.onWorkStarted(directionActive, log);
+                } else if (!active && previousWork) {
+                    workSessionDirection.onWorkStopped(log);
+                }
+            } else if (!ioInputConfig.di3Only() && ioInputConfig.requireDirection()) {
                 evaluateTriggerDecision(port, active);
             }
             return;
         }
         if (port == ioInputConfig.directionPort()) {
+            boolean previousRaw = directionRawActive;
+            if (usesAutoDirection()) {
+                if (previousRaw != active) {
+                    log.info("io_input_trigger direction raw {} -> {}", previousRaw ? 1 : 0, active ? 1 : 0);
+                    directionAutoCapture.onDirectionRawChange(previousRaw, active);
+                }
+                directionRawActive = active;
+                directionActive = active;
+                return;
+            }
             boolean mapped = mapDirection(active);
             if (directionActive != mapped) {
                 if (ioInputConfig.directionInvert()) {
@@ -177,8 +203,22 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             }
             directionRawActive = active;
             directionActive = mapped;
-            directionLatch.onDirectionChange(active, triggerActive);
+            if (ioInputConfig.directionLatchOnWork()) {
+                workSessionDirection.onDirectionChange(mapped, workActive, log);
+                return;
+            }
+            directionLatch.onDirectionChange(mapped, triggerActive);
+            if (ioInputConfig.di3Only() && usesAutoDirection()) {
+                return;
+            }
             if (ioInputConfig.di3Only()) {
+                if (!mapped && directionWaiter.isWaiting()) {
+                    directionWaiter.cancel("DI2 direction=0");
+                }
+                directionWaiter.onDirectionReadyEvent();
+                if (mapped && triggerActive) {
+                    tryCommitLineCapture("DI2 during DI3 pulse", false);
+                }
                 return;
             }
             if (ioInputConfig.requireDirection()) {
@@ -191,27 +231,57 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
         if (port == ioInputConfig.triggerPort()) {
             if (active && !triggerActive) {
-                directionLatch.onTriggerArm(directionActive);
                 log.info(
                         "io_input_trigger DI3 capture edge direction={}",
                         directionActive ? 1 : 0
                 );
+                if (usesAutoDirection()) {
+                    directionAutoCapture.onDi3Rising(directionRawActive);
+                    tryPrefireOnDi3Rise();
+                }
             } else if (!active && triggerActive) {
                 log.info(
-                        "io_input_trigger DI3 release direction={} seen={}",
-                        directionActive ? 1 : 0,
-                        directionLatch.seenWhileTriggered() ? 1 : 0
+                        "io_input_trigger DI3 release direction={}",
+                        directionActive ? 1 : 0
                 );
+                if (usesAutoDirection()) {
+                    IoInputDirectionAutoCapture.Di3FallingAction fallAction =
+                            directionAutoCapture.onDi3Falling(directionRawActive);
+                    switch (fallAction) {
+                        case CAPTURE_FORWARD -> {
+                            log.info("io_input_trigger auto direction DI2=0 at DI3↓ after 1→0 — dispatch");
+                            tryCommitLineCapture("DI3 fall forward", true);
+                        }
+                        case ABORT_PREFIRE -> {
+                            log.info(
+                                    "io_input_trigger auto direction no DI2 0→1 in pulse — abort prefire"
+                            );
+                            abortPendingPrefire("no forward confirmation");
+                        }
+                        case REVERSE_SKIP -> {
+                            log.info(
+                                    "io_input_trigger auto direction reverse pulse — skip"
+                            );
+                            abortPendingPrefire("reverse pulse");
+                        }
+                        case NONE -> { }
+                    }
+                    directionAutoCapture.onDi3Released();
+                }
+                captureFiredThisPulse = false;
                 if (directionWaiter.isWaiting()) {
                     directionWaiter.cancel("DI3 released before direction");
                 }
-                triggerActive = active;
-                evaluateTriggerDecision(port, active);
-                directionLatch.onTriggerRelease();
-                return;
             }
             triggerActive = active;
-            evaluateTriggerDecision(port, active);
+            if (ioInputConfig.directionLatchOnWork()) {
+                evaluateTriggerDecision(port, active);
+            } else if (ioInputConfig.triggerEdge() == TriggerEdgeMode.RISING && active) {
+                handleDi3RisingCapture();
+            } else if (ioInputConfig.triggerEdge() == TriggerEdgeMode.FALLING && !active) {
+                evaluateTriggerDecision(port, active);
+                directionLatch.onTriggerRelease();
+            }
             return;
         }
         if (port > 0) {
@@ -221,9 +291,59 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
     }
 
+    private boolean usesAutoDirection() {
+        return ioInputConfig.di3Only()
+                && ioInputConfig.requireDirection()
+                && !ioInputConfig.directionLatchOnWork();
+    }
+
+    private void handleDi3RisingCapture() {
+        if (usesAutoDirection()) {
+            return;
+        }
+        if (directionActive || !ioInputConfig.requireDirection()) {
+            tryCommitLineCapture("DI3 edge", false);
+        } else {
+            handleMissingDirection();
+        }
+    }
+
     private void evaluateTriggerDecision(int changedPort, boolean changedActive) {
+        if (ioInputConfig.directionLatchOnWork()) {
+            boolean effectiveWork = isEffectiveWork();
+            if (!workSessionDirection.allowsCapture(
+                    ioInputConfig.requireWork(),
+                    effectiveWork,
+                    ioInputConfig.requireDirection()
+            )) {
+                if (ioInputConfig.requireWork() && !effectiveWork) {
+                    log.info("io_input_trigger skip: conveyor not running (work=0)");
+                } else if (!workSessionDirection.sessionDirectionKnown()) {
+                    log.info("io_input_trigger skip: session direction not latched yet (await DI2 after DI1)");
+                } else {
+                    log.info("io_input_trigger skip: session direction=0 (latched at work start)");
+                }
+                return;
+            }
+            LineDiscreteTriggerEvaluator.Decision sessionDecision = evaluator.evaluate(
+                    true,
+                    true,
+                    triggerActive,
+                    false,
+                    false
+            );
+            if (sessionDecision == LineDiscreteTriggerEvaluator.Decision.FIRE) {
+                log.info(
+                        "io_input_trigger capture on DI3 edge session_direction={}",
+                        workSessionDirection.sessionDirectionActive() ? 1 : 0
+                );
+                publishDebounced();
+            }
+            return;
+        }
+
         boolean effectiveWork = isEffectiveWork();
-        boolean effectiveDirection = resolveDirectionForTriggerEvaluation(changedPort, changedActive);
+        boolean effectiveDirection = ioInputConfig.requireDirection() ? directionActive : true;
         LineDiscreteTriggerEvaluator.Decision decision = evaluator.evaluate(
                 effectiveWork,
                 effectiveDirection,
@@ -236,59 +356,106 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             case SKIP_NOT_READY -> log.info("io_input_trigger skip: conveyor not running (work=0)");
             case SKIP_WRONG_DIRECTION -> handleMissingDirection();
             case FIRE -> {
-                if (ioInputConfig.di3Only()) {
-                    log.info("io_input_trigger capture on DI3 edge (di3_only=true)");
-                } else if (ioInputConfig.requireDirection()) {
-                    log.info(
-                            "io_input_trigger capture on DI3 edge direction={}",
-                            effectiveDirection ? 1 : 0
-                    );
-                } else {
-                    log.info(
-                            "io_input_trigger capture on DI3 edge (direction={} tracked only)",
-                            directionActive ? 1 : 0
-                    );
-                }
+                log.info(
+                        "io_input_trigger capture on DI3 edge direction={}",
+                        directionActive ? 1 : 0
+                );
                 publishDebounced();
             }
         }
     }
 
     private void handleMissingDirection() {
-        if (ioInputConfig.requireDirection() && ioInputConfig.directionWaitMs() > 0 && isEffectiveWork()) {
+        if (ioInputConfig.requireDirection() && ioInputConfig.directionWaitMs() > 0) {
             directionWaiter.begin("DI3 edge, polling DI2");
             return;
         }
         log.info(
-                "io_input_trigger skip: DI2 direction=0 at DI3 edge (latched={} current={})",
-                directionLatch.atTriggerArm() ? 1 : 0,
-                directionActive ? 1 : 0
+                "io_input_trigger skip: DI2=0 at DI3 edge — await DI2=1 during pulse (up to {} ms)",
+                ioInputConfig.directionWaitMs() > 0 ? ioInputConfig.directionWaitMs() : "pulse end"
         );
+    }
+
+    /**
+     * DI3↑: trigger_only сразу (экспозиция ~30 ms). Dispatch в пайплайн — после подтверждения DI2.
+     */
+    private void tryPrefireOnDi3Rise() {
+        if (!directionAutoCapture.prefireAllowedAtRise(directionRawActive)) {
+            log.info("io_input_trigger auto direction DI2=0 at DI3↑ — no prefire (reverse)");
+            abortPendingPrefire("reverse DI3 rise");
+            return;
+        }
+        abortPendingPrefire("new DI3 pulse");
+        pendingPrefireSequence = bus.prefireLineBroadcast("io_input");
+        log.info("io_input_trigger prefire at DI3↑ seq={}", pendingPrefireSequence);
+    }
+
+    private void abortPendingPrefire(String reason) {
+        if (pendingPrefireSequence > 0L) {
+            log.info(
+                    "io_input_trigger prefire seq={} aborted ({})",
+                    pendingPrefireSequence,
+                    reason
+            );
+            pendingPrefireSequence = 0L;
+        }
+    }
+
+    /**
+     * Dispatch в пайплайн после подтверждения направления; prefire уже был на DI3↑.
+     */
+    private void tryCommitLineCapture(String source, boolean ignoreDirectionCheck) {
+        if (captureFiredThisPulse) {
+            return;
+        }
+        if (ioInputConfig.triggerEdge() == TriggerEdgeMode.RISING && !triggerActive) {
+            if (!(usesAutoDirection() && pendingPrefireSequence > 0L)) {
+                return;
+            }
+        }
+        if (ioInputConfig.requireWork() && !isEffectiveWork()) {
+            log.info("io_input_trigger skip: conveyor not running (work=0)");
+            return;
+        }
+        if (!ignoreDirectionCheck && ioInputConfig.requireDirection() && !directionActive) {
+            return;
+        }
+        if (ioInputConfig.debounceMs() > 0) {
+            long now = System.currentTimeMillis();
+            if (now - lastFireMs < ioInputConfig.debounceMs()) {
+                log.debug("io_input_trigger debounced");
+                return;
+            }
+            lastFireMs = now;
+        }
+        long triggerReceivedMs = System.currentTimeMillis();
+        int published;
+        if (usesAutoDirection() && pendingPrefireSequence > 0L) {
+            long seq = pendingPrefireSequence;
+            pendingPrefireSequence = 0L;
+            published = bus.dispatchLineBroadcast("io_input", seq);
+        } else {
+            published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
+        }
+        if (published > 0) {
+            captureFiredThisPulse = true;
+            long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
+            log.info(
+                    "io_input_trigger capture direction={} cameras={} ({}) dispatch_ms={}",
+                    directionActive ? 1 : 0,
+                    published,
+                    source,
+                    dispatchMs
+            );
+        }
     }
 
     private void logDirectionWaitTimeout() {
         log.info(
-                "io_input_trigger skip: direction timeout after {} ms (latched={} current={} seen={})",
+                "io_input_trigger skip: direction timeout after {} ms (current DI2={})",
                 ioInputConfig.directionWaitMs(),
-                directionLatch.atTriggerArm() ? 1 : 0,
-                directionActive ? 1 : 0,
-                directionLatch.seenWhileTriggered() ? 1 : 0
+                directionActive ? 1 : 0
         );
-    }
-
-    private boolean resolveDirectionForTriggerEvaluation(int changedPort, boolean changedActive) {
-        if (!ioInputConfig.requireDirection()) {
-            return true;
-        }
-        if (changedPort == ioInputConfig.triggerPort()
-                && !changedActive
-                && ioInputConfig.triggerEdge() == TriggerEdgeMode.FALLING) {
-            return directionLatch.effectiveForFallingEdge(directionActive);
-        }
-        if (triggerActive) {
-            return directionLatch.isSatisfied(directionActive);
-        }
-        return directionActive;
     }
 
     private boolean isEffectiveWork() {

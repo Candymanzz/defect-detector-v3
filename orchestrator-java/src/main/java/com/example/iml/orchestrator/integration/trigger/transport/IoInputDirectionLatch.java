@@ -10,7 +10,8 @@ final class IoInputDirectionLatch {
 
     void onTriggerArm(boolean directionActive) {
         atTriggerArm = directionActive;
-        seenWhileTriggered = directionActive;
+        // seen только от onDirectionChange в окне DI3 — иначе arm=1 даёт ложный FIRE на обратном ходе.
+        seenWhileTriggered = false;
     }
 
     void onTriggerRelease() {
@@ -29,7 +30,7 @@ final class IoInputDirectionLatch {
     }
 
     boolean effectiveForFallingEdge(boolean directionActive) {
-        return seenWhileTriggered || atTriggerArm || directionActive;
+        return directionActive && (seenWhileTriggered || atTriggerArm);
     }
 
     boolean seenWhileTriggered() {
