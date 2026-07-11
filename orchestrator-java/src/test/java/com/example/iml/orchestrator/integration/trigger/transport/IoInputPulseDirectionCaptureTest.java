@@ -25,7 +25,7 @@ class IoInputPulseDirectionCaptureTest {
         directionActive = true;
         assertTrue(triggerActive);
         assertFalse(captureFiredThisPulse);
-        assertTrue(shouldCaptureDuringPulse(triggerActive, captureFiredThisPulse, true, true, directionActive));
+        assertTrue(shouldCaptureDuringPulse(triggerActive, captureFiredThisPulse, true, false, directionActive));
 
         captureFiredThisPulse = true;
         assertFalse(shouldCaptureDuringPulse(triggerActive, captureFiredThisPulse, true, true, directionActive));

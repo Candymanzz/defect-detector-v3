@@ -64,54 +64,63 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
     }
 
-    /**
-     * Фаза 1: зарезервировать {@code sequence}, сразу вызвать line-prefire (trigger_only на DI3).
-     * Пайплайн камер подключается позже через {@link #dispatchLineBroadcast}.
-     */
     public long prefireLineBroadcast(String source) {
+        return prefireLineBroadcast(source, null);
+    }
+
+    public long prefireLineBroadcast(String source, List<Integer> cameraIds) {
         long seq = sequence.incrementAndGet();
-        Instant receivedAt = java.time.Instant.now();
+        Instant receivedAt = Instant.now();
         LineTriggerListener listener = lineTriggerListener;
         if (listener != null) {
-            listener.onLineTrigger(seq, receivedAt);
+            listener.onLineTrigger(seq, receivedAt, cameraIds);
         }
         LOG.info(
-                "sync_diag channel=inspect event=line_prefire_reserved trigger_sequence={} source={}",
+                "sync_diag channel=inspect event=line_prefire_reserved trigger_sequence={} source={} cameras={}",
                 seq,
-                source
+                source,
+                cameraIds == null || cameraIds.isEmpty() ? "all" : cameraIds.size()
         );
         return seq;
     }
 
-    /**
-     * Фаза 2: раздать тот же {@code sequence} в очереди камер (wait_frame / bucket) без повторного prefire.
-     */
     public int dispatchLineBroadcast(String source, long seq) {
         if (seq <= 0L) {
             return 0;
         }
-        Instant receivedAt = java.time.Instant.now();
-        return dispatchLineBroadcast(source, seq, receivedAt);
+        Instant receivedAt = Instant.now();
+        return dispatchLineBroadcast(source, seq, receivedAt, null);
+    }
+
+    public int dispatchLineBroadcast(String source, long seq, List<Integer> cameraIds) {
+        if (seq <= 0L) {
+            return 0;
+        }
+        Instant receivedAt = Instant.now();
+        return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
     }
 
     /** Рассылка одного триггера на все активные камеры (prefire + dispatch в одном шаге). */
     public int publishBroadcast(InspectionTriggerEvent raw) {
-        long seq = prefireLineBroadcast(raw.source());
-        Instant receivedAt = raw.receivedAt() == null ? java.time.Instant.now() : raw.receivedAt();
-        return dispatchLineBroadcast(raw.source(), seq, receivedAt);
+        return publishBroadcast(raw, null);
     }
 
-    private int dispatchLineBroadcast(String source, long seq, Instant receivedAt) {
-        List<Integer> cameraIds = new ArrayList<>(perCamera.keySet());
-        Collections.sort(cameraIds);
+    public int publishBroadcast(InspectionTriggerEvent raw, List<Integer> cameraIds) {
+        long seq = prefireLineBroadcast(raw.source(), cameraIds);
+        Instant receivedAt = raw.receivedAt() == null ? Instant.now() : raw.receivedAt();
+        return dispatchLineBroadcast(raw.source(), seq, receivedAt, cameraIds);
+    }
+
+    private int dispatchLineBroadcast(String source, long seq, Instant receivedAt, List<Integer> cameraIds) {
+        List<Integer> targets = resolveTargetCameras(cameraIds);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
             LOG.info(
                     "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms=0 mode=simultaneous",
                     seq,
-                    cameraIds.size()
+                    targets.size()
             );
             int published = 0;
-            for (Integer cameraId : cameraIds) {
+            for (Integer cameraId : targets) {
                 if (offerToCamera(cameraId, receivedAt, source, seq)) {
                     published++;
                 }
@@ -121,11 +130,11 @@ public final class InspectionTriggerBus implements AutoCloseable {
         LOG.info(
                 "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms={} mode=staggered",
                 seq,
-                cameraIds.size(),
+                targets.size(),
                 captureTriggerStaggerMs
         );
-        for (int i = 0; i < cameraIds.size(); i++) {
-            int cameraId = cameraIds.get(i);
+        for (int i = 0; i < targets.size(); i++) {
+            int cameraId = targets.get(i);
             long delayMs = (long) i * captureTriggerStaggerMs;
             staggerScheduler.schedule(
                     () -> offerToCamera(cameraId, receivedAt, source, seq),
@@ -133,7 +142,23 @@ public final class InspectionTriggerBus implements AutoCloseable {
                     TimeUnit.MILLISECONDS
             );
         }
-        return cameraIds.size();
+        return targets.size();
+    }
+
+    private List<Integer> resolveTargetCameras(List<Integer> cameraIds) {
+        if (cameraIds == null || cameraIds.isEmpty()) {
+            List<Integer> all = new ArrayList<>(perCamera.keySet());
+            Collections.sort(all);
+            return all;
+        }
+        List<Integer> filtered = new ArrayList<>();
+        for (Integer cameraId : cameraIds) {
+            if (cameraId != null && perCamera.containsKey(cameraId)) {
+                filtered.add(cameraId);
+            }
+        }
+        filtered.sort(Integer::compareTo);
+        return filtered;
     }
 
     private boolean offerToCamera(int cameraId, Instant receivedAt, String source, long seq) {

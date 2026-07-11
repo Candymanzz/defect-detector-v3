@@ -100,13 +100,14 @@ integration:
       work_port: 1
       direction_port: 2
       trigger_port: 3
-      # Prefire на DI3↑ при DI2=1; dispatch на DI3↓ при DI2=0 после 1→0 в импульсе.
       direction_latch_on_work: false
       di3_only: true
+      # DI2 = направление (только читаем), DI3↑ = съёмка всех 10 камер
+      capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: true
+      require_direction: false
       require_work: false
       direction_poll_ms: 1
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).

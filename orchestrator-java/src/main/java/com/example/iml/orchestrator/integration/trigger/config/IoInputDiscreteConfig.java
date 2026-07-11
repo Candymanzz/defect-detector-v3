@@ -23,11 +23,12 @@ public record IoInputDiscreteConfig(
         boolean directionArmNextDi3,
         boolean directionInvert,
         int directionWaitMs,
-        int directionPollMs
+        int directionPollMs,
+        int captureDelayMs
 ) {
 
     public static IoInputDiscreteConfig defaults() {
-        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, false, false, 5000, 50);
+        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, false, false, 5000, 50, 0);
     }
 
     public static IoInputDiscreteConfig parse(Map<String, Object> integration, int udpDebounceMs) {
@@ -72,6 +73,7 @@ public record IoInputDiscreteConfig(
         boolean directionInvert = YamlScalars.toBool(io.get("direction_invert"), defaults.directionInvert());
         int directionWaitMs = Math.max(0, YamlScalars.toInt(io.get("direction_wait_ms"), defaults.directionWaitMs()));
         int directionPollMs = Math.max(1, YamlScalars.toInt(io.get("direction_poll_ms"), defaults.directionPollMs()));
+        int captureDelayMs = Math.max(0, YamlScalars.toInt(io.get("capture_delay_ms"), defaults.captureDelayMs()));
         return new IoInputDiscreteConfig(
                 workPort,
                 directionPort,
@@ -87,7 +89,8 @@ public record IoInputDiscreteConfig(
                 directionArmNextDi3,
                 directionInvert,
                 directionWaitMs,
-                directionPollMs
+                directionPollMs,
+                captureDelayMs
         );
     }
 
@@ -108,7 +111,8 @@ public record IoInputDiscreteConfig(
                 defaults.directionArmNextDi3(),
                 defaults.directionInvert(),
                 defaults.directionWaitMs(),
-                defaults.directionPollMs()
+                defaults.directionPollMs(),
+                defaults.captureDelayMs()
         );
     }
 

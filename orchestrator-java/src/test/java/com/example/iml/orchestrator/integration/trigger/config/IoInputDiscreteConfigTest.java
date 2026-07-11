@@ -67,6 +67,21 @@ class IoInputDiscreteConfigTest {
     }
 
     @Test
+    void parsesCaptureDelayMsFromIntegrationConfig() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of("capture_delay_ms", 350)
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertEquals(350, cfg.captureDelayMs());
+    }
+
+    @Test
     void di3OnlyRespectsConfiguredTriggerEdge() {
         Map<String, Object> integration = Map.of(
                 "inspection_trigger",

@@ -169,6 +169,23 @@ export type LightBrightnessUpdateResponse = {
   brightness_percent?: number;
 };
 
+export type LineDirection = "forward" | "reverse";
+
+export type LineDirectionSettings = {
+  direction: LineDirection;
+  source: "manual";
+};
+
+export type LineDirectionUpdateRequest = {
+  direction: LineDirection;
+};
+
+export type LineDirectionUpdateResponse = {
+  ok: true;
+  direction: LineDirection;
+  source: "manual";
+};
+
 export type StubHealth = {
   status: "ok" | string;
   service: string;

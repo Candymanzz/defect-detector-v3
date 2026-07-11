@@ -1,4 +1,4 @@
-import type { AnalysisSettings } from "../../shared/api";
+import type { AnalysisSettings, LineDirection } from "../../shared/api";
 
 export type SettingStatus = {
   state: "loading" | "ready" | "saving" | "error";
@@ -8,6 +8,7 @@ export type SettingStatus = {
 export type SettingForm = {
   brightnessPercent: number;
   maxShiftMm: number;
+  lineDirection: LineDirection;
   analysisSettings: AnalysisSettings;
 };
 

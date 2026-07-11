@@ -20,7 +20,7 @@ io_input:
       port: 9100          # куда слушает оркестратор (inspection_trigger.udp.bind_port)
       format: json        # json {"di":3,"value":1,"ts_ms":...} | text_di "3:1" | byte_di | byte/text (legacy 0/1)
       inputs: [1, 2, 3]   # какие DI публиковать; по умолчанию = inputs
-      trigger_port: 3     # DI3 — синхронный UDP без очереди (не теряется при шуме DI1/DI2)
-      low_latency_trigger: true
+      trigger_port: 3     # DI3 — не слать начальное состояние при старте (см. send_initial_trigger_state)
+      low_latency_trigger: true   # DI1/DI2/DI3 — синхронный UDP из SDK callback, без очереди
       send_initial_state: true
       send_initial_trigger_state: false   # не слать DI3 при старте (ложный FIRE)

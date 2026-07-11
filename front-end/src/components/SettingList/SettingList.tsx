@@ -5,6 +5,7 @@ import {
   INITIAL_SETTING_DATA,
   loadSettingData,
   saveBrightnessData,
+  saveLineDirection,
   saveMaxShiftData,
   saveSettingData,
   SAVING_SETTING_STATUS,
@@ -146,6 +147,35 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       });
   };
 
+  const handleDirectionChange = (direction: "forward" | "reverse") => {
+    if (!canEditSettings || settingData.form.lineDirection === direction) {
+      return;
+    }
+
+    const { form, analysisProductTypes } = settingData;
+    const requestId = ++requestIdRef.current;
+    setSaveFeedback({ state: "saving", text: "Сохранение...", cameraId: selectedCameraId });
+    setSettingData((currentSettingData) => ({
+      ...currentSettingData,
+      status: SAVING_SETTING_STATUS,
+      form: { ...currentSettingData.form, lineDirection: direction },
+    }));
+
+    saveLineDirection(direction, form, analysisProductTypes)
+      .catch((error) => ({
+        ...createSettingErrorData(error, { ...form, lineDirection: direction }),
+        analysisProductTypes,
+      }))
+      .then((nextSettingData) => {
+        if (requestId === requestIdRef.current) {
+          setSettingData(nextSettingData);
+          setSaveFeedback(
+            resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
+          );
+        }
+      });
+  };
+
   const handleBrightnessSave = () => {
     if (!canEditSettings) {
       return;
@@ -257,6 +287,33 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           >
             Сохранить яркость
           </Button>
+        </section>
+
+        <section className="setting-list__card setting-list__direction">
+          <div className="setting-list__card-header">
+            <span>Направление (метка)</span>
+            <strong className="setting-list__scope">все 10 камер</strong>
+          </div>
+          <div className="setting-list__direction-row">
+            <button
+              type="button"
+              className="setting-list__direction-btn"
+              data-active={settingData.form.lineDirection === "forward"}
+              disabled={!canEditSettings}
+              onClick={() => handleDirectionChange("forward")}
+            >
+              Прямой ход
+            </button>
+            <button
+              type="button"
+              className="setting-list__direction-btn"
+              data-active={settingData.form.lineDirection === "reverse"}
+              disabled={!canEditSettings}
+              onClick={() => handleDirectionChange("reverse")}
+            >
+              Обратный ход
+            </button>
+          </div>
         </section>
 
         <label className="setting-list__field setting-list__card">

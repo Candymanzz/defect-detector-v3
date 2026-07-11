@@ -41,7 +41,10 @@ public sealed class IoInputUdpPublishOptions
     /// <summary>DI-порт триггера съёмки (обычно 3). Отправляется без очереди, пакеты не отбрасываются.</summary>
     public int TriggerPort { get; set; } = 3;
 
-    /// <summary>Синхронный UDP для trigger_port из SDK callback (минимальная задержка).</summary>
+    /// <summary>
+    /// Синхронный UDP для всех publish.inputs из SDK callback (DI1/DI2/DI3 без очереди).
+    /// false — все DI идут через очередь (legacy).
+    /// </summary>
     public bool LowLatencyTrigger { get; set; } = true;
 
     /// <summary>Не слать начальное состояние trigger_port (избегает ложного FIRE при старте).</summary>
@@ -93,7 +96,7 @@ internal sealed class IoInputUdpPublisher : IDisposable
         if (!_publishPorts.Contains(port))
             return;
 
-        if (IsLowLatencyTriggerPort(port))
+        if (IsImmediatePublishPort(port))
         {
             SendImmediate(port, closed);
             return;
@@ -106,8 +109,8 @@ internal sealed class IoInputUdpPublisher : IDisposable
         }
     }
 
-    private bool IsLowLatencyTriggerPort(int port) =>
-        _options.LowLatencyTrigger && port == _options.TriggerPort;
+    private bool IsImmediatePublishPort(int port) =>
+        _options.LowLatencyTrigger && _publishPorts.Contains(port);
 
     private void SendImmediate(int port, bool closed)
     {
@@ -148,7 +151,7 @@ internal sealed class IoInputUdpPublisher : IDisposable
         {
             _client = new UdpClient();
             string triggerMode = _options.LowLatencyTrigger
-                ? $"immediate DI{_options.TriggerPort}, queued others"
+                ? $"immediate DI [{string.Join(", ", _publishPorts.OrderBy(static p => p))}]"
                 : "queued";
             Console.WriteLine(
                 $"UDP publish → {_options.Host}:{_options.Port} format={FormatDescription(_options.Format)} ({triggerMode})");

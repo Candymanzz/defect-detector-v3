@@ -42,6 +42,7 @@ import com.example.iml.orchestrator.integration.trigger.config.InspectionTrigger
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
+import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
@@ -113,7 +114,13 @@ public final class IntegrationBootstrap {
         GeometrySnapshotCache geometrySnapshotCache = new GeometrySnapshotCache();
         GeometryRuntimeConfig geometryRuntimeConfig = new GeometryRuntimeConfig();
         PerCameraInspectionGate inspectionGate = PerCameraInspectionGate.fromCameras(cameras);
-        ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(root, geometryRuntimeConfig, inspectionGate);
+        ManualLineDirectionService manualLineDirection = new ManualLineDirectionService();
+        ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(
+                root,
+                geometryRuntimeConfig,
+                inspectionGate,
+                manualLineDirection
+        );
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);
         IntegrationFeatureConfig.CaptureFrameDownscaleConfig captureDownscaleCfg =
                 IntegrationFeatureConfig.parseCaptureFrameDownscale(integration);
@@ -534,12 +541,14 @@ public final class IntegrationBootstrap {
                     triggerMode,
                     cfg.captureTriggerStaggerMs(),
                     refreshVisionReady,
-                    triggerRuntimeHolder
+                    triggerRuntimeHolder,
+                    bucketInspectionConfig.enabled() ? bucketInspectionConfig.groups() : List.of(),
+                    manualLineDirection
             );
             if (lineCaptureCoordinator != null) {
                 final LineSynchronizedCaptureCoordinator lineCaptureRef = lineCaptureCoordinator;
-                triggerRuntime.bus().setLineTriggerListener((seq, at) -> {
-                    lineCaptureRef.prefireLineTrigger(seq, at.toEpochMilli());
+                triggerRuntime.bus().setLineTriggerListener((seq, at, cameraIds) -> {
+                    lineCaptureRef.prefireLineTrigger(seq, at.toEpochMilli(), cameraIds);
                 });
             }
             InspectionTriggerStrategy sharedTriggerStrategy;

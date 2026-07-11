@@ -1,62 +1,61 @@
-package com.example.iml.orchestrator.integration.trigger.transport;
-
-/**
- * Рабочий ход (по линии): DI3↑ при DI2=1, внутри импульса DI2 1→0, DI3↓ при DI2=0.
- * Обратный ход: DI3↑ при DI2=0 (DI2 потом 0→1) — без prefire/dispatch.
- */
-final class IoInputDirectionAutoCapture {
-
-    enum Di3FallingAction {
-        CAPTURE_FORWARD,
-        REVERSE_SKIP,
-        ABORT_PREFIRE,
-        NONE
-    }
-
-    private boolean pulseOpen;
-    private boolean capturedThisPulse;
-    private boolean directionHighAtPulseStart;
-    private boolean sawDi2FallDuringPulse;
-
-    void onDi3Rising(boolean directionRawAtRise) {
-        pulseOpen = true;
-        capturedThisPulse = false;
-        directionHighAtPulseStart = directionRawAtRise;
-        sawDi2FallDuringPulse = false;
-    }
-
-    void onDi3Released() {
-        pulseOpen = false;
-    }
-
-    boolean prefireAllowedAtRise(boolean directionRawAtRise) {
-        return directionRawAtRise;
-    }
-
-    void onDirectionRawChange(boolean previousRaw, boolean activeRaw) {
-        if (!pulseOpen || previousRaw == activeRaw) {
-            return;
-        }
-        if (previousRaw && !activeRaw) {
-            sawDi2FallDuringPulse = true;
-        }
-    }
-
-    Di3FallingAction onDi3Falling(boolean directionRawAtFall) {
-        if (!pulseOpen) {
-            return Di3FallingAction.NONE;
-        }
-        pulseOpen = false;
-        if (capturedThisPulse) {
-            return Di3FallingAction.NONE;
-        }
-        if (!directionHighAtPulseStart) {
-            return Di3FallingAction.REVERSE_SKIP;
-        }
-        if (!directionRawAtFall && sawDi2FallDuringPulse) {
-            capturedThisPulse = true;
-            return Di3FallingAction.CAPTURE_FORWARD;
-        }
-        return Di3FallingAction.ABORT_PREFIRE;
-    }
-}
+package com.example.iml.orchestrator.integration.trigger.transport;
+
+/**
+ * Фаза 1 (опционально): DI2=1 вооружает forward.
+ * Фаза 2: DI3↑ открывает импульс; съёмка через {@code capture_delay_ms} после DI3↑.
+ */
+final class IoInputDirectionAutoCapture {
+
+    enum CycleDirection {
+        UNKNOWN,
+        FORWARD
+    }
+
+    private boolean directionArmed;
+    private boolean rawAtDi3Rise;
+
+    void tryArmOnDi2(boolean raw, boolean directionInvert) {
+        if (directionArmed) {
+            return;
+        }
+        if (!isForwardRaw(raw, directionInvert)) {
+            return;
+        }
+        directionArmed = true;
+    }
+
+    void onDi3Rising(boolean rawAtRise) {
+        rawAtDi3Rise = rawAtRise;
+    }
+
+    boolean isDirectionArmed() {
+        return directionArmed;
+    }
+
+    CycleDirection directionAtRise() {
+        return directionArmed ? CycleDirection.FORWARD : CycleDirection.UNKNOWN;
+    }
+
+    boolean isForward() {
+        return directionArmed;
+    }
+
+    boolean rawAtDi3Rise() {
+        return rawAtDi3Rise;
+    }
+
+    boolean isCaptureSignal(boolean raw, boolean directionInvert) {
+        return isForwardRaw(raw, directionInvert);
+    }
+
+    boolean allowsInstantCapture(boolean requireDirection) {
+        return !requireDirection || directionArmed;
+    }
+
+    static boolean isForwardRaw(boolean raw, boolean directionInvert) {
+        if (directionInvert) {
+            return !raw;
+        }
+        return raw;
+    }
+}

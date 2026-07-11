@@ -171,7 +171,19 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
      * Инспекция не блокирует следующий триггер — кадр копируется в отдельный SHM ({@link LineFramePinService}).
      */
     public void prefireLineTrigger(long triggerSequence, long triggerReceivedEpochMs) {
+        prefireLineTrigger(triggerSequence, triggerReceivedEpochMs, null);
+    }
+
+    public void prefireLineTrigger(
+            long triggerSequence,
+            long triggerReceivedEpochMs,
+            Collection<Integer> cameraIds
+    ) {
         if (hardwareLineTrigger || !immediatePrefire || !isEnabled() || triggerSequence <= 0L || lineWorkers.isEmpty()) {
+            return;
+        }
+        Map<Integer, WorkerProcessSupervisor> activeWorkers = filterWorkers(cameraIds);
+        if (activeWorkers.isEmpty()) {
             return;
         }
         Round round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round());
@@ -184,14 +196,14 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         long t0 = System.nanoTime();
         try {
             synchronized (triggerOnlyLock) {
-                dispatchTriggerOnly(round, lineWorkers);
+                dispatchTriggerOnly(round, activeWorkers);
             }
             long triggerMs = (System.nanoTime() - t0) / 1_000_000L;
             long sinceUdpMs = Math.max(0L, System.currentTimeMillis() - triggerEpochMs);
             LOG.info(
                     "sync_diag channel=inspect event=line_prefire trigger_sequence={} cameras={} trigger_only_ms={} latch_wait_ms=async since_udp_ms={} hardware={}",
                     triggerSequence,
-                    lineWorkers.size(),
+                    activeWorkers.size(),
                     triggerMs,
                     sinceUdpMs,
                     hardwareLineTrigger
@@ -203,19 +215,42 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             LOG.warn("line prefire trigger_only failed seq={}: {}", triggerSequence, e.getMessage());
             return;
         }
-        lineCaptureExecutor.submit(() -> latchRoundAsync(round, triggerSequence, triggerEpochMs));
+        Map<Integer, WorkerProcessSupervisor> latchWorkers = activeWorkers;
+        lineCaptureExecutor.submit(() -> latchRoundAsync(round, triggerSequence, triggerEpochMs, latchWorkers));
     }
 
-    private void latchRoundAsync(Round round, long triggerSequence, long triggerEpochMs) {
+    private Map<Integer, WorkerProcessSupervisor> filterWorkers(Collection<Integer> cameraIds) {
+        if (cameraIds == null || cameraIds.isEmpty()) {
+            return lineWorkers;
+        }
+        Map<Integer, WorkerProcessSupervisor> filtered = new LinkedHashMap<>();
+        for (Integer cameraId : cameraIds) {
+            if (cameraId == null) {
+                continue;
+            }
+            WorkerProcessSupervisor worker = lineWorkers.get(cameraId);
+            if (worker != null) {
+                filtered.put(cameraId, worker);
+            }
+        }
+        return filtered;
+    }
+
+    private void latchRoundAsync(
+            Round round,
+            long triggerSequence,
+            long triggerEpochMs,
+            Map<Integer, WorkerProcessSupervisor> workers
+    ) {
         synchronized (lineCaptureSerialLock) {
             long t0 = System.nanoTime();
             try {
-                long waitMs = latchAllFramesAfterTrigger(round, lineWorkers, triggerSequence);
+                long waitMs = latchAllFramesAfterTrigger(round, workers, triggerSequence);
                 long sinceUdpMs = Math.max(0L, System.currentTimeMillis() - triggerEpochMs);
                 LOG.info(
                         "sync_diag channel=inspect event=line_prefire_latch trigger_sequence={} cameras={} latch_wait_ms={} since_udp_ms={}",
                         triggerSequence,
-                        lineWorkers.size(),
+                        workers.size(),
                         waitMs,
                         sinceUdpMs
                 );

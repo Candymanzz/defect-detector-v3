@@ -12,6 +12,9 @@ import type {
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
+  LineDirection,
+  LineDirectionSettings,
+  LineDirectionUpdateResponse,
   UiCameraList,
   UiLatestSnapshot,
 } from "./types";
@@ -146,6 +149,17 @@ export const orchestratorApi = {
     return http.json<LightBrightnessUpdateResponse>(LIGHT_BRIGHTNESS_PATH, {
       method: "PUT",
       body,
+    });
+  },
+
+  async getLineDirection() {
+    return http.json<LineDirectionSettings>("/api/client/line-direction");
+  },
+
+  async setLineDirection(direction: LineDirection) {
+    return http.json<LineDirectionUpdateResponse>("/api/client/line-direction", {
+      method: "PUT",
+      body: { direction },
     });
   },
 
