@@ -1054,12 +1054,26 @@ static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info,
 }
 
 /** Минимальный шаг GevSCFTD (тики ~8 нс): время кадра на 1 Gb/s + ~25% запас под оверхед. */
+static int hik_is_small_switch_buffer(const worker_state_t *st) {
+    return st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96;
+}
+
+static unsigned long long hik_frame_transfer_ticks(size_t frame_bytes) {
+    unsigned long long ticks = (unsigned long long)frame_bytes * 5ull / 4ull;
+    if (ticks < 1500000ull) {
+        ticks = 1500000ull;
+    }
+    return ticks;
+}
+
 static unsigned int hik_min_frame_transfer_delay_step(const worker_state_t *st) {
     size_t frame_bytes = st->gige_payload_bytes > 0 ? st->gige_payload_bytes
                                                     : (st->frame_bytes > 0 ? st->frame_bytes : 15000000u);
-    unsigned long long ticks = (unsigned long long)frame_bytes * 5ull / 4ull;
-    if (ticks < 12000000ull) {
-        ticks = 12000000ull;
+    unsigned long long ticks = hik_frame_transfer_ticks(frame_bytes);
+    if (hik_is_small_switch_buffer(st)) {
+        if (ticks < 12000000ull) {
+            ticks = 12000000ull;
+        }
     }
     return (unsigned int)ticks;
 }
@@ -1091,7 +1105,7 @@ static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t
  */
 static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
-    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96 && per_link > 2) {
+    if (st->gige_switch_buffer_kb > 0 && hik_is_small_switch_buffer(st) && per_link > 2) {
         return (unsigned int)st->camera_id;
     }
     if (per_link <= 0) {
@@ -1103,11 +1117,16 @@ static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
 static int hik_effective_inter_packet_delay(const worker_state_t *st) {
     int delay = st->gige_inter_packet_delay;
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
-    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96) {
+    if (hik_is_small_switch_buffer(st)) {
         int min_delay = (per_link == 2) ? 120000 : 80000;
         if (delay < min_delay) {
             return min_delay;
         }
+    } else if (st->gige_switch_buffer_kb > 0 && delay > 0 && delay < 4000) {
+        fprintf(stderr,
+                "hik: GevSCPD=%d very low for switch_buf_kb=%d — risk of packet loss\n",
+                delay,
+                st->gige_switch_buffer_kb);
     }
     return delay;
 }
@@ -1115,10 +1134,75 @@ static int hik_effective_inter_packet_delay(const worker_state_t *st) {
 /** При 48–96 КБ и 2 камерах на коммутатор — удвоенный GevSCFTD между парой. */
 static unsigned int hik_gige_ftd_delay_multiplier(const worker_state_t *st) {
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
-    if (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96 && per_link == 2) {
+    if (hik_is_small_switch_buffer(st) && per_link == 2) {
         return 2u;
     }
     return 1u;
+}
+
+static unsigned int hik_align_down_u(unsigned int value, unsigned int inc) {
+    if (inc <= 1u) {
+        return value;
+    }
+    return (value / inc) * inc;
+}
+
+static unsigned int hik_clamp_gige_int_delay(unsigned int delay, const MVCC_INTVALUE *node) {
+    if (!node) {
+        return delay;
+    }
+    unsigned int inc = node->nInc > 0u ? node->nInc : 1u;
+    unsigned int minv = node->nMin;
+    unsigned int maxv = node->nMax > 0u ? node->nMax : UINT_MAX;
+    unsigned int clamped = delay;
+    if (clamped < minv) {
+        clamped = minv;
+    }
+    if (clamped > maxv) {
+        clamped = maxv;
+    }
+    clamped = hik_align_down_u(clamped, inc);
+    if (clamped < minv) {
+        clamped = minv;
+    }
+    return clamped;
+}
+
+static int hik_set_gige_int_value_clamped(void *handle, const char *node_name, unsigned int value, int camera_id,
+                                          const char *label) {
+    MVCC_INTVALUE node;
+    memset(&node, 0, sizeof(node));
+    int gr = MV_CC_GetIntValue(handle, node_name, &node);
+    if (gr != MV_OK) {
+        fprintf(stderr, "hik: %s node unavailable cam=%d (get 0x%x)\n", label, camera_id, gr);
+        return gr;
+    }
+    unsigned int clamped = hik_clamp_gige_int_delay(value, &node);
+    int sr = MV_CC_SetIntValue(handle, node_name, clamped);
+    if (sr != MV_OK) {
+        fprintf(stderr,
+                "hik: %s=%u not applied cam=%d requested=%u range=%u..%u inc=%u (0x%x)\n",
+                label,
+                clamped,
+                camera_id,
+                value,
+                node.nMin,
+                node.nMax,
+                node.nInc > 0u ? node.nInc : 1u,
+                sr);
+        return sr;
+    }
+    if (clamped != value) {
+        fprintf(stderr,
+                "hik: %s=%u cam=%d (requested=%u clamped to range %u..%u)\n",
+                label,
+                clamped,
+                camera_id,
+                value,
+                node.nMin,
+                node.nMax);
+    }
+    return MV_OK;
 }
 
 /**
@@ -1137,15 +1221,36 @@ static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
     unsigned int index = hik_frame_transfer_slot_index(st);
     unsigned int mult = hik_gige_ftd_delay_multiplier(st);
     unsigned int delay = index * step * mult;
-    int r = MV_CC_SetIntValue(st->hik_handle, "GevSCFTD", delay);
+    int r = hik_set_gige_int_value_clamped(st->hik_handle, "GevSCFTD", delay, st->camera_id, "GevSCFTD");
     if (r != MV_OK) {
-        fprintf(stderr, "hik: GevSCFTD=%u not applied cam=%d index=%u per_link=%d (0x%x)\n", delay,
-                st->camera_id, index, per_link, r);
+        fprintf(stderr,
+                "hik: cam=%d GevSCFTD stagger failed index=%u per_link=%d mult=%u switch_buf_kb=%d — "
+                "set transfer_wait_waves=2 in config if frames drop\n",
+                st->camera_id,
+                index,
+                per_link,
+                mult,
+                st->gige_switch_buffer_kb);
     } else {
         fprintf(stderr,
-                "hik: GevSCFTD=%u cam=%d index=%u per_link=%d mult=%u switch_buf_kb=%d topology=per_switch_pair "
+                "hik: GevSCFTD cam=%d index=%u per_link=%d mult=%u switch_buf_kb=%d step=%u "
                 "(transfer stagger only; exposure at trigger)\n",
-                delay, st->camera_id, index, per_link, mult, st->gige_switch_buffer_kb);
+                st->camera_id,
+                index,
+                per_link,
+                mult,
+                st->gige_switch_buffer_kb,
+                step);
+    }
+}
+
+static void hik_apply_gige_inter_packet_delay(void *handle, int inter_packet_delay, int camera_id) {
+    if (inter_packet_delay <= 0) {
+        return;
+    }
+    int r = hik_set_gige_int_value_clamped(handle, "GevSCPD", (unsigned int)inter_packet_delay, camera_id, "GevSCPD");
+    if (r == MV_OK) {
+        fprintf(stderr, "hik: GevSCPD=%d (inter-packet delay)\n", inter_packet_delay);
     }
 }
 
@@ -1160,34 +1265,14 @@ static void hik_disable_auto_white_balance(void *handle) {
         fprintf(stderr, "hik: BalanceWhiteAuto=Off\n");
 }
 
-/** Межпакетная задержка GigE — снижает потери UDP при нескольких камерах на одном линке. */
-static void hik_apply_gige_inter_packet_delay(void *handle, int inter_packet_delay) {
-    if (inter_packet_delay <= 0) {
-        return;
-    }
-    int r = MV_CC_SetIntValue(handle, "GevSCPD", (unsigned int)inter_packet_delay);
-    if (r != MV_OK) {
-        fprintf(stderr, "hik: GevSCPD=%d not applied (0x%x)\n", inter_packet_delay, r);
-    } else {
-        fprintf(stderr, "hik: GevSCPD=%d (inter-packet delay)\n", inter_packet_delay);
-    }
-}
-
 static void hik_apply_gige_stream_tuning(worker_state_t *st) {
     if (!st->hik_handle) {
         return;
     }
-    hik_apply_gige_inter_packet_delay(st->hik_handle, hik_effective_inter_packet_delay(st));
+    hik_apply_gige_inter_packet_delay(st->hik_handle, hik_effective_inter_packet_delay(st), st->camera_id);
     hik_apply_gige_frame_transfer_delay(st);
-    int image_nodes = (st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96) ? 8 : 5;
+    int image_nodes = hik_is_small_switch_buffer(st) ? 8 : 6;
     (void)MV_CC_SetImageNodeNum(st->hik_handle, image_nodes);
-}
-
-static unsigned int hik_align_down_u(unsigned int value, unsigned int inc) {
-    if (inc <= 1u) {
-        return value;
-    }
-    return (value / inc) * inc;
 }
 
 static int hik_verify_frame_size(void *handle, int camera_id, int target_w, int target_h) {
@@ -1543,6 +1628,9 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         st->hik_handle = NULL;
         MV_CC_Finalize();
         return -1;
+    }
+    if (devList.pDeviceInfo[selected]->nTLayerType == MV_GIGE_DEVICE) {
+        hik_apply_gige_frame_transfer_delay(st);
     }
 
     st->capture_backend_ready = 1;

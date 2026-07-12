@@ -41,6 +41,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private final long interWaitFrameMs;
     private final boolean parallelWaitFrame;
     private final int transferWaitWaves;
+    private final long configuredTransferWaveGapMs;
     private final boolean immediatePrefire;
     private final boolean hardwareLineTrigger;
     private final ExecutorService lineCaptureExecutor;
@@ -116,6 +117,30 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             boolean hardwareLineTrigger,
             int transferWaitWaves
     ) {
+        this(
+                cameraIds,
+                barrierWaitMs,
+                postTriggerSettleMs,
+                interWaitFrameMs,
+                parallelWaitFrame,
+                immediatePrefire,
+                hardwareLineTrigger,
+                transferWaitWaves,
+                -1L
+        );
+    }
+
+    public LineSynchronizedCaptureCoordinator(
+            Collection<Integer> cameraIds,
+            long barrierWaitMs,
+            long postTriggerSettleMs,
+            long interWaitFrameMs,
+            boolean parallelWaitFrame,
+            boolean immediatePrefire,
+            boolean hardwareLineTrigger,
+            int transferWaitWaves,
+            long transferWaveGapMs
+    ) {
         this.expectedParties = Math.max(1, cameraIds.size());
         this.barrierWaitMs = hardwareLineTrigger
                 ? Math.max(0L, barrierWaitMs)
@@ -124,6 +149,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         this.interWaitFrameMs = Math.max(0L, interWaitFrameMs);
         this.parallelWaitFrame = parallelWaitFrame;
         this.transferWaitWaves = Math.max(1, transferWaitWaves);
+        this.configuredTransferWaveGapMs = transferWaveGapMs;
         this.immediatePrefire = immediatePrefire;
         this.hardwareLineTrigger = hardwareLineTrigger;
         this.lineCaptureExecutor = Executors.newFixedThreadPool(
@@ -136,13 +162,14 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                 }
         );
         LOG.info(
-                "line synchronized capture enabled expected_cameras={} barrier_wait_ms={} post_trigger_settle_ms={} inter_wait_frame_ms={} parallel_wait_frame={} transfer_wait_waves={} immediate_prefire={} hardware_line_trigger={}",
+                "line synchronized capture enabled expected_cameras={} barrier_wait_ms={} post_trigger_settle_ms={} inter_wait_frame_ms={} parallel_wait_frame={} transfer_wait_waves={} transfer_wave_gap_ms={} immediate_prefire={} hardware_line_trigger={}",
                 this.expectedParties,
                 this.barrierWaitMs,
                 this.postTriggerSettleMs,
                 this.interWaitFrameMs,
                 this.parallelWaitFrame,
                 this.transferWaitWaves,
+                effectiveTransferWaveGapMs(),
                 this.immediatePrefire,
                 this.hardwareLineTrigger
         );
@@ -565,7 +592,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                 );
                 okCount += collectWaitFramesParallel(round, waveEntries, lenient);
                 if (wave + 1 < transferWaitWaves) {
-                    long waveGapMs = Math.max(interWaitFrameMs, transferWaveGapMs());
+                    long waveGapMs = Math.max(interWaitFrameMs, effectiveTransferWaveGapMs());
                     if (waveGapMs > 0L) {
                         Thread.sleep(waveGapMs);
                     }
@@ -707,8 +734,14 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         return String.valueOf(capture.header());
     }
 
-    private long transferWaveGapMs() {
-        return transferWaitWaves > 1 ? 220L : 0L;
+    private long effectiveTransferWaveGapMs() {
+        if (transferWaitWaves <= 1) {
+            return 0L;
+        }
+        if (configuredTransferWaveGapMs >= 0L) {
+            return configuredTransferWaveGapMs;
+        }
+        return 220L;
     }
 
     private void pruneOldRounds(long currentSequence) {

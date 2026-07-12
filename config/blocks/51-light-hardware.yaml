@@ -13,17 +13,17 @@ light_hardware:
     - id: mv-le-1
       enabled: true
       type: ethernet
-      ip: "192.168.1.103"
+      ip: "192.168.1.14"
       channels: 4
     - id: mv-le-2
       enabled: true
       type: ethernet
-      ip: "192.168.1.9"
+      ip: "192.168.1.11"
       channels: 4
     - id: mv-le-3
       enabled: true
       type: ethernet
-      ip: "192.168.1.100"
+      ip: "192.168.1.8"
       channels: 4
     - id: mv-le-4
       enabled: true

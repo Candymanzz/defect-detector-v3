@@ -487,6 +487,7 @@ public final class IntegrationBootstrap {
             boolean immediatePrefire = parseSimultaneousLineCaptureImmediatePrefire(integration);
             boolean hardwareLineTrigger = parseSimultaneousLineCaptureHardwareLineTrigger(integration, root);
             int transferWaitWaves = parseSimultaneousLineCaptureTransferWaitWaves(integration, root);
+            long transferWaveGapMs = parseSimultaneousLineCaptureTransferWaveGapMs(integration, root);
             boolean captureWithoutReference = IntegrationFeatureConfig.parseCaptureWithoutReference(integration);
             if (lineCaptureSyncEnabled && inspectionCameraIds.size() > 1) {
                 lineCaptureCoordinator = new LineSynchronizedCaptureCoordinator(
@@ -497,7 +498,8 @@ public final class IntegrationBootstrap {
                         parallelWaitFrame,
                         immediatePrefire,
                         hardwareLineTrigger,
-                        transferWaitWaves
+                        transferWaitWaves,
+                        transferWaveGapMs
                 );
                 lineCaptureCoordinator.bindWorkers(workersByCamera);
                 captureCoordinator.setLineCaptureCoordinator(lineCaptureCoordinator);
@@ -848,6 +850,26 @@ public final class IntegrationBootstrap {
         return 1;
     }
 
+    private static long parseSimultaneousLineCaptureTransferWaveGapMs(
+            Map<String, Object> integration,
+            Map<String, Object> root
+    ) {
+        if (integration != null) {
+            Object raw = integration.get("simultaneous_line_capture");
+            if (raw instanceof Map<?, ?> map && map.containsKey("transfer_wave_gap_ms")) {
+                return Math.max(0L, YamlScalars.toLong(map.get("transfer_wave_gap_ms"), 0L));
+            }
+        }
+        int bufferKb = YamlScalars.toInt(root != null ? root.get("gige_switch_buffer_kb") : null, 0);
+        if (bufferKb > 256) {
+            return 15L;
+        }
+        if (bufferKb > 96) {
+            return 80L;
+        }
+        return 220L;
+    }
+
     private static boolean parseSimultaneousLineCaptureHardwareLineTrigger(
             Map<String, Object> integration,
             Map<String, Object> root
@@ -879,7 +901,7 @@ public final class IntegrationBootstrap {
                 : "software trigger_only (все камеры параллельно, ~10 мс разброс IPC)";
         log.info(
                 "gige topology: switches={} cameras_per_switch={} ftd_per_link={} switch_buffer_kb={} — "
-                        + "передача: {} волн wait_frame (48 КБ: не более 1 камеры на коммутатор одновременно); экспозиция: {}",
+                        + "передача: {} волна(ы) wait_frame (≤96 КБ: 2 волны; >96 КБ: GevSCFTD + 1 волна); экспозиция: {}",
                 switches > 0 ? switches : "?",
                 perSwitch > 0 ? perSwitch : "?",
                 perLink > 0 ? perLink : "?",
