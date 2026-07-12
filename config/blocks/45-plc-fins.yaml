@@ -3,10 +3,10 @@
 
 plc_fins:
   enabled: true
-  host: "192.168.1.231"
+  host: "169.254.220.231"
   port: 9600
-  dest_node: 0
-  src_node: 0
+  dest_node: 231
+  src_node: 254
   response_timeout_ms: 1000
   pulse_ms: 200
   queue_size: 64

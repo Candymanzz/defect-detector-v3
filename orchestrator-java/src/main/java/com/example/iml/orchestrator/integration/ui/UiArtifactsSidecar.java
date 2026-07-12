@@ -3,6 +3,8 @@ package com.example.iml.orchestrator.integration.ui;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
@@ -78,7 +80,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             GeometrySnapshotCache geometrySnapshotCache,
             ClientApiMount clientApiMount,
             LightTriggerClient lightClient,
-            Map<String, Object> rootYaml
+            Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore,
+            LightBrightnessStore lightBrightnessStore
     ) {
         boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false);
         if (!enabled) {
@@ -93,7 +97,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     geometrySnapshotCache,
                     clientApiMount == null ? ClientApiMount.disabled() : clientApiMount,
                     lightClient,
-                    rootYaml == null ? Map.of() : rootYaml
+                    rootYaml == null ? Map.of() : rootYaml,
+                    cameraSettingsStore,
+                    lightBrightnessStore
             );
             log.info("ui http started on {}:{} (front controller)", host, port);
             return server;

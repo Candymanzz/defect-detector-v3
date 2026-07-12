@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.http.HttpResponses;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessApplyResult;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessCommands;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessScale;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -30,10 +31,20 @@ public final class LightHttpController implements HttpController {
 
     private final LightTriggerClient lightClient;
     private final LightUpstreamClient upstream;
+    private final LightBrightnessStore brightnessStore;
 
     public LightHttpController(LightTriggerClient lightClient, LightServersConfig cfg) {
+        this(lightClient, cfg, null);
+    }
+
+    public LightHttpController(
+            LightTriggerClient lightClient,
+            LightServersConfig cfg,
+            LightBrightnessStore brightnessStore
+    ) {
         this.lightClient = lightClient;
         this.upstream = cfg != null && cfg.enabled() ? new LightUpstreamClient(cfg) : null;
+        this.brightnessStore = brightnessStore;
     }
 
     @Override
@@ -166,6 +177,8 @@ public final class LightHttpController implements HttpController {
         LOG.info("light brightness updated via {} {} -> {}", ctx.method(), ctx.path(), lightClient.brightnessByEndpoint());
         if (applyResult.hasHardwareErrors()) {
             LOG.warn("light brightness hardware errors: {}", String.join("; ", applyResult.hardwareErrors()));
+        } else {
+            persistBrightnessState();
         }
         int defaultPercent = lightClient.brightnessPercent();
         ObjectNode ok = JSON.createObjectNode();
@@ -202,6 +215,17 @@ public final class LightHttpController implements HttpController {
             return LightBrightnessApplyResult.none();
         }
         return LightBrightnessUpdate.apply(lightClient, update);
+    }
+
+    private void persistBrightnessState() {
+        if (brightnessStore == null) {
+            return;
+        }
+        try {
+            brightnessStore.saveFromClient(lightClient);
+        } catch (IOException e) {
+            LOG.warn("light brightness store save failed: {}", e.getMessage());
+        }
     }
 
     private void sendBrightness(HttpRequestContext ctx) throws IOException {

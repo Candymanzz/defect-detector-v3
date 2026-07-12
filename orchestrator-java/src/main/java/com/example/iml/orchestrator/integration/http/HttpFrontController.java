@@ -120,7 +120,11 @@ public final class HttpFrontController {
         }
 
         CameraSettingsHttpController cameraSettings = new CameraSettingsHttpController(
-                new CameraSettingsService(ctx.cameraWorkersHolder(), ctx.cameraStreamHolder())
+                new CameraSettingsService(
+                        ctx.cameraWorkersHolder(),
+                        ctx.cameraStreamHolder(),
+                        ctx.cameraSettingsStore()
+                )
         );
         router.register(HttpRoute.regex("GET", Pattern.compile("^/api/camera/\\d+/settings$"), cameraSettings));
         router.register(HttpRoute.regex("PATCH", Pattern.compile("^/api/camera/\\d+/settings$"), cameraSettings));
@@ -155,7 +159,11 @@ public final class HttpFrontController {
 
         if (ctx.lightEnabled()) {
 
-            LightHttpController light = new LightHttpController(ctx.lightTriggerClient(), ctx.lightServersConfig());
+            LightHttpController light = new LightHttpController(
+                    ctx.lightTriggerClient(),
+                    ctx.lightServersConfig(),
+                    ctx.lightBrightnessStore()
+            );
 
             router.register(HttpRoute.exact("GET", "/api/orchestrator/light/brightness", light::handleBrightness));
 

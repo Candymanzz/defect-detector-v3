@@ -30,10 +30,20 @@ public final class CameraSettingsService {
 
     private final CameraWorkersHolder workersHolder;
     private final CameraStreamServiceHolder streamHolder;
+    private final CameraSettingsStore settingsStore;
 
     public CameraSettingsService(CameraWorkersHolder workersHolder, CameraStreamServiceHolder streamHolder) {
+        this(workersHolder, streamHolder, null);
+    }
+
+    public CameraSettingsService(
+            CameraWorkersHolder workersHolder,
+            CameraStreamServiceHolder streamHolder,
+            CameraSettingsStore settingsStore
+    ) {
         this.workersHolder = workersHolder;
         this.streamHolder = streamHolder;
+        this.settingsStore = settingsStore;
     }
 
     public Map<String, Object> getSettings(int cameraId) throws IOException {
@@ -41,6 +51,29 @@ public final class CameraSettingsService {
     }
 
     public Map<String, Object> patchSettings(int cameraId, Map<String, Object> update) throws IOException {
+        return applySettings(cameraId, update, true);
+    }
+
+    public void applyPersistedSettings() {
+        if (settingsStore == null) {
+            return;
+        }
+        for (Map.Entry<Integer, Map<String, Object>> entry : settingsStore.allSettings().entrySet()) {
+            int cameraId = entry.getKey();
+            Map<String, Object> settings = entry.getValue();
+            if (settings.isEmpty()) {
+                continue;
+            }
+            try {
+                applySettings(cameraId, settings, false);
+                LOG.info("camera persisted settings applied camera={} keys={}", cameraId, settings.keySet());
+            } catch (Exception e) {
+                LOG.warn("camera persisted settings apply failed camera={}: {}", cameraId, e.getMessage());
+            }
+        }
+    }
+
+    private Map<String, Object> applySettings(int cameraId, Map<String, Object> update, boolean persist) throws IOException {
         if (update == null || update.isEmpty()) {
             throw new IllegalArgumentException("at least one supported setting is required");
         }
@@ -60,7 +93,10 @@ public final class CameraSettingsService {
             throw new IllegalStateException("capture_trigger_mode cannot be changed while stream is active");
         }
         Map<String, Object> applied = workerResponse(cameraId, header);
-        LOG.info("camera settings updated camera={} keys={}", cameraId, header.keySet());
+        if (persist && settingsStore != null) {
+            settingsStore.mergeAndSave(cameraId, update);
+        }
+        LOG.info("camera settings updated camera={} keys={} persisted={}", cameraId, header.keySet(), persist);
         return applied;
     }
 

@@ -5,6 +5,9 @@ import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBoot
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownCoordinator;
 import com.example.iml.orchestrator.integration.camera.WorkerIpcMode;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsService;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
+import com.example.iml.orchestrator.integration.camera.CameraWorkersHolder;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
@@ -18,6 +21,8 @@ import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
@@ -59,6 +64,7 @@ import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -236,7 +242,9 @@ public final class IntegrationBootstrap {
         if (flashLeadMs > 0) {
             log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
+        LightBrightnessStore lightBrightnessStore = openLightBrightnessStore(projectRoot);
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
+        applyPersistedLightBrightness(lightClient, lightBrightnessStore);
         if (lightClient.isEnabled()) {
             log.info("waiting for LightServer COM bank (GET /api/com/light)...");
             lightClient.awaitEndpointsReady();
@@ -256,8 +264,9 @@ public final class IntegrationBootstrap {
         }
 
         ClientWebSocketServer clientWsServer = null;
+        CameraSettingsStore cameraSettingsStore = openCameraSettingsStore(projectRoot);
         final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(
-                uiCfg, geometrySnapshotCache, clientApiMount, lightClient, root);
+                uiCfg, geometrySnapshotCache, clientApiMount, lightClient, root, cameraSettingsStore, lightBrightnessStore);
         ClientWsConfig clientWsCfg = ClientWsConfig.fromRootYaml(root);
         if (clientWsCfg.enabled()) {
             try {
@@ -362,6 +371,7 @@ public final class IntegrationBootstrap {
                 log.error("No camera workers started successfully; integration pipeline skipped.");
                 return;
             }
+            applyPersistedCameraSettings(workersByCamera, cameraSettingsStore);
             Map<Integer, String> analysisProfileByCamera = new LinkedHashMap<>();
             for (Map<String, Object> camera : activeCameras) {
                 int cameraId = ((Number) camera.get("id")).intValue();
@@ -921,5 +931,63 @@ public final class IntegrationBootstrap {
     private static boolean shouldAutostartFrontend() {
         String raw = System.getenv("IML_FRONTEND_AUTOSTART");
         return raw == null || !raw.equalsIgnoreCase("false");
+    }
+
+    private static CameraSettingsStore openCameraSettingsStore(Path projectRoot) {
+        Path storagePath = projectRoot.resolve("config/data/camera_runtime_settings.json");
+        try {
+            return CameraSettingsStore.open(storagePath);
+        } catch (IOException e) {
+            log.warn("camera settings store unavailable path={}: {}", storagePath.toAbsolutePath(), e.getMessage());
+            return null;
+        }
+    }
+
+    private static LightBrightnessStore openLightBrightnessStore(Path projectRoot) {
+        Path storagePath = projectRoot.resolve("config/data/light_brightness_settings.json");
+        try {
+            return LightBrightnessStore.open(storagePath);
+        } catch (IOException e) {
+            log.warn("light brightness store unavailable path={}: {}", storagePath.toAbsolutePath(), e.getMessage());
+            return null;
+        }
+    }
+
+    private static void applyPersistedLightBrightness(
+            LightTriggerClient lightClient,
+            LightBrightnessStore lightBrightnessStore
+    ) {
+        if (lightClient == null || lightBrightnessStore == null) {
+            return;
+        }
+        LightBrightnessUpdate update = lightBrightnessStore.toUpdate();
+        if (update.isEmpty()) {
+            return;
+        }
+        try {
+            lightClient.applyBrightnessUpdate(update);
+            log.info(
+                    "light persisted brightness applied default={} endpoints={}",
+                    update.globalPercent(),
+                    update.perEndpoint().size()
+            );
+        } catch (Exception e) {
+            log.warn("light persisted brightness apply failed: {}", e.getMessage());
+        }
+    }
+
+    private static void applyPersistedCameraSettings(
+            Map<Integer, WorkerProcessSupervisor> workersByCamera,
+            CameraSettingsStore cameraSettingsStore
+    ) {
+        if (cameraSettingsStore == null || workersByCamera == null || workersByCamera.isEmpty()) {
+            return;
+        }
+        if (cameraSettingsStore.allSettings().isEmpty()) {
+            return;
+        }
+        CameraWorkersHolder workersHolder = new CameraWorkersHolder();
+        workersHolder.set(workersByCamera);
+        new CameraSettingsService(workersHolder, null, cameraSettingsStore).applyPersistedSettings();
     }
 }

@@ -5,7 +5,9 @@ import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.camera.CameraWorkersHolder;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.example.iml.orchestrator.integration.stream.CameraStreamServiceHolder;
 import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
@@ -19,9 +21,11 @@ public record HttpApplicationContext(
         ClientApiMount clientApi,
         LightTriggerClient lightTriggerClient,
         LightServersConfig lightServersConfig,
+        LightBrightnessStore lightBrightnessStore,
         String analisSurfaceBaseUrl,
         CameraStreamServiceHolder cameraStreamHolder,
         CameraWorkersHolder cameraWorkersHolder,
+        CameraSettingsStore cameraSettingsStore,
         java.util.List<Integer> configuredCameraIds,
         java.util.Map<Integer, String> analysisProfileByCamera
 ) {
@@ -52,6 +56,29 @@ public record HttpApplicationContext(
             LightTriggerClient lightClient,
             java.util.Map<String, Object> rootYaml
     ) {
+        return of(previewStore, geometryCache, clientApi, lightClient, rootYaml, null, null);
+    }
+
+    public static HttpApplicationContext of(
+            CameraPreviewStore previewStore,
+            GeometrySnapshotCache geometryCache,
+            ClientApiMount clientApi,
+            LightTriggerClient lightClient,
+            java.util.Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore
+    ) {
+        return of(previewStore, geometryCache, clientApi, lightClient, rootYaml, cameraSettingsStore, null);
+    }
+
+    public static HttpApplicationContext of(
+            CameraPreviewStore previewStore,
+            GeometrySnapshotCache geometryCache,
+            ClientApiMount clientApi,
+            LightTriggerClient lightClient,
+            java.util.Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore,
+            LightBrightnessStore lightBrightnessStore
+    ) {
         PythonDetectorConfig py = PythonDetectorConfig.fromRootYaml(rootYaml);
         String base = py.configured() ? py.baseUrl() : "";
         LightServersConfig lightCfg = LightServersConfig.fromRootYaml(rootYaml);
@@ -61,9 +88,11 @@ public record HttpApplicationContext(
                 clientApi,
                 lightClient,
                 lightCfg,
+                lightBrightnessStore,
                 base,
                 new CameraStreamServiceHolder(),
                 new CameraWorkersHolder(),
+                cameraSettingsStore,
                 ConfiguredCameras.enabledIds(rootYaml),
                 ConfiguredCameras.analysisProfileByCameraId(rootYaml)
         );

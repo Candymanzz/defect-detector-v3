@@ -46686,3 +46686,12 @@ java.io.IOException: EOF
 2026-07-11 19:43:22.824 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
 2026-07-11 19:43:22.824 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
 2026-07-11 19:43:22.824 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-12 23:28:10.360 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit16819694017483848705\camera_runtime_settings.json cameras=2
+2026-07-12 23:28:10.373 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit1655083159113969108\camera_runtime_settings.json cameras=1
+2026-07-12 23:33:19.155 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit1672802644552097283\camera_runtime_settings.json cameras=2
+2026-07-12 23:33:19.176 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit14623179236388002219\camera_runtime_settings.json cameras=1
+2026-07-12 23:33:19.334 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-12 23:33:19.335 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-12 23:33:19.335 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-12 23:33:19.338 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit4942520097472619935\light_brightness_settings.json default=42 endpoints=2
+2026-07-12 23:33:19.350 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%

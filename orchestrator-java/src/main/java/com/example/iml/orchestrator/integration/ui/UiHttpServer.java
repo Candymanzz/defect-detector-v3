@@ -7,9 +7,11 @@ import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.http.HttpApplicationContext;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.http.HttpFrontController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.openapi.OrchestratorApiDocumentationHandlers;
 import com.sun.net.httpserver.HttpServer;
 
@@ -93,6 +95,31 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             LightTriggerClient lightClient,
             Map<String, Object> rootYaml
     ) throws IOException {
+        this(host, port, geometrySnapshotCache, clientApi, lightClient, rootYaml, null);
+    }
+
+    public UiHttpServer(
+            String host,
+            int port,
+            GeometrySnapshotCache geometrySnapshotCache,
+            ClientApiMount clientApi,
+            LightTriggerClient lightClient,
+            Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore
+    ) throws IOException {
+        this(host, port, geometrySnapshotCache, clientApi, lightClient, rootYaml, cameraSettingsStore, null);
+    }
+
+    public UiHttpServer(
+            String host,
+            int port,
+            GeometrySnapshotCache geometrySnapshotCache,
+            ClientApiMount clientApi,
+            LightTriggerClient lightClient,
+            Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore,
+            LightBrightnessStore lightBrightnessStore
+    ) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         this.httpServer = HttpServer.create(addr, 0);
         this.httpContext = HttpApplicationContext.of(
@@ -100,7 +127,9 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                 geometrySnapshotCache,
                 clientApi == null ? ClientApiMount.disabled() : clientApi,
                 lightClient,
-                rootYaml == null ? Map.of() : rootYaml
+                rootYaml == null ? Map.of() : rootYaml,
+                cameraSettingsStore,
+                lightBrightnessStore
         );
         HttpFrontController frontController = new HttpFrontController(httpContext);
         OrchestratorApiDocumentationHandlers.register(httpServer);
