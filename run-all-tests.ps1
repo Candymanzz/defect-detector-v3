@@ -50,5 +50,13 @@ Invoke-Step "analisSurface backend (pytest)" $backend {
     }
 }
 
+$frontend = Join-Path $root "front-end"
+Invoke-Step "front-end (Vitest)" $frontend {
+    if (-not (Test-Path (Join-Path $frontend "node_modules"))) {
+        npm install
+    }
+    npm test
+}
+
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

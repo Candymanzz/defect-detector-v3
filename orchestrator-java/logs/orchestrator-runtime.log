@@ -46974,3 +46974,133 @@ java.io.IOException: EOF
 2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_fault OFF � FINS write OK
 2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_ready OFF � FINS write OK
 2026-07-13 10:30:44.451 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.HardwareSmokeMain - hardware smoke finished with 8 failures
+2026-07-13 13:06:15.230 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit7805721693221102367/camera_runtime_settings.json cameras=2
+2026-07-13 13:06:15.242 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit12354685914520140890/camera_runtime_settings.json cameras=1
+2026-07-13 13:06:15.324 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:06:15.333 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=4
+2026-07-13 13:06:15.334 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=4 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 13:06:15.337 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:06:15.340 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 13:06:15.361 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 13:06:15.361 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 13:06:15.362 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 13:06:15.362 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 13:06:15.362 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 13:06:15.363 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 13:06:15.363 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 13:06:15.363 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 13:06:15.363 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 13:06:15.363 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 13:06:15.385 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:06:15.387 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:06:15.390 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:06:15.390 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:06:16.241 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 13:06:16.250 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 13:06:16.250 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 13:06:16.250 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 13:06:16.253 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit13903621975683878744/light_brightness_settings.json default=42 endpoints=2
+2026-07-13 13:10:12.872 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit1099115612617039825/camera_runtime_settings.json cameras=2
+2026-07-13 13:10:12.891 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit15212998107939403072/camera_runtime_settings.json cameras=1
+2026-07-13 13:10:13.021 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:10:13.031 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=5
+2026-07-13 13:10:13.032 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=5 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 13:10:13.035 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:10:13.040 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 13:10:13.066 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 13:10:13.067 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 13:10:13.067 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 13:10:13.067 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 13:10:13.067 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 13:10:13.069 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 13:10:13.070 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 13:10:13.071 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 13:10:13.071 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 13:10:13.072 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 13:10:13.111 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:10:13.114 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:10:13.120 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:10:13.121 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:10:16.083 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 13:10:16.108 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 13:10:16.108 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 13:10:16.108 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 13:10:16.113 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit7886372231947979223/light_brightness_settings.json default=42 endpoints=2
+2026-07-13 13:12:10.539 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit16022266782832918713/camera_runtime_settings.json cameras=2
+2026-07-13 13:12:10.573 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit3257110963751341186/camera_runtime_settings.json cameras=1
+2026-07-13 13:12:10.695 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:12:10.712 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=10
+2026-07-13 13:12:10.715 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=9 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 13:12:10.719 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:12:10.725 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 13:12:10.763 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 13:12:10.764 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 13:12:10.764 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 13:12:10.764 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 13:12:10.764 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 13:12:10.765 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 13:12:10.765 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 13:12:10.766 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 13:12:10.766 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 13:12:10.766 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 13:12:10.825 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:12:10.829 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:12:10.833 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:12:10.834 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:12:13.991 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 13:12:14.030 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 13:12:14.030 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 13:12:14.030 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 13:12:14.036 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit1390555294665670104/light_brightness_settings.json default=42 endpoints=2
+2026-07-13 13:14:11.073 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit2071269138652362469/camera_runtime_settings.json cameras=2
+2026-07-13 13:14:11.085 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit9581148424057852446/camera_runtime_settings.json cameras=1
+2026-07-13 13:14:11.176 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:14:11.183 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=3
+2026-07-13 13:14:11.185 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=3 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 13:14:11.187 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:14:11.190 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 13:14:11.211 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 13:14:11.211 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 13:14:11.211 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 13:14:11.211 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 13:14:11.211 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 13:14:11.212 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 13:14:11.212 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 13:14:11.212 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 13:14:11.213 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 13:14:11.213 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 13:14:11.234 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:14:11.238 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:14:11.241 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:14:11.242 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:14:14.110 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 13:14:14.121 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 13:14:14.121 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 13:14:14.121 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 13:14:14.125 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit11028962630008076290/light_brightness_settings.json default=42 endpoints=2
+2026-07-13 13:14:29.808 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit13251320292033753246/camera_runtime_settings.json cameras=2
+2026-07-13 13:14:29.822 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit9216813698327336474/camera_runtime_settings.json cameras=1
+2026-07-13 13:14:29.924 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:14:29.931 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=3
+2026-07-13 13:14:29.933 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=3 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 13:14:29.935 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 13:14:29.938 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 13:14:29.962 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 13:14:29.962 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 13:14:29.963 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 13:14:29.963 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 13:14:29.963 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 13:14:29.963 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 13:14:29.964 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 13:14:29.964 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 13:14:29.964 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 13:14:29.964 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 13:14:29.987 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:14:29.992 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:14:29.995 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 13:14:29.995 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 13:14:32.962 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 13:14:32.984 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 13:14:32.984 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 13:14:32.984 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 13:14:32.993 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit761365566057681213/light_brightness_settings.json default=42 endpoints=2

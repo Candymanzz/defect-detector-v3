@@ -140,7 +140,7 @@ class InspectPythonExecutorTest {
                 "bench",
                 "detector-1",
                 reference(),
-                Map.of("inspect_scale", 0.5),
+                Map.of(),
                 List.of(python),
                 new Semaphore(1),
                 new AtomicInteger(0)

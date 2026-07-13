@@ -2,6 +2,8 @@ package com.example.iml.orchestrator.integration.subprocess;
 
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
@@ -41,6 +43,7 @@ class IntegrationExternalProcessLauncherTest {
   }
 
   @Test
+  @EnabledOnOs(OS.WINDOWS)
   void prepareCommandResolvesNpmOnWindows() {
     List<String> command = IntegrationExternalProcessLauncher.prepareCommand(
             List.of("npm", "run", "dev"), true);

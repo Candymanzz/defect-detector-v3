@@ -29,5 +29,9 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       sourcemap: true,
     },
+    test: {
+      environment: "node",
+      include: ["src/**/*.test.ts"],
+    },
   };
 });

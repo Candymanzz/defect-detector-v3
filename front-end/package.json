@@ -9,6 +9,8 @@
     "dev:renderer": "vite --host localhost",
     "dev:electron": "electron .",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -28,7 +30,8 @@
     "prettier": "^3.8.3",
     "typescript": "latest",
     "typescript-eslint": "^8.59.4",
-    "vite": "latest"
+    "vite": "latest",
+    "vitest": "^3.2.7"
   },
   "engines": {
     "node": ">=20.19.0"
