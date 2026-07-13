@@ -91,6 +91,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           referenceImageUrl={controller.modalSnapshot.referenceImageUrl}
           referenceRoiPoints={controller.modalSnapshot.referenceRoiPoints}
           referenceJointRoiPoints={controller.modalSnapshot.referenceJointRoiPoints}
+          referenceFpZones={controller.modalSnapshot.referenceFpZones}
           inspectionItems={controller.modalSnapshot.inspectionItems.map(({ frameId, inspectionId, result }) => ({
             frameId,
             inspectionId,

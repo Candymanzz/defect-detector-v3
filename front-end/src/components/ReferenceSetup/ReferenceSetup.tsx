@@ -217,6 +217,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   key={editorKey}
                   imageUrl={selectedSlot.imageUrl}
                   points={selectedEditorPoints}
+                  exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
                   onChange={(points) => {
                     if (selectedRoiMode === "joint") {
                       setJointRoiPolygon(points);
@@ -387,6 +388,12 @@ function ReferenceArchive({
 function ArchiveImage({ image }: { image: ArchivedReferenceGroup["images"][number] }) {
   const roiPoints = image.roiPoints.map((point) => `${point.x},${point.y}`).join(" ");
   const jointRoiPoints = image.jointRoiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
+  const fpZonePoints = image.fpZones
+    ?.filter((zone) => zone.points_norm_heatmap.length >= 3)
+    .map((zone, index) => ({
+      key: zone.id ?? index,
+      points: zone.points_norm_heatmap.map((point) => `${point.x},${point.y}`).join(" "),
+    }));
   const mediaStyle = {
     "--archive-aspect": image.frame.width / image.frame.height,
   } as CSSProperties;
@@ -415,6 +422,13 @@ function ArchiveImage({ image }: { image: ArchivedReferenceGroup["images"][numbe
               points={jointRoiPoints}
             />
           )}
+          {fpZonePoints?.map((zone) => (
+            <polygon
+              key={zone.key}
+              className="reference-setup__archive-fp-zone"
+              points={zone.points}
+            />
+          ))}
         </svg>
       </div>
     </figure>

@@ -372,6 +372,12 @@
   stroke: #bfdbfe;
 }
 
+.reference-setup__archive-frame-media .reference-setup__archive-fp-zone {
+  fill: rgba(245, 158, 11, 0.26);
+  stroke: #facc15;
+  stroke-width: 0.008;
+}
+
 .reference-setup__slot {
   display: grid;
   gap: 8px;

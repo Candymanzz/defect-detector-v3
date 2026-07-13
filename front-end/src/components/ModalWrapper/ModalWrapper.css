@@ -235,6 +235,12 @@
   stroke-dasharray: 8 5;
 }
 
+.modal-image-panel__roi-overlay--fp-zones polygon {
+  fill: rgba(245, 158, 11, 0.26);
+  stroke: #facc15;
+  stroke-width: 3;
+}
+
 .modal-image-panel .heatmap-viewer {
   container-type: size;
   display: grid;

@@ -16,7 +16,12 @@ export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: 
   const setFpZones = useCallback((zones: FpZoneNorm[]) => {
     setEditedZonesByCameraId((previous) => ({
       ...previous,
-      ...Object.fromEntries(activeCameraIds.map((cameraId) => [cameraId, copyZones(zones)])),
+      ...Object.fromEntries(
+        activeCameraIds.map((cameraId) => [
+          cameraId,
+          copyZones(zones).filter((zone) => zone.camera_id === undefined || zone.camera_id === cameraId),
+        ]),
+      ),
     }));
   }, [activeCameraIds]);
 

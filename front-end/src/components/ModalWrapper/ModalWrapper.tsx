@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
-import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
+import type { FpZoneNorm, InspectResultPayload, InterestPointNorm } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
 import "./ModalWrapper.css";
 
@@ -16,6 +16,7 @@ type ModalWrapperProps = {
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];
   referenceJointRoiPoints?: InterestPointNorm[];
+  referenceFpZones?: FpZoneNorm[];
   inspectionItems?: InspectionNavigationItem[];
   selectedInspectionFrameId?: string;
   dangerHeaderAction?: ReactNode;
@@ -40,6 +41,7 @@ export function ModalWrapper({
   referenceImageUrl,
   referenceRoiPoints,
   referenceJointRoiPoints,
+  referenceFpZones,
   inspectionItems = [],
   selectedInspectionFrameId,
   dangerHeaderAction,
@@ -117,6 +119,7 @@ export function ModalWrapper({
             label="Эталон"
             roiPoints={referenceRoiPoints}
             jointRoiPoints={referenceJointRoiPoints}
+            fpZones={referenceFpZones}
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
@@ -192,12 +195,14 @@ function ImagePanel({
   imageUrl,
   roiPoints,
   jointRoiPoints,
+  fpZones,
   fetchPriority = "high",
 }: {
   label: string;
   imageUrl?: string;
   roiPoints?: InterestPointNorm[];
   jointRoiPoints?: InterestPointNorm[];
+  fpZones?: FpZoneNorm[];
   fetchPriority?: "high" | "low" | "auto";
 }) {
   const [imageSize, setImageSize] = useState({ width: 4, height: 3 });
@@ -207,6 +212,14 @@ function ImagePanel({
   const jointSvgPoints = jointRoiPoints
     ?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`)
     .join(" ");
+  const fpZoneSvgPoints = fpZones
+    ?.filter((zone) => zone.points_norm_heatmap.length >= 3)
+    .map((zone, index) => ({
+      key: zone.id ?? index,
+      points: zone.points_norm_heatmap
+        .map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`)
+        .join(" "),
+    }));
   const mediaStyle = {
     "--media-aspect": imageSize.width / imageSize.height,
   } as CSSProperties;
@@ -251,6 +264,21 @@ function ImagePanel({
               viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
             >
               <polygon points={jointSvgPoints} />
+            </svg>
+          )}
+          {imageUrl && fpZoneSvgPoints && fpZoneSvgPoints.length > 0 && (
+            <svg
+              aria-hidden="true"
+              className="modal-image-panel__roi-overlay modal-image-panel__roi-overlay--fp-zones"
+              preserveAspectRatio="xMidYMid meet"
+              viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
+            >
+              {fpZoneSvgPoints.map((zone) => (
+                <polygon
+                  key={zone.key}
+                  points={zone.points}
+                />
+              ))}
             </svg>
           )}
         </div>

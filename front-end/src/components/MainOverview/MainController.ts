@@ -150,6 +150,10 @@ export function createModalInspectionSnapshot(
     referenceImageUrl: referenceImage?.imageUrl,
     referenceRoiPoints: referenceImage?.roiPoints.map((point) => ({ ...point })),
     referenceJointRoiPoints: referenceImage?.jointRoiPoints?.map((point) => ({ ...point })),
+    referenceFpZones: referenceImage?.fpZones?.map((zone) => ({
+      ...zone,
+      points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({ ...point })),
+    })),
     inspectionItems: createInitialModalInspectionItems(inspectionHistory, snapshotResult),
   };
 }
