@@ -87,6 +87,21 @@ export function useReferenceRoi(
     setSelectedRoiMode("joint");
   };
 
+  const resetEditedRoisForCameraIds = (targetCameraIds: number[]) => {
+    const targetCameraIdSet = new Set(targetCameraIds);
+    setEditedRoiPolygonsByCameraId((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([cameraId]) => !targetCameraIdSet.has(Number(cameraId)))),
+    );
+    setEditedJointRoiPolygonsByGroupKey((previous) =>
+      Object.fromEntries(
+        Object.entries(previous).filter(([roiKey]) => {
+          const keyCameraIds = roiKey.split(":")[0].split(",").map(Number);
+          return !keyCameraIds.every((cameraId) => targetCameraIdSet.has(cameraId));
+        }),
+      ),
+    );
+  };
+
   return {
     jointViewIndex,
     jointCameraId,
@@ -102,6 +117,7 @@ export function useReferenceRoi(
     getJointCameraIdForCameraIds,
     hasRequiredRoisForCameraIds,
     selectJointRoi,
+    resetEditedRoisForCameraIds,
     setJointRoiPolygon: setJointRoi,
     setRoiPolygonForCamera,
     setSelectedCameraId,

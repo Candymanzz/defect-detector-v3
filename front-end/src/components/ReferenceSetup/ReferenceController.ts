@@ -32,13 +32,26 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const pendingReferenceMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingFpZonesRef = useRef<{ cameraIds: number[]; zones: ReturnType<typeof referenceFpZonesCopy> } | null>(null);
   const loadedFpZoneKeysRef = useRef<Set<string>>(new Set());
+  const referenceCommitSyncRef = useRef<{
+    cameraIds: number[];
+    cameraGroups: number[][];
+    loadStoredReferenceImages: () => { loadedCameraIds: number[]; missingCameraIds: number[] };
+    resetEditedFpZonesForCameraIds: (cameraIds: number[]) => void;
+    resetEditedRoisForCameraIds: (cameraIds: number[]) => void;
+  } | null>(null);
   const cameraGroups = splitCameraGroups(cameraIds);
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
   const referenceFrames = useReferenceFrames(cameraIds);
   const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId);
   const referenceFpZones = useReferenceFpZones(cameraGroups, activeGroupIndex);
   const setReferenceFpZones = referenceFpZones.setFpZones;
-  const { captureLatestImages, handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
+  const {
+    captureLatestImages,
+    handlePreviewFrame,
+    imageUrlsByCameraId,
+    loadStoredReferenceImages,
+    refreshLatestImages,
+  } = referenceFrames;
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
   const hasStoredReferenceForActiveGroup = activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
   const canSendAllReferences = Boolean(
@@ -61,6 +74,16 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       referenceFpZones.hasValidFpZonesForCameraIds(activeCameraIds) &&
       status.state === "open",
   );
+
+  useEffect(() => {
+    referenceCommitSyncRef.current = {
+      cameraIds,
+      cameraGroups,
+      loadStoredReferenceImages,
+      resetEditedFpZonesForCameraIds: referenceFpZones.resetEditedFpZonesForCameraIds,
+      resetEditedRoisForCameraIds: referenceRoi.resetEditedRoisForCameraIds,
+    };
+  });
 
   useEffect(() => {
     let isActive = true;
@@ -125,6 +148,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           }
           if (message.payload.ok) {
             hasReferenceRef.current = true;
+            const referenceCommitSync = referenceCommitSyncRef.current;
+            if (referenceCommitSync) {
+              referenceCommitSync.resetEditedRoisForCameraIds(referenceCommitSync.cameraIds);
+              for (const groupCameraIds of referenceCommitSync.cameraGroups) {
+                referenceCommitSync.resetEditedFpZonesForCameraIds(groupCameraIds);
+              }
+              referenceCommitSync.loadStoredReferenceImages();
+            }
             disableReferencePreviewImages();
           }
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");

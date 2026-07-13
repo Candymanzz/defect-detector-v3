@@ -7,6 +7,7 @@ import { FpZoneEditor } from "../FpZoneEditor";
 import {
   deleteArchivedReferenceGroup,
   getArchivedReferenceGroups,
+  getReferenceImage,
   subscribeReferenceImages,
 } from "../../shared/referenceImages";
 import type { ArchivedReferenceGroup } from "../../shared/referenceImages";
@@ -57,8 +58,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     getArchivedReferenceGroups,
     () => [],
   );
+  const activeReferenceKey = useSyncExternalStore(
+    subscribeReferenceImages,
+    () => createActiveReferenceKey(cameraSlots.map((slot) => slot.cameraId)),
+    () => "",
+  );
   const selectedArchive =
     archivedReferences.find((referenceGroup) => referenceGroup.id === selectedArchiveId) ?? archivedReferences[0];
+  const activeArchive = archivedReferences.find((archive) => createArchiveReferenceKey(archive) === activeReferenceKey);
   const fpZoneSlot = cameraSlots.find((slot) => slot.cameraId === jointCameraId) ?? selectedSlot;
 
   return (
@@ -157,6 +164,17 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             </Button>
           </div>
 
+          {activeReferenceKey && (
+            <div className="reference-setup__active-reference" data-source={activeArchive ? "archive" : "current"}>
+              <strong>В работе</strong>
+              <span>
+                {activeArchive
+                  ? `старый эталон от ${formatArchiveTime(activeArchive.createdAtMs)} / Cameras ${activeArchive.cameraIds.join(", ")}`
+                  : `текущий эталон / Cameras ${cameraSlots.map((slot) => slot.cameraId).join(", ")}`}
+              </span>
+            </div>
+          )}
+
           <div className="reference-setup__workspace">
             <div className="reference-setup__editor">
               {isFpZoneMode && fpZoneSlot?.imageUrl ? (
@@ -234,6 +252,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
 
           <ReferenceArchive
             archivedReferences={archivedReferences}
+            activeArchiveId={activeArchive?.id}
             selectedArchive={selectedArchive}
             onDelete={(archiveId) => {
               deleteArchivedReferenceGroup(archiveId);
@@ -252,12 +271,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
 
 function ReferenceArchive({
   archivedReferences,
+  activeArchiveId,
   selectedArchive,
   onDelete,
   onSelect,
   onUse,
 }: {
   archivedReferences: ArchivedReferenceGroup[];
+  activeArchiveId?: string;
   selectedArchive?: ArchivedReferenceGroup;
   onDelete: (archiveId: string) => void;
   onSelect: (archiveId: string) => void;
@@ -288,6 +309,7 @@ function ReferenceArchive({
               key={archive.id}
               className="reference-setup__archive-tile"
               data-active={archive.id === selectedArchive?.id}
+              data-in-use={archive.id === activeArchiveId}
               role="button"
               tabIndex={0}
               onClick={() => onSelect(archive.id)}
@@ -304,6 +326,7 @@ function ReferenceArchive({
               />
               <span>{formatArchiveTime(archive.createdAtMs)}</span>
               <strong>Cameras {archive.cameraIds.join(", ")}</strong>
+              {archive.id === activeArchiveId && <em>В работе</em>}
               <button
                 className="reference-setup__archive-delete"
                 type="button"
@@ -372,4 +395,25 @@ function ArchiveImage({ image }: { image: ArchivedReferenceGroup["images"][numbe
 
 function formatArchiveTime(createdAtMs: number) {
   return new Date(createdAtMs).toLocaleTimeString();
+}
+
+function createActiveReferenceKey(cameraIds: number[]) {
+  return cameraIds
+    .map((cameraId) => {
+      const referenceImage = getReferenceImage(cameraId);
+      return referenceImage ? createReferenceImageKey(cameraId, referenceImage) : "";
+    })
+    .filter(Boolean)
+    .join("|");
+}
+
+function createArchiveReferenceKey(archive: ArchivedReferenceGroup) {
+  return archive.images.map((image) => createReferenceImageKey(image.cameraId, image)).join("|");
+}
+
+function createReferenceImageKey(
+  cameraId: number,
+  referenceImage: { frame: { frame_id: string | number }; imageUrl: string },
+) {
+  return `${cameraId}:${referenceImage.frame.frame_id}:${referenceImage.imageUrl}`;
 }

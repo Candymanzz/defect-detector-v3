@@ -170,6 +170,31 @@ export function useReferenceFrames(cameraIds: number[]) {
     };
   }, [cameraIds]);
 
+  const loadStoredReferenceImages = useCallback((targetCameraIds = cameraIds) => {
+    const loadedCameraIds: number[] = [];
+    const missingCameraIds: number[] = [];
+
+    for (const cameraId of targetCameraIds) {
+      const loaded = commitStoredReferenceFrame(
+        cameraId,
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+        true,
+      );
+
+      if (loaded) {
+        loadedCameraIds.push(cameraId);
+      } else {
+        missingCameraIds.push(cameraId);
+      }
+    }
+
+    return {
+      loadedCameraIds,
+      missingCameraIds,
+    };
+  }, [cameraIds]);
+
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
     const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
@@ -225,6 +250,7 @@ export function useReferenceFrames(cameraIds: number[]) {
     hasRequiredReferenceFrames,
     captureLatestImages,
     handlePreviewFrame,
+    loadStoredReferenceImages,
     refreshLatestImages,
   };
 }
@@ -233,20 +259,29 @@ function commitStoredReferenceFrame(
   cameraId: number,
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
+  overwrite = false,
 ) {
   const referenceImage = getReferenceImage(cameraId);
   if (!referenceImage) {
     return false;
   }
 
-  setFramesByCameraId((prevFrames) => ({
-    ...prevFrames,
-    [cameraId]: referenceImageToPreviewFrame(cameraId, referenceImage),
-  }));
-  setImageUrlsByCameraId((prevImageUrls) => ({
-    ...prevImageUrls,
-    [cameraId]: referenceImage.imageUrl,
-  }));
+  setFramesByCameraId((prevFrames) =>
+    !overwrite && prevFrames[cameraId]
+      ? prevFrames
+      : {
+          ...prevFrames,
+          [cameraId]: referenceImageToPreviewFrame(cameraId, referenceImage),
+        },
+  );
+  setImageUrlsByCameraId((prevImageUrls) =>
+    !overwrite && prevImageUrls[cameraId]
+      ? prevImageUrls
+      : {
+          ...prevImageUrls,
+          [cameraId]: referenceImage.imageUrl,
+        },
+  );
 
   return true;
 }

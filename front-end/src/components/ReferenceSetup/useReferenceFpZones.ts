@@ -23,7 +23,14 @@ export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: 
   const hasValidFpZonesForCameraIds = (cameraIds: number[]) =>
     getFpZonesForCameraIds(cameraIds).every((zone) => zone.points_norm_heatmap.length >= 3);
 
-  return { fpZones, setFpZones, getFpZonesForCameraIds, hasValidFpZonesForCameraIds };
+  const resetEditedFpZonesForCameraIds = (cameraIds: number[]) => {
+    const groupKey = createGroupKey(cameraIds);
+    setEditedZonesByGroupKey((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([key]) => key !== groupKey)),
+    );
+  };
+
+  return { fpZones, setFpZones, getFpZonesForCameraIds, hasValidFpZonesForCameraIds, resetEditedFpZonesForCameraIds };
 }
 
 function getStoredZones(cameraIds: number[]) {
