@@ -5,7 +5,6 @@ import {
   getArchivedReferenceGroup,
   getReferenceImage,
   stageReferenceBundleContours,
-  updateReferenceFpZones,
 } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { ServerWsMessage } from "../../shared/ws";
@@ -32,8 +31,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const hasReferenceRef = useRef(false);
   const pendingReferenceMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingReferenceCameraIdsByMessageIdRef = useRef<Record<string, number[]>>({});
-  const pendingFpZonesRef = useRef<{ cameraIds: number[]; zones: ReturnType<typeof referenceFpZonesCopy> } | null>(null);
-  const loadedFpZoneKeysRef = useRef<Set<string>>(new Set());
   const referenceCommitSyncRef = useRef<{
     cameraIds: number[];
     cameraGroups: number[][];
@@ -46,7 +43,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const referenceFrames = useReferenceFrames(cameraIds);
   const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId, !isNewReferenceMode);
   const referenceFpZones = useReferenceFpZones(cameraGroups, activeGroupIndex, !isNewReferenceMode);
-  const setReferenceFpZones = referenceFpZones.setFpZones;
   const {
     captureLatestImages,
     handlePreviewFrame,
@@ -62,16 +58,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       referenceRoi.hasRequiredRoisForCameraIds(activeCameraIds) &&
       status.state === "open",
   );
-  const activeJointCameraId = referenceRoi.getJointCameraIdForCameraIds(activeCameraIds);
-  const activeCameraKey = activeCameraIds.join(",");
-  const activeProductType =
-    referenceFrames.framesByCameraId[activeJointCameraId]?.detector.product_type;
-  const canSaveFpZones = Boolean(
-    activeCameraIds.length > 0 &&
-      referenceFrames.framesByCameraId[activeJointCameraId] &&
-      status.state === "open",
-  );
-
   useEffect(() => {
     referenceCommitSyncRef.current = {
       cameraIds,
@@ -167,16 +153,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;
         }
-        case "server.fp_zones_ack":
-          if (message.payload.ok && pendingFpZonesRef.current) {
-            updateReferenceFpZones(
-              pendingFpZonesRef.current.cameraIds,
-              pendingFpZonesRef.current.zones,
-            );
-          }
-          pendingFpZonesRef.current = null;
-          setMessage(message.payload.ok ? "FP zones saved successfully" : "FP zones were not saved");
-          break;
         case "server.error":
           pendingReferenceMessageIdsRef.current.clear();
           resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
@@ -234,35 +210,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       cancelled = true;
     };
   }, [cameraIds, refreshLatestImages]);
-
-  useEffect(() => {
-    if (!activeCameraKey || !activeProductType) return;
-
-    const loadKey = `${activeCameraKey}:${activeProductType}`;
-    if (loadedFpZoneKeysRef.current.has(loadKey)) return;
-    loadedFpZoneKeysRef.current.add(loadKey);
-
-    let cancelled = false;
-    orchestratorApi
-      .getFpZones(activeProductType)
-      .then(({ zones }) => {
-        if (cancelled) return;
-        setReferenceFpZones(
-          zones.map((zone) => ({
-            id: zone.id,
-            note: zone.note ?? "",
-            points_norm_heatmap: zone.points_norm_heatmap,
-          })),
-        );
-      })
-      .catch(() => {
-        loadedFpZoneKeysRef.current.delete(loadKey);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeCameraKey, activeProductType, setReferenceFpZones]);
 
   useEffect(() => {
     if (status.state !== "open" || cameraIds.length === 0 || isReferencePreviewPausedRef.current) {
@@ -351,35 +298,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       setMessage(`Archived reference sent for cameras ${archive.cameraIds.join(", ")}`);
     } catch (error) {
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  };
-
-  const handleSaveFpZones = () => {
-    if (!canSaveFpZones) {
-      setMessage("Для сохранения исключающих зон нужен кадр и открытое WebSocket-соединение");
-      return;
-    }
-
-    const jointFrame = referenceFrames.framesByCameraId[activeJointCameraId];
-    if (!jointFrame) {
-      setMessage(`Reference frame for camera ${activeJointCameraId} is missing`);
-      return;
-    }
-
-    try {
-      const zones = referenceFpZones.getFpZonesForCameraIds(activeCameraIds);
-      orchestratorWs.sendFpZonesUpdate({
-        heatmap_width: jointFrame.current.width,
-        heatmap_height: jointFrame.current.height,
-        fp_zones: zones,
-      });
-      pendingFpZonesRef.current = {
-        cameraIds: [...activeCameraIds],
-        zones: referenceFpZonesCopy(zones),
-      };
-      setMessage("Исключающие зоны отправлены");
-    } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
@@ -475,25 +393,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     ...referenceRoi,
     ...referenceFpZones,
     canSendAllReferences,
-    canSaveFpZones,
     hasStoredReferenceForActiveGroup,
     isNewReferenceMode,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
-    handleSaveFpZones,
     handleSelectCamera,
     handleSelectJointRoi,
     handleUseArchivedReference,
   };
-}
-
-function referenceFpZonesCopy<T extends { id?: string; note: string; points_norm_heatmap: { x: number; y: number }[] }>(
-  zones: T[],
-) {
-  return zones.map((zone) => ({
-    ...zone,
-    points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({ ...point })),
-  }));
 }
 
 function splitCameraGroups(cameraIds: number[]) {

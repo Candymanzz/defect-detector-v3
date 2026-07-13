@@ -11,19 +11,6 @@ export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: 
       editedZonesByCameraId[cameraId] ?? (useStoredZones ? copyZones(getStoredZonesForCamera(cameraId)) : []),
     ]),
   ) as Record<number, FpZoneNorm[]>;
-  const fpZones = activeCameraIds.flatMap((cameraId) => withCameraId(fpZonesByCameraId[cameraId] ?? [], cameraId));
-
-  const setFpZones = useCallback((zones: FpZoneNorm[]) => {
-    setEditedZonesByCameraId((previous) => ({
-      ...previous,
-      ...Object.fromEntries(
-        activeCameraIds.map((cameraId) => [
-          cameraId,
-          copyZones(zones).filter((zone) => zone.camera_id === undefined || zone.camera_id === cameraId),
-        ]),
-      ),
-    }));
-  }, [activeCameraIds]);
 
   const setFpZonesForCameraId = useCallback((cameraId: number, zones: FpZoneNorm[]) => {
     setEditedZonesByCameraId((previous) => ({
@@ -43,8 +30,6 @@ export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: 
     );
   };
 
-  const hasValidFpZonesForCameraIds = () => true;
-
   const resetEditedFpZonesForCameraIds = (cameraIds: number[]) => {
     const cameraIdSet = new Set(cameraIds);
     setEditedZonesByCameraId((previous) =>
@@ -53,12 +38,9 @@ export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: 
   };
 
   return {
-    fpZones,
     fpZonesByCameraId,
-    setFpZones,
     setFpZonesForCameraId,
     getFpZonesForCameraIds,
-    hasValidFpZonesForCameraIds,
     resetEditedFpZonesForCameraIds,
   };
 }

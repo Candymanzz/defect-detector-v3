@@ -30,12 +30,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     jointCameraId,
     hasJointRoi,
     canSendAllReferences,
-    canSaveFpZones,
     hasStoredReferenceForActiveGroup,
     isNewReferenceMode,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
-    handleSaveFpZones,
     handleSelectCamera,
     handleSelectJointRoi,
     handleUseArchivedReference,
@@ -154,17 +152,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 onClick={() => setIsFpZoneMode(false)}
               >
                 Редактировать ROI
-              </button>
-            )}
-
-            {isFpZoneMode && (
-              <button
-                className="reference-setup__button reference-setup__button--fp-save"
-                type="button"
-                disabled={!canSaveFpZones}
-                onClick={handleSaveFpZones}
-              >
-                Сохранить исключающие зоны
               </button>
             )}
 
