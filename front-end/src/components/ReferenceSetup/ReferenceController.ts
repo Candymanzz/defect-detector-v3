@@ -57,10 +57,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
   const hasStoredReferenceForActiveGroup = activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
   const canSendAllReferences = Boolean(
-    activeCameraIds.length > 0 &&
+      activeCameraIds.length > 0 &&
       activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
       referenceRoi.hasRequiredRoisForCameraIds(activeCameraIds) &&
-      referenceFpZones.hasValidFpZonesForCameraIds(activeCameraIds) &&
       status.state === "open",
   );
   const activeJointCameraId = referenceRoi.getJointCameraIdForCameraIds(activeCameraIds);
@@ -70,7 +69,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const canSaveFpZones = Boolean(
     activeCameraIds.length > 0 &&
       referenceFrames.framesByCameraId[activeJointCameraId] &&
-      referenceFpZones.hasValidFpZonesForCameraIds(activeCameraIds) &&
       status.state === "open",
   );
 
@@ -359,7 +357,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
   const handleSaveFpZones = () => {
     if (!canSaveFpZones) {
-      setMessage("A frame and valid FP zone contours are required");
+      setMessage("Для сохранения исключающих зон нужен кадр и открытое WebSocket-соединение");
       return;
     }
 
@@ -380,7 +378,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         cameraIds: [...activeCameraIds],
         zones: referenceFpZonesCopy(zones),
       };
-      setMessage("FP zones update sent");
+      setMessage("Исключающие зоны отправлены");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
@@ -404,10 +402,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         return;
       }
 
-      if (!referenceFpZones.hasValidFpZonesForCameraIds(groupCameraIds)) {
-        setMessage(`Each FP zone for cameras ${groupCameraIds.join(", ")} requires at least 3 points`);
-        return;
-      }
     }
 
     try {

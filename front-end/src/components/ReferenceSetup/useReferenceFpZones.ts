@@ -17,11 +17,12 @@ export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: 
 
   const getFpZonesForCameraIds = (cameraIds: number[]) => {
     const groupKey = createGroupKey(cameraIds);
-    return copyZones(editedZonesByGroupKey[groupKey] ?? (useStoredZones ? getStoredZones(cameraIds) : []));
+    return copyZones(editedZonesByGroupKey[groupKey] ?? (useStoredZones ? getStoredZones(cameraIds) : [])).filter(
+      (zone) => zone.points_norm_heatmap.length >= 3,
+    );
   };
 
-  const hasValidFpZonesForCameraIds = (cameraIds: number[]) =>
-    getFpZonesForCameraIds(cameraIds).every((zone) => zone.points_norm_heatmap.length >= 3);
+  const hasValidFpZonesForCameraIds = () => true;
 
   const resetEditedFpZonesForCameraIds = (cameraIds: number[]) => {
     const groupKey = createGroupKey(cameraIds);

@@ -30,32 +30,39 @@
   pointer-events: none;
 }
 
+.fp-zone-editor__roi {
+  fill: rgba(34, 197, 94, 0.08);
+  stroke: #22c55e;
+  stroke-dasharray: 0.025 0.018;
+  stroke-width: 0.004;
+}
+
 .fp-zone-editor__zone polygon {
-  fill: rgba(245, 158, 11, 0.17);
-  stroke: #f59e0b;
+  fill: rgba(250, 204, 21, 0.24);
+  stroke: #facc15;
   stroke-width: 0.004;
 }
 
 .fp-zone-editor__zone polyline {
   fill: none;
-  stroke: #f59e0b;
+  stroke: #facc15;
   stroke-width: 0.004;
 }
 
 .fp-zone-editor__zone circle {
-  fill: #fff7ed;
-  stroke: #f59e0b;
+  fill: #fef3c7;
+  stroke: #facc15;
   stroke-width: 0.004;
 }
 
 .fp-zone-editor__zone--selected polygon {
-  fill: rgba(239, 68, 68, 0.22);
-  stroke: #ef4444;
+  fill: rgba(250, 204, 21, 0.34);
+  stroke: #fde047;
 }
 
 .fp-zone-editor__zone--selected polyline,
 .fp-zone-editor__zone--selected circle {
-  stroke: #ef4444;
+  stroke: #fde047;
 }
 
 .fp-zone-editor__panel,
@@ -114,8 +121,8 @@
 }
 
 .fp-zone-editor__zone-button--active {
-  border-color: #ef4444 !important;
-  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: #facc15 !important;
+  background: rgba(250, 204, 21, 0.16) !important;
 }
 
 .fp-zone-editor__controls label {

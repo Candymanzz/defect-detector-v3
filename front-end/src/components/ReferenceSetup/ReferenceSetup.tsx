@@ -141,7 +141,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               disabled={!fpZoneSlot?.imageUrl}
               onClick={() => setIsFpZoneMode(true)}
             >
-              FP zones ({fpZones.length})
+              Исключающие зоны ({fpZones.length})
             </button>
 
             {isFpZoneMode && (
@@ -151,7 +151,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 disabled={!canSaveFpZones}
                 onClick={handleSaveFpZones}
               >
-                Сохранить FP zones
+                Сохранить исключающие зоны
               </button>
             )}
 
@@ -194,6 +194,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               {isFpZoneMode && fpZoneSlot?.imageUrl ? (
                 <FpZoneEditor
                   imageUrl={fpZoneSlot.imageUrl}
+                  roiPoints={roiPolygonsByCameraId[fpZoneSlot.cameraId] ?? []}
                   zones={fpZones}
                   disabled={status.state !== "open"}
                   onChange={setFpZones}

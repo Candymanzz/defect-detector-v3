@@ -1,19 +1,27 @@
 import { useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import type { FpZoneNorm } from "../../shared/ws";
+import type { FpZoneNorm, InterestPointNorm } from "../../shared/ws";
 import "./FpZoneEditor.css";
 
 type FpZoneEditorProps = {
   imageUrl: string;
+  roiPoints?: InterestPointNorm[];
   zones: FpZoneNorm[];
   disabled?: boolean;
   onChange: (zones: FpZoneNorm[]) => void;
 };
 
-export function FpZoneEditor({ imageUrl, zones, disabled = false, onChange }: FpZoneEditorProps) {
+export function FpZoneEditor({
+  imageUrl,
+  roiPoints = [],
+  zones,
+  disabled = false,
+  onChange,
+}: FpZoneEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(zones[0]?.id ?? null);
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0] ?? null;
+  const roiSvgPoints = roiPoints.map((point) => `${point.x},${point.y}`).join(" ");
 
   const updateZone = (zoneId: string | undefined, update: Partial<FpZoneNorm>) => {
     onChange(zones.map((zone) => (zone.id === zoneId ? { ...zone, ...update } : zone)));
@@ -40,16 +48,33 @@ export function FpZoneEditor({ imageUrl, zones, disabled = false, onChange }: Fp
     const id = createZoneId();
     onChange([
       ...zones,
-      { id, note: `FP zone ${zones.length + 1}`, points_norm_heatmap: [] },
+      { id, note: `Исключающая зона ${zones.length + 1}`, points_norm_heatmap: [] },
     ]);
     setSelectedZoneId(id);
   };
 
   return (
     <div className="fp-zone-editor">
-      <div className="fp-zone-editor__canvas" onClick={handleCanvasClick}>
-        <img ref={imageRef} src={imageUrl} alt="FP zones" />
-        <svg className="fp-zone-editor__overlay" viewBox="0 0 1 1" preserveAspectRatio="none">
+      <div
+        className="fp-zone-editor__canvas"
+        onClick={handleCanvasClick}
+      >
+        <img
+          ref={imageRef}
+          src={imageUrl}
+          alt="Исключающие зоны"
+        />
+        <svg
+          className="fp-zone-editor__overlay"
+          viewBox="0 0 1 1"
+          preserveAspectRatio="none"
+        >
+          {roiPoints.length >= 3 && (
+            <polygon
+              className="fp-zone-editor__roi"
+              points={roiSvgPoints}
+            />
+          )}
           {zones.map((zone) => {
             const points = zone.points_norm_heatmap.map((point) => `${point.x},${point.y}`).join(" ");
             const isSelected = zone === selectedZone;
@@ -61,7 +86,12 @@ export function FpZoneEditor({ imageUrl, zones, disabled = false, onChange }: Fp
                 {zone.points_norm_heatmap.length >= 3 && <polygon points={points} />}
                 {zone.points_norm_heatmap.length >= 2 && <polyline points={points} />}
                 {zone.points_norm_heatmap.map((point, index) => (
-                  <circle key={`${zone.id}-${index}`} cx={point.x} cy={point.y} r="0.012" />
+                  <circle
+                    key={`${zone.id}-${index}`}
+                    cx={point.x}
+                    cy={point.y}
+                    r="0.012"
+                  />
                 ))}
               </g>
             );
@@ -71,22 +101,34 @@ export function FpZoneEditor({ imageUrl, zones, disabled = false, onChange }: Fp
 
       <div className="fp-zone-editor__panel">
         <div className="fp-zone-editor__header">
-          <strong>FP zones</strong>
-          <button type="button" disabled={disabled} onClick={handleAddZone}>Добавить зону</button>
+          <strong>Исключающие зоны</strong>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={handleAddZone}
+          >
+            Добавить зону
+          </button>
         </div>
 
         {zones.length === 0 ? (
-          <p className="fp-zone-editor__empty">Добавьте зону и отметьте минимум три точки.</p>
+          <p className="fp-zone-editor__empty">
+            Зоны необязательны. Добавьте их только для участков внутри ROI, которые нужно исключить.
+          </p>
         ) : (
           <div className="fp-zone-editor__zones">
             {zones.map((zone, index) => (
               <button
                 key={zone.id}
-                className={zone === selectedZone ? "fp-zone-editor__zone-button fp-zone-editor__zone-button--active" : "fp-zone-editor__zone-button"}
+                className={
+                  zone === selectedZone
+                    ? "fp-zone-editor__zone-button fp-zone-editor__zone-button--active"
+                    : "fp-zone-editor__zone-button"
+                }
                 type="button"
                 onClick={() => setSelectedZoneId(zone.id ?? null)}
               >
-                <span>{zone.note || `FP zone ${index + 1}`}</span>
+                <span>{zone.note || `Исключающая зона ${index + 1}`}</span>
                 <small>
                   {zone.points_norm_heatmap.length >= 3
                     ? `${zone.points_norm_heatmap.length} точек`
@@ -111,9 +153,11 @@ export function FpZoneEditor({ imageUrl, zones, disabled = false, onChange }: Fp
               <button
                 type="button"
                 disabled={disabled || selectedZone.points_norm_heatmap.length === 0}
-                onClick={() => updateZone(selectedZone.id, {
-                  points_norm_heatmap: selectedZone.points_norm_heatmap.slice(0, -1),
-                })}
+                onClick={() =>
+                  updateZone(selectedZone.id, {
+                    points_norm_heatmap: selectedZone.points_norm_heatmap.slice(0, -1),
+                  })
+                }
               >
                 Удалить точку
               </button>
