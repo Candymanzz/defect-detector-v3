@@ -18,6 +18,7 @@ export type ServerWsMessageType =
   | "server.hello"
   | "server.state"
   | "server.inspect_result"
+  | "server.inspect_bucket_result"
   | "server.preview_frame"
   | "server.preview_batch"
   | "server.stream_started"
@@ -108,6 +109,32 @@ export type ServerStateMessage = ServerWsEnvelope<
 
 export type ServerInspectResultMessage = ServerWsEnvelope<"server.inspect_result", InspectResultPayload>;
 
+export type InspectBucketFramePayload = {
+  camera_id: number;
+  frame_id: string;
+  overall_pass?: boolean;
+  action?: InspectionAction | string;
+  anomaly_score?: number;
+  python_status?: InspectionStageStatus | string;
+  geometry_status?: InspectionStageStatus | string;
+};
+
+export type InspectBucketResultPayload = {
+  group_id: number;
+  trigger_sequence: number;
+  overall_pass: boolean;
+  bucket_camera_ids: number[];
+  frames: InspectBucketFramePayload[];
+  reject_camera_ids: number[];
+  session_state: WsSessionState;
+  server_ts_ms: number;
+};
+
+export type ServerInspectBucketResultMessage = ServerWsEnvelope<
+  "server.inspect_bucket_result",
+  InspectBucketResultPayload
+>;
+
 export type ServerPreviewFrameMessage = ServerWsEnvelope<"server.preview_frame", PreviewFramePayload>;
 
 export type PreviewBatchPayload = {
@@ -190,6 +217,7 @@ export type ServerWsMessage =
   | ServerHelloMessage
   | ServerStateMessage
   | ServerInspectResultMessage
+  | ServerInspectBucketResultMessage
   | ServerPreviewFrameMessage
   | ServerPreviewBatchMessage
   | ServerStreamStartedMessage
@@ -205,6 +233,7 @@ export type ServerWsPayloadByType = {
   "server.hello": ServerHelloMessage["payload"];
   "server.state": ServerStateMessage["payload"];
   "server.inspect_result": InspectResultPayload;
+  "server.inspect_bucket_result": InspectBucketResultPayload;
   "server.preview_frame": PreviewFramePayload;
   "server.preview_batch": PreviewBatchPayload;
   "server.stream_started": ServerStreamStartedMessage["payload"];
@@ -246,7 +275,7 @@ export type InspectResultPayload = {
   server_ts_ms: number;
 };
 
-export type InspectionAction = "ACCEPT" | "REJECT";
+export type InspectionAction = "ACCEPT" | "REJECT" | "CAPTURE";
 
 export type InspectionStageStatus = "PASS" | "FAIL" | "SKIP" | "ERROR" | "UNKNOWN";
 

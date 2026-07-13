@@ -127,6 +127,22 @@ public final class IntegrationFeatureConfig {
         return new DevAutoTriggerStubConfig(enabled, intervalMs);
     }
 
+    /**
+     * When true, external trigger runs camera capture even if {@code reference_source=client}
+     * and no {@code client.reference_bundle} has been received yet (geometry/python skipped until reference exists).
+     */
+    public static boolean parseCaptureWithoutReference(Map<String, Object> integration) {
+        if (integration == null) {
+            return false;
+        }
+        Object explicit = integration.get("capture_without_reference");
+        if (explicit != null) {
+            return YamlScalars.toBool(explicit, false);
+        }
+        // По умолчанию: при эталоне от клиента снимаем по триггеру до reference_bundle.
+        return parseReferenceSource(integration) == ReferenceSource.CLIENT;
+    }
+
     public static CaptureFrameDownscaleConfig parseCaptureFrameDownscale(Map<String, Object> integration) {
         if (integration == null) {
             return CaptureFrameDownscaleConfig.disabled();

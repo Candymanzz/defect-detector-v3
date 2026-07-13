@@ -1,6 +1,7 @@
 # Подсветка → LightServer.v3: три типа URL — вкл, выкл, яркость по камерам.
 # Маршруты вспышек (camera_number ↔ device/channel) — в config/blocks/51-light-hardware.yaml.
 light_servers:
+  # false — если COM1–COM3 не подключены (иначе LightServer падает на EnumDevices).
   enabled: true
   base_url: "http://127.0.0.1:5080"
   urls:
@@ -10,11 +11,11 @@ light_servers:
     brightness_single: /api/camera-flash/single
     status: /api/com/light
   hold_mode: true
-  fail_on_error: true
+  fail_on_error: false
   timeout_ms: 20000
-  brightness_percent: 20
-  duration_ms: 500
-  flash_lead_ms: 80
-  settle_delay_ms: 200
+  brightness_percent: 80
+  duration_ms: 90
+  flash_lead_ms: 0
+  settle_delay_ms: 0
   # cameras опционально; по умолчанию — все enabled cameras из корневого конфига.
   # mode: pair (камеры 0–7) | single (камеры 8–9) — см. 51-light-hardware.yaml camera_routes.

@@ -37,6 +37,18 @@ public sealed class IoInputUdpPublishOptions
     public int[] PublishInputs { get; set; } = [];
 
     public bool SendInitialState { get; set; }
+
+    /// <summary>DI-порт триггера съёмки (обычно 3). Отправляется без очереди, пакеты не отбрасываются.</summary>
+    public int TriggerPort { get; set; } = 3;
+
+    /// <summary>
+    /// Синхронный UDP для всех publish.inputs из SDK callback (DI1/DI2/DI3 без очереди).
+    /// false — все DI идут через очередь (legacy).
+    /// </summary>
+    public bool LowLatencyTrigger { get; set; } = true;
+
+    /// <summary>Не слать начальное состояние trigger_port (избегает ложного FIRE при старте).</summary>
+    public bool SendInitialTriggerState { get; set; }
 }
 
 internal readonly record struct IoInputStateChange(int Port, bool Closed);
@@ -51,7 +63,10 @@ internal sealed class IoInputUdpPublisher : IDisposable
     private readonly Channel<IoInputStateChange> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _worker;
+    private readonly object _syncSendLock = new();
     private UdpClient? _client;
+    private UdpClient? _syncClient;
+    private IPEndPoint? _remote;
     private bool _disposed;
 
     private IoInputUdpPublisher(IoInputUdpPublishOptions options, IEnumerable<int> defaultInputs)
@@ -84,6 +99,12 @@ internal sealed class IoInputUdpPublisher : IDisposable
         if (!_publishPorts.Contains(port))
             return;
 
+        if (IsImmediatePublishPort(port))
+        {
+            SendImmediate(port, closed);
+            return;
+        }
+
         if (!_channel.Writer.TryWrite(new IoInputStateChange(port, closed)))
         {
             Console.Error.WriteLine(
@@ -91,14 +112,52 @@ internal sealed class IoInputUdpPublisher : IDisposable
         }
     }
 
+    private bool IsImmediatePublishPort(int port) =>
+        _options.LowLatencyTrigger && _publishPorts.Contains(port);
+
+    private void SendImmediate(int port, bool closed)
+    {
+        byte[] payload = BuildPayload(port, closed, includeTimestamp: true);
+        lock (_syncSendLock)
+        {
+            try
+            {
+                EnsureSyncClient();
+                _syncClient!.Send(payload, payload.Length, _remote!);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[{Timestamp()}] UDP immediate send failed DI{port}={(closed ? 1 : 0)}: {ex.Message}");
+            }
+        }
+    }
+
+    private void EnsureSyncClient()
+    {
+        if (_syncClient != null)
+            return;
+
+        _remote ??= new IPEndPoint(IPAddress.Parse(_options.Host), _options.Port);
+        _syncClient = new UdpClient();
+    }
+
     private async Task RunAsync()
     {
         IPEndPoint remote = new(IPAddress.Parse(_options.Host), _options.Port);
+        lock (_syncSendLock)
+        {
+            _remote = remote;
+        }
+
         try
         {
             _client = new UdpClient();
+            string triggerMode = _options.LowLatencyTrigger
+                ? $"immediate DI [{string.Join(", ", _publishPorts.OrderBy(static p => p))}]"
+                : "queued";
             Console.WriteLine(
-                $"UDP publish → {_options.Host}:{_options.Port} format={FormatDescription(_options.Format)}");
+                $"UDP publish → {_options.Host}:{_options.Port} format={FormatDescription(_options.Format)} ({triggerMode})");
 
             await foreach (IoInputStateChange change in _channel.Reader.ReadAllAsync(_cts.Token))
             {
@@ -124,13 +183,19 @@ internal sealed class IoInputUdpPublisher : IDisposable
         }
     }
 
-    internal static byte[] BuildPayload(IoInputUdpPayloadFormat format, int diPort, bool closed)
+    internal static byte[] BuildPayload(
+        IoInputUdpPayloadFormat format,
+        int diPort,
+        bool closed,
+        bool includeTimestamp = false)
     {
         int value = closed ? 1 : 0;
         return format switch
         {
             IoInputUdpPayloadFormat.Text => Encoding.UTF8.GetBytes(value.ToString()),
             IoInputUdpPayloadFormat.Byte => [(byte)value],
+            IoInputUdpPayloadFormat.Json when includeTimestamp => Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(new { di = diPort, value, ts_ms = Environment.TickCount64 })),
             IoInputUdpPayloadFormat.Json => Encoding.UTF8.GetBytes(
                 JsonSerializer.Serialize(new { di = diPort, value })),
             IoInputUdpPayloadFormat.TextDi => Encoding.UTF8.GetBytes($"{diPort}:{value}"),
@@ -139,12 +204,14 @@ internal sealed class IoInputUdpPublisher : IDisposable
                 (byte)diPort,
                 (byte)value
             ],
-            _ => Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { di = diPort, value }))
+            _ => includeTimestamp
+                ? Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { di = diPort, value, ts_ms = Environment.TickCount64 }))
+                : Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { di = diPort, value }))
         };
     }
 
-    private byte[] BuildPayload(int diPort, bool closed) =>
-        BuildPayload(_options.Format, diPort, closed);
+    private byte[] BuildPayload(int diPort, bool closed, bool includeTimestamp = false) =>
+        BuildPayload(_options.Format, diPort, closed, includeTimestamp);
 
     private static string FormatDescription(IoInputUdpPayloadFormat format) => format switch
     {
@@ -177,6 +244,7 @@ internal sealed class IoInputUdpPublisher : IDisposable
         }
 
         _client?.Dispose();
+        _syncClient?.Dispose();
         _cts.Dispose();
     }
 }

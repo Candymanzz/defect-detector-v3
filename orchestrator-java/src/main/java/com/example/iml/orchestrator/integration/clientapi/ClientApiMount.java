@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
+import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 
 import java.util.Map;
 
@@ -15,17 +16,19 @@ public record ClientApiMount(
         Map<String, Object> javaGeometryYaml,
         Map<String, Object> pythonDetectorYaml,
         Map<Integer, String> analysisProfileByCamera,
-        PerCameraInspectionGate inspectionGate
+        PerCameraInspectionGate inspectionGate,
+        ManualLineDirectionService manualLineDirection
 ) {
     public static ClientApiMount disabled() {
-        return new ClientApiMount(false, null, "", null, null, Map.of(), null);
+        return new ClientApiMount(false, null, "", null, null, Map.of(), null, null);
     }
 
     @SuppressWarnings("unchecked")
     public static ClientApiMount fromRootYaml(
             Map<String, Object> root,
             GeometryRuntimeConfig geometryRuntime,
-            PerCameraInspectionGate inspectionGate
+            PerCameraInspectionGate inspectionGate,
+            ManualLineDirectionService manualLineDirection
     ) {
         if (root == null || geometryRuntime == null) {
             return disabled();
@@ -63,7 +66,8 @@ public record ClientApiMount(
                 jg,
                 py,
                 com.example.iml.orchestrator.integration.config.ConfiguredCameras.analysisProfileByCameraId(root),
-                inspectionGate
+                inspectionGate,
+                manualLineDirection
         );
     }
 

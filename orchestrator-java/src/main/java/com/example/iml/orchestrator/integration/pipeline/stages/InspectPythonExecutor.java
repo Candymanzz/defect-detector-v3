@@ -47,6 +47,26 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         if (pythonPool.isEmpty()) {
             return state;
         }
+        if (activeReference == null || activeReference.header() == null) {
+            BinaryProtocol.Message pySkipped = new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of(
+                            "status", "SKIPPED",
+                            "error", "python inspect skipped: no reference snapshot",
+                            "camera_id", cameraId,
+                            "product_type", productType
+                    ),
+                    new byte[0]
+            );
+            return new PipelineState(
+                    state.capture(),
+                    pySkipped,
+                    state.geom(),
+                    state.captureMs(),
+                    0L,
+                    state.geometryMs()
+            );
+        }
         if (!hasValidCaptureFrame(state)) {
             BinaryProtocol.Message pyError = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_ERROR,

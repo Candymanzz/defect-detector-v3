@@ -5,6 +5,9 @@ import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBoot
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownCoordinator;
 import com.example.iml.orchestrator.integration.camera.WorkerIpcMode;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsService;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
+import com.example.iml.orchestrator.integration.camera.CameraWorkersHolder;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
@@ -18,6 +21,8 @@ import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
@@ -38,14 +43,16 @@ import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspec
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadcaster;
+import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
-import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
+import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
+import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
@@ -57,6 +64,7 @@ import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -107,11 +115,18 @@ public final class IntegrationBootstrap {
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);
         AnalisSurfaceLauncher analisSurfaceLauncher = new AnalisSurfaceLauncher(log);
         LightServerLauncher lightServerLauncher = new LightServerLauncher(log);
+        IntegrationExternalProcessLauncher externalProcessLauncher = new IntegrationExternalProcessLauncher(log);
         UiArtifactsSidecar uiSidecar = new UiArtifactsSidecar(log);
         GeometrySnapshotCache geometrySnapshotCache = new GeometrySnapshotCache();
         GeometryRuntimeConfig geometryRuntimeConfig = new GeometryRuntimeConfig();
         PerCameraInspectionGate inspectionGate = PerCameraInspectionGate.fromCameras(cameras);
-        ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(root, geometryRuntimeConfig, inspectionGate);
+        ManualLineDirectionService manualLineDirection = new ManualLineDirectionService();
+        ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(
+                root,
+                geometryRuntimeConfig,
+                inspectionGate,
+                manualLineDirection
+        );
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);
         IntegrationFeatureConfig.CaptureFrameDownscaleConfig captureDownscaleCfg =
                 IntegrationFeatureConfig.parseCaptureFrameDownscale(integration);
@@ -133,7 +148,8 @@ public final class IntegrationBootstrap {
                 captureDownscaleService,
                 captureDownscaleCfg.applyToInspectionCapture(),
                 captureDownscaleCfg.applyToReferenceCapture(),
-                captureDownscaleCfg.applyToClientReferenceBundle()
+                captureDownscaleCfg.applyToClientReferenceBundle(),
+                IntegrationFeatureConfig.parseCaptureWithoutReference(integration)
         );
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
         ReferenceSnapshotBootstrap referenceBootstrap = new ReferenceSnapshotBootstrap(log, captureCoordinator, pipelineTelemetry);
@@ -191,6 +207,31 @@ public final class IntegrationBootstrap {
         );
         ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
                 integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        InspectionTriggerConfig inspectionTriggerConfigEarly = InspectionTriggerConfig.parse(integration);
+        ExternalServiceProcess ioInputMonitorProcess = inspectionTriggerConfigEarly.usesIoInputMonitor()
+                ? externalProcessLauncher.startIfConfigured(
+                        integration,
+                        projectRoot,
+                        isWindows,
+                        "io_input_monitor_autostart",
+                        "io_input_monitor_command_windows",
+                        "io_input_monitor_command_linux",
+                        "io-input-monitor",
+                        "."
+                )
+                : null;
+        ExternalServiceProcess frontendProcess = shouldAutostartFrontend()
+                ? externalProcessLauncher.startIfConfigured(
+                        integration,
+                        projectRoot,
+                        isWindows,
+                        "frontend_autostart",
+                        "frontend_command_windows",
+                        "frontend_command_linux",
+                        "frontend",
+                        "front-end"
+                )
+                : null;
         @SuppressWarnings("unchecked")
         Map<String, Object> pythonCfg = (Map<String, Object>) root.get("python_detector");
         @SuppressWarnings("unchecked")
@@ -201,13 +242,15 @@ public final class IntegrationBootstrap {
         if (flashLeadMs > 0) {
             log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
+        LightBrightnessStore lightBrightnessStore = openLightBrightnessStore(projectRoot);
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
+        applyPersistedLightBrightness(lightClient, lightBrightnessStore);
         if (lightClient.isEnabled()) {
             log.info("waiting for LightServer COM bank (GET /api/com/light)...");
             lightClient.awaitEndpointsReady();
+            lightClient.startupEngage();
             if (lightClient.isHoldMode()) {
                 log.info("light_servers hold_mode=true — постоянная подсветка, без On/Off на каждый кадр");
-                lightClient.engageConstantLighting();
             }
         }
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
@@ -221,8 +264,9 @@ public final class IntegrationBootstrap {
         }
 
         ClientWebSocketServer clientWsServer = null;
+        CameraSettingsStore cameraSettingsStore = openCameraSettingsStore(projectRoot);
         final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(
-                uiCfg, geometrySnapshotCache, clientApiMount, lightClient, root);
+                uiCfg, geometrySnapshotCache, clientApiMount, lightClient, root, cameraSettingsStore, lightBrightnessStore);
         ClientWsConfig clientWsCfg = ClientWsConfig.fromRootYaml(root);
         if (clientWsCfg.enabled()) {
             try {
@@ -327,6 +371,7 @@ public final class IntegrationBootstrap {
                 log.error("No camera workers started successfully; integration pipeline skipped.");
                 return;
             }
+            applyPersistedCameraSettings(workersByCamera, cameraSettingsStore);
             Map<Integer, String> analysisProfileByCamera = new LinkedHashMap<>();
             for (Map<String, Object> camera : activeCameras) {
                 int cameraId = ((Number) camera.get("id")).intValue();
@@ -334,6 +379,7 @@ public final class IntegrationBootstrap {
             }
             ClientStreamConfig clientStreamCfg = ClientStreamConfig.fromRootYaml(root);
             if (uiServer != null && !workersByCamera.isEmpty()) {
+                uiServer.attachCameraWorkers(workersByCamera);
                 cameraStreamService = new CameraStreamService(
                         log,
                         clientStreamCfg,
@@ -395,8 +441,38 @@ public final class IntegrationBootstrap {
             AtomicInteger pythonRoundRobin = new AtomicInteger(0);
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection =
                     IntegrationFeatureConfig.parseContinuousInspection(integration);
+            InspectionTriggerConfig inspectionTriggerConfig = inspectionTriggerConfigEarly;
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
-                    IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
+                    inspectionTriggerConfig.ioInput().di3Only()
+                            || inspectionTriggerConfig.ioInput().directionLatchOnWork()
+                            ? IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL
+                            : IntegrationFeatureConfig.resolveInspectionTriggerMode(integration);
+            if (inspectionTriggerConfig.ioInput().di3Only()) {
+                log.info(
+                        "inspection_trigger di3_only=true — съёмка по фронту DI{}, направление по текущему DI{}",
+                        inspectionTriggerConfig.ioInput().triggerPort(),
+                        inspectionTriggerConfig.ioInput().directionPort()
+                );
+                if (IntegrationFeatureConfig.parseDevAutoTriggerStub(integration).enabled()) {
+                    log.warn("di3_only=true: dev_auto_trigger_stub включён в конфиге, но игнорируется");
+                }
+                if (continuousInspection.enabled()) {
+                    log.warn("di3_only=true: continuous_inspection включён в конфиге, но игнорируется");
+                }
+            }
+            if (inspectionTriggerConfig.ioInput().di3Only()
+                    && inspectionTriggerConfig.ioInput().requireDirection()
+                    && !inspectionTriggerConfig.ioInput().directionLatchOnWork()) {
+                log.info(
+                        "inspection_trigger auto direction — prefire на DI3↑ при DI2=1, dispatch на DI3↓ при DI2=0"
+                );
+            }
+            if (inspectionTriggerConfig.ioInput().directionLatchOnWork()) {
+                log.info(
+                        "inspection_trigger direction_latch_on_work=true — DI2 фиксируется при DI1↑, съёмка только по DI{}",
+                        inspectionTriggerConfig.ioInput().triggerPort()
+                );
+            }
             BucketInspectionConfig bucketInspectionConfig =
                     BucketInspectionConfig.parse(integration, workersByCamera.keySet());
             List<Integer> inspectionCameraIds = bucketInspectionConfig.enabled()
@@ -417,14 +493,36 @@ public final class IntegrationBootstrap {
             long lineCaptureBarrierMs = parseSimultaneousLineCaptureBarrierMs(integration);
             long postTriggerSettleMs = parseSimultaneousLineCapturePostTriggerSettleMs(integration);
             long interWaitFrameMs = parseSimultaneousLineCaptureInterWaitFrameMs(integration);
+            boolean parallelWaitFrame = parseSimultaneousLineCaptureParallelWaitFrame(integration);
+            boolean immediatePrefire = parseSimultaneousLineCaptureImmediatePrefire(integration);
+            boolean hardwareLineTrigger = parseSimultaneousLineCaptureHardwareLineTrigger(integration, root);
+            int transferWaitWaves = parseSimultaneousLineCaptureTransferWaitWaves(integration, root);
+            long transferWaveGapMs = parseSimultaneousLineCaptureTransferWaveGapMs(integration, root);
+            boolean captureWithoutReference = IntegrationFeatureConfig.parseCaptureWithoutReference(integration);
             if (lineCaptureSyncEnabled && inspectionCameraIds.size() > 1) {
                 lineCaptureCoordinator = new LineSynchronizedCaptureCoordinator(
                         inspectionCameraIds,
                         lineCaptureBarrierMs,
                         postTriggerSettleMs,
-                        interWaitFrameMs
+                        interWaitFrameMs,
+                        parallelWaitFrame,
+                        immediatePrefire,
+                        hardwareLineTrigger,
+                        transferWaitWaves,
+                        transferWaveGapMs
                 );
+                lineCaptureCoordinator.bindWorkers(workersByCamera);
                 captureCoordinator.setLineCaptureCoordinator(lineCaptureCoordinator);
+                logGigeTopologyForLineCapture(log, root, hardwareLineTrigger);
+                if (hardwareLineTrigger) {
+                    log.info(
+                            "hardware_line_trigger: экспозиция по DI3→Line0, Java только wait_frame (без trigger_only/settle/barrier)"
+                    );
+                    log.warn(
+                            "hardware_line_trigger требует физическую разводку DI3→Line0 всех камер; "
+                                    + "без неё wait_frame будет timeout (0x80000007)"
+                    );
+                }
             } else if (cfg.captureTriggerStaggerMs() > 0) {
                 log.info(
                         "inspection trigger stagger enabled delay_ms={} cameras={}",
@@ -438,13 +536,33 @@ public final class IntegrationBootstrap {
                         inspectionCameraIds.size()
                 );
             }
+            final java.util.concurrent.atomic.AtomicBoolean softwareVisionReady = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final InspectionTriggerRuntime[] triggerRuntimeHolder = new InspectionTriggerRuntime[1];
+            java.lang.Runnable refreshVisionReady = () -> {
+                InspectionTriggerRuntime runtime = triggerRuntimeHolder[0];
+                if (activeFanOut != null) {
+                    activeFanOut.signalVisionReady(
+                            softwareVisionReady.get() && (runtime == null || runtime.isLineWorkActive())
+                    );
+                }
+            };
             triggerRuntime = InspectionTriggerRuntime.start(
                     log,
                     integration,
                     inspectionCameraIds,
                     triggerMode,
-                    cfg.captureTriggerStaggerMs()
+                    cfg.captureTriggerStaggerMs(),
+                    refreshVisionReady,
+                    triggerRuntimeHolder,
+                    bucketInspectionConfig.enabled() ? bucketInspectionConfig.groups() : List.of(),
+                    manualLineDirection
             );
+            if (lineCaptureCoordinator != null) {
+                final LineSynchronizedCaptureCoordinator lineCaptureRef = lineCaptureCoordinator;
+                triggerRuntime.bus().setLineTriggerListener((seq, at, cameraIds) -> {
+                    lineCaptureRef.prefireLineTrigger(seq, at.toEpochMilli(), cameraIds);
+                });
+            }
             InspectionTriggerStrategy sharedTriggerStrategy;
             if (bucketInspectionConfig.enabled()) {
                 if (triggerMode != IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
@@ -481,8 +599,28 @@ public final class IntegrationBootstrap {
             } else if (continuousInspection.enabled()) {
                 log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
             } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
-                InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(integration);
-                if (triggerCfg.udp().enabled()) {
+                InspectionTriggerConfig triggerCfg = inspectionTriggerConfig;
+                if (triggerCfg.usesIoInputMonitor()) {
+                    log.info(
+                            "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
+                            triggerCfg.udp().bindHost(),
+                            triggerCfg.udp().bindPort(),
+                            triggerCfg.ioInput().workPort(),
+                            triggerCfg.ioInput().directionPort(),
+                            triggerCfg.ioInput().triggerPort(),
+                            triggerCfg.ioInput().triggerEdge(),
+                            triggerCfg.ioInput().di3Only(),
+                            triggerCfg.ioInput().directionLatchOnWork(),
+                            triggerCfg.ioInput().directionArmNextDi3(),
+                            triggerCfg.ioInput().requireDirection(),
+                            triggerCfg.ioInput().requireWork(),
+                            triggerCfg.ioInput().directionInvert(),
+                            triggerCfg.ioInput().directionWaitMs(),
+                            triggerCfg.ioInput().directionPollMs(),
+                            triggerCfg.ioInput().debounceMs(),
+                            triggerCfg.ioInput().stubWorkActive()
+                    );
+                } else if (triggerCfg.udp().enabled()) {
                     log.info(
                             "inspection_trigger external udp {}:{} format={}",
                             triggerCfg.udp().bindHost(),
@@ -494,6 +632,9 @@ public final class IntegrationBootstrap {
                 }
             }
             int inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(integration);
+            if (captureWithoutReference) {
+                log.info("integration capture_without_reference enabled — trigger capture without client.reference_bundle");
+            }
             log.info(
                     "inspection gate per-camera in-flight enabled timeout_ms={} cameras={}",
                     inspectionCycleTimeoutMs,
@@ -550,12 +691,14 @@ public final class IntegrationBootstrap {
                             pipelineStagesLog,
                             inspectionGate,
                             inspectionCycleTimeoutMs,
-                            activeBucketAggregator
+                            activeBucketAggregator,
+                            captureWithoutReference
                     );
                     return null;
                 });
             }
-            activeFanOut.signalVisionReady(true);
+            softwareVisionReady.set(true);
+            refreshVisionReady.run();
             List<Future<Void>> futures = cameraExecutor.invokeAll(tasks);
             for (Future<Void> future : futures) {
                 future.get();
@@ -592,6 +735,8 @@ public final class IntegrationBootstrap {
                     pythonPool,
                     geometryPool,
                     lightServerProcess,
+                    ioInputMonitorProcess,
+                    frontendProcess,
                     analisSurfaceProcesses,
                     lightClient,
                     uiVisualsPython,
@@ -644,34 +789,205 @@ public final class IntegrationBootstrap {
 
     private static long parseSimultaneousLineCaptureBarrierMs(Map<String, Object> integration) {
         if (integration == null) {
-            return 1500L;
+            return 250L;
         }
         Object raw = integration.get("simultaneous_line_capture");
         if (!(raw instanceof Map<?, ?> map)) {
-            return 1500L;
+            return 250L;
         }
-        return Math.max(100L, YamlScalars.toLong(map.get("barrier_wait_ms"), 1500L));
+        return Math.max(0L, YamlScalars.toLong(map.get("barrier_wait_ms"), 250L));
+    }
+
+    private static boolean parseSimultaneousLineCaptureParallelWaitFrame(Map<String, Object> integration) {
+        if (integration == null) {
+            return true;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return true;
+        }
+        return YamlScalars.toBool(map.get("parallel_wait_frame"), true);
+    }
+
+    private static boolean parseSimultaneousLineCaptureImmediatePrefire(Map<String, Object> integration) {
+        if (integration == null) {
+            return true;
+        }
+        Object raw = integration.get("simultaneous_line_capture");
+        if (!(raw instanceof Map<?, ?> map)) {
+            return true;
+        }
+        return YamlScalars.toBool(map.get("immediate_prefire"), true);
     }
 
     private static long parseSimultaneousLineCapturePostTriggerSettleMs(Map<String, Object> integration) {
         if (integration == null) {
-            return 50L;
+            return 0L;
         }
         Object raw = integration.get("simultaneous_line_capture");
         if (!(raw instanceof Map<?, ?> map)) {
-            return 50L;
+            return 0L;
         }
-        return Math.max(0L, YamlScalars.toLong(map.get("post_trigger_settle_ms"), 50L));
+        return Math.max(0L, YamlScalars.toLong(map.get("post_trigger_settle_ms"), 0L));
     }
 
     private static long parseSimultaneousLineCaptureInterWaitFrameMs(Map<String, Object> integration) {
         if (integration == null) {
-            return 60L;
+            return 0L;
         }
         Object raw = integration.get("simultaneous_line_capture");
         if (!(raw instanceof Map<?, ?> map)) {
-            return 60L;
+            return 0L;
         }
-        return Math.max(0L, YamlScalars.toLong(map.get("inter_wait_frame_ms"), 60L));
+        return Math.max(0L, YamlScalars.toLong(map.get("inter_wait_frame_ms"), 0L));
+    }
+
+    private static int parseSimultaneousLineCaptureTransferWaitWaves(
+            Map<String, Object> integration,
+            Map<String, Object> root
+    ) {
+        if (integration != null) {
+            Object raw = integration.get("simultaneous_line_capture");
+            if (raw instanceof Map<?, ?> map && map.containsKey("transfer_wait_waves")) {
+                return Math.max(1, YamlScalars.toInt(map.get("transfer_wait_waves"), 1));
+            }
+        }
+        int bufferKb = YamlScalars.toInt(root != null ? root.get("gige_switch_buffer_kb") : null, 0);
+        int perLink = YamlScalars.toInt(root != null ? root.get("gige_ftd_cameras_per_link") : null, 0);
+        if (bufferKb > 0 && bufferKb <= 96 && perLink == 2) {
+            return 2;
+        }
+        return 1;
+    }
+
+    private static long parseSimultaneousLineCaptureTransferWaveGapMs(
+            Map<String, Object> integration,
+            Map<String, Object> root
+    ) {
+        if (integration != null) {
+            Object raw = integration.get("simultaneous_line_capture");
+            if (raw instanceof Map<?, ?> map && map.containsKey("transfer_wave_gap_ms")) {
+                return Math.max(0L, YamlScalars.toLong(map.get("transfer_wave_gap_ms"), 0L));
+            }
+        }
+        int bufferKb = YamlScalars.toInt(root != null ? root.get("gige_switch_buffer_kb") : null, 0);
+        if (bufferKb > 256) {
+            return 15L;
+        }
+        if (bufferKb > 96) {
+            return 80L;
+        }
+        return 220L;
+    }
+
+    private static boolean parseSimultaneousLineCaptureHardwareLineTrigger(
+            Map<String, Object> integration,
+            Map<String, Object> root
+    ) {
+        if (integration != null) {
+            Object raw = integration.get("simultaneous_line_capture");
+            if (raw instanceof Map<?, ?> map && map.containsKey("hardware_line_trigger")) {
+                return YamlScalars.toBool(map.get("hardware_line_trigger"), false);
+            }
+        }
+        String mode = String.valueOf(root.getOrDefault("capture_trigger_mode", "software")).trim().toLowerCase();
+        return mode.equals("line0") || mode.equals("line1") || mode.equals("line") || mode.equals("hardware");
+    }
+
+    private static void logGigeTopologyForLineCapture(
+            org.apache.logging.log4j.Logger log,
+            Map<String, Object> root,
+            boolean hardwareLineTrigger
+    ) {
+        if (root == null) {
+            return;
+        }
+        int switches = YamlScalars.toInt(root.get("gige_switch_count"), 0);
+        int perSwitch = YamlScalars.toInt(root.get("gige_cameras_per_switch"), 0);
+        int perLink = YamlScalars.toInt(root.get("gige_ftd_cameras_per_link"), 0);
+        int bufferKb = YamlScalars.toInt(root.get("gige_switch_buffer_kb"), 0);
+        String exposureMode = hardwareLineTrigger
+                ? "DI3→Line0 (hardware, все камеры в один электрический момент)"
+                : "software trigger_only (все камеры параллельно, ~10 мс разброс IPC)";
+        log.info(
+                "gige topology: switches={} cameras_per_switch={} ftd_per_link={} switch_buffer_kb={} — "
+                        + "передача: {} волна(ы) wait_frame (≤96 КБ: 2 волны; >96 КБ: GevSCFTD + 1 волна); экспозиция: {}",
+                switches > 0 ? switches : "?",
+                perSwitch > 0 ? perSwitch : "?",
+                perLink > 0 ? perLink : "?",
+                bufferKb,
+                bufferKb > 0 && bufferKb <= 96 && perLink == 2 ? "2" : "1",
+                exposureMode
+        );
+        if (!hardwareLineTrigger && perLink > 0 && perLink != 2) {
+            log.warn(
+                    "gige_ftd_cameras_per_link={} — для 5×2 ожидается 2 (пары id 0+1, 2+3, … на коммутаторе)",
+                    perLink
+            );
+        }
+    }
+
+    /** {@code IML_FRONTEND_AUTOSTART=false} — отключить UI при {@code run.ps1 -NoFrontend}. */
+    private static boolean shouldAutostartFrontend() {
+        String raw = System.getenv("IML_FRONTEND_AUTOSTART");
+        return raw == null || !raw.equalsIgnoreCase("false");
+    }
+
+    private static CameraSettingsStore openCameraSettingsStore(Path projectRoot) {
+        Path storagePath = projectRoot.resolve("config/data/camera_runtime_settings.json");
+        try {
+            return CameraSettingsStore.open(storagePath);
+        } catch (IOException e) {
+            log.warn("camera settings store unavailable path={}: {}", storagePath.toAbsolutePath(), e.getMessage());
+            return null;
+        }
+    }
+
+    private static LightBrightnessStore openLightBrightnessStore(Path projectRoot) {
+        Path storagePath = projectRoot.resolve("config/data/light_brightness_settings.json");
+        try {
+            return LightBrightnessStore.open(storagePath);
+        } catch (IOException e) {
+            log.warn("light brightness store unavailable path={}: {}", storagePath.toAbsolutePath(), e.getMessage());
+            return null;
+        }
+    }
+
+    private static void applyPersistedLightBrightness(
+            LightTriggerClient lightClient,
+            LightBrightnessStore lightBrightnessStore
+    ) {
+        if (lightClient == null || lightBrightnessStore == null) {
+            return;
+        }
+        LightBrightnessUpdate update = lightBrightnessStore.toUpdate();
+        if (update.isEmpty()) {
+            return;
+        }
+        try {
+            lightClient.applyBrightnessUpdate(update);
+            log.info(
+                    "light persisted brightness applied default={} endpoints={}",
+                    update.globalPercent(),
+                    update.perEndpoint().size()
+            );
+        } catch (Exception e) {
+            log.warn("light persisted brightness apply failed: {}", e.getMessage());
+        }
+    }
+
+    private static void applyPersistedCameraSettings(
+            Map<Integer, WorkerProcessSupervisor> workersByCamera,
+            CameraSettingsStore cameraSettingsStore
+    ) {
+        if (cameraSettingsStore == null || workersByCamera == null || workersByCamera.isEmpty()) {
+            return;
+        }
+        if (cameraSettingsStore.allSettings().isEmpty()) {
+            return;
+        }
+        CameraWorkersHolder workersHolder = new CameraWorkersHolder();
+        workersHolder.set(workersByCamera);
+        new CameraSettingsService(workersHolder, null, cameraSettingsStore).applyPersistedSettings();
     }
 }

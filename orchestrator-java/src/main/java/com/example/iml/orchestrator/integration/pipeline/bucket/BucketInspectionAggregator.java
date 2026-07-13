@@ -149,11 +149,17 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         List<Integer> expectedCameraIds = state.group.cameraIds();
         boolean anyReject = timedOut || state.frameDecisions.size() < expectedCameraIds.size();
         if (!anyReject) {
-            for (Integer cameraId : expectedCameraIds) {
-                InspectionDecision frameDecision = state.frameDecisions.get(cameraId);
-                if (frameDecision == null || !frameDecision.overallPass()) {
-                    anyReject = true;
-                    break;
+            boolean captureOnly = state.frameDecisions.values().stream()
+                    .allMatch(decision -> decision != null && "CAPTURE".equals(decision.action()));
+            if (captureOnly) {
+                anyReject = false;
+            } else {
+                for (Integer cameraId : expectedCameraIds) {
+                    InspectionDecision frameDecision = state.frameDecisions.get(cameraId);
+                    if (frameDecision == null || !frameDecision.overallPass()) {
+                        anyReject = true;
+                        break;
+                    }
                 }
             }
         }

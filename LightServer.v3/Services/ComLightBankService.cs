@@ -28,7 +28,7 @@ public sealed class ComLightBankService
         _log = log;
     }
 
-    public bool IsInitialized => _initialized && _isolatedBank.ReadyComPorts.Count > 0;
+    public bool IsInitialized => _initialized && (_uniqueDevices.Length == 0 || _isolatedBank.ReadyComPorts.Count > 0);
 
     public bool IsPartial => _isolatedBank.IsPartial;
 
@@ -41,19 +41,20 @@ public sealed class ComLightBankService
 
     public (bool ok, string? error) EnsureInitialized()
     {
-        if (_initialized && _isolatedBank.ReadyComPorts.Count > 0)
+        if (_initialized && (_uniqueDevices.Length == 0 || _isolatedBank.ReadyComPorts.Count > 0))
             return (true, _initError);
 
         lock (_initLock)
         {
-            if (_initialized && _isolatedBank.ReadyComPorts.Count > 0)
+            if (_initialized && (_uniqueDevices.Length == 0 || _isolatedBank.ReadyComPorts.Count > 0))
                 return (true, _initError);
 
             if (_uniqueDevices.Length == 0)
             {
-                _initError = "COM-устройства не настроены — задайте config/blocks/51-light-hardware.yaml или ComLightDevices в appsettings.json.";
-                _initialized = false;
-                return (false, _initError);
+                _initError = null;
+                _initialized = true;
+                _log.LogInformation("ComLightBank: COM-устройства не заданы — банк пропущен (только Ethernet/MV-LE).");
+                return (true, null);
             }
 
             var (ok, err) = _isolatedBank.InitializeAll();
@@ -111,6 +112,17 @@ public sealed class ComLightBankService
 
         if (turnOff)
         {
+            if (ReadyDevices.Count == 0)
+            {
+                return new ComLightStateResponse
+                {
+                    Success = true,
+                    Message = "COM не настроены — off пропущен.",
+                    State = "off",
+                    Brightness = brightnessCsv,
+                    Results = Array.Empty<ComLightApplyResultItem>()
+                };
+            }
             ComLightApplyResponse off = ApplyAllOffInternal();
             return new ComLightStateResponse
             {
@@ -123,6 +135,17 @@ public sealed class ComLightBankService
         }
 
         IReadOnlyList<ComLightDeviceEntry> activeDevices = ReadyDevices;
+        if (activeDevices.Count == 0)
+        {
+            return new ComLightStateResponse
+            {
+                Success = true,
+                Message = "COM не настроены — on пропущен (используйте /api/camera-flash/* для MV-LE).",
+                State = "on",
+                Brightness = brightnessCsv,
+                Results = Array.Empty<ComLightApplyResultItem>()
+            };
+        }
         int totalChannels = activeDevices.Sum(static d => d.Channels.Length);
         int[] percents;
         try

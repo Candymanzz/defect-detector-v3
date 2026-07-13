@@ -14,7 +14,7 @@ type StatusCardProps = {
   isInspectionActionDisabled?: boolean;
   inspectionActionLabel?: string;
   inspectionStatus?: string;
-  inspectionResult?: "pass" | "fail";
+  inspectionResult?: "pass" | "fail" | "capture";
   onOpen: () => void;
   onSelect: () => void;
   onInspectionToggle: () => void;

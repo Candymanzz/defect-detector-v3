@@ -72,9 +72,10 @@ public sealed class ComLightIsolatedBank : IDisposable
 
             if (_ports.Count == 0)
             {
-                _initError = "ComLightDevices:Devices пуст.";
-                _initialized = false;
-                return (false, _initError);
+                _initError = null;
+                _initialized = true;
+                _log.LogInformation("IsolatedBank: COM-порты не заданы — пропуск инициализации.");
+                return (true, null);
             }
 
             var portOrder = _ports.Keys.OrderBy(static c => c, StringComparer.OrdinalIgnoreCase).ToList();

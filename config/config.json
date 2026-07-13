@@ -1,17 +1,22 @@
 {
   "version": 1,
   "frame": {
-    "width": 2448,
-    "height": 2048,
-    "format": "Mono8"
+    "width": 1224,
+    "height": 1024,
+    "format": "Mono8",
+    "binning_horizontal": 2,
+    "binning_vertical": 2,
+    "binning_mode": "Sum"
   },
   "capture_source": "hik",
   "capture_trigger_mode": "software",
   "frame_timeout_ms": 15000,
+  "gige_switch_count": 5,
+  "gige_cameras_per_switch": 2,
   "gige_switch_buffer_kb": 48,
-  "gige_inter_packet_delay": 80000,
+  "gige_inter_packet_delay": 120000,
   "gige_frame_transfer_delay_step": 0,
-  "gige_ftd_cameras_per_link": 10,
+  "gige_ftd_cameras_per_link": 2,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
     "control_pipe_linux": "/tmp/iml-orchestrator.sock"
@@ -21,9 +26,9 @@
       "id": 0,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.19.11",
+      "ip": "169.254.218.1",
       "analysis_profile": "bench-lan1",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-0-cmd",
@@ -33,9 +38,9 @@
       "id": 1,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.103.219",
+      "ip": "169.254.218.2",
       "analysis_profile": "bench-lan2",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-1-cmd",
@@ -45,9 +50,9 @@
       "id": 2,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.79.219",
+      "ip": "169.254.222.3",
       "analysis_profile": "bench-lan3",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-2-cmd",
@@ -57,9 +62,9 @@
       "id": 3,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.98.219",
+      "ip": "169.254.222.4",
       "analysis_profile": "bench-lan4",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-3-cmd",
@@ -69,9 +74,9 @@
       "id": 4,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.101.219",
+      "ip": "169.254.146.5",
       "analysis_profile": "bench-lan5",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-4-cmd",
@@ -81,9 +86,9 @@
       "id": 5,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.19.12",
+      "ip": "169.254.146.6",
       "analysis_profile": "bench-lan6",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-5-cmd",
@@ -93,9 +98,9 @@
       "id": 6,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.105.1",
+      "ip": "169.254.6.7",
       "analysis_profile": "bench-lan7",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-6-cmd",
@@ -105,9 +110,9 @@
       "id": 7,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.97.219",
+      "ip": "169.254.6.8",
       "analysis_profile": "bench-lan8",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-7-cmd",
@@ -117,9 +122,9 @@
       "id": 8,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.92.219",
+      "ip": "169.254.220.9",
       "analysis_profile": "bench-lan9",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-8-cmd",
@@ -129,9 +134,9 @@
       "id": 9,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.83.219",
+      "ip": "169.254.220.10",
       "analysis_profile": "bench-lan10",
-      "exposure_us": 12000,
+      "exposure_us": 3000,
       "capture_trigger_mode": "software",
       "detector": "v1",
       "pipe_command": "\\\\.\\pipe\\camera-9-cmd",
@@ -139,20 +144,17 @@
     }
   ],
   "java_geometry": {
-    "pixels_to_mm": 0.01,
+    "pixels_to_mm": 0.02,
     "main_roi": {
       "x": 0,
       "y": 0,
-      "width": 2448,
-      "height": 2048
+      "width": 1224,
+      "height": 1024
     },
-    "joint_roi": null,
-    "wrinkles_roi": null,
     "max_shift_mm": 0.5,
     "max_rotation_deg": 1.0,
-    "max_concentricity_mm": 0.2,
     "max_joint_defect_mm": 0.3,
-    "max_wrinkles_score": 0.25
+    "max_wrinkles_score": 0.45
   },
   "python_detector": {
     "base_url": "http://127.0.0.1:8000",
@@ -161,8 +163,8 @@
         "name": "main",
         "x": 0,
         "y": 0,
-        "width": 2448,
-        "height": 2048
+        "width": 1224,
+        "height": 1024
       }
     ],
     "fallback_threshold": 0.25
@@ -191,7 +193,7 @@
     }
   },
   "light_servers": {
-    "enabled": true,
+    "enabled": false,
     "base_url": "http://127.0.0.1:5080",
     "urls": {
       "on": "/api/com/light",
@@ -205,11 +207,10 @@
     "fail_on_error": false,
     "brightness_percent": 100,
     "duration_ms": 180,
-    "flash_lead_ms": 50,
-    "settle_delay_ms": 100
+    "flash_lead_ms": 0,
+    "settle_delay_ms": 0
   },
   "integration": {
-    "camera_parallelism": 10,
     "geometry_pool_size": 10,
     "python_parallelism": 10,
     "python_server_pool_size": 1,
@@ -221,7 +222,7 @@
     "worker_named_pipe_template": "\\\\.\\pipe\\iml-camera-%d-binary",
     "worker_named_pipe_template_linux": "/tmp/iml-camera-%d.pipe",
     "worker_named_pipe_connect_timeout_ms": 3000,
-    "light_server_startup_delay_ms": 5000,
+    "light_server_startup_delay_ms": 8000,
     "inspection_cycle_timeout_ms": 3500,
     "inspection_bucket": {
       "enabled": true,
@@ -230,20 +231,22 @@
       "line_broadcast_interval_ms": 3500
     },
     "continuous_inspection": {
-      "enabled": true,
+      "enabled": false,
       "cycle_delay_ms": 3500
     },
     "capture_frame_downscale": {
-      "enabled": true,
-      "scale": 0.5,
+      "enabled": false,
+      "scale": 1.0,
       "apply_to_inspection_capture": true,
       "apply_to_reference_capture": true,
       "apply_to_client_reference_bundle": true
     },
-    "reference_source": "client",
     "analis_surface_autostart": {
       "enabled": true,
-      "inspect_workers": 10
+      "inspect_workers": 10,
+      "working_dir": "analisSurface/backend",
+      "startup_timeout_ms": 180000,
+      "health_path": "/health"
     },
     "save_captures": {
       "enabled": false,

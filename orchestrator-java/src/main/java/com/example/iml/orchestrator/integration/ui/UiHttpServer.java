@@ -6,9 +6,12 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.http.HttpApplicationContext;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.http.HttpFrontController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.openapi.OrchestratorApiDocumentationHandlers;
 import com.sun.net.httpserver.HttpServer;
 
@@ -23,7 +26,7 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.MappedByteBuffer;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -92,6 +95,31 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             LightTriggerClient lightClient,
             Map<String, Object> rootYaml
     ) throws IOException {
+        this(host, port, geometrySnapshotCache, clientApi, lightClient, rootYaml, null);
+    }
+
+    public UiHttpServer(
+            String host,
+            int port,
+            GeometrySnapshotCache geometrySnapshotCache,
+            ClientApiMount clientApi,
+            LightTriggerClient lightClient,
+            Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore
+    ) throws IOException {
+        this(host, port, geometrySnapshotCache, clientApi, lightClient, rootYaml, cameraSettingsStore, null);
+    }
+
+    public UiHttpServer(
+            String host,
+            int port,
+            GeometrySnapshotCache geometrySnapshotCache,
+            ClientApiMount clientApi,
+            LightTriggerClient lightClient,
+            Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore,
+            LightBrightnessStore lightBrightnessStore
+    ) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         this.httpServer = HttpServer.create(addr, 0);
         this.httpContext = HttpApplicationContext.of(
@@ -99,7 +127,9 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                 geometrySnapshotCache,
                 clientApi == null ? ClientApiMount.disabled() : clientApi,
                 lightClient,
-                rootYaml == null ? Map.of() : rootYaml
+                rootYaml == null ? Map.of() : rootYaml,
+                cameraSettingsStore,
+                lightBrightnessStore
         );
         HttpFrontController frontController = new HttpFrontController(httpContext);
         OrchestratorApiDocumentationHandlers.register(httpServer);
@@ -224,6 +254,12 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         }
     }
 
+    public void attachCameraWorkers(java.util.Map<Integer, WorkerProcessSupervisor> workersByCamera) {
+        if (httpContext != null && httpContext.cameraWorkersHolder() != null) {
+            httpContext.cameraWorkersHolder().set(workersByCamera);
+        }
+    }
+
     @Override
     public void close() {
         httpServer.stop(0);
@@ -326,12 +362,22 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                         "shm size mismatch fileSize=" + fileSize + " need=" + need + " shmOffset=" + shmOffset
                 );
             }
-            MappedByteBuffer buf = ch.map(FileChannel.MapMode.READ_ONLY, shmOffset, need);
+            // Avoid FileChannel.map here: on Windows a mapped section keeps the SHM file locked and
+            // breaks the next freeze/JPEG write into iml_ui_inspect_cam_*.
+            byte[] raw = new byte[Math.toIntExact(need)];
+            ByteBuffer readBuf = ByteBuffer.wrap(raw);
+            int totalRead = 0;
+            while (totalRead < need) {
+                int read = ch.read(readBuf, shmOffset + totalRead);
+                if (read <= 0) {
+                    throw new IOException("shm read incomplete at offset=" + (shmOffset + totalRead));
+                }
+                totalRead += read;
+            }
             BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
             byte[] dst = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
             for (int y = 0; y < height; y++) {
-                buf.position(y * stride);
-                buf.get(dst, y * width * 3, width * 3);
+                System.arraycopy(raw, y * stride, dst, y * width * 3, width * 3);
             }
             return img;
         }

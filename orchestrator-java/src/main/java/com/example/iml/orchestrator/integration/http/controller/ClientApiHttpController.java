@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.http.controller;
 
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.KopcheniHttpProxy;
+import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.http.HttpController;
 import com.example.iml.orchestrator.integration.http.HttpRequestContext;
 import com.example.iml.orchestrator.integration.http.HttpResponses;
@@ -42,6 +43,10 @@ public final class ClientApiHttpController implements HttpController {
         String path = ctx.path();
         if (path.startsWith("/api/client/geometry-runtime")) {
             handleGeometryRuntime(ctx);
+            return;
+        }
+        if (path.equals("/api/client/line-direction")) {
+            handleLineDirection(ctx);
             return;
         }
         if (path.equals("/api/client/inspection/status")) {
@@ -108,6 +113,50 @@ public final class ClientApiHttpController implements HttpController {
         if ("DELETE".equalsIgnoreCase(m)) {
             clientApi.geometryRuntime().clear(analysisProfile);
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", "{\"ok\":true}".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
+        HttpResponses.methodNotAllowed(ctx);
+    }
+
+    private void handleLineDirection(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        ManualLineDirectionService lineDirection = clientApi.manualLineDirection();
+        if (lineDirection == null) {
+            HttpResponses.sendJsonError(ctx, 503, "line direction not configured");
+            return;
+        }
+        String m = ctx.method();
+        if ("GET".equalsIgnoreCase(m)) {
+            ObjectNode root = JSON.createObjectNode();
+            root.put("direction", lineDirection.wireValue());
+            root.put("source", "manual");
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+            return;
+        }
+        if ("PUT".equalsIgnoreCase(m)) {
+            byte[] raw = ctx.readBody();
+            if (raw.length == 0) {
+                HttpResponses.sendJsonError(ctx, 400, "body.direction required (forward|reverse)");
+                return;
+            }
+            Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
+            });
+            Object directionRaw = body.get("direction");
+            if (directionRaw == null) {
+                HttpResponses.sendJsonError(ctx, 400, "body.direction required (forward|reverse)");
+                return;
+            }
+            try {
+                lineDirection.setFromWireValue(String.valueOf(directionRaw));
+            } catch (IllegalArgumentException e) {
+                HttpResponses.sendJsonError(ctx, 400, e.getMessage());
+                return;
+            }
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("direction", lineDirection.wireValue());
+            root.put("source", "manual");
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
             return;
         }
         HttpResponses.methodNotAllowed(ctx);

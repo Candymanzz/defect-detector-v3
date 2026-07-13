@@ -24,6 +24,9 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
             BinaryProtocol.Message geomResp
     ) {
         long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
+        if (isCaptureOnlyWithoutReference(pyResp, geomResp)) {
+            return new InspectionDecision(cameraId, frameId, false, "CAPTURE", 0.0, "NO_REFERENCE", "SKIPPED");
+        }
         double anomalyScore = pyResp == null ? 0.0 : YamlScalars.toDouble(pyResp.header().get("anomaly_score"), 0.0);
         String pyStatus = pyResp == null ? "UNKNOWN" : String.valueOf(pyResp.header().getOrDefault("status", "UNKNOWN"));
         boolean pythonPass = pyResp != null
@@ -50,5 +53,22 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
                     decision.anomalyScore());
         }
         return decision;
+    }
+
+    private static boolean isCaptureOnlyWithoutReference(BinaryProtocol.Message pyResp, BinaryProtocol.Message geomResp) {
+        if (!isSkippedBecauseNoReference(pyResp)) {
+            return false;
+        }
+        return geomResp == null || isSkippedBecauseNoReference(geomResp);
+    }
+
+    private static boolean isSkippedBecauseNoReference(BinaryProtocol.Message response) {
+        if (response == null || response.header() == null) {
+            return false;
+        }
+        if (!"SKIPPED".equals(String.valueOf(response.header().getOrDefault("status", "")))) {
+            return false;
+        }
+        return String.valueOf(response.header().getOrDefault("error", "")).contains("no reference");
     }
 }

@@ -13,6 +13,8 @@ export type {
   HeatmapPixelFormat,
   InspectionAction,
   InspectResultPayload,
+  InspectBucketFramePayload,
+  InspectBucketResultPayload,
   InspectionStageStatus,
   InterestPointNorm,
   PixelFormat,

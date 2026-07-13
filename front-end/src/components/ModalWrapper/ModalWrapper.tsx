@@ -27,7 +27,7 @@ type ModalWrapperProps = {
 type InspectionNavigationItem = {
   frameId: string;
   inspectionId: string;
-  result: "pass" | "fail";
+  result: "pass" | "fail" | "capture";
 };
 
 export function ModalWrapper({
@@ -103,7 +103,11 @@ export function ModalWrapper({
             className="modal__inspection-indicator"
             data-result={inspectionResultState}
           >
-            {inspectionResultState === "pass" ? "Годен" : "Брак"}
+            {inspectionResultState === "pass"
+              ? "Годен"
+              : inspectionResultState === "fail"
+                ? "Брак"
+                : "Съёмка"}
           </div>
         )}
 

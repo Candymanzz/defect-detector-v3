@@ -85,18 +85,41 @@ export function createInspectionControlStates(inspectionStatus: {
 export function resolveCardInspectImageUrl(
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
+  previewFrameId?: string,
+  previewImageUrl?: string,
 ) {
-  if (
-    !inspectResult ||
-    !artifactInspectResult?.artifact_bundle_id ||
-    artifactInspectResult.frame_id !== inspectResult.frame_id
-  ) {
-    return undefined;
+  if (inspectResult && hasDisplayableInspectImage(inspectResult)) {
+    if (
+      artifactInspectResult?.artifact_bundle_id &&
+      artifactInspectResult.frame_id === inspectResult.frame_id
+    ) {
+      return orchestratorApi.url(
+        `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
+      );
+    }
+    return createWsFrameImageUrl(inspectResult);
   }
 
-  return orchestratorApi.url(
-    `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
-  );
+  if (previewFrameId && previewImageUrl) {
+    if (!inspectResult || compareFrameIds(previewFrameId, inspectResult.frame_id) > 0) {
+      return previewImageUrl;
+    }
+  }
+
+  if (!inspectResult) {
+    return previewImageUrl;
+  }
+
+  if (
+    artifactInspectResult?.artifact_bundle_id &&
+    artifactInspectResult.frame_id === inspectResult.frame_id
+  ) {
+    return orchestratorApi.url(
+      `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
+    );
+  }
+
+  return createWsFrameImageUrl(inspectResult);
 }
 
 export function createModalInspectionSnapshot(

@@ -20,6 +20,7 @@ font-size: 20px;
 .app-header-right {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .app-header-status {
@@ -35,6 +36,10 @@ font-size: 20px;
 
 .app-header-status strong {
   color: #f4f7f5;
+}
+
+.app-header-status strong[data-direction="reverse"] {
+  color: #fbbf24;
 }
 
 .app-header-status strong[data-status="ready"] {

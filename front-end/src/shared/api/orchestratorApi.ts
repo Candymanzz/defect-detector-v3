@@ -3,6 +3,8 @@ import { HttpClient } from "./httpClient";
 import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
+  CameraRuntimeSettings,
+  CameraRuntimeSettingsUpdate,
   FpZonesResponse,
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
@@ -10,6 +12,9 @@ import type {
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
+  LineDirection,
+  LineDirectionSettings,
+  LineDirectionUpdateResponse,
   UiCameraList,
   UiLatestSnapshot,
 } from "./types";
@@ -37,6 +42,17 @@ export const orchestratorApi = {
 
   async getLatestSnapshot(cameraId: number) {
     return http.json<UiLatestSnapshot>(`/api/camera/${cameraId}/latest.json`);
+  },
+
+  async getCameraSettings(cameraId: number) {
+    return http.json<CameraRuntimeSettings>(`/api/camera/${cameraId}/settings`);
+  },
+
+  async updateCameraSettings(cameraId: number, update: CameraRuntimeSettingsUpdate) {
+    return http.json<CameraRuntimeSettings>(`/api/camera/${cameraId}/settings`, {
+      method: "PATCH",
+      body: update,
+    });
   },
 
   currentFrameUrl(cameraId: number, version?: string | number) {
@@ -133,6 +149,17 @@ export const orchestratorApi = {
     return http.json<LightBrightnessUpdateResponse>(LIGHT_BRIGHTNESS_PATH, {
       method: "PUT",
       body,
+    });
+  },
+
+  async getLineDirection() {
+    return http.json<LineDirectionSettings>("/api/client/line-direction");
+  },
+
+  async setLineDirection(direction: LineDirection) {
+    return http.json<LineDirectionUpdateResponse>("/api/client/line-direction", {
+      method: "PUT",
+      body: { direction },
     });
   },
 

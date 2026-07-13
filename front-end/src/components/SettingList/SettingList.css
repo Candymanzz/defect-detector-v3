@@ -202,6 +202,33 @@
   min-height: 32px;
 }
 
+.setting-list__direction-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.setting-list__direction-btn {
+  min-height: 36px;
+  border: 1px solid #4b5563;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #e5e7eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.setting-list__direction-btn[data-active="true"] {
+  border-color: #60a5fa;
+  background: #1d4ed8;
+  color: #f8fafc;
+}
+
+.setting-list__direction-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .setting-list__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -213,6 +240,10 @@
 }
 
 .setting-list__submit:first-child {
+  grid-column: 1 / -1;
+}
+
+.setting-list__submit--wide {
   grid-column: 1 / -1;
 }
 

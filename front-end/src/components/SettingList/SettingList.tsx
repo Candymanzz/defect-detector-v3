@@ -5,12 +5,14 @@ import {
   INITIAL_SETTING_DATA,
   loadSettingData,
   saveBrightnessData,
+  saveLineDirection,
   saveMaxShiftData,
   saveSettingData,
   SAVING_SETTING_STATUS,
   updateAnalysisSettingField,
   updateSettingField,
 } from "./SettingController";
+import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
 import { Button } from "../../shared/ui/Button";
@@ -60,6 +62,7 @@ type SaveFeedback = {
 export function SettingList({ selectedCameraId }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
+  const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
   const requestIdRef = useRef(0);
@@ -134,6 +137,35 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
     saveSettingData(formToSave, selectedCameraId)
       .catch((error) => createSettingErrorData(error, formToSave))
+      .then((nextSettingData) => {
+        if (requestId === requestIdRef.current) {
+          setSettingData(nextSettingData);
+          setSaveFeedback(
+            resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
+          );
+        }
+      });
+  };
+
+  const handleDirectionChange = (direction: "forward" | "reverse") => {
+    if (!canEditSettings || settingData.form.lineDirection === direction) {
+      return;
+    }
+
+    const { form, analysisProductTypes } = settingData;
+    const requestId = ++requestIdRef.current;
+    setSaveFeedback({ state: "saving", text: "Сохранение...", cameraId: selectedCameraId });
+    setSettingData((currentSettingData) => ({
+      ...currentSettingData,
+      status: SAVING_SETTING_STATUS,
+      form: { ...currentSettingData.form, lineDirection: direction },
+    }));
+
+    saveLineDirection(direction, form, analysisProductTypes)
+      .catch((error) => ({
+        ...createSettingErrorData(error, { ...form, lineDirection: direction }),
+        analysisProductTypes,
+      }))
       .then((nextSettingData) => {
         if (requestId === requestIdRef.current) {
           setSettingData(nextSettingData);
@@ -257,6 +289,33 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           </Button>
         </section>
 
+        <section className="setting-list__card setting-list__direction">
+          <div className="setting-list__card-header">
+            <span>Направление (метка)</span>
+            <strong className="setting-list__scope">все 10 камер</strong>
+          </div>
+          <div className="setting-list__direction-row">
+            <button
+              type="button"
+              className="setting-list__direction-btn"
+              data-active={settingData.form.lineDirection === "forward"}
+              disabled={!canEditSettings}
+              onClick={() => handleDirectionChange("forward")}
+            >
+              Прямой ход
+            </button>
+            <button
+              type="button"
+              className="setting-list__direction-btn"
+              data-active={settingData.form.lineDirection === "reverse"}
+              disabled={!canEditSettings}
+              onClick={() => handleDirectionChange("reverse")}
+            >
+              Обратный ход
+            </button>
+          </div>
+        </section>
+
         <label className="setting-list__field setting-list__card">
           <span>Макс. смещение, мм</span>
           <input
@@ -319,6 +378,13 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
             Сохранить настройки
           </Button>
           <Button
+            className="setting-list__submit setting-list__submit--wide"
+            disabled={isBusy}
+            onClick={() => setIsCameraSettingsOpen(true)}
+          >
+            Настройки камер
+          </Button>
+          <Button
             className="setting-list__submit"
             variant="warning"
             disabled={isBusy}
@@ -337,6 +403,13 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
         </div>
       </form>
 
+      {isCameraSettingsOpen && (
+        <CameraSettingsModal
+          isOpen
+          initialCameraId={selectedCameraId}
+          onClose={() => setIsCameraSettingsOpen(false)}
+        />
+      )}
       {isReferenceSetupOpen && (
         <ReferenceSetup
           initialCameraId={selectedCameraId}

@@ -126,7 +126,8 @@ public final class StdioBinaryGeometryLoop {
             reference = referenceResult.mat();
             releaseReference = referenceResult.releaseAfterUse();
             InspectionRequest request = InspectionHeaderMapper.fromInspectShmMetadata(h);
-            var response = inspection.inspectMats(reference, current, request, includeDebug);
+            String referenceKey = ReferenceShmMatCache.referenceKey(h);
+            var response = inspection.inspectMats(reference, current, request, includeDebug, referenceKey);
             BinaryProtocol.write(
                     out,
                     BinaryProtocol.MSG_RESPONSE,

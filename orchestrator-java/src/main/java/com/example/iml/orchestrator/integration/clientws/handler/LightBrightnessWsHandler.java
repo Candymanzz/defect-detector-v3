@@ -15,7 +15,7 @@ public final class LightBrightnessWsHandler implements WsMessageHandler {
     @Override
     public void handle(WsMessageContext ctx) {
         LightTriggerClient light = ctx.application().lightTriggerClient();
-        if (light == null) {
+        if (light == null || !light.isEnabled()) {
             ctx.application().outbound().sendError(ctx.connection(), "light_disabled", "light_servers disabled");
             return;
         }

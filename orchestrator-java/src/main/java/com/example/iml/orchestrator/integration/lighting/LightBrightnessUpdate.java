@@ -26,15 +26,10 @@ public record LightBrightnessUpdate(
         return globalPercent == null && perEndpoint.isEmpty();
     }
 
-    public static void apply(LightTriggerClient client, LightBrightnessUpdate update) {
+    public static LightBrightnessApplyResult apply(LightTriggerClient client, LightBrightnessUpdate update) {
         if (client == null || update == null || update.isEmpty()) {
-            return;
+            return LightBrightnessApplyResult.none();
         }
-        if (update.globalPercent() != null) {
-            client.setBrightnessPercent(update.globalPercent());
-        }
-        for (Map.Entry<String, Integer> e : update.perEndpoint().entrySet()) {
-            client.setBrightnessPercent(e.getKey(), e.getValue());
-        }
+        return client.applyBrightnessUpdate(update);
     }
 }

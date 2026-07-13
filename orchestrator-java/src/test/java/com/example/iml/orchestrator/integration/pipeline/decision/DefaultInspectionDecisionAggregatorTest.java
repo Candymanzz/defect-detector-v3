@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,6 +35,26 @@ class DefaultInspectionDecisionAggregatorTest {
         );
 
         assertTrue(decision.overallPass());
+    }
+
+    @Test
+    void captureOnlyWhenStagesSkippedWithoutReference() {
+        InspectionDecision decision = aggregator.decide(
+                1,
+                capture,
+                message(BinaryProtocol.MSG_ERROR, Map.of(
+                        "status", "SKIPPED",
+                        "error", "python inspect skipped: no reference snapshot"
+                )),
+                message(BinaryProtocol.MSG_ERROR, Map.of(
+                        "status", "SKIPPED",
+                        "error", "geometry skipped: no reference snapshot"
+                ))
+        );
+
+        assertEquals("CAPTURE", decision.action());
+        assertEquals("NO_REFERENCE", decision.pythonStatus());
+        assertFalse(decision.overallPass());
     }
 
     @Test

@@ -3,23 +3,39 @@ package com.example.iml.geometry.shm;
 import org.opencv.core.Mat;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Кэш опорного кадра из отдельного SHM-сегмента (ключ — имя/смещение/размеры), как в прежнем GeometryRunnerMain.
+ * Кэш эталонов по камере (аналог {@code references[product#cam=id]} в analisSurface).
+ * На линии 2 ведра × 5 камер — до 10 эталонов одновременно в памяти процесса geometry.
  */
 public final class ReferenceShmMatCache {
 
-    private String cachedReferenceKey;
-    private Mat cachedReferenceMat;
+    private static final int MAX_CACHED_REFERENCES = 16;
+
+    private final Map<String, Mat> cache = new LinkedHashMap<>(MAX_CACHED_REFERENCES, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Mat> eldest) {
+            if (size() <= MAX_CACHED_REFERENCES) {
+                return false;
+            }
+            Mat mat = eldest.getValue();
+            if (mat != null) {
+                mat.release();
+            }
+            return true;
+        }
+    };
 
     public ReferenceMatResolution resolve(Map<String, Object> header, Mat current, ShmMatReader reader) {
         if (header.get("reference_shm_name") == null) {
             return new ReferenceMatResolution(current, false);
         }
-        String key = buildReferenceKey(header);
-        if (key.equals(cachedReferenceKey) && cachedReferenceMat != null) {
-            return new ReferenceMatResolution(cachedReferenceMat, false);
+        String key = referenceKey(header);
+        Mat cached = cache.get(key);
+        if (cached != null) {
+            return new ReferenceMatResolution(cached, false);
         }
 
         Map<String, Object> refHeader = new HashMap<>();
@@ -29,16 +45,20 @@ public final class ReferenceShmMatCache {
         refHeader.put("height", header.get("reference_height"));
         refHeader.put("stride", header.get("reference_stride"));
         Mat loaded = reader.readShmMat(refHeader);
-        if (cachedReferenceMat != null) {
-            cachedReferenceMat.release();
+        Mat previous = cache.put(key, loaded);
+        if (previous != null && previous != loaded) {
+            previous.release();
         }
-        cachedReferenceMat = loaded;
-        cachedReferenceKey = key;
-        return new ReferenceMatResolution(cachedReferenceMat, false);
+        return new ReferenceMatResolution(loaded, false);
+    }
+
+    public static String referenceKey(Map<String, Object> h) {
+        return buildReferenceKey(h);
     }
 
     private static String buildReferenceKey(Map<String, Object> h) {
-        return str(h.get("reference_shm_name"))
+        return str(h.get("camera_id"))
+                + "|" + str(h.get("reference_shm_name"))
                 + "|" + (int) num(h.get("reference_shm_offset"), 0)
                 + "|" + (int) num(h.get("reference_width"), 0)
                 + "|" + (int) num(h.get("reference_height"), 0)

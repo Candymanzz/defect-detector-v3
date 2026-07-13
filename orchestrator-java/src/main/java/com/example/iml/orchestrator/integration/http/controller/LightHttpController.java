@@ -3,8 +3,10 @@ package com.example.iml.orchestrator.integration.http.controller;
 import com.example.iml.orchestrator.integration.http.HttpController;
 import com.example.iml.orchestrator.integration.http.HttpRequestContext;
 import com.example.iml.orchestrator.integration.http.HttpResponses;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessApplyResult;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessCommands;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessScale;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -29,10 +31,20 @@ public final class LightHttpController implements HttpController {
 
     private final LightTriggerClient lightClient;
     private final LightUpstreamClient upstream;
+    private final LightBrightnessStore brightnessStore;
 
     public LightHttpController(LightTriggerClient lightClient, LightServersConfig cfg) {
+        this(lightClient, cfg, null);
+    }
+
+    public LightHttpController(
+            LightTriggerClient lightClient,
+            LightServersConfig cfg,
+            LightBrightnessStore brightnessStore
+    ) {
         this.lightClient = lightClient;
         this.upstream = cfg != null && cfg.enabled() ? new LightUpstreamClient(cfg) : null;
+        this.brightnessStore = brightnessStore;
     }
 
     @Override
@@ -161,15 +173,28 @@ public final class LightHttpController implements HttpController {
                     "brightness_percent and/or endpoints{id: percent} required (0..100)");
             return;
         }
-        applyBrightnessUpdate(merged);
+        LightBrightnessApplyResult applyResult = applyBrightnessUpdate(merged);
         LOG.info("light brightness updated via {} {} -> {}", ctx.method(), ctx.path(), lightClient.brightnessByEndpoint());
+        if (applyResult.hasHardwareErrors()) {
+            LOG.warn("light brightness hardware errors: {}", String.join("; ", applyResult.hardwareErrors()));
+        } else {
+            persistBrightnessState();
+        }
         int defaultPercent = lightClient.brightnessPercent();
         ObjectNode ok = JSON.createObjectNode();
-        ok.put("ok", true);
+        ok.put("ok", !applyResult.hasHardwareErrors());
+        ok.put("hardware_applied", !applyResult.hasHardwareErrors());
         ok.put("default_brightness_percent", defaultPercent);
         ok.put("brightness_percent", defaultPercent);
         ok.set("endpoints", buildEndpointsNode());
-        HttpResponses.sendJson(ctx, 200, ok);
+        if (applyResult.hasHardwareErrors()) {
+            ArrayNode errors = JSON.createArrayNode();
+            for (String error : applyResult.hardwareErrors()) {
+                errors.add(error);
+            }
+            ok.set("hardware_errors", errors);
+        }
+        HttpResponses.sendJson(ctx, applyResult.hasHardwareErrors() ? 502 : 200, ok);
     }
 
     private static LightBrightnessUpdate mergeUpdates(LightBrightnessUpdate a, LightBrightnessUpdate b) {
@@ -185,11 +210,22 @@ public final class LightHttpController implements HttpController {
         return new LightBrightnessUpdate(global, per);
     }
 
-    private void applyBrightnessUpdate(LightBrightnessUpdate update) {
+    private LightBrightnessApplyResult applyBrightnessUpdate(LightBrightnessUpdate update) {
         if (update == null || update.isEmpty()) {
+            return LightBrightnessApplyResult.none();
+        }
+        return LightBrightnessUpdate.apply(lightClient, update);
+    }
+
+    private void persistBrightnessState() {
+        if (brightnessStore == null) {
             return;
         }
-        LightBrightnessUpdate.apply(lightClient, update);
+        try {
+            brightnessStore.saveFromClient(lightClient);
+        } catch (IOException e) {
+            LOG.warn("light brightness store save failed: {}", e.getMessage());
+        }
     }
 
     private void sendBrightness(HttpRequestContext ctx) throws IOException {
@@ -261,7 +297,7 @@ public final class LightHttpController implements HttpController {
     }
 
     private boolean requireLight(HttpRequestContext ctx) throws IOException {
-        if (lightClient == null) {
+        if (lightClient == null || !lightClient.isEnabled()) {
             HttpResponses.sendJsonError(ctx, 503, "light_servers disabled");
             return false;
         }

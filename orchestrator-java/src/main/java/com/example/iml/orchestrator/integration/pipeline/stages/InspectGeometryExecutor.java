@@ -58,6 +58,25 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         if (geometryPool.isEmpty()) {
             return state;
         }
+        if (activeReference == null || activeReference.header() == null) {
+            BinaryProtocol.Message geomSkipped = new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of(
+                            "status", "SKIPPED",
+                            "error", "geometry skipped: no reference snapshot",
+                            "camera_id", cameraId
+                    ),
+                    new byte[0]
+            );
+            return new PipelineState(
+                    state.capture(),
+                    state.py(),
+                    geomSkipped,
+                    state.captureMs(),
+                    state.pythonMs(),
+                    0L
+            );
+        }
         if (!hasValidCaptureFrame(state)) {
             BinaryProtocol.Message geomError = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_ERROR,
@@ -86,6 +105,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                 geometryRuntimeConfig.applyToGeometryHeader(gHeader, productType);
             }
             BinaryInspectHeaders.applyMainRoiFromPolygon(gHeader, state.capture(), activeReference);
+            BinaryInspectHeaders.syncWrinklesRoiFromMainRoi(gHeader);
             geometrySlots.acquire();
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);

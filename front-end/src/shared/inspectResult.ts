@@ -1,8 +1,13 @@
 import type { InspectResultPayload } from "./ws";
 
+export type InspectionVisualState = "pass" | "fail" | "capture";
+
 export function resolveInspectionResultState(
   inspectResult?: InspectResultPayload,
-): "pass" | "fail" | undefined {
+): InspectionVisualState | undefined {
+  if (isCaptureOnlyInspectResult(inspectResult)) {
+    return "capture";
+  }
   const pythonStatus = inspectResult?.python_status?.trim().toUpperCase();
   if (pythonStatus === "PASS" || pythonStatus === "ГОДЕН") {
     return "pass";
@@ -19,4 +24,14 @@ export function resolveInspectionResultState(
   }
 
   return undefined;
+}
+
+export function isCaptureOnlyInspectResult(inspectResult?: InspectResultPayload): boolean {
+  if (!inspectResult) {
+    return false;
+  }
+  if (inspectResult.action === "CAPTURE") {
+    return true;
+  }
+  return inspectResult.python_status?.trim().toUpperCase() === "NO_REFERENCE";
 }

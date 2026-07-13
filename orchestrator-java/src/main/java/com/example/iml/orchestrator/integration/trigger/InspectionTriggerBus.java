@@ -28,6 +28,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     private final AtomicLong sequence = new AtomicLong(0);
     private final int captureTriggerStaggerMs;
     private final ScheduledExecutorService staggerScheduler;
+    private volatile LineTriggerListener lineTriggerListener;
 
     public InspectionTriggerBus(Collection<Integer> cameraIds) {
         this(cameraIds, 0);
@@ -51,6 +52,10 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return perCamera.containsKey(cameraId);
     }
 
+    public void setLineTriggerListener(LineTriggerListener lineTriggerListener) {
+        this.lineTriggerListener = lineTriggerListener;
+    }
+
     /** Публикует событие; broadcast — во все очереди; неизвестная камера — false. */
     public boolean publish(InspectionTriggerEvent raw) {
         if (raw.broadcast()) {
@@ -59,42 +64,101 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
     }
 
-    /** Рассылка одного триггера на все активные камеры (общая {@code sequence}). */
-    public int publishBroadcast(InspectionTriggerEvent raw) {
+    public long prefireLineBroadcast(String source) {
+        return prefireLineBroadcast(source, null);
+    }
+
+    public long prefireLineBroadcast(String source, List<Integer> cameraIds) {
         long seq = sequence.incrementAndGet();
-        Instant receivedAt = raw.receivedAt() == null ? java.time.Instant.now() : raw.receivedAt();
-        List<Integer> cameraIds = new ArrayList<>(perCamera.keySet());
-        Collections.sort(cameraIds);
+        Instant receivedAt = Instant.now();
+        LineTriggerListener listener = lineTriggerListener;
+        if (listener != null) {
+            listener.onLineTrigger(seq, receivedAt, cameraIds);
+        }
+        LOG.info(
+                "sync_diag channel=inspect event=line_prefire_reserved trigger_sequence={} source={} cameras={}",
+                seq,
+                source,
+                cameraIds == null || cameraIds.isEmpty() ? "all" : cameraIds.size()
+        );
+        return seq;
+    }
+
+    public int dispatchLineBroadcast(String source, long seq) {
+        if (seq <= 0L) {
+            return 0;
+        }
+        Instant receivedAt = Instant.now();
+        return dispatchLineBroadcast(source, seq, receivedAt, null);
+    }
+
+    public int dispatchLineBroadcast(String source, long seq, List<Integer> cameraIds) {
+        if (seq <= 0L) {
+            return 0;
+        }
+        Instant receivedAt = Instant.now();
+        return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
+    }
+
+    /** Рассылка одного триггера на все активные камеры (prefire + dispatch в одном шаге). */
+    public int publishBroadcast(InspectionTriggerEvent raw) {
+        return publishBroadcast(raw, null);
+    }
+
+    public int publishBroadcast(InspectionTriggerEvent raw, List<Integer> cameraIds) {
+        long seq = prefireLineBroadcast(raw.source(), cameraIds);
+        Instant receivedAt = raw.receivedAt() == null ? Instant.now() : raw.receivedAt();
+        return dispatchLineBroadcast(raw.source(), seq, receivedAt, cameraIds);
+    }
+
+    private int dispatchLineBroadcast(String source, long seq, Instant receivedAt, List<Integer> cameraIds) {
+        List<Integer> targets = resolveTargetCameras(cameraIds);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
             LOG.info(
-                    "sync_diag channel=inspect event=line_trigger trigger_sequence={} cameras={} stagger_ms=0 mode=simultaneous",
+                    "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms=0 mode=simultaneous",
                     seq,
-                    cameraIds.size()
+                    targets.size()
             );
             int published = 0;
-            for (Integer cameraId : cameraIds) {
-                if (offerToCamera(cameraId, receivedAt, raw.source(), seq)) {
+            for (Integer cameraId : targets) {
+                if (offerToCamera(cameraId, receivedAt, source, seq)) {
                     published++;
                 }
             }
             return published;
         }
         LOG.info(
-                "sync_diag channel=inspect event=line_trigger trigger_sequence={} cameras={} stagger_ms={} mode=staggered",
+                "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms={} mode=staggered",
                 seq,
-                cameraIds.size(),
+                targets.size(),
                 captureTriggerStaggerMs
         );
-        for (int i = 0; i < cameraIds.size(); i++) {
-            int cameraId = cameraIds.get(i);
+        for (int i = 0; i < targets.size(); i++) {
+            int cameraId = targets.get(i);
             long delayMs = (long) i * captureTriggerStaggerMs;
             staggerScheduler.schedule(
-                    () -> offerToCamera(cameraId, receivedAt, raw.source(), seq),
+                    () -> offerToCamera(cameraId, receivedAt, source, seq),
                     delayMs,
                     TimeUnit.MILLISECONDS
             );
         }
-        return cameraIds.size();
+        return targets.size();
+    }
+
+    private List<Integer> resolveTargetCameras(List<Integer> cameraIds) {
+        if (cameraIds == null || cameraIds.isEmpty()) {
+            List<Integer> all = new ArrayList<>(perCamera.keySet());
+            Collections.sort(all);
+            return all;
+        }
+        List<Integer> filtered = new ArrayList<>();
+        for (Integer cameraId : cameraIds) {
+            if (cameraId != null && perCamera.containsKey(cameraId)) {
+                filtered.add(cameraId);
+            }
+        }
+        filtered.sort(Integer::compareTo);
+        return filtered;
     }
 
     private boolean offerToCamera(int cameraId, Instant receivedAt, String source, long seq) {

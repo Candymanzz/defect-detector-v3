@@ -4,6 +4,7 @@ import type {
   GeometryRuntimeConfig,
   LightBrightnessSettings,
   LightEndpointBrightness,
+  LineDirection,
 } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import type { AnalysisSettingFieldName, SettingData, SettingFieldName, SettingForm, SettingStatus } from "./type";
@@ -44,6 +45,7 @@ export const INITIAL_SETTING_STATUS: SettingStatus = {
 export const INITIAL_SETTING_FORM: SettingForm = {
   brightnessPercent: 0,
   maxShiftMm: DEFAULT_MAX_SHIFT_MM,
+  lineDirection: "forward",
   analysisSettings: DEFAULT_ANALYSIS_SETTINGS,
 };
 
@@ -66,9 +68,13 @@ export async function saveBrightnessData(
   const brightnessPercent = clampBrightness(form.brightnessPercent);
   const lightBrightness = await orchestratorApi.getLightBrightness();
 
-  await orchestratorApi.setLightBrightness(
+  const response = await orchestratorApi.setLightBrightness(
     createBrightnessUpdate(lightBrightness, selectedCameraId, brightnessPercent),
   );
+
+  if (response.hardware_errors?.length) {
+    throw new Error(response.hardware_errors.join("; "));
+  }
 
   return {
     status: {
@@ -83,11 +89,31 @@ export async function saveBrightnessData(
   };
 }
 
+export async function saveLineDirection(
+  direction: LineDirection,
+  form: SettingForm,
+  analysisProductTypes: string[],
+): Promise<SettingData> {
+  const response = await orchestratorApi.setLineDirection(direction);
+  return {
+    status: {
+      state: "ready",
+      text: "направление сохранено",
+    },
+    form: {
+      ...form,
+      lineDirection: response.direction,
+    },
+    analysisProductTypes,
+  };
+}
+
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
-  const [lightBrightness, geometryRuntime, analysisProductTypes] = await Promise.all([
+  const [lightBrightness, geometryRuntime, analysisProductTypes, lineDirection] = await Promise.all([
     orchestratorApi.getLightBrightness(),
     orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
+    orchestratorApi.getLineDirection().catch(() => ({ direction: "forward" as const, source: "manual" as const })),
   ]);
   const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
   const analysisSettings = "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;
@@ -106,6 +132,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
     form: {
       brightnessPercent: readBrightnessPercent(lightBrightness, selectedCameraId),
       maxShiftMm: readMaxShiftMm(geometryRuntime),
+      lineDirection: lineDirection.direction,
       analysisSettings,
     },
     analysisProductTypes: resolvedProductTypes,
@@ -220,6 +247,7 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
   return {
     brightnessPercent: clampBrightness(form.brightnessPercent),
     maxShiftMm: clampMaxShiftMm(form.maxShiftMm),
+    lineDirection: form.lineDirection === "reverse" ? "reverse" : "forward",
     analysisSettings: normalizeAnalysisSettings(form.analysisSettings),
   };
 }

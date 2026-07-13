@@ -67,7 +67,8 @@ public final class InspectionPipeline {
             PipelineStagesLog pipelineStagesLog,
             PerCameraInspectionGate inspectionGate,
             long inspectionCycleTimeoutMs,
-            BucketInspectionAggregator bucketAggregator
+            BucketInspectionAggregator bucketAggregator,
+            boolean captureWithoutReference
     ) throws Exception {
         int cameraId = ((Number) camera.get("id")).intValue();
         String productType = ConfiguredCameras.analysisProfileForCamera(camera, cameraId);
@@ -119,9 +120,14 @@ public final class InspectionPipeline {
         ReferenceSnapshot activeReference = referenceSnapshot;
         boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
         if (referenceFromClient) {
-            if (needReference) {
+            if (needReference && !captureWithoutReference) {
                 svc.log().info(
                         "worker cam={}: waiting for client.reference_bundle (integration.reference_source=client)",
+                        cameraId
+                );
+            } else if (needReference) {
+                svc.log().info(
+                        "worker cam={}: capture_without_reference enabled — trigger capture without client.reference_bundle",
                         cameraId
                 );
             }
@@ -169,7 +175,8 @@ public final class InspectionPipeline {
                 referenceSource,
                 referenceByCamera,
                 inspectionGate,
-                inspectionCycleTimeoutMs
+                inspectionCycleTimeoutMs,
+                captureWithoutReference
         );
     }
 }

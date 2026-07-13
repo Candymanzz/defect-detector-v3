@@ -1,10 +1,11 @@
 cameras:
+  # Топология: 5 коммутаторов × 2 камеры — пары id на одном коммутаторе: 0+1, 2+3, 4+5, 6+7, 8+9.
   # id в ПО ↔ LAN на линии. IP должны совпадать в config.json.
   - id: 0
     enabled: true
     inspection_enabled: true
-    ip: "169.254.19.11"
-    exposure_us: 12000
+    ip: "169.254.218.1"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-0-cmd"
@@ -13,8 +14,8 @@ cameras:
   - id: 1
     enabled: true
     inspection_enabled: true
-    ip: "169.254.103.219"
-    exposure_us: 12000
+    ip: "169.254.218.2"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-1-cmd"
@@ -23,8 +24,8 @@ cameras:
   - id: 2
     enabled: true
     inspection_enabled: true
-    ip: "169.254.79.219"
-    exposure_us: 12000
+    ip: "169.254.222.3"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-2-cmd"
@@ -33,8 +34,8 @@ cameras:
   - id: 3
     enabled: true
     inspection_enabled: true
-    ip: "169.254.98.219"
-    exposure_us: 12000
+    ip: "169.254.222.4"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-3-cmd"
@@ -43,8 +44,8 @@ cameras:
   - id: 4
     enabled: true
     inspection_enabled: true
-    ip: "169.254.101.219"
-    exposure_us: 12000
+    ip: "169.254.146.5"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-4-cmd"
@@ -53,8 +54,8 @@ cameras:
   - id: 5
     enabled: true
     inspection_enabled: true
-    ip: "169.254.19.12"
-    exposure_us: 12000
+    ip: "169.254.146.6"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-5-cmd"
@@ -63,8 +64,8 @@ cameras:
   - id: 6
     enabled: true
     inspection_enabled: true
-    ip: "169.254.105.1"
-    exposure_us: 12000
+    ip: "169.254.6.7"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-6-cmd"
@@ -73,8 +74,8 @@ cameras:
   - id: 7
     enabled: true
     inspection_enabled: true
-    ip: "169.254.97.219"
-    exposure_us: 12000
+    ip: "169.254.6.8"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-7-cmd"
@@ -83,8 +84,8 @@ cameras:
   - id: 8
     enabled: true
     inspection_enabled: true
-    ip: "169.254.92.219"
-    exposure_us: 12000
+    ip: "169.254.220.9"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-8-cmd"
@@ -93,8 +94,8 @@ cameras:
   - id: 9
     enabled: true
     inspection_enabled: true
-    ip: "169.254.83.219"
-    exposure_us: 12000
+    ip: "169.254.220.10"
+    exposure_us: 3000
     capture_trigger_mode: "software"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-9-cmd"

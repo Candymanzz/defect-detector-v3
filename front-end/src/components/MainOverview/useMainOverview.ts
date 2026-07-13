@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api";
-import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { isCaptureOnlyInspectResult, resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
 import { compareFrameIds } from "../../shared/lib/frameIds";
 import { orchestratorWs } from "../../shared/ws";
-import type { InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
+import type { InspectResultPayload, InspectBucketResultPayload, PreviewFramePayload } from "../../shared/ws";
 import {
   compareInspectResults,
   createInspectionControlStates,
@@ -228,12 +228,30 @@ export function useMainOverview() {
         return;
       }
 
+      if (message.type === "server.inspect_bucket_result") {
+        applyBucketResult(message.payload, setInspectionHistoryByCameraId, latestInspectResultByCameraIdRef);
+        return;
+      }
+
       if (message.type !== "server.inspect_result") {
         return;
       }
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+
+      if (isCaptureOnlyInspectResult(inspectResult)) {
+        applyCaptureOnlyInspectResult(
+          inspectResult,
+          latestInspectResultByCameraIdRef,
+          setInspectResultsByCameraId,
+          setPreviewFrameIdsByCameraId,
+          setPreviewImageUrlsByCameraId,
+          setInspectionHistoryByCameraId,
+        );
+        return;
+      }
+
       logMissingInspectionResults(latestInspectionIdByCameraIdRef, inspectResult);
       setHasReference(true);
       addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
@@ -405,6 +423,140 @@ function removeCameraResult<T>(results: Record<number, T>, cameraId: number) {
   const nextResults = { ...results };
   delete nextResults[cameraId];
   return nextResults;
+}
+
+function applyBucketResult(
+  bucket: InspectBucketResultPayload,
+  setHistory: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+  latestInspectResultByCameraIdRef: React.MutableRefObject<Record<number, InspectResultPayload>>,
+) {
+  const inspectionId = String(bucket.trigger_sequence);
+  const bucketResult: "pass" | "fail" | "capture" = bucket.frames.every(
+    (frame) => frame.action === "CAPTURE" || frame.python_status === "NO_REFERENCE",
+  )
+    ? "capture"
+    : bucket.overall_pass
+      ? "pass"
+      : "fail";
+
+  for (const frame of bucket.frames) {
+    const previous = latestInspectResultByCameraIdRef.current[frame.camera_id];
+    const inspectResult: InspectResultPayload =
+      previous && compareFrameIds(previous.frame_id, frame.frame_id) === 0
+        ? {
+            ...previous,
+            inspection_id: inspectionId,
+            overall_pass: frame.overall_pass,
+            action: frame.action,
+            anomaly_score: frame.anomaly_score,
+            python_status: frame.python_status,
+            geometry_status: frame.geometry_status,
+            server_ts_ms: Math.max(previous.server_ts_ms, bucket.server_ts_ms),
+          }
+        : {
+            camera_id: frame.camera_id,
+            frame_id: frame.frame_id,
+            inspection_id: inspectionId,
+            session_state: bucket.session_state,
+            current: {
+              camera_id: frame.camera_id,
+              frame_id: frame.frame_id,
+              shm_name: "",
+              width: 0,
+              height: 0,
+              stride: 0,
+              shm_offset: 0,
+              pixel_format: "bgr_u8",
+              channels: 3,
+            },
+            heatmap: null,
+            active_reference_view_index: 0,
+            detector: {},
+            overall_pass: frame.overall_pass,
+            action: frame.action,
+            anomaly_score: frame.anomaly_score,
+            python_status: frame.python_status,
+            geometry_status: frame.geometry_status,
+            fp_zones: [],
+            server_ts_ms: bucket.server_ts_ms,
+          };
+
+    const resultState = resolveInspectionResultState(inspectResult) ?? bucketResult;
+    setHistory((current) => {
+      const cameraHistory = current[frame.camera_id] ?? [];
+      return {
+        ...current,
+        [frame.camera_id]: upsertInspectionHistoryItem(cameraHistory, {
+          frameId: frame.frame_id,
+          inspectionId,
+          result: resultState,
+          inspectResult,
+        }).slice(0, INSPECTION_HISTORY_LIMIT),
+      };
+    });
+  }
+}
+
+function mergeCaptureOnlyInspectResult(
+  previous: InspectResultPayload,
+  incoming: InspectResultPayload,
+): InspectResultPayload {
+  const mergedCurrent = {
+    ...previous.current,
+    ...incoming.current,
+    http_path: incoming.current?.http_path ?? previous.current?.http_path,
+  };
+  return {
+    ...previous,
+    ...incoming,
+    current: mergedCurrent,
+    http_path: incoming.http_path ?? previous.http_path,
+    artifact_bundle_id: incoming.artifact_bundle_id ?? previous.artifact_bundle_id,
+  };
+}
+
+function applyCaptureOnlyInspectResult(
+  inspectResult: InspectResultPayload,
+  latestInspectResultByCameraIdRef: React.MutableRefObject<Record<number, InspectResultPayload>>,
+  setInspectResultsByCameraId: Dispatch<SetStateAction<Record<number, InspectResultPayload>>>,
+  setPreviewFrameIdsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
+  setPreviewImageUrlsByCameraId: Dispatch<SetStateAction<CameraImageUrlsById>>,
+  setInspectionHistoryByCameraId: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+) {
+  const cameraId = inspectResult.camera_id;
+  const previous = latestInspectResultByCameraIdRef.current[cameraId];
+  if (
+    previous &&
+    compareFrameIds(inspectResult.frame_id, previous.frame_id) < 0 &&
+    !hasDisplayableInspectImage(inspectResult)
+  ) {
+    return;
+  }
+
+  const merged =
+    previous && compareFrameIds(previous.frame_id, inspectResult.frame_id) === 0
+      ? mergeCaptureOnlyInspectResult(previous, inspectResult)
+      : inspectResult;
+
+  latestInspectResultByCameraIdRef.current[cameraId] = merged;
+  setInspectResultsByCameraId((previousResults) => ({
+    ...previousResults,
+    [cameraId]: merged,
+  }));
+
+  const imageUrl = createWsFrameImageUrl(merged);
+  if (imageUrl) {
+    setPreviewFrameIdsByCameraId((previousFrameIds) => ({
+      ...previousFrameIds,
+      [cameraId]: merged.frame_id,
+    }));
+    setPreviewImageUrlsByCameraId((previousImageUrls) => ({
+      ...previousImageUrls,
+      [cameraId]: imageUrl,
+    }));
+  }
+
+  addInspectionHistoryItem(setInspectionHistoryByCameraId, merged);
 }
 
 function addInspectionHistoryItem(

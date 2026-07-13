@@ -82,6 +82,12 @@
   color: #fca5a5;
 }
 
+.modal-inspection-navigation__tile[data-result="capture"] {
+  border-color: #60a5fa;
+  background: rgba(96, 165, 250, 0.14);
+  color: #bfdbfe;
+}
+
 .modal-inspection-navigation__tile[data-active="true"] {
   box-shadow:
     0 0 0 2px #15191e,
@@ -125,6 +131,13 @@
     0 24px 80px rgba(0, 0, 0, 0.42);
 }
 
+.modal--capture {
+  border-color: #60a5fa;
+  box-shadow:
+    0 0 0 2px rgba(96, 165, 250, 0.35),
+    0 24px 80px rgba(0, 0, 0, 0.42);
+}
+
 .modal__inspection-indicator {
   padding: 10px 14px;
   border: 1px solid;
@@ -145,6 +158,12 @@
   border-color: #ef4444;
   background: rgba(239, 68, 68, 0.18);
   color: #fca5a5;
+}
+
+.modal__inspection-indicator[data-result="capture"] {
+  border-color: #60a5fa;
+  background: rgba(96, 165, 250, 0.16);
+  color: #bfdbfe;
 }
 
 .modal-image-panel {
