@@ -250,6 +250,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     <strong>Камера {slot.cameraId}</strong>
                     <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
                     <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
+                    <span>Искл. зон: {fpZonesByCameraId[slot.cameraId]?.length ?? 0}</span>
                   </button>
 
                   <button

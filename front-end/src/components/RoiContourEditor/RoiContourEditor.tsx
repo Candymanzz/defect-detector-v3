@@ -93,6 +93,7 @@ export function RoiContourEditor({
           viewBox="0 0 1 1"
           preserveAspectRatio="none"
         >
+          {points.length >= 3 && <polygon points={svgPoints} />}
           {exclusionZones.map((zone, index) => {
             if (zone.points_norm_heatmap.length < 3) {
               return null;
@@ -107,7 +108,6 @@ export function RoiContourEditor({
               />
             );
           })}
-          {points.length >= 3 && <polygon points={svgPoints} />}
           {points.length >= 2 && <polyline points={svgPoints} />}
           {points.map((point, index) => (
             <circle

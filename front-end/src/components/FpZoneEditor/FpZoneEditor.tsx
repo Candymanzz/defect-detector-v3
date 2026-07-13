@@ -19,38 +19,58 @@ export function FpZoneEditor({
   onChange,
 }: FpZoneEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
-  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(zones[0]?.id ?? null);
-  const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0] ?? null;
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const safeSelectedIndex = zones.length === 0 ? -1 : Math.min(selectedIndex, zones.length - 1);
+  const selectedZone = safeSelectedIndex >= 0 ? zones[safeSelectedIndex] : undefined;
   const roiSvgPoints = roiPoints.map((point) => `${point.x},${point.y}`).join(" ");
 
-  const updateZone = (zoneId: string | undefined, update: Partial<FpZoneNorm>) => {
-    onChange(zones.map((zone) => (zone.id === zoneId ? { ...zone, ...update } : zone)));
+  const updateZone = (zoneIndex: number, update: Partial<FpZoneNorm>) => {
+    onChange(zones.map((zone, index) => (index === zoneIndex ? { ...zone, ...update } : zone)));
   };
 
   const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (disabled || !selectedZone) return;
+    if (disabled) return;
 
     const rect = imageRef.current?.getBoundingClientRect();
     if (!rect || rect.width <= 0 || rect.height <= 0) return;
 
-    updateZone(selectedZone.id, {
-      points_norm_heatmap: [
-        ...selectedZone.points_norm_heatmap,
-        {
-          x: clamp01((event.clientX - rect.left) / rect.width),
-          y: clamp01((event.clientY - rect.top) / rect.height),
-        },
-      ],
+    const nextPoint = {
+      x: clamp01((event.clientX - rect.left) / rect.width),
+      y: clamp01((event.clientY - rect.top) / rect.height),
+    };
+
+    if (!selectedZone) {
+      onChange([createEmptyZone([nextPoint])]);
+      setSelectedIndex(0);
+      return;
+    }
+
+    updateZone(safeSelectedIndex, {
+      points_norm_heatmap: [...selectedZone.points_norm_heatmap, nextPoint],
     });
   };
 
   const handleAddZone = () => {
-    const id = createZoneId();
-    onChange([
-      ...zones,
-      { id, note: `Исключающая зона ${zones.length + 1}`, points_norm_heatmap: [] },
-    ]);
-    setSelectedZoneId(id);
+    onChange([...zones, createEmptyZone()]);
+    setSelectedIndex(zones.length);
+  };
+
+  const handleRemoveLastPoint = () => {
+    if (!selectedZone) return;
+    updateZone(safeSelectedIndex, {
+      points_norm_heatmap: selectedZone.points_norm_heatmap.slice(0, -1),
+    });
+  };
+
+  const handleClearZone = () => {
+    if (!selectedZone) return;
+    updateZone(safeSelectedIndex, { points_norm_heatmap: [] });
+  };
+
+  const handleDeleteZone = () => {
+    if (!selectedZone) return;
+    onChange(zones.filter((_, index) => index !== safeSelectedIndex));
+    setSelectedIndex(Math.max(0, safeSelectedIndex - 1));
   };
 
   return (
@@ -62,7 +82,7 @@ export function FpZoneEditor({
         <img
           ref={imageRef}
           src={imageUrl}
-          alt="Исключающие зоны"
+          alt="РСЃРєР»СЋС‡Р°СЋС‰РёРµ Р·РѕРЅС‹"
         />
         <svg
           className="fp-zone-editor__overlay"
@@ -75,19 +95,21 @@ export function FpZoneEditor({
               points={roiSvgPoints}
             />
           )}
-          {zones.map((zone) => {
+
+          {zones.map((zone, zoneIndex) => {
             const points = zone.points_norm_heatmap.map((point) => `${point.x},${point.y}`).join(" ");
-            const isSelected = zone === selectedZone;
+            const isSelected = zoneIndex === safeSelectedIndex;
+
             return (
               <g
-                key={zone.id}
+                key={zone.id ?? zoneIndex}
                 className={isSelected ? "fp-zone-editor__zone fp-zone-editor__zone--selected" : "fp-zone-editor__zone"}
               >
                 {zone.points_norm_heatmap.length >= 3 && <polygon points={points} />}
                 {zone.points_norm_heatmap.length >= 2 && <polyline points={points} />}
-                {zone.points_norm_heatmap.map((point, index) => (
+                {zone.points_norm_heatmap.map((point, pointIndex) => (
                   <circle
-                    key={`${zone.id}-${index}`}
+                    key={`${zone.id ?? zoneIndex}-${pointIndex}`}
                     cx={point.x}
                     cy={point.y}
                     r="0.012"
@@ -99,89 +121,61 @@ export function FpZoneEditor({
         </svg>
       </div>
 
-      <div className="fp-zone-editor__panel">
-        <div className="fp-zone-editor__header">
-          <strong>Исключающие зоны</strong>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={handleAddZone}
-          >
-            Добавить зону
-          </button>
-        </div>
-
-        {zones.length === 0 ? (
-          <p className="fp-zone-editor__empty">
-            Зоны необязательны. Добавьте их только для участков внутри ROI, которые нужно исключить.
-          </p>
-        ) : (
-          <div className="fp-zone-editor__zones">
+      <div className="fp-zone-editor__actions">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={handleAddZone}
+        >
+          РќРѕРІР°СЏ Р·РѕРЅР°
+        </button>
+        <button
+          type="button"
+          disabled={disabled || !selectedZone || selectedZone.points_norm_heatmap.length === 0}
+          onClick={handleRemoveLastPoint}
+        >
+          РЈРґР°Р»РёС‚СЊ С‚РѕС‡РєСѓ
+        </button>
+        <button
+          type="button"
+          disabled={disabled || !selectedZone || selectedZone.points_norm_heatmap.length === 0}
+          onClick={handleClearZone}
+        >
+          РћС‡РёСЃС‚РёС‚СЊ
+        </button>
+        <button
+          className="fp-zone-editor__delete"
+          type="button"
+          disabled={disabled || !selectedZone}
+          onClick={handleDeleteZone}
+        >
+          РЈРґР°Р»РёС‚СЊ Р·РѕРЅСѓ
+        </button>
+        {zones.length > 1 && (
+          <div className="fp-zone-editor__zone-tabs">
             {zones.map((zone, index) => (
               <button
-                key={zone.id}
-                className={
-                  zone === selectedZone
-                    ? "fp-zone-editor__zone-button fp-zone-editor__zone-button--active"
-                    : "fp-zone-editor__zone-button"
-                }
+                key={zone.id ?? index}
+                className={index === safeSelectedIndex ? "fp-zone-editor__zone-tab is-active" : "fp-zone-editor__zone-tab"}
                 type="button"
-                onClick={() => setSelectedZoneId(zone.id ?? null)}
+                onClick={() => setSelectedIndex(index)}
               >
-                <span>{zone.note || `Исключающая зона ${index + 1}`}</span>
-                <small>
-                  {zone.points_norm_heatmap.length >= 3
-                    ? `${zone.points_norm_heatmap.length} точек`
-                    : `Нужно ещё ${3 - zone.points_norm_heatmap.length}`}
-                </small>
+                {index + 1}
               </button>
             ))}
-          </div>
-        )}
-
-        {selectedZone && (
-          <div className="fp-zone-editor__controls">
-            <label>
-              <span>Название зоны</span>
-              <input
-                value={selectedZone.note}
-                disabled={disabled}
-                onChange={(event) => updateZone(selectedZone.id, { note: event.target.value })}
-              />
-            </label>
-            <div className="fp-zone-editor__actions">
-              <button
-                type="button"
-                disabled={disabled || selectedZone.points_norm_heatmap.length === 0}
-                onClick={() =>
-                  updateZone(selectedZone.id, {
-                    points_norm_heatmap: selectedZone.points_norm_heatmap.slice(0, -1),
-                  })
-                }
-              >
-                Удалить точку
-              </button>
-              <button
-                type="button"
-                disabled={disabled || selectedZone.points_norm_heatmap.length === 0}
-                onClick={() => updateZone(selectedZone.id, { points_norm_heatmap: [] })}
-              >
-                Очистить
-              </button>
-              <button
-                className="fp-zone-editor__delete"
-                type="button"
-                disabled={disabled}
-                onClick={() => onChange(zones.filter((zone) => zone.id !== selectedZone.id))}
-              >
-                Удалить зону
-              </button>
-            </div>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function createEmptyZone(points: FpZoneNorm["points_norm_heatmap"] = []): FpZoneNorm {
+  return {
+    id: createZoneId(),
+    note: "РСЃРєР»СЋС‡Р°СЋС‰Р°СЏ Р·РѕРЅР°",
+    points_norm_heatmap: points,
+  };
 }
 
 function createZoneId() {
