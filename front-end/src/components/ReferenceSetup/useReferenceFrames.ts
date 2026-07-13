@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { UiLatestSnapshot } from "../../shared/api/types";
-import { getReferenceImage } from "../../shared/referenceImages";
+import { getReferenceImage, isReferenceImageUrlInUse } from "../../shared/referenceImages";
 import type { PreviewFramePayload } from "../../shared/ws";
 
 export function useReferenceFrames(cameraIds: number[]) {
@@ -508,7 +508,12 @@ async function freezeImageUrl(imageUrl: string) {
 }
 
 function revokePreviousBlobUrl(previousUrl: string | undefined, nextUrl: string) {
-  if (previousUrl && previousUrl !== nextUrl && previousUrl.startsWith("blob:")) {
+  if (
+    previousUrl &&
+    previousUrl !== nextUrl &&
+    previousUrl.startsWith("blob:") &&
+    !isReferenceImageUrlInUse(previousUrl)
+  ) {
     URL.revokeObjectURL(previousUrl);
   }
 }

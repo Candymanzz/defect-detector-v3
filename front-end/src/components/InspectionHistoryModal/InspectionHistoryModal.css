@@ -5,6 +5,7 @@
 .inspection-history-modal__grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: start;
   gap: 14px;
   min-height: 0;
 }
@@ -127,8 +128,13 @@
   font-weight: 700;
 }
 
+.inspection-history-modal__details {
+  min-width: 0;
+}
+
 .inspection-history-modal__details pre {
-  max-height: 220px;
+  max-width: 100%;
+  max-height: min(32vh, 260px);
   margin: 8px 0 0;
   padding: 10px;
   overflow: auto;
@@ -136,6 +142,9 @@
   background: rgba(0, 0, 0, 0.28);
   color: #c7d2ce;
   font-size: 0.7rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 @media (max-width: 1400px) {

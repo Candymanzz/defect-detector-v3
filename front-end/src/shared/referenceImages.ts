@@ -198,6 +198,10 @@ export function deleteArchivedReferenceGroup(id: string) {
   emitReferenceImageChange();
 }
 
+export function isReferenceImageUrlInUse(imageUrl: string) {
+  return isImageUrlInUse(imageUrl);
+}
+
 export function subscribeReferenceImages(listener: ReferenceImageListener) {
   listeners.add(listener);
   return () => {
