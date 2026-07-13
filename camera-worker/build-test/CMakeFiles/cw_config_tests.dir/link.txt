@@ -1,1 +1,0 @@
-/usr/bin/cc CMakeFiles/cw_config_tests.dir/tests/test_cw_config.c.o CMakeFiles/cw_config_tests.dir/src/cw_config.c.o -o cw_config_tests 

@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "dgSpecHash": "WhJ0Nl2nxss=",
+  "success": true,
+  "projectFilePath": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.Tests\\LightServer.Tests.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\microsoft.codecoverage\\17.14.0\\microsoft.codecoverage.17.14.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\microsoft.extensions.apidescription.server\\10.0.0\\microsoft.extensions.apidescription.server.10.0.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\microsoft.net.test.sdk\\17.14.0\\microsoft.net.test.sdk.17.14.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\microsoft.openapi\\2.4.1\\microsoft.openapi.2.4.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\microsoft.testplatform.objectmodel\\17.14.0\\microsoft.testplatform.objectmodel.17.14.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\microsoft.testplatform.testhost\\17.14.0\\microsoft.testplatform.testhost.17.14.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.android-arm.runtime.native.system.io.ports\\10.0.8\\runtime.android-arm.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.android-arm64.runtime.native.system.io.ports\\10.0.8\\runtime.android-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.android-x64.runtime.native.system.io.ports\\10.0.8\\runtime.android-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.android-x86.runtime.native.system.io.ports\\10.0.8\\runtime.android-x86.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-arm.runtime.native.system.io.ports\\10.0.8\\runtime.linux-arm.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-arm64.runtime.native.system.io.ports\\10.0.8\\runtime.linux-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-bionic-arm64.runtime.native.system.io.ports\\10.0.8\\runtime.linux-bionic-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-bionic-x64.runtime.native.system.io.ports\\10.0.8\\runtime.linux-bionic-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-musl-arm.runtime.native.system.io.ports\\10.0.8\\runtime.linux-musl-arm.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-musl-arm64.runtime.native.system.io.ports\\10.0.8\\runtime.linux-musl-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-musl-x64.runtime.native.system.io.ports\\10.0.8\\runtime.linux-musl-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.linux-x64.runtime.native.system.io.ports\\10.0.8\\runtime.linux-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.maccatalyst-arm64.runtime.native.system.io.ports\\10.0.8\\runtime.maccatalyst-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.maccatalyst-x64.runtime.native.system.io.ports\\10.0.8\\runtime.maccatalyst-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.native.system.io.ports\\10.0.8\\runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.osx-arm64.runtime.native.system.io.ports\\10.0.8\\runtime.osx-arm64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\runtime.osx-x64.runtime.native.system.io.ports\\10.0.8\\runtime.osx-x64.runtime.native.system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\swashbuckle.aspnetcore\\10.1.7\\swashbuckle.aspnetcore.10.1.7.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\swashbuckle.aspnetcore.swagger\\10.1.7\\swashbuckle.aspnetcore.swagger.10.1.7.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\swashbuckle.aspnetcore.swaggergen\\10.1.7\\swashbuckle.aspnetcore.swaggergen.10.1.7.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\swashbuckle.aspnetcore.swaggerui\\10.1.7\\swashbuckle.aspnetcore.swaggerui.10.1.7.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\system.io.ports\\10.0.8\\system.io.ports.10.0.8.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit\\2.9.3\\xunit.2.9.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit.abstractions\\2.0.3\\xunit.abstractions.2.0.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit.analyzers\\1.18.0\\xunit.analyzers.1.18.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit.assert\\2.9.3\\xunit.assert.2.9.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit.core\\2.9.3\\xunit.core.2.9.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit.extensibility.core\\2.9.3\\xunit.extensibility.core.2.9.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit.extensibility.execution\\2.9.3\\xunit.extensibility.execution.2.9.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\xunit.runner.visualstudio\\3.1.0\\xunit.runner.visualstudio.3.1.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget\\yamldotnet\\16.3.0\\yamldotnet.16.3.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1903",
+      "level": "Warning",
+      "message": "Package 'Microsoft.OpenApi' 2.4.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-v5pm-xwqc-g5wc",
+      "projectPath": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.Tests\\LightServer.Tests.csproj",
+      "warningLevel": 1,
+      "filePath": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.Tests\\LightServer.Tests.csproj",
+      "libraryId": "Microsoft.OpenApi",
+      "targetGraphs": [
+        "net10.0"
+      ]
+    }
+  ]
+}

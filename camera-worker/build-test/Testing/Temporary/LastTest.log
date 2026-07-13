@@ -1,10 +1,10 @@
-Start testing: Jul 13 13:42 MSK
+Start testing: Jul 13 14:04 Arabic Standard Time
 ----------------------------------------------------------
 1/1 Testing: cw_config_tests
 1/1 Test: cw_config_tests
-Command: "/home/oleg/Загрузки/realise/Kal/camera-worker/build-test/cw_config_tests"
-Directory: /home/oleg/Загрузки/realise/Kal/camera-worker/build-test
-"cw_config_tests" start time: Jul 13 13:42 MSK
+Command: "D:/visionGay/defect-detector-v3/camera-worker/build-test/Release/cw_config_tests.exe"
+Directory: D:/visionGay/defect-detector-v3/camera-worker/build-test
+"cw_config_tests" start time: Jul 13 14:04 Arabic Standard Time
 Output:
 ----------------------------------------------------------
 camera-worker tests passed
@@ -12,8 +12,8 @@ camera-worker tests passed
 Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"cw_config_tests" end time: Jul 13 13:42 MSK
+"cw_config_tests" end time: Jul 13 14:04 Arabic Standard Time
 "cw_config_tests" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-End testing: Jul 13 13:42 MSK
+End testing: Jul 13 14:04 Arabic Standard Time

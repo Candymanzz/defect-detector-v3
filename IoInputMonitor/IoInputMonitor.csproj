@@ -28,6 +28,13 @@
     <InternalsVisibleTo Include="IoInputMonitor.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="IoInputMonitor.Tests\**" />
+    <None Remove="IoInputMonitor.Tests\**" />
+    <Content Remove="IoInputMonitor.Tests\**" />
+    <EmbeddedResource Remove="IoInputMonitor.Tests\**" />
+  </ItemGroup>
+
   <Target Name="ValidateMvIoDll" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(MvIoRuntimeDir)\MvIOInterfaceBox.dll')"
            Text="MvIOInterfaceBox.dll not found. Place SDK files in IoInputMonitor/ThirdParty/MVS/IO/win64/." />

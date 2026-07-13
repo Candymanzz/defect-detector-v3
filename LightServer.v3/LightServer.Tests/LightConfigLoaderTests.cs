@@ -1,5 +1,6 @@
 using LightServer.Configuration;
 using LightServer.Services;
+using Xunit;
 
 namespace LightServer.Tests;
 

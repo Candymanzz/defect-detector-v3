@@ -81,11 +81,18 @@ if (Test-Path $lightTests) {
 $cameraWorker = Join-Path $root "camera-worker"
 if (Test-Path (Join-Path $cameraWorker "CMakeLists.txt")) {
     Invoke-Step "camera-worker (CTest)" $cameraWorker {
+        $cache = Join-Path "build-test" "CMakeCache.txt"
+        if (Test-Path $cache) {
+            $cacheText = Get-Content $cache -Raw
+            if ($cacheText -match '/home/' -or $cacheText -notmatch [regex]::Escape((Get-Location).Path)) {
+                Remove-Item -Recurse -Force "build-test"
+            }
+        }
         if (-not (Test-Path "build-test")) {
             cmake -S . -B build-test | Out-Host
         }
-        cmake --build build-test --target cw_config_tests | Out-Host
-        ctest --test-dir build-test --output-on-failure | Out-Host
+        cmake --build build-test --config Release --target cw_config_tests | Out-Host
+        ctest --test-dir build-test -C Release --output-on-failure | Out-Host
     }
 }
 

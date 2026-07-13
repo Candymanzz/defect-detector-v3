@@ -14,7 +14,7 @@ import java.util.Map;
  * <p>Запуск:
  * {@code mvn -q test-compile exec:java -Dexec.mainClass=com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain -Dexec.classpathScope=test -Dexec.args=".."}
  *
- * <p>Только часть: {@code -Dexec.args=".. --only=plc,light,cameras,io,light-hw"}
+ * <p>Только часть: {@code -Dexec.args=".. --only=plc,light,cameras,io,light-hw,timing"}
  */
 public final class HardwareSmokeMain {
 
@@ -45,6 +45,9 @@ public final class HardwareSmokeMain {
     }
     if (SmokeSupport.shouldRun(only, "plc")) {
       results.addAll(PlcFinsSmokeMain.run(root, projectRoot));
+    }
+    if (SmokeSupport.shouldRun(only, "timing")) {
+      results.addAll(BucketTimingSmokeMain.run(root, projectRoot));
     }
 
     SmokeSupport.printSummary(results);
