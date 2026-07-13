@@ -139,11 +139,23 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   : "reference-setup__button reference-setup__button--fp"
               }
               type="button"
+              aria-pressed={isFpZoneMode}
               disabled={!fpZoneSlot?.imageUrl}
-              onClick={() => setIsFpZoneMode(true)}
+              title={isFpZoneMode ? "Вернуться к редактированию ROI" : "Редактировать исключающие зоны"}
+              onClick={() => setIsFpZoneMode((current) => !current)}
             >
               Исключающие зоны ({selectedFpZones.length})
             </button>
+
+            {isFpZoneMode && (
+              <button
+                className="reference-setup__button"
+                type="button"
+                onClick={() => setIsFpZoneMode(false)}
+              >
+                Редактировать ROI
+              </button>
+            )}
 
             {isFpZoneMode && (
               <button
@@ -231,9 +243,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     }
                     type="button"
                     onClick={() => {
-                      if (!isFpZoneMode) {
-                        setIsFpZoneMode(false);
-                      }
                       handleSelectCamera(slot.cameraId);
                     }}
                   >
