@@ -7,7 +7,6 @@ import { FpZoneEditor } from "../FpZoneEditor";
 import {
   deleteArchivedReferenceGroup,
   getArchivedReferenceGroups,
-  getReferenceImage,
   subscribeReferenceImages,
 } from "../../shared/referenceImages";
 import type { ArchivedReferenceGroup } from "../../shared/referenceImages";
@@ -22,14 +21,12 @@ type ReferenceSetupProps = {
 export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps) {
   const {
     status,
-    message,
     cameraSlots,
     cameraGroups,
     activeGroupIndex,
     setActiveGroupIndex,
     jointViewIndex,
     jointCameraId,
-    hasSelectedCameraRoi,
     hasJointRoi,
     canSendAllReferences,
     canSaveFpZones,
@@ -55,11 +52,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
     selectedRoiMode === "joint" ? jointRoiPolygon : (roiPolygonsByCameraId[selectedCameraId] ?? []);
-  const storedReferenceImage = useSyncExternalStore(
-    subscribeReferenceImages,
-    () => getReferenceImage(selectedCameraId),
-    () => undefined,
-  );
   const archivedReferences = useSyncExternalStore(
     subscribeReferenceImages,
     getArchivedReferenceGroups,
@@ -238,36 +230,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="reference-setup__info">
-            <p className="reference-setup__reference-status">
-              {storedReferenceImage ? `Эталон задан для Camera ${selectedCameraId}` : "Эталон ещё не задан"}
-            </p>
-            <p className="reference-setup__roi-status">
-              {hasSelectedCameraRoi
-                ? `ROI задан для Camera ${selectedCameraId}`
-                : `Задайте ROI-контур для Camera ${selectedCameraId}: минимум 3 точки`}
-            </p>
-            <p className="reference-setup__roi-status">
-              {fpZones.length === 0
-                ? "FP zones не заданы (необязательно)"
-                : fpZones.every((zone) => zone.points_norm_heatmap.length >= 3)
-                  ? `FP zones заданы: ${fpZones.length}`
-                  : "Завершите контур FP zone: минимум 3 точки"}
-            </p>
-            <p className="reference-setup__roi-status">
-              {selectedRoiMode === "joint"
-                ? `Редактируется joint ROI для Camera ${jointCameraId}`
-                : hasJointRoi
-                  ? `Joint ROI задан для Camera ${jointCameraId}`
-                  : "Joint ROI не задан (необязательно)"}
-            </p>
-            <p className="reference-setup__hint">
-              Статус: {status.state}
-              <br />
-              {message}
-            </p>
           </div>
 
           <ReferenceArchive

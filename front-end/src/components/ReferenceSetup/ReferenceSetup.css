@@ -1,36 +1,22 @@
 .reference-setup.modal {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .reference-setup__body {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: 12px;
-  flex: 1;
   min-height: 0;
-  overflow: auto;
-}
-
-.reference-setup__reference-status,
-.reference-setup__roi-status,
-.reference-setup__hint {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.reference-setup__reference-status {
-  color: #9becbd;
-  font-weight: 800;
-}
-
-.reference-setup__roi-status,
-.reference-setup__hint {
-  color: #c5cdd6;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .reference-setup__toolbar {
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -133,6 +119,7 @@
 
 .reference-setup__workspace {
   display: flex;
+  flex: 0 0 auto;
   justify-content: center;
   gap: 14px;
   align-items: flex-start;
@@ -141,7 +128,6 @@
 
 .reference-setup__editor {
   width: min(100%, 800px);
-  height: 100%;
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -161,17 +147,9 @@
   align-items: stretch;
 }
 
-.reference-setup__info {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.18);
-}
-
 .reference-setup__archive {
   display: grid;
+  flex: 0 0 auto;
   gap: 12px;
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
