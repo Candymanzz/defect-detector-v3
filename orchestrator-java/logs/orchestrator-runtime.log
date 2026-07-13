@@ -46695,3 +46695,282 @@ java.io.IOException: EOF
 2026-07-12 23:33:19.335 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
 2026-07-12 23:33:19.338 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit4942520097472619935\light_brightness_settings.json default=42 endpoints=2
 2026-07-12 23:33:19.350 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 10:07:43.669 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit14397299891196998843\camera_runtime_settings.json cameras=2
+2026-07-13 10:07:43.679 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit10753238052587967391\camera_runtime_settings.json cameras=1
+2026-07-13 10:07:43.821 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 10:07:43.822 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 10:07:43.822 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 10:07:43.826 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit11110920023943134872\light_brightness_settings.json default=42 endpoints=2
+2026-07-13 10:07:43.844 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 10:07:43.880 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 10:07:43.884 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 10:07:43.887 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 10:07:43.887 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 10:07:43.919 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 10:07:43.920 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 10:07:43.920 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 10:07:43.920 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 10:07:43.920 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 10:07:43.921 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 10:07:43.921 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 10:07:43.922 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 10:07:43.922 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 10:07:43.922 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 10:07:43.934 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 10:07:43.950 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=13
+2026-07-13 10:07:43.951 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=13 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 10:07:43.963 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 10:07:43.965 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 10:08:15.722 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit5388002699496619434\camera_runtime_settings.json cameras=2
+2026-07-13 10:08:15.731 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit14540821853917660891\camera_runtime_settings.json cameras=1
+2026-07-13 10:08:15.878 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 10:08:15.878 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 10:08:15.878 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 10:08:15.882 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit6757540148429827947\light_brightness_settings.json default=42 endpoints=2
+2026-07-13 10:08:15.898 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 10:08:15.935 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 10:08:15.939 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 10:08:15.942 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 10:08:15.943 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 10:08:15.975 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 10:08:15.975 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 10:08:15.975 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 10:08:15.976 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 10:08:15.976 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 10:08:15.976 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 10:08:15.976 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 10:08:15.976 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 10:08:15.977 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 10:08:15.977 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 10:08:15.984 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 10:08:15.988 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=2
+2026-07-13 10:08:15.989 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=2 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 10:08:15.991 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 10:08:15.993 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 10:19:57.445 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - PLC smoke test host=169.254.220.231:9600 dest_node=231 src_node=254 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml
+2026-07-13 10:19:57.456 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - >>> vision_ready ON (app ready)
+2026-07-13 10:19:57.459 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-07-13 10:19:59.268 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - >>> reject_line_1 pulse (defect bucket 0)
+2026-07-13 10:19:59.271 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=reject_line_1 area=W address=0.6 value=true
+2026-07-13 10:19:59.472 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-07-13 10:20:00.291 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - >>> reject_line_2 pulse (defect bucket 1)
+2026-07-13 10:20:00.293 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=reject_line_2 area=W address=0.7 value=true
+2026-07-13 10:20:00.493 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-07-13 10:20:01.309 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - >>> vision_fault ON (alarm)
+2026-07-13 10:20:01.311 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=vision_fault area=W address=0.5 value=true
+2026-07-13 10:20:03.117 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - >>> vision_fault OFF
+2026-07-13 10:20:03.119 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-07-13 10:20:03.939 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - >>> vision_ready OFF (shutdown)
+2026-07-13 10:20:03.941 INFO  [plc-fins-publisher] c.e.i.o.i.p.PlcFinsSmokeMain - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-07-13 10:20:04.757 INFO  [com.example.iml.orchestrator.integration.plc.PlcFinsSmokeMain.main()] c.e.i.o.i.p.PlcFinsSmokeMain - PLC smoke test finished OK
+2026-07-13 10:25:05.073 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.HardwareSmokeMain - hardware smoke start root=D:\visionGay\defect-detector-v3 only=all
+2026-07-13 10:25:05.078 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-0 169.254.218.1
+2026-07-13 10:25:06.262 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-1 169.254.218.2
+2026-07-13 10:25:07.763 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-2 169.254.222.3
+2026-07-13 10:25:07.764 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-3 169.254.222.4
+2026-07-13 10:25:07.765 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-4 169.254.146.5
+2026-07-13 10:25:09.266 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-5 169.254.146.6
+2026-07-13 10:25:10.772 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-6 169.254.6.7
+2026-07-13 10:25:12.266 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-7 169.254.6.8
+2026-07-13 10:25:13.759 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-8 169.254.220.9
+2026-07-13 10:25:15.272 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-9 169.254.220.10
+2026-07-13 10:25:16.768 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.CameraConnectivitySmokeMain - cameras reachable 2/10
+2026-07-13 10:25:16.769 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> COM device com1 port=COM1
+2026-07-13 10:25:16.770 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-1 192.168.1.14
+2026-07-13 10:25:16.771 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-2 192.168.1.11
+2026-07-13 10:25:16.772 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-3 192.168.1.8
+2026-07-13 10:25:16.772 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-4 169.254.220.1
+2026-07-13 10:25:18.272 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.LightHardwareSmokeMain - light hardware ethernet reachable 3/4
+2026-07-13 10:25:18.431 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> GET status http://127.0.0.1:5080/api/com/light
+2026-07-13 10:25:18.560 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI1 work ON -> 127.0.0.1:9100
+2026-07-13 10:25:18.787 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI2 direction OFF -> 127.0.0.1:9100
+2026-07-13 10:25:19.004 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 idle -> 127.0.0.1:9100
+2026-07-13 10:25:19.206 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger rising -> 127.0.0.1:9100
+2026-07-13 10:25:19.518 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger falling -> 127.0.0.1:9100
+2026-07-13 10:25:19.518 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.IoInputUdpSmokeMain - io udp smoke sent 5 packets to 127.0.0.1:9100
+2026-07-13 10:25:19.523 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.PlcFinsSmokeMain - PLC smoke host=169.254.220.231:9600 dest_node=231 src_node=254 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml
+2026-07-13 10:25:19.525 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_ready ON
+2026-07-13 10:25:19.528 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-07-13 10:25:21.343 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> reject_line_1 pulse
+2026-07-13 10:25:21.346 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_1 area=W address=0.6 value=true
+2026-07-13 10:25:21.547 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-07-13 10:25:22.363 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> reject_line_2 pulse
+2026-07-13 10:25:22.365 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_2 area=W address=0.7 value=true
+2026-07-13 10:25:22.564 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-07-13 10:25:23.381 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_fault ON
+2026-07-13 10:25:23.383 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_fault area=W address=0.5 value=true
+2026-07-13 10:25:25.206 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_fault OFF
+2026-07-13 10:25:25.208 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-07-13 10:25:26.024 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_ready OFF
+2026-07-13 10:25:26.026 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-07-13 10:25:26.840 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.PlcFinsSmokeMain - PLC smoke finished
+2026-07-13 10:25:26.840 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - --- smoke summary: 34 steps, 10 failed ---
+2026-07-13 10:25:26.841 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-0 — 169.254.218.1 unreachable
+2026-07-13 10:25:26.841 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-1 — 169.254.218.2 unreachable
+2026-07-13 10:25:26.841 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] cameras / camera-2 — 169.254.222.3 reachable
+2026-07-13 10:25:26.841 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] cameras / camera-3 — 169.254.222.4 reachable
+2026-07-13 10:25:26.841 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-4 — 169.254.146.5 unreachable
+2026-07-13 10:25:26.841 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-5 — 169.254.146.6 unreachable
+2026-07-13 10:25:26.841 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-6 — 169.254.6.7 unreachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-7 — 169.254.6.8 unreachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-8 — 169.254.220.9 unreachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-9 — 169.254.220.10 unreachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / com1 — SKIP: COM COM1 — ???????? ????? LightServer
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / mv-le-1 — 192.168.1.14 reachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / mv-le-2 — 192.168.1.11 reachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / mv-le-3 — 192.168.1.8 reachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] light-hw / mv-le-4 — 169.254.220.1 unreachable
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] light / status — LightServer unreachable: null
+2026-07-13 10:25:26.842 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / target — 127.0.0.1:9100 format=json
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON — parsed di=1 value=true
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON send — {"di":1,"value":1,"ts_ms":1783927518541}
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF — parsed di=2 value=false
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF send — {"di":2,"value":0,"ts_ms":1783927518787}
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle — parsed di=3 value=false
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle send — {"di":3,"value":0,"ts_ms":1783927519004}
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising — parsed di=3 value=true
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising send — {"di":3,"value":1,"ts_ms":1783927519206}
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling — parsed di=3 value=false
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling send — {"di":3,"value":0,"ts_ms":1783927519518}
+2026-07-13 10:25:26.843 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / config — 169.254.220.231:9600
+2026-07-13 10:25:26.844 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_ready ON — FINS write OK
+2026-07-13 10:25:26.844 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / reject_line_1 pulse — FINS write OK
+2026-07-13 10:25:26.844 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / reject_line_2 pulse — FINS write OK
+2026-07-13 10:25:26.844 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_fault ON — FINS write OK
+2026-07-13 10:25:26.844 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_fault OFF — FINS write OK
+2026-07-13 10:25:26.844 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_ready OFF — FINS write OK
+2026-07-13 10:25:26.844 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.HardwareSmokeMain - hardware smoke finished with 10 failures
+2026-07-13 10:25:43.832 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit8042586374115024117\camera_runtime_settings.json cameras=2
+2026-07-13 10:25:43.842 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit13529582924820898449\camera_runtime_settings.json cameras=1
+2026-07-13 10:25:43.992 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 10:25:43.992 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 10:25:43.992 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 10:25:43.996 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit12371811440845800384\light_brightness_settings.json default=42 endpoints=2
+2026-07-13 10:25:44.015 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 10:25:44.054 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 10:25:44.058 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 10:25:44.060 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 10:25:44.061 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 10:25:44.101 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 10:25:44.102 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 10:25:44.102 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 10:25:44.102 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 10:25:44.102 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 10:25:44.103 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 10:25:44.103 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 10:25:44.104 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 10:25:44.104 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 10:25:44.104 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 10:25:44.113 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 10:25:44.120 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=4
+2026-07-13 10:25:44.121 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=3 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 10:25:44.123 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 10:25:44.125 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 10:29:58.639 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.HardwareSmokeMain - hardware smoke start root=D:\visionGay\defect-detector-v3 only=all
+2026-07-13 10:29:58.644 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-0 169.254.218.1
+2026-07-13 10:29:59.760 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-1 169.254.218.2
+2026-07-13 10:30:01.272 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-2 169.254.222.3
+2026-07-13 10:30:01.273 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-3 169.254.222.4
+2026-07-13 10:30:01.274 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-4 169.254.146.5
+2026-07-13 10:30:01.275 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-5 169.254.146.6
+2026-07-13 10:30:01.275 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-6 169.254.6.7
+2026-07-13 10:30:02.762 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-7 169.254.6.8
+2026-07-13 10:30:04.261 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-8 169.254.220.9
+2026-07-13 10:30:05.772 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping camera-9 169.254.220.10
+2026-07-13 10:30:07.267 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.CameraConnectivitySmokeMain - cameras reachable 4/10
+2026-07-13 10:30:07.268 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> COM device com1 port=COM1
+2026-07-13 10:30:07.269 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-1 192.168.1.14
+2026-07-13 10:30:07.270 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-2 192.168.1.11
+2026-07-13 10:30:07.270 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-3 192.168.1.8
+2026-07-13 10:30:07.271 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> ping mv-le-4 169.254.220.1
+2026-07-13 10:30:08.761 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.LightHardwareSmokeMain - light hardware ethernet reachable 3/4
+2026-07-13 10:30:08.918 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> GET status http://127.0.0.1:5080/api/com/light
+2026-07-13 10:30:09.068 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light_servers: on=http://127.0.0.1:5080/api/com/light off=http://127.0.0.1:5080/api/com/light brightness_pair=http://127.0.0.1:5080/api/camera-flash/pair brightness_single=http://127.0.0.1:5080/api/camera-flash/single cameras=10 default_brightness_percent=80 hold_mode=true
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=0 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=1 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=2 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=3 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=4 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=5 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=6 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=7 mode=PAIR brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=8 mode=SINGLE brightness_percent=80
+2026-07-13 10:30:09.069 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient -   light camera id=9 mode=SINGLE brightness_percent=80
+2026-07-13 10:30:09.070 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> await COM bank initialized
+2026-07-13 10:30:29.436 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light COM bank not initialized within 20000 ms — ?????? POST on ????? ?????? 8–12 s
+2026-07-13 10:30:29.445 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> flash camera-0
+2026-07-13 10:30:29.446 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light On cam=0 frame=1 phase=smoke brightness={camera-9=80, camera-8=80, camera-7=80, camera-6=80, camera-5=80, camera-4=80, camera-3=80, camera-2=80, camera-1=80, camera-0=80}
+2026-07-13 10:30:30.191 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-0 -> {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":1,"channels":[1,2],"brightness":[204,204]}
+2026-07-13 10:30:30.596 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> flash camera-5
+2026-07-13 10:30:30.596 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light On cam=5 frame=1 phase=smoke brightness={camera-9=80, camera-8=80, camera-7=80, camera-6=80, camera-5=80, camera-4=80, camera-3=80, camera-2=80, camera-1=80, camera-0=80}
+2026-07-13 10:30:31.320 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-5 -> {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":0,"channels":[3,4],"brightness":[204,204]}
+2026-07-13 10:30:31.724 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> flash camera-8
+2026-07-13 10:30:31.724 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light On cam=8 frame=1 phase=smoke brightness={camera-9=80, camera-8=80, camera-7=80, camera-6=80, camera-5=80, camera-4=80, camera-3=80, camera-2=80, camera-1=80, camera-0=80}
+2026-07-13 10:30:31.730 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light camera-8 on failed: light POST http://127.0.0.1:5080/api/camera-flash/single failed status=400 body={"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[204],"error":"?? COM_Port#COM1 ?????? ?? ??????? ????? SetEnumSerialPorts. ???????? MVS Client ? ?????????."}
+2026-07-13 10:30:32.145 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> force all off
+2026-07-13 10:30:34.174 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light Off failed: light POST http://127.0.0.1:5080/api/com/light failed status=400 body={"success":false,"message":null,"error":"COM1 ?? ?????? ? EnumDevices. ?????: []","state":"off","brightness":null,"results":[]}
+2026-07-13 10:30:36.186 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.l.LightTriggerClient - light Off failed: light POST http://127.0.0.1:5080/api/com/light failed status=400 body={"success":false,"message":null,"error":"COM1 ?? ?????? ? EnumDevices. ?????: []","state":"off","brightness":null,"results":[]}
+2026-07-13 10:30:36.186 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.LightSmokeMain - light smoke finished, cameras configured=10
+2026-07-13 10:30:36.191 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI1 work ON -> 127.0.0.1:9100
+2026-07-13 10:30:36.405 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI2 direction OFF -> 127.0.0.1:9100
+2026-07-13 10:30:36.609 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 idle -> 127.0.0.1:9100
+2026-07-13 10:30:36.814 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger rising -> 127.0.0.1:9100
+2026-07-13 10:30:37.126 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger falling -> 127.0.0.1:9100
+2026-07-13 10:30:37.127 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.IoInputUdpSmokeMain - io udp smoke sent 5 packets to 127.0.0.1:9100
+2026-07-13 10:30:37.131 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.PlcFinsSmokeMain - PLC smoke host=169.254.220.231:9600 dest_node=231 src_node=254 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml
+2026-07-13 10:30:37.133 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_ready ON
+2026-07-13 10:30:37.136 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-07-13 10:30:38.949 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> reject_line_1 pulse
+2026-07-13 10:30:38.952 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_1 area=W address=0.6 value=true
+2026-07-13 10:30:39.151 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-07-13 10:30:39.962 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> reject_line_2 pulse
+2026-07-13 10:30:39.964 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_2 area=W address=0.7 value=true
+2026-07-13 10:30:40.163 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-07-13 10:30:40.991 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_fault ON
+2026-07-13 10:30:40.992 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_fault area=W address=0.5 value=true
+2026-07-13 10:30:42.813 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_fault OFF
+2026-07-13 10:30:42.815 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-07-13 10:30:43.631 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> vision_ready OFF
+2026-07-13 10:30:43.633 INFO  [plc-fins-publisher] c.e.i.o.i.s.PlcFinsSmokeMain - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.PlcFinsSmokeMain - PLC smoke finished
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - --- smoke summary: 39 steps, 8 failed ---
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-0 — 169.254.218.1 unreachable
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-1 — 169.254.218.2 unreachable
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] cameras / camera-2 — 169.254.222.3 reachable
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] cameras / camera-3 — 169.254.222.4 reachable
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] cameras / camera-4 — 169.254.146.5 reachable
+2026-07-13 10:30:44.448 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] cameras / camera-5 — 169.254.146.6 reachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-6 — 169.254.6.7 unreachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-7 — 169.254.6.8 unreachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-8 — 169.254.220.9 unreachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] cameras / camera-9 — 169.254.220.10 unreachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / com1 — SKIP: COM COM1 — ???????? ????? LightServer
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / mv-le-1 — 192.168.1.14 reachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / mv-le-2 — 192.168.1.11 reachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light-hw / mv-le-3 — 192.168.1.8 reachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] light-hw / mv-le-4 — 169.254.220.1 unreachable
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light / status — HTTP 200 {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardwa...
+2026-07-13 10:30:44.449 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light / init — endpoints ready or timeout logged
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light / flash camera-0 — brightness route OK
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light / flash camera-5 — brightness route OK
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] light / flash camera-8 — lightOn returned false
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] light / off — forceAllOff sent
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / target — 127.0.0.1:9100 format=json
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON — parsed di=1 value=true
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON send — {"di":1,"value":1,"ts_ms":1783927836190}
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF — parsed di=2 value=false
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF send — {"di":2,"value":0,"ts_ms":1783927836405}
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle — parsed di=3 value=false
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle send — {"di":3,"value":0,"ts_ms":1783927836609}
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising — parsed di=3 value=true
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising send — {"di":3,"value":1,"ts_ms":1783927836814}
+2026-07-13 10:30:44.450 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling — parsed di=3 value=false
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling send — {"di":3,"value":0,"ts_ms":1783927837126}
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / config — 169.254.220.231:9600
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_ready ON — FINS write OK
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / reject_line_1 pulse — FINS write OK
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / reject_line_2 pulse — FINS write OK
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_fault ON — FINS write OK
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_fault OFF — FINS write OK
+2026-07-13 10:30:44.451 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] plc / vision_ready OFF — FINS write OK
+2026-07-13 10:30:44.451 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.HardwareSmokeMain - hardware smoke finished with 8 failures
