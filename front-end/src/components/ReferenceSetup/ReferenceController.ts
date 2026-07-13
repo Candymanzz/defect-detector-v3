@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { MutableRefObject } from "react";
 import { orchestratorApi } from "../../shared/api";
 import {
+  getArchivedReferenceGroup,
+  getReferenceImage,
   stageReferenceBundleContours,
   updateReferenceFpZones,
 } from "../../shared/referenceImages";
@@ -36,8 +38,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId);
   const referenceFpZones = useReferenceFpZones(cameraGroups, activeGroupIndex);
   const setReferenceFpZones = referenceFpZones.setFpZones;
-  const { handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
+  const { captureLatestImages, handlePreviewFrame, imageUrlsByCameraId, refreshLatestImages } = referenceFrames;
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
+  const hasStoredReferenceForActiveGroup = activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
   const canSendAllReferences = Boolean(
     cameraGroups.length > 0 &&
       cameraGroups.every(
@@ -253,6 +256,60 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     sendReferenceForGroups(cameraGroups);
   };
 
+  const handleCaptureNewReferenceFrames = async () => {
+    if (activeCameraIds.length === 0) {
+      setMessage("Configured camera list is empty");
+      return;
+    }
+
+    setMessage(`Capturing latest frames for cameras: ${activeCameraIds.join(", ")}`);
+    const { loadedCameraIds, snapshotCameraIds, missingCameraIds } = await captureLatestImages(activeCameraIds);
+    const capturedCameraIds = [...loadedCameraIds, ...snapshotCameraIds].sort((left, right) => left - right);
+
+    if (capturedCameraIds.length === activeCameraIds.length) {
+      setMessage(`New reference frames captured for cameras: ${capturedCameraIds.join(", ")}`);
+      return;
+    }
+
+    if (capturedCameraIds.length > 0) {
+      setMessage(
+        `New reference frames captured for cameras: ${capturedCameraIds.join(", ")}. Missing: ${missingCameraIds.join(", ")}`,
+      );
+      return;
+    }
+
+    setMessage(`Could not capture latest frames for cameras: ${missingCameraIds.join(", ")}`);
+  };
+
+  const handleUseArchivedReference = (archiveId: string) => {
+    const archive = getArchivedReferenceGroup(archiveId);
+    if (!archive) {
+      setMessage("Archived reference was not found");
+      return;
+    }
+
+    if (status.state !== "open") {
+      setMessage("WebSocket is not open");
+      return;
+    }
+
+    try {
+      startReferenceResumeTimeout(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
+      const messageId = orchestratorWs.sendReferenceBundle(archive.bundle, archive.imageUrlsByCameraId);
+      stageReferenceBundleContours(
+        messageId,
+        Object.fromEntries(archive.images.map((image) => [image.cameraId, image.roiPoints])),
+        archive.jointCameraId,
+        archive.images.find((image) => image.cameraId === archive.jointCameraId)?.jointRoiPoints ?? [],
+      );
+      pendingReferenceMessageIdsRef.current.add(messageId);
+      setMessage(`Archived reference sent for cameras ${archive.cameraIds.join(", ")}`);
+    } catch (error) {
+      resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const handleSaveFpZones = () => {
     if (!canSaveFpZones) {
       setMessage("A frame and valid FP zone contours are required");
@@ -376,10 +433,13 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     ...referenceFpZones,
     canSendAllReferences,
     canSaveFpZones,
+    hasStoredReferenceForActiveGroup,
+    handleCaptureNewReferenceFrames,
     handleSendAllReferences,
     handleSaveFpZones,
     handleSelectCamera,
     handleSelectJointRoi,
+    handleUseArchivedReference,
   };
 }
 

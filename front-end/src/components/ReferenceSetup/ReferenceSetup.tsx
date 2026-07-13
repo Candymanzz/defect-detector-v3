@@ -1,9 +1,16 @@
 import { useState, useSyncExternalStore } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
 import { FpZoneEditor } from "../FpZoneEditor";
-import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
+import {
+  deleteArchivedReferenceGroup,
+  getArchivedReferenceGroups,
+  getReferenceImage,
+  subscribeReferenceImages,
+} from "../../shared/referenceImages";
+import type { ArchivedReferenceGroup } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
 import { useReferenceSetupController } from "./ReferenceController";
 
@@ -26,10 +33,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     hasJointRoi,
     canSendAllReferences,
     canSaveFpZones,
+    hasStoredReferenceForActiveGroup,
+    handleCaptureNewReferenceFrames,
     handleSendAllReferences,
     handleSaveFpZones,
     handleSelectCamera,
     handleSelectJointRoi,
+    handleUseArchivedReference,
     selectedCameraId,
     selectedRoiMode,
     jointRoiPolygon,
@@ -40,6 +50,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     setFpZones,
   } = useReferenceSetupController(onClose, initialCameraId);
   const [isFpZoneMode, setIsFpZoneMode] = useState(false);
+  const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
@@ -49,6 +60,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     () => getReferenceImage(selectedCameraId),
     () => undefined,
   );
+  const archivedReferences = useSyncExternalStore(
+    subscribeReferenceImages,
+    getArchivedReferenceGroups,
+    () => [],
+  );
+  const selectedArchive =
+    archivedReferences.find((referenceGroup) => referenceGroup.id === selectedArchiveId) ?? archivedReferences[0];
   const fpZoneSlot = cameraSlots.find((slot) => slot.cameraId === jointCameraId) ?? selectedSlot;
 
   return (
@@ -127,6 +145,15 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               >
                 Сохранить FP zones
               </button>
+            )}
+
+            {hasStoredReferenceForActiveGroup && (
+              <Button
+                className="reference-setup__button"
+                onClick={handleCaptureNewReferenceFrames}
+              >
+                Задать новый эталон
+              </Button>
             )}
 
             <Button
@@ -242,8 +269,145 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               {message}
             </p>
           </div>
+
+          <ReferenceArchive
+            archivedReferences={archivedReferences}
+            selectedArchive={selectedArchive}
+            onDelete={(archiveId) => {
+              deleteArchivedReferenceGroup(archiveId);
+              if (selectedArchiveId === archiveId) {
+                setSelectedArchiveId(null);
+              }
+            }}
+            onSelect={setSelectedArchiveId}
+            onUse={handleUseArchivedReference}
+          />
         </div>
       </section>
     </div>
   );
+}
+
+function ReferenceArchive({
+  archivedReferences,
+  selectedArchive,
+  onDelete,
+  onSelect,
+  onUse,
+}: {
+  archivedReferences: ArchivedReferenceGroup[];
+  selectedArchive?: ArchivedReferenceGroup;
+  onDelete: (archiveId: string) => void;
+  onSelect: (archiveId: string) => void;
+  onUse: (archiveId: string) => void;
+}) {
+  if (archivedReferences.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="reference-setup__archive" aria-label="Archive references">
+      <header className="reference-setup__archive-header">
+        <h3>Старые эталоны</h3>
+        {selectedArchive && (
+          <Button
+            className="reference-setup__button"
+            onClick={() => onUse(selectedArchive.id)}
+          >
+            Использовать выбранный
+          </Button>
+        )}
+      </header>
+
+      <div className="reference-setup__archive-layout">
+        <div className="reference-setup__archive-tiles">
+          {archivedReferences.map((archive) => (
+            <article
+              key={archive.id}
+              className="reference-setup__archive-tile"
+              data-active={archive.id === selectedArchive?.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelect(archive.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(archive.id);
+                }
+              }}
+            >
+              <img
+                src={archive.images[0]?.imageUrl}
+                alt={`Reference ${archive.cameraIds.join(", ")}`}
+              />
+              <span>{formatArchiveTime(archive.createdAtMs)}</span>
+              <strong>Cameras {archive.cameraIds.join(", ")}</strong>
+              <button
+                className="reference-setup__archive-delete"
+                type="button"
+                aria-label="Удалить старый эталон"
+                onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                  event.stopPropagation();
+                  onDelete(archive.id);
+                }}
+              >
+                x
+              </button>
+            </article>
+          ))}
+        </div>
+
+        {selectedArchive && (
+          <div className="reference-setup__archive-preview">
+            {selectedArchive.images.map((image) => (
+              <ArchiveImage
+                key={image.cameraId}
+                image={image}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ArchiveImage({ image }: { image: ArchivedReferenceGroup["images"][number] }) {
+  const roiPoints = image.roiPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const jointRoiPoints = image.jointRoiPoints?.map((point) => `${point.x},${point.y}`).join(" ");
+  const mediaStyle = {
+    "--archive-aspect": image.frame.width / image.frame.height,
+  } as CSSProperties;
+
+  return (
+    <figure className="reference-setup__archive-frame">
+      <figcaption>Camera {image.cameraId}</figcaption>
+      <div
+        className="reference-setup__archive-frame-media"
+        style={mediaStyle}
+      >
+        <img
+          src={image.imageUrl}
+          alt={`Camera ${image.cameraId}`}
+        />
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 1 1"
+          preserveAspectRatio="none"
+        >
+          {image.roiPoints.length >= 3 && <polygon points={roiPoints} />}
+          {image.jointRoiPoints && image.jointRoiPoints.length >= 3 && (
+            <polygon
+              className="reference-setup__archive-joint"
+              points={jointRoiPoints}
+            />
+          )}
+        </svg>
+      </div>
+    </figure>
+  );
+}
+
+function formatArchiveTime(createdAtMs: number) {
+  return new Date(createdAtMs).toLocaleTimeString();
 }
