@@ -32,6 +32,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     canSendAllReferences,
     canSaveFpZones,
     hasStoredReferenceForActiveGroup,
+    isNewReferenceMode,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
     handleSaveFpZones,
@@ -58,14 +59,22 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     getArchivedReferenceGroups,
     () => [],
   );
+  const activeCameraIds = cameraSlots.map((slot) => slot.cameraId);
+  const activeGroupKey = createCameraGroupKey(activeCameraIds);
+  const activeGroupArchivedReferences = archivedReferences.filter(
+    (archive) => createCameraGroupKey(archive.cameraIds) === activeGroupKey,
+  );
   const activeReferenceKey = useSyncExternalStore(
     subscribeReferenceImages,
-    () => createActiveReferenceKey(cameraSlots.map((slot) => slot.cameraId)),
+    () => createActiveReferenceKey(activeCameraIds),
     () => "",
   );
   const selectedArchive =
-    archivedReferences.find((referenceGroup) => referenceGroup.id === selectedArchiveId) ?? archivedReferences[0];
-  const activeArchive = archivedReferences.find((archive) => createArchiveReferenceKey(archive) === activeReferenceKey);
+    activeGroupArchivedReferences.find((referenceGroup) => referenceGroup.id === selectedArchiveId) ??
+    activeGroupArchivedReferences[0];
+  const activeArchive = activeGroupArchivedReferences.find(
+    (archive) => createArchiveReferenceKey(archive) === activeReferenceKey,
+  );
   const fpZoneSlot = cameraSlots.find((slot) => slot.cameraId === jointCameraId) ?? selectedSlot;
 
   return (
@@ -160,17 +169,22 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               disabled={!canSendAllReferences}
               onClick={handleSendAllReferences}
             >
-              Р—Р°РґР°С‚СЊ СЌС‚Р°Р»РѕРЅ
+              {isNewReferenceMode ? "Сохранить новый эталон" : "Задать эталон"}
             </Button>
           </div>
 
-          {activeReferenceKey && (
-            <div className="reference-setup__active-reference" data-source={activeArchive ? "archive" : "current"}>
-              <strong>Р’ СЂР°Р±РѕС‚Рµ</strong>
+          {(activeReferenceKey || isNewReferenceMode) && (
+            <div
+              className="reference-setup__active-reference"
+              data-source={isNewReferenceMode ? "new" : activeArchive ? "archive" : "current"}
+            >
+              <strong>{isNewReferenceMode ? "Новый эталон" : "В работе"}</strong>
               <span>
-                {activeArchive
-                  ? `СЃС‚Р°СЂС‹Р№ СЌС‚Р°Р»РѕРЅ РѕС‚ ${formatArchiveTime(activeArchive.createdAtMs)} / Cameras ${activeArchive.cameraIds.join(", ")}`
-                  : `С‚РµРєСѓС‰РёР№ СЌС‚Р°Р»РѕРЅ / Cameras ${cameraSlots.map((slot) => slot.cameraId).join(", ")}`}
+                {isNewReferenceMode
+                  ? `свежие кадры / Cameras ${activeCameraIds.join(", ")} / контуры нужно задать заново`
+                  : activeArchive
+                    ? `старый эталон от ${formatArchiveTime(activeArchive.createdAtMs)} / Cameras ${activeArchive.cameraIds.join(", ")}`
+                    : `текущий эталон / Cameras ${activeCameraIds.join(", ")}`}
               </span>
             </div>
           )}
@@ -251,7 +265,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
           </div>
 
           <ReferenceArchive
-            archivedReferences={archivedReferences}
+            archivedReferences={activeGroupArchivedReferences}
             activeArchiveId={activeArchive?.id}
             selectedArchive={selectedArchive}
             onDelete={(archiveId) => {
@@ -375,6 +389,7 @@ function ArchiveImage({ image }: { image: ArchivedReferenceGroup["images"][numbe
           src={image.imageUrl}
           alt={`Camera ${image.cameraId}`}
         />
+        <div className="reference-setup__archive-frame-empty">РљР°РґСЂ РЅРµ Р·Р°РіСЂСѓР¶РµРЅ</div>
         <svg
           aria-hidden="true"
           viewBox="0 0 1 1"
@@ -405,6 +420,10 @@ function createActiveReferenceKey(cameraIds: number[]) {
     })
     .filter(Boolean)
     .join("|");
+}
+
+function createCameraGroupKey(cameraIds: number[]) {
+  return [...cameraIds].sort((left, right) => left - right).join(",");
 }
 
 function createArchiveReferenceKey(archive: ArchivedReferenceGroup) {

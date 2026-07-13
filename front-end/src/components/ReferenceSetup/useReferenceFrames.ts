@@ -132,20 +132,6 @@ export function useReferenceFrames(cameraIds: number[]) {
     const missingCameraIds: number[] = [];
 
     for (const cameraId of targetCameraIds) {
-      const liveLoaded = await captureLiveReferenceFrame(
-        cameraId,
-        liveFramesByCameraIdRef.current[cameraId],
-        setFramesByCameraId,
-        setImageUrlsByCameraId,
-        lockedCameraIdsRef,
-        pendingCameraIdsRef,
-      );
-
-      if (liveLoaded) {
-        loadedCameraIds.push(cameraId);
-        continue;
-      }
-
       const snapshotLoaded = await loadSnapshotImage(
         cameraId,
         setSnapshotImageUrlsByCameraId,
@@ -158,6 +144,20 @@ export function useReferenceFrames(cameraIds: number[]) {
 
       if (snapshotLoaded) {
         snapshotCameraIds.push(cameraId);
+        continue;
+      }
+
+      const liveLoaded = await captureLiveReferenceFrame(
+        cameraId,
+        liveFramesByCameraIdRef.current[cameraId],
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+        lockedCameraIdsRef,
+        pendingCameraIdsRef,
+      );
+
+      if (liveLoaded) {
+        loadedCameraIds.push(cameraId);
       } else {
         missingCameraIds.push(cameraId);
       }

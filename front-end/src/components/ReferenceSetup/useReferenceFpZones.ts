@@ -2,11 +2,11 @@ import { useCallback, useState } from "react";
 import { getReferenceImage } from "../../shared/referenceImages";
 import type { FpZoneNorm } from "../../shared/ws";
 
-export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: number) {
+export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: number, useStoredZones = true) {
   const [editedZonesByGroupKey, setEditedZonesByGroupKey] = useState<Record<string, FpZoneNorm[]>>({});
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
   const activeGroupKey = createGroupKey(activeCameraIds);
-  const fpZones = editedZonesByGroupKey[activeGroupKey] ?? copyZones(getStoredZones(activeCameraIds));
+  const fpZones = editedZonesByGroupKey[activeGroupKey] ?? (useStoredZones ? copyZones(getStoredZones(activeCameraIds)) : []);
 
   const setFpZones = useCallback((zones: FpZoneNorm[]) => {
     setEditedZonesByGroupKey((previous) => ({
@@ -17,7 +17,7 @@ export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: 
 
   const getFpZonesForCameraIds = (cameraIds: number[]) => {
     const groupKey = createGroupKey(cameraIds);
-    return copyZones(editedZonesByGroupKey[groupKey] ?? getStoredZones(cameraIds));
+    return copyZones(editedZonesByGroupKey[groupKey] ?? (useStoredZones ? getStoredZones(cameraIds) : []));
   };
 
   const hasValidFpZonesForCameraIds = (cameraIds: number[]) =>

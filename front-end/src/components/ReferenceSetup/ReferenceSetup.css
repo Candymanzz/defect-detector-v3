@@ -132,9 +132,15 @@
 }
 
 .reference-setup__active-reference[data-source="archive"] {
-  border-color: rgba(96, 165, 250, 0.5);
-  background: rgba(96, 165, 250, 0.14);
-  color: #dbeafe;
+  border-color: rgba(52, 211, 153, 0.55);
+  background: rgba(16, 185, 129, 0.16);
+  color: #d1fae5;
+}
+
+.reference-setup__active-reference[data-source="new"] {
+  border-color: rgba(245, 158, 11, 0.65);
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
 }
 
 .reference-setup__active-reference strong {
@@ -223,26 +229,27 @@
   gap: 8px 10px;
   min-height: 72px;
   padding: 8px 34px 8px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.45);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(245, 158, 11, 0.1);
   color: #f2f5f7;
   cursor: pointer;
 }
 
 .reference-setup__archive-tile[data-active="true"] {
-  border-color: #9becbd;
-  background: rgba(34, 197, 94, 0.14);
+  border-color: #fbbf24;
+  background: rgba(245, 158, 11, 0.18);
 }
 
 .reference-setup__archive-tile[data-in-use="true"] {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.22);
+  border-color: #34d399;
+  background: rgba(16, 185, 129, 0.16);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.24);
 }
 
 .reference-setup__archive-tile:hover,
 .reference-setup__archive-tile:focus-visible {
-  border-color: rgba(158, 216, 200, 0.55);
+  border-color: #fbbf24;
   outline: none;
 }
 
@@ -265,7 +272,7 @@
 }
 
 .reference-setup__archive-tile span {
-  color: #9aa8a4;
+  color: #fcd34d;
   font-size: 12px;
   font-weight: 700;
 }
@@ -275,8 +282,8 @@
   width: fit-content;
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.18);
-  color: #bfdbfe;
+  background: rgba(16, 185, 129, 0.24);
+  color: #bbf7d0;
   font-size: 11px;
   font-style: normal;
   font-weight: 900;
@@ -333,11 +340,24 @@
 }
 
 .reference-setup__archive-frame-media img {
+  z-index: 1;
   object-fit: contain;
 }
 
 .reference-setup__archive-frame-media svg {
+  z-index: 2;
   pointer-events: none;
+}
+
+.reference-setup__archive-frame-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fcd34d;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
 }
 
 .reference-setup__archive-frame-media polygon {
