@@ -124,7 +124,7 @@ export function commitReferenceBundleImages(
             : viewIndex === bundle.joint_view_index && view.joint_roi
               ? createNormalizedRoiPolygon(view.joint_roi, view.frame.width, view.frame.height)
               : undefined,
-        fpZones: copyFpZones(bundle.fp_zones),
+        fpZones: copyFpZonesForCamera(bundle.fp_zones, cameraId),
       };
 
       nextReferenceImagesByCameraId.set(cameraId, referenceImage);
@@ -262,7 +262,7 @@ function createArchivedReferenceGroup(
           ? createPixelRoiFromPolygon(image.jointRoiPoints ?? [], image.frame.width, image.frame.height)
           : null,
     })),
-    fp_zones: copyFpZones(sortedImages[0].fpZones ?? []),
+    fp_zones: sortedImages.flatMap((image) => copyFpZonesForCamera(image.fpZones ?? [], image.cameraId)),
   };
 
   return {
@@ -383,7 +383,7 @@ export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[])
     if (!referenceImage) continue;
     referenceImagesByCameraId.set(cameraId, {
       ...referenceImage,
-      fpZones: copyFpZones(zones),
+      fpZones: copyFpZonesForCamera(zones, cameraId),
     });
     changed = true;
   }
@@ -398,6 +398,15 @@ function copyFpZones(zones: FpZoneNorm[]) {
       y: point.y,
     })),
   }));
+}
+
+function copyFpZonesForCamera(zones: FpZoneNorm[], cameraId: number) {
+  return copyFpZones(zones)
+    .filter((zone) => zone.camera_id === undefined || zone.camera_id === cameraId)
+    .map((zone) => ({
+      ...zone,
+      camera_id: cameraId,
+    }));
 }
 
 function createNormalizedRoiPolygon(

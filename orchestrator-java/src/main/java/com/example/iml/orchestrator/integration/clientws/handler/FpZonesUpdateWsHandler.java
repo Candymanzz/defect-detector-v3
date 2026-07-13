@@ -54,15 +54,27 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
             app.outbound().sendError(ctx.connection(), e.code(), e.getMessage());
             return;
         }
-        String productType = app.referenceContext().snapshot().map(ReferenceBundleSnapshot::productType).orElse("");
+        ReferenceBundleSnapshot snapshot = app.referenceContext().snapshot().orElse(null);
+        String productType = snapshot == null ? "" : snapshot.productType();
         if (productType.isEmpty()) {
             app.outbound().sendError(ctx.connection(), "no_reference", "missing product_type context");
             return;
         }
         try {
-            app.kopcheniBroadcaster().broadcast(
-                    AnalisSurfaceClientWsSync.replaceFpZones(productType, normalizedHw, normalizedHh, zones)
-            );
+            for (var view : snapshot.views()) {
+                int cameraId = view.frame().cameraId();
+                List<FpZoneNorm> cameraZones = zones.stream()
+                        .filter(zone -> zone.cameraId() == null || zone.cameraId() == cameraId)
+                        .toList();
+                app.kopcheniBroadcaster().broadcast(
+                        AnalisSurfaceClientWsSync.replaceFpZones(
+                                scopedProductType(productType, cameraId),
+                                normalizedHw,
+                                normalizedHh,
+                                cameraZones
+                        )
+                );
+            }
         } catch (ClientWsKopcheniSyncException e) {
             app.log().warn("client_ws kopcheni replace_fp_zones failed: {}", e.getMessage());
             app.outbound().sendError(ctx.connection(), "kopcheni_sync_failed", WsTextUtil.truncate(e.getMessage(), 400));
@@ -80,5 +92,17 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
             return dim;
         }
         return Math.max(1, (int) Math.round(dim * inspectScale));
+    }
+
+    private static String scopedProductType(String productType, int cameraId) {
+        String normalized = productType == null ? "" : productType.trim();
+        if (normalized.isEmpty() || cameraId < 0) {
+            return normalized;
+        }
+        String suffix = "#cam=" + cameraId;
+        if (normalized.endsWith(suffix)) {
+            return normalized;
+        }
+        return normalized + suffix;
     }
 }

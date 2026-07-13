@@ -31,14 +31,14 @@
 }
 
 .fp-zone-editor__roi {
-  fill: rgba(34, 197, 94, 0.08);
+  fill: rgba(34, 197, 94, 0.16);
   stroke: #22c55e;
   stroke-dasharray: 0.025 0.018;
   stroke-width: 0.004;
 }
 
 .fp-zone-editor__zone polygon {
-  fill: rgba(250, 204, 21, 0.24);
+  fill: rgba(5, 7, 10, 0.68);
   stroke: #facc15;
   stroke-width: 0.004;
 }
@@ -56,7 +56,7 @@
 }
 
 .fp-zone-editor__zone--selected polygon {
-  fill: rgba(250, 204, 21, 0.34);
+  fill: rgba(5, 7, 10, 0.78);
   stroke: #fde047;
 }
 

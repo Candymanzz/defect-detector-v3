@@ -330,6 +330,7 @@ export type PixelRoi = {
 
 export type FpZoneNorm = {
   id?: string;
+  camera_id?: number;
   note: string;
   points_norm_heatmap: FpPointNorm[];
 };

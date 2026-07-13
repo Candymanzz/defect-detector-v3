@@ -270,6 +270,14 @@ public final class ReferenceBundleParser {
             }
             String id = z.has("id") && !z.get("id").isNull() ? z.get("id").asText(null) : null;
             String note = z.has("note") && !z.get("note").isNull() ? z.get("note").asText("") : "";
+            Integer cameraId = null;
+            if (z.has("camera_id") && !z.get("camera_id").isNull()) {
+                int parsedCameraId = z.get("camera_id").asInt(-1);
+                if (parsedCameraId < 0) {
+                    throw new BundleParseException("invalid_camera_id", "fp_zones[" + zi + "].camera_id must be >= 0");
+                }
+                cameraId = parsedCameraId;
+            }
             JsonNode pts = z.path("points_norm_heatmap");
             if (!pts.isArray() || pts.size() < 3) {
                 throw new BundleParseException("invalid_fp_polygon", "fp_zones[" + zi + "].points_norm_heatmap min 3 points");
@@ -287,7 +295,7 @@ public final class ReferenceBundleParser {
                 }
                 points.add(new FpZoneNorm.PointNorm(nx, ny));
             }
-            zones.add(new FpZoneNorm(id, note, List.copyOf(points)));
+            zones.add(new FpZoneNorm(id, note, cameraId, List.copyOf(points)));
         }
         return zones;
     }

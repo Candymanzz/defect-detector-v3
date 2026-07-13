@@ -45,8 +45,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     roiPolygonsByCameraId,
     setJointRoiPolygon,
     setRoiPolygonForCamera,
-    fpZones,
-    setFpZones,
+    fpZonesByCameraId,
+    setFpZonesForCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
   const [isFpZoneMode, setIsFpZoneMode] = useState(false);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
@@ -75,7 +75,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const activeArchive = activeGroupArchivedReferences.find(
     (archive) => createArchiveReferenceKey(archive) === activeReferenceKey,
   );
-  const fpZoneSlot = cameraSlots.find((slot) => slot.cameraId === jointCameraId) ?? selectedSlot;
+  const fpZoneSlot = selectedSlot ?? cameraSlots[0];
+  const selectedFpZones = fpZoneSlot ? (fpZonesByCameraId[fpZoneSlot.cameraId] ?? []) : [];
 
   return (
     <div
@@ -141,7 +142,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               disabled={!fpZoneSlot?.imageUrl}
               onClick={() => setIsFpZoneMode(true)}
             >
-              Исключающие зоны ({fpZones.length})
+              Исключающие зоны ({selectedFpZones.length})
             </button>
 
             {isFpZoneMode && (
@@ -195,9 +196,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 <FpZoneEditor
                   imageUrl={fpZoneSlot.imageUrl}
                   roiPoints={roiPolygonsByCameraId[fpZoneSlot.cameraId] ?? []}
-                  zones={fpZones}
+                  zones={selectedFpZones}
                   disabled={status.state !== "open"}
-                  onChange={setFpZones}
+                  onChange={(zones) => setFpZonesForCameraId(fpZoneSlot.cameraId, zones)}
                 />
               ) : selectedSlot?.imageUrl ? (
                 <RoiContourEditor
@@ -230,7 +231,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     }
                     type="button"
                     onClick={() => {
-                      setIsFpZoneMode(false);
+                      if (!isFpZoneMode) {
+                        setIsFpZoneMode(false);
+                      }
                       handleSelectCamera(slot.cameraId);
                     }}
                   >

@@ -1,45 +1,67 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { getReferenceImage } from "../../shared/referenceImages";
 import type { FpZoneNorm } from "../../shared/ws";
 
 export function useReferenceFpZones(cameraGroups: number[][], activeGroupIndex: number, useStoredZones = true) {
-  const [editedZonesByGroupKey, setEditedZonesByGroupKey] = useState<Record<string, FpZoneNorm[]>>({});
-  const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
-  const activeGroupKey = createGroupKey(activeCameraIds);
-  const fpZones = editedZonesByGroupKey[activeGroupKey] ?? (useStoredZones ? copyZones(getStoredZones(activeCameraIds)) : []);
+  const [editedZonesByCameraId, setEditedZonesByCameraId] = useState<Record<number, FpZoneNorm[]>>({});
+  const activeCameraIds = useMemo(() => cameraGroups[activeGroupIndex] ?? [], [activeGroupIndex, cameraGroups]);
+  const fpZonesByCameraId = Object.fromEntries(
+    activeCameraIds.map((cameraId) => [
+      cameraId,
+      editedZonesByCameraId[cameraId] ?? (useStoredZones ? copyZones(getStoredZonesForCamera(cameraId)) : []),
+    ]),
+  ) as Record<number, FpZoneNorm[]>;
+  const fpZones = activeCameraIds.flatMap((cameraId) => withCameraId(fpZonesByCameraId[cameraId] ?? [], cameraId));
 
   const setFpZones = useCallback((zones: FpZoneNorm[]) => {
-    setEditedZonesByGroupKey((previous) => ({
+    setEditedZonesByCameraId((previous) => ({
       ...previous,
-      [activeGroupKey]: copyZones(zones),
+      ...Object.fromEntries(activeCameraIds.map((cameraId) => [cameraId, copyZones(zones)])),
     }));
-  }, [activeGroupKey]);
+  }, [activeCameraIds]);
+
+  const setFpZonesForCameraId = useCallback((cameraId: number, zones: FpZoneNorm[]) => {
+    setEditedZonesByCameraId((previous) => ({
+      ...previous,
+      [cameraId]: copyZones(zones),
+    }));
+  }, []);
 
   const getFpZonesForCameraIds = (cameraIds: number[]) => {
-    const groupKey = createGroupKey(cameraIds);
-    return copyZones(editedZonesByGroupKey[groupKey] ?? (useStoredZones ? getStoredZones(cameraIds) : [])).filter(
-      (zone) => zone.points_norm_heatmap.length >= 3,
+    return cameraIds.flatMap((cameraId) =>
+      withCameraId(
+        copyZones(editedZonesByCameraId[cameraId] ?? (useStoredZones ? getStoredZonesForCamera(cameraId) : [])).filter(
+          (zone) => zone.points_norm_heatmap.length >= 3,
+        ),
+        cameraId,
+      ),
     );
   };
 
   const hasValidFpZonesForCameraIds = () => true;
 
   const resetEditedFpZonesForCameraIds = (cameraIds: number[]) => {
-    const groupKey = createGroupKey(cameraIds);
-    setEditedZonesByGroupKey((previous) =>
-      Object.fromEntries(Object.entries(previous).filter(([key]) => key !== groupKey)),
+    const cameraIdSet = new Set(cameraIds);
+    setEditedZonesByCameraId((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([cameraId]) => !cameraIdSet.has(Number(cameraId)))),
     );
   };
 
-  return { fpZones, setFpZones, getFpZonesForCameraIds, hasValidFpZonesForCameraIds, resetEditedFpZonesForCameraIds };
+  return {
+    fpZones,
+    fpZonesByCameraId,
+    setFpZones,
+    setFpZonesForCameraId,
+    getFpZonesForCameraIds,
+    hasValidFpZonesForCameraIds,
+    resetEditedFpZonesForCameraIds,
+  };
 }
 
-function getStoredZones(cameraIds: number[]) {
-  for (const cameraId of cameraIds) {
-    const zones = getReferenceImage(cameraId)?.fpZones;
-    if (zones) return zones;
-  }
-  return [];
+function getStoredZonesForCamera(cameraId: number) {
+  return getReferenceImage(cameraId)?.fpZones?.filter(
+    (zone) => zone.camera_id === undefined || zone.camera_id === cameraId,
+  ) ?? [];
 }
 
 function copyZones(zones: FpZoneNorm[]) {
@@ -49,6 +71,9 @@ function copyZones(zones: FpZoneNorm[]) {
   }));
 }
 
-function createGroupKey(cameraIds: number[]) {
-  return cameraIds.join(",");
+function withCameraId(zones: FpZoneNorm[], cameraId: number) {
+  return zones.map((zone) => ({
+    ...zone,
+    camera_id: cameraId,
+  }));
 }
