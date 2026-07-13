@@ -58,5 +58,36 @@ Invoke-Step "front-end (Vitest)" $frontend {
     npm test
 }
 
+$ioInputTests = Join-Path $root "IoInputMonitor\IoInputMonitor.Tests"
+if (Test-Path $ioInputTests) {
+    Invoke-Step "IoInputMonitor (xUnit)" $ioInputTests {
+        dotnet test -c Release --no-restore 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            dotnet test -c Release
+        }
+    }
+}
+
+$lightTests = Join-Path $root "LightServer.v3\LightServer.Tests"
+if (Test-Path $lightTests) {
+    Invoke-Step "LightServer.v3 (xUnit)" $lightTests {
+        dotnet test -c Release --no-restore 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            dotnet test -c Release
+        }
+    }
+}
+
+$cameraWorker = Join-Path $root "camera-worker"
+if (Test-Path (Join-Path $cameraWorker "CMakeLists.txt")) {
+    Invoke-Step "camera-worker (CTest)" $cameraWorker {
+        if (-not (Test-Path "build-test")) {
+            cmake -S . -B build-test | Out-Host
+        }
+        cmake --build build-test --target cw_config_tests | Out-Host
+        ctest --test-dir build-test --output-on-failure | Out-Host
+    }
+}
+
 Write-Host ""
 Write-Host "All tests passed." -ForegroundColor Green

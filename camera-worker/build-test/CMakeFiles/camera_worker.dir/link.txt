@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/camera_worker.dir/src/main.c.o CMakeFiles/camera_worker.dir/src/cw_config.c.o -o camera_worker 

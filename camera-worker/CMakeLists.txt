@@ -7,10 +7,12 @@ find_package(PkgConfig QUIET)
 
 add_executable(camera_worker
         src/main.c
+        src/cw_config.c
 )
 
 target_include_directories(camera_worker PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/deps"
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
 if (PkgConfig_FOUND)
@@ -37,7 +39,14 @@ if (WIN32)
         target_compile_definitions(camera_worker PRIVATE HAVE_HIK_MVS=1)
         target_include_directories(camera_worker PRIVATE "${MVS_ROOT}/Includes")
         target_link_libraries(camera_worker PRIVATE "${MVS_ROOT}/Libraries/win64/MvCameraControl.lib")
-    else ()
-        message(STATUS "camera-worker: MVS SDK not found at ${MVS_ROOT}; capture_source=hik will require rebuilding after SDK install")
     endif ()
 endif ()
+
+enable_testing()
+
+add_executable(cw_config_tests
+        tests/test_cw_config.c
+        src/cw_config.c
+)
+target_include_directories(cw_config_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+add_test(NAME cw_config_tests COMMAND cw_config_tests)

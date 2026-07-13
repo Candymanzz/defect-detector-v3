@@ -43,6 +43,10 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="LightServer.Tests" />
+  </ItemGroup>
+
   <Target Name="ValidateMvsReference" BeforeTargets="CoreCompile">
     <Error Condition="!Exists('$(MvCameraControlNetDll)')"
            Text="MvCameraControl.Net.dll not found. Place SDK files in LightServer.v3/ThirdParty/MVS/DotNet/ or install MVS and set MVS_ROOT." />
