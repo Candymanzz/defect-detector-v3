@@ -118,8 +118,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     type="button"
                     onClick={() => setActiveGroupIndex(groupIndex)}
                   >
-                    Group {groupIndex + 1}
-                    <span>Cameras {groupCameraIds.join(", ")}</span>
+                    Группа {groupIndex + 1}
+                    <span>Камеры {groupCameraIds.join(", ")}</span>
                   </button>
                 ))}
               </div>
@@ -127,7 +127,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             <label className="reference-setup__field">
                 <span>Камера joint ROI (необязательно)</span>
               <span className="reference-setup__readonly">
-                Camera {jointCameraId} / view {jointViewIndex}
+                Камера {jointCameraId} / вид {jointViewIndex}
               </span>
             </label>
 
@@ -169,7 +169,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               disabled={!canSendAllReferences}
               onClick={handleSendAllReferences}
             >
-              {isNewReferenceMode ? "��������� ����� ������" : "������ ������"}
+              {isNewReferenceMode ? "Сохранить новый эталон" : "Задать эталон"}
             </Button>
           </div>
 
@@ -178,13 +178,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               className="reference-setup__active-reference"
               data-source={isNewReferenceMode ? "new" : activeArchive ? "archive" : "current"}
             >
-              <strong>{isNewReferenceMode ? "����� ������" : "� ������"}</strong>
+              <strong>{isNewReferenceMode ? "Новый эталон" : "В работе"}</strong>
               <span>
                 {isNewReferenceMode
-                  ? `������ ����� / Cameras ${activeCameraIds.join(", ")} / ������� ����� ������ ������`
+                  ? `свежие кадры / камеры ${activeCameraIds.join(", ")} / контуры нужно задать заново`
                   : activeArchive
-                    ? `������ ������ �� ${formatArchiveTime(activeArchive.createdAtMs)} / Cameras ${activeArchive.cameraIds.join(", ")}`
-                    : `������� ������ / Cameras ${activeCameraIds.join(", ")}`}
+                    ? `старый эталон от ${formatArchiveTime(activeArchive.createdAtMs)} / камеры ${activeArchive.cameraIds.join(", ")}`
+                    : `текущий эталон / камеры ${activeCameraIds.join(", ")}`}
               </span>
             </div>
           )}
@@ -233,7 +233,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       handleSelectCamera(slot.cameraId);
                     }}
                   >
-                    <strong>Camera {slot.cameraId}</strong>
+                    <strong>Камера {slot.cameraId}</strong>
                     <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
                     <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
                   </button>
@@ -303,7 +303,7 @@ function ReferenceArchive({
   }
 
   return (
-    <section className="reference-setup__archive" aria-label="Archive references">
+    <section className="reference-setup__archive" aria-label="Старые эталоны">
       <header className="reference-setup__archive-header">
         <h3>Старые эталоны</h3>
         {selectedArchive && (
@@ -336,10 +336,10 @@ function ReferenceArchive({
             >
               <img
                 src={archive.images[0]?.imageUrl}
-                alt={`Reference ${archive.cameraIds.join(", ")}`}
+                alt={`Эталон камер ${archive.cameraIds.join(", ")}`}
               />
               <span>{formatArchiveTime(archive.createdAtMs)}</span>
-              <strong>Cameras {archive.cameraIds.join(", ")}</strong>
+              <strong>Камеры {archive.cameraIds.join(", ")}</strong>
               {archive.id === activeArchiveId && <em>В работе</em>}
               <button
                 className="reference-setup__archive-delete"
@@ -380,14 +380,14 @@ function ArchiveImage({ image }: { image: ArchivedReferenceGroup["images"][numbe
 
   return (
     <figure className="reference-setup__archive-frame">
-      <figcaption>Camera {image.cameraId}</figcaption>
+      <figcaption>Камера {image.cameraId}</figcaption>
       <div
         className="reference-setup__archive-frame-media"
         style={mediaStyle}
       >
         <img
           src={image.imageUrl}
-          alt={`Camera ${image.cameraId}`}
+          alt={`Камера ${image.cameraId}`}
         />
         <div className="reference-setup__archive-frame-empty">Кадр не загружен</div>
         <svg
