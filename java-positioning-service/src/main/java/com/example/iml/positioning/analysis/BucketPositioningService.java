@@ -53,13 +53,14 @@ public final class BucketPositioningService {
     private static final int MIN_MATCHES = 12;
     private static final int ECC_LEVELS = 4;
     /** After ORB, ECC may only refine within these bounds — larger = garbage / divergence. */
-    private static final double ECC_MAX_TRANSLATION_PX = 96.0;
-    private static final double ECC_MAX_ANGLE_DEG = 10.0;
-    private static final double ECC_SKIP_NCC = 0.90;
-    private static final double ECC_SKIP_ABSDiff = 6.0;
-    private static final double ECC_SKIP_RESIDUAL_PX = 2.0;
+    private static final double ECC_MAX_TRANSLATION_PX = 128.0;
+    private static final double ECC_MAX_ANGLE_DEG = 12.0;
+    private static final double ECC_SKIP_NCC = 0.92;
+    private static final double ECC_SKIP_ABSDiff = 4.0;
+    private static final double ECC_SKIP_RESIDUAL_PX = 1.5;
     private static final double RESIDUAL_POLISH_MIN_PX = 2.5;
     private static final double RESIDUAL_POLISH_MAX_PX = 180.0;
+    private static final int ORB_MIN_REF_KEYPOINTS = 48;
     private static final double FALLBACK_FAIL_MM = 9999.0;
     private static final double FALLBACK_FAIL_ROTATION_DEG = 9999.0;
 
@@ -169,12 +170,45 @@ public final class BucketPositioningService {
                     resolveMainRect(request, current.cols(), current.rows()),
                     current.cols(),
                     current.rows(),
-                    0.20
+                    0.40
             );
             String orbCacheKey = (referenceCacheKey == null ? "" : referenceCacheKey)
                     + "|orb=" + orbRoi.x + "," + orbRoi.y + "," + orbRoi.width + "," + orbRoi.height;
             OrbResult orbResult = estimateRigidTransformCurrentToReference(
                     reference, afterCoarse, orbCacheKey, orbRoi, request.mainRoiPolygonNorm());
+            // Tight ROI mask can starve ORB (kp_ref=0). Retry full-frame features.
+            if (orbResult.refKeypoints() < ORB_MIN_REF_KEYPOINTS
+                    || orbResult.homography() == null
+                    || orbResult.homography().empty()
+                    || orbResult.inliers() < MIN_MATCHES) {
+                String fullKey = (referenceCacheKey == null ? "" : referenceCacheKey) + "|orb=full";
+                OrbResult fullOrb = estimateRigidTransformCurrentToReference(
+                        reference, afterCoarse, fullKey, null, null);
+                boolean orbEmpty = orbResult.homography() == null || orbResult.homography().empty();
+                boolean fullOk = fullOrb.homography() != null && !fullOrb.homography().empty();
+                boolean preferFull = fullOk && (orbEmpty
+                        || orbResult.refKeypoints() < ORB_MIN_REF_KEYPOINTS
+                        || orbResult.inliers() < MIN_MATCHES);
+                if (preferFull) {
+                    log.info(
+                            "positioning_diag {} stage=orb FALLBACK_FULLFRAME kp_ref={}→{} good={}->{} inliers={}->{}",
+                            ctx(logContext),
+                            orbResult.refKeypoints(),
+                            fullOrb.refKeypoints(),
+                            orbResult.goodMatches(),
+                            fullOrb.goodMatches(),
+                            orbResult.inliers(),
+                            fullOrb.inliers()
+                    );
+                    if (orbResult.homography() != null) {
+                        orbResult.homography().release();
+                    }
+                    orbResult = fullOrb;
+                    diag.put("orb_fullframe_fallback", true);
+                } else if (fullOrb.homography() != null) {
+                    fullOrb.homography().release();
+                }
+            }
             stageMsOrb = nanosToMs(System.nanoTime() - tOrb0);
             diag.put("orb_ref_keypoints", orbResult.refKeypoints());
             diag.put("orb_cur_keypoints", orbResult.curKeypoints());
@@ -323,10 +357,12 @@ public final class BucketPositioningService {
                         0.15
                 );
                 double residualMag = Math.hypot(qBeforeEcc.residualShiftX(), qBeforeEcc.residualShiftY());
-                double eccMaxTx = Math.min(
-                        ECC_MAX_TRANSLATION_PX,
-                        Math.max(48.0, residualMag + 24.0)
-                );
+                // Do not clamp ECC range by residual alone — phaseCorrelate can read ~0 while absdiff
+                // is high (large true pose). Quality gate decides whether to keep the warp.
+                double eccMaxTx = ECC_MAX_TRANSLATION_PX;
+                if (Double.isFinite(qBeforeEcc.meanAbsDiff()) && qBeforeEcc.meanAbsDiff() > 10.0) {
+                    eccMaxTx = Math.max(eccMaxTx, Math.min(160.0, residualMag + 80.0));
+                }
                 EccResult ecc = refinePyramidEcc(
                         working,
                         reference,
@@ -567,25 +603,31 @@ public final class BucketPositioningService {
         Mat interestMaskFull = null;
         Mat curMaskScaled = null;
         try {
-            interestMaskFull = RoiPolygonMask.maskForFrame(
-                    polygon, interestRoi, reference.cols(), reference.rows());
+            interestMaskFull = null;
+            if (interestRoi != null) {
+                interestMaskFull = RoiPolygonMask.maskForFrame(
+                        polygon, interestRoi, reference.cols(), reference.rows());
+            }
             PreparedReference prepared = getOrBuildPreparedReference(
                     reference, referenceCacheKey, interestMaskFull);
             Imgproc.cvtColor(current, curGray, Imgproc.COLOR_BGR2GRAY);
             clahe.apply(curGray, curGray);
             ResizeResult curResize = resizeForProcessing(curGray, MAX_ORB_DIM);
             curScaled = curResize.mat;
-            curMaskScaled = new Mat();
-            Imgproc.resize(
-                    interestMaskFull,
-                    curMaskScaled,
-                    curScaled.size(),
-                    0,
-                    0,
-                    Imgproc.INTER_NEAREST
-            );
-
-            orb.detectAndCompute(curScaled, curMaskScaled, curKeypoints, curDescriptors);
+            if (interestMaskFull != null && !interestMaskFull.empty()) {
+                curMaskScaled = new Mat();
+                Imgproc.resize(
+                        interestMaskFull,
+                        curMaskScaled,
+                        curScaled.size(),
+                        0,
+                        0,
+                        Imgproc.INTER_NEAREST
+                );
+                orb.detectAndCompute(curScaled, curMaskScaled, curKeypoints, curDescriptors);
+            } else {
+                orb.detectAndCompute(curScaled, new Mat(), curKeypoints, curDescriptors);
+            }
             int refKp = prepared.keypoints == null ? 0 : prepared.keypoints.length;
             int curKp = curKeypoints.toArray().length;
             if (prepared.descriptors.empty() || curDescriptors.empty()) {
@@ -950,14 +992,21 @@ public final class BucketPositioningService {
             return false;
         }
         boolean absBetter = !Double.isFinite(before.meanAbsDiff())
-                || after.meanAbsDiff() <= before.meanAbsDiff() * 0.98
-                || after.meanAbsDiff() + 0.5 < before.meanAbsDiff();
+                || after.meanAbsDiff() + 0.5 < before.meanAbsDiff()
+                || after.meanAbsDiff() <= before.meanAbsDiff() * 0.97;
         boolean nccBetter = !Double.isFinite(before.ncc())
-                || after.ncc() >= before.ncc() - 0.02;
+                || after.ncc() >= before.ncc() - 0.03;
+        if (!absBetter || !nccBetter) {
+            return false;
+        }
+        // Strong absdiff wins even if residual phaseCorrelate drifts (frame 20 cam=2 case).
+        double absDrop = before.meanAbsDiff() - after.meanAbsDiff();
+        if (absDrop >= 1.5 || after.meanAbsDiff() <= before.meanAbsDiff() * 0.75) {
+            return true;
+        }
         double beforeRes = Math.hypot(before.residualShiftX(), before.residualShiftY());
         double afterRes = Math.hypot(after.residualShiftX(), after.residualShiftY());
-        boolean residualNotWorse = afterRes <= beforeRes + 1.0;
-        return absBetter && nccBetter && residualNotWorse;
+        return afterRes <= beforeRes + 3.0;
     }
 
     private static double clampDouble(double v, double min, double max) {
