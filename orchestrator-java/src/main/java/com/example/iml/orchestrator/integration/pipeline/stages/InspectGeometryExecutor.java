@@ -24,13 +24,14 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
     private final Logger log;
     private final GeometrySnapshotCache geometrySnapshotCache;
     private final GeometryRuntimeConfig geometryRuntimeConfig;
+    private final InspectPositioningExecutor positioningExecutor;
 
     public InspectGeometryExecutor(Logger log) {
-        this(log, null, null);
+        this(log, null, null, null);
     }
 
     public InspectGeometryExecutor(Logger log, GeometrySnapshotCache geometrySnapshotCache) {
-        this(log, geometrySnapshotCache, null);
+        this(log, geometrySnapshotCache, null, null);
     }
 
     public InspectGeometryExecutor(
@@ -38,9 +39,19 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             GeometrySnapshotCache geometrySnapshotCache,
             GeometryRuntimeConfig geometryRuntimeConfig
     ) {
+        this(log, geometrySnapshotCache, geometryRuntimeConfig, null);
+    }
+
+    public InspectGeometryExecutor(
+            Logger log,
+            GeometrySnapshotCache geometrySnapshotCache,
+            GeometryRuntimeConfig geometryRuntimeConfig,
+            InspectPositioningExecutor positioningExecutor
+    ) {
         this.log = log;
         this.geometrySnapshotCache = geometrySnapshotCache;
         this.geometryRuntimeConfig = geometryRuntimeConfig;
+        this.positioningExecutor = positioningExecutor;
     }
 
     @Override
@@ -55,6 +66,20 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             Semaphore geometrySlots,
             AtomicInteger geometryRoundRobin
     ) {
+        if (positioningExecutor != null) {
+            state = positioningExecutor.apply(state, cameraId, productType, activeReference, geometryCfg, pythonCfg);
+        }
+        if (isPositioningHardFail(state)) {
+            BinaryProtocol.Message geomFail = positioningRejectMessage(state, cameraId);
+            return new PipelineState(
+                    state.capture(),
+                    state.py(),
+                    geomFail,
+                    state.captureMs(),
+                    state.pythonMs(),
+                    0L
+            );
+        }
         if (geometryPool.isEmpty()) {
             return state;
         }
@@ -141,5 +166,29 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         int width = YamlScalars.toInt(h.get("width"), 0);
         int height = YamlScalars.toInt(h.get("height"), 0);
         return !shmName.isEmpty() && width > 0 && height > 0;
+    }
+
+    private static boolean isPositioningHardFail(PipelineState state) {
+        return state != null
+                && state.capture() != null
+                && state.capture().header() != null
+                && YamlScalars.toBool(state.capture().header().get(InspectPositioningExecutor.HEADER_HARD_FAIL), false);
+    }
+
+    private static BinaryProtocol.Message positioningRejectMessage(PipelineState state, int cameraId) {
+        Map<String, Object> h = state.capture().header();
+        Map<String, Object> fail = new java.util.LinkedHashMap<>();
+        fail.put("status", "FAIL");
+        fail.put("overallPass", false);
+        fail.put("alignmentPass", false);
+        fail.put("camera_id", cameraId);
+        fail.put("frame_id", h.get("frame_id"));
+        fail.put("error", "positioning reject");
+        fail.put("shiftXmm", h.getOrDefault("positioning_shift_x_mm", 9999.0));
+        fail.put("shiftYmm", h.getOrDefault("positioning_shift_y_mm", 9999.0));
+        fail.put("rotationDeg", h.getOrDefault("positioning_rotation_deg", 9999.0));
+        Object homography = h.get("positioning_homography_ref_to_cur");
+        fail.put("homographyRefToCurrent", homography == null ? List.of() : homography);
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, fail, new byte[0]);
     }
 }

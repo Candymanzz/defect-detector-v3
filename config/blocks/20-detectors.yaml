@@ -9,6 +9,18 @@ java_geometry:
   # Порог морщин (геометрия: смещение + стык + морщины в переданном ROI).
   max_wrinkles_score: 0.45
 
+# Нормализация позы изделия к эталону перед geometry / analisSurface.
+# Большая разбежка сдвига/поворота между кадрами — норма: сервис всегда варпит к эталону.
+# FAIL только если гомографию посчитать не удалось (не из‑за величины сдвига).
+java_positioning:
+  enabled: true
+  fail_on_reject: true
+  write_aligned: true
+  pixels_to_mm: 0.02
+  # Мягкие метрики в ответе (не гейтят PASS); QC допусков — у java_geometry после выравнивания.
+  max_shift_mm: 9999.0
+  max_rotation_deg: 9999.0
+
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
   base_url: "http://127.0.0.1:8000"

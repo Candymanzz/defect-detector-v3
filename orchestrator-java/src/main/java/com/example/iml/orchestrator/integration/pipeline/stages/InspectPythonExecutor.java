@@ -47,6 +47,27 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         if (pythonPool.isEmpty()) {
             return state;
         }
+        if (isPositioningHardFail(state)) {
+            BinaryProtocol.Message pyFail = new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_RESPONSE,
+                    Map.of(
+                            "status", "FAIL",
+                            "ok", false,
+                            "error", "positioning reject",
+                            "camera_id", cameraId,
+                            "product_type", productType
+                    ),
+                    new byte[0]
+            );
+            return new PipelineState(
+                    state.capture(),
+                    pyFail,
+                    state.geom(),
+                    state.captureMs(),
+                    0L,
+                    state.geometryMs()
+            );
+        }
         if (activeReference == null || activeReference.header() == null) {
             BinaryProtocol.Message pySkipped = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_ERROR,
@@ -136,5 +157,12 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         int width = YamlScalars.toInt(h.get("width"), 0);
         int height = YamlScalars.toInt(h.get("height"), 0);
         return !shmName.isEmpty() && width > 0 && height > 0;
+    }
+
+    private static boolean isPositioningHardFail(PipelineState state) {
+        return state != null
+                && state.capture() != null
+                && state.capture().header() != null
+                && YamlScalars.toBool(state.capture().header().get(InspectPositioningExecutor.HEADER_HARD_FAIL), false);
     }
 }

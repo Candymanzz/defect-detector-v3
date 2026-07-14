@@ -25,18 +25,7 @@ public final class BinaryInspectHeaders {
     ) {
         Map<String, Object> gHeader = new HashMap<>();
         gHeader.put("op", "inspect_shm");
-        gHeader.put("camera_id", cameraId);
-        gHeader.put("frame_id", capture.header().get("frame_id"));
-        gHeader.put("shm_name", capture.header().get("shm_name"));
-        gHeader.put("shm_offset", capture.header().get("shm_offset"));
-        gHeader.put("width", capture.header().get("width"));
-        gHeader.put("height", capture.header().get("height"));
-        gHeader.put("stride", capture.header().get("stride"));
-        gHeader.put("reference_shm_name", activeReference.header().get("shm_name"));
-        gHeader.put("reference_shm_offset", activeReference.header().get("shm_offset"));
-        gHeader.put("reference_width", activeReference.header().get("width"));
-        gHeader.put("reference_height", activeReference.header().get("height"));
-        gHeader.put("reference_stride", activeReference.header().get("stride"));
+        putCaptureAndReferenceShm(gHeader, cameraId, capture, activeReference);
         Object mainRoi = geometryCfg == null ? Map.of("x", 0, "y", 0, "width", 1224, "height", 1024) : geometryCfg.get("main_roi");
         Object mainRoiPolygon = resolveMainRoiPolygonNorm(activeReference, geometryCfg);
         if (mainRoiPolygon instanceof List<?> poly && poly.size() >= 3) {
@@ -69,6 +58,76 @@ public final class BinaryInspectHeaders {
         gHeader.put("maxWrinklesScore", maxWrinkles);
         syncWrinklesRoiFromMainRoi(gHeader);
         return gHeader;
+    }
+
+    /**
+     * Выравнивание позы ведра к эталону перед geometry / analisSurface.
+     */
+    public static Map<String, Object> positioningHeader(
+            int cameraId,
+            BinaryProtocol.Message capture,
+            ReferenceSnapshot activeReference,
+            Map<String, Object> geometryCfg,
+            Map<String, Object> positioningCfg
+    ) {
+        Map<String, Object> pHeader = new HashMap<>();
+        pHeader.put("op", "position_shm");
+        putCaptureAndReferenceShm(pHeader, cameraId, capture, activeReference);
+        Object mainRoi = geometryCfg == null ? Map.of("x", 0, "y", 0, "width", 1224, "height", 1024) : geometryCfg.get("main_roi");
+        Object mainRoiPolygon = resolveMainRoiPolygonNorm(activeReference, geometryCfg);
+        if (mainRoiPolygon instanceof List<?> poly && poly.size() >= 3) {
+            pHeader.put("mainRoiPolygonNorm", poly);
+            int fw = YamlScalars.toInt(activeReference.header().get("width"), YamlScalars.toInt(capture.header().get("width"), 1224));
+            int fh = YamlScalars.toInt(activeReference.header().get("height"), YamlScalars.toInt(capture.header().get("height"), 1024));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi((List<Map<String, Object>>) poly, fw, fh);
+            if (bbox != null) {
+                mainRoi = bbox;
+            }
+        }
+        if (positioningCfg != null && positioningCfg.get("main_roi") != null) {
+            mainRoi = positioningCfg.get("main_roi");
+        }
+        pHeader.put("mainRoi", mainRoi);
+        double pixelsToMm = YamlScalars.toDouble(
+                positioningCfg != null ? positioningCfg.get("pixels_to_mm") : null,
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.02)
+        );
+        // Soft metrics only — large discrepancy must still produce an aligned frame.
+        double maxShift = YamlScalars.toDouble(
+                positioningCfg != null ? positioningCfg.get("max_shift_mm") : null,
+                9999.0
+        );
+        double maxRot = YamlScalars.toDouble(
+                positioningCfg != null ? positioningCfg.get("max_rotation_deg") : null,
+                9999.0
+        );
+        pHeader.put("pixelsToMm", pixelsToMm);
+        pHeader.put("maxShiftMm", maxShift);
+        pHeader.put("maxRotationDeg", maxRot);
+        pHeader.put("write_aligned", YamlScalars.toBool(positioningCfg == null ? null : positioningCfg.get("write_aligned"), true));
+        pHeader.put("output_shm_name", "iml_pos_cam_" + cameraId);
+        return pHeader;
+    }
+
+    private static void putCaptureAndReferenceShm(
+            Map<String, Object> header,
+            int cameraId,
+            BinaryProtocol.Message capture,
+            ReferenceSnapshot activeReference
+    ) {
+        header.put("camera_id", cameraId);
+        header.put("frame_id", capture.header().get("frame_id"));
+        header.put("shm_name", capture.header().get("shm_name"));
+        header.put("shm_offset", capture.header().get("shm_offset"));
+        header.put("width", capture.header().get("width"));
+        header.put("height", capture.header().get("height"));
+        header.put("stride", capture.header().get("stride"));
+        header.put("reference_shm_name", activeReference.header().get("shm_name"));
+        header.put("reference_shm_offset", activeReference.header().get("shm_offset"));
+        header.put("reference_width", activeReference.header().get("width"));
+        header.put("reference_height", activeReference.header().get("height"));
+        header.put("reference_stride", activeReference.header().get("stride"));
     }
 
     /**

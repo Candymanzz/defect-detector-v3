@@ -35,6 +35,7 @@ import com.example.iml.orchestrator.integration.pipeline.reference.PipelineRefer
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceSnapshotBootstrap;
 import com.example.iml.orchestrator.integration.pipeline.decision.DefaultInspectionDecisionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectGeometryExecutor;
+import com.example.iml.orchestrator.integration.pipeline.stages.InspectPositioningExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPythonExecutor;
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
 import com.example.iml.orchestrator.integration.pipeline.stages.CaptureFrameDownscaleService;
@@ -109,6 +110,7 @@ public final class IntegrationBootstrap {
         }
 
         List<String> geometryCommand = CameraWorkerPaths.pickIntegrationCommandList(integration, isWindows, "geometry_command_windows", "geometry_command_linux");
+        List<String> positioningCommand = CameraWorkerPaths.pickIntegrationCommandList(integration, isWindows, "positioning_command_windows", "positioning_command_linux");
         IntegrationBootConfig cfg = IntegrationBootConfig.load(integration, cameras.size(), isWindows).withPoolCommands(List.of(), geometryCommand);
         PythonDetectorConfig pythonDetectorCfg = PythonDetectorConfig.fromRootYaml(root);
 
@@ -153,17 +155,6 @@ public final class IntegrationBootstrap {
         );
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
         ReferenceSnapshotBootstrap referenceBootstrap = new ReferenceSnapshotBootstrap(log, captureCoordinator, pipelineTelemetry);
-        InspectionPipelineServices pipelineServices = new InspectionPipelineServices(
-                log,
-                new DefaultInspectionDecisionAggregator(log),
-                pipelineTelemetry,
-                new InspectGeometryExecutor(log, geometrySnapshotCache, geometryRuntimeConfig),
-                new InspectPythonExecutor(log, geometryRuntimeConfig),
-                captureCoordinator,
-                referenceBootstrap,
-                uiSidecar
-        );
-        InspectionPipeline inspectionPipeline = new InspectionPipeline(pipelineServices);
 
         AnalisSurfaceLauncher.PoolStartResult analisSurfacePool = analisSurfaceLauncher.startPoolIfConfigured(
                 integration,
@@ -205,6 +196,30 @@ public final class IntegrationBootstrap {
                 cfg.serviceCommandTimeoutMs(),
                 cfg.geometryPoolSize()
         );
+        @SuppressWarnings("unchecked")
+        Map<String, Object> positioningCfgEarly = (Map<String, Object>) root.get("java_positioning");
+        boolean positioningEnabled = YamlScalars.toBool(
+                positioningCfgEarly == null ? null : positioningCfgEarly.get("enabled"),
+                true
+        );
+        int positioningPoolSize = Math.max(
+                1,
+                YamlScalars.toInt(integration == null ? null : integration.get("positioning_pool_size"), cfg.geometryPoolSize())
+        );
+        List<ServiceProcessSupervisor> positioningPool = positioningEnabled
+                ? servicePools.startOptionalPool(
+                        positioningCommand,
+                        projectRoot,
+                        "java-positioning",
+                        cfg.serviceCommandTimeoutMs(),
+                        positioningPoolSize
+                )
+                : List.of();
+        if (positioningEnabled && positioningPool.isEmpty()) {
+            log.warn("java-positioning enabled but pool is empty — positioning stage will be skipped");
+        } else if (!positioningPool.isEmpty()) {
+            log.info("positioning pool size={} command={}", positioningPool.size(), positioningCommand);
+        }
         ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
                 integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
         InspectionTriggerConfig inspectionTriggerConfigEarly = InspectionTriggerConfig.parse(integration);
@@ -237,7 +252,34 @@ public final class IntegrationBootstrap {
         @SuppressWarnings("unchecked")
         Map<String, Object> geometryCfg = (Map<String, Object>) root.get("java_geometry");
         @SuppressWarnings("unchecked")
+        Map<String, Object> positioningCfg = positioningCfgEarly != null
+                ? positioningCfgEarly
+                : (Map<String, Object>) root.get("java_positioning");
+        if (positioningCfg == null) {
+            positioningCfg = Map.of("enabled", positioningEnabled);
+        }
+        @SuppressWarnings("unchecked")
         Map<String, Object> uiCfg = (Map<String, Object>) root.get("ui_http");
+        Semaphore positioningSlots = new Semaphore(Math.max(1, positioningPool.size()));
+        AtomicInteger positioningRoundRobin = new AtomicInteger();
+        InspectPositioningExecutor positioningExecutor = new InspectPositioningExecutor(
+                log,
+                positioningPool,
+                positioningSlots,
+                positioningRoundRobin,
+                positioningCfg
+        );
+        InspectionPipelineServices pipelineServices = new InspectionPipelineServices(
+                log,
+                new DefaultInspectionDecisionAggregator(log),
+                pipelineTelemetry,
+                new InspectGeometryExecutor(log, geometrySnapshotCache, geometryRuntimeConfig, positioningExecutor),
+                new InspectPythonExecutor(log, geometryRuntimeConfig),
+                captureCoordinator,
+                referenceBootstrap,
+                uiSidecar
+        );
+        final InspectionPipeline inspectionPipeline = new InspectionPipeline(pipelineServices);
         int flashLeadMs = LightServersConfig.flashLeadMsFromRoot(root);
         if (flashLeadMs > 0) {
             log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
@@ -747,6 +789,13 @@ public final class IntegrationBootstrap {
                     servicePools,
                     log
             ));
+            for (ServiceProcessSupervisor positioning : positioningPool) {
+                try {
+                    log.info("java-positioning supervisor restarts={}", positioning.restartCount());
+                    positioning.close();
+                } catch (Exception ignored) {
+                }
+            }
         }
     }
 
