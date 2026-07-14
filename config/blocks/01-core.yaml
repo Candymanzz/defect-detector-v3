@@ -60,6 +60,7 @@ integration:
     # DI3 → сразу trigger_only (экспозиция); wait_frame+pin в фоне — инспекция не задерживает следующий DI3.
     immediate_prefire: true
   geometry_pool_size: 10
+  positioning_pool_size: 10
   python_parallelism: 10
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
   python_server_pool_size: 1
@@ -169,6 +170,14 @@ integration:
     - "java"
     - "-jar"
     - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
+  positioning_command_windows:
+    - "java"
+    - "-jar"
+    - "java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar"
+  positioning_command_linux:
+    - "java"
+    - "-jar"
+    - "java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar"
   # LightServer.v3 — COM IO + MV-LE на одном порту.
   light_server_command_windows:
     - "dotnet"
