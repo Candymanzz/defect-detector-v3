@@ -92,7 +92,9 @@ public final class InspectPositioningExecutor {
                     Map<String, Object> rh = resp == null || resp.header() == null ? Map.of() : resp.header();
                     log.info(
                             "positioning_timing cam={} frame={} wall_ms={} service_ms={} orb_ms={} warp_ms={} ecc_ms={} write_ms={} "
-                                    + "status={} shift=({}, {}) rot={} aligned={}",
+                                    + "status={} shift=({}, {}) rot={} aligned={} "
+                                    + "raw_abs={} coarse_abs={} orb_abs={} final_abs={} final_ncc={} residual=({}, {}) "
+                                    + "coarse_shift=({}, {}) orb_good={} orb_inliers={} ecc_ok={} ecc_cc={}",
                             cameraId,
                             state.capture().header().get("frame_id"),
                             wallMs,
@@ -105,7 +107,20 @@ public final class InspectPositioningExecutor {
                             rh.get("shiftXmm"),
                             rh.get("shiftYmm"),
                             rh.get("rotationDeg"),
-                            rh.get("alignedWritten")
+                            rh.get("alignedWritten"),
+                            rh.get("diag_raw_mean_absdiff"),
+                            rh.get("diag_coarse_mean_absdiff"),
+                            rh.get("diag_orb_mean_absdiff"),
+                            rh.get("diag_final_mean_absdiff"),
+                            rh.get("diag_final_ncc"),
+                            rh.get("diag_final_residual_dx"),
+                            rh.get("diag_final_residual_dy"),
+                            rh.get("diag_coarse_dx_px"),
+                            rh.get("diag_coarse_dy_px"),
+                            rh.get("diag_orb_good_matches"),
+                            rh.get("diag_orb_inliers"),
+                            rh.get("diag_ecc_ok"),
+                            rh.get("diag_ecc_cc")
                     );
                 }
                 return applyResponse(state, resp, cameraId, wallMs);
@@ -145,6 +160,13 @@ public final class InspectPositioningExecutor {
             putIfPresent(captureHeader, "positioning_stage_ms_write", resp.header().get("stage_ms_write"));
             putIfPresent(captureHeader, "positioning_stage_ms_total", resp.header().get("stage_ms_total"));
             putIfPresent(captureHeader, "positioning_homography_ref_to_cur", resp.header().get("homographyRefToCurrent"));
+            putIfPresent(captureHeader, "positioning_final_absdiff", resp.header().get("diag_final_mean_absdiff"));
+            putIfPresent(captureHeader, "positioning_final_ncc", resp.header().get("diag_final_ncc"));
+            putIfPresent(captureHeader, "positioning_residual_dx", resp.header().get("diag_final_residual_dx"));
+            putIfPresent(captureHeader, "positioning_residual_dy", resp.header().get("diag_final_residual_dy"));
+            putIfPresent(captureHeader, "positioning_orb_inliers", resp.header().get("diag_orb_inliers"));
+            putIfPresent(captureHeader, "positioning_ecc_cc", resp.header().get("diag_ecc_cc"));
+            putIfPresent(captureHeader, "positioning_diagnostics", resp.header().get("diagnostics"));
         }
 
         if (alignedWritten && resp != null) {

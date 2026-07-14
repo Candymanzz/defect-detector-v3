@@ -1,5 +1,7 @@
 package com.example.iml.positioning.dto;
 
+import java.util.Map;
+
 public record PositioningResponse(
         double shiftXmm,
         double shiftYmm,
@@ -17,6 +19,7 @@ public record PositioningResponse(
         double stageMsWarp,
         double stageMsEcc,
         double stageMsWrite,
-        double stageMsTotal
+        double stageMsTotal,
+        Map<String, Object> diagnostics
 ) {
 }

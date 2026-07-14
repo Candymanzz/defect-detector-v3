@@ -56,6 +56,17 @@ public final class PositioningHeaderMapper {
         out.put("stage_ms_ecc", response.stageMsEcc());
         out.put("stage_ms_write", response.stageMsWrite());
         out.put("stage_ms_total", response.stageMsTotal());
+        if (response.diagnostics() != null && !response.diagnostics().isEmpty()) {
+            // Flat keys for log scraping + nested copy for structured consumers.
+            out.put("diagnostics", response.diagnostics());
+            for (Map.Entry<String, Object> e : response.diagnostics().entrySet()) {
+                String key = e.getKey();
+                if ("status".equals(key) || "ref_cache_key".equals(key)) {
+                    continue;
+                }
+                out.put("diag_" + key, e.getValue());
+            }
+        }
         return out;
     }
 

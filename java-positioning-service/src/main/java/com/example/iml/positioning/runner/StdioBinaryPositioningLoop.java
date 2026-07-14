@@ -96,7 +96,14 @@ public final class StdioBinaryPositioningLoop {
             releaseReference = referenceResult.releaseAfterUse();
             PositioningRequest request = PositioningHeaderMapper.fromCommand(ensureOutputName(h));
             String referenceKey = ReferenceShmMatCache.referenceKey(h);
-            var response = positioning.position(reference, current, request, referenceKey);
+            Map<String, Object> logContext = new LinkedHashMap<>();
+            if (h.get("camera_id") != null) {
+                logContext.put("camera_id", h.get("camera_id"));
+            }
+            if (h.get("frame_id") != null) {
+                logContext.put("frame_id", h.get("frame_id"));
+            }
+            var response = positioning.position(reference, current, request, referenceKey, logContext);
             Map<String, Object> header = new LinkedHashMap<>(PositioningHeaderMapper.toResponseHeader(response));
             header.put("camera_id", h.get("camera_id"));
             header.put("frame_id", h.get("frame_id"));
