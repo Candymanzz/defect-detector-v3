@@ -58,8 +58,8 @@ public final class BucketPositioningService {
      * Anything larger is forced to pure translation.
      */
     private static final double ORB_MAX_ANGLE_DEG = 0.35;
-    /** Keep ECC local: large translation + BORDER_REPLICATE paints “brush” streaks into the frame. */
-    private static final double ECC_MAX_TRANSLATION_PX = 28.0;
+    /** Soft ECC cap — above this we clamp direction, not discard the whole refine. */
+    private static final double ECC_MAX_TRANSLATION_PX = 40.0;
     private static final double ECC_MAX_ANGLE_DEG = 0.35;
     private static final double ECC_SKIP_NCC = 0.94;
     private static final double ECC_SKIP_ABSDiff = 2.5;
@@ -973,8 +973,9 @@ public final class BucketPositioningService {
                 double a = warp.get(0, 0)[0];
                 double b = warp.get(1, 0)[0];
                 double angleDeg = Math.toDegrees(Math.atan2(b, a));
+                double tMag = Math.hypot(tx, ty);
 
-                if (!ok || Math.hypot(tx, ty) > maxTranslationPx || Math.abs(angleDeg) > ECC_MAX_ANGLE_DEG) {
+                if (!ok || Math.abs(angleDeg) > ECC_MAX_ANGLE_DEG) {
                     log.warn(
                             "positioning_diag stage=ecc abort apply ok={} t=({}, {}) angle={}",
                             ok,
@@ -983,6 +984,21 @@ public final class BucketPositioningService {
                             fmt(angleDeg)
                     );
                     return new EccResult(aligned, false, lastCc, tx, ty, angleDeg);
+                }
+                // Clamp overshoot instead of throwing away a converged ECC (looks like “service idle”).
+                if (tMag > maxTranslationPx && tMag > 1e-6) {
+                    double scale = maxTranslationPx / tMag;
+                    tx *= scale;
+                    ty *= scale;
+                    warp.put(0, 2, tx);
+                    warp.put(1, 2, ty);
+                    log.info(
+                            "positioning_diag stage=ecc CLAMPED_t from={} to=({}, {}) max={}",
+                            fmt(tMag),
+                            fmt(tx),
+                            fmt(ty),
+                            fmt(maxTranslationPx)
+                    );
                 }
 
                 Mat refined = new Mat();
@@ -1034,11 +1050,11 @@ public final class BucketPositioningService {
         }
         double beforeRes = Math.hypot(before.residualShiftX(), before.residualShiftY());
         double afterRes = Math.hypot(after.residualShiftX(), after.residualShiftY());
-        boolean absBetter = after.meanAbsDiff() + 0.25 < before.meanAbsDiff()
-                || after.meanAbsDiff() <= before.meanAbsDiff() * 0.99;
-        boolean nccBetter = Double.isFinite(before.ncc()) && after.ncc() >= before.ncc() + 0.008;
-        boolean residualBetter = afterRes + 0.75 < beforeRes;
-        boolean residualNotMuchWorse = afterRes <= beforeRes + 4.0;
+        boolean absBetter = after.meanAbsDiff() + 0.05 < before.meanAbsDiff()
+                || after.meanAbsDiff() <= before.meanAbsDiff() * 0.997;
+        boolean nccBetter = Double.isFinite(before.ncc()) && after.ncc() >= before.ncc() + 0.005;
+        boolean residualBetter = afterRes + 0.5 < beforeRes;
+        boolean residualNotMuchWorse = afterRes <= beforeRes + 8.0;
         if ((absBetter || nccBetter) && residualNotMuchWorse) {
             return true;
         }
@@ -1053,8 +1069,14 @@ public final class BucketPositioningService {
         if (!Double.isFinite(after.meanAbsDiff()) || !Double.isFinite(before.meanAbsDiff())) {
             return false;
         }
-        return after.meanAbsDiff() <= before.meanAbsDiff() * 0.72
-                && after.meanAbsDiff() + 4.0 < before.meanAbsDiff();
+        // Big absdiff wins, or clear NCC lift without wrecking absdiff.
+        if (after.meanAbsDiff() <= before.meanAbsDiff() * 0.72
+                && after.meanAbsDiff() + 4.0 < before.meanAbsDiff()) {
+            return true;
+        }
+        boolean nccLift = Double.isFinite(before.ncc()) && Double.isFinite(after.ncc())
+                && after.ncc() >= before.ncc() + 0.04;
+        return nccLift && after.meanAbsDiff() <= before.meanAbsDiff() + 1.0;
     }
 
     private ResidualPolish polishResidualTranslation(
