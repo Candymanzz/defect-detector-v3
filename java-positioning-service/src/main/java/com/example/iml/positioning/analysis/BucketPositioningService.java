@@ -55,9 +55,9 @@ public final class BucketPositioningService {
     /** After ORB, ECC may only refine within these bounds — larger = garbage / divergence. */
     private static final double ECC_MAX_TRANSLATION_PX = 128.0;
     private static final double ECC_MAX_ANGLE_DEG = 12.0;
-    private static final double ECC_SKIP_NCC = 0.92;
-    private static final double ECC_SKIP_ABSDiff = 4.0;
-    private static final double ECC_SKIP_RESIDUAL_PX = 1.5;
+    private static final double ECC_SKIP_NCC = 0.94;
+    private static final double ECC_SKIP_ABSDiff = 2.5;
+    private static final double ECC_SKIP_RESIDUAL_PX = 1.0;
     private static final double RESIDUAL_POLISH_MIN_PX = 2.5;
     private static final double RESIDUAL_POLISH_MAX_PX = 180.0;
     private static final int ORB_MIN_REF_KEYPOINTS = 48;
@@ -423,6 +423,30 @@ public final class BucketPositioningService {
                         fmt(ecc.tx()),
                         fmt(ecc.ty()),
                         fmt(ecc.angleDeg())
+                );
+            }
+
+            // Final residual translation polish if ECC skipped / left a pure shift.
+            ResidualPolish postEccPolish = polishResidualTranslation(
+                    reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
+            if (postEccPolish.applied()) {
+                working.release();
+                working = postEccPolish.frame();
+                if (homographyCurToRef != null) {
+                    homographyCurToRef.release();
+                }
+                homographyCurToRef = postEccPolish.homography();
+                metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
+                diag.put("post_ecc_residual_polish", true);
+                log.info(
+                        "positioning_diag {} stage=post_ecc_polish shift=({}, {}) px mean_absdiff={} ncc={} residual=({}, {})",
+                        ctx(logContext),
+                        fmt(postEccPolish.dx()),
+                        fmt(postEccPolish.dy()),
+                        fmt(postEccPolish.quality().meanAbsDiff()),
+                        fmt(postEccPolish.quality().ncc()),
+                        fmt(postEccPolish.quality().residualShiftX()),
+                        fmt(postEccPolish.quality().residualShiftY())
                 );
             }
 
