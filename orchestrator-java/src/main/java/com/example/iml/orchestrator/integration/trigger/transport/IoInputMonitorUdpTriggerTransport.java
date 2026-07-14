@@ -628,27 +628,14 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     /**
-     * UI «Прямой/Обратный ход»: на DI3 снимаем только если DI2 совпал с выбором.
-     * Пример: «Обратный ход» → DI3 при ходе вперёд игнорируем, при ходе назад — снимаем все камеры.
+     * Съёмка по DI3↑ только при DI2=1.
      */
     private boolean allowsCaptureForSelectedDirection() {
-        boolean travelForward = directionActive;
-        if (manualLineDirection != null) {
-            boolean selectedForward = manualLineDirection.isForward();
-            if (selectedForward == travelForward) {
-                return true;
-            }
-            log.info(
-                    "io_input_trigger skip: DI3 ignored — UI={} travel={} (вперёд→не снимать / назад→снимать при UI=reverse)",
-                    manualLineDirection.wireValue(),
-                    travelForward ? "forward" : "reverse"
-            );
-            return false;
-        }
-        if (!ioInputConfig.requireDirection()) {
+        if (directionActive) {
             return true;
         }
-        return travelForward;
+        log.info("io_input_trigger skip: DI3 ignored — DI2=0 (need DI2=1 for capture)");
+        return false;
     }
 
     private String effectiveDirectionWire() {

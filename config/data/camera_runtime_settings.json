@@ -1,0 +1,85 @@
+{
+  "version" : 1,
+  "cameras" : {
+    "1" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "0" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "2" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "3" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "4" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "5" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "6" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "7" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "8" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    },
+    "9" : {
+      "gamma" : 0.7,
+      "exposure_us" : 300,
+      "gain_db" : 0.0,
+      "black_level" : 240,
+      "capture_trigger_mode" : "software",
+      "frame_timeout_ms" : 15000
+    }
+  }
+}

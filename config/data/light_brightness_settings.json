@@ -1,0 +1,16 @@
+{
+  "version" : 1,
+  "default_brightness_percent" : 59,
+  "endpoints" : {
+    "camera-1" : 0,
+    "camera-0" : 59,
+    "camera-9" : 59,
+    "camera-8" : 59,
+    "camera-7" : 59,
+    "camera-6" : 59,
+    "camera-5" : 59,
+    "camera-4" : 59,
+    "camera-3" : 59,
+    "camera-2" : 59
+  }
+}

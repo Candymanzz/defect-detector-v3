@@ -292,7 +292,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
         <section className="setting-list__card setting-list__direction">
           <div className="setting-list__card-header">
             <span>Направление хода</span>
-            <strong className="setting-list__scope">DI3: снимать только в этом ходе</strong>
+            <strong className="setting-list__scope">DI3↑ при DI2=1</strong>
           </div>
           <div className="setting-list__direction-row">
             <button

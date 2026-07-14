@@ -104,8 +104,7 @@ integration:
       trigger_port: 3
       direction_latch_on_work: false
       di3_only: true
-      # DI3↑ + UI направление: снимаем все камеры только если DI2 = выбранный ход
-      # (Обратный ход → DI3 при ходе назад; DI3 при ходе вперёд игнорируем).
+      # DI3↑ = съёмка всех камер, только если в момент импульса DI2=1.
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
