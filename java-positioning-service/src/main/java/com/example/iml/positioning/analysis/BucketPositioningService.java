@@ -58,8 +58,8 @@ public final class BucketPositioningService {
      * Anything larger is forced to pure translation.
      */
     private static final double ORB_MAX_ANGLE_DEG = 0.35;
-    /** After ORB, ECC may only refine within these bounds — larger = garbage / divergence. */
-    private static final double ECC_MAX_TRANSLATION_PX = 128.0;
+    /** Keep ECC local: large translation + BORDER_REPLICATE paints “brush” streaks into the frame. */
+    private static final double ECC_MAX_TRANSLATION_PX = 28.0;
     private static final double ECC_MAX_ANGLE_DEG = 0.35;
     private static final double ECC_SKIP_NCC = 0.94;
     private static final double ECC_SKIP_ABSDiff = 2.5;
@@ -276,7 +276,8 @@ public final class BucketPositioningService {
                             affine,
                             current.size(),
                             Imgproc.INTER_LINEAR,
-                            Core.BORDER_REPLICATE
+                            Core.BORDER_CONSTANT,
+                            new Scalar(0, 0, 0)
                     );
                     QualityScore qCand = measureQuality(
                             reference, orbCandidate, qualityRoi, request.mainRoiPolygonNorm());
@@ -392,11 +393,10 @@ public final class BucketPositioningService {
                         0.15
                 );
                 double residualMag = Math.hypot(qBeforeEcc.residualShiftX(), qBeforeEcc.residualShiftY());
-                // Do not clamp ECC range by residual alone — phaseCorrelate can read ~0 while absdiff
-                // is high (large true pose). Quality gate decides whether to keep the warp.
+                // Cap tightly — unrestricted ECC "improves" NCC while smearing the photo.
                 double eccMaxTx = ECC_MAX_TRANSLATION_PX;
-                if (Double.isFinite(qBeforeEcc.meanAbsDiff()) && qBeforeEcc.meanAbsDiff() > 10.0) {
-                    eccMaxTx = Math.max(eccMaxTx, Math.min(160.0, residualMag + 80.0));
+                if (Double.isFinite(residualMag) && residualMag > 1.0) {
+                    eccMaxTx = Math.min(ECC_MAX_TRANSLATION_PX, Math.max(8.0, residualMag + 6.0));
                 }
                 EccResult ecc = refinePyramidEcc(
                         working,
@@ -522,8 +522,13 @@ public final class BucketPositioningService {
             if (request.writeAligned() && !outputName.isEmpty() && working != null && !working.empty()) {
                 long tWrite0 = System.nanoTime();
                 try {
-                    shmWriter.writeBgrMat(outputName, working);
+                    // Never publish a smeared failed warp to SHM/UI — keep the original capture.
+                    Mat toWrite = stillMisaligned ? current : working;
+                    shmWriter.writeBgrMat(outputName, toWrite);
                     alignedWritten = true;
+                    if (stillMisaligned) {
+                        diag.put("write_source", "raw_current_not_warped");
+                    }
                 } catch (Exception e) {
                     writeError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
                     diag.put("write_error", writeError);
@@ -655,7 +660,8 @@ public final class BucketPositioningService {
                     warp,
                     current.size(),
                     Imgproc.INTER_LINEAR,
-                    Core.BORDER_REPLICATE
+                    Core.BORDER_CONSTANT,
+                    new Scalar(0, 0, 0)
             );
             return out;
         } finally {
@@ -774,7 +780,7 @@ public final class BucketPositioningService {
                 Mat hScaled = affine23ToHomography(affineScaled);
                 try {
                     Mat full = toOriginalScaleHomography(hScaled, prepared.scaleX, prepared.scaleY);
-                    Mat rigid = projectToEuclideanHomography(full);
+                    Mat rigid = projectToEuclideanHomography(full, reference.cols(), reference.rows());
                     release(full);
                     return new OrbResult(rigid, refKp, curKp, good.size(), inliers);
                 } finally {
@@ -806,10 +812,14 @@ public final class BucketPositioningService {
     /**
      * Keep translation (+ tiny rotation). Fake ORB twist above {@link #ORB_MAX_ANGLE_DEG}
      * is stripped so the bucket is not “подкручен” around Z.
+     * When clamping angle, translation is recomputed so the image centre stays aligned
+     * (plain drop of R with old t smears the frame).
      */
-    private static Mat projectToEuclideanHomography(Mat h) {
+    private static Mat projectToEuclideanHomography(Mat h, int frameWidth, int frameHeight) {
         double a = h.get(0, 0)[0];
         double b = h.get(1, 0)[0];
+        double tx = h.get(0, 2)[0];
+        double ty = h.get(1, 2)[0];
         double angle = Math.atan2(b, a);
         double maxRad = Math.toRadians(ORB_MAX_ANGLE_DEG);
         if (Math.abs(angle) > maxRad) {
@@ -817,13 +827,21 @@ public final class BucketPositioningService {
                     "positioning_diag stage=orb_angle CLAMPED {}→0 deg (conveyor translation-only)",
                     fmt(Math.toDegrees(angle))
             );
+            double cx = Math.max(1, frameWidth - 1) * 0.5;
+            double cy = Math.max(1, frameHeight - 1) * 0.5;
+            double c0 = Math.cos(angle);
+            double s0 = Math.sin(angle);
+            double mappedX = c0 * cx - s0 * cy + tx;
+            double mappedY = s0 * cx + c0 * cy + ty;
+            tx = mappedX - cx;
+            ty = mappedY - cy;
             angle = 0.0;
         }
         double c = Math.cos(angle);
         double s = Math.sin(angle);
         Mat out = Mat.eye(3, 3, CvType.CV_64F);
-        out.put(0, 0, c, -s, h.get(0, 2)[0]);
-        out.put(1, 0, s, c, h.get(1, 2)[0]);
+        out.put(0, 0, c, -s, tx);
+        out.put(1, 0, s, c, ty);
         return out;
     }
 
@@ -974,7 +992,8 @@ public final class BucketPositioningService {
                         warp,
                         aligned.size(),
                         Imgproc.INTER_LINEAR | Imgproc.WARP_INVERSE_MAP,
-                        Core.BORDER_REPLICATE
+                        Core.BORDER_CONSTANT,
+                        new Scalar(0, 0, 0)
                 );
                 return new EccResult(refined, true, lastCc, tx, ty, angleDeg);
             } finally {
@@ -1132,14 +1151,14 @@ public final class BucketPositioningService {
         if (!absBetter || !nccBetter) {
             return false;
         }
-        // Strong absdiff wins even if residual phaseCorrelate drifts (frame 20 cam=2 case).
+        // Strong absdiff win required — tiny NCC bumps with huge translation smear the photo.
         double absDrop = before.meanAbsDiff() - after.meanAbsDiff();
-        if (absDrop >= 1.5 || after.meanAbsDiff() <= before.meanAbsDiff() * 0.75) {
+        if (absDrop >= 2.0 || after.meanAbsDiff() <= before.meanAbsDiff() * 0.85) {
             return true;
         }
         double beforeRes = Math.hypot(before.residualShiftX(), before.residualShiftY());
         double afterRes = Math.hypot(after.residualShiftX(), after.residualShiftY());
-        return afterRes <= beforeRes + 3.0;
+        return absDrop >= 1.0 && afterRes + 1.0 < beforeRes;
     }
 
     private static double clampDouble(double v, double min, double max) {
