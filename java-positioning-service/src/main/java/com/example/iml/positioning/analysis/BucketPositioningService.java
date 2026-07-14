@@ -127,8 +127,8 @@ public final class BucketPositioningService {
             // --- 1) Coarse translation via phase correlation ---
             long tOrb0 = System.nanoTime();
             Point coarseShift = estimateCoarseShift(reference, current);
-            diag.put("coarse_dx_px", jsonNum(coarseShift.x));
-            diag.put("coarse_dy_px", jsonNum(coarseShift.y));
+            diag.put("coarse_dx_px", coarseShift.x);
+            diag.put("coarse_dy_px", coarseShift.y);
             Mat afterCoarse = applyTranslation(current, coarseShift.x, coarseShift.y);
             QualityScore qCoarse = measureQuality(reference, afterCoarse, qualityRoi, request.mainRoiPolygonNorm());
             putQuality(diag, "coarse", qCoarse);
@@ -208,7 +208,6 @@ public final class BucketPositioningService {
             if (skipEcc) {
                 stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
                 diag.put("ecc_ok", false);
-                diag.put("ecc_cc", null);
                 diag.put("ecc_tx", 0.0);
                 diag.put("ecc_ty", 0.0);
                 diag.put("ecc_angle_deg", 0.0);
@@ -231,10 +230,10 @@ public final class BucketPositioningService {
                 EccResult ecc = refinePyramidEcc(working, reference, refineRect, request.mainRoiPolygonNorm());
                 stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
                 diag.put("ecc_ok", ecc.ok());
-                diag.put("ecc_cc", jsonNum(ecc.correlation()));
-                diag.put("ecc_tx", jsonNum(ecc.tx()));
-                diag.put("ecc_ty", jsonNum(ecc.ty()));
-                diag.put("ecc_angle_deg", jsonNum(ecc.angleDeg()));
+                putFinite(diag, "ecc_cc", ecc.correlation());
+                putFinite(diag, "ecc_tx", ecc.tx());
+                putFinite(diag, "ecc_ty", ecc.ty());
+                putFinite(diag, "ecc_angle_deg", ecc.angleDeg());
 
                 boolean acceptEcc = false;
                 if (ecc.refined() != working && ecc.ok() && isEccTransformPlausible(ecc)) {
@@ -360,7 +359,7 @@ public final class BucketPositioningService {
                     stageMsEcc,
                     stageMsWrite,
                     stageMsTotal,
-                    Map.copyOf(diag)
+                    Map.copyOf(diag.isEmpty() ? Map.of() : stripNulls(diag))
             );
         } finally {
             release(working);
@@ -1008,17 +1007,27 @@ public final class BucketPositioningService {
     }
 
     private static void putQuality(Map<String, Object> diag, String stage, QualityScore q) {
-        diag.put(stage + "_mean_absdiff", jsonNum(q.meanAbsDiff()));
-        diag.put(stage + "_ncc", jsonNum(q.ncc()));
-        diag.put(stage + "_residual_dx", jsonNum(q.residualShiftX()));
-        diag.put(stage + "_residual_dy", jsonNum(q.residualShiftY()));
+        putFinite(diag, stage + "_mean_absdiff", q.meanAbsDiff());
+        putFinite(diag, stage + "_ncc", q.ncc());
+        putFinite(diag, stage + "_residual_dx", q.residualShiftX());
+        putFinite(diag, stage + "_residual_dy", q.residualShiftY());
     }
 
-    /**
-     * Jackson refuses NaN/Inf in JSON headers → whole response becomes MSG_ERROR.
-     */
-    private static Object jsonNum(double v) {
-        return Double.isFinite(v) ? v : null;
+    private static void putFinite(Map<String, Object> diag, String key, double v) {
+        if (Double.isFinite(v)) {
+            diag.put(key, v);
+        }
+    }
+
+    /** Map.copyOf rejects null values — never put nulls into diagnostics. */
+    private static Map<String, Object> stripNulls(Map<String, Object> in) {
+        Map<String, Object> out = new LinkedHashMap<>(in.size());
+        for (Map.Entry<String, Object> e : in.entrySet()) {
+            if (e.getKey() != null && e.getValue() != null) {
+                out.put(e.getKey(), e.getValue());
+            }
+        }
+        return out;
     }
 
     private static String ctx(Map<String, Object> logContext) {
