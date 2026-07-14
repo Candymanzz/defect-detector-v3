@@ -1,7 +1,9 @@
 #include "cw_config.h"
 
-#include <strings.h>
 #include <string.h>
+#ifndef _WIN32
+#include <strings.h>
+#endif
 
 #ifdef _WIN32
 #define CW_STRICMP _stricmp

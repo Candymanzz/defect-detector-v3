@@ -47182,3 +47182,103 @@ java.io.IOException: EOF
 2026-07-13 13:44:29.738 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
 2026-07-13 13:44:29.738 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
 2026-07-13 13:44:29.742 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit15625858223761622855/light_brightness_settings.json default=42 endpoints=2
+2026-07-13 14:03:23.755 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit2611214181740540763\camera_runtime_settings.json cameras=2
+2026-07-13 14:03:23.764 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit16671369201849206514\camera_runtime_settings.json cameras=1
+2026-07-13 14:03:24.002 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 14:03:24.002 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 14:03:24.002 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 14:03:24.005 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit11131194906118837521\light_brightness_settings.json default=42 endpoints=2
+2026-07-13 14:03:24.016 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 14:03:24.049 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 14:03:24.052 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 14:03:24.054 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 14:03:24.054 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 14:03:24.075 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 14:03:24.076 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 14:03:24.076 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 14:03:24.076 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 14:03:24.076 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 14:03:24.077 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 14:03:24.078 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 14:03:24.078 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 14:03:24.078 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 14:03:24.078 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 14:03:24.085 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 14:03:24.088 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=2
+2026-07-13 14:03:24.089 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=2 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 14:03:24.091 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 14:03:24.094 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 14:04:15.875 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit2934197407455894108\camera_runtime_settings.json cameras=2
+2026-07-13 14:04:15.882 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit8700814585288096050\camera_runtime_settings.json cameras=1
+2026-07-13 14:04:16.083 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-13 14:04:16.083 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-13 14:04:16.083 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-13 14:04:16.087 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit17554395828745093441\light_brightness_settings.json default=42 endpoints=2
+2026-07-13 14:04:16.097 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-13 14:04:16.131 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 14:04:16.134 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 14:04:16.136 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1]
+2026-07-13 14:04:16.136 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[]
+2026-07-13 14:04:16.160 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=bucket-a-cam-0
+2026-07-13 14:04:16.161 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=bucket-a-cam-1
+2026-07-13 14:04:16.161 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=bucket-a-cam-2
+2026-07-13 14:04:16.161 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=bucket-a-cam-3
+2026-07-13 14:04:16.161 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=bucket-a-cam-4
+2026-07-13 14:04:16.162 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=bucket-b-cam-5
+2026-07-13 14:04:16.162 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=bucket-b-cam-6
+2026-07-13 14:04:16.163 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=bucket-b-cam-7
+2026-07-13 14:04:16.163 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=bucket-b-cam-8
+2026-07-13 14:04:16.163 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=bucket-b-cam-9
+2026-07-13 14:04:16.170 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 14:04:16.174 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=2
+2026-07-13 14:04:16.175 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=2 pipeline_ms=6 reference_ms=0 capture_ms=1 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-13 14:04:16.177 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-13 14:04:16.179 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-13 14:14:41.609 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[]
+2026-07-13 14:14:41.609 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[]
+2026-07-13 14:14:42.602 INFO  [pool-4-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=0 pass=true frames=5/5 reject_cameras=[]
+2026-07-13 14:14:45.255 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=1 pass=true frames=5/5 reject_cameras=[]
+2026-07-13 14:14:45.278 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=0 pass=true frames=5/5 reject_cameras=[]
+2026-07-13 14:14:49.292 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket timeout seq=300 group=1 received=3/5 cameras=[5, 6, 7]
+2026-07-13 14:14:49.293 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=1 pass=false frames=3/5 reject_cameras=[]
+2026-07-13 14:21:59.913 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=0 pass=true frames=5/5 reject_cameras=[]
+2026-07-13 14:21:59.919 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=1 pass=true frames=5/5 reject_cameras=[]
+2026-07-13 14:25:00.414 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.HardwareSmokeMain - hardware smoke start root=D:\visionGay\defect-detector-v3 only=[io, timing]
+2026-07-13 14:25:00.504 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI1 work ON -> 127.0.0.1:9100
+2026-07-13 14:25:00.725 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI2 direction OFF -> 127.0.0.1:9100
+2026-07-13 14:25:00.929 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 idle -> 127.0.0.1:9100
+2026-07-13 14:25:01.131 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger rising -> 127.0.0.1:9100
+2026-07-13 14:25:01.442 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger falling -> 127.0.0.1:9100
+2026-07-13 14:25:01.442 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.IoInputUdpSmokeMain - io udp smoke sent 5 packets to 127.0.0.1:9100
+2026-07-13 14:25:01.673 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI1 work ON -> 127.0.0.1:9100
+2026-07-13 14:25:01.880 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI2 direction OFF -> 127.0.0.1:9100
+2026-07-13 14:25:02.083 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 idle -> 127.0.0.1:9100
+2026-07-13 14:25:02.285 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger rising -> 127.0.0.1:9100
+2026-07-13 14:25:02.597 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - >>> DI3 trigger falling -> 127.0.0.1:9100
+2026-07-13 14:25:02.598 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.IoInputUdpSmokeMain - io udp smoke sent 5 packets to 127.0.0.1:9100
+2026-07-13 14:25:07.192 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - --- smoke summary: 24 steps, 1 failed ---
+2026-07-13 14:25:07.192 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / target — 127.0.0.1:9100 format=json
+2026-07-13 14:25:07.192 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON — parsed di=1 value=true
+2026-07-13 14:25:07.192 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON send — {"di":1,"value":1,"ts_ms":1783941900488}
+2026-07-13 14:25:07.193 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF — parsed di=2 value=false
+2026-07-13 14:25:07.193 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF send — {"di":2,"value":0,"ts_ms":1783941900725}
+2026-07-13 14:25:07.193 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle — parsed di=3 value=false
+2026-07-13 14:25:07.193 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle send — {"di":3,"value":0,"ts_ms":1783941900929}
+2026-07-13 14:25:07.193 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising — parsed di=3 value=true
+2026-07-13 14:25:07.193 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising send — {"di":3,"value":1,"ts_ms":1783941901131}
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling — parsed di=3 value=false
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling send — {"di":3,"value":0,"ts_ms":1783941901442}
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] timing / orchestrator — health OK
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / target — 127.0.0.1:9100 format=json
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON — parsed di=1 value=true
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI1 work ON send — {"di":1,"value":1,"ts_ms":1783941901673}
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF — parsed di=2 value=false
+2026-07-13 14:25:07.194 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI2 direction OFF send — {"di":2,"value":0,"ts_ms":1783941901880}
+2026-07-13 14:25:07.195 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle — parsed di=3 value=false
+2026-07-13 14:25:07.195 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 idle send — {"di":3,"value":0,"ts_ms":1783941902083}
+2026-07-13 14:25:07.195 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising — parsed di=3 value=true
+2026-07-13 14:25:07.195 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger rising send — {"di":3,"value":1,"ts_ms":1783941902285}
+2026-07-13 14:25:07.195 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling — parsed di=3 value=false
+2026-07-13 14:25:07.195 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [OK] io / DI3 trigger falling send — {"di":3,"value":0,"ts_ms":1783941902597}
+2026-07-13 14:25:07.195 INFO  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.SmokeSupport - [FAIL] timing / two-buckets — timeout waiting for bucket complete group=0,1 within 4000 ms (seq=-1)
+2026-07-13 14:25:07.195 WARN  [com.example.iml.orchestrator.integration.smoke.HardwareSmokeMain.main()] c.e.i.o.i.s.HardwareSmokeMain - hardware smoke finished with 1 failures

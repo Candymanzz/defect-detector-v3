@@ -1,2 +1,2 @@
-cw_config_tests 1 0.00239988
+cw_config_tests 1 0.0046292
 ---

@@ -1,5 +1,5 @@
-/home/oleg/Загрузки/realise/Kal/camera-worker/build-test/CMakeFiles/camera_worker.dir
-/home/oleg/Загрузки/realise/Kal/camera-worker/build-test/CMakeFiles/cw_config_tests.dir
-/home/oleg/Загрузки/realise/Kal/camera-worker/build-test/CMakeFiles/test.dir
-/home/oleg/Загрузки/realise/Kal/camera-worker/build-test/CMakeFiles/edit_cache.dir
-/home/oleg/Загрузки/realise/Kal/camera-worker/build-test/CMakeFiles/rebuild_cache.dir
+D:/visionGay/defect-detector-v3/camera-worker/build-test/CMakeFiles/camera_worker.dir
+D:/visionGay/defect-detector-v3/camera-worker/build-test/CMakeFiles/cw_config_tests.dir
+D:/visionGay/defect-detector-v3/camera-worker/build-test/CMakeFiles/RUN_TESTS.dir
+D:/visionGay/defect-detector-v3/camera-worker/build-test/CMakeFiles/ALL_BUILD.dir
+D:/visionGay/defect-detector-v3/camera-worker/build-test/CMakeFiles/ZERO_CHECK.dir

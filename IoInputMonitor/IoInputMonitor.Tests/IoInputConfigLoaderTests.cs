@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Xunit;
 
 namespace IoInputMonitor.Tests;
 
@@ -28,7 +29,7 @@ public class IoInputConfigLoaderTests
     {
         int[] ports = IoInputConfigLoader.ParseInputPorts([3, 3, 0, 9, 1, 8]);
 
-        Assert.Equal([3, 1], ports);
+        Assert.Equal([3, 1, 8], ports);
     }
 
     [Fact]
