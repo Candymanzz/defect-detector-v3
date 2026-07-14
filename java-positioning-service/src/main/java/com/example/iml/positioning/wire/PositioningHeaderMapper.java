@@ -51,6 +51,11 @@ public final class PositioningHeaderMapper {
         out.put("width", response.width());
         out.put("height", response.height());
         out.put("stride", response.stride());
+        out.put("stage_ms_orb", response.stageMsOrb());
+        out.put("stage_ms_warp", response.stageMsWarp());
+        out.put("stage_ms_ecc", response.stageMsEcc());
+        out.put("stage_ms_write", response.stageMsWrite());
+        out.put("stage_ms_total", response.stageMsTotal());
         return out;
     }
 

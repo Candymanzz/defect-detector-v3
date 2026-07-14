@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -188,7 +189,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (capture == null) {
             return;
         }
-        Map<String, Object> cap = capture.header();
+        Map<String, Object> cap = new LinkedHashMap<>(capture.header());
+        // Prefer positioned buffer for UI JPEG / cards (analysis already remapped shm_name).
+        String previewShm = resolveUiPreviewShmName(cap, cameraId);
+        if (previewShm != null) {
+            cap.put("shm_name", previewShm);
+            cap.put("shm_offset", 0L);
+        }
         ClientWebSocketServer ws = clientWebSocketServer;
         String shmName = String.valueOf(cap.get("shm_name"));
         long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
@@ -611,6 +618,46 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         deleteTemporaryArtifact(frozenFrame.path(), label);
     }
 
+    /**
+     * Preview/card JPEG must show the positioned frame when positioning succeeded.
+     */
+    private static String resolveUiPreviewShmName(Map<String, Object> cap, int cameraId) {
+        if (cap == null || cap.isEmpty()) {
+            return null;
+        }
+        Object explicit = cap.get("ui_preview_shm_name");
+        if (explicit != null) {
+            String name = String.valueOf(explicit).trim();
+            if (!name.isEmpty() && previewShmExists(name, cameraId)) {
+                return name.startsWith("/") ? name : "/" + name.replace("/", "_");
+            }
+        }
+        if (YamlScalars.toBool(cap.get("positioning_aligned"), false)) {
+            Object shm = cap.get("shm_name");
+            if (shm != null) {
+                String name = String.valueOf(shm).trim();
+                if (name.contains("iml_pos") && previewShmExists(name, cameraId)) {
+                    return name.startsWith("/") ? name : "/" + name.replace("/", "_");
+                }
+            }
+        }
+        String positioned = "/iml_pos_cam_" + cameraId;
+        if (previewShmExists(positioned, cameraId)) {
+            Object status = cap.get("positioning_status");
+            boolean aligned = YamlScalars.toBool(cap.get("positioning_aligned"), false)
+                    || "PASS".equalsIgnoreCase(String.valueOf(status == null ? "" : status));
+            if (aligned) {
+                return positioned;
+            }
+        }
+        return null;
+    }
+
+    private static boolean previewShmExists(String shmName, int cameraId) {
+        Path path = FrameJpegWriter.resolveShmPath(shmName, cameraId);
+        return path != null && Files.isRegularFile(path);
+    }
+
     private static FrozenFrame freezeInspectionFrame(
             int cameraId,
             long frameId,
@@ -714,7 +761,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Object homography = geometry == null || geometry.header() == null
                     ? null
                     : geometry.header().get("homographyRefToCurrent");
-            if (homography != null) {
+            String frozenName = frozenFrame.shmName() == null ? "" : frozenFrame.shmName();
+            if (frozenName.contains("iml_pos")) {
+                pyHeader.put(
+                        "alignment_h_ref_to_cur",
+                        java.util.List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+                );
+            } else if (homography != null) {
                 pyHeader.put("alignment_h_ref_to_cur", homography);
             }
             Object roiPolygon = activeReference.header().get("interest_polygon_norm");

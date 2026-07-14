@@ -12,6 +12,11 @@ public record PositioningResponse(
         int width,
         int height,
         int stride,
-        String status
+        String status,
+        double stageMsOrb,
+        double stageMsWarp,
+        double stageMsEcc,
+        double stageMsWrite,
+        double stageMsTotal
 ) {
 }

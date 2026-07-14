@@ -25,10 +25,16 @@ public final class InspectionStageTimingLogger {
             long tFanoutEndNanos
     ) {
         Map<String, Object> pyHeader = state.py() == null ? Map.of() : state.py().header();
+        Map<String, Object> capHeader = state.capture() == null || state.capture().header() == null
+                ? Map.of()
+                : state.capture().header();
         long decisionMs = YamlScalars.nanosToMs(tDecisionEndNanos - tDecisionStartNanos);
         long fanoutMs = YamlScalars.nanosToMs(tFanoutEndNanos - tDecisionEndNanos);
-        long pipelineMs = state.captureMs() + state.geometryMs() + state.pythonMs() + decisionMs + fanoutMs;
-        log.info("stage_timing cam={} frame={} total_ms={} pipeline_ms={} reference_ms={} capture_ms={} python_ms={} geometry_ms={} decision_ms={} fanout_ms={} "
+        long positioningMs = YamlScalars.toLong(capHeader.get("positioning_ms"), 0L);
+        long pipelineMs = state.captureMs() + positioningMs + state.geometryMs() + state.pythonMs() + decisionMs + fanoutMs;
+        log.info("stage_timing cam={} frame={} total_ms={} pipeline_ms={} reference_ms={} capture_ms={} positioning_ms={} "
+                        + "python_ms={} geometry_ms={} decision_ms={} fanout_ms={} "
+                        + "pos_orb_ms={} pos_warp_ms={} pos_ecc_ms={} pos_write_ms={} "
                         + "py_align_ms={} py_diff_ms={} py_anomaly_ms={} py_fp_recheck_ms={} py_encode_ms={} py_total_ms={}",
                 cameraId,
                 decision.frameId(),
@@ -36,10 +42,15 @@ public final class InspectionStageTimingLogger {
                 pipelineMs,
                 referenceMsFinal,
                 state.captureMs(),
+                positioningMs,
                 state.pythonMs(),
                 state.geometryMs(),
                 decisionMs,
                 fanoutMs,
+                YamlScalars.toDouble(capHeader.get("positioning_stage_ms_orb"), 0.0),
+                YamlScalars.toDouble(capHeader.get("positioning_stage_ms_warp"), 0.0),
+                YamlScalars.toDouble(capHeader.get("positioning_stage_ms_ecc"), 0.0),
+                YamlScalars.toDouble(capHeader.get("positioning_stage_ms_write"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("stage_ms_align"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("stage_ms_diff"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("stage_ms_anomaly"), 0.0),

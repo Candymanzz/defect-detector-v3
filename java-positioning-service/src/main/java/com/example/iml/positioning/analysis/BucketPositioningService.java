@@ -17,25 +17,26 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Size;
+import org.opencv.core.TermCriteria;
 import org.opencv.features2d.BFMatcher;
 import org.opencv.features2d.ORB;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.video.Video;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
- * ORB + RANSAC homography: warp current → reference pose.
- * Large shift/rotation between frames is expected; success = homography found and
- * aligned frame written, not “within QC tolerance”.
+ * Full-frame ORB + RANSAC, then ECC refine in the reference interest region.
+ * Large pose discrepancy is expected; PASS = aligned frame written.
  */
 public final class BucketPositioningService {
 
-    /** Larger working size helps large translational/rotational discrepancies. */
-    private static final int MAX_ALIGNMENT_DIM = 960;
-    private static final int ORB_FEATURES = 4000;
+    private static final int MAX_ALIGNMENT_DIM = 1024;
+    private static final int ORB_FEATURES = 5000;
     private static final double RANSAC_REPROJ_THRESHOLD = 8.0;
-    private static final int MIN_MATCHES = 6;
+    private static final int MIN_MATCHES = 8;
     private static final double FALLBACK_FAIL_MM = 9999.0;
     private static final double FALLBACK_FAIL_ROTATION_DEG = 9999.0;
 
@@ -56,28 +57,22 @@ public final class BucketPositioningService {
             PositioningRequest request,
             String referenceCacheKey
     ) {
-        Mat referenceRoi = null;
-        Mat currentRoi = null;
-        Mat roiMask = null;
+        long tTotal0 = System.nanoTime();
+        double stageMsOrb = 0;
+        double stageMsWarp = 0;
+        double stageMsEcc = 0;
+        double stageMsWrite = 0;
         Mat aligned = null;
         Mat homography = null;
         try {
             validateInputFrames(reference, current);
-            Rect mainRect = resolveMainRect(request, current.cols(), current.rows());
-            referenceRoi = new Mat(reference, mainRect).clone();
-            currentRoi = new Mat(current, mainRect).clone();
-            List<NormPoint> polygon = request.mainRoiPolygonNorm();
-            if (polygon != null && polygon.size() >= 3) {
-                roiMask = RoiPolygonMask.maskForRect(polygon, mainRect, current.cols(), current.rows());
-                RoiPolygonMask.applyMask(referenceRoi, roiMask);
-                RoiPolygonMask.applyMask(currentRoi, roiMask);
-            }
 
-            AlignmentResult alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm(), referenceCacheKey);
+            long tOrb0 = System.nanoTime();
+            AlignmentResult alignment = alignFullFrame(reference, current, request.pixelsToMm(), referenceCacheKey);
+            stageMsOrb = nanosToMs(System.nanoTime() - tOrb0);
             homography = alignment.homographyRefToCurrent;
             boolean matched = homography != null && !homography.empty();
 
-            // Soft metric only (large discrepancy is normal); does not gate overallPass.
             boolean withinSoftTolerance = matched
                     && Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
@@ -86,19 +81,31 @@ public final class BucketPositioningService {
             boolean alignedWritten = false;
             String outputName = request.outputShmName() == null ? "" : request.outputShmName().trim();
             if (request.writeAligned() && !outputName.isEmpty() && matched) {
-                aligned = warpCurrentToReference(current, homography, mainRect);
+                long tWarp0 = System.nanoTime();
+                aligned = warpCurrentToReference(current, homography);
+                stageMsWarp = nanosToMs(System.nanoTime() - tWarp0);
+
+                Rect refineRect = resolveMainRect(request, current.cols(), current.rows());
+                long tEcc0 = System.nanoTime();
+                Mat refined = refineWithEcc(aligned, reference, refineRect, request.mainRoiPolygonNorm());
+                stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
+                if (refined != aligned) {
+                    aligned.release();
+                    aligned = refined;
+                }
+
+                long tWrite0 = System.nanoTime();
                 shmWriter.writeBgrMat(outputName, aligned);
+                stageMsWrite = nanosToMs(System.nanoTime() - tWrite0);
                 alignedWritten = true;
             }
 
-            // PASS = product brought to reference pose (any magnitude of prior shift is OK).
-            boolean overallPass = request.writeAligned()
-                    ? alignedWritten
-                    : matched;
+            boolean overallPass = request.writeAligned() ? alignedWritten : matched;
             if (request.writeAligned() && outputName.isEmpty()) {
                 overallPass = false;
             }
 
+            double stageMsTotal = nanosToMs(System.nanoTime() - tTotal0);
             return new PositioningResponse(
                     alignment.shiftXmm,
                     alignment.shiftYmm,
@@ -111,54 +118,59 @@ public final class BucketPositioningService {
                     current.cols(),
                     current.rows(),
                     current.cols() * 3,
-                    overallPass ? "PASS" : "FAIL"
+                    overallPass ? "PASS" : "FAIL",
+                    stageMsOrb,
+                    stageMsWarp,
+                    stageMsEcc,
+                    stageMsWrite,
+                    stageMsTotal
             );
         } finally {
-            release(referenceRoi, currentRoi, roiMask, aligned);
+            release(aligned);
             if (homography != null) {
                 homography.release();
             }
         }
     }
 
-    private AlignmentResult alignByHomography(
-            Mat referenceRoi,
-            Mat currentRoi,
-            double pixelsToMm,
-            String referenceCacheKey
-    ) {
+    private AlignmentResult alignFullFrame(Mat reference, Mat current, double pixelsToMm, String referenceCacheKey) {
         Mat curGray = new Mat();
         Mat curGrayScaled = null;
         Mat curDescriptors = new Mat();
         MatOfKeyPoint curKeypoints = new MatOfKeyPoint();
         try {
-            PreparedReference preparedReference = getOrBuildPreparedReference(referenceRoi, referenceCacheKey);
-            Imgproc.cvtColor(currentRoi, curGray, Imgproc.COLOR_BGR2GRAY);
+            PreparedReference preparedReference = getOrBuildPreparedReference(reference, referenceCacheKey);
+            Imgproc.cvtColor(current, curGray, Imgproc.COLOR_BGR2GRAY);
             ResizeResult curResize = resizeForProcessing(curGray, MAX_ALIGNMENT_DIM);
             curGrayScaled = curResize.mat;
 
-            MatOfKeyPoint kp = curKeypoints;
-            Mat desc = curDescriptors;
-            orb.detectAndCompute(curGrayScaled, new Mat(), kp, desc);
-            if (preparedReference.descriptors.empty() || desc.empty()) {
+            orb.detectAndCompute(curGrayScaled, new Mat(), curKeypoints, curDescriptors);
+            if (preparedReference.descriptors.empty() || curDescriptors.empty()) {
                 return failedAlignment();
             }
 
-            List<DMatch> goodMatches = ratioTestMatches(preparedReference.descriptors, desc, 0.80f);
+            List<DMatch> goodMatches = ratioTestMatches(preparedReference.descriptors, curDescriptors, 0.80f);
             if (goodMatches.size() < MIN_MATCHES) {
-                goodMatches = ratioTestMatches(preparedReference.descriptors, desc, 0.90f);
+                goodMatches = ratioTestMatches(preparedReference.descriptors, curDescriptors, 0.92f);
             }
             if (goodMatches.size() < MIN_MATCHES) {
                 return failedAlignment();
             }
 
             KeyPoint[] refPoints = preparedReference.keypoints;
-            KeyPoint[] curPoints = kp.toArray();
+            KeyPoint[] curPoints = curKeypoints.toArray();
             List<Point> srcPoints = new ArrayList<>(goodMatches.size());
             List<Point> dstPoints = new ArrayList<>(goodMatches.size());
             for (DMatch match : goodMatches) {
+                if (match.queryIdx < 0 || match.queryIdx >= refPoints.length
+                        || match.trainIdx < 0 || match.trainIdx >= curPoints.length) {
+                    continue;
+                }
                 srcPoints.add(refPoints[match.queryIdx].pt);
                 dstPoints.add(curPoints[match.trainIdx].pt);
+            }
+            if (srcPoints.size() < MIN_MATCHES) {
+                return failedAlignment();
             }
 
             MatOfPoint2f src = new MatOfPoint2f();
@@ -173,7 +185,11 @@ public final class BucketPositioningService {
                 if (scaledHomography.empty()) {
                     return failedAlignment();
                 }
-                Mat full = toOriginalScaleHomography(scaledHomography, preparedReference.scaleX, preparedReference.scaleY);
+                if (Core.countNonZero(inliersMask) < MIN_MATCHES) {
+                    return failedAlignment();
+                }
+                Mat full = toOriginalScaleHomography(
+                        scaledHomography, preparedReference.scaleX, preparedReference.scaleY);
                 double shiftXPx = full.get(0, 2)[0];
                 double shiftYPx = full.get(1, 2)[0];
                 double rotationDeg = Math.toDegrees(Math.atan2(full.get(1, 0)[0], full.get(0, 0)[0]));
@@ -200,20 +216,18 @@ public final class BucketPositioningService {
             DMatch[] arr = matOfDMatch.toArray();
             if (arr.length >= 2 && arr[0].distance < ratio * arr[1].distance) {
                 good.add(arr[0]);
-            } else if (arr.length == 1) {
-                good.add(arr[0]);
             }
             matOfDMatch.release();
         }
         return good;
     }
 
-    private PreparedReference getOrBuildPreparedReference(Mat referenceRoi, String referenceCacheKey) {
+    private PreparedReference getOrBuildPreparedReference(Mat reference, String referenceCacheKey) {
         PreparedReference cached = preparedReferenceCache;
-        if (cached != null && matchesPreparedReference(cached, referenceCacheKey, referenceRoi)) {
+        if (cached != null && matchesPreparedReference(cached, referenceCacheKey, reference)) {
             return cached;
         }
-        PreparedReference next = buildPreparedReference(referenceRoi, referenceCacheKey);
+        PreparedReference next = buildPreparedReference(reference, referenceCacheKey);
         if (preparedReferenceCache != null) {
             preparedReferenceCache.descriptors.release();
         }
@@ -224,31 +238,31 @@ public final class BucketPositioningService {
     private static boolean matchesPreparedReference(
             PreparedReference cached,
             String referenceCacheKey,
-            Mat referenceRoi
+            Mat reference
     ) {
         if (referenceCacheKey != null && !referenceCacheKey.isBlank()) {
             return referenceCacheKey.equals(cached.cacheKey);
         }
-        return cached.dataAddr == referenceRoi.dataAddr()
-                && cached.rows == referenceRoi.rows()
-                && cached.cols == referenceRoi.cols();
+        return cached.dataAddr == reference.dataAddr()
+                && cached.rows == reference.rows()
+                && cached.cols == reference.cols();
     }
 
-    private PreparedReference buildPreparedReference(Mat referenceRoi, String referenceCacheKey) {
+    private PreparedReference buildPreparedReference(Mat reference, String referenceCacheKey) {
         Mat gray = new Mat();
         Mat grayScaled = null;
         Mat descriptors = new Mat();
         MatOfKeyPoint keypoints = new MatOfKeyPoint();
         try {
-            Imgproc.cvtColor(referenceRoi, gray, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.cvtColor(reference, gray, Imgproc.COLOR_BGR2GRAY);
             ResizeResult resized = resizeForProcessing(gray, MAX_ALIGNMENT_DIM);
             grayScaled = resized.mat;
             orb.detectAndCompute(grayScaled, new Mat(), keypoints, descriptors);
             return new PreparedReference(
                     referenceCacheKey,
-                    referenceRoi.dataAddr(),
-                    referenceRoi.rows(),
-                    referenceRoi.cols(),
+                    reference.dataAddr(),
+                    reference.rows(),
+                    reference.cols(),
                     resized.scaleX,
                     resized.scaleY,
                     keypoints.toArray(),
@@ -260,43 +274,84 @@ public final class BucketPositioningService {
         }
     }
 
-    private Mat warpCurrentToReference(Mat current, Mat localHomographyRefToCurrent, Rect mainRect) {
-        Mat globalHomography = null;
-        Mat inverseGlobalHomography = new Mat();
+    private Mat warpCurrentToReference(Mat current, Mat homographyRefToCurrent) {
+        Mat inverse = new Mat();
         Mat aligned = new Mat();
         try {
-            globalHomography = toGlobalHomography(localHomographyRefToCurrent, mainRect);
-            Core.invert(globalHomography, inverseGlobalHomography);
+            Core.invert(homographyRefToCurrent, inverse);
             Imgproc.warpPerspective(
                     current,
                     aligned,
-                    inverseGlobalHomography,
+                    inverse,
                     current.size(),
                     Imgproc.INTER_LINEAR,
                     Core.BORDER_REPLICATE
             );
             return aligned;
         } finally {
-            release(globalHomography, inverseGlobalHomography);
+            release(inverse);
         }
     }
 
-    private Mat toGlobalHomography(Mat localHomographyRefToCurrent, Rect mainRect) {
-        Mat translateToLocal = Mat.eye(3, 3, CvType.CV_64F);
-        Mat translateToGlobal = Mat.eye(3, 3, CvType.CV_64F);
-        Mat empty = new Mat();
-        Mat tmp = new Mat();
-        Mat global = new Mat();
+    private Mat refineWithEcc(Mat aligned, Mat reference, Rect refineRect, List<NormPoint> polygon) {
+        Mat refGray = new Mat();
+        Mat curGray = new Mat();
+        Mat refRoi = null;
+        Mat curRoi = null;
+        Mat mask = null;
+        Mat warp = Mat.eye(2, 3, CvType.CV_32F);
+        Mat emptyMask = null;
         try {
-            translateToLocal.put(0, 2, -mainRect.x);
-            translateToLocal.put(1, 2, -mainRect.y);
-            translateToGlobal.put(0, 2, mainRect.x);
-            translateToGlobal.put(1, 2, mainRect.y);
-            Core.gemm(localHomographyRefToCurrent, translateToLocal, 1.0, empty, 0.0, tmp);
-            Core.gemm(translateToGlobal, tmp, 1.0, empty, 0.0, global);
-            return global;
+            Imgproc.cvtColor(reference, refGray, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.cvtColor(aligned, curGray, Imgproc.COLOR_BGR2GRAY);
+            Rect safe = toSafeRect(
+                    new RoiRect(refineRect.x, refineRect.y, refineRect.width, refineRect.height),
+                    reference.cols(),
+                    reference.rows()
+            );
+            refRoi = new Mat(refGray, safe);
+            curRoi = new Mat(curGray, safe);
+            if (polygon != null && polygon.size() >= 3) {
+                mask = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
+            }
+
+            TermCriteria criteria = new TermCriteria(
+                    TermCriteria.COUNT + TermCriteria.EPS,
+                    50,
+                    1e-4
+            );
+            emptyMask = mask == null ? new Mat() : null;
+            double cc = Video.findTransformECC(
+                    refRoi,
+                    curRoi,
+                    warp,
+                    Video.MOTION_EUCLIDEAN,
+                    criteria,
+                    mask == null ? emptyMask : mask
+            );
+            if (!Double.isFinite(cc) || cc < 0.1) {
+                return aligned;
+            }
+
+            Mat refined = new Mat();
+            try {
+                Imgproc.warpAffine(
+                        aligned,
+                        refined,
+                        warp,
+                        aligned.size(),
+                        Imgproc.INTER_LINEAR,
+                        Core.BORDER_REPLICATE
+                );
+                return refined;
+            } catch (Exception e) {
+                refined.release();
+                return aligned;
+            }
+        } catch (Exception ignored) {
+            return aligned;
         } finally {
-            release(translateToLocal, translateToGlobal, empty, tmp);
+            release(refGray, curGray, refRoi, curRoi, mask, warp, emptyMask);
         }
     }
 
@@ -386,6 +441,10 @@ public final class BucketPositioningService {
         if (reference.cols() != current.cols() || reference.rows() != current.rows()) {
             throw new IllegalArgumentException("reference and current frames must have the same size");
         }
+    }
+
+    private static double nanosToMs(long nanos) {
+        return TimeUnit.NANOSECONDS.toMillis(nanos) + (nanos % 1_000_000L) / 1_000_000.0;
     }
 
     private static int clamp(int value, int min, int max) {

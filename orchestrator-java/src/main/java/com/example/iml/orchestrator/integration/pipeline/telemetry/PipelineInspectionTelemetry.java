@@ -58,6 +58,9 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
             return;
         }
         Map<String, Object> pyHeader = state.py() == null ? Map.of() : state.py().header();
+        Map<String, Object> capHeader = state.capture() == null || state.capture().header() == null
+                ? Map.of()
+                : state.capture().header();
         long decisionMs = YamlScalars.nanosToMs(tDecisionEndNanos - tDecisionStartNanos);
         long fanoutMs = YamlScalars.nanosToMs(tFanoutEndNanos - tDecisionEndNanos);
         double pyStageAlignMs = YamlScalars.toDouble(pyHeader.get("stage_ms_align"), 0.0);
@@ -66,6 +69,7 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
         double pyStageFpRecheckMs = YamlScalars.toDouble(pyHeader.get("stage_ms_fp_recheck"), 0.0);
         double pyStageEncodeMs = YamlScalars.toDouble(pyHeader.get("stage_ms_encode"), 0.0);
         double pyStageTotalMs = YamlScalars.toDouble(pyHeader.get("stage_ms_total"), 0.0);
+        long positioningMs = YamlScalars.toLong(capHeader.get("positioning_ms"), 0L);
 
         LinkedHashMap<String, Object> row = new LinkedHashMap<>();
         row.put("event", "inspection_cycle");
@@ -78,6 +82,12 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
         row.put("frame_id", decision.frameId());
         row.put("reference_ms", referenceMsFinal);
         row.put("capture_ms", state.captureMs());
+        row.put("positioning_ms", positioningMs);
+        row.put("positioning_s", positioningMs / 1000.0);
+        row.put("positioning_orb_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_orb"), 0.0));
+        row.put("positioning_warp_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_warp"), 0.0));
+        row.put("positioning_ecc_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_ecc"), 0.0));
+        row.put("positioning_write_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_write"), 0.0));
         row.put("python_ms", state.pythonMs());
         row.put("geometry_ms", state.geometryMs());
         row.put("capture_s", state.captureMs() / 1000.0);

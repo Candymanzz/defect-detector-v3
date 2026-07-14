@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
+import com.example.iml.orchestrator.integration.pipeline.stages.InspectPositioningExecutor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
 import java.util.HashMap;
@@ -222,7 +223,12 @@ public final class BinaryInspectHeaders {
         pyHeader.put("width", capture.header().get("width"));
         pyHeader.put("height", capture.header().get("height"));
         pyHeader.put("stride", capture.header().get("stride"));
-        if (geomResp != null) {
+        if (YamlScalars.toBool(capture.header().get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
+            pyHeader.put(
+                    "alignment_h_ref_to_cur",
+                    List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+            );
+        } else if (geomResp != null) {
             Object h = geomResp.header().get("homographyRefToCurrent");
             if (h != null) {
                 pyHeader.put("alignment_h_ref_to_cur", h);

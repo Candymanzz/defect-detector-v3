@@ -18,9 +18,11 @@ public final class ImlShmJanitor {
 
     private static final Pattern STABLE_FILE = Pattern.compile(
             "^iml_cam_\\d+_frame$"
+                    + "|^iml_pos_cam_\\d+$"
                     + "|^iml_ds_[a-z_]+_cam\\d+$"
                     + "|^iml_py_ds_(cur|ref)_cam\\d+$"
                     + "|^iml_ui_(inspect|heatmap)_cam_\\d+$"
+                    + "|^iml_ui_inspect_cam_\\d+_f\\d+$"
     );
 
     private ImlShmJanitor() {
@@ -89,12 +91,14 @@ public final class ImlShmJanitor {
         }
         return baseName.startsWith("iml_ds_")
                 || baseName.startsWith("iml_py_ds_")
+                || baseName.startsWith("iml_pos_")
                 || baseName.startsWith("iml_ui_");
     }
 
     private static boolean isOrchestratorOwnedBuffer(String name) {
         return name.startsWith("iml_ds_")
                 || name.startsWith("iml_py_ds_")
+                || name.startsWith("iml_pos_")
                 || name.startsWith("iml_ui_");
     }
 

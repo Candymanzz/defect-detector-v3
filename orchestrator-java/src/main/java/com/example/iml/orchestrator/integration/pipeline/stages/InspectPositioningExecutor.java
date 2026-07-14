@@ -73,6 +73,7 @@ public final class InspectPositioningExecutor {
                 Math.floorMod(positioningRoundRobin.getAndIncrement(), positioningPool.size())
         );
         try {
+            long t0 = System.nanoTime();
             Map<String, Object> header = BinaryInspectHeaders.positioningHeader(
                     cameraId,
                     state.capture(),
@@ -86,10 +87,28 @@ public final class InspectPositioningExecutor {
             }
             try {
                 BinaryProtocol.Message resp = positioning.command(header);
-                if (log.isDebugEnabled()) {
-                    log.debug("positioning cam={} frame={} => {}", cameraId, state.capture().header().get("frame_id"), resp.header());
+                long wallMs = YamlScalars.nanosToMs(System.nanoTime() - t0);
+                if (log != null) {
+                    Map<String, Object> rh = resp == null || resp.header() == null ? Map.of() : resp.header();
+                    log.info(
+                            "positioning_timing cam={} frame={} wall_ms={} service_ms={} orb_ms={} warp_ms={} ecc_ms={} write_ms={} "
+                                    + "status={} shift=({}, {}) rot={} aligned={}",
+                            cameraId,
+                            state.capture().header().get("frame_id"),
+                            wallMs,
+                            YamlScalars.toDouble(rh.get("stage_ms_total"), wallMs),
+                            YamlScalars.toDouble(rh.get("stage_ms_orb"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_warp"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_ecc"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_write"), 0.0),
+                            rh.getOrDefault("status", "?"),
+                            rh.get("shiftXmm"),
+                            rh.get("shiftYmm"),
+                            rh.get("rotationDeg"),
+                            rh.get("alignedWritten")
+                    );
                 }
-                return applyResponse(state, resp, cameraId);
+                return applyResponse(state, resp, cameraId, wallMs);
             } finally {
                 if (positioningSlots != null) {
                     positioningSlots.release();
@@ -100,7 +119,12 @@ public final class InspectPositioningExecutor {
         }
     }
 
-    private PipelineState applyResponse(PipelineState state, BinaryProtocol.Message resp, int cameraId) {
+    private PipelineState applyResponse(
+            PipelineState state,
+            BinaryProtocol.Message resp,
+            int cameraId,
+            long wallMs
+    ) {
         Map<String, Object> captureHeader = new LinkedHashMap<>(state.capture().header());
         boolean ok = resp != null
                 && resp.type() == BinaryProtocol.MSG_RESPONSE
@@ -109,15 +133,18 @@ public final class InspectPositioningExecutor {
                 && resp.type() == BinaryProtocol.MSG_RESPONSE
                 && YamlScalars.toBool(resp.header().get("alignedWritten"), false);
 
+        captureHeader.put("positioning_ms", wallMs);
         if (resp != null && resp.header() != null) {
-            captureHeader.put("positioning_status", resp.header().get("status"));
-            captureHeader.put("positioning_shift_x_mm", resp.header().get("shiftXmm"));
-            captureHeader.put("positioning_shift_y_mm", resp.header().get("shiftYmm"));
-            captureHeader.put("positioning_rotation_deg", resp.header().get("rotationDeg"));
-            Object h = resp.header().get("homographyRefToCurrent");
-            if (h != null) {
-                captureHeader.put("positioning_homography_ref_to_cur", h);
-            }
+            putIfPresent(captureHeader, "positioning_status", resp.header().get("status"));
+            putIfPresent(captureHeader, "positioning_shift_x_mm", resp.header().get("shiftXmm"));
+            putIfPresent(captureHeader, "positioning_shift_y_mm", resp.header().get("shiftYmm"));
+            putIfPresent(captureHeader, "positioning_rotation_deg", resp.header().get("rotationDeg"));
+            putIfPresent(captureHeader, "positioning_stage_ms_orb", resp.header().get("stage_ms_orb"));
+            putIfPresent(captureHeader, "positioning_stage_ms_warp", resp.header().get("stage_ms_warp"));
+            putIfPresent(captureHeader, "positioning_stage_ms_ecc", resp.header().get("stage_ms_ecc"));
+            putIfPresent(captureHeader, "positioning_stage_ms_write", resp.header().get("stage_ms_write"));
+            putIfPresent(captureHeader, "positioning_stage_ms_total", resp.header().get("stage_ms_total"));
+            putIfPresent(captureHeader, "positioning_homography_ref_to_cur", resp.header().get("homographyRefToCurrent"));
         }
 
         if (alignedWritten && resp != null) {
@@ -126,13 +153,15 @@ public final class InspectPositioningExecutor {
                 outName = String.valueOf(resp.header().getOrDefault("shm_name", "")).trim();
             }
             if (!outName.isEmpty()) {
-                captureHeader.put("original_shm_name", state.capture().header().get("shm_name"));
+                putIfPresent(captureHeader, "original_shm_name", state.capture().header().get("shm_name"));
                 captureHeader.put("shm_name", outName.startsWith("/") ? outName : "/" + outName.replace("/", "_"));
                 captureHeader.put("shm_offset", 0);
-                captureHeader.put("width", resp.header().get("width"));
-                captureHeader.put("height", resp.header().get("height"));
-                captureHeader.put("stride", resp.header().get("stride"));
+                putIfPresent(captureHeader, "width", resp.header().get("width"));
+                putIfPresent(captureHeader, "height", resp.header().get("height"));
+                putIfPresent(captureHeader, "stride", resp.header().get("stride"));
                 captureHeader.put(HEADER_ALIGNED, true);
+                // Explicit UI hint: inspection JPEG / cards must use the aligned buffer.
+                captureHeader.put("ui_preview_shm_name", captureHeader.get("shm_name"));
             }
         }
 
@@ -164,5 +193,11 @@ public final class InspectPositioningExecutor {
                 state.pythonMs(),
                 state.geometryMs()
         );
+    }
+
+    private static void putIfPresent(Map<String, Object> target, String key, Object value) {
+        if (value != null) {
+            target.put(key, value);
+        }
     }
 }

@@ -13,6 +13,7 @@ class ImlShmJanitorTest {
         assertTrue(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_ds_cur_cam0"));
         assertTrue(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_py_ds_ref_cam1"));
         assertTrue(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_ui_heatmap_cam_2"));
+        assertTrue(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_pos_cam_3"));
         assertFalse(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_cam_0_frame"));
         assertFalse(ImlShmJanitor.isDedicatedOrchestratorBuffer(null));
     }

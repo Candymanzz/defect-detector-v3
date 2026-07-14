@@ -108,8 +108,16 @@ public final class AsyncInspectionCycleRunner {
                             : state.capture().header().get("timestamp_ns"),
                     -1L
             );
-            long captureToGeometryDoneMs = YamlScalars.nanosToMs(state.captureMs() + state.geometryMs());
-            long captureToPythonDoneMs = YamlScalars.nanosToMs(state.captureMs() + state.geometryMs() + state.pythonMs());
+            long positioningMs = YamlScalars.toLong(
+                    state.capture() == null || state.capture().header() == null
+                            ? null
+                            : state.capture().header().get("positioning_ms"),
+                    0L
+            );
+            long captureToGeometryDoneMs = YamlScalars.nanosToMs(
+                    state.captureMs() + positioningMs + state.geometryMs());
+            long captureToPythonDoneMs = YamlScalars.nanosToMs(
+                    state.captureMs() + positioningMs + state.geometryMs() + state.pythonMs());
             InspectionDecision decision = svc.decisionPolicy().decide(
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
@@ -159,9 +167,10 @@ public final class AsyncInspectionCycleRunner {
                     ? YamlScalars.nanosToMs(System.nanoTime() - captureFrameTimestampNs)
                     : -1L;
             svc.log().info(
-                    "inspection_timing cam={} frame={} capture_to_geometry_done_ms={} capture_to_python_done_ms={} capture_frame_to_inspection_end_ms={}",
+                    "inspection_timing cam={} frame={} positioning_ms={} capture_to_geometry_done_ms={} capture_to_python_done_ms={} capture_frame_to_inspection_end_ms={}",
                     in.cameraId(),
                     decision.frameId(),
+                    positioningMs,
                     captureToGeometryDoneMs,
                     captureToPythonDoneMs,
                     captureFrameToInspectionEndMs >= 0 ? captureFrameToInspectionEndMs : "unknown"
@@ -170,6 +179,7 @@ public final class AsyncInspectionCycleRunner {
             if (timingExtras != null && !timingExtras.isEmpty()) {
                 telemetryExtras.putAll(timingExtras);
             }
+            telemetryExtras.put("positioning_ms", positioningMs);
             telemetryExtras.put("capture_to_geometry_done_ms", captureToGeometryDoneMs);
             telemetryExtras.put("capture_to_python_done_ms", captureToPythonDoneMs);
             if (captureFrameToInspectionEndMs >= 0) {
