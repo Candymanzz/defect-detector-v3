@@ -507,6 +507,13 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
 
     @Override
     public void close() {
+        for (Round round : rounds.values()) {
+            for (BinaryProtocol.Message pinned : round.results.values()) {
+                if (pinned != null && pinned.header() != null) {
+                    LineFramePinService.releasePinnedCapture(pinned.header());
+                }
+            }
+        }
         lineCaptureExecutor.shutdownNow();
         rounds.clear();
     }
@@ -654,8 +661,9 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     "line capture unusable cam=" + cameraId + ": " + describeCapture(msg)
             );
         }
-        round.results.put(cameraId, framePinService.pinCapture(msg, cameraId));
-        return msg;
+        BinaryProtocol.Message pinned = framePinService.pinCapture(msg, cameraId);
+        round.results.put(cameraId, pinned);
+        return pinned;
     }
 
     private int collectWaitFramesParallel(
@@ -756,6 +764,11 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             Round round = entry.getValue();
             if (round.consumedFrames.get() < expectedParties) {
                 return false;
+            }
+            for (BinaryProtocol.Message pinned : round.results.values()) {
+                if (pinned != null && pinned.header() != null) {
+                    LineFramePinService.releasePinnedCapture(pinned.header());
+                }
             }
             return true;
         });

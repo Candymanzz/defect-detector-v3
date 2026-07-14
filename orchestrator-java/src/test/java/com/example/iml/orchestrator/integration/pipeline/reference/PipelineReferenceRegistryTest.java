@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.pipeline.reference;
 
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.clientws.bundle.PixelRoi;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
@@ -9,6 +10,8 @@ import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +19,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PipelineReferenceRegistryTest {
 
@@ -52,6 +56,12 @@ class PipelineReferenceRegistryTest {
         assertEquals(2, cam0.header().get("joint_camera_id"));
         assertEquals(7, cam7.header().get("joint_camera_id"));
 
+        assertEquals("/iml_ref_cam0", cam0.header().get("shm_name"));
+        assertEquals("/iml_ref_cam7", cam7.header().get("shm_name"));
+        assertEquals(0L, ((Number) cam0.header().get("shm_offset")).longValue());
+        assertTrue(Files.isRegularFile(FrameJpegWriter.imlShmFilePath("iml_ref_cam0")));
+        assertTrue(Files.isRegularFile(FrameJpegWriter.imlShmFilePath("iml_ref_cam7")));
+
         assertNotNull(cam3.header().get("interest_polygon_norm"));
         assertNotNull(cam3.header().get("joint_roi_norm"));
         assertNotNull(cam7.header().get("joint_roi_norm"));
@@ -63,29 +73,41 @@ class PipelineReferenceRegistryTest {
         assertNotSame(jointNormBucketA, jointNormBucketB);
     }
 
-    private static ReferenceBundleSnapshot bucketSnapshot(int firstCameraId, int jointCameraId, String shmPrefix) {
+    private static ReferenceBundleSnapshot bucketSnapshot(int firstCameraId, int jointCameraId, String shmPrefix)
+            throws Exception {
         List<ReferenceViewSlot> views = new ArrayList<>(5);
         int jointViewIndex = jointCameraId - firstCameraId;
+        int width = 4;
+        int height = 2;
+        int stride = width * 3;
+        byte[] frameBytes = new byte[stride * height];
         for (int offset = 0; offset < 5; offset++) {
             int cameraId = firstCameraId + offset;
             boolean isJointView = offset == jointViewIndex;
+            String shmName = shmPrefix + "-cam-" + cameraId;
+            Path shmPath = FrameJpegWriter.imlShmFilePath(shmName);
+            Path parent = shmPath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.write(shmPath, frameBytes);
             views.add(new ReferenceViewSlot(
                     new ShmFrameRefData(
                             cameraId,
                             "frame-" + cameraId,
-                            shmPrefix + "-cam-" + cameraId,
-                            2448,
-                            2048,
-                            7344,
-                            cameraId * 10_000,
+                            shmName,
+                            width,
+                            height,
+                            stride,
+                            0,
                             "BGR",
                             3,
                             null,
                             null,
                             null
                     ),
-                    new PixelRoi(100, 100, 800, 800),
-                    isJointView ? new PixelRoi(200, 200, 120, 120) : null,
+                    new PixelRoi(1, 1, 2, 1),
+                    isJointView ? new PixelRoi(1, 1, 1, 1) : null,
                     List.of(
                             new FpZoneNorm.PointNorm(0.1, 0.1),
                             new FpZoneNorm.PointNorm(0.9, 0.1),
@@ -97,8 +119,8 @@ class PipelineReferenceRegistryTest {
                 "product-" + firstCameraId,
                 List.copyOf(views),
                 jointViewIndex,
-                2448,
-                2048,
+                width,
+                height,
                 List.of(),
                 System.currentTimeMillis()
         );

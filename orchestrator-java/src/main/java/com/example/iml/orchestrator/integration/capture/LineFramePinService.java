@@ -71,6 +71,11 @@ public final class LineFramePinService {
         }
     }
 
+    /** Удаляет file-pin после того, как пайплайн/UI больше не читают этот кадр. */
+    public static void releasePinnedCapture(Map<String, Object> header) {
+        ImlShmJanitor.releaseEphemeralCaptureBuffers(header, LOG);
+    }
+
     private static void copyRegion(Path sourcePath, long sourceOffset, Path destPath, long bytes) throws IOException {
         try (FileChannel src = FileChannel.open(sourcePath, StandardOpenOption.READ);
              FileChannel dst = FileChannel.open(

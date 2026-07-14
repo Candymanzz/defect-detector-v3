@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
+import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
@@ -217,6 +218,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "unused source heatmap");
+            LineFramePinService.releasePinnedCapture(capture.header());
             return;
         }
         boolean storeCurrent = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_current_jpeg"), true);
@@ -230,6 +232,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "disabled source heatmap");
+            LineFramePinService.releasePinnedCapture(capture.header());
             return;
         }
 
@@ -257,6 +260,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             frozenFrame = freezeInspectionFrame(cameraId, frameId, shmName, width, height, stride, cap);
         } catch (IOException e) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "failed source heatmap");
+            LineFramePinService.releasePinnedCapture(capture.header());
             log.warn(
                     "inspection frame freeze failed camera_id={} frame_id={}: {}",
                     cameraId,
@@ -265,6 +269,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             );
             return;
         }
+        // Freeze no longer retains line-pin paths; free per-cycle SHM asap.
+        LineFramePinService.releasePinnedCapture(capture.header());
         if (!isLatestPublish(cameraId, publishSequence)) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
             deleteFrozenFrameIfOwned(frozenFrame, "stale frozen inspection frame");
@@ -678,19 +684,16 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
 
         String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
-        boolean linePinned = YamlScalars.toBool(captureHeader.get("line_pinned"), false);
-        if (linePinned && sourceOffset == 0L) {
-            long fileSize = Files.size(source);
-            if (fileSize < frameBytes) {
-                throw new IOException("pinned SHM is smaller than the captured frame");
-            }
-            return new FrozenFrame(source, "/" + base, false);
-        }
-        if (sourceOffset == 0L && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
+        base = base.replace('/', '_');
+        // Line-pin files are per-cycle; always copy into a stable UI buffer so the pin can be deleted
+        // immediately after freeze without racing the async JPEG publisher.
+        boolean ephemeralPin = YamlScalars.toBool(captureHeader.get("line_pinned"), false)
+                || ImlShmJanitor.isEphemeralLinePin(base);
+        if (sourceOffset == 0L && !ephemeralPin && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
             return new FrozenFrame(source, "/" + base, false);
         }
 
-        String frozenName = "iml_ui_inspect_cam_" + cameraId + "_f" + frameId;
+        String frozenName = "iml_ui_inspect_cam_" + cameraId;
         Path target = FrameJpegWriter.imlShmFilePath(frozenName);
         Files.createDirectories(target.getParent());
         try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);
@@ -715,7 +718,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Files.deleteIfExists(target);
             throw e;
         }
-        return new FrozenFrame(target, "/" + frozenName, true);
+        // Stable overwrite name — keep for next frame; pin cleanup happens via ImlShmJanitor.
+        return new FrozenFrame(target, "/" + frozenName, false);
     }
 
     private HeatmapArtifact generateHeatmapArtifact(

@@ -1,10 +1,12 @@
 package com.example.iml.orchestrator.integration.pipeline.session;
 
+import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -154,10 +156,13 @@ public final class AsyncInspectionCycleRunner {
                             decision.frameId(),
                             e.getMessage()
                     );
+                } finally {
+                    releaseCycleShm(state.capture());
                 }
             });
             if (!resultPublished) {
                 svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
+                releaseCycleShm(state.capture());
                 svc.log().info("integration cam={}: inspection result suppressed by client stop", in.cameraId());
                 return;
             }
@@ -368,9 +373,12 @@ public final class AsyncInspectionCycleRunner {
                         frameId,
                         e.getMessage()
                 );
+            } finally {
+                releaseCycleShm(state.capture());
             }
         });
         if (!published) {
+            releaseCycleShm(state.capture());
             svc.log().info("integration cam={}: capture-only frame suppressed by client stop", in.cameraId());
             return;
         }
@@ -394,6 +402,13 @@ public final class AsyncInspectionCycleRunner {
                 in.cameraId(),
                 frameId
         );
+    }
+
+    private static void releaseCycleShm(BinaryProtocol.Message capture) {
+        if (capture == null || capture.header() == null) {
+            return;
+        }
+        LineFramePinService.releasePinnedCapture(capture.header());
     }
 
     private static boolean awaitPythonOrCancel(

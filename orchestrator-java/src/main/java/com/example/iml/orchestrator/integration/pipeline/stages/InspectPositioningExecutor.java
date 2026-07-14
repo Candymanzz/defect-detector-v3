@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -188,7 +189,8 @@ public final class InspectPositioningExecutor {
                 outName = String.valueOf(resp.header().getOrDefault("shm_name", "")).trim();
             }
             if (!outName.isEmpty()) {
-                putIfPresent(captureHeader, "original_shm_name", state.capture().header().get("shm_name"));
+                Object previousShm = state.capture().header().get("shm_name");
+                putIfPresent(captureHeader, "original_shm_name", previousShm);
                 captureHeader.put("shm_name", outName.startsWith("/") ? outName : "/" + outName.replace("/", "_"));
                 captureHeader.put("shm_offset", 0);
                 putIfPresent(captureHeader, "width", resp.header().get("width"));
@@ -197,6 +199,11 @@ public final class InspectPositioningExecutor {
                 captureHeader.put(HEADER_ALIGNED, true);
                 // Explicit UI hint: inspection JPEG / cards must use the aligned buffer.
                 captureHeader.put("ui_preview_shm_name", captureHeader.get("shm_name"));
+                // Positioned buffer owns the frame now — drop the per-cycle line pin early.
+                LineFramePinService.releasePinnedCapture(Map.of(
+                        "shm_name", previousShm == null ? "" : previousShm,
+                        "camera_id", cameraId
+                ));
             }
         }
 
