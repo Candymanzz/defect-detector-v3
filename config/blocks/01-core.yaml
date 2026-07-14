@@ -179,7 +179,7 @@ integration:
     - "java"
     - "-jar"
     - "java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar"
-  # LightServer.v3 — COM IO + MV-LE на одном порту.
+  # LightServer.v3 — только если light_servers.enabled=true (сейчас false, COM не используется).
   light_server_command_windows:
     - "dotnet"
     - "exec"

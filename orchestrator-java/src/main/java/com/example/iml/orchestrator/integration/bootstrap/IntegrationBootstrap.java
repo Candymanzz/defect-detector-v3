@@ -220,8 +220,14 @@ public final class IntegrationBootstrap {
         } else if (!positioningPool.isEmpty()) {
             log.info("positioning pool size={} command={}", positioningPool.size(), positioningCommand);
         }
-        ExternalServiceProcess lightServerProcess = lightServerLauncher.startIfConfigured(
-                integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        ExternalServiceProcess lightServerProcess = null;
+        LightServersConfig lightServersCfgEarly = LightServersConfig.fromRootYaml(root);
+        if (lightServersCfgEarly.enabled()) {
+            lightServerProcess = lightServerLauncher.startIfConfigured(
+                    integration, projectRoot, isWindows, cfg.lightStartupDelayMs());
+        } else {
+            log.info("light_servers.enabled=false — LightServer не запускается, COM-вспышки отключены");
+        }
         InspectionTriggerConfig inspectionTriggerConfigEarly = InspectionTriggerConfig.parse(integration);
         ExternalServiceProcess ioInputMonitorProcess = inspectionTriggerConfigEarly.usesIoInputMonitor()
                 ? externalProcessLauncher.startIfConfigured(

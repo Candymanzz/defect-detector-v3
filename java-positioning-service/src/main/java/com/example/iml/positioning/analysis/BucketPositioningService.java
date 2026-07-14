@@ -53,11 +53,13 @@ public final class BucketPositioningService {
     private static final int MIN_MATCHES = 12;
     private static final int ECC_LEVELS = 4;
     /** After ORB, ECC may only refine within these bounds — larger = garbage / divergence. */
-    private static final double ECC_MAX_TRANSLATION_PX = 48.0;
-    private static final double ECC_MAX_ANGLE_DEG = 8.0;
+    private static final double ECC_MAX_TRANSLATION_PX = 96.0;
+    private static final double ECC_MAX_ANGLE_DEG = 10.0;
     private static final double ECC_SKIP_NCC = 0.90;
     private static final double ECC_SKIP_ABSDiff = 6.0;
     private static final double ECC_SKIP_RESIDUAL_PX = 2.0;
+    private static final double RESIDUAL_POLISH_MIN_PX = 2.5;
+    private static final double RESIDUAL_POLISH_MAX_PX = 180.0;
     private static final double FALLBACK_FAIL_MM = 9999.0;
     private static final double FALLBACK_FAIL_ROTATION_DEG = 9999.0;
 
@@ -97,6 +99,7 @@ public final class BucketPositioningService {
         double stageMsWrite = 0;
         Mat working = null;
         Mat homographyCurToRef = null;
+        QualityScore qOrbHold = null;
         Map<String, Object> diag = new LinkedHashMap<>();
         try {
             validateInputFrames(reference, current);
@@ -125,13 +128,30 @@ public final class BucketPositioningService {
                     fmt(q0.residualShiftY())
             );
 
-            // --- 1) Coarse translation via phase correlation ---
+            // --- 1) Coarse translation via phase correlation (ROI only) ---
             long tOrb0 = System.nanoTime();
-            Point coarseShift = estimateCoarseShift(reference, current);
+            Point coarseShift = estimateCoarseShift(reference, current, qualityRoi, request.mainRoiPolygonNorm());
             diag.put("coarse_dx_px", coarseShift.x);
             diag.put("coarse_dy_px", coarseShift.y);
             Mat afterCoarse = applyTranslation(current, coarseShift.x, coarseShift.y);
             QualityScore qCoarse = measureQuality(reference, afterCoarse, qualityRoi, request.mainRoiPolygonNorm());
+            if (!isQualityImproved(q0, qCoarse)) {
+                log.warn(
+                        "positioning_diag {} stage=coarse REJECTED absdiff={}→{} residual={}→{}",
+                        ctx(logContext),
+                        fmt(q0.meanAbsDiff()),
+                        fmt(qCoarse.meanAbsDiff()),
+                        fmt(Math.hypot(q0.residualShiftX(), q0.residualShiftY())),
+                        fmt(Math.hypot(qCoarse.residualShiftX(), qCoarse.residualShiftY()))
+                );
+                afterCoarse.release();
+                afterCoarse = current.clone();
+                coarseShift = new Point(0, 0);
+                qCoarse = q0;
+                diag.put("coarse_rejected", true);
+                diag.put("coarse_dx_px", 0.0);
+                diag.put("coarse_dy_px", 0.0);
+            }
             putQuality(diag, "coarse", qCoarse);
             log.info(
                     "positioning_diag {} stage=coarse shift=({}, {}) px mean_absdiff={} ncc={} residual_shift=({}, {}) px",
@@ -144,9 +164,17 @@ public final class BucketPositioningService {
                     fmt(qCoarse.residualShiftY())
             );
 
-            // --- 2) ORB rigid (translate+rotate): current → reference ---
+            // --- 2) ORB rigid (translate+rotate) inside interest ROI only ---
+            Rect orbRoi = expandRect(
+                    resolveMainRect(request, current.cols(), current.rows()),
+                    current.cols(),
+                    current.rows(),
+                    0.20
+            );
+            String orbCacheKey = (referenceCacheKey == null ? "" : referenceCacheKey)
+                    + "|orb=" + orbRoi.x + "," + orbRoi.y + "," + orbRoi.width + "," + orbRoi.height;
             OrbResult orbResult = estimateRigidTransformCurrentToReference(
-                    reference, afterCoarse, referenceCacheKey);
+                    reference, afterCoarse, orbCacheKey, orbRoi, request.mainRoiPolygonNorm());
             stageMsOrb = nanosToMs(System.nanoTime() - tOrb0);
             diag.put("orb_ref_keypoints", orbResult.refKeypoints());
             diag.put("orb_cur_keypoints", orbResult.curKeypoints());
@@ -166,35 +194,94 @@ public final class BucketPositioningService {
 
             long tWarp0 = System.nanoTime();
             Mat orbH = orbResult.homography();
+            QualityScore qBeforeOrb = qCoarse;
             if (orbH != null && !orbH.empty()) {
                 Mat affine = null;
+                Mat orbCandidate = null;
                 try {
                     affine = homographyToAffine23(orbH);
-                    working = new Mat();
+                    orbCandidate = new Mat();
                     Imgproc.warpAffine(
                             afterCoarse,
-                            working,
+                            orbCandidate,
                             affine,
                             current.size(),
                             Imgproc.INTER_LINEAR,
                             Core.BORDER_REPLICATE
                     );
-                    homographyCurToRef = composeCurToRef(coarseShift, orbH);
+                    QualityScore qCand = measureQuality(
+                            reference, orbCandidate, qualityRoi, request.mainRoiPolygonNorm());
+                    if (isQualityImproved(qBeforeOrb, qCand)
+                            || isOrbResidualAcceptable(qBeforeOrb, qCand)) {
+                        working = orbCandidate;
+                        orbCandidate = null;
+                        homographyCurToRef = composeCurToRef(coarseShift, orbH);
+                        qOrbHold = qCand;
+                    } else {
+                        log.warn(
+                                "positioning_diag {} stage=orb REJECTED_quality absdiff={}→{} residual={}→{}",
+                                ctx(logContext),
+                                fmt(qBeforeOrb.meanAbsDiff()),
+                                fmt(qCand.meanAbsDiff()),
+                                fmt(Math.hypot(qBeforeOrb.residualShiftX(), qBeforeOrb.residualShiftY())),
+                                fmt(Math.hypot(qCand.residualShiftX(), qCand.residualShiftY()))
+                        );
+                        diag.put("orb_rejected_quality", true);
+                        diag.put("orb_ok", false);
+                        release(orbH);
+                        orbH = new Mat();
+                        working = afterCoarse;
+                        afterCoarse = null;
+                        homographyCurToRef = translationHomography(coarseShift.x, coarseShift.y);
+                        qOrbHold = qBeforeOrb;
+                    }
                 } finally {
-                    release(affine);
+                    release(affine, orbCandidate);
                 }
             } else {
                 working = afterCoarse;
                 afterCoarse = null;
                 homographyCurToRef = translationHomography(coarseShift.x, coarseShift.y);
+                qOrbHold = qBeforeOrb;
                 log.warn("positioning_diag {} stage=orb FAILED — falling back to coarse translation only", ctx(logContext));
             }
             stageMsWarp = nanosToMs(System.nanoTime() - tWarp0);
             release(afterCoarse, orbH);
 
             boolean matched = homographyCurToRef != null && !homographyCurToRef.empty();
+            QualityScore qOrb = qOrbHold != null
+                    ? qOrbHold
+                    : measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
+
+            // --- 2b) Residual translation polish (ORB often leaves a pure shift) ---
+            ResidualPolish residualPolish = polishResidualTranslation(
+                    reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
+            if (residualPolish.applied()) {
+                working.release();
+                working = residualPolish.frame();
+                if (homographyCurToRef != null) {
+                    homographyCurToRef.release();
+                }
+                homographyCurToRef = residualPolish.homography();
+                qOrb = residualPolish.quality();
+                diag.put("residual_polish", true);
+                diag.put("residual_polish_dx", residualPolish.dx());
+                diag.put("residual_polish_dy", residualPolish.dy());
+                log.info(
+                        "positioning_diag {} stage=residual_polish shift=({}, {}) px mean_absdiff={} ncc={} residual_shift=({}, {}) px",
+                        ctx(logContext),
+                        fmt(residualPolish.dx()),
+                        fmt(residualPolish.dy()),
+                        fmt(qOrb.meanAbsDiff()),
+                        fmt(qOrb.ncc()),
+                        fmt(qOrb.residualShiftX()),
+                        fmt(qOrb.residualShiftY())
+                );
+            } else {
+                diag.put("residual_polish", false);
+            }
+
             AlignmentMetrics metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
-            QualityScore qOrb = measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
             putQuality(diag, "orb", qOrb);
             log.info(
                     "positioning_diag {} stage=after_orb shift_mm=({}, {}) rot_deg={} mean_absdiff={} ncc={} residual_shift=({}, {}) px",
@@ -235,7 +322,20 @@ public final class BucketPositioningService {
                         current.rows(),
                         0.15
                 );
-                EccResult ecc = refinePyramidEcc(working, reference, refineRect, request.mainRoiPolygonNorm());
+                double residualMag = Math.hypot(qBeforeEcc.residualShiftX(), qBeforeEcc.residualShiftY());
+                double eccMaxTx = Math.min(
+                        ECC_MAX_TRANSLATION_PX,
+                        Math.max(48.0, residualMag + 24.0)
+                );
+                EccResult ecc = refinePyramidEcc(
+                        working,
+                        reference,
+                        refineRect,
+                        request.mainRoiPolygonNorm(),
+                        qBeforeEcc.residualShiftX(),
+                        qBeforeEcc.residualShiftY(),
+                        eccMaxTx
+                );
                 stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
                 diag.put("ecc_ok", ecc.ok());
                 putFinite(diag, "ecc_cc", ecc.correlation());
@@ -244,7 +344,7 @@ public final class BucketPositioningService {
                 putFinite(diag, "ecc_angle_deg", ecc.angleDeg());
 
                 boolean acceptEcc = false;
-                if (ecc.refined() != working && ecc.ok() && isEccTransformPlausible(ecc)) {
+                if (ecc.refined() != working && ecc.ok() && isEccTransformPlausible(ecc, eccMaxTx)) {
                     QualityScore qEcc = measureQuality(
                             reference, ecc.refined(), qualityRoi, request.mainRoiPolygonNorm());
                     putQuality(diag, "ecc_try", qEcc);
@@ -377,11 +477,16 @@ public final class BucketPositioningService {
         }
     }
 
-    private Point estimateCoarseShift(Mat reference, Mat current) {
+    private Point estimateCoarseShift(Mat reference, Mat current, Rect roi, List<NormPoint> polygon) {
         Mat refGray = new Mat();
         Mat curGray = new Mat();
         Mat ref32 = new Mat();
         Mat cur32 = new Mat();
+        Mat refRoi = null;
+        Mat curRoi = null;
+        Mat mask = null;
+        Mat refMasked = null;
+        Mat curMasked = null;
         Mat refSmall = null;
         Mat curSmall = null;
         try {
@@ -389,19 +494,37 @@ public final class BucketPositioningService {
             Imgproc.cvtColor(current, curGray, Imgproc.COLOR_BGR2GRAY);
             clahe.apply(refGray, refGray);
             clahe.apply(curGray, curGray);
-            ResizeResult r = resizeForProcessing(refGray, 512);
-            ResizeResult c = resizeForProcessing(curGray, 512);
+            Rect safe = toSafeRect(
+                    new RoiRect(roi.x, roi.y, roi.width, roi.height),
+                    reference.cols(),
+                    reference.rows()
+            );
+            refRoi = new Mat(refGray, safe).clone();
+            curRoi = new Mat(curGray, safe).clone();
+            if (polygon != null && polygon.size() >= 3) {
+                mask = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
+                refMasked = new Mat();
+                curMasked = new Mat();
+                Core.bitwise_and(refRoi, refRoi, refMasked, mask);
+                Core.bitwise_and(curRoi, curRoi, curMasked, mask);
+            } else {
+                refMasked = refRoi;
+                refRoi = null;
+                curMasked = curRoi;
+                curRoi = null;
+            }
+            ResizeResult r = resizeForProcessing(refMasked, 512);
+            ResizeResult c = resizeForProcessing(curMasked, 512);
             refSmall = r.mat;
             curSmall = c.mat;
             refSmall.convertTo(ref32, CvType.CV_32F);
             curSmall.convertTo(cur32, CvType.CV_32F);
             Point shiftSmall = Imgproc.phaseCorrelate(ref32, cur32);
-            // phaseCorrelate(ref, cur): shift to apply to cur to match ref, in small-pixel units.
             return new Point(shiftSmall.x / c.scaleX, shiftSmall.y / c.scaleY);
         } catch (Exception e) {
             return new Point(0, 0);
         } finally {
-            release(refGray, curGray, ref32, cur32, refSmall, curSmall);
+            release(refGray, curGray, ref32, cur32, refRoi, curRoi, mask, refMasked, curMasked, refSmall, curSmall);
         }
     }
 
@@ -427,26 +550,42 @@ public final class BucketPositioningService {
     }
 
     /**
-     * Rigid pose (R + t) from ORB matches. Full projective homography is intentionally avoided —
-     * it stretches/shears the bucket instead of moving it.
+     * Rigid pose (R + t) from ORB matches inside the interest ROI only.
+     * Full projective homography is intentionally avoided — it stretches/shears the bucket.
      */
     private OrbResult estimateRigidTransformCurrentToReference(
             Mat reference,
             Mat current,
-            String referenceCacheKey
+            String referenceCacheKey,
+            Rect interestRoi,
+            List<NormPoint> polygon
     ) {
         Mat curGray = new Mat();
         Mat curScaled = null;
         Mat curDescriptors = new Mat();
         MatOfKeyPoint curKeypoints = new MatOfKeyPoint();
+        Mat interestMaskFull = null;
+        Mat curMaskScaled = null;
         try {
-            PreparedReference prepared = getOrBuildPreparedReference(reference, referenceCacheKey);
+            interestMaskFull = RoiPolygonMask.maskForFrame(
+                    polygon, interestRoi, reference.cols(), reference.rows());
+            PreparedReference prepared = getOrBuildPreparedReference(
+                    reference, referenceCacheKey, interestMaskFull);
             Imgproc.cvtColor(current, curGray, Imgproc.COLOR_BGR2GRAY);
             clahe.apply(curGray, curGray);
             ResizeResult curResize = resizeForProcessing(curGray, MAX_ORB_DIM);
             curScaled = curResize.mat;
+            curMaskScaled = new Mat();
+            Imgproc.resize(
+                    interestMaskFull,
+                    curMaskScaled,
+                    curScaled.size(),
+                    0,
+                    0,
+                    Imgproc.INTER_NEAREST
+            );
 
-            orb.detectAndCompute(curScaled, new Mat(), curKeypoints, curDescriptors);
+            orb.detectAndCompute(curScaled, curMaskScaled, curKeypoints, curDescriptors);
             int refKp = prepared.keypoints == null ? 0 : prepared.keypoints.length;
             int curKp = curKeypoints.toArray().length;
             if (prepared.descriptors.empty() || curDescriptors.empty()) {
@@ -492,7 +631,6 @@ public final class BucketPositioningService {
             try {
                 src.fromList(srcCur);
                 dst.fromList(dstRef);
-                // 2x3 Euclidean: rotation + translation only (no scale/shear/perspective).
                 affineScaled = Calib3d.estimateAffinePartial2D(
                         src,
                         dst,
@@ -516,7 +654,6 @@ public final class BucketPositioningService {
                 Mat hScaled = affine23ToHomography(affineScaled);
                 try {
                     Mat full = toOriginalScaleHomography(hScaled, prepared.scaleX, prepared.scaleY);
-                    // Force pure Euclidean after scale undoing (kill numerical scale drift).
                     Mat rigid = projectToEuclideanHomography(full);
                     release(full);
                     return new OrbResult(rigid, refKp, curKp, good.size(), inliers);
@@ -527,7 +664,7 @@ public final class BucketPositioningService {
                 release(src, dst, inliersMask, affineScaled);
             }
         } finally {
-            release(curGray, curScaled, curDescriptors);
+            release(curGray, curScaled, curDescriptors, interestMaskFull, curMaskScaled);
             release(curKeypoints);
         }
     }
@@ -564,7 +701,15 @@ public final class BucketPositioningService {
      * On level failure the previous warp is restored — OpenCV may leave a corrupted matrix.
      * If nothing converges, returns the input frame unchanged.
      */
-    private EccResult refinePyramidEcc(Mat aligned, Mat reference, Rect refineRect, List<NormPoint> polygon) {
+    private EccResult refinePyramidEcc(
+            Mat aligned,
+            Mat reference,
+            Rect refineRect,
+            List<NormPoint> polygon,
+            double seedTx,
+            double seedTy,
+            double maxTranslationPx
+    ) {
         Mat refGrayFull = new Mat();
         Mat curGrayFull = new Mat();
         Mat refRoi = null;
@@ -590,6 +735,10 @@ public final class BucketPositioningService {
             List<Mat> refPyr = buildPyramid(refRoi, ECC_LEVELS);
             List<Mat> curPyr = buildPyramid(curRoi, ECC_LEVELS);
             Mat warp = Mat.eye(2, 3, CvType.CV_32F);
+            // Seed with residual phase shift (same units as phaseCorrelate / applyTranslation).
+            double seedScale = 1.0 / Math.pow(2.0, ECC_LEVELS - 1);
+            warp.put(0, 2, seedTx * seedScale);
+            warp.put(1, 2, seedTy * seedScale);
             TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 50, 1e-4);
             double lastCc = Double.NaN;
             boolean ok = false;
@@ -676,7 +825,7 @@ public final class BucketPositioningService {
                 double b = warp.get(1, 0)[0];
                 double angleDeg = Math.toDegrees(Math.atan2(b, a));
 
-                if (!ok || Math.hypot(tx, ty) > ECC_MAX_TRANSLATION_PX || Math.abs(angleDeg) > ECC_MAX_ANGLE_DEG) {
+                if (!ok || Math.hypot(tx, ty) > maxTranslationPx || Math.abs(angleDeg) > ECC_MAX_ANGLE_DEG) {
                     log.warn(
                             "positioning_diag stage=ecc abort apply ok={} t=({}, {}) angle={}",
                             ok,
@@ -720,10 +869,77 @@ public final class BucketPositioningService {
                 && residual <= ECC_SKIP_RESIDUAL_PX;
     }
 
-    private static boolean isEccTransformPlausible(EccResult ecc) {
+    private static boolean isEccTransformPlausible(EccResult ecc, double maxTranslationPx) {
         return ecc != null
-                && Math.hypot(ecc.tx(), ecc.ty()) <= ECC_MAX_TRANSLATION_PX
+                && Math.hypot(ecc.tx(), ecc.ty()) <= maxTranslationPx
                 && Math.abs(ecc.angleDeg()) <= ECC_MAX_ANGLE_DEG;
+    }
+
+    private static boolean isQualityImproved(QualityScore before, QualityScore after) {
+        if (after == null || !Double.isFinite(after.meanAbsDiff()) || !Double.isFinite(after.ncc())) {
+            return false;
+        }
+        if (before == null || !Double.isFinite(before.meanAbsDiff())) {
+            return true;
+        }
+        double beforeRes = Math.hypot(before.residualShiftX(), before.residualShiftY());
+        double afterRes = Math.hypot(after.residualShiftX(), after.residualShiftY());
+        boolean absBetter = after.meanAbsDiff() + 0.25 < before.meanAbsDiff()
+                || after.meanAbsDiff() <= before.meanAbsDiff() * 0.99;
+        boolean nccBetter = Double.isFinite(before.ncc()) && after.ncc() >= before.ncc() + 0.008;
+        boolean residualBetter = afterRes + 0.75 < beforeRes;
+        boolean residualNotMuchWorse = afterRes <= beforeRes + 4.0;
+        if ((absBetter || nccBetter) && residualNotMuchWorse) {
+            return true;
+        }
+        return residualBetter && after.meanAbsDiff() <= before.meanAbsDiff() + 0.75;
+    }
+
+    /** Accept ORB when absdiff improves a lot even if residual stays large (ECC/polish will finish). */
+    private static boolean isOrbResidualAcceptable(QualityScore before, QualityScore after) {
+        if (before == null || after == null) {
+            return false;
+        }
+        if (!Double.isFinite(after.meanAbsDiff()) || !Double.isFinite(before.meanAbsDiff())) {
+            return false;
+        }
+        return after.meanAbsDiff() <= before.meanAbsDiff() * 0.72
+                && after.meanAbsDiff() + 4.0 < before.meanAbsDiff();
+    }
+
+    private ResidualPolish polishResidualTranslation(
+            Mat reference,
+            Mat working,
+            Mat homographyCurToRef,
+            Rect qualityRoi,
+            List<NormPoint> polygon
+    ) {
+        QualityScore before = measureQuality(reference, working, qualityRoi, polygon);
+        double dx = before.residualShiftX();
+        double dy = before.residualShiftY();
+        double mag = Math.hypot(dx, dy);
+        if (!Double.isFinite(mag) || mag < RESIDUAL_POLISH_MIN_PX || mag > RESIDUAL_POLISH_MAX_PX) {
+            return ResidualPolish.none();
+        }
+        Mat polished = applyTranslation(working, dx, dy);
+        QualityScore after = measureQuality(reference, polished, qualityRoi, polygon);
+        if (!isQualityImproved(before, after) && !isOrbResidualAcceptable(before, after)) {
+            polished.release();
+            return ResidualPolish.none();
+        }
+        Mat t = translationHomography(dx, dy);
+        Mat empty = new Mat();
+        Mat composed = new Mat();
+        try {
+            if (homographyCurToRef != null && !homographyCurToRef.empty()) {
+                Core.gemm(t, homographyCurToRef, 1.0, empty, 0.0, composed);
+            } else {
+                t.copyTo(composed);
+            }
+            return new ResidualPolish(true, polished, composed.clone(), after, dx, dy);
+        } finally {
+            release(t, empty, composed);
+        }
     }
 
     private static boolean isEccQualityBetter(QualityScore before, QualityScore after) {
@@ -773,12 +989,16 @@ public final class BucketPositioningService {
         return good;
     }
 
-    private PreparedReference getOrBuildPreparedReference(Mat reference, String referenceCacheKey) {
+    private PreparedReference getOrBuildPreparedReference(
+            Mat reference,
+            String referenceCacheKey,
+            Mat interestMaskFull
+    ) {
         PreparedReference cached = preparedReferenceCache;
         if (cached != null && matchesPreparedReference(cached, referenceCacheKey, reference)) {
             return cached;
         }
-        PreparedReference next = buildPreparedReference(reference, referenceCacheKey);
+        PreparedReference next = buildPreparedReference(reference, referenceCacheKey, interestMaskFull);
         if (preparedReferenceCache != null) {
             preparedReferenceCache.descriptors.release();
         }
@@ -799,9 +1019,14 @@ public final class BucketPositioningService {
                 && cached.cols == reference.cols();
     }
 
-    private PreparedReference buildPreparedReference(Mat reference, String referenceCacheKey) {
+    private PreparedReference buildPreparedReference(
+            Mat reference,
+            String referenceCacheKey,
+            Mat interestMaskFull
+    ) {
         Mat gray = new Mat();
         Mat scaled = null;
+        Mat maskScaled = null;
         Mat descriptors = new Mat();
         MatOfKeyPoint keypoints = new MatOfKeyPoint();
         try {
@@ -809,7 +1034,20 @@ public final class BucketPositioningService {
             clahe.apply(gray, gray);
             ResizeResult resized = resizeForProcessing(gray, MAX_ORB_DIM);
             scaled = resized.mat;
-            orb.detectAndCompute(scaled, new Mat(), keypoints, descriptors);
+            Mat detectMask = new Mat();
+            if (interestMaskFull != null && !interestMaskFull.empty()) {
+                maskScaled = new Mat();
+                Imgproc.resize(
+                        interestMaskFull,
+                        maskScaled,
+                        scaled.size(),
+                        0,
+                        0,
+                        Imgproc.INTER_NEAREST
+                );
+                detectMask = maskScaled;
+            }
+            orb.detectAndCompute(scaled, detectMask, keypoints, descriptors);
             return new PreparedReference(
                     referenceCacheKey,
                     reference.dataAddr(),
@@ -821,7 +1059,7 @@ public final class BucketPositioningService {
                     descriptors.clone()
             );
         } finally {
-            release(gray, scaled, descriptors);
+            release(gray, scaled, maskScaled, descriptors);
             release(keypoints);
         }
     }
@@ -1142,6 +1380,19 @@ public final class BucketPositioningService {
             double ty,
             double angleDeg
     ) {
+    }
+
+    private record ResidualPolish(
+            boolean applied,
+            Mat frame,
+            Mat homography,
+            QualityScore quality,
+            double dx,
+            double dy
+    ) {
+        static ResidualPolish none() {
+            return new ResidualPolish(false, null, null, null, 0, 0);
+        }
     }
 
     private record AlignmentMetrics(double shiftXmm, double shiftYmm, double rotationDeg) {

@@ -1,8 +1,8 @@
 # Подсветка → LightServer.v3: три типа URL — вкл, выкл, яркость по камерам.
 # Маршруты вспышек (camera_number ↔ device/channel) — в config/blocks/51-light-hardware.yaml.
 light_servers:
-  # false — если COM1–COM3 не подключены (иначе LightServer падает на EnumDevices).
-  enabled: true
+  # COM-вспышки через LightServer не используются — отключено (иначе стартует LightServer и шлёт /api/com/light).
+  enabled: false
   base_url: "http://127.0.0.1:5080"
   urls:
     on: /api/com/light

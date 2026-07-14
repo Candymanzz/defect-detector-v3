@@ -75,6 +75,36 @@ public final class RoiPolygonMask {
         }
     }
 
+    /** Full-frame interest mask: polygon if present, else filled rectangle. */
+    public static Mat maskForFrame(List<NormPoint> points, Rect fallbackRect, int frameWidth, int frameHeight) {
+        Mat mask = Mat.zeros(frameHeight, frameWidth, org.opencv.core.CvType.CV_8UC1);
+        if (points != null && points.size() >= 3) {
+            MatOfPoint contour = new MatOfPoint();
+            try {
+                List<Point> pts = new ArrayList<>(points.size());
+                double dw = Math.max(1, frameWidth - 1);
+                double dh = Math.max(1, frameHeight - 1);
+                for (NormPoint p : points) {
+                    pts.add(new Point(
+                            clamp((int) Math.round(p.x() * dw), 0, frameWidth - 1),
+                            clamp((int) Math.round(p.y() * dh), 0, frameHeight - 1)
+                    ));
+                }
+                contour.fromList(pts);
+                Imgproc.fillPoly(mask, List.of(contour), new Scalar(255));
+            } finally {
+                contour.release();
+            }
+            return mask;
+        }
+        if (fallbackRect != null && fallbackRect.width > 0 && fallbackRect.height > 0) {
+            Imgproc.rectangle(mask, fallbackRect.tl(), fallbackRect.br(), new Scalar(255), -1);
+            return mask;
+        }
+        mask.setTo(new Scalar(255));
+        return mask;
+    }
+
     public static void applyMask(Mat bgr, Mat mask) {
         if (bgr == null || mask == null || bgr.empty() || mask.empty()) {
             return;
