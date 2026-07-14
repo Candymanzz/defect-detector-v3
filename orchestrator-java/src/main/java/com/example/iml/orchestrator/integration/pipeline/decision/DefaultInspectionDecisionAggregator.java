@@ -42,15 +42,24 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
         boolean overallPass = pythonPass && geometryPass;
         String action = overallPass ? "ACCEPT" : "REJECT";
         InspectionDecision decision = new InspectionDecision(cameraId, frameId, overallPass, action, anomalyScore, pyStatus, geometryStatus);
-        if (log.isDebugEnabled()) {
-            log.debug("decision cam={} frame={} overall={} action={} pyStatus={} geomStatus={} score={}",
+        if (log != null) {
+            log.info(
+                    "inspection_decision cam={} frame={} overall={} action={} py_ok={} py_status={} "
+                            + "anomaly={} threshold={} geom_pass={} geom_status={} align_pass={} wrinkles={} joint={}",
                     decision.cameraId(),
                     decision.frameId(),
                     decision.overallPass(),
                     decision.action(),
+                    pythonPass,
                     decision.pythonStatus(),
+                    anomalyScore,
+                    pyResp == null || pyResp.header() == null ? null : pyResp.header().get("threshold"),
+                    geometryPass,
                     decision.geometryStatus(),
-                    decision.anomalyScore());
+                    geomResp == null || geomResp.header() == null ? null : geomResp.header().get("alignmentPass"),
+                    geomResp == null || geomResp.header() == null ? null : geomResp.header().get("wrinklesScore"),
+                    geomResp == null || geomResp.header() == null ? null : geomResp.header().get("jointDefectMm")
+            );
         }
         return decision;
     }

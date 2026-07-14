@@ -127,7 +127,10 @@ public final class StdioBinaryGeometryLoop {
             releaseReference = referenceResult.releaseAfterUse();
             InspectionRequest request = InspectionHeaderMapper.fromInspectShmMetadata(h);
             String referenceKey = ReferenceShmMatCache.referenceKey(h);
-            var response = inspection.inspectMats(reference, current, request, includeDebug, referenceKey);
+            boolean poseLocked = InspectionHeaderMapper.bool(h.get("pose_locked"), false)
+                    || InspectionHeaderMapper.bool(h.get("poseLocked"), false)
+                    || InspectionHeaderMapper.bool(h.get("already_aligned"), false);
+            var response = inspection.inspectMats(reference, current, request, includeDebug, referenceKey, poseLocked);
             BinaryProtocol.write(
                     out,
                     BinaryProtocol.MSG_RESPONSE,

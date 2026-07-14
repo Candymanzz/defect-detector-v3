@@ -57,6 +57,10 @@ public final class BinaryInspectHeaders {
         );
         gHeader.put("threshold", defaultThreshold);
         gHeader.put("maxWrinklesScore", maxWrinkles);
+        // Pose already locked by java-positioning — do not re-ORB/re-warp (destroys alignment).
+        if (YamlScalars.toBool(capture.header().get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
+            gHeader.put("pose_locked", true);
+        }
         syncWrinklesRoiFromMainRoi(gHeader);
         return gHeader;
     }

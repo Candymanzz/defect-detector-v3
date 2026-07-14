@@ -107,6 +107,17 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             boolean includeDebugImage,
             String referenceCacheKey
     ) {
+        return inspectMats(reference, current, request, includeDebugImage, referenceCacheKey, false);
+    }
+
+    public InspectionResponse inspectMats(
+            Mat reference,
+            Mat current,
+            InspectionRequest request,
+            boolean includeDebugImage,
+            String referenceCacheKey,
+            boolean poseLocked
+    ) {
         Mat alignedCurrent = null;
         Mat debug = null;
         Mat referenceRoi = null;
@@ -127,10 +138,20 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             }
 
             long tAlign0 = System.nanoTime();
-            alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm(), referenceCacheKey);
+            if (poseLocked) {
+                // Frame was already warped to the reference pose by java-positioning.
+                // Re-running ORB here often invents a residual H and destroys the lock.
+                alignment = identityAlignment();
+            } else {
+                alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm(), referenceCacheKey);
+            }
             recordStage("align", tAlign0);
             long tWarp0 = System.nanoTime();
-            alignedCurrent = warpCurrentToReference(current, alignment.homographyRefToCurrent, mainRect);
+            if (poseLocked) {
+                alignedCurrent = current.clone();
+            } else {
+                alignedCurrent = warpCurrentToReference(current, alignment.homographyRefToCurrent, mainRect);
+            }
             if (roiMask != null) {
                 Mat alignedCurrentRoi = new Mat(alignedCurrent, mainRect);
                 RoiPolygonMask.applyMask(alignedCurrentRoi, roiMask);
@@ -159,9 +180,10 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 recordStage("debug", tDebug0);
             }
 
-            boolean alignmentPass = Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
+            boolean alignmentPass = poseLocked
+                    || (Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
-                    && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg();
+                    && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg());
             boolean jointPass = request.jointRoi() == null || joint.defectMm <= request.maxJointDefectMm();
             boolean wrinklesPass = wrinkles.score <= request.maxWrinklesScore();
             boolean overallPass = alignmentPass && jointPass && wrinklesPass;
@@ -188,6 +210,11 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 alignment.homographyRefToCurrent.release();
             }
         }
+    }
+
+    private AlignmentResult identityAlignment() {
+        Mat identity = Mat.eye(3, 3, CvType.CV_64F);
+        return new AlignmentResult(0.0, 0.0, 0.0, 0.0, 0.0, identity);
     }
 
     private Rect resolveMainRect(InspectionRequest request, int frameWidth, int frameHeight) {

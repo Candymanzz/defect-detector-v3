@@ -35,12 +35,13 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Lock current frame into the reference pose.
+ * Lock current frame into the reference pose with a rigid transform only
+ * (translation + rotation). No perspective / scale / shear — those stretch the bucket.
  *
- * Pipeline (same idea as analisSurface):
+ * Pipeline:
  * 1) phaseCorrelate coarse translation
- * 2) ORB+RANSAC homography current→reference (full frame)
- * 3) pyramid ECC affine with WARP_INVERSE_MAP (critical)
+ * 2) ORB + estimateAffinePartial2D (Euclidean) current→reference
+ * 3) pyramid ECC MOTION_EUCLIDEAN refine (optional)
  */
 public final class BucketPositioningService {
 
@@ -143,8 +144,8 @@ public final class BucketPositioningService {
                     fmt(qCoarse.residualShiftY())
             );
 
-            // --- 2) ORB homography: current → reference ---
-            OrbResult orbResult = estimateHomographyCurrentToReference(
+            // --- 2) ORB rigid (translate+rotate): current → reference ---
+            OrbResult orbResult = estimateRigidTransformCurrentToReference(
                     reference, afterCoarse, referenceCacheKey);
             stageMsOrb = nanosToMs(System.nanoTime() - tOrb0);
             diag.put("orb_ref_keypoints", orbResult.refKeypoints());
@@ -152,8 +153,9 @@ public final class BucketPositioningService {
             diag.put("orb_good_matches", orbResult.goodMatches());
             diag.put("orb_inliers", orbResult.inliers());
             diag.put("orb_ok", !orbResult.homography().empty());
+            diag.put("orb_model", "euclidean");
             log.info(
-                    "positioning_diag {} stage=orb kp_ref={} kp_cur={} good_matches={} inliers={} ok={}",
+                    "positioning_diag {} stage=orb model=euclidean kp_ref={} kp_cur={} good_matches={} inliers={} ok={}",
                     ctx(logContext),
                     orbResult.refKeypoints(),
                     orbResult.curKeypoints(),
@@ -165,16 +167,22 @@ public final class BucketPositioningService {
             long tWarp0 = System.nanoTime();
             Mat orbH = orbResult.homography();
             if (orbH != null && !orbH.empty()) {
-                working = new Mat();
-                Imgproc.warpPerspective(
-                        afterCoarse,
-                        working,
-                        orbH,
-                        current.size(),
-                        Imgproc.INTER_LINEAR,
-                        Core.BORDER_REPLICATE
-                );
-                homographyCurToRef = composeCurToRef(coarseShift, orbH);
+                Mat affine = null;
+                try {
+                    affine = homographyToAffine23(orbH);
+                    working = new Mat();
+                    Imgproc.warpAffine(
+                            afterCoarse,
+                            working,
+                            affine,
+                            current.size(),
+                            Imgproc.INTER_LINEAR,
+                            Core.BORDER_REPLICATE
+                    );
+                    homographyCurToRef = composeCurToRef(coarseShift, orbH);
+                } finally {
+                    release(affine);
+                }
             } else {
                 working = afterCoarse;
                 afterCoarse = null;
@@ -418,7 +426,15 @@ public final class BucketPositioningService {
         }
     }
 
-    private OrbResult estimateHomographyCurrentToReference(Mat reference, Mat current, String referenceCacheKey) {
+    /**
+     * Rigid pose (R + t) from ORB matches. Full projective homography is intentionally avoided —
+     * it stretches/shears the bucket instead of moving it.
+     */
+    private OrbResult estimateRigidTransformCurrentToReference(
+            Mat reference,
+            Mat current,
+            String referenceCacheKey
+    ) {
         Mat curGray = new Mat();
         Mat curScaled = null;
         Mat curDescriptors = new Mat();
@@ -471,31 +487,76 @@ public final class BucketPositioningService {
 
             MatOfPoint2f src = new MatOfPoint2f();
             MatOfPoint2f dst = new MatOfPoint2f();
-            Mat mask = new Mat();
-            Mat hScaled = new Mat();
+            Mat inliersMask = new Mat();
+            Mat affineScaled = new Mat();
             try {
                 src.fromList(srcCur);
                 dst.fromList(dstRef);
-                hScaled = Calib3d.findHomography(src, dst, Calib3d.RANSAC, RANSAC_REPROJ_THRESHOLD, mask);
-                int inliers = mask.empty() ? 0 : Core.countNonZero(mask);
-                if (hScaled.empty() || inliers < MIN_MATCHES) {
+                // 2x3 Euclidean: rotation + translation only (no scale/shear/perspective).
+                affineScaled = Calib3d.estimateAffinePartial2D(
+                        src,
+                        dst,
+                        inliersMask,
+                        Calib3d.RANSAC,
+                        RANSAC_REPROJ_THRESHOLD,
+                        2000,
+                        0.99,
+                        10
+                );
+                int inliers = inliersMask.empty() ? 0 : Core.countNonZero(inliersMask);
+                if (affineScaled.empty() || inliers < MIN_MATCHES) {
                     log.warn(
-                            "positioning_diag stage=orb_homography FAIL inliers={} good={} empty_h={}",
+                            "positioning_diag stage=orb_euclidean FAIL inliers={} good={} empty={}",
                             inliers,
                             srcCur.size(),
-                            hScaled.empty()
+                            affineScaled.empty()
                     );
                     return new OrbResult(new Mat(), refKp, curKp, good.size(), inliers);
                 }
-                Mat full = toOriginalScaleHomography(hScaled, prepared.scaleX, prepared.scaleY);
-                return new OrbResult(full, refKp, curKp, good.size(), inliers);
+                Mat hScaled = affine23ToHomography(affineScaled);
+                try {
+                    Mat full = toOriginalScaleHomography(hScaled, prepared.scaleX, prepared.scaleY);
+                    // Force pure Euclidean after scale undoing (kill numerical scale drift).
+                    Mat rigid = projectToEuclideanHomography(full);
+                    release(full);
+                    return new OrbResult(rigid, refKp, curKp, good.size(), inliers);
+                } finally {
+                    release(hScaled);
+                }
             } finally {
-                release(src, dst, mask, hScaled);
+                release(src, dst, inliersMask, affineScaled);
             }
         } finally {
             release(curGray, curScaled, curDescriptors);
             release(curKeypoints);
         }
+    }
+
+    private static Mat affine23ToHomography(Mat affine23) {
+        Mat h = Mat.eye(3, 3, CvType.CV_64F);
+        h.put(0, 0, affine23.get(0, 0)[0], affine23.get(0, 1)[0], affine23.get(0, 2)[0]);
+        h.put(1, 0, affine23.get(1, 0)[0], affine23.get(1, 1)[0], affine23.get(1, 2)[0]);
+        return h;
+    }
+
+    private static Mat homographyToAffine23(Mat h) {
+        Mat a = new Mat(2, 3, CvType.CV_64F);
+        a.put(0, 0, h.get(0, 0)[0], h.get(0, 1)[0], h.get(0, 2)[0]);
+        a.put(1, 0, h.get(1, 0)[0], h.get(1, 1)[0], h.get(1, 2)[0]);
+        return a;
+    }
+
+    /** Keep only rotation + translation; drops residual scale/shear from numeric noise. */
+    private static Mat projectToEuclideanHomography(Mat h) {
+        double a = h.get(0, 0)[0];
+        double b = h.get(1, 0)[0];
+        double angle = Math.atan2(b, a);
+        double c = Math.cos(angle);
+        double s = Math.sin(angle);
+        Mat out = Mat.eye(3, 3, CvType.CV_64F);
+        out.put(0, 0, c, -s, h.get(0, 2)[0]);
+        out.put(1, 0, s, c, h.get(1, 2)[0]);
+        return out;
     }
 
     /**
