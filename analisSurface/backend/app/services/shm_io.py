@@ -73,6 +73,7 @@ def open_bgr_shm_frame(
     stride: Optional[int] = None,
     shm_offset: int = 0,
 ) -> Iterator[np.ndarray]:
+    """Прочитать BGR-кадр из shared memory без копирования (view на mmap)."""
     if width <= 0 or height <= 0:
         raise ValueError("width and height must be positive")
     if shm_offset < 0:
@@ -117,6 +118,7 @@ def open_bgr_shm_frame(
 
 
 def write_u8_image_to_shm(output_path: str, image: np.ndarray) -> ShmImageOutputInfo:
+    """Записать 2D (gray) или 3D (BGR) uint8-изображение в SHM-файл; вернуть метаданные для клиента."""
     if image.dtype != np.uint8:
         image = np.clip(image, 0, 255).astype(np.uint8)
 

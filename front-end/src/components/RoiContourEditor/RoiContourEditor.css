@@ -36,6 +36,12 @@
   stroke-width: 0.004;
 }
 
+.roi-editor__overlay .roi-editor__exclusion-zone {
+  fill: rgba(245, 158, 11, 0.26);
+  stroke: #facc15;
+  stroke-width: 0.006;
+}
+
 .roi-editor__overlay polyline {
   fill: none;
   stroke: #00ff00;

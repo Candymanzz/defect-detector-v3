@@ -53,6 +53,9 @@ public sealed class IoInputUdpPublishOptions
 
 internal readonly record struct IoInputStateChange(int Port, bool Closed);
 
+/// <summary>
+/// Отправка UDP в фоне: callback SDK не блокируем, очередь с DropOldest при переполнении.
+/// </summary>
 internal sealed class IoInputUdpPublisher : IDisposable
 {
     private readonly IoInputUdpPublishOptions _options;

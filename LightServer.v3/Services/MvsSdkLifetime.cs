@@ -2,6 +2,7 @@ using MvCameraControl;
 
 namespace LightServer.Services;
 
+/// <summary>SDKSystem.Initialize при старте; при остановке — закрыть все COM-сессии и Finalize.</summary>
 public sealed class MvsSdkLifetime : IHostedService
 {
     private readonly IoControllerComService _ioCom;

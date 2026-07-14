@@ -2,6 +2,7 @@ using System.IO.Ports;
 
 namespace IoInputMonitor;
 
+/// <summary>CLI и основной цикл: edge callback SDK → лог + опциональный UDP.</summary>
 internal static class Program
 {
     private static int Main(string[] args)
@@ -145,6 +146,7 @@ internal static class Program
             if (!inputSet.Contains(port))
                 return;
 
+            // both: отслеживаем «замкнут/разомкнут» по фронтам; rising/falling — только свой фронт.
             bool shouldLog = options.EdgeMode switch
             {
                 IoInputEdgeMode.Both =>
@@ -173,6 +175,7 @@ internal static class Program
                 _ => ""
             };
 
+            // UDP: closed=true → value=1 (замкнуто/HIGH). В режиме rising/falling — только rising даёт 1.
             bool closed = options.EdgeMode == IoInputEdgeMode.Both
                 ? portPressed[port]
                 : edge == MvIoNative.IoEdgeType.Rising;
@@ -236,6 +239,9 @@ internal static class Program
         return true;
     }
 
+    /// <summary>
+    /// SDK хранит один edge-фильтр на порт. Для both после события ставим противоположный фронт.
+    /// </summary>
     private static MvIoNative.IoEdgeType NextEdgeToArm(IoInputEdgeMode edgeMode, bool pressed) =>
         edgeMode switch
         {
@@ -244,6 +250,7 @@ internal static class Program
             _ => MvIoNative.IoEdgeType.Rising
         };
 
+    // both всегда вызывает SetInput (перевооружение); иначе — только если configure_sdk=true.
     private static bool ShouldConfigureSdk(MonitorOptions options) =>
         options.EdgeMode == IoInputEdgeMode.Both || options.ConfigureSdk;
 

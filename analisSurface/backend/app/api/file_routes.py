@@ -1,3 +1,8 @@
+"""HTTP-эндпоинты для ручной отладки: загрузка эталона и inspect через multipart-файлы.
+
+Продакшен использует inspection_routes (SHM). Здесь — удобный путь без shared memory.
+"""
+
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -31,6 +36,11 @@ async def upload_reference(
     product_type: str = Form(...),
     file: UploadFile = File(...),
 ) -> UploadRefResponse:
+    """POST /upload-ref — сохранить эталон в RAM для product_type.
+
+    Вход: multipart — product_type (str), file (изображение).
+    Выход: reference_b64 (PNG preview), product_type.
+    """
     content = await _read_uploaded_image(file)
     try:
         inspection_service.set_reference(product_type=product_type, image_bytes=content)
@@ -50,6 +60,7 @@ async def upload_reference(
 
 @router.get("/reference/{product_type}", response_model=ReferenceResponse)
 async def get_reference(product_type: str) -> ReferenceResponse:
+    """GET /reference/{product_type} — вернуть эталон как base64. 404 если не загружен."""
     reference = inspection_service.get_reference(product_type)
     if reference is None:
         raise HTTPException(status_code=404, detail="Reference is not set for this product_type")
@@ -65,6 +76,11 @@ async def inspect_image(
     file: UploadFile = File(...),
     threshold: Optional[float] = Form(None),
 ) -> InspectWithVisualsResponse:
+    """POST /inspect — полная инспекция + визуалы в base64.
+
+    Вход: product_type, file (текущий кадр), threshold (опц., перекрывает настройки).
+    Выход: status (ГОДЕН/БРАК), anomaly_score, heatmap_b64, diff_map_b64 и др.
+    """
     content = await _read_uploaded_image(file)
     try:
         result = inspection_service.inspect(

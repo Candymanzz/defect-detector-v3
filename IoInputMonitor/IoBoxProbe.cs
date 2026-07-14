@@ -2,6 +2,7 @@ using System.IO.Ports;
 
 namespace IoInputMonitor;
 
+/// <summary>Перебор COM-портов: отличить IO box (есть firmware DI) от MV-LE (только подсветка).</summary>
 internal static class IoBoxProbe
 {
     public sealed record ProbeResult(string ComPort, bool Opened, bool HasIoBoard, string? Firmware, string? Error);
@@ -28,6 +29,7 @@ internal static class IoBoxProbe
 
             if (!session.TryReadFirmwareVersion(out MvIoNative.MvIoVersion firmware))
             {
+                // COM открывается, но GetFirmwareVersion падает — типично MV-LE без DI.
                 return new ProbeResult(
                     comPort,
                     Opened: true,

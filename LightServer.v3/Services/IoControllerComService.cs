@@ -6,8 +6,8 @@ using Microsoft.Extensions.Options;
 namespace LightServer.Services;
 
 /// <summary>
-/// Управление MV-LE / IO Box по COM через MvIOInterfaceBox.dll.
-/// Поведение выровнено с рабочим defect-detector LightService: сессия COM не рвётся, вспышки — Trigger.
+/// Альтернативный путь через MvIOInterfaceBox.dll (не GenICam MV-LE).
+/// Зарегистрирован в DI для совместимости; HTTP API v3 использует MvCameraControl.Net.
 /// </summary>
 public sealed class IoControllerComService : IDisposable
 {

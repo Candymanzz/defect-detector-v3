@@ -1,3 +1,5 @@
+"""Сборка всех API-роутеров в один router (подключается в main.py)."""
+
 from fastapi import APIRouter
 
 from app.api.analysis_settings_routes import router as analysis_settings_router

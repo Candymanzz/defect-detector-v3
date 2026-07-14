@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
-import type { InspectResultPayload } from "../../shared/ws";
+import type { HeatmapDescriptor, InspectResultPayload } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
 import type { InspectionHistoryItem } from "../MainOverview/type";
 import "./InspectionHistoryModal.css";
@@ -64,6 +64,7 @@ export function InspectionHistoryModal({ inspectionId, results, onClose }: Inspe
 function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
   const result = item.inspectResult;
   const imageUrl = resolveInspectionImageUrl(result);
+  const heatmap = resolveInspectionHeatmap(result);
 
   return (
     <article
@@ -91,10 +92,10 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
 
         <figure>
           <figcaption>Heatmap</figcaption>
-          {result.heatmap ? (
+          {heatmap ? (
             <HeatmapViewer
               cameraId={result.camera_id}
-              heatmap={result.heatmap}
+              heatmap={heatmap}
               backgroundImageUrl={imageUrl}
             />
           ) : (
@@ -156,4 +157,20 @@ function resolveInspectionImageUrl(result: InspectResultPayload) {
 
   const imagePath = result.http_path ?? result.current.http_path;
   return imagePath ? orchestratorApi.imageUrl(imagePath, result.frame_id) : undefined;
+}
+
+function resolveInspectionHeatmap(result: InspectResultPayload): HeatmapDescriptor | null {
+  if (!result.heatmap) {
+    return null;
+  }
+
+  if (result.artifact_bundle_id) {
+    return {
+      ...result.heatmap,
+      artifact_id: undefined,
+      http_path: `/api/inspection-artifacts/${encodeURIComponent(result.artifact_bundle_id)}/heatmap.u8`,
+    };
+  }
+
+  return result.heatmap;
 }

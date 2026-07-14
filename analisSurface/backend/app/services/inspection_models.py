@@ -16,13 +16,13 @@ class RoiSubZoneScore:
 @dataclass
 class InspectionResult:
     product_type: str
-    status: str
-    anomaly_score: float
+    status: str  # ГОДЕН | БРАК
+    anomaly_score: float  # max по зонам, сравнивается с threshold
     threshold: float
     detector_id: str = ""
-    raw_anomaly_score: float = 0.0
+    raw_anomaly_score: float = 0.0  # до FP-recheck
     rechecked_zones_count: int = 0
-    recheck_adjustment: float = 0.0
+    recheck_adjustment: float = 0.0  # raw - final после FP
     rechecked_zone_ids: list[str] | None = None
     main_roi_score: float = 0.0
     sub_zone_scores: list[RoiSubZoneScore] = field(default_factory=list)
@@ -46,6 +46,8 @@ class RoiSubZone:
 
 @dataclass
 class FPZone:
+    """Зона ложного срабатывания: при создании запоминается baseline активности diff/маски."""
+
     id: str
     product_type: str
     points_norm_heatmap: list[Tuple[float, float]]
@@ -53,6 +55,7 @@ class FPZone:
     heatmap_w: int
     heatmap_h: int
     created_at: str
+    # Профиль «нормального» шума в зоне — сравнивается при fp-recheck.
     baseline_diff_q90: float = 0.0
     baseline_diff_max: float = 0.0
     baseline_active_ratio: float = 0.0

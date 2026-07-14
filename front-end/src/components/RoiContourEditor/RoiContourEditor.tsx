@@ -10,11 +10,21 @@ export type NormPoint = {
 type RoiContourEditorProps = {
   imageUrl: string;
   points: NormPoint[];
+  exclusionZones?: Array<{
+    id?: string;
+    points_norm_heatmap: NormPoint[];
+  }>;
   disabled?: boolean;
   onChange: (points: NormPoint[]) => void;
 };
 
-export function RoiContourEditor({ imageUrl, points, disabled = false, onChange }: RoiContourEditorProps) {
+export function RoiContourEditor({
+  imageUrl,
+  points,
+  exclusionZones = [],
+  disabled = false,
+  onChange,
+}: RoiContourEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
   const svgPoints = points.map((point) => `${point.x},${point.y}`).join(" ");
 
@@ -84,6 +94,20 @@ export function RoiContourEditor({ imageUrl, points, disabled = false, onChange 
           preserveAspectRatio="none"
         >
           {points.length >= 3 && <polygon points={svgPoints} />}
+          {exclusionZones.map((zone, index) => {
+            if (zone.points_norm_heatmap.length < 3) {
+              return null;
+            }
+
+            const zonePoints = zone.points_norm_heatmap.map((point) => `${point.x},${point.y}`).join(" ");
+            return (
+              <polygon
+                key={zone.id ?? index}
+                className="roi-editor__exclusion-zone"
+                points={zonePoints}
+              />
+            );
+          })}
           {points.length >= 2 && <polyline points={svgPoints} />}
           {points.map((point, index) => (
             <circle

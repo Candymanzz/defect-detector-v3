@@ -107,6 +107,9 @@ public final class AnalisSurfaceClientWsSync {
             if (z.id() != null && !z.id().isBlank()) {
                 zo.put("id", z.id());
             }
+            if (z.cameraId() != null) {
+                zo.put("camera_id", z.cameraId());
+            }
             zo.put("note", z.note() != null ? z.note() : "");
             List<Map<String, Object>> pts = new ArrayList<>();
             for (FpZoneNorm.PointNorm p : z.pointsNormHeatmap()) {

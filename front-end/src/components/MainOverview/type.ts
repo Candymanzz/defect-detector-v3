@@ -36,6 +36,7 @@ export type ModalInspectionSnapshot = SelectedCamera & {
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];
   referenceJointRoiPoints?: InterestPointNorm[];
+  referenceFpZones?: FpZoneNorm[];
   inspectionItems: InspectionHistoryItem[];
 };
-import type { InspectResultPayload, InterestPointNorm } from "../../shared/ws";
+import type { FpZoneNorm, InspectResultPayload, InterestPointNorm } from "../../shared/ws";

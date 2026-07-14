@@ -1,9 +1,13 @@
+"""Pydantic-модели HTTP API. См. docstring на роутерах в app/api/*_routes.py."""
+
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
 
 class ShmImageOutput(BaseModel):
+    """Метаданные изображения, записанного в SHM (ответ inspect-shm-visuals)."""
+
     path: str
     width: int
     height: int
@@ -21,8 +25,10 @@ class RoiSubZoneScoreResponse(BaseModel):
 
 
 class InspectResponse(BaseModel):
+    """Результат инспекции без тяжёлых картинок (/inspect-shm, база для /inspect-shm-visuals)."""
+
     product_type: str
-    status: str
+    status: str  # ГОДЕН | БРАК
     anomaly_score: float
     threshold: float
     detector_id: str
@@ -35,6 +41,8 @@ class InspectResponse(BaseModel):
 
 
 class InspectWithVisualsResponse(InspectResponse):
+    """Как InspectResponse + base64-визуалы (/inspect multipart)."""
+
     aligned_image_b64: Optional[str] = None
     diff_map_b64: Optional[str] = None
     heatmap_b64: Optional[str] = None
@@ -108,27 +116,33 @@ class DetectorHealthResponse(BaseModel):
 
 
 class ShmFrameRequest(BaseModel):
+    """Вход для /upload-ref-shm, /inspect-shm: BGR-кадр в shared memory."""
+
     product_type: str
     shm_name: str
     width: int
     height: int
-    stride: Optional[int] = None
+    stride: Optional[int] = None  # default: width * 3
     shm_offset: int = 0
-    threshold: Optional[float] = None
+    threshold: Optional[float] = None  # перекрывает analysis_settings.default_threshold
     detector_id: Optional[str] = None
     algorithm_params: Optional[dict] = None
-    alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None
+    alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None  # 3x3 от geometry
 
 
 class ShmVisualsRequest(ShmFrameRequest):
+    """Вход /inspect-shm-visuals: кадр + пути output SHM (только запрошенные поля пишутся)."""
+
     aligned_image_u8_output_path: Optional[str] = None
     diff_map_u8_output_path: Optional[str] = None
     heatmap_u8_output_path: Optional[str] = None
-    heatmap_max_width: Optional[int] = None
+    heatmap_max_width: Optional[int] = None  # уменьшить heatmap перед записью
     segmentation_mask_u8_output_path: Optional[str] = None
 
 
 class ShmVisualsResponse(InspectResponse):
+    """Ответ /inspect-shm-visuals: вердикт + ShmImageOutput на каждый записанный визуал."""
+
     aligned_image_u8: Optional[ShmImageOutput] = None
     diff_map_u8: Optional[ShmImageOutput] = None
     heatmap_u8: Optional[ShmImageOutput] = None

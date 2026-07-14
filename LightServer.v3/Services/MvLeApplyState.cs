@@ -8,6 +8,7 @@ public sealed class MvLeApplyState
     private string _source = "";
     private string _armedSource = "";
 
+    // «Заряжено»: яркость и Timer1 уже на железе — повторный On может только дёрнуть trigger.
     public bool IsHardwareArmed =>
         _channels.Length > 0
         && !string.IsNullOrEmpty(_armedSource)

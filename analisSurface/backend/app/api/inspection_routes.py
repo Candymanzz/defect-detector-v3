@@ -1,3 +1,9 @@
+"""Инспекция через shared memory — основной путь для оркестратора.
+
+Тело JSON: ShmFrameRequest (кадр BGR в SHM) или ShmVisualsRequest (+ пути output SHM).
+Тяжёлый inspect выполняется в thread pool (inspect_executor).
+"""
+
 import asyncio
 import logging
 from functools import partial
@@ -40,6 +46,7 @@ def cleanup_requested_visual_outputs(payload: ShmVisualsRequest) -> None:
 
 
 def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[str, ShmImageOutputInfo]:
+    """Записать запрошенные визуалы в SHM; heatmap — gray_u8 (1 канал) для UI."""
     heatmap_u8 = result.heatmap_u8
     max_width = payload.heatmap_max_width or 0
     if heatmap_u8 is not None and max_width > 0 and heatmap_u8.shape[1] > max_width:
@@ -63,6 +70,7 @@ def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[s
 
 @router.get("/detector/health", response_model=DetectorHealthResponse)
 async def detector_health() -> DetectorHealthResponse:
+    """GET /detector/health — liveness для оркестратора (service=analisSurface)."""
     return DetectorHealthResponse(
         status="ok",
         service="analisSurface",
@@ -72,6 +80,10 @@ async def detector_health() -> DetectorHealthResponse:
 
 @router.post("/upload-ref-shm")
 async def upload_reference_shm(payload: ShmFrameRequest) -> dict:
+    """POST /upload-ref-shm — эталон из BGR-кадра в SHM (ShmFrameRequest).
+
+    Поля shm_name, width, height, stride, shm_offset — описание буфера камеры.
+    """
     try:
         with open_bgr_shm_frame(
             shm_name=payload.shm_name,
@@ -137,6 +149,10 @@ async def _inspect_shm_parallel(
 
 @router.post("/inspect-shm", response_model=InspectResponse)
 async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
+    """POST /inspect-shm — только вердикт и score, без визуалов (быстрый путь конвейера).
+
+    Выход: InspectResponse — status, anomaly_score, threshold, sub_zone_scores, ...
+    """
     try:
         result = await _inspect_shm_parallel(payload, include_visuals=False, include_heatmap_u8=False)
     except (OSError, ValueError) as exc:
@@ -147,6 +163,12 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
 
 @router.post("/inspect-shm-visuals", response_model=ShmVisualsResponse)
 async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
+    """POST /inspect-shm-visuals — инспекция + запись визуалов в output SHM.
+
+    Доп. поля: *_u8_output_path (куда писать), heatmap_max_width (уменьшить heatmap).
+    Выход: InspectResponse + ShmImageOutput (path, width, height, stride, channels) на каждый визуал.
+    Ошибка записи визуалов не отменяет вердикт инспекции.
+    """
     try:
         result = await _inspect_shm_parallel(
             payload,

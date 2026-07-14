@@ -1,3 +1,5 @@
+"""Sub-ROI: подзоны внутри главного ROI с отдельным порогом брака."""
+
 from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspection_service
@@ -15,6 +17,10 @@ router = APIRouter()
 
 @router.post("/roi-sub-zones", response_model=RoiSubZoneResponse)
 async def add_roi_sub_zone(payload: RoiSubZoneCreateRequest) -> RoiSubZoneResponse:
+    """POST /roi-sub-zones — подзона внутри ROI (дырка в main region + свой threshold).
+
+    points — внутри родительского ROI; threshold опционален (иначе default_threshold).
+    """
     if inspection_service.get_reference(payload.product_type) is None:
         raise HTTPException(status_code=400, detail="Reference is not set for this product_type")
     points = [(p.x, p.y) for p in payload.points]
@@ -32,6 +38,7 @@ async def add_roi_sub_zone(payload: RoiSubZoneCreateRequest) -> RoiSubZoneRespon
 
 @router.get("/roi-sub-zones/{product_type}", response_model=RoiSubZoneListResponse)
 async def get_roi_sub_zones(product_type: str) -> RoiSubZoneListResponse:
+    """GET /roi-sub-zones/{product_type} — все подзоны изделия."""
     zones = inspection_service.get_roi_sub_zones(product_type)
     return RoiSubZoneListResponse(
         product_type=product_type,
@@ -41,6 +48,7 @@ async def get_roi_sub_zones(product_type: str) -> RoiSubZoneListResponse:
 
 @router.patch("/roi-sub-zones/{zone_id}", response_model=RoiSubZoneResponse)
 async def update_roi_sub_zone(zone_id: str, payload: RoiSubZoneUpdateRequest) -> RoiSubZoneResponse:
+    """PATCH /roi-sub-zones/{zone_id} — частичное обновление (threshold, label, points)."""
     points = [(p.x, p.y) for p in payload.points] if payload.points is not None else None
     try:
         zone = inspection_service.update_roi_sub_zone(
@@ -58,6 +66,7 @@ async def update_roi_sub_zone(zone_id: str, payload: RoiSubZoneUpdateRequest) ->
 
 @router.delete("/roi-sub-zones/{zone_id}")
 async def delete_roi_sub_zone(zone_id: str) -> dict:
+    """DELETE /roi-sub-zones/{zone_id} — удалить подзону."""
     deleted = inspection_service.delete_roi_sub_zone(zone_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Sub-ROI zone not found")

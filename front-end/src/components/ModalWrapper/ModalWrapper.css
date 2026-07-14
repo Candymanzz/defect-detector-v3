@@ -235,6 +235,12 @@
   stroke-dasharray: 8 5;
 }
 
+.modal-image-panel__roi-overlay--fp-zones polygon {
+  fill: rgba(245, 158, 11, 0.26);
+  stroke: #facc15;
+  stroke-width: 3;
+}
+
 .modal-image-panel .heatmap-viewer {
   container-type: size;
   display: grid;
@@ -349,6 +355,7 @@
 }
 
 .modal-inspect-result__raw {
+  max-height: min(36vh, 360px);
   min-height: 0;
   margin: 8px 0 0;
   padding: 12px;
@@ -358,6 +365,12 @@
   color: #c7d2ce;
   font-size: 0.78rem;
   line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.modal-inspect-result__details {
+  min-width: 0;
 }
 
 .modal-inspect-result__details summary {

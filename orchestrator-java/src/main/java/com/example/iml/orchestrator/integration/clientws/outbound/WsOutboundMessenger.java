@@ -561,7 +561,7 @@ public final class WsOutboundMessenger {
             payload.put("python_status", "UNKNOWN");
             payload.put("geometry_status", "UNKNOWN");
         }
-        payload.set("fp_zones", fpZonesJsonArray());
+        payload.set("fp_zones", fpZonesJsonArray(cameraId));
         int hmw = referenceContext.effectiveHeatmapWidth();
         int hmh = referenceContext.effectiveHeatmapHeight();
         if (hmw > 0 && hmh > 0) {
@@ -637,12 +637,18 @@ public final class WsOutboundMessenger {
         return current;
     }
 
-    private ArrayNode fpZonesJsonArray() {
+    private ArrayNode fpZonesJsonArray(int cameraId) {
         ArrayNode arr = JSON.createArrayNode();
         for (FpZoneNorm z : referenceContext.effectiveFpZones()) {
+            if (z.cameraId() != null && z.cameraId() != cameraId) {
+                continue;
+            }
             ObjectNode zo = arr.addObject();
             if (z.id() != null && !z.id().isBlank()) {
                 zo.put("id", z.id());
+            }
+            if (z.cameraId() != null) {
+                zo.put("camera_id", z.cameraId());
             }
             zo.put("note", z.note() != null ? z.note() : "");
             ArrayNode pts = zo.putArray("points_norm_heatmap");

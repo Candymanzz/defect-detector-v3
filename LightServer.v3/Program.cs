@@ -5,7 +5,8 @@ using LightServer.Logging;
 using LightServer.Services;
 using Microsoft.Extensions.Options;
 
-// Оркестратор: cwd = корень репо, dotnet exec …/LightServer.dll — без этого appsettings читается не из bin/.
+// Оркестратор: cwd = корень репо, dotnet exec …/LightServer.dll.
+// ContentRootPath = папка exe (appsettings.json рядом с DLL); YAML ищется вверх от cwd и от exe.
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,

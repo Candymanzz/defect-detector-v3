@@ -218,11 +218,13 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             }
         }
         Object fp = header.get("fp_zones");
-        if (fp instanceof List<?> list && !list.isEmpty()) {
+        if (fp instanceof List<?> list) {
+            List<?> cameraFpZones = filterFpZonesForCamera(list, cameraId);
             Map<String, Object> fpHdr = new LinkedHashMap<>(header);
             fpHdr.put("op", "replace_fp_zones");
             fpHdr.put("product_type", scopedProductType);
             fpHdr.put("camera_id", cameraId);
+            fpHdr.put("fp_zones", cameraFpZones);
             BinaryProtocol.Message fpResp = replaceFpZones(fpHdr);
             if (fpResp.type() == BinaryProtocol.MSG_ERROR) {
                 return fpResp;
@@ -303,6 +305,20 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         pts.add(Map.of("x", (double) (x + w), "y", (double) (y + h)));
         pts.add(Map.of("x", (double) x, "y", (double) (y + h)));
         return pts;
+    }
+
+    private static List<?> filterFpZonesForCamera(List<?> zones, int cameraId) {
+        List<Object> filtered = new ArrayList<>();
+        for (Object zone : zones) {
+            if (!(zone instanceof Map<?, ?> zoneMap)) {
+                continue;
+            }
+            Object zoneCameraId = zoneMap.get("camera_id");
+            if (zoneCameraId == null || YamlScalars.toInt(zoneCameraId, -1) == cameraId) {
+                filtered.add(zone);
+            }
+        }
+        return filtered;
     }
 
     private BinaryProtocol.Message uploadRefShm(Map<String, Object> header) throws IOException {

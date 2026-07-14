@@ -34,6 +34,7 @@ public sealed class IoInputConfigLoadResult
     public bool LoadedFromYaml { get; init; }
 }
 
+/// <summary>Загрузка io_input из YAML; ищет config/blocks/52-io-input.yaml вверх от cwd и exe.</summary>
 public static class IoInputConfigLoader
 {
     public const string DefaultRelativePath = "config/blocks/52-io-input.yaml";
@@ -99,6 +100,7 @@ public static class IoInputConfigLoader
             yield return baseDir;
     }
 
+    // До 8 уровней вверх — чтобы находить config/ и из IoInputMonitor/, и из bin/Release/.
     private static string? WalkUpForConfig(string startDir)
     {
         DirectoryInfo? dir = new(startDir);

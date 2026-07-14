@@ -1,36 +1,22 @@
 .reference-setup.modal {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .reference-setup__body {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: 12px;
-  flex: 1;
   min-height: 0;
-  overflow: auto;
-}
-
-.reference-setup__reference-status,
-.reference-setup__roi-status,
-.reference-setup__hint {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.reference-setup__reference-status {
-  color: #9becbd;
-  font-weight: 800;
-}
-
-.reference-setup__roi-status,
-.reference-setup__hint {
-  color: #c5cdd6;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .reference-setup__toolbar {
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -131,8 +117,47 @@
   opacity: 0.55;
 }
 
+.reference-setup__active-reference {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid rgba(52, 211, 153, 0.42);
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #d1fae5;
+  font-size: 14px;
+}
+
+.reference-setup__active-reference[data-source="archive"] {
+  border-color: rgba(52, 211, 153, 0.55);
+  background: rgba(16, 185, 129, 0.16);
+  color: #d1fae5;
+}
+
+.reference-setup__active-reference[data-source="new"] {
+  border-color: rgba(245, 158, 11, 0.65);
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
+}
+
+.reference-setup__active-reference strong {
+  flex: 0 0 auto;
+  text-transform: uppercase;
+}
+
+.reference-setup__active-reference span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .reference-setup__workspace {
   display: flex;
+  flex: 0 0 auto;
   justify-content: center;
   gap: 14px;
   align-items: flex-start;
@@ -141,7 +166,6 @@
 
 .reference-setup__editor {
   width: min(100%, 800px);
-  height: 100%;
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -161,13 +185,197 @@
   align-items: stretch;
 }
 
-.reference-setup__info {
+.reference-setup__archive {
   display: grid;
-  gap: 6px;
+  flex: 0 0 auto;
+  gap: 12px;
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.18);
+}
+
+.reference-setup__archive-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.reference-setup__archive-header h3 {
+  margin: 0;
+  color: #f2f5f7;
+  font-size: 16px;
+}
+
+.reference-setup__archive-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.reference-setup__archive-tiles {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.reference-setup__archive-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px 10px;
+  min-height: 72px;
+  padding: 8px 34px 8px 8px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f2f5f7;
+  cursor: pointer;
+}
+
+.reference-setup__archive-tile[data-active="true"] {
+  border-color: #fbbf24;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.reference-setup__archive-tile[data-in-use="true"] {
+  border-color: #34d399;
+  background: rgba(16, 185, 129, 0.16);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.24);
+}
+
+.reference-setup__archive-tile:hover,
+.reference-setup__archive-tile:focus-visible {
+  border-color: #fbbf24;
+  outline: none;
+}
+
+.reference-setup__archive-tile img {
+  grid-row: span 2;
+  width: 72px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.reference-setup__archive-tile span,
+.reference-setup__archive-tile strong,
+.reference-setup__archive-tile em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reference-setup__archive-tile span {
+  color: #fcd34d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reference-setup__archive-tile em {
+  grid-column: 2;
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.24);
+  color: #bbf7d0;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.reference-setup__archive-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.16);
+  color: #fee2e2;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+}
+
+.reference-setup__archive-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.reference-setup__archive-frame {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.reference-setup__archive-frame figcaption {
+  color: #c5cdd6;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.reference-setup__archive-frame-media {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  aspect-ratio: var(--archive-aspect, 4 / 3);
+}
+
+.reference-setup__archive-frame-media img,
+.reference-setup__archive-frame-media svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.reference-setup__archive-frame-media img {
+  z-index: 1;
+  object-fit: contain;
+}
+
+.reference-setup__archive-frame-media svg {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.reference-setup__archive-frame-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fcd34d;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.reference-setup__archive-frame-media polygon {
+  fill: rgba(34, 197, 94, 0.2);
+  stroke: #9becbd;
+  stroke-width: 0.006;
+  vector-effect: non-scaling-stroke;
+}
+
+.reference-setup__archive-frame-media .reference-setup__archive-joint {
+  fill: rgba(96, 165, 250, 0.18);
+  stroke: #bfdbfe;
+}
+
+.reference-setup__archive-frame-media .reference-setup__archive-fp-zone {
+  fill: rgba(245, 158, 11, 0.26);
+  stroke: #facc15;
+  stroke-width: 0.008;
 }
 
 .reference-setup__slot {
@@ -236,5 +444,9 @@
 
   .reference-setup__camera-row {
     grid-template-columns: minmax(120px, 1fr);
+  }
+
+  .reference-setup__archive-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -1,8 +1,8 @@
 .fp-zone-editor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  gap: 14px;
-  width: 100%;
+  gap: 10px;
+  width: 500px;
+  max-width: 100%;
 }
 
 .fp-zone-editor__canvas {
@@ -30,121 +30,81 @@
   pointer-events: none;
 }
 
-.fp-zone-editor__zone polygon {
-  fill: rgba(245, 158, 11, 0.17);
-  stroke: #f59e0b;
+.fp-zone-editor__roi {
+  fill: rgba(34, 197, 94, 0.12);
+  stroke: #22c55e;
+  stroke-dasharray: 0.025 0.018;
   stroke-width: 0.004;
+}
+
+.fp-zone-editor__zone polygon {
+  fill: rgba(245, 158, 11, 0.28);
+  stroke: #facc15;
+  stroke-width: 0.005;
 }
 
 .fp-zone-editor__zone polyline {
   fill: none;
-  stroke: #f59e0b;
-  stroke-width: 0.004;
+  stroke: #facc15;
+  stroke-width: 0.005;
 }
 
 .fp-zone-editor__zone circle {
-  fill: #fff7ed;
-  stroke: #f59e0b;
+  fill: #fef3c7;
+  stroke: #facc15;
   stroke-width: 0.004;
 }
 
-.fp-zone-editor__zone--selected polygon {
-  fill: rgba(239, 68, 68, 0.22);
-  stroke: #ef4444;
+.fp-zone-editor__zone--selected polygon,
+.fp-zone-editor__zone--selected polyline {
+  stroke: #fde047;
+  stroke-width: 0.008;
 }
 
-.fp-zone-editor__zone--selected polyline,
 .fp-zone-editor__zone--selected circle {
-  stroke: #ef4444;
+  stroke: #fde047;
 }
 
-.fp-zone-editor__panel,
-.fp-zone-editor__controls {
-  display: grid;
-  gap: 10px;
-  align-content: start;
-}
-
-.fp-zone-editor__header,
 .fp-zone-editor__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  justify-content: space-between;
-}
-
-.fp-zone-editor button,
-.fp-zone-editor input {
-  min-height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 7px;
-  background: #111827;
-  color: #f2f5f7;
-  font: inherit;
 }
 
 .fp-zone-editor button {
-  padding: 7px 10px;
+  min-height: 34px;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  background: #111827;
+  color: #f2f5f7;
   cursor: pointer;
+  font: inherit;
+  padding: 0 12px;
 }
 
-.fp-zone-editor button:disabled,
-.fp-zone-editor input:disabled {
+.fp-zone-editor button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.fp-zone-editor__zones {
-  display: grid;
-  gap: 7px;
-  max-height: 260px;
-  overflow: auto;
-}
-
-.fp-zone-editor__zone-button {
-  display: grid;
-  gap: 3px;
-  text-align: left;
-}
-
-.fp-zone-editor__zone-button small,
-.fp-zone-editor__empty {
-  color: #9aa8a4;
-}
-
-.fp-zone-editor__zone-button--active {
-  border-color: #ef4444 !important;
-  background: rgba(239, 68, 68, 0.16) !important;
-}
-
-.fp-zone-editor__controls label {
-  display: grid;
-  gap: 5px;
-  color: #c5cdd6;
-  font-size: 13px;
-}
-
-.fp-zone-editor__controls input {
-  width: 100%;
-  padding: 0 9px;
-}
-
-.fp-zone-editor__actions {
-  justify-content: flex-start;
 }
 
 .fp-zone-editor__delete {
   border-color: rgba(239, 68, 68, 0.65) !important;
 }
 
-.fp-zone-editor__empty {
-  margin: 0;
-  line-height: 1.45;
+.fp-zone-editor__zone-tabs {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
 }
 
-@media (max-width: 980px) {
-  .fp-zone-editor {
-    grid-template-columns: 1fr;
-  }
+.fp-zone-editor__zone-tab {
+  width: 34px;
+  min-width: 34px;
+  padding: 0 !important;
+}
+
+.fp-zone-editor__zone-tab.is-active {
+  border-color: #facc15;
+  background: rgba(250, 204, 21, 0.16);
 }
