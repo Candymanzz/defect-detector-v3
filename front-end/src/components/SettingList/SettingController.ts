@@ -45,7 +45,7 @@ export const INITIAL_SETTING_STATUS: SettingStatus = {
 export const INITIAL_SETTING_FORM: SettingForm = {
   brightnessPercent: 0,
   maxShiftMm: DEFAULT_MAX_SHIFT_MM,
-  lineDirection: "forward",
+  lineDirection: "reverse",
   analysisSettings: DEFAULT_ANALYSIS_SETTINGS,
 };
 
@@ -113,7 +113,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
     orchestratorApi.getLightBrightness(),
     orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
-    orchestratorApi.getLineDirection().catch(() => ({ direction: "forward" as const, source: "manual" as const })),
+    orchestratorApi.getLineDirection().catch(() => ({ direction: "reverse" as const, source: "manual" as const })),
   ]);
   const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
   const analysisSettings = "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;

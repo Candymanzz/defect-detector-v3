@@ -291,8 +291,8 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
         <section className="setting-list__card setting-list__direction">
           <div className="setting-list__card-header">
-            <span>Направление (метка)</span>
-            <strong className="setting-list__scope">все 10 камер</strong>
+            <span>Направление хода</span>
+            <strong className="setting-list__scope">DI3: снимать только в этом ходе</strong>
           </div>
           <div className="setting-list__direction-row">
             <button

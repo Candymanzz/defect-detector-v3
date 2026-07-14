@@ -507,10 +507,14 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (captureFiredThisPulse) {
             return;
         }
+        if (!allowsCaptureForSelectedDirection()) {
+            return;
+        }
         if (!workSessionDirection.allowsCapture(
                 ioInputConfig.requireWork(),
                 isEffectiveWork(),
-                ioInputConfig.requireDirection()
+                // при UI-направлении сессия не режет reverse: фильтр уже в allowsCaptureForSelectedDirection
+                ioInputConfig.requireDirection() && manualLineDirection == null
         )) {
             if (ioInputConfig.requireWork() && !isEffectiveWork()) {
                 log.info("io_input_trigger skip: conveyor not running (work=0)");
@@ -593,6 +597,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             log.info("io_input_trigger skip: await DI2=1 before capture (direction not armed)");
             return;
         }
+        if (!allowsCaptureForSelectedDirection()) {
+            return;
+        }
         if (ioInputConfig.debounceMs() > 0) {
             long now = System.currentTimeMillis();
             if (now - lastFireMs < ioInputConfig.debounceMs()) {
@@ -620,6 +627,30 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
     }
 
+    /**
+     * UI «Прямой/Обратный ход»: на DI3 снимаем только если DI2 совпал с выбором.
+     * Пример: «Обратный ход» → DI3 при ходе вперёд игнорируем, при ходе назад — снимаем все камеры.
+     */
+    private boolean allowsCaptureForSelectedDirection() {
+        boolean travelForward = directionActive;
+        if (manualLineDirection != null) {
+            boolean selectedForward = manualLineDirection.isForward();
+            if (selectedForward == travelForward) {
+                return true;
+            }
+            log.info(
+                    "io_input_trigger skip: DI3 ignored — UI={} travel={} (вперёд→не снимать / назад→снимать при UI=reverse)",
+                    manualLineDirection.wireValue(),
+                    travelForward ? "forward" : "reverse"
+            );
+            return false;
+        }
+        if (!ioInputConfig.requireDirection()) {
+            return true;
+        }
+        return travelForward;
+    }
+
     private String effectiveDirectionWire() {
         if (manualLineDirection != null) {
             return manualLineDirection.wireValue();
@@ -628,10 +659,10 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     private String directionSourceLabel() {
-        return manualLineDirection != null ? "manual" : "di2";
+        return manualLineDirection != null ? "manual+di2" : "di2";
     }
 
-    /** Все камеры на каждом DI3; направление — только метка (UI/лог). */
+    /** Всегда все камеры; фильтр — только направление хода (UI ↔ DI2), не группа. */
     private List<Integer> resolveTargetCameras(boolean sessionMode) {
         return null;
     }
@@ -661,7 +692,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             log.info("io_input_trigger skip: conveyor not running (work=0)");
             return;
         }
-        if (!ignoreDirectionCheck && ioInputConfig.requireDirection() && !directionActive) {
+        if (!ignoreDirectionCheck && !allowsCaptureForSelectedDirection()) {
             return;
         }
         if (ioInputConfig.debounceMs() > 0) {

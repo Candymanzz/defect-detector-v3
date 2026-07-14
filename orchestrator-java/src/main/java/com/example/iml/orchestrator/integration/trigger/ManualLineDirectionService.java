@@ -1,7 +1,8 @@
 package com.example.iml.orchestrator.integration.trigger;
 
 /**
- * Направление линии с UI (пока DI2 на ПЛК не несёт полезного сигнала).
+ * Направление хода с UI. На DI3 съёмка только если DI2 совпал с выбором
+ * (например «Обратный ход» → снимаем при ходе назад, игнорируем DI3 при ходе вперёд).
  */
 public final class ManualLineDirectionService {
 
@@ -10,7 +11,8 @@ public final class ManualLineDirectionService {
         REVERSE
     }
 
-    private volatile Direction direction = Direction.FORWARD;
+    /** По умолчанию обратный: DI3 на ходе вперёд не снимаем, на ходе назад — снимаем. */
+    private volatile Direction direction = Direction.REVERSE;
 
     public Direction direction() {
         return direction;
@@ -25,7 +27,7 @@ public final class ManualLineDirectionService {
     }
 
     public void setDirection(Direction direction) {
-        this.direction = direction == null ? Direction.FORWARD : direction;
+        this.direction = direction == null ? Direction.REVERSE : direction;
     }
 
     public void setFromWireValue(String raw) {

@@ -3,7 +3,7 @@ import { orchestratorApi } from "../../shared/api";
 import type { LineDirection } from "../../shared/api";
 
 export function useLineDirection(pollMs = 2000) {
-  const [direction, setDirection] = useState<LineDirection>("forward");
+  const [direction, setDirection] = useState<LineDirection>("reverse");
 
   useEffect(() => {
     let active = true;
@@ -18,7 +18,7 @@ export function useLineDirection(pollMs = 2000) {
         })
         .catch(() => {
           if (active) {
-            setDirection("forward");
+            setDirection("reverse");
           }
         });
     };
