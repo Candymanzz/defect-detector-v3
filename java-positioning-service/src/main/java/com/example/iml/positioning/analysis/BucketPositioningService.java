@@ -51,6 +51,12 @@ public final class BucketPositioningService {
     private static final double RANSAC_REPROJ_THRESHOLD = 5.0;
     private static final int MIN_MATCHES = 12;
     private static final int ECC_LEVELS = 4;
+    /** After ORB, ECC may only refine within these bounds — larger = garbage / divergence. */
+    private static final double ECC_MAX_TRANSLATION_PX = 48.0;
+    private static final double ECC_MAX_ANGLE_DEG = 8.0;
+    private static final double ECC_SKIP_NCC = 0.90;
+    private static final double ECC_SKIP_ABSDiff = 6.0;
+    private static final double ECC_SKIP_RESIDUAL_PX = 2.0;
     private static final double FALLBACK_FAIL_MM = 9999.0;
     private static final double FALLBACK_FAIL_ROTATION_DEG = 9999.0;
 
@@ -194,34 +200,88 @@ public final class BucketPositioningService {
                     fmt(qOrb.residualShiftY())
             );
 
-            // --- 3) Pyramid ECC affine with WARP_INVERSE_MAP ---
+            // --- 3) Pyramid ECC affine with WARP_INVERSE_MAP (optional refine) ---
             long tEcc0 = System.nanoTime();
-            Rect refineRect = expandRect(
-                    resolveMainRect(request, current.cols(), current.rows()),
-                    current.cols(),
-                    current.rows(),
-                    0.15
-            );
-            EccResult ecc = refinePyramidEcc(working, reference, refineRect, request.mainRoiPolygonNorm());
-            stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
-            diag.put("ecc_ok", ecc.ok());
-            diag.put("ecc_cc", jsonNum(ecc.correlation()));
-            diag.put("ecc_tx", jsonNum(ecc.tx()));
-            diag.put("ecc_ty", jsonNum(ecc.ty()));
-            diag.put("ecc_angle_deg", jsonNum(ecc.angleDeg()));
-            if (ecc.refined() != working) {
-                working.release();
-                working = ecc.refined();
+            QualityScore qBeforeEcc = qOrb;
+            boolean skipEcc = shouldSkipEcc(qBeforeEcc);
+            diag.put("ecc_skipped", skipEcc);
+            if (skipEcc) {
+                stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
+                diag.put("ecc_ok", false);
+                diag.put("ecc_cc", null);
+                diag.put("ecc_tx", 0.0);
+                diag.put("ecc_ty", 0.0);
+                diag.put("ecc_angle_deg", 0.0);
+                diag.put("ecc_applied", false);
+                log.info(
+                        "positioning_diag {} stage=ecc SKIPPED already_good ncc={} absdiff={} residual=({}, {})",
+                        ctx(logContext),
+                        fmt(qBeforeEcc.ncc()),
+                        fmt(qBeforeEcc.meanAbsDiff()),
+                        fmt(qBeforeEcc.residualShiftX()),
+                        fmt(qBeforeEcc.residualShiftY())
+                );
+            } else {
+                Rect refineRect = expandRect(
+                        resolveMainRect(request, current.cols(), current.rows()),
+                        current.cols(),
+                        current.rows(),
+                        0.15
+                );
+                EccResult ecc = refinePyramidEcc(working, reference, refineRect, request.mainRoiPolygonNorm());
+                stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
+                diag.put("ecc_ok", ecc.ok());
+                diag.put("ecc_cc", jsonNum(ecc.correlation()));
+                diag.put("ecc_tx", jsonNum(ecc.tx()));
+                diag.put("ecc_ty", jsonNum(ecc.ty()));
+                diag.put("ecc_angle_deg", jsonNum(ecc.angleDeg()));
+
+                boolean acceptEcc = false;
+                if (ecc.refined() != working && ecc.ok() && isEccTransformPlausible(ecc)) {
+                    QualityScore qEcc = measureQuality(
+                            reference, ecc.refined(), qualityRoi, request.mainRoiPolygonNorm());
+                    putQuality(diag, "ecc_try", qEcc);
+                    acceptEcc = isEccQualityBetter(qBeforeEcc, qEcc);
+                    diag.put("ecc_try_accepted", acceptEcc);
+                    if (acceptEcc) {
+                        working.release();
+                        working = ecc.refined();
+                        qBeforeEcc = qEcc;
+                    } else {
+                        ecc.refined().release();
+                        log.warn(
+                                "positioning_diag {} stage=ecc REJECTED_quality before_absdiff={} after_absdiff={} "
+                                        + "before_ncc={} after_ncc={}",
+                                ctx(logContext),
+                                fmt(qOrb.meanAbsDiff()),
+                                fmt(qEcc.meanAbsDiff()),
+                                fmt(qOrb.ncc()),
+                                fmt(qEcc.ncc())
+                        );
+                    }
+                } else if (ecc.refined() != working) {
+                    ecc.refined().release();
+                    log.warn(
+                            "positioning_diag {} stage=ecc REJECTED_transform ok={} t=({}, {}) angle={}",
+                            ctx(logContext),
+                            ecc.ok(),
+                            fmt(ecc.tx()),
+                            fmt(ecc.ty()),
+                            fmt(ecc.angleDeg())
+                    );
+                }
+                diag.put("ecc_applied", acceptEcc);
+                log.info(
+                        "positioning_diag {} stage=ecc ok={} applied={} cc={} affine_t=({}, {}) angle_deg={}",
+                        ctx(logContext),
+                        ecc.ok(),
+                        acceptEcc,
+                        fmt(ecc.correlation()),
+                        fmt(ecc.tx()),
+                        fmt(ecc.ty()),
+                        fmt(ecc.angleDeg())
+                );
             }
-            log.info(
-                    "positioning_diag {} stage=ecc ok={} cc={} affine_t=({}, {}) angle_deg={}",
-                    ctx(logContext),
-                    ecc.ok(),
-                    fmt(ecc.correlation()),
-                    fmt(ecc.tx()),
-                    fmt(ecc.ty()),
-                    fmt(ecc.angleDeg())
-            );
 
             QualityScore qFinal = measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
             putQuality(diag, "final", qFinal);
@@ -243,11 +303,23 @@ public final class BucketPositioningService {
 
             boolean alignedWritten = false;
             String outputName = request.outputShmName() == null ? "" : request.outputShmName().trim();
+            String writeError = null;
             if (request.writeAligned() && !outputName.isEmpty() && working != null && !working.empty()) {
                 long tWrite0 = System.nanoTime();
-                shmWriter.writeBgrMat(outputName, working);
+                try {
+                    shmWriter.writeBgrMat(outputName, working);
+                    alignedWritten = true;
+                } catch (Exception e) {
+                    writeError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                    diag.put("write_error", writeError);
+                    log.error(
+                            "positioning_diag {} stage=write FAILED output={} err={}",
+                            ctx(logContext),
+                            outputName,
+                            writeError
+                    );
+                }
                 stageMsWrite = nanosToMs(System.nanoTime() - tWrite0);
-                alignedWritten = true;
             }
 
             double[] hRefToCur = invertHomographyArray(homographyCurToRef);
@@ -429,6 +501,8 @@ public final class BucketPositioningService {
 
     /**
      * Pyramid ECC affine; matrix from findTransformECC must be applied with WARP_INVERSE_MAP.
+     * On level failure the previous warp is restored — OpenCV may leave a corrupted matrix.
+     * If nothing converges, returns the input frame unchanged.
      */
     private EccResult refinePyramidEcc(Mat aligned, Mat reference, Rect refineRect, List<NormPoint> polygon) {
         Mat refGrayFull = new Mat();
@@ -456,7 +530,7 @@ public final class BucketPositioningService {
             List<Mat> refPyr = buildPyramid(refRoi, ECC_LEVELS);
             List<Mat> curPyr = buildPyramid(curRoi, ECC_LEVELS);
             Mat warp = Mat.eye(2, 3, CvType.CV_32F);
-            TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 60, 1e-5);
+            TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 50, 1e-4);
             double lastCc = Double.NaN;
             boolean ok = false;
             try {
@@ -469,6 +543,8 @@ public final class BucketPositioningService {
                         warp.put(0, 2, t0[0] * 2.0);
                         warp.put(1, 2, t1[0] * 2.0);
                     }
+
+                    double maxPhase = Math.max(8.0, Math.min(refLvl.cols(), refLvl.rows()) * 0.12);
                     try {
                         Mat ref32 = new Mat();
                         Mat cur32 = new Mat();
@@ -476,14 +552,17 @@ public final class BucketPositioningService {
                         curLvl.convertTo(cur32, CvType.CV_32F);
                         Point shift = Imgproc.phaseCorrelate(ref32, cur32);
                         release(ref32, cur32);
+                        double sx = clampDouble(shift.x, -maxPhase, maxPhase);
+                        double sy = clampDouble(shift.y, -maxPhase, maxPhase);
                         double[] tx = warp.get(0, 2);
                         double[] ty = warp.get(1, 2);
-                        warp.put(0, 2, tx[0] + shift.x);
-                        warp.put(1, 2, ty[0] + shift.y);
+                        warp.put(0, 2, tx[0] + sx);
+                        warp.put(1, 2, ty[0] + sy);
                     } catch (Exception e) {
                         log.debug("positioning_diag stage=ecc_phase level={} skipped: {}", level, e.getMessage());
                     }
 
+                    Mat warpBackup = warp.clone();
                     Mat levelMask = null;
                     try {
                         if (mask != null && level == 0) {
@@ -494,25 +573,37 @@ public final class BucketPositioningService {
                         } else {
                             levelMask = new Mat();
                         }
-                        lastCc = Video.findTransformECC(
+                        double cc = Video.findTransformECC(
                                 refLvl,
                                 curLvl,
                                 warp,
-                                Video.MOTION_AFFINE,
+                                Video.MOTION_EUCLIDEAN,
                                 criteria,
                                 levelMask
                         );
-                        ok = Double.isFinite(lastCc);
-                        log.debug(
-                                "positioning_diag stage=ecc_level level={} cc={} t=({}, {})",
-                                level,
-                                fmt(lastCc),
-                                fmt(warp.get(0, 2)[0]),
-                                fmt(warp.get(1, 2)[0])
-                        );
+                        if (Double.isFinite(cc) && cc > 0.1) {
+                            lastCc = cc;
+                            ok = true;
+                            log.debug(
+                                    "positioning_diag stage=ecc_level level={} cc={} t=({}, {})",
+                                    level,
+                                    fmt(lastCc),
+                                    fmt(warp.get(0, 2)[0]),
+                                    fmt(warp.get(1, 2)[0])
+                            );
+                        } else {
+                            warpBackup.copyTo(warp);
+                            log.warn(
+                                    "positioning_diag stage=ecc_level level={} REJECTED_low_cc cc={}",
+                                    level,
+                                    fmt(cc)
+                            );
+                        }
                     } catch (Exception e) {
+                        warpBackup.copyTo(warp);
                         log.warn("positioning_diag stage=ecc_level level={} FAILED: {}", level, e.getMessage());
                     } finally {
+                        release(warpBackup);
                         if (levelMask != null && levelMask != mask) {
                             levelMask.release();
                         }
@@ -525,6 +616,17 @@ public final class BucketPositioningService {
                 double b = warp.get(1, 0)[0];
                 double angleDeg = Math.toDegrees(Math.atan2(b, a));
 
+                if (!ok || Math.hypot(tx, ty) > ECC_MAX_TRANSLATION_PX || Math.abs(angleDeg) > ECC_MAX_ANGLE_DEG) {
+                    log.warn(
+                            "positioning_diag stage=ecc abort apply ok={} t=({}, {}) angle={}",
+                            ok,
+                            fmt(tx),
+                            fmt(ty),
+                            fmt(angleDeg)
+                    );
+                    return new EccResult(aligned, false, lastCc, tx, ty, angleDeg);
+                }
+
                 Mat refined = new Mat();
                 Imgproc.warpAffine(
                         aligned,
@@ -534,7 +636,7 @@ public final class BucketPositioningService {
                         Imgproc.INTER_LINEAR | Imgproc.WARP_INVERSE_MAP,
                         Core.BORDER_REPLICATE
                 );
-                return new EccResult(refined, ok, lastCc, tx, ty, angleDeg);
+                return new EccResult(refined, true, lastCc, tx, ty, angleDeg);
             } finally {
                 release(warp);
                 releaseAll(refPyr);
@@ -546,6 +648,44 @@ public final class BucketPositioningService {
         } finally {
             release(refGrayFull, curGrayFull, refRoi, curRoi, mask);
         }
+    }
+
+    private static boolean shouldSkipEcc(QualityScore q) {
+        if (q == null) {
+            return false;
+        }
+        double residual = Math.hypot(q.residualShiftX(), q.residualShiftY());
+        return Double.isFinite(q.ncc()) && q.ncc() >= ECC_SKIP_NCC
+                && Double.isFinite(q.meanAbsDiff()) && q.meanAbsDiff() <= ECC_SKIP_ABSDiff
+                && residual <= ECC_SKIP_RESIDUAL_PX;
+    }
+
+    private static boolean isEccTransformPlausible(EccResult ecc) {
+        return ecc != null
+                && Math.hypot(ecc.tx(), ecc.ty()) <= ECC_MAX_TRANSLATION_PX
+                && Math.abs(ecc.angleDeg()) <= ECC_MAX_ANGLE_DEG;
+    }
+
+    private static boolean isEccQualityBetter(QualityScore before, QualityScore after) {
+        if (before == null || after == null) {
+            return false;
+        }
+        if (!Double.isFinite(after.meanAbsDiff()) || !Double.isFinite(after.ncc())) {
+            return false;
+        }
+        boolean absBetter = !Double.isFinite(before.meanAbsDiff())
+                || after.meanAbsDiff() <= before.meanAbsDiff() * 0.98
+                || after.meanAbsDiff() + 0.5 < before.meanAbsDiff();
+        boolean nccBetter = !Double.isFinite(before.ncc())
+                || after.ncc() >= before.ncc() - 0.02;
+        double beforeRes = Math.hypot(before.residualShiftX(), before.residualShiftY());
+        double afterRes = Math.hypot(after.residualShiftX(), after.residualShiftY());
+        boolean residualNotWorse = afterRes <= beforeRes + 1.0;
+        return absBetter && nccBetter && residualNotWorse;
+    }
+
+    private static double clampDouble(double v, double min, double max) {
+        return Math.max(min, Math.min(max, v));
     }
 
     private List<Mat> buildPyramid(Mat src, int levels) {
