@@ -36,12 +36,13 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Lock current frame into the reference pose with a rigid transform only
- * (translation + rotation). No perspective / scale / shear — those stretch the bucket.
+ * Primary: translation. Tiny rotation only (conveyor); fake ORB twist is clamped off.
+ * No perspective / scale / shear — those stretch the bucket.
  *
  * Pipeline:
  * 1) phaseCorrelate coarse translation
- * 2) ORB + estimateAffinePartial2D (Euclidean) current→reference
- * 3) pyramid ECC MOTION_EUCLIDEAN refine (optional)
+ * 2) ORB + estimateAffinePartial2D (angle clamped ≤0.35°) current→reference
+ * 3) pyramid ECC MOTION_TRANSLATION refine (optional)
  */
 public final class BucketPositioningService {
 
@@ -52,14 +53,24 @@ public final class BucketPositioningService {
     private static final double RANSAC_REPROJ_THRESHOLD = 5.0;
     private static final int MIN_MATCHES = 12;
     private static final int ECC_LEVELS = 4;
+    /**
+     * Conveyor buckets barely rotate; ORB often invents 1–3° twist from background matches.
+     * Anything larger is forced to pure translation.
+     */
+    private static final double ORB_MAX_ANGLE_DEG = 0.35;
     /** After ORB, ECC may only refine within these bounds — larger = garbage / divergence. */
     private static final double ECC_MAX_TRANSLATION_PX = 128.0;
-    private static final double ECC_MAX_ANGLE_DEG = 12.0;
+    private static final double ECC_MAX_ANGLE_DEG = 0.35;
     private static final double ECC_SKIP_NCC = 0.94;
     private static final double ECC_SKIP_ABSDiff = 2.5;
     private static final double ECC_SKIP_RESIDUAL_PX = 1.0;
-    private static final double RESIDUAL_POLISH_MIN_PX = 2.5;
+    private static final double RESIDUAL_POLISH_MIN_PX = 2.0;
     private static final double RESIDUAL_POLISH_MAX_PX = 180.0;
+    /** Soft gate: both residual + absdiff still bad → refuse PASS (cam=2/4 leftover shift). */
+    private static final double ALIGN_FAIL_RESIDUAL_PX = 10.0;
+    private static final double ALIGN_FAIL_ABSDiff = 10.0;
+    /** Hard gate: absdiff alone (residual can read ~0 while frame is still wrong — cam=0). */
+    private static final double ALIGN_FAIL_ABSDiff_HARD = 16.0;
     private static final int ORB_MIN_REF_KEYPOINTS = 48;
     private static final double FALLBACK_FAIL_MM = 9999.0;
     private static final double FALLBACK_FAIL_ROTATION_DEG = 9999.0;
@@ -152,6 +163,30 @@ public final class BucketPositioningService {
                 diag.put("coarse_rejected", true);
                 diag.put("coarse_dx_px", 0.0);
                 diag.put("coarse_dy_px", 0.0);
+                // Coarse FFT often fails but quality residual is still usable — try ±residual.
+                ResidualPolish coarseRes = polishResidualTranslation(
+                        reference, afterCoarse, null, qualityRoi, request.mainRoiPolygonNorm());
+                if (coarseRes.applied()) {
+                    afterCoarse.release();
+                    afterCoarse = coarseRes.frame();
+                    coarseShift = new Point(coarseRes.dx(), coarseRes.dy());
+                    qCoarse = coarseRes.quality();
+                    if (coarseRes.homography() != null) {
+                        coarseRes.homography().release();
+                    }
+                    diag.put("coarse_residual_fallback", true);
+                    diag.put("coarse_dx_px", coarseShift.x);
+                    diag.put("coarse_dy_px", coarseShift.y);
+                    log.info(
+                            "positioning_diag {} stage=coarse_residual_fallback shift=({}, {}) px absdiff={} residual=({}, {})",
+                            ctx(logContext),
+                            fmt(coarseShift.x),
+                            fmt(coarseShift.y),
+                            fmt(qCoarse.meanAbsDiff()),
+                            fmt(qCoarse.residualShiftX()),
+                            fmt(qCoarse.residualShiftY())
+                    );
+                }
             }
             putQuality(diag, "coarse", qCoarse);
             log.info(
@@ -463,14 +498,27 @@ public final class BucketPositioningService {
                     fmt(q0.meanAbsDiff() - qFinal.meanAbsDiff())
             );
 
-            boolean withinSoftTolerance = matched
-                    && Math.abs(metrics.shiftXmm) <= request.maxShiftMm()
-                    && Math.abs(metrics.shiftYmm) <= request.maxShiftMm()
-                    && Math.abs(metrics.rotationDeg) <= request.maxRotationDeg();
-
+            double[] hRefToCur = invertHomographyArray(homographyCurToRef);
             boolean alignedWritten = false;
             String outputName = request.outputShmName() == null ? "" : request.outputShmName().trim();
             String writeError = null;
+
+            double finalResidual = Math.hypot(qFinal.residualShiftX(), qFinal.residualShiftY());
+            // Residual metric can lie on striped texture; absdiff is the hard floor.
+            boolean stillMisaligned = Double.isFinite(qFinal.meanAbsDiff())
+                    && (qFinal.meanAbsDiff() >= ALIGN_FAIL_ABSDiff_HARD
+                    || (qFinal.meanAbsDiff() >= ALIGN_FAIL_ABSDiff
+                            && finalResidual >= ALIGN_FAIL_RESIDUAL_PX));
+            diag.put("align_quality_ok", !stillMisaligned);
+            if (stillMisaligned) {
+                log.warn(
+                        "positioning_diag {} stage=align_quality FAIL absdiff={} residual={} — refusing PASS",
+                        ctx(logContext),
+                        fmt(qFinal.meanAbsDiff()),
+                        fmt(finalResidual)
+                );
+            }
+
             if (request.writeAligned() && !outputName.isEmpty() && working != null && !working.empty()) {
                 long tWrite0 = System.nanoTime();
                 try {
@@ -489,8 +537,14 @@ public final class BucketPositioningService {
                 stageMsWrite = nanosToMs(System.nanoTime() - tWrite0);
             }
 
-            double[] hRefToCur = invertHomographyArray(homographyCurToRef);
-            boolean overallPass = request.writeAligned() ? alignedWritten : matched;
+            boolean withinSoftTolerance = matched
+                    && Math.abs(metrics.shiftXmm) <= request.maxShiftMm()
+                    && Math.abs(metrics.shiftYmm) <= request.maxShiftMm()
+                    && Math.abs(metrics.rotationDeg) <= request.maxRotationDeg();
+
+            boolean overallPass = request.writeAligned()
+                    ? (alignedWritten && !stillMisaligned)
+                    : (matched && !stillMisaligned);
             if (request.writeAligned() && outputName.isEmpty()) {
                 overallPass = false;
             }
@@ -749,11 +803,22 @@ public final class BucketPositioningService {
         return a;
     }
 
-    /** Keep only rotation + translation; drops residual scale/shear from numeric noise. */
+    /**
+     * Keep translation (+ tiny rotation). Fake ORB twist above {@link #ORB_MAX_ANGLE_DEG}
+     * is stripped so the bucket is not “подкручен” around Z.
+     */
     private static Mat projectToEuclideanHomography(Mat h) {
         double a = h.get(0, 0)[0];
         double b = h.get(1, 0)[0];
         double angle = Math.atan2(b, a);
+        double maxRad = Math.toRadians(ORB_MAX_ANGLE_DEG);
+        if (Math.abs(angle) > maxRad) {
+            log.info(
+                    "positioning_diag stage=orb_angle CLAMPED {}→0 deg (conveyor translation-only)",
+                    fmt(Math.toDegrees(angle))
+            );
+            angle = 0.0;
+        }
         double c = Math.cos(angle);
         double s = Math.sin(angle);
         Mat out = Mat.eye(3, 3, CvType.CV_64F);
@@ -852,7 +917,7 @@ public final class BucketPositioningService {
                                 refLvl,
                                 curLvl,
                                 warp,
-                                Video.MOTION_EUCLIDEAN,
+                                Video.MOTION_TRANSLATION,
                                 criteria,
                                 levelMask
                         );
@@ -987,13 +1052,41 @@ public final class BucketPositioningService {
         if (!Double.isFinite(mag) || mag < RESIDUAL_POLISH_MIN_PX || mag > RESIDUAL_POLISH_MAX_PX) {
             return ResidualPolish.none();
         }
-        Mat polished = applyTranslation(working, dx, dy);
-        QualityScore after = measureQuality(reference, polished, qualityRoi, polygon);
-        if (!isQualityImproved(before, after) && !isOrbResidualAcceptable(before, after)) {
-            polished.release();
+
+        // Try both signs — phaseCorrelate vs warpAffine convention can disagree per OpenCV build/ROI.
+        ResidualCandidate best = null;
+        double[] signs = {1.0, -1.0};
+        for (double sign : signs) {
+            double sx = dx * sign;
+            double sy = dy * sign;
+            Mat candidate = applyTranslation(working, sx, sy);
+            QualityScore after = measureQuality(reference, candidate, qualityRoi, polygon);
+            double afterRes = Math.hypot(after.residualShiftX(), after.residualShiftY());
+            boolean residualCollapsed = afterRes <= mag * 0.55 || afterRes + 2.0 < mag;
+            boolean absOk = Double.isFinite(after.meanAbsDiff())
+                    && after.meanAbsDiff() <= before.meanAbsDiff() + 1.0;
+            boolean qualityOk = isQualityImproved(before, after)
+                    || isOrbResidualAcceptable(before, after)
+                    || (residualCollapsed && absOk);
+            if (!qualityOk) {
+                candidate.release();
+                continue;
+            }
+            double score = -after.meanAbsDiff() * 2.0 - afterRes;
+            if (best == null || score > best.score) {
+                if (best != null) {
+                    best.frame.release();
+                }
+                best = new ResidualCandidate(candidate, after, sx, sy, score);
+            } else {
+                candidate.release();
+            }
+        }
+        if (best == null) {
             return ResidualPolish.none();
         }
-        Mat t = translationHomography(dx, dy);
+
+        Mat t = translationHomography(best.dx, best.dy);
         Mat empty = new Mat();
         Mat composed = new Mat();
         try {
@@ -1002,9 +1095,25 @@ public final class BucketPositioningService {
             } else {
                 t.copyTo(composed);
             }
-            return new ResidualPolish(true, polished, composed.clone(), after, dx, dy);
+            return new ResidualPolish(true, best.frame, composed.clone(), best.quality, best.dx, best.dy);
         } finally {
             release(t, empty, composed);
+        }
+    }
+
+    private static final class ResidualCandidate {
+        final Mat frame;
+        final QualityScore quality;
+        final double dx;
+        final double dy;
+        final double score;
+
+        ResidualCandidate(Mat frame, QualityScore quality, double dx, double dy, double score) {
+            this.frame = frame;
+            this.quality = quality;
+            this.dx = dx;
+            this.dy = dy;
+            this.score = score;
         }
     }
 
