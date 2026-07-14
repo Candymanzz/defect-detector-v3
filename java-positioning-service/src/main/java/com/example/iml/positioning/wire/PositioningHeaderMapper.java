@@ -38,10 +38,10 @@ public final class PositioningHeaderMapper {
     public static Map<String, Object> toResponseHeader(PositioningResponse response) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("status", response.status());
-        out.put("shiftXmm", response.shiftXmm());
-        out.put("shiftYmm", response.shiftYmm());
-        out.put("rotationDeg", response.rotationDeg());
-        out.put("homographyRefToCurrent", response.homographyRefToCurrent());
+        out.put("shiftXmm", jsonNum(response.shiftXmm()));
+        out.put("shiftYmm", jsonNum(response.shiftYmm()));
+        out.put("rotationDeg", jsonNum(response.rotationDeg()));
+        out.put("homographyRefToCurrent", sanitizeHomography(response.homographyRefToCurrent()));
         out.put("alignmentPass", response.alignmentPass());
         out.put("overallPass", response.overallPass());
         out.put("alignedWritten", response.alignedWritten());
@@ -51,20 +51,52 @@ public final class PositioningHeaderMapper {
         out.put("width", response.width());
         out.put("height", response.height());
         out.put("stride", response.stride());
-        out.put("stage_ms_orb", response.stageMsOrb());
-        out.put("stage_ms_warp", response.stageMsWarp());
-        out.put("stage_ms_ecc", response.stageMsEcc());
-        out.put("stage_ms_write", response.stageMsWrite());
-        out.put("stage_ms_total", response.stageMsTotal());
+        out.put("stage_ms_orb", jsonNum(response.stageMsOrb()));
+        out.put("stage_ms_warp", jsonNum(response.stageMsWarp()));
+        out.put("stage_ms_ecc", jsonNum(response.stageMsEcc()));
+        out.put("stage_ms_write", jsonNum(response.stageMsWrite()));
+        out.put("stage_ms_total", jsonNum(response.stageMsTotal()));
         if (response.diagnostics() != null && !response.diagnostics().isEmpty()) {
-            // Flat keys for log scraping + nested copy for structured consumers.
-            out.put("diagnostics", response.diagnostics());
-            for (Map.Entry<String, Object> e : response.diagnostics().entrySet()) {
+            // Flat keys only — nested Map is fine for Jackson, but keep one level for consumers.
+            Map<String, Object> sanitizedDiag = sanitizeDiag(response.diagnostics());
+            out.put("diagnostics", sanitizedDiag);
+            for (Map.Entry<String, Object> e : sanitizedDiag.entrySet()) {
                 String key = e.getKey();
                 if ("status".equals(key) || "ref_cache_key".equals(key)) {
                     continue;
                 }
                 out.put("diag_" + key, e.getValue());
+            }
+        }
+        return out;
+    }
+
+    /** Jackson cannot encode NaN/Inf — that turned every positioning RPC into MSG_ERROR. */
+    private static Object jsonNum(double v) {
+        return Double.isFinite(v) ? v : null;
+    }
+
+    private static double[] sanitizeHomography(double[] h) {
+        if (h == null || h.length == 0) {
+            return h == null ? new double[0] : h;
+        }
+        double[] out = new double[h.length];
+        for (int i = 0; i < h.length; i++) {
+            out[i] = Double.isFinite(h[i]) ? h[i] : 0.0;
+        }
+        return out;
+    }
+
+    private static Map<String, Object> sanitizeDiag(Map<String, Object> diagnostics) {
+        Map<String, Object> out = new LinkedHashMap<>(diagnostics.size());
+        for (Map.Entry<String, Object> e : diagnostics.entrySet()) {
+            Object v = e.getValue();
+            if (v instanceof Double d && !Double.isFinite(d)) {
+                out.put(e.getKey(), null);
+            } else if (v instanceof Float f && !Float.isFinite(f)) {
+                out.put(e.getKey(), null);
+            } else {
+                out.put(e.getKey(), v);
             }
         }
         return out;

@@ -55,13 +55,15 @@ public final class StdioBinaryPositioningLoop {
             try {
                 dispatch(op, msg);
             } catch (Exception e) {
-                log.error("Positioning op failed: {}", op, e);
-                BinaryProtocol.write(
-                        out,
-                        BinaryProtocol.MSG_ERROR,
-                        Map.of("error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(), "op", op),
-                        new byte[0]
-                );
+                String err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                log.error("Positioning op failed: {} error={}", op, err, e);
+                Map<String, Object> errHeader = new LinkedHashMap<>();
+                errHeader.put("error", err);
+                errHeader.put("error_class", e.getClass().getName());
+                errHeader.put("op", op);
+                errHeader.put("status", "ERROR");
+                errHeader.put("overallPass", false);
+                BinaryProtocol.write(out, BinaryProtocol.MSG_ERROR, errHeader, new byte[0]);
             }
         }
     }

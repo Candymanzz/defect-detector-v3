@@ -90,6 +90,19 @@ public final class InspectPositioningExecutor {
                 long wallMs = YamlScalars.nanosToMs(System.nanoTime() - t0);
                 if (log != null) {
                     Map<String, Object> rh = resp == null || resp.header() == null ? Map.of() : resp.header();
+                    int msgType = resp == null ? -1 : resp.type();
+                    if (msgType != BinaryProtocol.MSG_RESPONSE) {
+                        log.warn(
+                                "positioning_rpc_error cam={} frame={} wall_ms={} msg_type={} error={} error_class={} keys={}",
+                                cameraId,
+                                state.capture().header().get("frame_id"),
+                                wallMs,
+                                msgType,
+                                rh.get("error"),
+                                rh.get("error_class"),
+                                rh.keySet()
+                        );
+                    }
                     log.info(
                             "positioning_timing cam={} frame={} wall_ms={} service_ms={} orb_ms={} warp_ms={} ecc_ms={} write_ms={} "
                                     + "status={} shift=({}, {}) rot={} aligned={} "
@@ -187,17 +200,24 @@ public final class InspectPositioningExecutor {
             }
         }
 
+        if (resp != null && resp.header() != null) {
+            putIfPresent(captureHeader, "positioning_error", resp.header().get("error"));
+            putIfPresent(captureHeader, "positioning_error_class", resp.header().get("error_class"));
+        }
+
         if (!ok && failOnReject) {
             captureHeader.put(HEADER_HARD_FAIL, true);
             if (log != null) {
                 log.info(
-                        "positioning reject cam={} frame={} shift=({}, {}) rot={} status={}",
+                        "positioning reject cam={} frame={} shift=({}, {}) rot={} status={} msg_type={} error={}",
                         cameraId,
                         captureHeader.get("frame_id"),
                         captureHeader.get("positioning_shift_x_mm"),
                         captureHeader.get("positioning_shift_y_mm"),
                         captureHeader.get("positioning_rotation_deg"),
-                        captureHeader.get("positioning_status")
+                        captureHeader.get("positioning_status"),
+                        resp == null ? -1 : resp.type(),
+                        resp == null || resp.header() == null ? null : resp.header().get("error")
                 );
             }
         }
