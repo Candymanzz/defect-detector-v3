@@ -128,6 +128,16 @@ internal static class Program
         }
 
         using var udpPublisher = IoInputUdpPublisher.TryCreate(options.UdpPublish, options.InputPorts);
+        using var workerTrigger = WorkerTriggerPublisher.TryCreate(options.WorkerTrigger);
+        var directionHigh = new Dictionary<int, bool>();
+        if (workerTrigger != null)
+        {
+            int dirPort = options.WorkerTrigger.DirectionPort;
+            directionHigh[dirPort] = portPressed.TryGetValue(dirPort, out bool dirPressed) && dirPressed;
+            Console.WriteLine(
+                $"Worker TRIG gate DI{dirPort} initial={(directionHigh[dirPort] ? 1 : 0)}");
+        }
+
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
             int triggerPort = options.UdpPublish.TriggerPort;
@@ -177,11 +187,35 @@ internal static class Program
                 ? portPressed[port]
                 : edge == MvIoNative.IoEdgeType.Rising;
 
+            if (workerTrigger != null && port == options.WorkerTrigger.DirectionPort)
+                directionHigh[port] = closed;
+
+            bool fireWorkers = false;
+            if (workerTrigger != null &&
+                port == options.WorkerTrigger.TriggerPort &&
+                closed)
+            {
+                bool dirOk = !options.WorkerTrigger.RequireDirectionHigh ||
+                             (directionHigh.TryGetValue(options.WorkerTrigger.DirectionPort, out bool high) && high);
+                fireWorkers = dirOk;
+            }
+
             lock (consoleLock)
             {
                 string udpSuffix = udpPublisher != null ? $"  [udp {port}:{(closed ? 1 : 0)}]" : "";
-                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
+                string workerSuffix = fireWorkers
+                    ? "  [worker TRIG]"
+                    : (workerTrigger != null &&
+                       port == options.WorkerTrigger.TriggerPort &&
+                       closed
+                        ? "  [skip DI2=0]"
+                        : "");
+                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}{workerSuffix}");
             }
+
+            // Экспозиция сразу в workers (если DI2=1); оркестратору DI как раньше.
+            if (fireWorkers)
+                workerTrigger!.FireAll();
 
             udpPublisher?.Publish(port, closed);
 
@@ -368,6 +402,7 @@ internal static class Program
         public bool ConfigureSdk { get; set; }
         public int DebounceMs { get; set; } = 50;
         public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
+        public WorkerTriggerPublishOptions WorkerTrigger { get; set; } = new();
         public bool ScanAll { get; set; }
         public bool ProbePorts { get; set; }
         public bool ListPorts { get; set; }
@@ -426,6 +461,7 @@ internal static class Program
                 ConfigureSdk = loaded.Options.ConfigureSdk,
                 DebounceMs = loaded.Options.DebounceMs,
                 UdpPublish = loaded.Options.UdpPublish,
+                WorkerTrigger = loaded.Options.WorkerTrigger,
                 ConfigPath = loaded.ConfigPath
             };
         }

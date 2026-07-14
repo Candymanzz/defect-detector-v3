@@ -14,6 +14,15 @@ io_input:
     - 3                 # DI3 = триггер съёмки
 
   publish:
+    # DI3↑ при DI2=1 → software trigger сразу в camera-worker (порт = port_base + camera_id).
+    worker_trigger:
+      enabled: true
+      host: 127.0.0.1
+      port_base: 9210
+      camera_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      require_direction_high: true
+      direction_port: 2
+      trigger_port: 3
     udp:
       enabled: true
       host: 127.0.0.1

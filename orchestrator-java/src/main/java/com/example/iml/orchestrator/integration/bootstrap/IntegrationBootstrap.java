@@ -558,11 +558,8 @@ public final class IntegrationBootstrap {
                 logGigeTopologyForLineCapture(log, root, hardwareLineTrigger);
                 if (hardwareLineTrigger) {
                     log.info(
-                            "hardware_line_trigger: экспозиция по DI3→Line0, Java только wait_frame (без trigger_only/settle/barrier)"
-                    );
-                    log.warn(
-                            "hardware_line_trigger требует физическую разводку DI3→Line0 всех камер; "
-                                    + "без неё wait_frame будет timeout (0x80000007)"
+                            "hardware_line_trigger: экспозиция снаружи (IoInputMonitor→worker UDP TRIG или DI3→Line0), "
+                                    + "Java только wait_frame"
                     );
                 }
             } else if (cfg.captureTriggerStaggerMs() > 0) {

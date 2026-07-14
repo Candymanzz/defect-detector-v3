@@ -23,6 +23,8 @@ public sealed class IoInputOptions
     public int DebounceMs { get; set; } = 50;
 
     public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
+
+    public WorkerTriggerPublishOptions WorkerTrigger { get; set; } = new();
 }
 
 public sealed class IoInputConfigLoadResult
@@ -136,8 +138,46 @@ public static class IoInputConfigLoader
             EdgeMode = ParseEdgeMode(section.Edge),
             ConfigureSdk = section.ConfigureSdk ?? true,
             DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50,
-            UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs)
+            UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs),
+            WorkerTrigger = ParseWorkerTrigger(section.Publish?.WorkerTrigger)
         };
+    }
+
+    private static WorkerTriggerPublishOptions ParseWorkerTrigger(IoInputWorkerTriggerYaml? raw)
+    {
+        if (raw == null)
+            return new WorkerTriggerPublishOptions();
+
+        int[] cameraIds = ParseCameraIds(raw.CameraIds);
+        if (cameraIds.Length == 0)
+            cameraIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        return new WorkerTriggerPublishOptions
+        {
+            Enabled = raw.Enabled ?? false,
+            Host = string.IsNullOrWhiteSpace(raw.Host) ? "127.0.0.1" : raw.Host.Trim(),
+            PortBase = raw.PortBase is > 0 and <= 65535 ? raw.PortBase.Value : 9210,
+            CameraIds = cameraIds,
+            RequireDirectionHigh = raw.RequireDirectionHigh ?? true,
+            DirectionPort = raw.DirectionPort is >= 1 and <= 8 ? raw.DirectionPort.Value : 2,
+            TriggerPort = raw.TriggerPort is >= 1 and <= 8 ? raw.TriggerPort.Value : 3
+        };
+    }
+
+    internal static int[] ParseCameraIds(IEnumerable<int>? raw)
+    {
+        if (raw == null)
+            return [];
+
+        var ids = new List<int>(16);
+        foreach (int id in raw)
+        {
+            if (id < 0 || ids.Contains(id))
+                continue;
+            ids.Add(id);
+        }
+
+        return ids.ToArray();
     }
 
     private static IoInputUdpPublishOptions ParseUdpPublish(IoInputUdpPublishYaml? raw, int[] defaultInputs)
@@ -233,6 +273,25 @@ public static class IoInputConfigLoader
     private sealed class IoInputPublishYaml
     {
         public IoInputUdpPublishYaml? Udp { get; set; }
+
+        public IoInputWorkerTriggerYaml? WorkerTrigger { get; set; }
+    }
+
+    private sealed class IoInputWorkerTriggerYaml
+    {
+        public bool? Enabled { get; set; }
+
+        public string? Host { get; set; }
+
+        public int? PortBase { get; set; }
+
+        public List<int>? CameraIds { get; set; }
+
+        public bool? RequireDirectionHigh { get; set; }
+
+        public int? DirectionPort { get; set; }
+
+        public int? TriggerPort { get; set; }
     }
 
     private sealed class IoInputUdpPublishYaml

@@ -11,10 +11,12 @@ frame:
   binning_mode: "Sum"
 
 capture_source: "hik"
-# software: экспозиция по команде ПК (trigger_only) сразу после DI3 (~30 мс IPC), все 10 камер параллельно.
-# line0 + hardware_line_trigger (ниже): экспозиция строго в момент DI3→Line0 (идеал для конвейера).
+# software: экспозиция по IoInputMonitor→UDP TRIG worker; Java wait_frame (hardware_line_trigger).
+# line0 + hardware_line_trigger: экспозиция строго в момент DI3→Line0 (идеал для конвейера).
 capture_trigger_mode: "software"
 frame_timeout_ms: 15000
+# UDP TRIG от IoInputMonitor (порт = base + camera_id). 0 = выкл.
+extern_trigger_udp_port_base: 9210
 # GigE-топология: 5 коммутаторов, на каждом 2 камеры (пары id: 0+1, 2+3, … 8+9).
 # gige_switch_buffer_kb — физический egress коммутатора (448 КБ). Должен совпадать с железом.
 gige_switch_count: 5
@@ -55,8 +57,8 @@ integration:
     transfer_wait_waves: 1
     # Пауза между волнами wait_frame (только если transfer_wait_waves > 1). При 448 КБ достаточно ~15 мс.
     transfer_wave_gap_ms: 15
-    # true только если DI3 разведён на Line0 всех камер (идеальная одновременность в момент DI3).
-    hardware_line_trigger: false
+    # true: экспозиция уже снаружи (IoInputMonitor→worker UDP TRIG). Java только wait_frame.
+    hardware_line_trigger: true
     # DI3 → сразу trigger_only (экспозиция); wait_frame+pin в фоне — инспекция не задерживает следующий DI3.
     immediate_prefire: true
   geometry_pool_size: 10

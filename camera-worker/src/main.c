@@ -17,11 +17,17 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <direct.h>
 #include <io.h>
+#pragma comment(lib, "ws2_32.lib")
 #else
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -109,12 +115,18 @@ typedef struct {
     int stream_fps;
     int stream_restore_trigger_mode;
     uint64_t stream_last_timestamp_ns;
+    int extern_trigger_udp_port;
+    volatile int extern_trigger_stop;
 #ifdef _WIN32
     HANDLE stream_thread;
     CRITICAL_SECTION stream_lock;
+    HANDLE extern_trigger_thread;
+    SOCKET extern_trigger_sock;
 #else
     pthread_t stream_thread;
     pthread_mutex_t stream_lock;
+    pthread_t extern_trigger_thread;
+    int extern_trigger_sock;
 #endif
 #ifdef HAVE_ARAVIS
     ArvCamera *arv_camera;
@@ -485,7 +497,8 @@ static int read_exact(FILE *in, uint8_t *buf, size_t n) {
     }
     return 0;
 }
-(FILE *out_stream, uint8_t msg_type, const char *header_json) {
+
+static int write_message(FILE *out_stream, uint8_t msg_type, const char *header_json) {
     uint8_t prefix[16];
     size_t hlen = strlen(header_json);
     prefix[0] = MAGIC0;
@@ -1652,6 +1665,156 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
 #endif
 }
 
+static void close_extern_trigger_sock(worker_state_t *st) {
+#ifdef _WIN32
+    if (st->extern_trigger_sock != INVALID_SOCKET) {
+        closesocket(st->extern_trigger_sock);
+        st->extern_trigger_sock = INVALID_SOCKET;
+    }
+#else
+    if (st->extern_trigger_sock >= 0) {
+        close(st->extern_trigger_sock);
+        st->extern_trigger_sock = -1;
+    }
+#endif
+}
+
+static void fire_extern_udp_trigger(worker_state_t *st) {
+    char err[256];
+    stream_lock_enter(st);
+    int rc = fire_software_trigger_only(st, err, sizeof(err));
+    stream_lock_leave(st);
+    if (rc != 0) {
+        fprintf(stderr, "extern_udp_trigger cam=%d failed: %s\n", st->camera_id, err);
+    }
+}
+
+#ifdef _WIN32
+static DWORD WINAPI extern_trigger_thread_main(LPVOID arg) {
+#else
+static void *extern_trigger_thread_main(void *arg) {
+#endif
+    worker_state_t *st = (worker_state_t *)arg;
+    char buf[64];
+    while (!st->extern_trigger_stop) {
+#ifdef _WIN32
+        int n = recv(st->extern_trigger_sock, buf, (int)sizeof(buf), 0);
+        if (n == SOCKET_ERROR) {
+            if (st->extern_trigger_stop) break;
+            int err = WSAGetLastError();
+            if (err == WSAEINTR || err == WSAEWOULDBLOCK) continue;
+            break;
+        }
+#else
+        ssize_t n = recv(st->extern_trigger_sock, buf, sizeof(buf), 0);
+        if (n < 0) {
+            if (st->extern_trigger_stop) break;
+            if (errno == EINTR) continue;
+            break;
+        }
+#endif
+        if (n > 0) {
+            fire_extern_udp_trigger(st);
+        }
+    }
+#ifdef _WIN32
+    return 0;
+#else
+    return NULL;
+#endif
+}
+
+static int start_extern_trigger_listener(worker_state_t *st, int udp_port) {
+    if (udp_port <= 0 || udp_port > 65535) {
+        return 0;
+    }
+#ifdef _WIN32
+    static LONG wsa_started = 0;
+    if (InterlockedCompareExchange(&wsa_started, 1, 0) == 0) {
+        WSADATA wsa;
+        if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+            InterlockedExchange(&wsa_started, 0);
+            fprintf(stderr, "extern_udp_trigger WSAStartup failed cam=%d\n", st->camera_id);
+            return -1;
+        }
+    }
+    SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock == INVALID_SOCKET) {
+        fprintf(stderr, "extern_udp_trigger socket failed cam=%d\n", st->camera_id);
+        return -1;
+    }
+#else
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        fprintf(stderr, "extern_udp_trigger socket failed cam=%d: %s\n", st->camera_id, strerror(errno));
+        return -1;
+    }
+#endif
+    int reuse = 1;
+#ifdef _WIN32
+    (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse));
+#else
+    (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+#endif
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons((uint16_t)udp_port);
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+#ifdef _WIN32
+        fprintf(stderr, "extern_udp_trigger bind %d failed cam=%d err=%d\n", udp_port, st->camera_id,
+                (int)WSAGetLastError());
+        closesocket(sock);
+#else
+        fprintf(stderr, "extern_udp_trigger bind %d failed cam=%d: %s\n", udp_port, st->camera_id, strerror(errno));
+        close(sock);
+#endif
+        return -1;
+    }
+    st->extern_trigger_udp_port = udp_port;
+    st->extern_trigger_stop = 0;
+    st->extern_trigger_sock = sock;
+#ifdef _WIN32
+    st->extern_trigger_thread = CreateThread(NULL, 0, extern_trigger_thread_main, st, 0, NULL);
+    if (!st->extern_trigger_thread) {
+        st->extern_trigger_udp_port = 0;
+        close_extern_trigger_sock(st);
+        return -1;
+    }
+#else
+    if (pthread_create(&st->extern_trigger_thread, NULL, extern_trigger_thread_main, st) != 0) {
+        st->extern_trigger_udp_port = 0;
+        st->extern_trigger_thread = 0;
+        close_extern_trigger_sock(st);
+        return -1;
+    }
+#endif
+    fprintf(stderr, "extern_udp_trigger listening 127.0.0.1:%d cam=%d\n", udp_port, st->camera_id);
+    return 0;
+}
+
+static void stop_extern_trigger_listener(worker_state_t *st) {
+    if (st->extern_trigger_udp_port <= 0) {
+        return;
+    }
+    st->extern_trigger_stop = 1;
+    close_extern_trigger_sock(st);
+#ifdef _WIN32
+    if (st->extern_trigger_thread) {
+        WaitForSingleObject(st->extern_trigger_thread, 2000);
+        CloseHandle(st->extern_trigger_thread);
+        st->extern_trigger_thread = NULL;
+    }
+#else
+    if (st->extern_trigger_thread) {
+        pthread_join(st->extern_trigger_thread, NULL);
+        st->extern_trigger_thread = 0;
+    }
+#endif
+    st->extern_trigger_udp_port = 0;
+}
+
 static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
                                char *err, size_t err_len) {
     if (strcmp(st->capture_source, "hik") == 0) {
@@ -1992,6 +2155,15 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->stream_fps = STREAM_FPS_DEFAULT;
     st->stream_restore_trigger_mode = TRIGGER_MODE_CONTINUOUS;
     st->stream_last_timestamp_ns = 0;
+    st->extern_trigger_udp_port = 0;
+    st->extern_trigger_stop = 0;
+#ifdef _WIN32
+    st->extern_trigger_thread = NULL;
+    st->extern_trigger_sock = INVALID_SOCKET;
+#else
+    st->extern_trigger_thread = 0;
+    st->extern_trigger_sock = -1;
+#endif
     stream_lock_init(st);
     st->capture_backend_ready = 0;
     snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "not_initialized");
@@ -2151,6 +2323,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
 }
 
 static void destroy_worker_state(worker_state_t *st) {
+    stop_extern_trigger_listener(st);
     stop_stream_internal(st);
     stream_lock_destroy(st);
 #ifndef _WIN32
@@ -2199,9 +2372,11 @@ static void destroy_worker_state(worker_state_t *st) {
 }
 
 static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, const char *detector,
-                              const worker_camera_config_t *cam_cfg, const char *capture_source, int frame_timeout_ms) {
+                              const worker_camera_config_t *cam_cfg, const char *capture_source, int frame_timeout_ms,
+                              int extern_trigger_udp_port) {
     worker_state_t st;
     if (init_worker_state(&st, camera_id, detector, cam_cfg, capture_source, frame_timeout_ms) != 0) return 1;
+    (void)start_extern_trigger_listener(&st, extern_trigger_udp_port);
 
     char header_buf[1024];
 
@@ -2424,12 +2599,14 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
 }
 
 static int run_binary_loop(int camera_id, const char *detector, const worker_camera_config_t *cam_cfg,
-                           const char *capture_source, int frame_timeout_ms) {
-    return run_binary_loop_io(stdin, stdout, camera_id, detector, cam_cfg, capture_source, frame_timeout_ms);
+                           const char *capture_source, int frame_timeout_ms, int extern_trigger_udp_port) {
+    return run_binary_loop_io(stdin, stdout, camera_id, detector, cam_cfg, capture_source, frame_timeout_ms,
+                              extern_trigger_udp_port);
 }
 
 static int run_named_pipe_loop(const char *pipe_base_path, int camera_id, const char *detector,
-                               const worker_camera_config_t *cam_cfg, const char *capture_source, int frame_timeout_ms) {
+                               const worker_camera_config_t *cam_cfg, const char *capture_source, int frame_timeout_ms,
+                               int extern_trigger_udp_port) {
     if (!pipe_base_path || pipe_base_path[0] == '\0') {
         fprintf(stderr, "named pipe path is required\n");
         return 1;
@@ -2441,6 +2618,7 @@ static int run_named_pipe_loop(const char *pipe_base_path, int camera_id, const 
     (void)cam_cfg;
     (void)capture_source;
     (void)frame_timeout_ms;
+    (void)extern_trigger_udp_port;
     return 1;
 #else
     char cmd_pipe[512];
@@ -2471,7 +2649,8 @@ static int run_named_pipe_loop(const char *pipe_base_path, int camera_id, const 
         unlink(resp_pipe);
         return 1;
     }
-    int rc = run_binary_loop_io(in_stream, out_stream, camera_id, detector, cam_cfg, capture_source, frame_timeout_ms);
+    int rc = run_binary_loop_io(in_stream, out_stream, camera_id, detector, cam_cfg, capture_source, frame_timeout_ms,
+                                extern_trigger_udp_port);
     fclose(in_stream);
     fclose(out_stream);
     unlink(cmd_pipe);
@@ -2506,6 +2685,9 @@ int main(int argc, char **argv) {
     (void)json_find_int(js, (int)jslen, "gige_ftd_cameras_per_link", &cam_cfg.gige_ftd_cameras_per_link);
     (void)json_find_int(js, (int)jslen, "gige_switch_buffer_kb", &cam_cfg.gige_switch_buffer_kb);
     load_frame_config(js, (int)jslen, &cam_cfg);
+    int extern_trigger_udp_port_base = 0;
+    (void)json_find_int(js, (int)jslen, "extern_trigger_udp_port_base", &extern_trigger_udp_port_base);
+    int extern_trigger_udp_port = extern_trigger_udp_port_base > 0 ? extern_trigger_udp_port_base + camera_id : 0;
 
     fprintf(stderr, "worker start config version=%s path=%s camera=%d mode=%s\n", version, path, camera_id,
             binary_mode ? "binary-stdio" : (named_pipe_mode ? "named-pipe" : "stdout"));
@@ -2524,10 +2706,11 @@ int main(int argc, char **argv) {
     free(js);
 
     if (binary_mode) {
-        return run_binary_loop(camera_id, detector, &cam_cfg, capture_source, frame_timeout_ms);
+        return run_binary_loop(camera_id, detector, &cam_cfg, capture_source, frame_timeout_ms, extern_trigger_udp_port);
     }
     if (named_pipe_mode) {
-        return run_named_pipe_loop(named_pipe_path, camera_id, detector, &cam_cfg, capture_source, frame_timeout_ms);
+        return run_named_pipe_loop(named_pipe_path, camera_id, detector, &cam_cfg, capture_source, frame_timeout_ms,
+                                   extern_trigger_udp_port);
     }
 
     printf("Воркер: старт с конфигом версии %s (%s), камера %d\n", version, path, camera_id);

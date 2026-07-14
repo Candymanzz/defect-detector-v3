@@ -11,6 +11,7 @@
   "capture_source": "hik",
   "capture_trigger_mode": "software",
   "frame_timeout_ms": 15000,
+  "extern_trigger_udp_port_base": 9210,
   "gige_switch_count": 5,
   "gige_cameras_per_switch": 2,
   "gige_switch_buffer_kb": 48,
