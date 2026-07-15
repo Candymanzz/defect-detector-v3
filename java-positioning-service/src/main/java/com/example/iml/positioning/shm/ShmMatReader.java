@@ -4,12 +4,15 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import java.io.RandomAccessFile;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+/**
+ * Reads BGR frames from iml_shm files.
+ * Uses RandomAccessFile + reusable byte[] (no MappedByteBuffer) so RSS does not
+ * accumulate GC-delayed mmap regions on every frame.
+ */
 public final class ShmMatReader {
 
     private byte[] shmReadBuffer = new byte[0];
@@ -68,31 +71,25 @@ public final class ShmMatReader {
         int offset = (int) num(h.get("shm_offset"), 0);
         Path shmPath = resolveShmPath(shmName);
 
-        try (RandomAccessFile raf = new RandomAccessFile(shmPath.toFile(), "r");
-             FileChannel channel = raf.getChannel()) {
-            MappedByteBuffer mb = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
-            Mat mat = new Mat(height, width, CvType.CV_8UC3);
-            try {
-                int expected = width * 3;
-                if (stride == expected) {
-                    byte[] all = ensureShmReadBuffer(height * stride);
-                    mb.position(offset);
-                    mb.get(all);
-                    mat.put(0, 0, all);
-                } else {
-                    byte[] row = ensureShmRowBuffer(expected);
-                    for (int y = 0; y < height; y++) {
-                        mb.position(offset + y * stride);
-                        mb.get(row);
-                        mat.put(y, 0, row);
-                    }
+        Mat mat = new Mat(height, width, CvType.CV_8UC3);
+        try (RandomAccessFile raf = new RandomAccessFile(shmPath.toFile(), "r")) {
+            int expected = width * 3;
+            if (stride == expected) {
+                byte[] all = ensureShmReadBuffer(height * stride);
+                raf.seek(offset);
+                raf.readFully(all, 0, height * stride);
+                mat.put(0, 0, all);
+            } else {
+                byte[] row = ensureShmRowBuffer(expected);
+                for (int y = 0; y < height; y++) {
+                    raf.seek(offset + (long) y * stride);
+                    raf.readFully(row, 0, expected);
+                    mat.put(y, 0, row);
                 }
-                return mat;
-            } catch (Exception ex) {
-                mat.release();
-                throw ex;
             }
+            return mat;
         } catch (Exception e) {
+            mat.release();
             throw new IllegalStateException("Failed to read shm frame: " + shmPath, e);
         }
     }

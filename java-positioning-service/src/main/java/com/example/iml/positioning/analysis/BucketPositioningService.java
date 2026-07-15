@@ -88,6 +88,21 @@ public final class BucketPositioningService {
     private final CLAHE clahe;
     private PreparedReference preparedReferenceCache;
 
+    /**
+     * Reused scratch Mats for hot paths (single-threaded stdio loop per process).
+     * Avoids allocate/release native churn on every measureQuality / ORB call.
+     */
+    private final Mat mqRefGray = new Mat();
+    private final Mat mqCurGray = new Mat();
+    private final Mat mqAbsDiff = new Mat();
+    private final Mat mqMatchResult = new Mat();
+    private final Mat mqRef32 = new Mat();
+    private final Mat mqCur32 = new Mat();
+    /** Empty mask for detectAndCompute — means "no mask"; never released. */
+    private final Mat emptyDetectMask = new Mat();
+    private final Mat eccPhaseRef32 = new Mat();
+    private final Mat eccPhaseCur32 = new Mat();
+
     public BucketPositioningService(ShmMatWriter shmWriter) {
         this.shmWriter = shmWriter;
         this.orb = ORB.create(ORB_FEATURES);
@@ -628,8 +643,8 @@ public final class BucketPositioningService {
                     reference.cols(),
                     reference.rows()
             );
-            refRoi = new Mat(refGray, safe).clone();
-            curRoi = new Mat(curGray, safe).clone();
+            refRoi = cloneRoi(refGray, safe);
+            curRoi = cloneRoi(curGray, safe);
             if (polygon != null && polygon.size() >= 3) {
                 mask = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
                 refMasked = new Mat();
@@ -659,8 +674,9 @@ public final class BucketPositioningService {
 
     private Mat applyTranslation(Mat current, double dx, double dy) {
         Mat warp = new Mat(2, 3, CvType.CV_32F);
-        Mat out = new Mat();
+        Mat out = null;
         try {
+            out = new Mat();
             // phaseCorrelate(ref,cur)=(dx,dy): shift to apply to cur (OpenCV samples / tutorial form).
             warp.put(0, 0, 1, 0, dx);
             warp.put(1, 0, 0, 1, dy);
@@ -673,9 +689,11 @@ public final class BucketPositioningService {
                     Core.BORDER_CONSTANT,
                     new Scalar(0, 0, 0)
             );
-            return out;
+            Mat transferred = out;
+            out = null;
+            return transferred;
         } finally {
-            release(warp);
+            release(warp, out);
         }
     }
 
@@ -720,7 +738,7 @@ public final class BucketPositioningService {
                 );
                 orb.detectAndCompute(curScaled, curMaskScaled, curKeypoints, curDescriptors);
             } else {
-                orb.detectAndCompute(curScaled, new Mat(), curKeypoints, curDescriptors);
+                orb.detectAndCompute(curScaled, emptyDetectMask, curKeypoints, curDescriptors);
             }
             int refKp = prepared.keypoints == null ? 0 : prepared.keypoints.length;
             int curKp = curKeypoints.toArray().length;
@@ -763,10 +781,11 @@ public final class BucketPositioningService {
             MatOfPoint2f src = new MatOfPoint2f();
             MatOfPoint2f dst = new MatOfPoint2f();
             Mat inliersMask = new Mat();
-            Mat affineScaled = new Mat();
+            Mat affineScaled = null;
             try {
                 src.fromList(srcCur);
                 dst.fromList(dstRef);
+                // Do not pre-allocate: estimateAffinePartial2D returns a new Mat and would orphan the old one.
                 affineScaled = Calib3d.estimateAffinePartial2D(
                         src,
                         dst,
@@ -778,12 +797,12 @@ public final class BucketPositioningService {
                         10
                 );
                 int inliers = inliersMask.empty() ? 0 : Core.countNonZero(inliersMask);
-                if (affineScaled.empty() || inliers < MIN_MATCHES) {
+                if (affineScaled == null || affineScaled.empty() || inliers < MIN_MATCHES) {
                     log.warn(
                             "positioning_diag stage=orb_euclidean FAIL inliers={} good={} empty={}",
                             inliers,
                             srcCur.size(),
-                            affineScaled.empty()
+                            affineScaled == null || affineScaled.empty()
                     );
                     return new OrbResult(new Mat(), refKp, curKp, good.size(), inliers);
                 }
@@ -885,23 +904,26 @@ public final class BucketPositioningService {
                     reference.cols(),
                     reference.rows()
             );
-            refRoi = new Mat(refGrayFull, safe).clone();
-            curRoi = new Mat(curGrayFull, safe).clone();
+            refRoi = cloneRoi(refGrayFull, safe);
+            curRoi = cloneRoi(curGrayFull, safe);
             if (polygon != null && polygon.size() >= 3) {
                 mask = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
             }
 
-            List<Mat> refPyr = buildPyramid(refRoi, ECC_LEVELS);
-            List<Mat> curPyr = buildPyramid(curRoi, ECC_LEVELS);
-            Mat warp = Mat.eye(2, 3, CvType.CV_32F);
-            // Seed with residual phase shift (same units as phaseCorrelate / applyTranslation).
-            double seedScale = 1.0 / Math.pow(2.0, ECC_LEVELS - 1);
-            warp.put(0, 2, seedTx * seedScale);
-            warp.put(1, 2, seedTy * seedScale);
-            TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, ECC_MAX_ITER, 1e-4);
-            double lastCc = Double.NaN;
-            boolean ok = false;
+            List<Mat> refPyr = null;
+            List<Mat> curPyr = null;
+            Mat warp = null;
             try {
+                refPyr = buildPyramid(refRoi, ECC_LEVELS);
+                curPyr = buildPyramid(curRoi, ECC_LEVELS);
+                warp = Mat.eye(2, 3, CvType.CV_32F);
+                // Seed with residual phase shift (same units as phaseCorrelate / applyTranslation).
+                double seedScale = 1.0 / Math.pow(2.0, ECC_LEVELS - 1);
+                warp.put(0, 2, seedTx * seedScale);
+                warp.put(1, 2, seedTy * seedScale);
+                TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, ECC_MAX_ITER, 1e-4);
+                double lastCc = Double.NaN;
+                boolean ok = false;
                 for (int level = ECC_LEVELS - 1; level >= 0; level--) {
                     Mat refLvl = refPyr.get(level);
                     Mat curLvl = curPyr.get(level);
@@ -916,12 +938,9 @@ public final class BucketPositioningService {
                     if (level > 0) {
                         double maxPhase = Math.max(8.0, Math.min(refLvl.cols(), refLvl.rows()) * 0.12);
                         try {
-                            Mat ref32 = new Mat();
-                            Mat cur32 = new Mat();
-                            refLvl.convertTo(ref32, CvType.CV_32F);
-                            curLvl.convertTo(cur32, CvType.CV_32F);
-                            Point shift = Imgproc.phaseCorrelate(ref32, cur32);
-                            release(ref32, cur32);
+                            refLvl.convertTo(eccPhaseRef32, CvType.CV_32F);
+                            curLvl.convertTo(eccPhaseCur32, CvType.CV_32F);
+                            Point shift = Imgproc.phaseCorrelate(eccPhaseRef32, eccPhaseCur32);
                             double sx = clampDouble(shift.x, -maxPhase, maxPhase);
                             double sy = clampDouble(shift.y, -maxPhase, maxPhase);
                             double[] tx = warp.get(0, 2);
@@ -935,14 +954,16 @@ public final class BucketPositioningService {
 
                     Mat warpBackup = warp.clone();
                     Mat levelMask = null;
+                    boolean ownLevelMask = false;
                     try {
                         if (mask != null && level == 0) {
                             levelMask = mask;
                         } else if (mask != null) {
                             levelMask = new Mat();
                             Imgproc.resize(mask, levelMask, refLvl.size(), 0, 0, Imgproc.INTER_NEAREST);
+                            ownLevelMask = true;
                         } else {
-                            levelMask = new Mat();
+                            levelMask = emptyDetectMask;
                         }
                         double cc = Video.findTransformECC(
                                 refLvl,
@@ -975,8 +996,8 @@ public final class BucketPositioningService {
                         log.warn("positioning_diag stage=ecc_level level={} FAILED: {}", level, e.getMessage());
                     } finally {
                         release(warpBackup);
-                        if (levelMask != null && levelMask != mask) {
-                            levelMask.release();
+                        if (ownLevelMask) {
+                            release(levelMask);
                         }
                     }
 
@@ -1034,17 +1055,24 @@ public final class BucketPositioningService {
                     );
                 }
 
-                Mat refined = new Mat();
-                Imgproc.warpAffine(
-                        aligned,
-                        refined,
-                        warp,
-                        aligned.size(),
-                        Imgproc.INTER_LINEAR | Imgproc.WARP_INVERSE_MAP,
-                        Core.BORDER_CONSTANT,
-                        new Scalar(0, 0, 0)
-                );
-                return new EccResult(refined, true, lastCc, tx, ty, angleDeg);
+                Mat refined = null;
+                try {
+                    refined = new Mat();
+                    Imgproc.warpAffine(
+                            aligned,
+                            refined,
+                            warp,
+                            aligned.size(),
+                            Imgproc.INTER_LINEAR | Imgproc.WARP_INVERSE_MAP,
+                            Core.BORDER_CONSTANT,
+                            new Scalar(0, 0, 0)
+                    );
+                    Mat transferred = refined;
+                    refined = null;
+                    return new EccResult(transferred, true, lastCc, tx, ty, angleDeg);
+                } finally {
+                    release(refined);
+                }
             } finally {
                 release(warp);
                 releaseAll(refPyr);
@@ -1303,12 +1331,13 @@ public final class BucketPositioningService {
                 );
                 detectMask = maskScaled;
             } else {
-                detectMask = new Mat();
+                detectMask = emptyDetectMask;
             }
             try {
                 orb.detectAndCompute(scaled, detectMask, keypoints, descriptors);
             } finally {
-                if (detectMask != null && detectMask != maskScaled) {
+                // emptyDetectMask is reused for the process lifetime
+                if (detectMask != null && detectMask != maskScaled && detectMask != emptyDetectMask) {
                     detectMask.release();
                 }
             }
@@ -1483,6 +1512,16 @@ public final class BucketPositioningService {
         return Math.max(min, Math.min(max, value));
     }
 
+    /** Clone a ROI without orphaning the temporary submat header (native refcount leak over days). */
+    private static Mat cloneRoi(Mat src, Rect roi) {
+        Mat header = new Mat(src, roi);
+        try {
+            return header.clone();
+        } finally {
+            header.release();
+        }
+    }
+
     private static void release(Mat... mats) {
         if (mats == null) {
             return;
@@ -1512,38 +1551,34 @@ public final class BucketPositioningService {
     }
 
     private QualityScore measureQuality(Mat reference, Mat current, Rect roi, List<NormPoint> polygon) {
-        Mat refGray = new Mat();
-        Mat curGray = new Mat();
-        Mat absDiff = new Mat();
-        Mat result = new Mat();
-        Mat ref32 = new Mat();
-        Mat cur32 = new Mat();
+        Mat refRoi = null;
+        Mat curRoi = null;
         Mat mask = null;
         try {
-            Imgproc.cvtColor(reference, refGray, Imgproc.COLOR_BGR2GRAY);
-            Imgproc.cvtColor(current, curGray, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.cvtColor(reference, mqRefGray, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.cvtColor(current, mqCurGray, Imgproc.COLOR_BGR2GRAY);
             Rect safe = toSafeRect(
                     new RoiRect(roi.x, roi.y, roi.width, roi.height),
                     reference.cols(),
                     reference.rows()
             );
-            Mat refRoi = new Mat(refGray, safe);
-            Mat curRoi = new Mat(curGray, safe);
+            refRoi = new Mat(mqRefGray, safe);
+            curRoi = new Mat(mqCurGray, safe);
             if (polygon != null && polygon.size() >= 3) {
                 mask = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
             }
 
-            Core.absdiff(refRoi, curRoi, absDiff);
+            Core.absdiff(refRoi, curRoi, mqAbsDiff);
             Scalar meanDiff = mask == null || mask.empty()
-                    ? Core.mean(absDiff)
-                    : Core.mean(absDiff, mask);
+                    ? Core.mean(mqAbsDiff)
+                    : Core.mean(mqAbsDiff, mask);
             double meanAbs = meanDiff.val[0];
 
             double ncc = Double.NaN;
             try {
-                Imgproc.matchTemplate(refRoi, curRoi, result, Imgproc.TM_CCOEFF_NORMED);
-                if (!result.empty()) {
-                    ncc = result.get(0, 0)[0];
+                Imgproc.matchTemplate(refRoi, curRoi, mqMatchResult, Imgproc.TM_CCOEFF_NORMED);
+                if (!mqMatchResult.empty()) {
+                    ncc = mqMatchResult.get(0, 0)[0];
                 }
             } catch (Exception ignored) {
                 // leave NaN
@@ -1552,9 +1587,9 @@ public final class BucketPositioningService {
             double dx = 0;
             double dy = 0;
             try {
-                refRoi.convertTo(ref32, CvType.CV_32F);
-                curRoi.convertTo(cur32, CvType.CV_32F);
-                Point shift = Imgproc.phaseCorrelate(ref32, cur32);
+                refRoi.convertTo(mqRef32, CvType.CV_32F);
+                curRoi.convertTo(mqCur32, CvType.CV_32F);
+                Point shift = Imgproc.phaseCorrelate(mqRef32, mqCur32);
                 dx = shift.x;
                 dy = shift.y;
             } catch (Exception ignored) {
@@ -1565,7 +1600,8 @@ public final class BucketPositioningService {
         } catch (Exception e) {
             return new QualityScore(Double.NaN, Double.NaN, 0, 0);
         } finally {
-            release(refGray, curGray, absDiff, result, ref32, cur32, mask);
+            // Must release ROI headers — they hold native refcounts on gray data.
+            release(refRoi, curRoi, mask);
         }
     }
 
