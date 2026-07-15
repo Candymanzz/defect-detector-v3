@@ -95,4 +95,19 @@ class IoInputDiscreteConfigTest {
 
         assertEquals(TriggerEdgeMode.FALLING, cfg.triggerEdge());
     }
+
+    @Test
+    void parsesExternalHardwareCaptureFromIntegrationConfig() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of("external_hardware_capture", true)
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertTrue(cfg.externalHardwareCapture());
+    }
 }

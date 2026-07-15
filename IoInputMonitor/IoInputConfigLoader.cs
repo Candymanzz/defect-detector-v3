@@ -23,6 +23,8 @@ public sealed class IoInputOptions
     public int DebounceMs { get; set; } = 50;
 
     public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
+
+    public IoCaptureOptions Capture { get; set; } = new();
 }
 
 public sealed class IoInputConfigLoadResult
@@ -138,7 +140,25 @@ public static class IoInputConfigLoader
             EdgeMode = ParseEdgeMode(section.Edge),
             ConfigureSdk = section.ConfigureSdk ?? true,
             DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50,
-            UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs)
+            UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs),
+            Capture = ParseCapture(section.Capture)
+        };
+    }
+
+    private static IoCaptureOptions ParseCapture(IoInputCaptureYaml? raw)
+    {
+        if (raw == null)
+            return new IoCaptureOptions();
+
+        return new IoCaptureOptions
+        {
+            Enabled = raw.Enabled ?? false,
+            DirectionPort = raw.DirectionPort is >= 1 and <= 8 ? raw.DirectionPort.Value : 2,
+            TriggerPort = raw.TriggerPort is >= 1 and <= 8 ? raw.TriggerPort.Value : 3,
+            OutputPort = raw.OutputPort is >= 1 and <= 8 ? raw.OutputPort.Value : 1,
+            PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 20,
+            DirectionInvert = raw.DirectionInvert ?? false,
+            RequireDirection = raw.RequireDirection ?? true
         };
     }
 
@@ -230,6 +250,8 @@ public static class IoInputConfigLoader
         public int? DebounceMs { get; set; }
 
         public IoInputPublishYaml? Publish { get; set; }
+
+        public IoInputCaptureYaml? Capture { get; set; }
     }
 
     private sealed class IoInputPublishYaml
@@ -256,5 +278,22 @@ public static class IoInputConfigLoader
         public bool? LowLatencyTrigger { get; set; }
 
         public bool? SendInitialTriggerState { get; set; }
+    }
+
+    private sealed class IoInputCaptureYaml
+    {
+        public bool? Enabled { get; set; }
+
+        public int? DirectionPort { get; set; }
+
+        public int? TriggerPort { get; set; }
+
+        public int? OutputPort { get; set; }
+
+        public int? PulseDurationMs { get; set; }
+
+        public bool? DirectionInvert { get; set; }
+
+        public bool? RequireDirection { get; set; }
     }
 }

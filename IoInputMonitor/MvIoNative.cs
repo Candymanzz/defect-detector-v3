@@ -36,6 +36,18 @@ internal static class MvIoNative
         Falling = 2,
     }
 
+    public enum IoOutputPattern : uint
+    {
+        Single = 0,
+        Pwm = 1,
+    }
+
+    public enum IoOutputEnableType : uint
+    {
+        Start = 0,
+        End = 1,
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct MvIoSetInput
     {
@@ -82,6 +94,30 @@ internal static class MvIoNative
         public byte PortNumber;
         public ushort TriggerTimes;
         public IoEdgeType EdgeType;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public uint[] Reserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MvIoSetOutput
+    {
+        public uint Port;
+        public uint Pattern;
+        public uint PulseWidth;
+        public uint PulsePeriod;
+        public uint PulseDuration;
+        public uint Level;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public uint[] Reserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MvIoOutputEnable
+    {
+        public uint Port;
+        public uint Enable;
 
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
         public uint[] Reserved;
@@ -136,6 +172,12 @@ internal static class MvIoNative
 
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_RegisterEdgeDetectionCallBack")]
     public static extern int RegisterEdgeDetectionCallback(IntPtr handle, EdgeDetectionCallback callback, IntPtr user);
+
+    [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_SetOutput")]
+    public static extern int SetOutput(IntPtr handle, ref MvIoSetOutput output);
+
+    [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_SetOutputEnable")]
+    public static extern int SetOutputEnable(IntPtr handle, ref MvIoOutputEnable enable);
 
     public static int PortFromMask(byte portMask) =>
         portMask switch

@@ -100,6 +100,19 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
     }
 
+    /** Рассылка триггера инспекции без prefire (экспозиция уже на Line0 через IoInputMonitor→DO0). */
+    public int dispatchLineBroadcastWithoutPrefire(String source, List<Integer> cameraIds) {
+        long seq = sequence.incrementAndGet();
+        Instant receivedAt = Instant.now();
+        LOG.info(
+                "sync_diag channel=inspect event=line_dispatch_only trigger_sequence={} source={} cameras={}",
+                seq,
+                source,
+                cameraIds == null || cameraIds.isEmpty() ? "all" : cameraIds.size()
+        );
+        return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
+    }
+
     /** Рассылка одного триггера на все активные камеры (prefire + dispatch в одном шаге). */
     public int publishBroadcast(InspectionTriggerEvent raw) {
         return publishBroadcast(raw, null);

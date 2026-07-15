@@ -13,6 +13,16 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
+  # Съёмка: DI2=1 вооружает, DI3↑ → импульс DO1 (DO0) на Line0 камер.
+  capture:
+    enabled: true
+    direction_port: 2
+    trigger_port: 3
+    output_port: 1      # DO1 = первый выход (DO0) → Line0 всех камер
+    pulse_duration_ms: 20
+    direction_invert: false
+    require_direction: true   # DI3 игнорируется пока DI2≠1
+
   publish:
     udp:
       enabled: true
