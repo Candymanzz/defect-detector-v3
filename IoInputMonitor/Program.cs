@@ -230,7 +230,7 @@ internal static class Program
                 {
                     Console.WriteLine(
                         $"[{Timestamp()}] DO{options.Capture.OutputPort}: НЕ отправляется — capture.enabled=false " +
-                        "(ожидается MVS Out{options.Capture.OutputPort}←In{options.Capture.TriggerPort})");
+                        $"(импульс только если Out{options.Capture.OutputPort}←In{options.Capture.TriggerPort} на IO box)");
                 }
             }
 
