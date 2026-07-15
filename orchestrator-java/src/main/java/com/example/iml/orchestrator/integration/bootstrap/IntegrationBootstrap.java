@@ -77,7 +77,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -351,6 +353,7 @@ public final class IntegrationBootstrap {
         ExecutorService pythonStageExecutor = null;
         ExecutorService geometryStageExecutor = null;
         ExecutorService decisionStageExecutor = null;
+        ScheduledExecutorService shmJanitorScheduler = null;
         Map<Integer, WorkerProcessSupervisor> workersByCamera = new LinkedHashMap<>();
         Map<Integer, ReferenceSnapshot> referenceByCamera = pipelineReferenceRegistry.byCamera();
         PipelineStagesLog pipelineStagesLogMutable = null;
@@ -369,6 +372,27 @@ public final class IntegrationBootstrap {
         BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster = null;
         BucketInspectionAggregator bucketInspectionAggregator = null;
         try {
+            shmJanitorScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "iml-shm-janitor");
+                t.setDaemon(true);
+                return t;
+            });
+            shmJanitorScheduler.scheduleWithFixedDelay(
+                    () -> {
+                        try {
+                            ImlShmJanitor.purgeEphemeralOlderThan(ImlShmJanitor.DEFAULT_EPHEMERAL_TTL, log);
+                        } catch (Exception e) {
+                            log.warn("iml_shm ttl janitor failed: {}", e.getMessage());
+                        }
+                    },
+                    15L,
+                    15L,
+                    TimeUnit.SECONDS
+            );
+            log.info(
+                    "iml_shm ttl janitor started interval_s=15 max_age_s={}",
+                    ImlShmJanitor.DEFAULT_EPHEMERAL_TTL.toSeconds()
+            );
             IntegrationFeatureConfig.TimingStagesLogConfig timingStagesLogCfg = IntegrationFeatureConfig.parseTimingStagesLog(integration);
             if (timingStagesLogCfg.enabled()) {
                 try {
@@ -779,6 +803,7 @@ public final class IntegrationBootstrap {
                     pythonStageExecutor,
                     geometryStageExecutor,
                     decisionStageExecutor,
+                    shmJanitorScheduler,
                     workersByCamera,
                     pythonPool,
                     geometryPool,

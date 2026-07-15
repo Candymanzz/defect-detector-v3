@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -18,8 +19,13 @@ import java.util.stream.Stream;
  * ({@code _f{frameId}_}, UUID, {@code .bgr}) — эти файлы здесь не растут бесконечно.
  * Per-cycle pins ({@code iml_line_pin_*}) освобождаются через
  * {@link #releaseEphemeralCaptureBuffers(Map, Logger)} после инспекции.
+ * Периодический {@link #purgeEphemeralOlderThan(Duration, Logger)} подбирает
+ * застрявшие pin’ы при timeout / пропущенном release.
  */
 public final class ImlShmJanitor {
+
+    /** TTL для осиротевших line-pin: цикл ~4 с, запас на backlog и UI sidecar. */
+    public static final Duration DEFAULT_EPHEMERAL_TTL = Duration.ofSeconds(45);
 
     private static final Pattern STABLE_FILE = Pattern.compile(
             "^iml_cam_\\d+_frame$"
@@ -43,6 +49,56 @@ public final class ImlShmJanitor {
     /** При остановке: удалить буферы оркестратора и line-pin’ы, оставить {@code iml_cam_*} / {@code iml_ref_*}. */
     public static void purgeOrchestratorBuffers(Logger log) {
         purge(log, true);
+    }
+
+    /**
+     * Runtime sweep: удаляет только ephemeral line-pin’ы старше {@code maxAge}.
+     * Не трогает ring/ref/стабильные буферы оркестратора.
+     */
+    public static void purgeEphemeralOlderThan(Duration maxAge, Logger log) {
+        if (maxAge == null || maxAge.isNegative() || maxAge.isZero()) {
+            return;
+        }
+        Path dir = imlShmDirectory();
+        if (!Files.isDirectory(dir)) {
+            return;
+        }
+        long cutoffMs = System.currentTimeMillis() - maxAge.toMillis();
+        long deleted = 0L;
+        long freedBytes = 0L;
+        try (Stream<Path> entries = Files.list(dir)) {
+            for (Path entry : entries.toList()) {
+                if (!Files.isRegularFile(entry)) {
+                    continue;
+                }
+                String name = entry.getFileName().toString();
+                if (!isEphemeralLinePin(name)) {
+                    continue;
+                }
+                if (fileTimeMs(entry) >= cutoffMs) {
+                    continue;
+                }
+                long size = safeSize(entry);
+                if (deleteQuietly(entry)) {
+                    deleted++;
+                    freedBytes += size;
+                }
+            }
+        } catch (IOException e) {
+            if (log != null) {
+                log.warn("iml_shm ttl cleanup failed dir={}: {}", dir, e.getMessage());
+            }
+            return;
+        }
+        if (deleted > 0 && log != null) {
+            log.info(
+                    "iml_shm ttl cleanup dir={} deleted={} freed_mb={} max_age_s={}",
+                    dir,
+                    deleted,
+                    freedBytes / (1024L * 1024L),
+                    maxAge.toSeconds()
+            );
+        }
     }
 
     /**
@@ -180,6 +236,14 @@ public final class ImlShmJanitor {
             return Files.size(path);
         } catch (IOException ignored) {
             return 0L;
+        }
+    }
+
+    private static long fileTimeMs(Path path) {
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        } catch (IOException ignored) {
+            return System.currentTimeMillis();
         }
     }
 

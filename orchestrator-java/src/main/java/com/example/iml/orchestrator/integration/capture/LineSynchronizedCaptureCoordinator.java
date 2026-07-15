@@ -762,13 +762,19 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                 return false;
             }
             Round round = entry.getValue();
-            if (round.consumedFrames.get() < expectedParties) {
-                return false;
-            }
+            // Always release pins — incomplete/timed-out rounds otherwise retain full BGR forever.
             for (BinaryProtocol.Message pinned : round.results.values()) {
                 if (pinned != null && pinned.header() != null) {
                     LineFramePinService.releasePinnedCapture(pinned.header());
                 }
+            }
+            if (round.consumedFrames.get() < expectedParties) {
+                LOG.debug(
+                        "line capture prune incomplete round seq={} consumed={}/{}",
+                        entry.getKey(),
+                        round.consumedFrames.get(),
+                        expectedParties
+                );
             }
             return true;
         });

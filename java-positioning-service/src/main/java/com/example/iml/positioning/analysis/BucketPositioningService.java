@@ -48,11 +48,15 @@ public final class BucketPositioningService {
 
     private static final Logger log = LogManager.getLogger(BucketPositioningService.class);
 
-    private static final int MAX_ORB_DIM = 1024;
-    private static final int ORB_FEATURES = 6000;
+    /** ORB working resolution — 768 keeps inliers stable while cutting detect cost vs 1024. */
+    private static final int MAX_ORB_DIM = 768;
+    /** 3500 features is enough for >100 inliers on these frames; 6000 mostly burns CPU. */
+    private static final int ORB_FEATURES = 3500;
     private static final double RANSAC_REPROJ_THRESHOLD = 5.0;
     private static final int MIN_MATCHES = 12;
-    private static final int ECC_LEVELS = 4;
+    /** 3 pyramid levels (~2× less ECC work than 4); translation refine stays the same. */
+    private static final int ECC_LEVELS = 3;
+    private static final int ECC_MAX_ITER = 25;
     /**
      * Conveyor buckets barely rotate; ORB often invents 1–3° twist from background matches.
      * Anything larger is forced to pure translation.
@@ -61,9 +65,12 @@ public final class BucketPositioningService {
     /** Soft ECC cap — above this we clamp direction, not discard the whole refine. */
     private static final double ECC_MAX_TRANSLATION_PX = 40.0;
     private static final double ECC_MAX_ANGLE_DEG = 0.35;
-    private static final double ECC_SKIP_NCC = 0.94;
-    private static final double ECC_SKIP_ABSDiff = 2.5;
-    private static final double ECC_SKIP_RESIDUAL_PX = 1.0;
+    /** Skip ECC sooner when ORB already looks locked (same PASS/FAIL gates below). */
+    private static final double ECC_SKIP_NCC = 0.91;
+    private static final double ECC_SKIP_ABSDiff = 3.5;
+    private static final double ECC_SKIP_RESIDUAL_PX = 1.5;
+    /** Stop ECC pyramid early once correlation/translation are good enough. */
+    private static final double ECC_EARLY_STOP_CC = 0.97;
     private static final double RESIDUAL_POLISH_MIN_PX = 2.0;
     private static final double RESIDUAL_POLISH_MAX_PX = 180.0;
     /** Soft gate: both residual + absdiff still bad → refuse PASS (cam=2/4 leftover shift). */
@@ -462,27 +469,30 @@ public final class BucketPositioningService {
             }
 
             // Final residual translation polish if ECC skipped / left a pure shift.
-            ResidualPolish postEccPolish = polishResidualTranslation(
-                    reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
-            if (postEccPolish.applied()) {
-                working.release();
-                working = postEccPolish.frame();
-                if (homographyCurToRef != null) {
-                    homographyCurToRef.release();
+            double polishResidualMag = Math.hypot(qBeforeEcc.residualShiftX(), qBeforeEcc.residualShiftY());
+            if (polishResidualMag >= RESIDUAL_POLISH_MIN_PX && polishResidualMag <= RESIDUAL_POLISH_MAX_PX) {
+                ResidualPolish postEccPolish = polishResidualTranslation(
+                        reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
+                if (postEccPolish.applied()) {
+                    working.release();
+                    working = postEccPolish.frame();
+                    if (homographyCurToRef != null) {
+                        homographyCurToRef.release();
+                    }
+                    homographyCurToRef = postEccPolish.homography();
+                    metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
+                    diag.put("post_ecc_residual_polish", true);
+                    log.info(
+                            "positioning_diag {} stage=post_ecc_polish shift=({}, {}) px mean_absdiff={} ncc={} residual=({}, {})",
+                            ctx(logContext),
+                            fmt(postEccPolish.dx()),
+                            fmt(postEccPolish.dy()),
+                            fmt(postEccPolish.quality().meanAbsDiff()),
+                            fmt(postEccPolish.quality().ncc()),
+                            fmt(postEccPolish.quality().residualShiftX()),
+                            fmt(postEccPolish.quality().residualShiftY())
+                    );
                 }
-                homographyCurToRef = postEccPolish.homography();
-                metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
-                diag.put("post_ecc_residual_polish", true);
-                log.info(
-                        "positioning_diag {} stage=post_ecc_polish shift=({}, {}) px mean_absdiff={} ncc={} residual=({}, {})",
-                        ctx(logContext),
-                        fmt(postEccPolish.dx()),
-                        fmt(postEccPolish.dy()),
-                        fmt(postEccPolish.quality().meanAbsDiff()),
-                        fmt(postEccPolish.quality().ncc()),
-                        fmt(postEccPolish.quality().residualShiftX()),
-                        fmt(postEccPolish.quality().residualShiftY())
-                );
             }
 
             QualityScore qFinal = measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
@@ -888,7 +898,7 @@ public final class BucketPositioningService {
             double seedScale = 1.0 / Math.pow(2.0, ECC_LEVELS - 1);
             warp.put(0, 2, seedTx * seedScale);
             warp.put(1, 2, seedTy * seedScale);
-            TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 50, 1e-4);
+            TermCriteria criteria = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, ECC_MAX_ITER, 1e-4);
             double lastCc = Double.NaN;
             boolean ok = false;
             try {
@@ -902,22 +912,25 @@ public final class BucketPositioningService {
                         warp.put(1, 2, t1[0] * 2.0);
                     }
 
-                    double maxPhase = Math.max(8.0, Math.min(refLvl.cols(), refLvl.rows()) * 0.12);
-                    try {
-                        Mat ref32 = new Mat();
-                        Mat cur32 = new Mat();
-                        refLvl.convertTo(ref32, CvType.CV_32F);
-                        curLvl.convertTo(cur32, CvType.CV_32F);
-                        Point shift = Imgproc.phaseCorrelate(ref32, cur32);
-                        release(ref32, cur32);
-                        double sx = clampDouble(shift.x, -maxPhase, maxPhase);
-                        double sy = clampDouble(shift.y, -maxPhase, maxPhase);
-                        double[] tx = warp.get(0, 2);
-                        double[] ty = warp.get(1, 2);
-                        warp.put(0, 2, tx[0] + sx);
-                        warp.put(1, 2, ty[0] + sy);
-                    } catch (Exception e) {
-                        log.debug("positioning_diag stage=ecc_phase level={} skipped: {}", level, e.getMessage());
+                    // Phase seed only on coarse levels; finest level trusts ECC warping.
+                    if (level > 0) {
+                        double maxPhase = Math.max(8.0, Math.min(refLvl.cols(), refLvl.rows()) * 0.12);
+                        try {
+                            Mat ref32 = new Mat();
+                            Mat cur32 = new Mat();
+                            refLvl.convertTo(ref32, CvType.CV_32F);
+                            curLvl.convertTo(cur32, CvType.CV_32F);
+                            Point shift = Imgproc.phaseCorrelate(ref32, cur32);
+                            release(ref32, cur32);
+                            double sx = clampDouble(shift.x, -maxPhase, maxPhase);
+                            double sy = clampDouble(shift.y, -maxPhase, maxPhase);
+                            double[] tx = warp.get(0, 2);
+                            double[] ty = warp.get(1, 2);
+                            warp.put(0, 2, tx[0] + sx);
+                            warp.put(1, 2, ty[0] + sy);
+                        } catch (Exception e) {
+                            log.debug("positioning_diag stage=ecc_phase level={} skipped: {}", level, e.getMessage());
+                        }
                     }
 
                     Mat warpBackup = warp.clone();
@@ -965,6 +978,26 @@ public final class BucketPositioningService {
                         if (levelMask != null && levelMask != mask) {
                             levelMask.release();
                         }
+                    }
+
+                    if (ok && level > 0
+                            && Double.isFinite(lastCc) && lastCc >= ECC_EARLY_STOP_CC
+                            && Math.hypot(warp.get(0, 2)[0], warp.get(1, 2)[0]) <= maxTranslationPx * 0.35) {
+                        // Upscale warp to full resolution and skip remaining finer levels.
+                        for (int up = level - 1; up >= 0; up--) {
+                            double[] t0 = warp.get(0, 2);
+                            double[] t1 = warp.get(1, 2);
+                            warp.put(0, 2, t0[0] * 2.0);
+                            warp.put(1, 2, t1[0] * 2.0);
+                        }
+                        log.debug(
+                                "positioning_diag stage=ecc_early_stop level={} cc={} t=({}, {})",
+                                level,
+                                fmt(lastCc),
+                                fmt(warp.get(0, 2)[0]),
+                                fmt(warp.get(1, 2)[0])
+                        );
+                        break;
                     }
                 }
 
@@ -1257,7 +1290,7 @@ public final class BucketPositioningService {
             clahe.apply(gray, gray);
             ResizeResult resized = resizeForProcessing(gray, MAX_ORB_DIM);
             scaled = resized.mat;
-            Mat detectMask = new Mat();
+            Mat detectMask = null;
             if (interestMaskFull != null && !interestMaskFull.empty()) {
                 maskScaled = new Mat();
                 Imgproc.resize(
@@ -1269,8 +1302,16 @@ public final class BucketPositioningService {
                         Imgproc.INTER_NEAREST
                 );
                 detectMask = maskScaled;
+            } else {
+                detectMask = new Mat();
             }
-            orb.detectAndCompute(scaled, detectMask, keypoints, descriptors);
+            try {
+                orb.detectAndCompute(scaled, detectMask, keypoints, descriptors);
+            } finally {
+                if (detectMask != null && detectMask != maskScaled) {
+                    detectMask.release();
+                }
+            }
             return new PreparedReference(
                     referenceCacheKey,
                     reference.dataAddr(),

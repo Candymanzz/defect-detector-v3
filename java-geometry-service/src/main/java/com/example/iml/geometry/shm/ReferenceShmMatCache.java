@@ -12,7 +12,7 @@ import java.util.Map;
  */
 public final class ReferenceShmMatCache {
 
-    private static final int MAX_CACHED_REFERENCES = 16;
+    private static final int MAX_CACHED_REFERENCES = 2;
 
     private final Map<String, Mat> cache = new LinkedHashMap<>(MAX_CACHED_REFERENCES, 0.75f, true) {
         @Override

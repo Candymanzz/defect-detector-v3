@@ -29,8 +29,8 @@ public final class InspectionArtifactRegistry {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Pattern TOKEN = Pattern.compile("^[0-9a-f]{32}$");
-    private static final long RETENTION_MS = Duration.ofMinutes(30).toMillis();
-    private static final int MAX_BUNDLES = 200;
+    private static final long RETENTION_MS = Duration.ofMinutes(2).toMillis();
+    private static final int MAX_BUNDLES = 40;
 
     private final Path root;
     private final ConcurrentHashMap<String, Bundle> byId = new ConcurrentHashMap<>();
@@ -91,7 +91,13 @@ public final class InspectionArtifactRegistry {
                 System.currentTimeMillis()
         );
         byId.put(id, bundle);
-        latestIdByCamera.put(cameraId, id);
+        String previousLatest = latestIdByCamera.put(cameraId, id);
+        if (previousLatest != null && !previousLatest.equals(id)) {
+            Bundle previous = byId.get(previousLatest);
+            if (previous != null) {
+                remove(previous);
+            }
+        }
         cleanup();
         return bundle;
     }

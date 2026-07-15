@@ -59,6 +59,40 @@ class ImlShmJanitorTest {
     }
 
     @Test
+    void purgeEphemeralOlderThanDeletesStaleLinePinsOnly() throws Exception {
+        Path pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam3_f99");
+        Path ref = FrameJpegWriter.imlShmFilePath("iml_ref_cam3");
+        Path parent = pin.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.write(pin, new byte[] {1, 2, 3});
+        Files.write(ref, new byte[] {4, 5, 6});
+        Files.setLastModifiedTime(pin, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - 60_000L));
+
+        ImlShmJanitor.purgeEphemeralOlderThan(java.time.Duration.ofSeconds(30), null);
+
+        assertFalse(Files.exists(pin));
+        assertTrue(Files.isRegularFile(ref));
+    }
+
+    @Test
+    void purgeEphemeralOlderThanKeepsFreshLinePins() throws Exception {
+        Path pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam4_f100");
+        Path parent = pin.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.write(pin, new byte[] {1, 2, 3});
+        Files.setLastModifiedTime(pin, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
+
+        ImlShmJanitor.purgeEphemeralOlderThan(java.time.Duration.ofSeconds(30), null);
+
+        assertTrue(Files.isRegularFile(pin));
+        Files.deleteIfExists(pin);
+    }
+
+    @Test
     void imlShmDirectoryResolvesParent() {
         assertNotNull(ImlShmJanitor.imlShmDirectory());
     }

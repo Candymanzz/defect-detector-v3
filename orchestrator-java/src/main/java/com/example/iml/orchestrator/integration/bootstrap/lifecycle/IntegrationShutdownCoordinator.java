@@ -31,6 +31,7 @@ public final class IntegrationShutdownCoordinator {
             ExecutorService pythonStageExecutor,
             ExecutorService geometryStageExecutor,
             ExecutorService decisionStageExecutor,
+            java.util.concurrent.ScheduledExecutorService shmJanitorScheduler,
             Map<Integer, WorkerProcessSupervisor> workersByCamera,
             List<? extends BinaryRpcSupervisor> pythonPool,
             List<? extends BinaryRpcSupervisor> geometryPool,
@@ -55,6 +56,9 @@ public final class IntegrationShutdownCoordinator {
                 r.pipelineStagesLog.close();
             } catch (Exception ignored) {
             }
+        }
+        if (r.shmJanitorScheduler != null) {
+            r.shmJanitorScheduler.shutdownNow();
         }
         if (r.cameraExecutor != null) {
             r.cameraExecutor.shutdownNow();
