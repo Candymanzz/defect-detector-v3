@@ -13,13 +13,17 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # DI3↑ → UDP оркестратору. Импульс DO5: в MVS Out5 Line Source = In 3 (DI3→Out5→Line0).
-  # SDK SetOutput/Timer на этой плате не работают — DO не дёргаем из кода.
+  # Дубль DI3→DO5:
+  #  А) железо: Out5 Line Source = In 3 → capture.enabled=false (код DO не трогает)
+  #  Б) код: Out5 Line Source = Software/User → enabled=true, output_mode=direct
+  # Timer не используем. Сейчас Out5 не Software → SetOutput даёт 0x80000004.
   capture:
-    enabled: false
+    enabled: true
     direction_port: 2
     trigger_port: 3
     output_port: 5
+    output_mode: direct
+    pulse_duration_ms: 20
     require_direction: false
     direction_http:
       enabled: false

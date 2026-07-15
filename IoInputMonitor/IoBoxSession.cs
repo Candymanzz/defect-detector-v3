@@ -217,7 +217,7 @@ internal sealed class IoBoxSession : IDisposable
         }
     }
 
-    /// <summary>Прямой импульс на DO через MV_IO_SetOutput (только если Line Source = Software/User).</summary>
+    /// <summary>Прямой импульс на DO через MV_IO_SetOutput (OutN Line Source = Software/User).</summary>
     public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true)
     {
         EnsureOpen();
@@ -225,33 +225,53 @@ internal sealed class IoBoxSession : IDisposable
             throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
 
         int pulseDuration = Math.Clamp(durationMs, 1, 65535);
-        var output = new MvIoNative.MvIoSetOutput
-        {
-            Port = MvIoNative.OutputPortIndex(outputPort),
-            Pattern = (uint)MvIoNative.IoOutputPattern.Single,
-            PulseWidth = (uint)pulseDuration,
-            PulsePeriod = 1,
-            PulseDuration = (uint)pulseDuration,
-            Level = activeHigh ? 1u : 0u,
-            Reserved = new uint[8]
-        };
+        // SDK/доки расходятся: индекс 0..7, маска как у DI (0x10), либо номер 1..8 — пробуем все.
+        uint[] portCandidates =
+        [
+            MvIoNative.OutputPortIndex(outputPort),
+            MvIoNative.PortMaskForUint(outputPort),
+            (uint)outputPort
+        ];
 
-        int ret = MvIoNative.SetOutput(_handle, ref output);
-        if (ret != MvIoNative.MvOk)
+        int lastRet = unchecked((int)0x80000004);
+        uint usedPort = portCandidates[0];
+        foreach (uint portEnc in portCandidates.Distinct())
+        {
+            var output = new MvIoNative.MvIoSetOutput
+            {
+                Port = portEnc,
+                Pattern = (uint)MvIoNative.IoOutputPattern.Single,
+                PulseWidth = (uint)pulseDuration,
+                PulsePeriod = 1,
+                PulseDuration = (uint)pulseDuration,
+                Level = activeHigh ? 1u : 0u,
+                Reserved = new uint[8]
+            };
+
+            lastRet = MvIoNative.SetOutput(_handle, ref output);
+            if (lastRet == MvIoNative.MvOk)
+            {
+                usedPort = portEnc;
+                break;
+            }
+        }
+
+        if (lastRet != MvIoNative.MvOk)
         {
             throw new InvalidOperationException(
-                $"MV_IO_SetOutput failed for DO{outputPort}: 0x{ret:x8}. " +
-                "Если Out5 в MVS = Timer 1, используйте output_mode: timer.");
+                $"MV_IO_SetOutput failed for DO{outputPort}: 0x{lastRet:x8}. " +
+                $"SetOutput работает только если Out{outputPort} Line Source = Software/User. " +
+                $"Для дубля DI→DO без Software: Out{outputPort}←InN на IO box и capture.enabled=false.");
         }
 
         var enable = new MvIoNative.MvIoOutputEnable
         {
-            Port = MvIoNative.OutputPortIndex(outputPort),
+            Port = usedPort,
             Enable = (uint)MvIoNative.IoOutputEnableType.Start,
             Reserved = new uint[8]
         };
 
-        ret = MvIoNative.SetOutputEnable(_handle, ref enable);
+        int ret = MvIoNative.SetOutputEnable(_handle, ref enable);
         if (ret != MvIoNative.MvOk)
         {
             throw new InvalidOperationException(
