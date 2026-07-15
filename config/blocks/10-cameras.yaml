@@ -6,7 +6,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.218.1"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-0-cmd"
     analysis_profile: "bench-lan1"
@@ -16,7 +16,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.218.2"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-1-cmd"
     analysis_profile: "bench-lan2"
@@ -26,7 +26,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.222.3"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-2-cmd"
     analysis_profile: "bench-lan3"
@@ -36,7 +36,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.222.4"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-3-cmd"
     analysis_profile: "bench-lan4"
@@ -46,7 +46,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.146.5"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-4-cmd"
     analysis_profile: "bench-lan5"
@@ -56,7 +56,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.146.6"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-5-cmd"
     analysis_profile: "bench-lan6"
@@ -66,7 +66,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.6.7"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-6-cmd"
     analysis_profile: "bench-lan7"
@@ -76,7 +76,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.6.8"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-7-cmd"
     analysis_profile: "bench-lan8"
@@ -86,7 +86,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.220.9"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-8-cmd"
     analysis_profile: "bench-lan9"
@@ -96,7 +96,7 @@ cameras:
     inspection_enabled: true
     ip: "169.254.220.10"
     exposure_us: 3000
-    capture_trigger_mode: "software"
+    capture_trigger_mode: "line0"
     detector: "v1"
     pipe_command: "\\\\.\\pipe\\camera-9-cmd"
     analysis_profile: "bench-lan10"

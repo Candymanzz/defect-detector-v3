@@ -153,10 +153,14 @@ internal static class Program
                 else
                 {
                     Console.WriteLine(
-                        "WARNING: MV_IO timer trigger export not found in MvIOInterfaceBox.dll — " +
-                        "проверьте версию SDK или поставьте output_mode: direct.");
+                        "WARNING: MV_IO timer trigger export not found — для Out5 поставь Line Source = In 3.");
                 }
             }
+
+            MvIoDllExports.LogInteresting(Console.Out);
+            Console.WriteLine(
+                $"DO{options.Capture.OutputPort}: mode={options.Capture.OutputMode} — " +
+                $"при DI{options.Capture.TriggerPort}↑ шлём импульс (или hardware Out←In если SDK откажется).");
         }
 
         using var directionHttp = IoLineDirectionHttpServer.TryStart(
@@ -287,14 +291,20 @@ internal static class Program
     }
 
     private static string DescribeCaptureOutput(IoCaptureOptions capture) =>
-        capture.OutputMode == IoCaptureOutputMode.Timer
-            ? $"Timer{capture.TimerIndex}→Out{capture.OutputPort} (MVS duration)"
-            : $"DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms";
+        capture.OutputMode switch
+        {
+            IoCaptureOutputMode.Timer => $"Timer{capture.TimerIndex}→Out{capture.OutputPort}",
+            IoCaptureOutputMode.Direct => $"DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms",
+            _ => $"DO{capture.OutputPort} auto (SetOutput→Timer→Out←In{capture.TriggerPort})"
+        };
 
     private static string DescribeCaptureSend(IoCaptureOptions capture) =>
-        capture.OutputMode == IoCaptureOutputMode.Timer
-            ? $"TRIGGER Timer{capture.TimerIndex} → Out{capture.OutputPort}"
-            : $"SEND DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms";
+        capture.OutputMode switch
+        {
+            IoCaptureOutputMode.Timer => $"TRIGGER Timer{capture.TimerIndex} → Out{capture.OutputPort}",
+            IoCaptureOutputMode.Direct => $"SEND DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms",
+            _ => $"AUTO DO{capture.OutputPort}"
+        };
 
     private static void FireCapturePulseLogged(
         IoBoxSession session,
@@ -303,35 +313,26 @@ internal static class Program
         IoCaptureOptions capture)
     {
         int doPort = capture.OutputPort;
-        int sdkIndex = doPort - 1;
         try
         {
             lock (consoleLock)
             {
-                if (capture.OutputMode == IoCaptureOutputMode.Timer)
-                {
-                    Console.WriteLine(
-                        $"[{Timestamp()}] DO{doPort}: вызов Timer{capture.TimerIndex} software trigger → Out{doPort}…");
-                }
-                else
-                {
-                    Console.WriteLine(
-                        $"[{Timestamp()}] DO{doPort}: вызов MV_IO_SetOutput (SDK port index={sdkIndex}, " +
-                        $"pulse={capture.PulseDurationMs} ms)…");
-                }
+                Console.WriteLine($"[{Timestamp()}] DO{doPort}: вызов SDK…");
             }
 
+            string how;
             lock (sessionLock)
             {
-                session.FireCapturePulse(capture);
+                how = session.FireCapturePulse(capture);
             }
 
             lock (consoleLock)
             {
-                string ok = capture.OutputMode == IoCaptureOutputMode.Timer
-                    ? $"DO{doPort}: OK — Timer{capture.TimerIndex} software trigger принят SDK → Out{doPort}"
-                    : $"DO{doPort}: OK — SetOutput+Enable приняты SDK (index={sdkIndex}, duration={capture.PulseDurationMs} ms)";
-                Console.WriteLine($"[{Timestamp()}] {ok}");
+                bool hardwareOnly = how.StartsWith("hardware-passthrough", StringComparison.Ordinal);
+                Console.WriteLine(
+                    hardwareOnly
+                        ? $"[{Timestamp()}] DO{doPort}: {how} — поставь Out{doPort} Line Source = In {capture.TriggerPort}, иначе выхода не будет"
+                        : $"[{Timestamp()}] DO{doPort}: OK — {how}");
             }
         }
         catch (Exception ex)
@@ -339,7 +340,7 @@ internal static class Program
             lock (consoleLock)
             {
                 Console.Error.WriteLine(
-                    $"[{Timestamp()}] DO{doPort}: FAIL — импульс НЕ прошёл (SDK index={sdkIndex}): {ex.Message}");
+                    $"[{Timestamp()}] DO{doPort}: FAIL — {ex.Message}");
             }
         }
     }

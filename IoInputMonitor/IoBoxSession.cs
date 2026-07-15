@@ -194,17 +194,63 @@ internal sealed class IoBoxSession : IDisposable
             throw new InvalidOperationException($"MV_IO_RegisterEdgeDetectionCallBack failed: 0x{ret:x8}");
     }
 
-    /// <summary>Импульс на Line0: direct DO или software trigger таймера (Out5←Timer1 в MVS).</summary>
-    public void FireCapturePulse(IoCaptureOptions capture)
+    /// <summary>
+    /// Импульс на DO. Auto: SetOutput → Timer → hardware (без throw, если Out5←In3).
+    /// </summary>
+    public string FireCapturePulse(IoCaptureOptions capture)
     {
         EnsureOpen();
-        if (capture.OutputMode == IoCaptureOutputMode.Timer)
-            FireTimerSoftwareTrigger(capture.TimerIndex);
-        else
-            FireOutputPulse(capture.OutputPort, capture.PulseDurationMs);
+        return capture.OutputMode switch
+        {
+            IoCaptureOutputMode.Timer => FireTimerOnly(capture),
+            IoCaptureOutputMode.Direct => FireDirectOnly(capture),
+            _ => FireAuto(capture)
+        };
     }
 
-    /// <summary>Software trigger Timer N — как Execute в MVS (Out5 должен быть Line Source = Timer N).</summary>
+    private string FireAuto(IoCaptureOptions capture)
+    {
+        try
+        {
+            FireOutputPulse(capture.OutputPort, capture.PulseDurationMs);
+            return $"setoutput DO{capture.OutputPort}";
+        }
+        catch (Exception directEx)
+        {
+            try
+            {
+                FireTimerSoftwareTrigger(capture.TimerIndex);
+                return $"timer{capture.TimerIndex} → Out{capture.OutputPort}";
+            }
+            catch (Exception timerEx)
+            {
+                return
+                    $"hardware-passthrough Out{capture.OutputPort}←In{capture.TriggerPort} " +
+                    $"(SetOutput={ShortErr(directEx)}; Timer={ShortErr(timerEx)})";
+            }
+        }
+    }
+
+    private string FireDirectOnly(IoCaptureOptions capture)
+    {
+        FireOutputPulse(capture.OutputPort, capture.PulseDurationMs);
+        return $"setoutput DO{capture.OutputPort}";
+    }
+
+    private string FireTimerOnly(IoCaptureOptions capture)
+    {
+        FireTimerSoftwareTrigger(capture.TimerIndex);
+        return $"timer{capture.TimerIndex} → Out{capture.OutputPort}";
+    }
+
+    private static string ShortErr(Exception ex)
+    {
+        string msg = ex.Message;
+        int cut = msg.IndexOf(". ", StringComparison.Ordinal);
+        return cut > 0 && cut < 100 ? msg[..cut] : (msg.Length > 100 ? msg[..100] : msg);
+    }
+
+    /// <summary>Software trigger Timer N — как Execute в MVS.</summary>
     public void FireTimerSoftwareTrigger(int timerIndex)
     {
         EnsureOpen();
@@ -212,12 +258,11 @@ internal sealed class IoBoxSession : IDisposable
         if (ret != MvIoNative.MvOk)
         {
             throw new InvalidOperationException(
-                $"Timer{timerIndex} software trigger failed: 0x{ret:x8} via {detail}. " +
-                "Проверьте MVS: Out5 Line Source = Timer 1, Trigger Source = Software, Duration/Delay в us.");
+                $"Timer{timerIndex} software trigger failed: 0x{ret:x8} via {detail}");
         }
     }
 
-    /// <summary>Прямой импульс на DO через MV_IO_SetOutput (OutN Line Source = Software/User).</summary>
+    /// <summary>Прямой импульс на DO через MV_IO_SetOutput.</summary>
     public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true)
     {
         EnsureOpen();
@@ -225,7 +270,6 @@ internal sealed class IoBoxSession : IDisposable
             throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
 
         int pulseDuration = Math.Clamp(durationMs, 1, 65535);
-        // SDK/доки расходятся: индекс 0..7, маска как у DI (0x10), либо номер 1..8 — пробуем все.
         uint[] portCandidates =
         [
             MvIoNative.OutputPortIndex(outputPort),
@@ -233,50 +277,56 @@ internal sealed class IoBoxSession : IDisposable
             (uint)outputPort
         ];
 
+        foreach (uint portEnc in portCandidates.Distinct())
+            TryOutputEnable(portEnc, MvIoNative.IoOutputEnableType.Start);
+
         int lastRet = unchecked((int)0x80000004);
         uint usedPort = portCandidates[0];
         foreach (uint portEnc in portCandidates.Distinct())
         {
-            var output = new MvIoNative.MvIoSetOutput
+            foreach (uint pattern in new uint[] { 0, 1 })
             {
-                Port = portEnc,
-                Pattern = (uint)MvIoNative.IoOutputPattern.Single,
-                PulseWidth = (uint)pulseDuration,
-                PulsePeriod = 1,
-                PulseDuration = (uint)pulseDuration,
-                Level = activeHigh ? 1u : 0u,
-                Reserved = new uint[8]
-            };
+                var output = new MvIoNative.MvIoSetOutput
+                {
+                    Port = portEnc,
+                    Pattern = pattern,
+                    PulseWidth = (uint)pulseDuration,
+                    PulsePeriod = Math.Max(1u, (uint)pulseDuration),
+                    PulseDuration = (uint)pulseDuration,
+                    Level = activeHigh ? 1u : 0u,
+                    Reserved = new uint[8]
+                };
 
-            lastRet = MvIoNative.SetOutput(_handle, ref output);
-            if (lastRet == MvIoNative.MvOk)
-            {
-                usedPort = portEnc;
-                break;
+                lastRet = MvIoNative.SetOutput(_handle, ref output);
+                if (lastRet == MvIoNative.MvOk)
+                {
+                    usedPort = portEnc;
+                    goto enableOk;
+                }
             }
         }
 
-        if (lastRet != MvIoNative.MvOk)
-        {
-            throw new InvalidOperationException(
-                $"MV_IO_SetOutput failed for DO{outputPort}: 0x{lastRet:x8}. " +
-                $"SetOutput работает только если Out{outputPort} Line Source = Software/User. " +
-                $"Для дубля DI→DO без Software: Out{outputPort}←InN на IO box и capture.enabled=false.");
-        }
+        throw new InvalidOperationException(
+            $"MV_IO_SetOutput failed for DO{outputPort}: 0x{lastRet:x8}");
 
-        var enable = new MvIoNative.MvIoOutputEnable
-        {
-            Port = usedPort,
-            Enable = (uint)MvIoNative.IoOutputEnableType.Start,
-            Reserved = new uint[8]
-        };
-
-        int ret = MvIoNative.SetOutputEnable(_handle, ref enable);
+        enableOk:
+        int ret = TryOutputEnable(usedPort, MvIoNative.IoOutputEnableType.Start);
         if (ret != MvIoNative.MvOk)
         {
             throw new InvalidOperationException(
                 $"MV_IO_SetOutputEnable failed for DO{outputPort}: 0x{ret:x8}");
         }
+    }
+
+    private int TryOutputEnable(uint portEnc, MvIoNative.IoOutputEnableType enableType)
+    {
+        var enable = new MvIoNative.MvIoOutputEnable
+        {
+            Port = portEnc,
+            Enable = (uint)enableType,
+            Reserved = new uint[8]
+        };
+        return MvIoNative.SetOutputEnable(_handle, ref enable);
     }
 
     public void Dispose()

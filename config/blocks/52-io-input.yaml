@@ -13,14 +13,13 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # Только UDP к оркестратору. DO5 из SDK = 0x80000004; MVS Out←In тоже не трогаем.
-  # Съёмка: DI3↑ → UDP → soft trigger камер (01-core capture_trigger_mode=software).
+  # DI3↑ → DO5: auto = SetOutput → Timer → иначе Out5←In3 на плате.
   capture:
-    enabled: false
+    enabled: true
     direction_port: 2
     trigger_port: 3
     output_port: 5
-    output_mode: direct
+    output_mode: auto
     pulse_duration_ms: 20
     require_direction: false
     direction_http:

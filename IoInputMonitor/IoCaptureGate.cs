@@ -200,7 +200,7 @@ internal sealed class IoCaptureOptions
     public int OutputPort { get; set; } = 5;
 
     /// <summary>direct = MV_IO_SetOutput; timer = software trigger Timer N (Out5←Timer в MVS).</summary>
-    public IoCaptureOutputMode OutputMode { get; set; } = IoCaptureOutputMode.Timer;
+    public IoCaptureOutputMode OutputMode { get; set; } = IoCaptureOutputMode.Auto;
 
     /// <summary>Номер таймера в MVS (Timer 1 → timer_index: 1).</summary>
     public int TimerIndex { get; set; } = 1;

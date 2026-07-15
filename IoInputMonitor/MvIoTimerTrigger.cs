@@ -3,8 +3,8 @@ using System.Runtime.InteropServices;
 namespace IoInputMonitor;
 
 /// <summary>
-/// Software trigger таймера IO box (кнопка Execute в MVS Counter And Timer Control).
-/// Имена экспортов зависят от версии MvIOInterfaceBox.dll — пробуем несколько вариантов.
+/// Software trigger таймера IO box (кнопка Execute в MVS).
+/// Ищем любой подходящий экспорт в DLL.
 /// </summary>
 internal static class MvIoTimerTrigger
 {
@@ -67,7 +67,20 @@ internal static class MvIoTimerTrigger
         if (!NativeLibrary.TryLoad("MvIOInterfaceBox.dll", typeof(MvIoNative).Assembly, null, out IntPtr module))
             return;
 
-        foreach (string export in CandidateExports)
+        var candidates = new List<string>(CandidateExports);
+        foreach (string export in MvIoDllExports.ListExports())
+        {
+            if (export.Contains("Timer", StringComparison.OrdinalIgnoreCase) &&
+                (export.Contains("Trigger", StringComparison.OrdinalIgnoreCase) ||
+                 export.Contains("Execute", StringComparison.OrdinalIgnoreCase) ||
+                 export.Contains("Software", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (!candidates.Contains(export, StringComparer.Ordinal))
+                    candidates.Add(export);
+            }
+        }
+
+        foreach (string export in candidates)
         {
             if (!NativeLibrary.TryGetExport(module, export, out IntPtr address))
                 continue;
@@ -80,7 +93,7 @@ internal static class MvIoTimerTrigger
             }
             catch (MarshalDirectiveException)
             {
-                // wrong signature — try next export name
+                // wrong signature
             }
         }
     }
@@ -95,6 +108,10 @@ internal static class MvIoTimerTrigger
         "MV_IO_TimerSoftwareTrigger",
         "MV_IO_TriggerTimerSoftware",
         "MV_IO_SetTimerSoftwareTrigger",
-        "MV_IO_ExecuteTimerSoftware"
+        "MV_IO_ExecuteTimerSoftware",
+        "MV_IO_SetTimerTrigger",
+        "MV_IO_TimerTrigger",
+        "MV_IO_SoftTriggerTimer",
+        "MV_IO_TriggerSoftware"
     ];
 }

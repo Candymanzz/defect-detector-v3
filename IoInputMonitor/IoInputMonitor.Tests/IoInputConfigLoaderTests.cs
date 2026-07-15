@@ -11,7 +11,8 @@ public class IoInputConfigLoaderTests
     [InlineData("software", IoCaptureOutputMode.Timer)]
     [InlineData("direct", IoCaptureOutputMode.Direct)]
     [InlineData("do", IoCaptureOutputMode.Direct)]
-    [InlineData(null, IoCaptureOutputMode.Timer)]
+    [InlineData("auto", IoCaptureOutputMode.Auto)]
+    [InlineData(null, IoCaptureOutputMode.Auto)]
     public void ParseOutputMode_mapsValues(string? raw, IoCaptureOutputMode expected) =>
         Assert.Equal(expected, IoInputConfigLoader.ParseOutputMode(raw));
 

@@ -5,7 +5,9 @@ namespace IoInputMonitor;
 internal enum IoCaptureOutputMode
 {
     Direct,
-    Timer
+    Timer,
+    /// <summary>Сначала SetOutput, потом Timer; если оба падают — не ошибка (Out5←In3 на плате).</summary>
+    Auto
 }
 
 /// <summary>

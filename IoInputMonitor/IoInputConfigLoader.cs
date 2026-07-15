@@ -221,13 +221,14 @@ public static class IoInputConfigLoader
     internal static IoCaptureOutputMode ParseOutputMode(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
-            return IoCaptureOutputMode.Timer;
+            return IoCaptureOutputMode.Auto;
 
         return raw.Trim().ToLowerInvariant() switch
         {
             "direct" or "do" or "setoutput" => IoCaptureOutputMode.Direct,
             "timer" or "software" => IoCaptureOutputMode.Timer,
-            _ => IoCaptureOutputMode.Timer
+            "auto" or "any" => IoCaptureOutputMode.Auto,
+            _ => IoCaptureOutputMode.Auto
         };
     }
 
