@@ -139,8 +139,24 @@ internal static class Program
                 captureGate.SeedDirection(dirInitial);
 
             Console.WriteLine(
-                $"Capture gate: UI={captureGate.SelectedWireValue} → {captureGate.DescribeExpectedArm()} → DO{options.Capture.OutputPort} " +
-                $"(require_direction={options.Capture.RequireDirection})");
+                $"Capture gate: UI={captureGate.SelectedWireValue} → {captureGate.DescribeExpectedArm()} → " +
+                DescribeCaptureOutput(options.Capture) +
+                $" (require_direction={options.Capture.RequireDirection})");
+
+            if (options.Capture.OutputMode == IoCaptureOutputMode.Timer)
+            {
+                if (MvIoTimerTrigger.IsAvailable)
+                {
+                    Console.WriteLine(
+                        $"Timer SDK: {MvIoTimerTrigger.ResolvedExport} (Timer{options.Capture.TimerIndex} → Out{options.Capture.OutputPort})");
+                }
+                else
+                {
+                    Console.WriteLine(
+                        "WARNING: MV_IO timer trigger export not found in MvIOInterfaceBox.dll — " +
+                        "проверьте версию SDK или поставьте output_mode: direct.");
+                }
+            }
         }
 
         using var directionHttp = IoLineDirectionHttpServer.TryStart(
@@ -211,7 +227,7 @@ internal static class Program
             }
 
             if (captureDecision == IoCaptureDecision.FireDo)
-                FireDoPulseLogged(session, sessionLock, consoleLock, options.Capture);
+                FireCapturePulseLogged(session, sessionLock, consoleLock, options.Capture);
 
             udpPublisher?.Publish(port, closed);
 
@@ -260,7 +276,7 @@ internal static class Program
                 break;
             case IoCaptureDecision.FireDo:
                 Console.WriteLine(
-                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ UI={mode} → SEND DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms");
+                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ UI={mode} → {DescribeCaptureSend(capture)}");
                 break;
             case IoCaptureDecision.DirectionModeChanged:
                 Console.WriteLine(
@@ -269,33 +285,46 @@ internal static class Program
         }
     }
 
-    private static void FireDoPulseLogged(
+    private static string DescribeCaptureOutput(IoCaptureOptions capture) =>
+        capture.OutputMode == IoCaptureOutputMode.Timer
+            ? $"Timer{capture.TimerIndex}→Out{capture.OutputPort} (MVS duration)"
+            : $"DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms";
+
+    private static string DescribeCaptureSend(IoCaptureOptions capture) =>
+        capture.OutputMode == IoCaptureOutputMode.Timer
+            ? $"TRIGGER Timer{capture.TimerIndex} → Out{capture.OutputPort}"
+            : $"SEND DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms";
+
+    private static void FireCapturePulseLogged(
         IoBoxSession session,
         object sessionLock,
         object consoleLock,
         IoCaptureOptions capture)
     {
-        int doPort = capture.OutputPort;
-        int durationMs = capture.PulseDurationMs;
         try
         {
             lock (sessionLock)
             {
-                session.FireOutputPulse(doPort, durationMs);
+                session.FireCapturePulse(capture);
             }
 
             lock (consoleLock)
             {
-                Console.WriteLine(
-                    $"[{Timestamp()}] DO{doPort} OK — импульс отправлен (duration={durationMs} ms)");
+                string ok = capture.OutputMode == IoCaptureOutputMode.Timer
+                    ? $"Timer{capture.TimerIndex} OK — software trigger → Out{capture.OutputPort}"
+                    : $"DO{capture.OutputPort} OK — импульс отправлен (duration={capture.PulseDurationMs} ms)";
+                Console.WriteLine($"[{Timestamp()}] {ok}");
             }
         }
         catch (Exception ex)
         {
             lock (consoleLock)
             {
+                string label = capture.OutputMode == IoCaptureOutputMode.Timer
+                    ? $"Timer{capture.TimerIndex}"
+                    : $"DO{capture.OutputPort}";
                 Console.Error.WriteLine(
-                    $"[{Timestamp()}] DO{doPort} FAIL — импульс НЕ прошёл: {ex.Message}");
+                    $"[{Timestamp()}] {label} FAIL — импульс НЕ прошёл: {ex.Message}");
             }
         }
     }

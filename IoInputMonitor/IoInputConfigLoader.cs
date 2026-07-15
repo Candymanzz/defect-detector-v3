@@ -155,7 +155,9 @@ public static class IoInputConfigLoader
             Enabled = raw.Enabled ?? false,
             DirectionPort = raw.DirectionPort is >= 1 and <= 8 ? raw.DirectionPort.Value : 2,
             TriggerPort = raw.TriggerPort is >= 1 and <= 8 ? raw.TriggerPort.Value : 3,
-            OutputPort = raw.OutputPort is >= 1 and <= 8 ? raw.OutputPort.Value : 1,
+            OutputPort = raw.OutputPort is >= 1 and <= 8 ? raw.OutputPort.Value : 5,
+            OutputMode = ParseOutputMode(raw.OutputMode),
+            TimerIndex = raw.TimerIndex is >= 1 and <= 8 ? raw.TimerIndex.Value : 1,
             PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 20,
             DirectionInvert = raw.DirectionInvert ?? false,
             RequireDirection = raw.RequireDirection ?? true,
@@ -213,6 +215,19 @@ public static class IoInputConfigLoader
             "text_di" or "di_text" or "di" => IoInputUdpPayloadFormat.TextDi,
             "byte_di" or "di_byte" or "bytes" => IoInputUdpPayloadFormat.ByteDi,
             _ => IoInputUdpPayloadFormat.Json
+        };
+    }
+
+    internal static IoCaptureOutputMode ParseOutputMode(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return IoCaptureOutputMode.Timer;
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "direct" or "do" or "setoutput" => IoCaptureOutputMode.Direct,
+            "timer" or "software" => IoCaptureOutputMode.Timer,
+            _ => IoCaptureOutputMode.Timer
         };
     }
 
@@ -304,6 +319,10 @@ public static class IoInputConfigLoader
         public int? TriggerPort { get; set; }
 
         public int? OutputPort { get; set; }
+
+        public string? OutputMode { get; set; }
+
+        public int? TimerIndex { get; set; }
 
         public int? PulseDurationMs { get; set; }
 

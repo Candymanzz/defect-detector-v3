@@ -7,6 +7,15 @@ namespace IoInputMonitor.Tests;
 public class IoInputConfigLoaderTests
 {
     [Theory]
+    [InlineData("timer", IoCaptureOutputMode.Timer)]
+    [InlineData("software", IoCaptureOutputMode.Timer)]
+    [InlineData("direct", IoCaptureOutputMode.Direct)]
+    [InlineData("do", IoCaptureOutputMode.Direct)]
+    [InlineData(null, IoCaptureOutputMode.Timer)]
+    public void ParseOutputMode_mapsValues(string? raw, IoCaptureOutputMode expected) =>
+        Assert.Equal(expected, IoInputConfigLoader.ParseOutputMode(raw));
+
+    [Theory]
     [InlineData("rising", IoInputEdgeMode.Rising)]
     [InlineData("falling", IoInputEdgeMode.Falling)]
     [InlineData("both", IoInputEdgeMode.Both)]

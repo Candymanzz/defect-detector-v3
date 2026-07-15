@@ -2,6 +2,12 @@ using System.Runtime.InteropServices;
 
 namespace IoInputMonitor;
 
+internal enum IoCaptureOutputMode
+{
+    Direct,
+    Timer
+}
+
 /// <summary>
 /// P/Invoke к MvIOInterfaceBox.dll (Hikrobot MV IO Box).
 /// Порты DI — битовые маски: DI1=0x01, DI2=0x02, … DI8=0x80 (см. IoPortNumber).
@@ -178,6 +184,12 @@ internal static class MvIoNative
 
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_SetOutputEnable")]
     public static extern int SetOutputEnable(IntPtr handle, ref MvIoOutputEnable enable);
+
+    /// <summary>DO в SDK — 0-based индекс (DO5 → 4), не битовая маска как у DI.</summary>
+    public static uint OutputPortIndex(int outputPort) =>
+        outputPort is < 1 or > 8
+            ? throw new ArgumentOutOfRangeException(nameof(outputPort), outputPort, "DO port must be 1..8.")
+            : (uint)(outputPort - 1);
 
     public static int PortFromMask(byte portMask) =>
         portMask switch

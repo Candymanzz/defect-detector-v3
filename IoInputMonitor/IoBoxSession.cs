@@ -194,7 +194,30 @@ internal sealed class IoBoxSession : IDisposable
             throw new InvalidOperationException($"MV_IO_RegisterEdgeDetectionCallBack failed: 0x{ret:x8}");
     }
 
-    /// <summary>Одиночный импульс на DO (DI3→DO0 для Line0 камер).</summary>
+    /// <summary>Импульс на Line0: direct DO или software trigger таймера (Out5←Timer1 в MVS).</summary>
+    public void FireCapturePulse(IoCaptureOptions capture)
+    {
+        EnsureOpen();
+        if (capture.OutputMode == IoCaptureOutputMode.Timer)
+            FireTimerSoftwareTrigger(capture.TimerIndex);
+        else
+            FireOutputPulse(capture.OutputPort, capture.PulseDurationMs);
+    }
+
+    /// <summary>Software trigger Timer N — как Execute в MVS (Out5 должен быть Line Source = Timer N).</summary>
+    public void FireTimerSoftwareTrigger(int timerIndex)
+    {
+        EnsureOpen();
+        int ret = MvIoTimerTrigger.TriggerSoftware(_handle, timerIndex, out string detail);
+        if (ret != MvIoNative.MvOk)
+        {
+            throw new InvalidOperationException(
+                $"Timer{timerIndex} software trigger failed: 0x{ret:x8} via {detail}. " +
+                "Проверьте MVS: Out5 Line Source = Timer 1, Trigger Source = Software, Duration/Delay в us.");
+        }
+    }
+
+    /// <summary>Прямой импульс на DO через MV_IO_SetOutput (только если Line Source = Software/User).</summary>
     public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true)
     {
         EnsureOpen();
@@ -204,9 +227,9 @@ internal sealed class IoBoxSession : IDisposable
         int pulseDuration = Math.Clamp(durationMs, 1, 65535);
         var output = new MvIoNative.MvIoSetOutput
         {
-            Port = MvIoNative.PortMaskForUint(outputPort),
+            Port = MvIoNative.OutputPortIndex(outputPort),
             Pattern = (uint)MvIoNative.IoOutputPattern.Single,
-            PulseWidth = 1,
+            PulseWidth = (uint)pulseDuration,
             PulsePeriod = 1,
             PulseDuration = (uint)pulseDuration,
             Level = activeHigh ? 1u : 0u,
@@ -217,12 +240,13 @@ internal sealed class IoBoxSession : IDisposable
         if (ret != MvIoNative.MvOk)
         {
             throw new InvalidOperationException(
-                $"MV_IO_SetOutput failed for DO{outputPort}: 0x{ret:x8}");
+                $"MV_IO_SetOutput failed for DO{outputPort}: 0x{ret:x8}. " +
+                "Если Out5 в MVS = Timer 1, используйте output_mode: timer.");
         }
 
         var enable = new MvIoNative.MvIoOutputEnable
         {
-            Port = MvIoNative.PortMaskForUint(outputPort),
+            Port = MvIoNative.OutputPortIndex(outputPort),
             Enable = (uint)MvIoNative.IoOutputEnableType.Start,
             Reserved = new uint[8]
         };

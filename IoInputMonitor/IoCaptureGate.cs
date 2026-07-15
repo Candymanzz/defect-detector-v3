@@ -196,8 +196,14 @@ internal sealed class IoCaptureOptions
 
     public int TriggerPort { get; set; } = 3;
 
-    /// <summary>DO-порт IO box (1=DO0/первый выход → Line0 камер).</summary>
-    public int OutputPort { get; set; } = 1;
+    /// <summary>DO-порт IO box (1..8; по умолчанию DO5 → Line0 камер).</summary>
+    public int OutputPort { get; set; } = 5;
+
+    /// <summary>direct = MV_IO_SetOutput; timer = software trigger Timer N (Out5←Timer в MVS).</summary>
+    public IoCaptureOutputMode OutputMode { get; set; } = IoCaptureOutputMode.Timer;
+
+    /// <summary>Номер таймера в MVS (Timer 1 → timer_index: 1).</summary>
+    public int TimerIndex { get; set; } = 1;
 
     public int PulseDurationMs { get; set; } = 20;
 
