@@ -448,7 +448,8 @@ public final class IntegrationBootstrap {
                 log.error("No camera workers started successfully; integration pipeline skipped.");
                 return;
             }
-            applyPersistedCameraSettings(workersByCamera, cameraSettingsStore);
+            boolean hardwareLineTriggerForPersist = parseSimultaneousLineCaptureHardwareLineTrigger(integration, root);
+            applyPersistedCameraSettings(workersByCamera, cameraSettingsStore, hardwareLineTriggerForPersist);
             Map<Integer, String> analysisProfileByCamera = new LinkedHashMap<>();
             for (Map<String, Object> camera : activeCameras) {
                 int cameraId = ((Number) camera.get("id")).intValue();
@@ -1063,7 +1064,8 @@ public final class IntegrationBootstrap {
 
     private static void applyPersistedCameraSettings(
             Map<Integer, WorkerProcessSupervisor> workersByCamera,
-            CameraSettingsStore cameraSettingsStore
+            CameraSettingsStore cameraSettingsStore,
+            boolean hardwareLineTrigger
     ) {
         if (cameraSettingsStore == null || workersByCamera == null || workersByCamera.isEmpty()) {
             return;
@@ -1071,8 +1073,14 @@ public final class IntegrationBootstrap {
         if (cameraSettingsStore.allSettings().isEmpty()) {
             return;
         }
+        if (hardwareLineTrigger) {
+            log.info(
+                    "camera persisted settings: capture_trigger_mode skipped (hardware_line_trigger=true; worker keeps line0 from config.json)"
+            );
+        }
         CameraWorkersHolder workersHolder = new CameraWorkersHolder();
         workersHolder.set(workersByCamera);
-        new CameraSettingsService(workersHolder, null, cameraSettingsStore).applyPersistedSettings();
+        Set<String> excludeKeys = hardwareLineTrigger ? Set.of("capture_trigger_mode") : Set.of();
+        new CameraSettingsService(workersHolder, null, cameraSettingsStore).applyPersistedSettings(excludeKeys);
     }
 }

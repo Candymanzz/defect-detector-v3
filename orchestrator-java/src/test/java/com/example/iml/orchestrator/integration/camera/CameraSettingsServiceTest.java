@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.camera;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,5 +35,19 @@ class CameraSettingsServiceTest {
     void parsePatchBodyReturnsEmptyForBlankInput() {
         assertTrue(CameraSettingsService.parsePatchBody(Map.of()).isEmpty());
         assertTrue(CameraSettingsService.parsePatchBody(null).isEmpty());
+    }
+
+    @Test
+    void filterSettingsRemovesExcludedKeys() {
+        Map<String, Object> source = Map.of(
+                "exposure_us", 4500,
+                "capture_trigger_mode", "software"
+        );
+        Map<String, Object> filtered = CameraSettingsService.filterSettings(
+                source,
+                Set.of("capture_trigger_mode")
+        );
+        assertEquals(1, filtered.size());
+        assertEquals(4500, filtered.get("exposure_us"));
     }
 }

@@ -55,12 +55,19 @@ public final class CameraSettingsService {
     }
 
     public void applyPersistedSettings() {
+        applyPersistedSettings(Set.of());
+    }
+
+    /**
+     * @param excludeKeys settings not sent to worker (e.g. {@code capture_trigger_mode} when hardware Line0 is used)
+     */
+    public void applyPersistedSettings(Set<String> excludeKeys) {
         if (settingsStore == null) {
             return;
         }
         for (Map.Entry<Integer, Map<String, Object>> entry : settingsStore.allSettings().entrySet()) {
             int cameraId = entry.getKey();
-            Map<String, Object> settings = entry.getValue();
+            Map<String, Object> settings = filterSettings(entry.getValue(), excludeKeys);
             if (settings.isEmpty()) {
                 continue;
             }
@@ -71,6 +78,18 @@ public final class CameraSettingsService {
                 LOG.warn("camera persisted settings apply failed camera={}: {}", cameraId, e.getMessage());
             }
         }
+    }
+
+    static Map<String, Object> filterSettings(Map<String, Object> settings, Set<String> excludeKeys) {
+        if (settings == null || settings.isEmpty()) {
+            return Map.of();
+        }
+        if (excludeKeys == null || excludeKeys.isEmpty()) {
+            return settings;
+        }
+        Map<String, Object> filtered = new LinkedHashMap<>(settings);
+        excludeKeys.forEach(filtered::remove);
+        return filtered;
     }
 
     private Map<String, Object> applySettings(int cameraId, Map<String, Object> update, boolean persist) throws IOException {
