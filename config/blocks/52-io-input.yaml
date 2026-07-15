@@ -13,19 +13,14 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # Съёмка по DI3↑ без DI2. Line0 — в MVS: Out5 Line Source = In 3 (DI3→Out5 напрямую).
-  # Timer/SetOutput в DLL не работает — capture.enabled=false, только UDP DI3→оркестратор.
+  # DI3↑ → UDP оркестратору. Импульс DO5: в MVS Out5 Line Source = In 3 (DI3→Out5→Line0).
+  # SDK SetOutput/Timer на этой плате не работают — DO не дёргаем из кода.
   capture:
     enabled: false
     direction_port: 2
     trigger_port: 3
     output_port: 5
-    output_mode: timer
-    timer_index: 1
-    pulse_duration_ms: 100
-    direction_invert: false
     require_direction: false
-    initial_direction: reverse
     direction_http:
       enabled: false
       host: 127.0.0.1
