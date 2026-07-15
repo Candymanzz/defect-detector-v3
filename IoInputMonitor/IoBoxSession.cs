@@ -194,6 +194,47 @@ internal sealed class IoBoxSession : IDisposable
             throw new InvalidOperationException($"MV_IO_RegisterEdgeDetectionCallBack failed: 0x{ret:x8}");
     }
 
+    /// <summary>Одиночный импульс на DO (DI3→DO0 для Line0 камер).</summary>
+    public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true)
+    {
+        EnsureOpen();
+        if (outputPort is < 1 or > 8)
+            throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
+
+        int pulseDuration = Math.Clamp(durationMs, 1, 65535);
+        var output = new MvIoNative.MvIoSetOutput
+        {
+            Port = MvIoNative.PortMaskForUint(outputPort),
+            Pattern = (uint)MvIoNative.IoOutputPattern.Single,
+            PulseWidth = 1,
+            PulsePeriod = 1,
+            PulseDuration = (uint)pulseDuration,
+            Level = activeHigh ? 1u : 0u,
+            Reserved = new uint[8]
+        };
+
+        int ret = MvIoNative.SetOutput(_handle, ref output);
+        if (ret != MvIoNative.MvOk)
+        {
+            throw new InvalidOperationException(
+                $"MV_IO_SetOutput failed for DO{outputPort}: 0x{ret:x8}");
+        }
+
+        var enable = new MvIoNative.MvIoOutputEnable
+        {
+            Port = MvIoNative.PortMaskForUint(outputPort),
+            Enable = (uint)MvIoNative.IoOutputEnableType.Start,
+            Reserved = new uint[8]
+        };
+
+        ret = MvIoNative.SetOutputEnable(_handle, ref enable);
+        if (ret != MvIoNative.MvOk)
+        {
+            throw new InvalidOperationException(
+                $"MV_IO_SetOutputEnable failed for DO{outputPort}: 0x{ret:x8}");
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)

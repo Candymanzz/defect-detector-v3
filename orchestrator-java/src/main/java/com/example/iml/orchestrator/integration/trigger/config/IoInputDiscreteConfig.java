@@ -24,11 +24,12 @@ public record IoInputDiscreteConfig(
         boolean directionInvert,
         int directionWaitMs,
         int directionPollMs,
-        int captureDelayMs
+        int captureDelayMs,
+        boolean externalHardwareCapture
 ) {
 
     public static IoInputDiscreteConfig defaults() {
-        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, false, false, 5000, 50, 0);
+        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, false, false, 5000, 50, 0, false);
     }
 
     public static IoInputDiscreteConfig parse(Map<String, Object> integration, int udpDebounceMs) {
@@ -74,6 +75,10 @@ public record IoInputDiscreteConfig(
         int directionWaitMs = Math.max(0, YamlScalars.toInt(io.get("direction_wait_ms"), defaults.directionWaitMs()));
         int directionPollMs = Math.max(1, YamlScalars.toInt(io.get("direction_poll_ms"), defaults.directionPollMs()));
         int captureDelayMs = Math.max(0, YamlScalars.toInt(io.get("capture_delay_ms"), defaults.captureDelayMs()));
+        boolean externalHardwareCapture = YamlScalars.toBool(
+                io.get("external_hardware_capture"),
+                defaults.externalHardwareCapture()
+        );
         return new IoInputDiscreteConfig(
                 workPort,
                 directionPort,
@@ -90,7 +95,8 @@ public record IoInputDiscreteConfig(
                 directionInvert,
                 directionWaitMs,
                 directionPollMs,
-                captureDelayMs
+                captureDelayMs,
+                externalHardwareCapture
         );
     }
 
@@ -112,7 +118,8 @@ public record IoInputDiscreteConfig(
                 defaults.directionInvert(),
                 defaults.directionWaitMs(),
                 defaults.directionPollMs(),
-                defaults.captureDelayMs()
+                defaults.captureDelayMs(),
+                defaults.externalHardwareCapture()
         );
     }
 

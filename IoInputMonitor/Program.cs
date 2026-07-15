@@ -129,6 +129,20 @@ internal static class Program
         }
 
         using var udpPublisher = IoInputUdpPublisher.TryCreate(options.UdpPublish, options.InputPorts);
+        IoCaptureGate? captureGate = options.Capture.Enabled
+            ? new IoCaptureGate(options.Capture)
+            : null;
+
+        if (captureGate != null)
+        {
+            if (portPressed.TryGetValue(options.Capture.DirectionPort, out bool dirInitial))
+                captureGate.SeedDirection(dirInitial);
+
+            Console.WriteLine(
+                $"Capture gate: DI{options.Capture.DirectionPort}=1 → arm, DI{options.Capture.TriggerPort}↑ → DO{options.Capture.OutputPort} pulse {options.Capture.PulseDurationMs} ms " +
+                $"(require_direction={options.Capture.RequireDirection})");
+        }
+
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
             int triggerPort = options.UdpPublish.TriggerPort;
@@ -180,10 +194,35 @@ internal static class Program
                 ? portPressed[port]
                 : edge == MvIoNative.IoEdgeType.Rising;
 
+            bool risingEdge = edge == MvIoNative.IoEdgeType.Rising;
+            bool fireDo = captureGate != null && captureGate.TryFireCapture(port, closed, risingEdge);
+
             lock (consoleLock)
             {
                 string udpSuffix = udpPublisher != null ? $"  [udp {port}:{(closed ? 1 : 0)}]" : "";
-                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
+                string doSuffix = fireDo ? $"  [DO{options.Capture.OutputPort} pulse]" : "";
+                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}{doSuffix}");
+            }
+
+            if (fireDo)
+            {
+                try
+                {
+                    lock (sessionLock)
+                    {
+                        session.FireOutputPulse(
+                            options.Capture.OutputPort,
+                            options.Capture.PulseDurationMs);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lock (consoleLock)
+                    {
+                        Console.Error.WriteLine(
+                            $"[{Timestamp()}] DO{options.Capture.OutputPort} pulse failed: {ex.Message}");
+                    }
+                }
             }
 
             udpPublisher?.Publish(port, closed);
@@ -375,6 +414,7 @@ internal static class Program
         public bool ConfigureSdk { get; set; }
         public int DebounceMs { get; set; } = 50;
         public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
+        public IoCaptureOptions Capture { get; set; } = new();
         public bool ScanAll { get; set; }
         public bool ProbePorts { get; set; }
         public bool ListPorts { get; set; }
@@ -433,6 +473,7 @@ internal static class Program
                 ConfigureSdk = loaded.Options.ConfigureSdk,
                 DebounceMs = loaded.Options.DebounceMs,
                 UdpPublish = loaded.Options.UdpPublish,
+                Capture = loaded.Options.Capture,
                 ConfigPath = loaded.ConfigPath
             };
         }

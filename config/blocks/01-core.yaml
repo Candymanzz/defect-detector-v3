@@ -11,9 +11,8 @@ frame:
   binning_mode: "Sum"
 
 capture_source: "hik"
-# software: экспозиция по команде ПК (trigger_only) сразу после DI3 (~30 мс IPC), все 10 камер параллельно.
-# line0 + hardware_line_trigger (ниже): экспозиция строго в момент DI3→Line0 (идеал для конвейера).
-capture_trigger_mode: "software"
+# line0 + hardware_line_trigger: экспозиция по DI3→DO0→Line0 (IoInputMonitor); оркестратор только wait_frame.
+capture_trigger_mode: "line0"
 frame_timeout_ms: 15000
 # GigE-топология: 5 коммутаторов, на каждом 2 камеры (пары id: 0+1, 2+3, … 8+9).
 # gige_switch_buffer_kb — физический egress коммутатора (448 КБ). Должен совпадать с железом.
@@ -55,10 +54,10 @@ integration:
     transfer_wait_waves: 1
     # Пауза между волнами wait_frame (только если transfer_wait_waves > 1). При 448 КБ достаточно ~15 мс.
     transfer_wave_gap_ms: 15
-    # true только если DI3 разведён на Line0 всех камер (идеальная одновременность в момент DI3).
-    hardware_line_trigger: false
-    # DI3 → сразу trigger_only (экспозиция); wait_frame+pin в фоне — инспекция не задерживает следующий DI3.
-    immediate_prefire: true
+    # true: экспозиция по DI3→DO0→Line0 (IoInputMonitor); оркестратор только wait_frame, без trigger_only.
+    hardware_line_trigger: true
+    # DI3 → wait_frame (экспозиция уже на Line0); инспекция не задерживает следующий DI3.
+    immediate_prefire: false
   geometry_pool_size: 10
   positioning_pool_size: 10
   python_parallelism: 10
@@ -105,14 +104,14 @@ integration:
       trigger_port: 3
       direction_latch_on_work: false
       di3_only: true
-      # DI3↑ + UI направление: снимаем все камеры только если DI2 = выбранный ход
-      # (Обратный ход → DI3 при ходе назад; DI3 при ходе вперёд игнорируем).
+      # DI3↑ только после DI2=1 (съёмка и DO0 — в IoInputMonitor); оркестратор — инспекция без trigger_only.
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: false
+      require_direction: true
       require_work: false
+      external_hardware_capture: true   # экспозиция через IoInputMonitor DO0, не trigger_only
       direction_poll_ms: 1
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:

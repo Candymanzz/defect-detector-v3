@@ -538,18 +538,16 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
         long triggerReceivedMs = System.currentTimeMillis();
         List<Integer> targetCameras = resolveTargetCameras(true);
-        long seq = bus.prefireLineBroadcast("io_input", targetCameras);
-        int published = bus.dispatchLineBroadcast("io_input", seq, targetCameras);
+        int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
             log.info(
-                    "io_input_trigger instant capture session_forward={} session_raw={} cameras={} target={} seq={} dispatch_ms={}",
+                    "io_input_trigger instant capture session_forward={} session_raw={} cameras={} target={} dispatch_ms={}",
                     workSessionDirection.sessionDirectionActive() ? 1 : 0,
                     workSessionDirection.sessionDirectionRaw() ? 1 : 0,
                     published,
                     formatCameraTarget(targetCameras),
-                    seq,
                     dispatchMs
             );
         }
@@ -610,21 +608,28 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
         long triggerReceivedMs = System.currentTimeMillis();
         List<Integer> targetCameras = resolveTargetCameras(false);
-        long seq = bus.prefireLineBroadcast("io_input", targetCameras);
-        int published = bus.dispatchLineBroadcast("io_input", seq, targetCameras);
+        int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
             log.info(
-                    "io_input_trigger DI3 capture direction={} source={} cameras={} target={} seq={} dispatch_ms={}",
+                    "io_input_trigger DI3 capture direction={} source={} cameras={} target={} dispatch_ms={} hardware={}",
                     effectiveDirectionWire(),
                     directionSourceLabel(),
                     published,
                     formatCameraTarget(targetCameras),
-                    seq,
-                    dispatchMs
+                    dispatchMs,
+                    ioInputConfig.externalHardwareCapture()
             );
         }
+    }
+
+    private int publishLineCapture(List<Integer> targetCameras) {
+        if (ioInputConfig.externalHardwareCapture()) {
+            return bus.dispatchLineBroadcastWithoutPrefire("io_input", targetCameras);
+        }
+        long seq = bus.prefireLineBroadcast("io_input", targetCameras);
+        return bus.dispatchLineBroadcast("io_input", seq, targetCameras);
     }
 
     /**
