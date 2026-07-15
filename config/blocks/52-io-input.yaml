@@ -13,12 +13,10 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # Дубль DI3→DO5:
-  #  А) железо: Out5 Line Source = In 3 → capture.enabled=false (код DO не трогает)
-  #  Б) код: Out5 Line Source = Software/User → enabled=true, output_mode=direct
-  # Timer не используем. Сейчас Out5 не Software → SetOutput даёт 0x80000004.
+  # Только UDP к оркестратору. DO5 из SDK = 0x80000004; MVS Out←In тоже не трогаем.
+  # Съёмка: DI3↑ → UDP → soft trigger камер (01-core capture_trigger_mode=software).
   capture:
-    enabled: true
+    enabled: false
     direction_port: 2
     trigger_port: 3
     output_port: 5

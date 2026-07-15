@@ -11,8 +11,8 @@ frame:
   binning_mode: "Sum"
 
 capture_source: "hik"
-# DI3 → Out5 (DO5) → Line0 камер; оркестратор только wait_frame.
-capture_trigger_mode: "line0"
+# DI3↑ → UDP → soft trigger камерам (без MVS Out5/Line0; DO из SDK на этой плате не работает).
+capture_trigger_mode: "software"
 frame_timeout_ms: 15000
 # GigE-топология: 5 коммутаторов, на каждом 2 камеры (пары id: 0+1, 2+3, … 8+9).
 # gige_switch_buffer_kb — физический egress коммутатора (448 КБ). Должен совпадать с железом.
@@ -54,10 +54,10 @@ integration:
     transfer_wait_waves: 1
     # Пауза между волнами wait_frame (только если transfer_wait_waves > 1). При 448 КБ достаточно ~15 мс.
     transfer_wave_gap_ms: 15
-    # true: экспозиция по DI3→DO5→Line0; Java только wait_frame (без trigger_only).
-    hardware_line_trigger: true
-    # DI3 → wait_frame; инспекция не блокирует следующий DI3.
-    immediate_prefire: false
+    # false: экспозиция soft trigger_only из Java (без DO5/Line0 / без MVS).
+    hardware_line_trigger: false
+    # DI3↑ → сразу trigger_only всем камерам, затем wait_frame.
+    immediate_prefire: true
   geometry_pool_size: 10
   positioning_pool_size: 10
   python_parallelism: 10
@@ -104,14 +104,14 @@ integration:
       trigger_port: 3
       direction_latch_on_work: false
       di3_only: true
-      # DI3↑ → wait_frame; экспозиция уже на Line0 через DO5 (без DI2).
+      # DI3↑ → soft trigger камерам (без DI2 / без DO5).
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
       require_direction: false
       require_work: false
-      external_hardware_capture: true   # не слать trigger_only — кадр по Line0
+      external_hardware_capture: false   # оркестратор шлёт trigger_only
       direction_poll_ms: 1
   # Куда оркестратор прокидывает UI «Прямой/Обратный ход» (IoInputMonitor direction_http).
   io_input_monitor_direction_url: "http://127.0.0.1:9101"

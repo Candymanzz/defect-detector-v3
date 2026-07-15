@@ -224,14 +224,6 @@ internal static class Program
                 string udpSuffix = udpPublisher != null ? $"  [udp {port}:{(closed ? 1 : 0)}]" : "";
                 Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
                 LogCaptureDecision(captureDecision, options.Capture, captureGate);
-                if (captureGate == null &&
-                    risingEdge &&
-                    port == options.Capture.TriggerPort)
-                {
-                    Console.WriteLine(
-                        $"[{Timestamp()}] DO{options.Capture.OutputPort}: НЕ отправляется — capture.enabled=false " +
-                        $"(импульс только если Out{options.Capture.OutputPort}←In{options.Capture.TriggerPort} на IO box)");
-                }
             }
 
             if (captureDecision == IoCaptureDecision.FireDo)
