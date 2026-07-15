@@ -637,6 +637,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
      * Пример: «Обратный ход» → DI3 при ходе вперёд игнорируем, при ходе назад — снимаем все камеры.
      */
     private boolean allowsCaptureForSelectedDirection() {
+        if (!ioInputConfig.requireDirection()) {
+            return true;
+        }
         boolean travelForward = directionActive;
         if (manualLineDirection != null) {
             boolean selectedForward = manualLineDirection.isForward();
@@ -649,9 +652,6 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     travelForward ? "forward" : "reverse"
             );
             return false;
-        }
-        if (!ioInputConfig.requireDirection()) {
-            return true;
         }
         return travelForward;
     }

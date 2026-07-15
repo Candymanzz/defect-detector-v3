@@ -104,12 +104,12 @@ integration:
       trigger_port: 3
       direction_latch_on_work: false
       di3_only: true
-      # DI3↑ только после DI2=1 (съёмка и DO0 — в IoInputMonitor); оркестратор — инспекция без trigger_only.
+      # DI3↑ → съёмка сразу (DI2 временно не проверяем). Line0: Out5=In3 в MVS.
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: true
+      require_direction: false
       require_work: false
       external_hardware_capture: true   # экспозиция через IoInputMonitor DO0, не trigger_only
       direction_poll_ms: 1

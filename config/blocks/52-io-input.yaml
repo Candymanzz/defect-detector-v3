@@ -13,23 +13,23 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # Съёмка: UI-ход + DI2/DI3 → Timer1 → Out5 (Line0 камер).
-  # Прямой: DI2=1 затем DI3↑; обратный: DI2=0 затем DI3↑.
+  # Съёмка по DI3↑ без DI2. Line0 — в MVS: Out5 Line Source = In 3 (DI3→Out5 напрямую).
+  # Timer/SetOutput в DLL не работает — capture.enabled=false, только UDP DI3→оркестратор.
   capture:
-    enabled: true
+    enabled: false
     direction_port: 2
     trigger_port: 3
-    output_port: 5      # Out5 → Line0 всех камер
-    output_mode: timer  # Out5 в MVS = Timer 1 (не SetOutput)
-    timer_index: 1      # Counter And Timer Control → Timer 1, Trigger Source = Software
-    pulse_duration_ms: 100  # только для output_mode: direct; для timer — Duration в MVS (us)
+    output_port: 5
+    output_mode: timer
+    timer_index: 1
+    pulse_duration_ms: 100
     direction_invert: false
-    require_direction: true
+    require_direction: false
     initial_direction: reverse
     direction_http:
-      enabled: true
+      enabled: false
       host: 127.0.0.1
-      port: 9101        # PUT {"direction":"forward"|"reverse"} от оркестратора/UI
+      port: 9101
 
   publish:
     udp:
