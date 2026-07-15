@@ -224,6 +224,14 @@ internal static class Program
                 string udpSuffix = udpPublisher != null ? $"  [udp {port}:{(closed ? 1 : 0)}]" : "";
                 Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
                 LogCaptureDecision(captureDecision, options.Capture, captureGate);
+                if (captureGate == null &&
+                    risingEdge &&
+                    port == options.Capture.TriggerPort)
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] DO{options.Capture.OutputPort}: НЕ отправляется — capture.enabled=false " +
+                        "(ожидается MVS Out{options.Capture.OutputPort}←In{options.Capture.TriggerPort})");
+                }
             }
 
             if (captureDecision == IoCaptureDecision.FireDo)
@@ -268,15 +276,16 @@ internal static class Program
                 break;
             case IoCaptureDecision.SkipNoDirection:
                 Console.WriteLine(
-                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ SKIP — UI={mode}, жду {expect}, DO не шлём");
+                    $"[{Timestamp()}] DO{capture.OutputPort}: НЕ отправляется — DI{capture.TriggerPort}↑ SKIP " +
+                    $"(UI={mode}, жду {expect})");
                 break;
             case IoCaptureDecision.SkipAlreadyFired:
                 Console.WriteLine(
-                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ SKIP — импульс уже был в этом пульсе");
+                    $"[{Timestamp()}] DO{capture.OutputPort}: НЕ отправляется — импульс уже был в этом пульсе");
                 break;
             case IoCaptureDecision.FireDo:
                 Console.WriteLine(
-                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ UI={mode} → {DescribeCaptureSend(capture)}");
+                    $"[{Timestamp()}] DO{capture.OutputPort}: SEND — DI{capture.TriggerPort}↑ UI={mode} → {DescribeCaptureSend(capture)}");
                 break;
             case IoCaptureDecision.DirectionModeChanged:
                 Console.WriteLine(
@@ -301,8 +310,25 @@ internal static class Program
         object consoleLock,
         IoCaptureOptions capture)
     {
+        int doPort = capture.OutputPort;
+        int sdkIndex = doPort - 1;
         try
         {
+            lock (consoleLock)
+            {
+                if (capture.OutputMode == IoCaptureOutputMode.Timer)
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] DO{doPort}: вызов Timer{capture.TimerIndex} software trigger → Out{doPort}…");
+                }
+                else
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] DO{doPort}: вызов MV_IO_SetOutput (SDK port index={sdkIndex}, " +
+                        $"pulse={capture.PulseDurationMs} ms)…");
+                }
+            }
+
             lock (sessionLock)
             {
                 session.FireCapturePulse(capture);
@@ -311,8 +337,8 @@ internal static class Program
             lock (consoleLock)
             {
                 string ok = capture.OutputMode == IoCaptureOutputMode.Timer
-                    ? $"Timer{capture.TimerIndex} OK — software trigger → Out{capture.OutputPort}"
-                    : $"DO{capture.OutputPort} OK — импульс отправлен (duration={capture.PulseDurationMs} ms)";
+                    ? $"DO{doPort}: OK — Timer{capture.TimerIndex} software trigger принят SDK → Out{doPort}"
+                    : $"DO{doPort}: OK — SetOutput+Enable приняты SDK (index={sdkIndex}, duration={capture.PulseDurationMs} ms)";
                 Console.WriteLine($"[{Timestamp()}] {ok}");
             }
         }
@@ -320,11 +346,8 @@ internal static class Program
         {
             lock (consoleLock)
             {
-                string label = capture.OutputMode == IoCaptureOutputMode.Timer
-                    ? $"Timer{capture.TimerIndex}"
-                    : $"DO{capture.OutputPort}";
                 Console.Error.WriteLine(
-                    $"[{Timestamp()}] {label} FAIL — импульс НЕ прошёл: {ex.Message}");
+                    $"[{Timestamp()}] DO{doPort}: FAIL — импульс НЕ прошёл (SDK index={sdkIndex}): {ex.Message}");
             }
         }
     }
