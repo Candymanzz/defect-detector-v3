@@ -35,6 +35,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     private final BFMatcher optimizedMatcher;
     private final StageTimingSink stageTimingSink;
     private PreparedReference preparedReferenceCache;
+    /** Empty mask for detectAndCompute — means "no mask"; never released. */
+    private final Mat emptyDetectMask = new Mat();
 
     public OpenCvGeometryAnalysisService(ImageCodec imageCodec, CalibrationService calibrationService) {
         this(imageCodec, calibrationService, true, true);
@@ -129,8 +131,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             validateInputFrames(reference, current);
 
             Rect mainRect = resolveMainRect(request, current.cols(), current.rows());
-            referenceRoi = new Mat(reference, mainRect).clone();
-            currentRoi = new Mat(current, mainRect).clone();
+            referenceRoi = cloneRoi(reference, mainRect);
+            currentRoi = cloneRoi(current, mainRect);
             if (mainPolygon != null && mainPolygon.size() >= 3) {
                 roiMask = RoiPolygonMask.maskForRect(mainPolygon, mainRect, current.cols(), current.rows());
                 RoiPolygonMask.applyMask(referenceRoi, roiMask);
@@ -264,8 +266,11 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         Mat curGrayScaled = null;
         Mat curDescriptors = new Mat();
         MatOfKeyPoint curKeypoints = new MatOfKeyPoint();
+        PreparedReference preparedReference = null;
+        boolean releasePrepared = false;
         try {
-            PreparedReference preparedReference = getOrBuildPreparedReference(referenceRoi, referenceCacheKey);
+            preparedReference = getOrBuildPreparedReference(referenceRoi, referenceCacheKey);
+            releasePrepared = !referenceCacheEnabled;
             Imgproc.cvtColor(currentRoi, curGray, Imgproc.COLOR_BGR2GRAY);
             ResizeResult curResize = resizeForProcessing(curGray, MAX_ALIGNMENT_DIM);
             curGrayScaled = curResize.mat;
@@ -293,12 +298,13 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             MatOfPoint2f src = new MatOfPoint2f();
             MatOfPoint2f dst = new MatOfPoint2f();
             Mat inliersMask = new Mat();
-            Mat homography = new Mat();
+            Mat homography = null;
             try {
                 src.fromList(srcPoints);
                 dst.fromList(dstPoints);
+                // Do not pre-allocate: findHomography returns a new Mat and would orphan the old one.
                 homography = Calib3d.findHomography(src, dst, Calib3d.RANSAC, 3.0, inliersMask);
-                if (homography.empty()) {
+                if (homography == null || homography.empty()) {
                     return failedAlignment();
                 }
 
@@ -332,6 +338,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         } finally {
             release(curGray, curGrayScaled, curDescriptors);
             release(curKeypoints);
+            if (releasePrepared && preparedReference != null && preparedReference.descriptors != null) {
+                preparedReference.descriptors.release();
+            }
         }
     }
 
@@ -424,12 +433,12 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     private void detectAndComputeFeatures(Mat gray, MatOfKeyPoint keypoints, Mat descriptors) {
         if (optimizedOrb != null) {
             synchronized (optimizedOrb) {
-                optimizedOrb.detectAndCompute(gray, new Mat(), keypoints, descriptors);
+                optimizedOrb.detectAndCompute(gray, emptyDetectMask, keypoints, descriptors);
             }
             return;
         }
         ORB orb = ORB.create(ORB_FEATURES);
-        orb.detectAndCompute(gray, new Mat(), keypoints, descriptors);
+        orb.detectAndCompute(gray, emptyDetectMask, keypoints, descriptors);
     }
 
     private List<DMatch> ratioTestMatches(Mat referenceDescriptors, Mat currentDescriptors) {
@@ -816,6 +825,15 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     private void validateInputFrames(Mat reference, Mat current) {
         if (reference.cols() != current.cols() || reference.rows() != current.rows()) {
             throw new IllegalArgumentException("Reference and current frame dimensions must match.");
+        }
+    }
+
+    private static Mat cloneRoi(Mat src, Rect roi) {
+        Mat header = new Mat(src, roi);
+        try {
+            return header.clone();
+        } finally {
+            header.release();
         }
     }
 
