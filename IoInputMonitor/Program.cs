@@ -139,9 +139,14 @@ internal static class Program
                 captureGate.SeedDirection(dirInitial);
 
             Console.WriteLine(
-                $"Capture gate: DI{options.Capture.DirectionPort}=1 → arm, DI{options.Capture.TriggerPort}↑ → DO{options.Capture.OutputPort} pulse {options.Capture.PulseDurationMs} ms " +
+                $"Capture gate: UI={captureGate.SelectedWireValue} → {captureGate.DescribeExpectedArm()} → DO{options.Capture.OutputPort} " +
                 $"(require_direction={options.Capture.RequireDirection})");
         }
+
+        using var directionHttp = IoLineDirectionHttpServer.TryStart(
+            captureGate,
+            options.Capture.DirectionHttp,
+            consoleLock);
 
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
@@ -195,35 +200,18 @@ internal static class Program
                 : edge == MvIoNative.IoEdgeType.Rising;
 
             bool risingEdge = edge == MvIoNative.IoEdgeType.Rising;
-            bool fireDo = captureGate != null && captureGate.TryFireCapture(port, closed, risingEdge);
+            IoCaptureDecision captureDecision = captureGate?.Evaluate(port, closed, risingEdge)
+                ?? IoCaptureDecision.None;
 
             lock (consoleLock)
             {
                 string udpSuffix = udpPublisher != null ? $"  [udp {port}:{(closed ? 1 : 0)}]" : "";
-                string doSuffix = fireDo ? $"  [DO{options.Capture.OutputPort} pulse]" : "";
-                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}{doSuffix}");
+                Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
+                LogCaptureDecision(captureDecision, options.Capture, captureGate);
             }
 
-            if (fireDo)
-            {
-                try
-                {
-                    lock (sessionLock)
-                    {
-                        session.FireOutputPulse(
-                            options.Capture.OutputPort,
-                            options.Capture.PulseDurationMs);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    lock (consoleLock)
-                    {
-                        Console.Error.WriteLine(
-                            $"[{Timestamp()}] DO{options.Capture.OutputPort} pulse failed: {ex.Message}");
-                    }
-                }
-            }
+            if (captureDecision == IoCaptureDecision.FireDo)
+                FireDoPulseLogged(session, sessionLock, consoleLock, options.Capture);
 
             udpPublisher?.Publish(port, closed);
 
@@ -248,6 +236,68 @@ internal static class Program
 
         Console.WriteLine("Остановлено.");
         return 0;
+    }
+
+    private static void LogCaptureDecision(IoCaptureDecision decision, IoCaptureOptions capture, IoCaptureGate? gate)
+    {
+        string expect = gate?.DescribeExpectedArm()
+            ?? $"DI{capture.DirectionPort} затем DI{capture.TriggerPort}↑";
+        string mode = gate?.SelectedWireValue ?? capture.InitialDirection;
+
+        switch (decision)
+        {
+            case IoCaptureDecision.DirectionArmed:
+                Console.WriteLine(
+                    $"[{Timestamp()}] capture: DI{capture.DirectionPort} совпал с UI={mode} — armed ({expect})");
+                break;
+            case IoCaptureDecision.SkipNoDirection:
+                Console.WriteLine(
+                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ SKIP — UI={mode}, жду {expect}, DO не шлём");
+                break;
+            case IoCaptureDecision.SkipAlreadyFired:
+                Console.WriteLine(
+                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ SKIP — импульс уже был в этом пульсе");
+                break;
+            case IoCaptureDecision.FireDo:
+                Console.WriteLine(
+                    $"[{Timestamp()}] capture: DI{capture.TriggerPort}↑ UI={mode} → SEND DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms");
+                break;
+            case IoCaptureDecision.DirectionModeChanged:
+                Console.WriteLine(
+                    $"[{Timestamp()}] capture: UI ход → {mode} ({expect})");
+                break;
+        }
+    }
+
+    private static void FireDoPulseLogged(
+        IoBoxSession session,
+        object sessionLock,
+        object consoleLock,
+        IoCaptureOptions capture)
+    {
+        int doPort = capture.OutputPort;
+        int durationMs = capture.PulseDurationMs;
+        try
+        {
+            lock (sessionLock)
+            {
+                session.FireOutputPulse(doPort, durationMs);
+            }
+
+            lock (consoleLock)
+            {
+                Console.WriteLine(
+                    $"[{Timestamp()}] DO{doPort} OK — импульс отправлен (duration={durationMs} ms)");
+            }
+        }
+        catch (Exception ex)
+        {
+            lock (consoleLock)
+            {
+                Console.Error.WriteLine(
+                    $"[{Timestamp()}] DO{doPort} FAIL — импульс НЕ прошёл: {ex.Message}");
+            }
+        }
     }
 
     private static bool ShouldLogWithRefractory(

@@ -13,7 +13,8 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # Съёмка: DI2=1 вооружает, DI3↑ → импульс DO1 (DO0) на Line0 камер.
+  # Съёмка: UI-ход + DI2/DI3 → импульс DO1 (DO0) на Line0 камер.
+  # Прямой: DI2=1 затем DI3↑; обратный: DI2=0 затем DI3↑.
   capture:
     enabled: true
     direction_port: 2
@@ -21,7 +22,12 @@ io_input:
     output_port: 1      # DO1 = первый выход (DO0) → Line0 всех камер
     pulse_duration_ms: 20
     direction_invert: false
-    require_direction: true   # DI3 игнорируется пока DI2≠1
+    require_direction: true
+    initial_direction: reverse
+    direction_http:
+      enabled: true
+      host: 127.0.0.1
+      port: 9101        # PUT {"direction":"forward"|"reverse"} от оркестратора/UI
 
   publish:
     udp:

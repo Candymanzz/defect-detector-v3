@@ -113,6 +113,8 @@ integration:
       require_work: false
       external_hardware_capture: true   # экспозиция через IoInputMonitor DO0, не trigger_only
       direction_poll_ms: 1
+  # Куда оркестратор прокидывает UI «Прямой/Обратный ход» (IoInputMonitor direction_http).
+  io_input_monitor_direction_url: "http://127.0.0.1:9101"
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20

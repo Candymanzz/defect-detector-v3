@@ -1,8 +1,24 @@
 namespace IoInputMonitor;
 
+internal enum IoCaptureDecision
+{
+    None,
+    DirectionArmed,
+    FireDo,
+    SkipNoDirection,
+    SkipAlreadyFired,
+    DirectionModeChanged
+}
+
+internal enum IoLineDirection
+{
+    Forward,
+    Reverse
+}
+
 /// <summary>
-/// Логика съёмки как в оркестраторе (IoInputDirectionAutoCapture):
-/// фаза 1 — DI2=1 вооружает направление; фаза 2 — DI3↑ даёт импульс на DO (Line0).
+/// Съёмка: DI2 должен совпасть с UI-ходом, затем DI3↑ → DO.
+/// Прямой: DI2=1 → DI3↑; обратный: DI2=0 → DI3↑ (наоборот).
 /// </summary>
 internal sealed class IoCaptureGate
 {
@@ -10,7 +26,11 @@ internal sealed class IoCaptureGate
     private readonly int _triggerPort;
     private readonly bool _directionInvert;
     private readonly bool _requireDirection;
+    private readonly object _lock = new();
 
+    private IoLineDirection _selectedDirection = IoLineDirection.Reverse;
+    private bool _directionRawActive;
+    private bool _directionKnown;
     private bool _directionArmed;
     private bool _triggerActive;
     private bool _captureFiredThisPulse;
@@ -21,63 +41,151 @@ internal sealed class IoCaptureGate
         _triggerPort = options.TriggerPort;
         _directionInvert = options.DirectionInvert;
         _requireDirection = options.RequireDirection;
+        _selectedDirection = ParseDirection(options.InitialDirection) ?? IoLineDirection.Reverse;
     }
 
     public int DirectionPort => _directionPort;
 
     public int TriggerPort => _triggerPort;
 
-    /// <summary>Обработка смены DI; возвращает true, если нужен импульс DO (квалифицированный DI3↑).</summary>
-    public bool TryFireCapture(int port, bool active, bool risingEdge)
+    public bool IsDirectionArmed
     {
-        if (port == _directionPort)
+        get { lock (_lock) return _directionArmed; }
+    }
+
+    public IoLineDirection SelectedDirection
+    {
+        get { lock (_lock) return _selectedDirection; }
+    }
+
+    public string SelectedWireValue => SelectedDirection == IoLineDirection.Forward ? "forward" : "reverse";
+
+    public bool IsSelectedForward => SelectedDirection == IoLineDirection.Forward;
+
+    /// <summary>UI / HTTP: forward|reverse. Сбрасывает arm и переоценивает текущий DI2.</summary>
+    public IoCaptureDecision SetSelectedDirection(string? wireValue)
+    {
+        IoLineDirection? parsed = ParseDirection(wireValue);
+        if (parsed == null)
+            throw new ArgumentException("direction required (forward|reverse)");
+
+        lock (_lock)
         {
-            OnDirectionChange(active);
-            return false;
-        }
+            if (_selectedDirection == parsed.Value && _directionArmed == TravelMatchesSelected())
+                return IoCaptureDecision.None;
 
-        if (port != _triggerPort)
-            return false;
-
-        bool fireDo = false;
-        if (risingEdge && active && !_triggerActive)
-        {
-            if (!_requireDirection || _directionArmed)
-                fireDo = TryCommitCapture();
-        }
-
-        if (!active && _triggerActive)
+            _selectedDirection = parsed.Value;
+            _directionArmed = false;
             _captureFiredThisPulse = false;
-
-        _triggerActive = active;
-        return fireDo;
+            TryArmFromCurrentDirection();
+            return IoCaptureDecision.DirectionModeChanged;
+        }
     }
 
-    public void SeedDirection(bool active) => OnDirectionChange(active);
-
-    public bool IsDirectionArmed => _directionArmed;
-
-    private void OnDirectionChange(bool active)
+    public void SeedDirection(bool active)
     {
-        if (_requireDirection && !_directionArmed && IsForwardRaw(active))
+        lock (_lock)
+        {
+            _directionRawActive = active;
+            _directionKnown = true;
+            TryArmFromCurrentDirection();
+        }
+    }
+
+    public IoCaptureDecision Evaluate(int port, bool active, bool risingEdge)
+    {
+        lock (_lock)
+        {
+            if (port == _directionPort)
+            {
+                bool wasArmed = _directionArmed;
+                _directionRawActive = active;
+                _directionKnown = true;
+                TryArmFromCurrentDirection();
+                return !wasArmed && _directionArmed
+                    ? IoCaptureDecision.DirectionArmed
+                    : IoCaptureDecision.None;
+            }
+
+            if (port != _triggerPort)
+                return IoCaptureDecision.None;
+
+            IoCaptureDecision decision = IoCaptureDecision.None;
+            if (risingEdge && active && !_triggerActive)
+            {
+                if (_requireDirection && !_directionArmed)
+                {
+                    decision = IoCaptureDecision.SkipNoDirection;
+                }
+                else if (_captureFiredThisPulse)
+                {
+                    decision = IoCaptureDecision.SkipAlreadyFired;
+                }
+                else
+                {
+                    _captureFiredThisPulse = true;
+                    decision = IoCaptureDecision.FireDo;
+                }
+            }
+
+            if (!active && _triggerActive)
+                _captureFiredThisPulse = false;
+
+            _triggerActive = active;
+            return decision;
+        }
+    }
+
+    public bool TryFireCapture(int port, bool active, bool risingEdge) =>
+        Evaluate(port, active, risingEdge) == IoCaptureDecision.FireDo;
+
+    public string DescribeExpectedArm()
+    {
+        lock (_lock)
+        {
+            return _selectedDirection == IoLineDirection.Forward
+                ? $"DI{_directionPort}=1 затем DI{_triggerPort}↑"
+                : $"DI{_directionPort}=0 затем DI{_triggerPort}↑";
+        }
+    }
+
+    private void TryArmFromCurrentDirection()
+    {
+        if (!_requireDirection)
+        {
             _directionArmed = true;
+            return;
+        }
+
+        if (!_directionKnown)
+            return;
+
+        // Armed только пока текущий DI2 совпадает с выбранным UI-ходом.
+        _directionArmed = TravelMatchesSelected();
     }
 
-    private bool TryCommitCapture()
+    private bool TravelMatchesSelected()
     {
-        if (_captureFiredThisPulse)
-            return false;
-
-        if (_requireDirection && !_directionArmed)
-            return false;
-
-        _captureFiredThisPulse = true;
-        _triggerActive = true;
-        return true;
+        bool travelForward = MapDirection(_directionRawActive);
+        bool selectedForward = _selectedDirection == IoLineDirection.Forward;
+        return travelForward == selectedForward;
     }
 
-    private bool IsForwardRaw(bool raw) =>
+    private bool MapDirection(bool raw) =>
         _directionInvert ? !raw : raw;
+
+    internal static IoLineDirection? ParseDirection(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        return raw.Trim().ToLowerInvariant() switch
+        {
+            "forward" or "1" or "true" => IoLineDirection.Forward,
+            "reverse" or "0" or "false" => IoLineDirection.Reverse,
+            _ => null
+        };
+    }
 }
 
 internal sealed class IoCaptureOptions
@@ -96,4 +204,18 @@ internal sealed class IoCaptureOptions
     public bool DirectionInvert { get; set; }
 
     public bool RequireDirection { get; set; } = true;
+
+    /// <summary>Начальный ход (пока UI не переключил): forward|reverse.</summary>
+    public string InitialDirection { get; set; } = "reverse";
+
+    public IoDirectionHttpOptions DirectionHttp { get; set; } = new();
+}
+
+internal sealed class IoDirectionHttpOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    public string Host { get; set; } = "127.0.0.1";
+
+    public int Port { get; set; } = 9101;
 }

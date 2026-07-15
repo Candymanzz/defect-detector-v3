@@ -158,7 +158,22 @@ public static class IoInputConfigLoader
             OutputPort = raw.OutputPort is >= 1 and <= 8 ? raw.OutputPort.Value : 1,
             PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 20,
             DirectionInvert = raw.DirectionInvert ?? false,
-            RequireDirection = raw.RequireDirection ?? true
+            RequireDirection = raw.RequireDirection ?? true,
+            InitialDirection = string.IsNullOrWhiteSpace(raw.InitialDirection) ? "reverse" : raw.InitialDirection.Trim(),
+            DirectionHttp = ParseDirectionHttp(raw.DirectionHttp)
+        };
+    }
+
+    private static IoDirectionHttpOptions ParseDirectionHttp(IoDirectionHttpYaml? raw)
+    {
+        if (raw == null)
+            return new IoDirectionHttpOptions();
+
+        return new IoDirectionHttpOptions
+        {
+            Enabled = raw.Enabled ?? true,
+            Host = string.IsNullOrWhiteSpace(raw.Host) ? "127.0.0.1" : raw.Host.Trim(),
+            Port = raw.Port is > 0 and <= 65535 ? raw.Port.Value : 9101
         };
     }
 
@@ -295,5 +310,18 @@ public static class IoInputConfigLoader
         public bool? DirectionInvert { get; set; }
 
         public bool? RequireDirection { get; set; }
+
+        public string? InitialDirection { get; set; }
+
+        public IoDirectionHttpYaml? DirectionHttp { get; set; }
+    }
+
+    private sealed class IoDirectionHttpYaml
+    {
+        public bool? Enabled { get; set; }
+
+        public string? Host { get; set; }
+
+        public int? Port { get; set; }
     }
 }
