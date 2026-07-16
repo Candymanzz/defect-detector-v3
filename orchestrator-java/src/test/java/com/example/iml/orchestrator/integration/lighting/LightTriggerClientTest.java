@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LightTriggerClientTest {
 
@@ -35,5 +36,15 @@ class LightTriggerClientTest {
 
         assertEquals(55, client.brightnessPercent("camera-3"));
         assertEquals(55, client.brightnessByEndpoint().get("camera-3"));
+    }
+
+    @Test
+    void disabledClientReportsThatBrightnessWasNotAppliedToHardware() {
+        LightTriggerClient client = new LightTriggerClient(LightServersConfig.disabled());
+
+        LightBrightnessApplyResult result = client.applyBrightnessUpdate(LightBrightnessUpdate.globalOnly(42));
+
+        assertTrue(result.hasHardwareErrors());
+        assertEquals(List.of("light_servers disabled"), result.hardwareErrors());
     }
 }

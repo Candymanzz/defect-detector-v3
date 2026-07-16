@@ -1,8 +1,8 @@
 # Подсветка → LightServer.v3: три типа URL — вкл, выкл, яркость по камерам.
 # Маршруты вспышек (camera_number ↔ device/channel) — в config/blocks/51-light-hardware.yaml.
 light_servers:
-  # COM-вспышки через LightServer не используются — отключено (иначе стартует LightServer и шлёт /api/com/light).
-  enabled: false
+  # Единый LightServer управляет Ethernet MV-LE и COM-вспышками.
+  enabled: true
   base_url: "http://127.0.0.1:5080"
   urls:
     on: /api/com/light
@@ -10,6 +10,7 @@ light_servers:
     brightness_pair: /api/camera-flash/pair
     brightness_single: /api/camera-flash/single
     status: /api/com/light
+  # Постоянная подсветка: яркость применяется при старте и меняется из UI без гашения между кадрами.
   hold_mode: true
   fail_on_error: false
   timeout_ms: 20000

@@ -2,23 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import { InspectionHistoryModal } from "../InspectionHistoryModal";
-import { inspectionHistoryLimit } from "../MainOverview/MainController";
 import type { InspectionHistoryItem } from "../MainOverview/type";
+import { createArchiveTiles } from "./archiveTiles";
+import type { ArchiveTile } from "./archiveTiles";
 import "./ArchiveHistoryViewer.css";
 
 type ArchiveHistoryViewerProps = {
   cameraIds: number[];
   historyByCameraId: Record<number, InspectionHistoryItem[]>;
   onClose: () => void;
-  onChanged?: () => void;
-};
-
-type ArchiveTile = {
-  groupKey: string;
-  inspectionId: string;
-  result: "pass" | "fail" | "capture";
-  serverTsMs: number;
-  results: InspectionHistoryItem[];
+  onChanged?: () => void | Promise<void>;
 };
 
 export function ArchiveHistoryViewer({
@@ -27,17 +20,13 @@ export function ArchiveHistoryViewer({
   onClose,
   onChanged,
 }: ArchiveHistoryViewerProps) {
-  const [localHistory, setLocalHistory] = useState(historyByCameraId);
-  const [selected, setSelected] = useState<ArchiveTile | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState(false);
 
-  useEffect(() => {
-    setLocalHistory(historyByCameraId);
-  }, [historyByCameraId]);
-
-  const tiles = useMemo(() => createArchiveTiles(cameraIds, localHistory), [cameraIds, localHistory]);
+  const tiles = useMemo(() => createArchiveTiles(cameraIds, historyByCameraId), [cameraIds, historyByCameraId]);
+  const selected = selectedKey ? tiles.find((tile) => tile.groupKey === selectedKey) ?? null : null;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -64,17 +53,23 @@ export function ArchiveHistoryViewer({
     setStatusMessage(null);
     setStatusError(false);
     try {
-      await Promise.all(
+      const results = await Promise.allSettled(
         tile.results.map((item) =>
           orchestratorApi.deleteFrameArchiveFrame(item.inspectResult.camera_id, item.frameId),
         ),
       );
-      setLocalHistory((current) => removeTileFromHistory(current, tile));
-      if (selected?.groupKey === tile.groupKey) {
-        setSelected(null);
+      const deletedCount = results.filter((result) => result.status === "fulfilled").length;
+      const failedCount = results.length - deletedCount;
+      if (deletedCount > 0 && selectedKey === tile.groupKey) {
+        setSelectedKey(null);
       }
-      setStatusMessage(`Удалено: инспекция ${tile.inspectionId}`);
-      onChanged?.();
+      await onChanged?.();
+      if (failedCount > 0) {
+        setStatusError(true);
+        setStatusMessage(`Удалено ${deletedCount} из ${results.length} кадров. Не удалось удалить: ${failedCount}`);
+      } else {
+        setStatusMessage(`Удалено: инспекция ${tile.inspectionId}`);
+      }
     } catch (error) {
       setStatusError(true);
       setStatusMessage(errorMessage(error));
@@ -97,10 +92,9 @@ export function ArchiveHistoryViewer({
     setStatusError(false);
     try {
       const response = await orchestratorApi.clearFrameArchive(cameraIds);
-      setLocalHistory({});
-      setSelected(null);
+      setSelectedKey(null);
       setStatusMessage(`Архив очищен (${response.deleted} кадров)`);
-      onChanged?.();
+      await onChanged?.();
     } catch (error) {
       setStatusError(true);
       setStatusMessage(errorMessage(error));
@@ -172,7 +166,7 @@ export function ArchiveHistoryViewer({
                   className="archive-history-viewer__tile-open"
                   type="button"
                   title={`Inspection ${tile.inspectionId}`}
-                  onClick={() => setSelected(tile)}
+                  onClick={() => setSelectedKey(tile.groupKey)}
                 >
                   <strong>{tile.inspectionId}</strong>
                   <span>{formatArchiveTime(tile.serverTsMs)}</span>
@@ -203,72 +197,11 @@ export function ArchiveHistoryViewer({
         <InspectionHistoryModal
           inspectionId={selected.inspectionId}
           results={selected.results}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedKey(null)}
         />
       )}
     </>
   );
-}
-
-function createArchiveTiles(cameraIds: number[], historyByCameraId: Record<number, InspectionHistoryItem[]>) {
-  const groups = new Map<string, ArchiveTile>();
-
-  for (const cameraId of cameraIds) {
-    for (const item of historyByCameraId[cameraId] ?? []) {
-      const inspectionId = item.inspectionId || item.frameId;
-      const existing = groups.get(inspectionId);
-      if (!existing) {
-        groups.set(inspectionId, {
-          groupKey: `archive:${inspectionId}:${item.inspectResult.server_ts_ms}`,
-          inspectionId,
-          result: item.result,
-          serverTsMs: item.inspectResult.server_ts_ms,
-          results: [item],
-        });
-        continue;
-      }
-      const sameCamera = existing.results.findIndex(
-        (result) => result.inspectResult.camera_id === item.inspectResult.camera_id,
-      );
-      if (sameCamera >= 0) {
-        existing.results[sameCamera] = item;
-      } else {
-        existing.results.push(item);
-      }
-      existing.result =
-        existing.result === "fail" || item.result === "fail"
-          ? "fail"
-          : existing.result === "capture" || item.result === "capture"
-            ? "capture"
-            : "pass";
-      existing.serverTsMs = Math.max(existing.serverTsMs, item.inspectResult.server_ts_ms);
-    }
-  }
-
-  return [...groups.values()]
-    .map((group) => ({
-      ...group,
-      results: [...group.results].sort(
-        (left, right) => left.inspectResult.camera_id - right.inspectResult.camera_id,
-      ),
-    }))
-    .sort((left, right) => {
-      const byTime = right.serverTsMs - left.serverTsMs;
-      return byTime !== 0 ? byTime : right.inspectionId.localeCompare(left.inspectionId);
-    })
-    .slice(0, Math.max(inspectionHistoryLimit, 1) * Math.max(cameraIds.length, 1));
-}
-
-function removeTileFromHistory(
-  historyByCameraId: Record<number, InspectionHistoryItem[]>,
-  tile: ArchiveTile,
-): Record<number, InspectionHistoryItem[]> {
-  const next = { ...historyByCameraId };
-  for (const item of tile.results) {
-    const cameraId = item.inspectResult.camera_id;
-    next[cameraId] = (next[cameraId] ?? []).filter((entry) => entry.frameId !== item.frameId);
-  }
-  return next;
 }
 
 function formatArchiveTime(epochMs: number) {

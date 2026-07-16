@@ -170,13 +170,17 @@ export function useMainOverview() {
     setArchiveHistoryState("loading");
     setArchiveHistoryMessage(null);
     try {
-      const archivedHistory = await loadArchivedInspectionHistory(targetCameraIds);
-      setArchivedHistoryByCameraId(archivedHistory);
+      const { historyByCameraId, failedCameraIds } = await loadArchivedInspectionHistory(targetCameraIds);
+      setArchivedHistoryByCameraId(historyByCameraId);
       setIsArchiveViewerOpen(true);
       setArchiveHistoryState("loaded");
-      const frameCount = Object.values(archivedHistory).reduce((sum, items) => sum + items.length, 0);
+      const frameCount = Object.values(historyByCameraId).reduce((sum, items) => sum + items.length, 0);
       setArchiveHistoryMessage(
-        frameCount > 0 ? `Архив открыт: ${frameCount} кадров` : "Архив пуст — кадры ещё не сохранены",
+        failedCameraIds.length > 0
+          ? `Архив открыт частично: недоступны камеры ${failedCameraIds.join(", ")}`
+          : frameCount > 0
+            ? `Архив открыт: ${frameCount} кадров`
+            : "Архив пуст — кадры ещё не сохранены",
       );
     } catch (error) {
       setArchiveHistoryState("error");
