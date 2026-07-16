@@ -52,7 +52,7 @@ export function InspectionHistory({
               disabled={isLoadingArchive || cameraIds.length === 0}
               onClick={() => onLoadArchivedHistory(cameraIds)}
             >
-              {isLoadingArchive ? "Загрузка..." : "Загрузить архив"}
+              {isLoadingArchive ? "Загрузка..." : "Открыть архив"}
             </button>
           )}
         </header>

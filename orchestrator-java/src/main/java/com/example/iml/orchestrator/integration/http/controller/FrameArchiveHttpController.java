@@ -12,8 +12,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,7 +26,9 @@ public final class FrameArchiveHttpController implements HttpController {
     private static final Pattern ARTIFACT_PATH = Pattern.compile(
             "^/api/frame-archive/cameras/(\\d+)/frames/(\\d+)/(frame\\.jpg|heatmap\\.u8|result\\.json)$"
     );
+    private static final Pattern FRAME_PATH = Pattern.compile("^/api/frame-archive/cameras/(\\d+)/frames/(\\d+)$");
     private static final Pattern HISTORY_PATH = Pattern.compile("^/api/frame-archive/cameras/(\\d+)/history$");
+    private static final Pattern CAMERA_PATH = Pattern.compile("^/api/frame-archive/cameras/(\\d+)$");
 
     private final FrameArchiveService frameArchive;
 
@@ -38,9 +43,23 @@ public final class FrameArchiveHttpController implements HttpController {
             handleSettings(ctx);
             return;
         }
+        if (path.equals("/api/frame-archive") || path.equals("/api/frame-archive/")) {
+            handleArchiveRoot(ctx);
+            return;
+        }
         Matcher historyMatcher = HISTORY_PATH.matcher(path);
         if (historyMatcher.matches()) {
             handleHistory(ctx, Integer.parseInt(historyMatcher.group(1)));
+            return;
+        }
+        Matcher cameraMatcher = CAMERA_PATH.matcher(path);
+        if (cameraMatcher.matches()) {
+            handleCamera(ctx, Integer.parseInt(cameraMatcher.group(1)));
+            return;
+        }
+        Matcher frameMatcher = FRAME_PATH.matcher(path);
+        if (frameMatcher.matches()) {
+            handleFrame(ctx, Integer.parseInt(frameMatcher.group(1)), Long.parseLong(frameMatcher.group(2)));
             return;
         }
         Matcher artifactMatcher = ARTIFACT_PATH.matcher(path);
@@ -91,6 +110,82 @@ public final class FrameArchiveHttpController implements HttpController {
             ObjectNode root = JSON.createObjectNode();
             root.put("ok", true);
             root.put("max_frames_per_camera", frameArchive.maxFramesPerCamera());
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+            return;
+        }
+        if ("DELETE".equalsIgnoreCase(method)) {
+            int deleted = frameArchive.clearAll();
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("deleted", deleted);
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+            return;
+        }
+        HttpResponses.methodNotAllowed(ctx);
+    }
+
+    private void handleArchiveRoot(HttpRequestContext ctx) throws IOException {
+        if (frameArchive == null || !frameArchive.enabled()) {
+            HttpResponses.sendJsonError(ctx, 503, "frame archive disabled");
+            return;
+        }
+        if ("DELETE".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.corsJson(ctx.exchange());
+            byte[] raw = ctx.readBody();
+            Map<String, Object> body = raw.length == 0 ? Map.of() : JSON.readValue(raw, new TypeReference<>() {});
+            List<Integer> cameraIds = parseCameraIds(body);
+            int deleted = 0;
+            if (cameraIds.isEmpty()) {
+                deleted = frameArchive.clearAll();
+            } else {
+                for (Integer cameraId : cameraIds) {
+                    deleted += frameArchive.clearCamera(cameraId);
+                }
+            }
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("deleted", deleted);
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+            return;
+        }
+        HttpResponses.methodNotAllowed(ctx);
+    }
+
+    private void handleCamera(HttpRequestContext ctx, int cameraId) throws IOException {
+        if (frameArchive == null || !frameArchive.enabled()) {
+            HttpResponses.sendJsonError(ctx, 503, "frame archive disabled");
+            return;
+        }
+        if ("DELETE".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.corsJson(ctx.exchange());
+            int deleted = frameArchive.clearCamera(cameraId);
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("camera_id", cameraId);
+            root.put("deleted", deleted);
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+            return;
+        }
+        HttpResponses.methodNotAllowed(ctx);
+    }
+
+    private void handleFrame(HttpRequestContext ctx, int cameraId, long frameId) throws IOException {
+        if (frameArchive == null || !frameArchive.enabled()) {
+            HttpResponses.sendJsonError(ctx, 503, "frame archive disabled");
+            return;
+        }
+        if ("DELETE".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.corsJson(ctx.exchange());
+            boolean deleted = frameArchive.deleteFrame(cameraId, frameId);
+            if (!deleted) {
+                HttpResponses.notFound(ctx);
+                return;
+            }
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("camera_id", cameraId);
+            root.put("frame_id", Long.toString(frameId));
+            root.put("deleted", 1);
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
             return;
         }
@@ -159,5 +254,45 @@ public final class FrameArchiveHttpController implements HttpController {
         HttpResponses.corsJson(ctx.exchange());
         byte[] body = Files.readAllBytes(artifact);
         HttpResponses.send(ctx, 200, contentType, body);
+    }
+
+    private static List<Integer> parseCameraIds(Map<String, Object> body) {
+        Set<Integer> out = new LinkedHashSet<>();
+        if (body == null || body.isEmpty()) {
+            return List.of();
+        }
+        Object single = body.get("cameraId");
+        Integer singleId = parseCameraId(single);
+        if (singleId != null) {
+            out.add(singleId);
+        }
+        Object many = body.get("cameraIds");
+        if (many instanceof Iterable<?> iterable) {
+            for (Object rawId : iterable) {
+                Integer cameraId = parseCameraId(rawId);
+                if (cameraId != null) {
+                    out.add(cameraId);
+                }
+            }
+        }
+        return new ArrayList<>(out);
+    }
+
+    private static Integer parseCameraId(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number number) {
+            return number.intValue();
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 }

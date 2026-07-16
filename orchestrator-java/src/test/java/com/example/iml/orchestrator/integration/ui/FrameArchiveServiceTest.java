@@ -23,7 +23,7 @@ class FrameArchiveServiceTest {
             archive.setMaxFramesPerCamera(2);
             for (long frameId = 1; frameId <= 3; frameId++) {
                 Path frame = Files.write(tempDir.resolve("source-" + frameId + ".jpg"), new byte[]{(byte) frameId});
-                archive.scheduleSave(new FrameArchiveService.SaveRequest(
+                assertTrue(archive.saveImmediately(new FrameArchiveService.SaveRequest(
                         0,
                         frameId,
                         frameId + 100,
@@ -42,9 +42,8 @@ class FrameArchiveServiceTest {
                         null,
                         0,
                         0
-                ));
+                )));
             }
-            awaitArchiveIdle(archive, 2);
 
             var history = archive.listHistory(0);
             assertEquals(2, history.size());
@@ -108,12 +107,94 @@ class FrameArchiveServiceTest {
         }
     }
 
-    private static void awaitArchiveIdle(FrameArchiveService archive, int minFrames) throws Exception {
+    @Test
+    void trimsOldestBySavedAtWhenLimitReached() throws Exception {
+        FrameArchiveConfig config = new FrameArchiveConfig(true, tempDir, 2, 10);
+        FrameArchiveService archive = FrameArchiveService.open(config);
+        try {
+            archive.setMaxFramesPerCamera(2);
+            // Low frame ids saved later must keep; high frame id saved earlier must be dropped.
+            Path oldHigh = Files.write(tempDir.resolve("old-high.jpg"), new byte[]{1});
+            assertTrue(archive.saveImmediately(new FrameArchiveService.SaveRequest(
+                    0, 90, 1, "p", "d", null, oldHigh, null, 0, 0)));
+            Thread.sleep(5);
+            Path newerLow = Files.write(tempDir.resolve("new-low.jpg"), new byte[]{2});
+            assertTrue(archive.saveImmediately(new FrameArchiveService.SaveRequest(
+                    0, 1, 2, "p", "d", null, newerLow, null, 0, 0)));
+            Thread.sleep(5);
+            Path newest = Files.write(tempDir.resolve("newest.jpg"), new byte[]{3});
+            assertTrue(archive.saveImmediately(new FrameArchiveService.SaveRequest(
+                    0, 2, 3, "p", "d", null, newest, null, 0, 0)));
+
+            var history = archive.listHistory(0);
+            assertEquals(2, history.size());
+            assertEquals(2L, history.get(0).frameId());
+            assertEquals(1L, history.get(1).frameId());
+            assertFalse(Files.exists(tempDir.resolve("camera_0/f_0000090")));
+            assertTrue(history.get(0).savedAtEpochMs() >= history.get(1).savedAtEpochMs());
+        } finally {
+            archive.close();
+        }
+    }
+
+    @Test
+    void deleteFrameRemovesDirectory() throws Exception {
+        FrameArchiveConfig config = new FrameArchiveConfig(true, tempDir, 5, 10);
+        FrameArchiveService archive = FrameArchiveService.open(config);
+        try {
+            Path frame = Files.write(tempDir.resolve("del.jpg"), new byte[]{4});
+            assertTrue(archive.saveImmediately(new FrameArchiveService.SaveRequest(
+                    3, 7, 7, "p", "d", null, frame, null, 0, 0)));
+            assertTrue(archive.deleteFrame(3, 7));
+            assertFalse(Files.exists(tempDir.resolve("camera_3/f_0000007")));
+            assertEquals(0, archive.listHistory(3).size());
+        } finally {
+            archive.close();
+        }
+    }
+
+    @Test
+    void scheduleSaveSurvivesSourceDeletion() throws Exception {
+        FrameArchiveConfig config = new FrameArchiveConfig(true, tempDir, 5, 10);
+        FrameArchiveService archive = FrameArchiveService.open(config);
+        try {
+            Path frame = Files.write(tempDir.resolve("ephemeral.jpg"), new byte[]{9, 8, 7});
+            Path heatmap = Files.write(tempDir.resolve("ephemeral.u8"), new byte[]{1, 2});
+            archive.scheduleSave(new FrameArchiveService.SaveRequest(
+                    1,
+                    42,
+                    100,
+                    "product",
+                    "detector",
+                    null,
+                    frame,
+                    heatmap,
+                    2,
+                    1
+            ));
+            Files.deleteIfExists(frame);
+            Files.deleteIfExists(heatmap);
+            awaitArchiveIdle(archive, 1, 1);
+
+            assertTrue(Files.isRegularFile(tempDir.resolve("camera_1/f_0000042/frame.jpg")));
+            assertTrue(Files.isRegularFile(tempDir.resolve("camera_1/f_0000042/heatmap.u8")));
+            assertTrue(Files.isRegularFile(tempDir.resolve("camera_1/f_0000042/result.json")));
+            assertEquals(1, archive.listHistory(1).size());
+        } finally {
+            archive.close();
+        }
+    }
+
+    private static void awaitArchiveIdle(FrameArchiveService archive, int cameraId, int minFrames) throws Exception {
         for (int attempt = 0; attempt < 50; attempt++) {
-            if (archive.listHistory(0).size() >= minFrames) {
+            if (archive.listHistory(cameraId).size() >= minFrames) {
                 return;
             }
             Thread.sleep(20);
         }
+    }
+
+    private static void awaitArchiveIdle(FrameArchiveService archive, int minFrames) throws Exception {
+        awaitArchiveIdle(archive, 0, minFrames);
     }
 }

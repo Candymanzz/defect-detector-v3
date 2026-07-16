@@ -1,5 +1,6 @@
 import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
+import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
@@ -125,6 +126,15 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           title={`${controller.modalSnapshot.objectName} / Camera ${controller.modalSnapshot.cameraId}`}
           onInspectionSelect={controller.selectModalInspection}
           onClose={controller.closeInspectionModal}
+        />
+      )}
+
+      {controller.isArchiveViewerOpen && (
+        <ArchiveHistoryViewer
+          cameraIds={controller.cameraIds}
+          historyByCameraId={controller.archivedHistoryByCameraId}
+          onClose={controller.closeArchiveViewer}
+          onChanged={() => void controller.loadArchivedHistory(controller.cameraIds)}
         />
       )}
     </div>

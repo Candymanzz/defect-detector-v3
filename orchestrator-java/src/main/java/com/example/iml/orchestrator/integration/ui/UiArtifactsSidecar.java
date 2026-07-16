@@ -424,7 +424,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // capacity on a heatmap that the UI will immediately replace.
                     // Archive the frame JPEG immediately so a superseded publish still persists history.
                     if (!isLatestPublish(cameraId, publishSequence)) {
-                        scheduleFrameArchiveSave(
+                        saveFrameArchiveImmediately(
                                 cameraId,
                                 frameId,
                                 inspectionId,
@@ -529,31 +529,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 decision
                         );
                     }
-                    if (ws != null && (hasCur || hasHm)) {
-                        try {
-                            String heatmapArtifactToken = bundleId == null && hasHm
-                                    ? uiServer.registerHeatmapArtifact(cameraId, heatmapU8)
-                                    : null;
-                            ws.notifyInspectResult(
-                                    cameraId,
-                                    productType,
-                                    detectorId,
-                                    inspectionId,
-                                    decision,
-                                    cap,
-                                    hasHm ? heatmapU8 : null,
-                                    hasHm ? uw : 0,
-                                    hasHm ? uh : 0,
-                                    resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur),
-                                    heatmapArtifactToken,
-                                    false,
-                                    bundleId
-                            );
-                        } catch (Exception e) {
-                            log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
-                        }
-                    }
-                    scheduleFrameArchiveSave(
+                    // Snapshot/copy while JPEG and heatmap files are still on disk (before finally).
+                    FrameArchiveService archive = frameArchiveService;
+                    boolean archived = saveFrameArchiveImmediately(
                             cameraId,
                             frameId,
                             inspectionId,
@@ -565,6 +543,34 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             hasHm ? uw : 0,
                             hasHm ? uh : 0
                     );
+                    if (ws != null && (hasCur || hasHm)) {
+                        try {
+                            String frameHttpPath = archived && archive != null
+                                    ? archive.frameArtifactHttpPath(cameraId, frameId, "frame.jpg")
+                                    : resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur);
+                            String heatmapArtifactToken = bundleId == null && hasHm
+                                    ? uiServer.registerHeatmapArtifact(cameraId, heatmapU8)
+                                    : null;
+                            // Keep bundleId so live heatmap still resolves; frame http_path prefers archive.
+                            ws.notifyInspectResult(
+                                    cameraId,
+                                    productType,
+                                    detectorId,
+                                    inspectionId,
+                                    decision,
+                                    cap,
+                                    hasHm ? heatmapU8 : null,
+                                    hasHm ? uw : 0,
+                                    hasHm ? uh : 0,
+                                    frameHttpPath,
+                                    heatmapArtifactToken,
+                                    false,
+                                    bundleId
+                            );
+                        } catch (Exception e) {
+                            log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
+                        }
+                    }
                 } catch (Exception e) {
                     log.warn(
                             "ui artifact publish failed camera_id={} frame_id={}: {}",
@@ -606,7 +612,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         return hasCurrentJpeg ? "/api/camera/" + cameraId + "/current.jpg" : null;
     }
 
-    private void scheduleFrameArchiveSave(
+    private boolean saveFrameArchiveImmediately(
             int cameraId,
             long frameId,
             long inspectionId,
@@ -620,9 +626,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     ) {
         FrameArchiveService archive = frameArchiveService;
         if (archive == null || !archive.enabled() || frameJpeg == null) {
-            return;
+            return false;
         }
-        archive.scheduleSave(new FrameArchiveService.SaveRequest(
+        return archive.saveImmediately(new FrameArchiveService.SaveRequest(
                 cameraId,
                 frameId,
                 inspectionId,

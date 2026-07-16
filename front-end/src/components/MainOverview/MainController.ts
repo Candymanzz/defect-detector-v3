@@ -96,6 +96,10 @@ export function resolveCardInspectImageUrl(
   previewImageUrl?: string,
 ) {
   if (inspectResult && hasDisplayableInspectImage(inspectResult)) {
+    const archiveUrl = resolveArchiveFrameImageUrl(inspectResult);
+    if (archiveUrl) {
+      return archiveUrl;
+    }
     if (
       artifactInspectResult?.artifact_bundle_id &&
       artifactInspectResult.frame_id === inspectResult.frame_id
@@ -115,6 +119,11 @@ export function resolveCardInspectImageUrl(
 
   if (!inspectResult) {
     return previewImageUrl;
+  }
+
+  const archiveUrl = resolveArchiveFrameImageUrl(inspectResult);
+  if (archiveUrl) {
+    return archiveUrl;
   }
 
   if (
@@ -387,6 +396,11 @@ export function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): Inspe
 }
 
 function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload) {
+  const archiveUrl = resolveArchiveFrameImageUrl(inspectResult);
+  if (archiveUrl) {
+    return archiveUrl;
+  }
+
   if (!inspectResult.artifact_bundle_id) {
     return undefined;
   }
@@ -394,6 +408,14 @@ function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload)
   return orchestratorApi.url(
     `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
   );
+}
+
+function resolveArchiveFrameImageUrl(inspectResult: InspectResultPayload) {
+  const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
+  if (!imagePath.includes("/api/frame-archive/")) {
+    return undefined;
+  }
+  return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
 }
 
 function createInitialModalInspectionItems(

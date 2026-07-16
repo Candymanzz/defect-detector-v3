@@ -181,6 +181,20 @@ export const orchestratorApi = {
     return http.json<FrameArchiveHistoryResponse>(`/api/frame-archive/cameras/${cameraId}/history`);
   },
 
+  async deleteFrameArchiveFrame(cameraId: number, frameId: string | number) {
+    return http.json<{ ok: true; deleted: number }>(
+      `/api/frame-archive/cameras/${cameraId}/frames/${encodeURIComponent(String(frameId))}`,
+      { method: "DELETE" },
+    );
+  },
+
+  async clearFrameArchive(cameraIds?: number[]) {
+    return http.json<{ ok: true; deleted: number }>("/api/frame-archive", {
+      method: "DELETE",
+      body: cameraIds && cameraIds.length > 0 ? { cameraIds } : {},
+    });
+  },
+
   async getJson<T>(path: string) {
     return http.json<T>(path);
   },

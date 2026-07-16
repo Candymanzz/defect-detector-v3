@@ -149,19 +149,32 @@ function ResultField({ label, value }: { label: string; value?: string | number 
 }
 
 function resolveInspectionImageUrl(result: InspectResultPayload) {
+  const httpPath = result.http_path ?? result.current.http_path;
+  if (httpPath?.includes("/api/frame-archive/")) {
+    return orchestratorApi.imageUrl(httpPath, result.frame_id);
+  }
+
   if (result.artifact_bundle_id) {
     return orchestratorApi.url(
       `/api/inspection-artifacts/${encodeURIComponent(result.artifact_bundle_id)}/frame.jpg`,
     );
   }
 
-  const imagePath = result.http_path ?? result.current.http_path;
-  return imagePath ? orchestratorApi.imageUrl(imagePath, result.frame_id) : undefined;
+  return httpPath ? orchestratorApi.imageUrl(httpPath, result.frame_id) : undefined;
 }
 
 function resolveInspectionHeatmap(result: InspectResultPayload): HeatmapDescriptor | null {
   if (!result.heatmap) {
     return null;
+  }
+
+  const httpPath = result.http_path ?? result.current.http_path;
+  if (httpPath?.includes("/api/frame-archive/") && httpPath.endsWith("/frame.jpg")) {
+    return {
+      ...result.heatmap,
+      artifact_id: undefined,
+      http_path: httpPath.replace(/\/frame\.jpg$/, "/heatmap.u8"),
+    };
   }
 
   if (result.artifact_bundle_id) {

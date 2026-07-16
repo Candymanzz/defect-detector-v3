@@ -9,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -153,14 +152,58 @@ public final class FrameArchiveService implements AutoCloseable {
         if (maxFramesPerCamera() <= 0) {
             return;
         }
+        // Snapshot bytes while source paths are still valid (UI finally / next inspection may delete them).
+        final byte[] frameBytes;
+        final byte[] heatmapBytes;
         try {
-            executor.execute(() -> saveNow(request));
-        } catch (RejectedExecutionException e) {
-            LOG.debug(
-                    "frame archive save dropped camera_id={} frame_id={}: queue full",
+            frameBytes = Files.readAllBytes(request.frameJpeg());
+            heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
+                    ? Files.readAllBytes(request.heatmapU8())
+                    : null;
+        } catch (IOException e) {
+            LOG.warn(
+                    "frame archive snapshot failed camera_id={} frame_id={}: {}",
                     request.cameraId(),
-                    request.frameId()
+                    request.frameId(),
+                    e.getMessage()
             );
+            return;
+        }
+        PreparedSave prepared = new PreparedSave(request, frameBytes, heatmapBytes);
+        try {
+            executor.execute(() -> savePrepared(prepared));
+        } catch (RejectedExecutionException e) {
+            // Do not drop frames when the queue is full — write on the caller thread.
+            savePrepared(prepared);
+        }
+    }
+
+    /**
+     * Snapshot + write immediately on the caller thread. Safe to call before ephemeral UI files are deleted.
+     * Does not block the inspection pipeline (runs on the UI publish worker).
+     */
+    public boolean saveImmediately(SaveRequest request) {
+        if (!enabled() || request == null || request.frameJpeg() == null || !Files.isRegularFile(request.frameJpeg())) {
+            return false;
+        }
+        if (maxFramesPerCamera() <= 0) {
+            return false;
+        }
+        try {
+            byte[] frameBytes = Files.readAllBytes(request.frameJpeg());
+            byte[] heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
+                    ? Files.readAllBytes(request.heatmapU8())
+                    : null;
+            savePrepared(new PreparedSave(request, frameBytes, heatmapBytes));
+            return Files.isRegularFile(frameDirectory(request.cameraId(), request.frameId()).resolve("frame.jpg"));
+        } catch (Exception e) {
+            LOG.warn(
+                    "frame archive immediate save failed camera_id={} frame_id={}: {}",
+                    request.cameraId(),
+                    request.frameId(),
+                    e.getMessage()
+            );
+            return false;
         }
     }
 
@@ -178,9 +221,78 @@ public final class FrameArchiveService implements AutoCloseable {
                 parseFrameDir(frameDir).ifPresent(frames::add);
             }
         }
-        frames.sort(Comparator.comparingLong(ArchivedFrame::frameId).reversed());
+        frames.sort(Comparator
+                .comparingLong(ArchivedFrame::savedAtEpochMs)
+                .reversed()
+                .thenComparing(Comparator.comparingLong(ArchivedFrame::frameId).reversed()));
         int limit = maxFramesPerCamera();
         return limit <= 0 || frames.size() <= limit ? frames : frames.subList(0, limit);
+    }
+
+    public boolean deleteFrame(int cameraId, long frameId) {
+        if (!enabled()) {
+            return false;
+        }
+        Path frameDir = frameDirectory(cameraId, frameId);
+        if (!Files.isDirectory(frameDir)) {
+            return false;
+        }
+        deleteFrameDirectory(frameDir);
+        return !Files.exists(frameDir);
+    }
+
+    public int deleteFrames(int cameraId, Iterable<Long> frameIds) {
+        int deleted = 0;
+        if (frameIds == null) {
+            return 0;
+        }
+        for (Long frameId : frameIds) {
+            if (frameId != null && deleteFrame(cameraId, frameId)) {
+                deleted++;
+            }
+        }
+        return deleted;
+    }
+
+    public int clearCamera(int cameraId) throws IOException {
+        if (!enabled()) {
+            return 0;
+        }
+        Path cameraDir = cameraDirectory(cameraId);
+        if (!Files.isDirectory(cameraDir)) {
+            return 0;
+        }
+        int deleted = 0;
+        try (Stream<Path> entries = Files.list(cameraDir)) {
+            for (Path frameDir : entries.filter(Files::isDirectory).toList()) {
+                if (parseFrameId(frameDir) >= 0) {
+                    deleteFrameDirectory(frameDir);
+                    deleted++;
+                }
+            }
+        }
+        return deleted;
+    }
+
+    public int clearAll() throws IOException {
+        if (!enabled() || !Files.isDirectory(config.directory())) {
+            return 0;
+        }
+        int deleted = 0;
+        try (Stream<Path> entries = Files.list(config.directory())) {
+            for (Path cameraDir : entries.filter(Files::isDirectory).toList()) {
+                String name = cameraDir.getFileName().toString();
+                if (!name.startsWith("camera_")) {
+                    continue;
+                }
+                try {
+                    deleted += clearCamera(Integer.parseInt(name.substring("camera_".length())));
+                } catch (NumberFormatException ignored) {
+                    // skip
+                }
+            }
+        }
+        return deleted;
     }
 
     public Optional<Path> resolveArtifact(int cameraId, long frameId, String artifactName) {
@@ -212,24 +324,41 @@ public final class FrameArchiveService implements AutoCloseable {
 
     private void saveNow(SaveRequest request) {
         try {
+            byte[] frameBytes = Files.readAllBytes(request.frameJpeg());
+            byte[] heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
+                    ? Files.readAllBytes(request.heatmapU8())
+                    : null;
+            savePrepared(new PreparedSave(request, frameBytes, heatmapBytes));
+        } catch (Exception e) {
+            LOG.warn(
+                    "frame archive save failed camera_id={} frame_id={}: {}",
+                    request.cameraId(),
+                    request.frameId(),
+                    e.getMessage()
+            );
+        }
+    }
+
+    private void savePrepared(PreparedSave prepared) {
+        SaveRequest request = prepared.request();
+        try {
             Path frameDir = frameDirectory(request.cameraId(), request.frameId());
             Files.createDirectories(frameDir);
             Path storedFrame = frameDir.resolve("frame.jpg");
-            Files.copy(request.frameJpeg(), storedFrame, StandardCopyOption.REPLACE_EXISTING);
+            Files.write(storedFrame, prepared.frameBytes());
 
-            Path storedHeatmap = null;
-            if (request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())) {
-                storedHeatmap = frameDir.resolve("heatmap.u8");
-                Files.copy(request.heatmapU8(), storedHeatmap, StandardCopyOption.REPLACE_EXISTING);
+            boolean hasHeatmap = prepared.heatmapBytes() != null && prepared.heatmapBytes().length > 0;
+            if (hasHeatmap) {
+                Files.write(frameDir.resolve("heatmap.u8"), prepared.heatmapBytes());
             }
 
-            writeResultJson(frameDir.resolve("result.json"), request, storedHeatmap != null);
+            writeResultJson(frameDir.resolve("result.json"), request, hasHeatmap);
             trimOldFrames(request.cameraId());
             LOG.debug(
                     "frame archive saved camera_id={} frame_id={} heatmap={}",
                     request.cameraId(),
                     request.frameId(),
-                    storedHeatmap != null
+                    hasHeatmap
             );
         } catch (Exception e) {
             LOG.warn(
@@ -239,6 +368,9 @@ public final class FrameArchiveService implements AutoCloseable {
                     e.getMessage()
             );
         }
+    }
+
+    private record PreparedSave(SaveRequest request, byte[] frameBytes, byte[] heatmapBytes) {
     }
 
     private void writeResultJson(Path resultPath, SaveRequest request, boolean hasHeatmap) throws IOException {
@@ -292,13 +424,22 @@ public final class FrameArchiveService implements AutoCloseable {
         if (!Files.isDirectory(cameraDir)) {
             return;
         }
-        List<Path> frameDirs = new ArrayList<>();
+        // Newest by saved_at first; drop oldest when over the configured limit (ring buffer).
+        List<ArchivedFrame> frames = new ArrayList<>();
         try (Stream<Path> entries = Files.list(cameraDir)) {
-            entries.filter(Files::isDirectory).forEach(frameDirs::add);
+            for (Path frameDir : entries.filter(Files::isDirectory).toList()) {
+                parseFrameDir(frameDir).ifPresent(frames::add);
+            }
         }
-        frameDirs.sort((left, right) -> Long.compare(parseFrameId(right), parseFrameId(left)));
-        for (int index = maxFrames; index < frameDirs.size(); index++) {
-            deleteFrameDirectory(frameDirs.get(index));
+        if (frames.size() <= maxFrames) {
+            return;
+        }
+        frames.sort(Comparator
+                .comparingLong(ArchivedFrame::savedAtEpochMs)
+                .reversed()
+                .thenComparing(Comparator.comparingLong(ArchivedFrame::frameId).reversed()));
+        for (int index = maxFrames; index < frames.size(); index++) {
+            deleteFrameDirectory(frameDirectory(cameraId, frames.get(index).frameId()));
         }
     }
 
@@ -332,6 +473,13 @@ public final class FrameArchiveService implements AutoCloseable {
             String productType = stringValue(root.get("product_type"));
             String detectorId = stringValue(root.get("detector_id"));
             long savedAt = parseLong(root.get("saved_at_ms"), 0L);
+            if (savedAt <= 0) {
+                try {
+                    savedAt = Files.getLastModifiedTime(frameDir.resolve("frame.jpg")).toMillis();
+                } catch (IOException ignored) {
+                    savedAt = 0L;
+                }
+            }
             boolean hasHeatmap = Files.isRegularFile(frameDir.resolve("heatmap.u8"));
             int heatmapWidth = 0;
             int heatmapHeight = 0;

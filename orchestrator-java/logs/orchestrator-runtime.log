@@ -47306,3 +47306,49 @@ java.io.IOException: EOF
 2026-07-16 13:08:24.942 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit6349451448370053391 max_frames_per_camera=20
 2026-07-16 13:08:24.944 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=/tmp/junit6349451448370053391/settings.json max_frames_per_camera=37
 2026-07-16 13:08:24.944 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit6349451448370053391 max_frames_per_camera=37
+2026-07-16 14:40:30.433 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit4545441019730519634 max_frames_per_camera=2
+2026-07-16 14:40:30.458 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit4545441019730519634/settings.json max_frames_per_camera=2
+2026-07-16 14:40:30.461 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-16 14:40:30.529 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit492480293050411023 max_frames_per_camera=20
+2026-07-16 14:40:30.529 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit492480293050411023/settings.json max_frames_per_camera=37
+2026-07-16 14:40:30.530 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 37
+2026-07-16 14:40:30.532 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=/tmp/junit492480293050411023/settings.json max_frames_per_camera=37
+2026-07-16 14:40:30.532 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit492480293050411023 max_frames_per_camera=37
+2026-07-16 14:40:30.537 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit10032126079554956558 max_frames_per_camera=5
+2026-07-16 14:40:30.538 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit10032126079554956558/settings.json max_frames_per_camera=5
+2026-07-16 14:40:30.539 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 5
+2026-07-16 14:40:30.565 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit10032126079554956558/settings.json max_frames_per_camera=2
+2026-07-16 14:40:30.566 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-16 14:40:30.572 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit3517467906704573084 max_frames_per_camera=5
+2026-07-16 14:41:08.838 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit9960599136171001320 max_frames_per_camera=2
+2026-07-16 14:41:08.857 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit9960599136171001320/settings.json max_frames_per_camera=2
+2026-07-16 14:41:08.859 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-16 14:41:08.911 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit11612412456076433766 max_frames_per_camera=20
+2026-07-16 14:41:08.912 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit11612412456076433766/settings.json max_frames_per_camera=37
+2026-07-16 14:41:08.912 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 37
+2026-07-16 14:41:08.914 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=/tmp/junit11612412456076433766/settings.json max_frames_per_camera=37
+2026-07-16 14:41:08.914 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit11612412456076433766 max_frames_per_camera=37
+2026-07-16 14:41:08.917 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit9820280814433134131 max_frames_per_camera=5
+2026-07-16 14:41:08.917 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit9820280814433134131/settings.json max_frames_per_camera=5
+2026-07-16 14:41:08.918 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 5
+2026-07-16 14:41:08.942 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit9820280814433134131/settings.json max_frames_per_camera=2
+2026-07-16 14:41:08.943 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-16 14:41:08.950 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit7076327709247456271 max_frames_per_camera=5
+2026-07-16 14:47:44.067 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit3374206211579548868 max_frames_per_camera=2
+2026-07-16 14:47:44.083 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit3374206211579548868/settings.json max_frames_per_camera=2
+2026-07-16 14:47:44.084 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-16 14:47:44.135 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit8356487141292194948 max_frames_per_camera=20
+2026-07-16 14:47:44.136 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit8356487141292194948/settings.json max_frames_per_camera=37
+2026-07-16 14:47:44.137 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 37
+2026-07-16 14:47:44.138 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=/tmp/junit8356487141292194948/settings.json max_frames_per_camera=37
+2026-07-16 14:47:44.138 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit8356487141292194948 max_frames_per_camera=37
+2026-07-16 14:47:44.141 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit3023553356525787820 max_frames_per_camera=5
+2026-07-16 14:47:44.147 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit3445153786575873653 max_frames_per_camera=2
+2026-07-16 14:47:44.148 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit3445153786575873653/settings.json max_frames_per_camera=2
+2026-07-16 14:47:44.148 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-16 14:47:44.167 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit13114587312914041251 max_frames_per_camera=5
+2026-07-16 14:47:44.167 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit13114587312914041251/settings.json max_frames_per_camera=5
+2026-07-16 14:47:44.167 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 5
+2026-07-16 14:47:44.191 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit13114587312914041251/settings.json max_frames_per_camera=2
+2026-07-16 14:47:44.192 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-16 14:47:44.197 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit4869946422781362179 max_frames_per_camera=5

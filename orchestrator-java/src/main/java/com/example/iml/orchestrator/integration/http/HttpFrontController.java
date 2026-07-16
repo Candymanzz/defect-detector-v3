@@ -153,7 +153,10 @@ public final class HttpFrontController {
             FrameArchiveHttpController frameArchive = new FrameArchiveHttpController(ctx.frameArchiveService());
             router.register(HttpRoute.exact("GET", "/api/client/frame-archive", frameArchive));
             router.register(HttpRoute.exact("PUT", "/api/client/frame-archive", frameArchive));
+            router.register(HttpRoute.exact("DELETE", "/api/client/frame-archive", frameArchive));
+            router.register(HttpRoute.exact("DELETE", "/api/frame-archive", frameArchive));
             router.register(HttpRoute.prefix("GET", "/api/frame-archive/", frameArchive));
+            router.register(HttpRoute.prefix("DELETE", "/api/frame-archive/", frameArchive));
         }
 
         if (ctx.clientApiEnabled()) {

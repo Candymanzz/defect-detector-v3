@@ -49,6 +49,10 @@ export function useMainOverview() {
   >({});
   const [archiveHistoryState, setArchiveHistoryState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [archiveHistoryMessage, setArchiveHistoryMessage] = useState<string | null>(null);
+  const [archivedHistoryByCameraId, setArchivedHistoryByCameraId] = useState<
+    Record<number, InspectionHistoryItem[]>
+  >({});
+  const [isArchiveViewerOpen, setIsArchiveViewerOpen] = useState(false);
   const archiveHistoryLoadingRef = useRef(false);
   const [inspectionControlByCameraId, setInspectionControlByCameraId] = useState<
     Record<number, InspectionControlState>
@@ -167,9 +171,13 @@ export function useMainOverview() {
     setArchiveHistoryMessage(null);
     try {
       const archivedHistory = await loadArchivedInspectionHistory(targetCameraIds);
-      mergeInspectionHistory(setInspectionHistoryByCameraId, archivedHistory);
+      setArchivedHistoryByCameraId(archivedHistory);
+      setIsArchiveViewerOpen(true);
       setArchiveHistoryState("loaded");
-      setArchiveHistoryMessage("Архив загружен");
+      const frameCount = Object.values(archivedHistory).reduce((sum, items) => sum + items.length, 0);
+      setArchiveHistoryMessage(
+        frameCount > 0 ? `Архив открыт: ${frameCount} кадров` : "Архив пуст — кадры ещё не сохранены",
+      );
     } catch (error) {
       setArchiveHistoryState("error");
       setArchiveHistoryMessage(errorMessage(error));
@@ -177,6 +185,10 @@ export function useMainOverview() {
       archiveHistoryLoadingRef.current = false;
     }
   }, [cameraIds]);
+
+  const closeArchiveViewer = useCallback(() => {
+    setIsArchiveViewerOpen(false);
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -351,12 +363,15 @@ export function useMainOverview() {
     inspectResultsByCameraId,
     inspectArtifactResultsByCameraId,
     inspectionHistoryByCameraId,
+    archivedHistoryByCameraId,
+    isArchiveViewerOpen,
     inspectionControlByCameraId,
     archiveHistoryState,
     archiveHistoryMessage,
     hasReference,
     toggleInspection,
     loadArchivedHistory,
+    closeArchiveViewer,
     openInspectionModal,
     selectModalInspection,
     closeInspectionModal,
