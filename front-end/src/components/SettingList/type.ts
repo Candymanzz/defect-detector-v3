@@ -9,10 +9,11 @@ export type SettingForm = {
   brightnessPercent: number;
   maxShiftMm: number;
   lineDirection: LineDirection;
+  savedFramesCount: number;
   analysisSettings: AnalysisSettings;
 };
 
-export type SettingFieldName = "brightnessPercent" | "maxShiftMm";
+export type SettingFieldName = "brightnessPercent" | "maxShiftMm" | "savedFramesCount";
 export type AnalysisSettingFieldName = keyof AnalysisSettings;
 
 export type SettingData = {

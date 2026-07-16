@@ -15,6 +15,9 @@ import type {
   LineDirection,
   LineDirectionSettings,
   LineDirectionUpdateResponse,
+  FrameArchiveHistoryResponse,
+  FrameArchiveSettings,
+  FrameArchiveSettingsUpdateResponse,
   UiCameraList,
   UiLatestSnapshot,
 } from "./types";
@@ -161,6 +164,21 @@ export const orchestratorApi = {
       method: "PUT",
       body: { direction },
     });
+  },
+
+  async getFrameArchiveSettings() {
+    return http.json<FrameArchiveSettings>("/api/client/frame-archive");
+  },
+
+  async setFrameArchiveMaxFrames(maxFramesPerCamera: number) {
+    return http.json<FrameArchiveSettingsUpdateResponse>("/api/client/frame-archive", {
+      method: "PUT",
+      body: { max_frames_per_camera: maxFramesPerCamera },
+    });
+  },
+
+  async getFrameArchiveHistory(cameraId: number) {
+    return http.json<FrameArchiveHistoryResponse>(`/api/frame-archive/cameras/${cameraId}/history`);
   },
 
   async getAnalysisSettings(productType: string) {

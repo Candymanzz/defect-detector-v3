@@ -1,5 +1,5 @@
 import { orchestratorApi } from "../../shared/api";
-import type { UiLatestSnapshot } from "../../shared/api/types";
+import type { FrameArchiveHistoryFrame, UiLatestSnapshot } from "../../shared/api/types";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { compareFrameIds } from "../../shared/lib/frameIds";
 import { getReferenceImage } from "../../shared/referenceImages";
@@ -16,7 +16,14 @@ import type {
 
 const CAMERAS_PER_OBJECT = 5;
 const FALLBACK_OBJECT_COUNT = 2;
-export const INSPECTION_HISTORY_LIMIT = 20;
+export const DEFAULT_INSPECTION_HISTORY_LIMIT = 20;
+export let inspectionHistoryLimit = DEFAULT_INSPECTION_HISTORY_LIMIT;
+
+export function setInspectionHistoryLimit(limit: number) {
+  inspectionHistoryLimit = Math.max(0, Math.round(limit));
+}
+
+export const INSPECTION_HISTORY_LIMIT = DEFAULT_INSPECTION_HISTORY_LIMIT;
 
 export const FALLBACK_CAMERA_IDS = Array.from(
   { length: CAMERAS_PER_OBJECT * FALLBACK_OBJECT_COUNT },
@@ -193,7 +200,8 @@ export function hasDisplayableInspectImage(inspectResult: InspectResultPayload) 
 }
 
 export function hasImmutableInspectArtifact(inspectResult: InspectResultPayload) {
-  return Boolean(inspectResult.artifact_bundle_id);
+  const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
+  return Boolean(inspectResult.artifact_bundle_id || imagePath.includes("/api/frame-archive/"));
 }
 
 export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
@@ -209,7 +217,83 @@ export function resolveInspectionId(inspectResult: InspectResultPayload) {
 export function upsertModalInspectionItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
   return [...items.filter((item) => item.frameId !== nextItem.frameId), nextItem]
     .sort((left, right) => compareFrameIds(left.frameId, right.frameId))
-    .slice(-INSPECTION_HISTORY_LIMIT);
+    .slice(-inspectionHistoryLimit);
+}
+
+export async function loadArchivedInspectionHistory(cameraIds: number[]) {
+  const histories = await Promise.all(
+    cameraIds.map(async (cameraId) => {
+      try {
+        const response = await orchestratorApi.getFrameArchiveHistory(cameraId);
+        setInspectionHistoryLimit(response.max_frames_per_camera);
+        return {
+          cameraId,
+          items: response.frames.map((frame) => archivedFrameToHistoryItem(cameraId, frame)),
+        };
+      } catch {
+        return { cameraId, items: [] as InspectionHistoryItem[] };
+      }
+    }),
+  );
+
+  return Object.fromEntries(histories.map(({ cameraId, items }) => [cameraId, items]));
+}
+
+export function archivedFrameToInspectResult(
+  cameraId: number,
+  frame: FrameArchiveHistoryFrame,
+): InspectResultPayload {
+  const frameHttpPath = frame.frame_url;
+  return {
+    camera_id: cameraId,
+    frame_id: frame.frame_id,
+    inspection_id: frame.inspection_id,
+    session_state: "READY",
+    current: {
+      camera_id: cameraId,
+      frame_id: frame.frame_id,
+      shm_name: "",
+      width: 0,
+      height: 0,
+      stride: 0,
+      shm_offset: 0,
+      pixel_format: "bgr_u8",
+      channels: 3,
+      http_path: frameHttpPath,
+    },
+    http_path: frameHttpPath,
+    heatmap: frame.has_heatmap
+      ? {
+          width: 0,
+          height: 0,
+          pixel_format: "gray_u8",
+          channels: 1,
+          http_path: frame.heatmap_url,
+        }
+      : null,
+    active_reference_view_index: 0,
+    detector: {
+      detector_id: frame.detector_id,
+      product_type: frame.product_type,
+    },
+    overall_pass: frame.overall_pass,
+    action: frame.action,
+    anomaly_score: frame.anomaly_score,
+    python_status: frame.python_status,
+    geometry_status: frame.geometry_status,
+    fp_zones: [],
+    server_ts_ms: frame.saved_at_ms,
+  };
+}
+
+function archivedFrameToHistoryItem(cameraId: number, frame: FrameArchiveHistoryFrame): InspectionHistoryItem {
+  const inspectResult = archivedFrameToInspectResult(cameraId, frame);
+  return {
+    frameId: frame.frame_id,
+    inspectionId: frame.inspection_id,
+    result: frame.overall_pass ? "pass" : "fail",
+    inspectResult,
+  };
 }
 
 export function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): InspectResultPayload | undefined {
@@ -296,7 +380,7 @@ function createInitialModalInspectionItems(
 
   return availableItems
     .filter((item) => compareFrameIds(item.frameId, selectedResult.frame_id) <= 0)
-    .slice(0, INSPECTION_HISTORY_LIMIT)
+    .slice(0, inspectionHistoryLimit)
     .reverse();
 }
 

@@ -61,6 +61,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     private final Logger log;
     private volatile ClientWebSocketServer clientWebSocketServer;
+    private volatile FrameArchiveService frameArchiveService;
     private final java.util.concurrent.atomic.LongAdder droppedUiPublishTasks = new java.util.concurrent.atomic.LongAdder();
     private final AtomicLong uiPublishSequence = new AtomicLong();
     private final ConcurrentHashMap<Integer, Long> latestUiPublishByCamera = new ConcurrentHashMap<>();
@@ -77,6 +78,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         this.clientWebSocketServer = clientWebSocketServer;
     }
 
+    public void setFrameArchiveService(FrameArchiveService frameArchiveService) {
+        this.frameArchiveService = frameArchiveService;
+    }
+
     public UiHttpServer startHttpServerIfEnabled(
             Map<String, Object> uiCfg,
             GeometrySnapshotCache geometrySnapshotCache,
@@ -84,7 +89,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             LightTriggerClient lightClient,
             Map<String, Object> rootYaml,
             CameraSettingsStore cameraSettingsStore,
-            LightBrightnessStore lightBrightnessStore
+            LightBrightnessStore lightBrightnessStore,
+            FrameArchiveService frameArchiveService
     ) {
         boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false);
         if (!enabled) {
@@ -101,7 +107,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     lightClient,
                     rootYaml == null ? Map.of() : rootYaml,
                     cameraSettingsStore,
-                    lightBrightnessStore
+                    lightBrightnessStore,
+                    frameArchiveService
             );
             log.info("ui http started on {}:{} (front controller)", host, port);
             return server;
@@ -533,6 +540,18 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             log.debug("client_ws inspect_result cam={}: {}", cameraId, e.getMessage());
                         }
                     }
+                    scheduleFrameArchiveSave(
+                            cameraId,
+                            frameId,
+                            inspectionId,
+                            productType,
+                            detectorId,
+                            decision,
+                            hasCur ? currentJpeg : null,
+                            hasHm ? heatmapU8 : null,
+                            hasHm ? uw : 0,
+                            hasHm ? uh : 0
+                    );
                 } catch (Exception e) {
                     log.warn(
                             "ui artifact publish failed camera_id={} frame_id={}: {}",
@@ -572,6 +591,36 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
         }
         return hasCurrentJpeg ? "/api/camera/" + cameraId + "/current.jpg" : null;
+    }
+
+    private void scheduleFrameArchiveSave(
+            int cameraId,
+            long frameId,
+            long inspectionId,
+            String productType,
+            String detectorId,
+            InspectionDecision decision,
+            Path frameJpeg,
+            Path heatmapU8,
+            int heatmapWidth,
+            int heatmapHeight
+    ) {
+        FrameArchiveService archive = frameArchiveService;
+        if (archive == null || !archive.enabled() || frameJpeg == null) {
+            return;
+        }
+        archive.scheduleSave(new FrameArchiveService.SaveRequest(
+                cameraId,
+                frameId,
+                inspectionId,
+                productType,
+                detectorId,
+                decision,
+                frameJpeg,
+                heatmapU8,
+                heatmapWidth,
+                heatmapHeight
+        ));
     }
 
     private void removeQueuedPublishForCamera(ExecutorService executor, int cameraId) {

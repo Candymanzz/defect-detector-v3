@@ -1,4 +1,5 @@
 import { orchestratorApi } from "../../shared/api";
+import { setInspectionHistoryLimit } from "../MainOverview/MainController";
 import type {
   AnalysisSettings,
   GeometryRuntimeConfig,
@@ -10,6 +11,7 @@ import { errorMessage } from "../../shared/lib/errors";
 import type { AnalysisSettingFieldName, SettingData, SettingFieldName, SettingForm, SettingStatus } from "./type";
 
 const DEFAULT_MAX_SHIFT_MM = 0.5;
+const DEFAULT_SAVED_FRAMES_COUNT = 20;
 const MIN_BRIGHTNESS_PERCENT = 0;
 const MAX_BRIGHTNESS_PERCENT = 100;
 const MIN_MAX_SHIFT_MM = 0;
@@ -46,6 +48,7 @@ export const INITIAL_SETTING_FORM: SettingForm = {
   brightnessPercent: 0,
   maxShiftMm: DEFAULT_MAX_SHIFT_MM,
   lineDirection: "reverse",
+  savedFramesCount: DEFAULT_SAVED_FRAMES_COUNT,
   analysisSettings: DEFAULT_ANALYSIS_SETTINGS,
 };
 
@@ -109,11 +112,12 @@ export async function saveLineDirection(
 }
 
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
-  const [lightBrightness, geometryRuntime, analysisProductTypes, lineDirection] = await Promise.all([
+  const [lightBrightness, geometryRuntime, analysisProductTypes, lineDirection, frameArchiveSettings] = await Promise.all([
     orchestratorApi.getLightBrightness(),
     orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
     orchestratorApi.getLineDirection().catch(() => ({ direction: "reverse" as const, source: "manual" as const })),
+    orchestratorApi.getFrameArchiveSettings().catch(() => null),
   ]);
   const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
   const analysisSettings = "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;
@@ -123,6 +127,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       : "product_type" in analysisResponse && analysisResponse.product_type
         ? [analysisResponse.product_type]
         : analysisProductTypes;
+  const savedFramesCount = readSavedFramesCount(frameArchiveSettings);
 
   return {
     status: {
@@ -133,6 +138,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       brightnessPercent: readBrightnessPercent(lightBrightness, selectedCameraId),
       maxShiftMm: readMaxShiftMm(geometryRuntime),
       lineDirection: lineDirection.direction,
+      savedFramesCount,
       analysisSettings,
     },
     analysisProductTypes: resolvedProductTypes,
@@ -204,6 +210,27 @@ export async function saveMaxShiftData(
   };
 }
 
+export async function saveSavedFramesData(
+  form: SettingForm,
+  analysisProductTypes: string[],
+): Promise<SettingData> {
+  const normalizedForm = normalizeSettingForm(form);
+  const response = await orchestratorApi.setFrameArchiveMaxFrames(normalizedForm.savedFramesCount);
+  setInspectionHistoryLimit(response.max_frames_per_camera);
+
+  return {
+    status: {
+      state: "ready",
+      text: "количество кадров сохранено",
+    },
+    form: {
+      ...form,
+      savedFramesCount: response.max_frames_per_camera,
+    },
+    analysisProductTypes,
+  };
+}
+
 export function createSettingErrorData(error: unknown, form: SettingForm = INITIAL_SETTING_FORM): SettingData {
   return {
     status: {
@@ -248,6 +275,7 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
     brightnessPercent: clampBrightness(form.brightnessPercent),
     maxShiftMm: clampMaxShiftMm(form.maxShiftMm),
     lineDirection: form.lineDirection === "reverse" ? "reverse" : "forward",
+    savedFramesCount: clampSavedFramesCount(form.savedFramesCount),
     analysisSettings: normalizeAnalysisSettings(form.analysisSettings),
   };
 }
@@ -409,6 +437,13 @@ function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {
   );
 }
 
+function readSavedFramesCount(frameArchiveSettings: { max_frames_per_camera?: number; max_allowed_frames_per_camera?: number } | null) {
+  return clampSavedFramesCount(
+    frameArchiveSettings?.max_frames_per_camera ?? DEFAULT_SAVED_FRAMES_COUNT,
+    frameArchiveSettings?.max_allowed_frames_per_camera,
+  );
+}
+
 async function saveMaxShiftMm(maxShiftMm: number, selectedCameraId: number | null, cameraIds: number[]) {
   const update = { max_shift_mm: maxShiftMm };
 
@@ -522,6 +557,10 @@ function clampBrightness(value: number) {
 
 function clampMaxShiftMm(value: number) {
   return clampNumber(value, MIN_MAX_SHIFT_MM, MAX_MAX_SHIFT_MM);
+}
+
+function clampSavedFramesCount(value: number, maxAllowed = 100) {
+  return clampNumber(Math.round(value), 0, Math.max(0, maxAllowed));
 }
 
 function clampNumber(value: number, min: number, max: number) {

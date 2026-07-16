@@ -9,6 +9,7 @@ import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
+import com.example.iml.orchestrator.integration.ui.FrameArchiveService;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import org.apache.logging.log4j.Logger;
 
@@ -45,6 +46,7 @@ public final class IntegrationShutdownCoordinator {
             FanOutCoordinator fanOut,
             ClientWebSocketServer clientWebSocketServer,
             UiHttpServer uiServer,
+            FrameArchiveService frameArchiveService,
             ServicePoolLifecycle servicePools,
             Logger log
     ) {
@@ -131,6 +133,12 @@ public final class IntegrationShutdownCoordinator {
         }
         if (r.uiServer != null) {
             r.uiServer.close();
+        }
+        if (r.frameArchiveService != null) {
+            try {
+                r.frameArchiveService.close();
+            } catch (Exception ignored) {
+            }
         }
         ImlShmJanitor.purgeOrchestratorBuffers(r.log);
     }

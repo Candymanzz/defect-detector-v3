@@ -19,6 +19,15 @@ ui_http:
   client_preview_jpeg_quality: 58
   client_preview_max_width: 0
 
+# Постоянный архив последних N кадров инспекции (кадр + heatmap + result.json).
+# Сохранение асинхронное и не блокирует пайплайн. N задаётся через API / фронт.
+frame_archive:
+  enabled: true
+  directory_windows: "D:\\frame"
+  directory_linux: "/tmp/iml-frame-archive"
+  default_max_frames_per_camera: 20
+  max_allowed_frames_per_camera: 100
+
 # HTTP API для фронта на том же порту, что ui_http (нужен ui_http.enabled: true).
 # Прокси к analisSurface: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
 # geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).

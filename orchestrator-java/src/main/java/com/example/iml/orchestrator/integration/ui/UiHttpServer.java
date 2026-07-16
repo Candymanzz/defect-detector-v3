@@ -120,6 +120,20 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             CameraSettingsStore cameraSettingsStore,
             LightBrightnessStore lightBrightnessStore
     ) throws IOException {
+        this(host, port, geometrySnapshotCache, clientApi, lightClient, rootYaml, cameraSettingsStore, lightBrightnessStore, null);
+    }
+
+    public UiHttpServer(
+            String host,
+            int port,
+            GeometrySnapshotCache geometrySnapshotCache,
+            ClientApiMount clientApi,
+            LightTriggerClient lightClient,
+            Map<String, Object> rootYaml,
+            CameraSettingsStore cameraSettingsStore,
+            LightBrightnessStore lightBrightnessStore,
+            FrameArchiveService frameArchiveService
+    ) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         this.httpServer = HttpServer.create(addr, 0);
         this.httpContext = HttpApplicationContext.of(
@@ -129,7 +143,8 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
                 lightClient,
                 rootYaml == null ? Map.of() : rootYaml,
                 cameraSettingsStore,
-                lightBrightnessStore
+                lightBrightnessStore,
+                frameArchiveService
         );
         HttpFrontController frontController = new HttpFrontController(httpContext);
         OrchestratorApiDocumentationHandlers.register(httpServer);

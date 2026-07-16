@@ -3,7 +3,7 @@ import { InspectionHistoryModal } from "../InspectionHistoryModal";
 import type { InspectionHistoryItem } from "../MainOverview/type";
 import "./InspectionHistory.css";
 
-const INSPECTION_HISTORY_LIMIT = 20;
+import { inspectionHistoryLimit } from "../MainOverview/MainController";
 const INSPECTION_GROUP_WINDOW_MS = 15_000;
 
 type InspectionHistoryProps = {
@@ -128,7 +128,7 @@ function createInspectionHistoryTiles(cameraIds: number[], historyByCameraId: Re
       results: [...group.results].sort((left, right) => left.inspectResult.camera_id - right.inspectResult.camera_id),
     }))
     .sort((left, right) => right.serverTsMs - left.serverTsMs)
-    .slice(0, INSPECTION_HISTORY_LIMIT);
+    .slice(0, inspectionHistoryLimit);
 }
 
 function replaceCameraResult(group: InspectionHistoryTile, item: InspectionHistoryItem) {

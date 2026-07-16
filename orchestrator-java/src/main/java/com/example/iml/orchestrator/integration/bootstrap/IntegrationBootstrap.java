@@ -60,6 +60,8 @@ import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
+import com.example.iml.orchestrator.integration.ui.FrameArchiveConfig;
+import com.example.iml.orchestrator.integration.ui.FrameArchiveService;
 import com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -320,8 +322,15 @@ public final class IntegrationBootstrap {
 
         ClientWebSocketServer clientWsServer = null;
         CameraSettingsStore cameraSettingsStore = openCameraSettingsStore(projectRoot);
+        FrameArchiveService frameArchiveService = null;
+        try {
+            frameArchiveService = FrameArchiveService.open(FrameArchiveConfig.fromRootYaml(root, isWindows));
+        } catch (Exception e) {
+            log.warn("frame archive failed to start: {}", e.getMessage());
+        }
         final UiHttpServer uiServer = uiSidecar.startHttpServerIfEnabled(
-                uiCfg, geometrySnapshotCache, clientApiMount, lightClient, root, cameraSettingsStore, lightBrightnessStore);
+                uiCfg, geometrySnapshotCache, clientApiMount, lightClient, root, cameraSettingsStore, lightBrightnessStore, frameArchiveService);
+        uiSidecar.setFrameArchiveService(frameArchiveService);
         ClientWsConfig clientWsCfg = ClientWsConfig.fromRootYaml(root);
         if (clientWsCfg.enabled()) {
             try {
@@ -823,6 +832,7 @@ public final class IntegrationBootstrap {
                     fanOut,
                     clientWsServer,
                     uiServer,
+                    frameArchiveService,
                     servicePools,
                     log
             ));

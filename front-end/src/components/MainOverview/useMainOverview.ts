@@ -15,12 +15,14 @@ import {
   FALLBACK_CAMERA_IDS,
   hasDisplayableInspectImage,
   hasImmutableInspectArtifact,
-  INSPECTION_HISTORY_LIMIT,
+  inspectionHistoryLimit,
   isInspectionCounterReset,
   latestSnapshotToInspectResult,
+  loadArchivedInspectionHistory,
   loadMainOverviewData,
   resolveInspectionId,
   selectModalInspection as selectModalInspectionSnapshot,
+  setInspectionHistoryLimit,
   upsertInspectionHistoryItem,
   upsertModalInspectionItem,
   updateModalSnapshotResult,
@@ -158,9 +160,14 @@ export function useMainOverview() {
     Promise.all([
       loadMainOverviewData().catch(createMainOverviewErrorData),
       orchestratorApi.getInspectionStatus().catch(() => null),
-    ]).then(([overviewData, inspectionStatus]) => {
+      orchestratorApi.getFrameArchiveSettings().catch(() => null),
+    ]).then(([overviewData, inspectionStatus, frameArchiveSettings]) => {
       if (!isActive) {
         return;
+      }
+
+      if (frameArchiveSettings?.max_frames_per_camera != null) {
+        setInspectionHistoryLimit(frameArchiveSettings.max_frames_per_camera);
       }
 
       setCameraIds(overviewData.cameraIds);
@@ -178,6 +185,15 @@ export function useMainOverview() {
       if (inspectionStatus) {
         setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
       }
+
+      void loadArchivedInspectionHistory(overviewData.cameraIds)
+        .then((archivedHistory) => {
+          if (!isActive || Object.keys(archivedHistory).length === 0) {
+            return;
+          }
+          mergeInspectionHistory(setInspectionHistoryByCameraId, archivedHistory);
+        })
+        .catch(() => undefined);
     });
 
     return () => {
@@ -491,7 +507,7 @@ function applyBucketResult(
           inspectionId,
           result: resultState,
           inspectResult,
-        }).slice(0, INSPECTION_HISTORY_LIMIT),
+        }).slice(0, inspectionHistoryLimit),
       };
     });
   }
@@ -577,7 +593,7 @@ function addInspectionHistoryItem(
         inspectionId: resolveInspectionId(inspectResult),
         result,
         inspectResult,
-      }).slice(0, INSPECTION_HISTORY_LIMIT),
+      }).slice(0, inspectionHistoryLimit),
     };
   });
 }
@@ -736,7 +752,7 @@ function mergeInspectionHistory(
       const cameraId = Number(cameraIdText);
       merged[cameraId] = snapshotItems
         .reduce((items, item) => upsertInspectionHistoryItem(items, item), current[cameraId] ?? [])
-        .slice(0, INSPECTION_HISTORY_LIMIT);
+        .slice(0, inspectionHistoryLimit);
     }
     return merged;
   });

@@ -7,6 +7,7 @@ import {
   saveBrightnessData,
   saveLineDirection,
   saveMaxShiftData,
+  saveSavedFramesData,
   saveSettingData,
   SAVING_SETTING_STATUS,
   updateAnalysisSettingField,
@@ -232,6 +233,34 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       });
   };
 
+  const handleSavedFramesSave = () => {
+    if (!canEditSettings) {
+      return;
+    }
+
+    const { form, analysisProductTypes } = settingData;
+    const requestId = ++requestIdRef.current;
+    setSaveFeedback({ state: "saving", text: "Сохранение...", cameraId: selectedCameraId });
+    setSettingData((currentSettingData) => ({
+      ...currentSettingData,
+      status: SAVING_SETTING_STATUS,
+    }));
+
+    saveSavedFramesData(form, analysisProductTypes)
+      .catch((error) => ({
+        ...createSettingErrorData(error, form),
+        analysisProductTypes,
+      }))
+      .then((nextSettingData) => {
+        if (requestId === requestIdRef.current) {
+          setSettingData(nextSettingData);
+          setSaveFeedback(
+            resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
+          );
+        }
+      });
+  };
+
   return (
     <aside
       className="setting-list"
@@ -334,6 +363,26 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           onClick={handleMaxShiftSave}
         >
           Save max shift
+        </Button>
+
+        <label className="setting-list__field setting-list__card">
+          <span>Сохранять кадров</span>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+            value={settingData.form.savedFramesCount}
+            disabled={!canEditSettings}
+            onChange={handleFieldChange("savedFramesCount")}
+          />
+        </label>
+        <Button
+          className="setting-list__inline-save"
+          disabled={!canEditSettings}
+          onClick={handleSavedFramesSave}
+        >
+          Сохранить количество кадров
         </Button>
 
         <section className="setting-list__analysis">

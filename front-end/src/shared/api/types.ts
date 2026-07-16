@@ -186,6 +186,41 @@ export type LineDirectionUpdateResponse = {
   source: "manual";
 };
 
+export type FrameArchiveSettings = {
+  enabled: boolean;
+  directory: string;
+  max_frames_per_camera: number;
+  max_allowed_frames_per_camera: number;
+};
+
+export type FrameArchiveSettingsUpdateResponse = {
+  ok: true;
+  max_frames_per_camera: number;
+};
+
+export type FrameArchiveHistoryFrame = {
+  frame_id: string;
+  inspection_id: string;
+  overall_pass: boolean;
+  action: string;
+  anomaly_score: number;
+  python_status: string;
+  geometry_status: string;
+  product_type: string;
+  detector_id: string;
+  saved_at_ms: number;
+  has_heatmap: boolean;
+  frame_url: string;
+  heatmap_url?: string;
+  result_url: string;
+};
+
+export type FrameArchiveHistoryResponse = {
+  camera_id: number;
+  max_frames_per_camera: number;
+  frames: FrameArchiveHistoryFrame[];
+};
+
 export type StubHealth = {
   status: "ok" | string;
   service: string;

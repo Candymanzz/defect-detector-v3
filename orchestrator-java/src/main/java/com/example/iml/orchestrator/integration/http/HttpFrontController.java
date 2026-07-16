@@ -9,6 +9,8 @@ import com.example.iml.orchestrator.integration.http.controller.CameraSettingsHt
 
 import com.example.iml.orchestrator.integration.http.controller.ClientApiHttpController;
 
+import com.example.iml.orchestrator.integration.http.controller.FrameArchiveHttpController;
+
 import com.example.iml.orchestrator.integration.http.controller.GeometryHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.HealthHttpController;
@@ -146,6 +148,13 @@ public final class HttpFrontController {
         }
 
 
+
+        if (ctx.frameArchiveEnabled()) {
+            FrameArchiveHttpController frameArchive = new FrameArchiveHttpController(ctx.frameArchiveService());
+            router.register(HttpRoute.exact("GET", "/api/client/frame-archive", frameArchive));
+            router.register(HttpRoute.exact("PUT", "/api/client/frame-archive", frameArchive));
+            router.register(HttpRoute.prefix("GET", "/api/frame-archive/", frameArchive));
+        }
 
         if (ctx.clientApiEnabled()) {
 

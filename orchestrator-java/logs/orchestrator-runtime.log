@@ -47302,3 +47302,7 @@ java.io.IOException: EOF
 2026-07-15 00:45:15.772 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=/iml_ref_cam7 source_shm=bucket-b-cam-7
 2026-07-15 00:45:15.773 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=/iml_ref_cam8 source_shm=bucket-b-cam-8
 2026-07-15 00:45:15.773 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=/iml_ref_cam9 source_shm=bucket-b-cam-9
+2026-07-16 13:08:24.843 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit1847399441826383189 max_frames_per_camera=2
+2026-07-16 13:08:24.942 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit6349451448370053391 max_frames_per_camera=20
+2026-07-16 13:08:24.944 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=/tmp/junit6349451448370053391/settings.json max_frames_per_camera=37
+2026-07-16 13:08:24.944 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit6349451448370053391 max_frames_per_camera=37
