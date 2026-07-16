@@ -61,11 +61,246 @@ public final class ClientApiHttpController implements HttpController {
             handleInspectionToggle(ctx, true);
             return;
         }
+        if (path.equals("/api/client/plc/timeouts")
+                || path.equals("/api/client/plc/status")
+                || path.equals("/api/client/plc/signals")) {
+            handlePlc(ctx, path);
+            return;
+        }
         if (!clientApi.kopcheniConfigured()) {
             HttpResponses.sendJsonError(ctx, 503, "client_api.kopcheni_base_url not set");
             return;
         }
         KopcheniHttpProxy.forward(ctx.exchange(), clientApi.kopcheniBaseUrl(), path);
+    }
+
+    private void handlePlc(HttpRequestContext ctx, String path) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        var plc = clientApi.plcFinsHolder() == null ? null : clientApi.plcFinsHolder().get();
+        if (plc == null) {
+            HttpResponses.sendJsonError(ctx, 503, "plc fins not ready");
+            return;
+        }
+        if (path.equals("/api/client/plc/status")) {
+            if (!"GET".equalsIgnoreCase(ctx.method())) {
+                HttpResponses.methodNotAllowed(ctx);
+                return;
+            }
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("enabled", plc.enabled());
+            root.put("inspection_in_flight", plc.inspectionInFlight());
+            root.put("inspection_enabled", plc.inspectionEnabled());
+            root.put("editable", plc.manualControlEditable());
+            root.put("timeouts_editable", plc.manualControlEditable());
+            root.put("signals_editable", plc.manualControlEditable());
+            root.set("timeout_definitions", JSON.valueToTree(plc.timeoutDefinitions()));
+            root.set("signals", JSON.valueToTree(plc.listSignals()));
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+            return;
+        }
+        if (path.equals("/api/client/plc/signals")) {
+            handlePlcSignals(ctx, plc);
+            return;
+        }
+        if (!"GET".equalsIgnoreCase(ctx.method()) && !"PUT".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (!plc.enabled()) {
+            HttpResponses.sendJsonError(ctx, 503, "plc_fins disabled");
+            return;
+        }
+        try {
+            if ("GET".equalsIgnoreCase(ctx.method())) {
+                sendTimeoutsResponse(ctx, plc, plc.readTimeouts());
+                return;
+            }
+            byte[] raw = ctx.readBody();
+            if (raw.length == 0) {
+                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required");
+                return;
+            }
+            Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
+            });
+            Map<String, Integer> units = parseTimeoutUnits(body);
+            if (units.isEmpty()) {
+                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required (D4400..D4404 or names)");
+                return;
+            }
+            sendTimeoutsResponse(ctx, plc, plc.writeTimeouts(units));
+        } catch (IllegalStateException e) {
+            HttpResponses.sendJsonError(ctx, 409, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            HttpResponses.sendJsonError(ctx, 400, e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            HttpResponses.sendJsonError(ctx, 503, "plc fins interrupted");
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 502, e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    private void handlePlcSignals(
+            HttpRequestContext ctx,
+            com.example.iml.orchestrator.integration.plc.PlcFinsApi plc
+    ) throws IOException {
+        if (!"GET".equalsIgnoreCase(ctx.method()) && !"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (!plc.enabled()) {
+            HttpResponses.sendJsonError(ctx, 503, "plc_fins disabled");
+            return;
+        }
+        try {
+            if ("GET".equalsIgnoreCase(ctx.method())) {
+                sendSignalsResponse(ctx, plc, plc.listSignals());
+                return;
+            }
+            byte[] raw = ctx.readBody();
+            if (raw.length == 0) {
+                HttpResponses.sendJsonError(ctx, 400, "body required");
+                return;
+            }
+            Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
+            });
+            Map<String, Boolean> values = new java.util.LinkedHashMap<>();
+            Map<String, Boolean> pulses = new java.util.LinkedHashMap<>();
+            Object signalName = body.get("signal");
+            if (signalName != null) {
+                String name = String.valueOf(signalName).trim();
+                values.put(name, toBool(body.get("value"), true));
+                pulses.put(name, toBool(body.get("pulse"), false));
+            }
+            Object signalsRaw = body.get("signals");
+            if (signalsRaw instanceof Map<?, ?> map) {
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    String name = String.valueOf(entry.getKey()).trim();
+                    Object value = entry.getValue();
+                    if (value instanceof Map<?, ?> nested) {
+                        Object nestedValue = nested.get("value");
+                        values.put(name, toBool(nestedValue, true));
+                        pulses.put(name, toBool(nested.get("pulse"), false));
+                    } else {
+                        values.put(name, toBool(value, true));
+                    }
+                }
+            }
+            Object pulseMapRaw = body.get("pulse");
+            if (pulseMapRaw instanceof Map<?, ?> pulseMap && signalName == null) {
+                for (Map.Entry<?, ?> entry : pulseMap.entrySet()) {
+                    pulses.put(String.valueOf(entry.getKey()).trim(), toBool(entry.getValue(), false));
+                }
+            }
+            if (values.isEmpty()) {
+                HttpResponses.sendJsonError(ctx, 400, "body.signal or body.signals required");
+                return;
+            }
+            sendSignalsResponse(ctx, plc, plc.writeSignals(values, pulses));
+        } catch (IllegalStateException e) {
+            HttpResponses.sendJsonError(ctx, 409, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            HttpResponses.sendJsonError(ctx, 400, e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            HttpResponses.sendJsonError(ctx, 503, "plc fins interrupted");
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 502, e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    private static boolean toBool(Object raw, boolean defaultValue) {
+        if (raw == null) {
+            return defaultValue;
+        }
+        if (raw instanceof Boolean bool) {
+            return bool;
+        }
+        if (raw instanceof Number number) {
+            return number.intValue() != 0;
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return defaultValue;
+        }
+        return "1".equals(text) || "true".equalsIgnoreCase(text) || "on".equalsIgnoreCase(text)
+                || "yes".equalsIgnoreCase(text);
+    }
+
+    private void sendSignalsResponse(
+            HttpRequestContext ctx,
+            com.example.iml.orchestrator.integration.plc.PlcFinsApi plc,
+            java.util.List<com.example.iml.orchestrator.integration.plc.PlcSignalState> signals
+    ) throws IOException {
+        ObjectNode root = JSON.createObjectNode();
+        root.put("ok", true);
+        root.put("enabled", plc.enabled());
+        root.put("inspection_in_flight", plc.inspectionInFlight());
+        root.put("inspection_enabled", plc.inspectionEnabled());
+        root.put("editable", plc.manualControlEditable());
+        root.set("signals", JSON.valueToTree(signals));
+        HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+    }
+
+    private void sendTimeoutsResponse(
+            HttpRequestContext ctx,
+            com.example.iml.orchestrator.integration.plc.PlcFinsApi plc,
+            java.util.List<com.example.iml.orchestrator.integration.plc.PlcTimeoutState> timeouts
+    ) throws IOException {
+        ObjectNode root = JSON.createObjectNode();
+        root.put("ok", true);
+        root.put("enabled", plc.enabled());
+        root.put("inspection_in_flight", plc.inspectionInFlight());
+        root.put("inspection_enabled", plc.inspectionEnabled());
+        root.put("editable", plc.manualControlEditable());
+        root.put("unit", "100ms_bcd");
+        root.set("timeouts", JSON.valueToTree(timeouts));
+        root.set("signals", JSON.valueToTree(plc.listSignals()));
+        HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Integer> parseTimeoutUnits(Map<String, Object> body) {
+        Object raw = body.get("timeouts");
+        if (raw == null) {
+            raw = body;
+        }
+        if (!(raw instanceof Map<?, ?> map)) {
+            return Map.of();
+        }
+        Map<String, Integer> units = new java.util.LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String key = String.valueOf(entry.getKey());
+            if ("ok".equals(key) || "enabled".equals(key) || "editable".equals(key)
+                    || "inspection_in_flight".equals(key) || "unit".equals(key)) {
+                continue;
+            }
+            Object value = entry.getValue();
+            if (value instanceof Map<?, ?> nested) {
+                Object unitsRaw = nested.get("value_units");
+                if (unitsRaw == null) {
+                    unitsRaw = nested.get("valueUnits");
+                }
+                if (unitsRaw == null) {
+                    unitsRaw = nested.get("units");
+                }
+                if (unitsRaw == null) {
+                    unitsRaw = nested.get("value_ms");
+                    if (unitsRaw instanceof Number ms) {
+                        units.put(key, ms.intValue() / 100);
+                        continue;
+                    }
+                }
+                value = unitsRaw;
+            }
+            if (value instanceof Number number) {
+                units.put(key, number.intValue());
+            } else if (value != null && !String.valueOf(value).isBlank()) {
+                units.put(key, Integer.parseInt(String.valueOf(value).trim()));
+            }
+        }
+        return units;
     }
 
     private void handleGeometryRuntime(HttpRequestContext ctx) throws IOException {

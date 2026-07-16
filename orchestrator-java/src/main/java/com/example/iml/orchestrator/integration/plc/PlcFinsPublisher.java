@@ -8,7 +8,9 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -17,13 +19,46 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class PlcFinsPublisher implements AutoCloseable {
 
-  private sealed interface PlcJob permits WriteBitJob, PulseBitJob {
+  private sealed interface PlcJob permits WriteBitJob, PulseBitJob, ReadWordsJob, WriteWordsJob {
   }
 
-  private record WriteBitJob(PlcSignalDefinition signal, boolean value) implements PlcJob {
+  private record WriteBitJob(
+      PlcSignalDefinition signal,
+      boolean value,
+      CompletableFuture<Void> future
+  ) implements PlcJob {
+    WriteBitJob(PlcSignalDefinition signal, boolean value) {
+      this(signal, value, null);
+    }
   }
 
-  private record PulseBitJob(PlcSignalDefinition signal, boolean activeValue, long resetAtNanos) implements PlcJob {
+  private record PulseBitJob(
+      PlcSignalDefinition signal,
+      boolean activeValue,
+      long resetAtNanos,
+      CompletableFuture<Void> future
+  ) implements PlcJob {
+    PulseBitJob(PlcSignalDefinition signal, boolean activeValue, long resetAtNanos) {
+      this(signal, activeValue, resetAtNanos, null);
+    }
+  }
+
+  private record ReadWordsJob(
+      PlcMemoryArea area,
+      int startWord,
+      int count,
+      String signal,
+      CompletableFuture<int[]> future
+  ) implements PlcJob {
+  }
+
+  private record WriteWordsJob(
+      PlcMemoryArea area,
+      int startWord,
+      int[] words,
+      String signal,
+      CompletableFuture<Void> future
+  ) implements PlcJob {
   }
 
   private final Logger log;
@@ -34,6 +69,8 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private final Thread worker;
   private final AtomicBoolean running = new AtomicBoolean(true);
   private final AtomicLong droppedJobs = new AtomicLong();
+  private final java.util.concurrent.ConcurrentHashMap<String, Boolean> lastSignalValues =
+      new java.util.concurrent.ConcurrentHashMap<>();
 
   public PlcFinsPublisher(
       Logger log,
@@ -62,6 +99,14 @@ public final class PlcFinsPublisher implements AutoCloseable {
     return new PlcFinsPublisher(log, config, registerMap, client);
   }
 
+  public void setTrafficListener(PlcFinsTrafficListener listener) {
+    client.setTrafficListener(listener);
+  }
+
+  public PlcRegisterMap registerMap() {
+    return registerMap;
+  }
+
   public void publishBucket(BucketFanOutResult result) {
     Optional<PlcSignalDefinition> signalOpt = registerMap.rejectSignalForGroup(result.groupId());
     if (signalOpt.isEmpty()) {
@@ -87,15 +132,84 @@ public final class PlcFinsPublisher implements AutoCloseable {
     enqueue(new WriteBitJob(registerMap.require(config.visionFaultSignal()), fault));
   }
 
+  public int[] readWords(PlcMemoryArea area, int startWord, int count, String signal)
+      throws IOException, InterruptedException, TimeoutException {
+    CompletableFuture<int[]> future = new CompletableFuture<>();
+    if (!enqueue(new ReadWordsJob(area, startWord, count, signal, future))) {
+      throw new IOException("plc fins queue full");
+    }
+    return await(future);
+  }
+
+  public void writeWords(PlcMemoryArea area, int startWord, int[] words, String signal)
+      throws IOException, InterruptedException, TimeoutException {
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    if (!enqueue(new WriteWordsJob(area, startWord, words, signal, future))) {
+      throw new IOException("plc fins queue full");
+    }
+    await(future);
+  }
+
+  public void writeSignal(String name, boolean value, boolean pulse)
+      throws IOException, InterruptedException, TimeoutException {
+    PlcSignalDefinition signal = registerMap.require(name);
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    boolean enqueued;
+    if (pulse && value && config.pulseMs() > 0) {
+      enqueued = enqueue(new PulseBitJob(
+          signal,
+          true,
+          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(config.pulseMs()),
+          future
+      ));
+    } else {
+      enqueued = enqueue(new WriteBitJob(signal, value, future));
+    }
+    if (!enqueued) {
+      throw new IOException("plc fins queue full");
+    }
+    await(future);
+  }
+
+  public Boolean lastSignalValue(String name) {
+    return lastSignalValues.get(name);
+  }
+
   public long droppedTotal() {
     return droppedJobs.get();
   }
 
-  private void enqueue(PlcJob job) {
+  private <T> T await(CompletableFuture<T> future) throws IOException, InterruptedException, TimeoutException {
+    try {
+      return future.get(Math.max(1000L, config.responseTimeoutMs() * 3L), TimeUnit.MILLISECONDS);
+    } catch (java.util.concurrent.ExecutionException e) {
+      Throwable cause = e.getCause() == null ? e : e.getCause();
+      if (cause instanceof IOException io) {
+        throw io;
+      }
+      if (cause instanceof RuntimeException runtime) {
+        throw runtime;
+      }
+      throw new IOException(cause.getMessage(), cause);
+    }
+  }
+
+  private boolean enqueue(PlcJob job) {
     if (!queue.offer(job)) {
       droppedJobs.incrementAndGet();
       log.warn("plc fins queue full, job dropped total={}", droppedJobs.get());
+      if (job instanceof ReadWordsJob read) {
+        read.future().completeExceptionally(new IOException("plc fins queue full"));
+      } else if (job instanceof WriteWordsJob write) {
+        write.future().completeExceptionally(new IOException("plc fins queue full"));
+      } else if (job instanceof WriteBitJob writeBit && writeBit.future() != null) {
+        writeBit.future().completeExceptionally(new IOException("plc fins queue full"));
+      } else if (job instanceof PulseBitJob pulse && pulse.future() != null) {
+        pulse.future().completeExceptionally(new IOException("plc fins queue full"));
+      }
+      return false;
     }
+    return true;
   }
 
   private void runLoop() {
@@ -116,25 +230,71 @@ public final class PlcFinsPublisher implements AutoCloseable {
 
   private void processJob(PlcJob job) throws IOException {
     if (job instanceof WriteBitJob write) {
-      writeBit(write.signal(), write.value());
+      try {
+        writeBit(write.signal(), write.value());
+        if (write.future() != null) {
+          write.future().complete(null);
+        }
+      } catch (Exception e) {
+        if (write.future() != null) {
+          write.future().completeExceptionally(e);
+        } else {
+          throw e instanceof IOException io ? io : new IOException(e);
+        }
+      }
       return;
     }
-    PulseBitJob pulse = (PulseBitJob) job;
-    writeBit(pulse.signal(), pulse.activeValue());
-    long waitMs = TimeUnit.NANOSECONDS.toMillis(pulse.resetAtNanos() - System.nanoTime());
-    if (waitMs > 0) {
+    if (job instanceof PulseBitJob pulse) {
       try {
-        Thread.sleep(waitMs);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return;
+        writeBit(pulse.signal(), pulse.activeValue());
+        long waitMs = TimeUnit.NANOSECONDS.toMillis(pulse.resetAtNanos() - System.nanoTime());
+        if (waitMs > 0) {
+          try {
+            Thread.sleep(waitMs);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (pulse.future() != null) {
+              pulse.future().completeExceptionally(e);
+            }
+            return;
+          }
+        }
+        writeBit(pulse.signal(), false);
+        if (pulse.future() != null) {
+          pulse.future().complete(null);
+        }
+      } catch (Exception e) {
+        if (pulse.future() != null) {
+          pulse.future().completeExceptionally(e);
+        } else if (e instanceof IOException io) {
+          throw io;
+        } else {
+          throw new IOException(e);
+        }
       }
+      return;
     }
-    writeBit(pulse.signal(), false);
+    if (job instanceof ReadWordsJob read) {
+      try {
+        int[] words = client.readWords(read.area(), read.startWord(), read.count(), read.signal());
+        read.future().complete(words);
+      } catch (Exception e) {
+        read.future().completeExceptionally(e);
+      }
+      return;
+    }
+    WriteWordsJob writeWords = (WriteWordsJob) job;
+    try {
+      client.writeWords(writeWords.area(), writeWords.startWord(), writeWords.words(), writeWords.signal());
+      writeWords.future().complete(null);
+    } catch (Exception e) {
+      writeWords.future().completeExceptionally(e);
+    }
   }
 
   private void writeBit(PlcSignalDefinition signal, boolean value) throws IOException {
-    client.writeBit(signal.area(), signal.address(), value);
+    client.writeBit(signal.area(), signal.address(), value, signal.name());
+    lastSignalValues.put(signal.name(), value);
     log.info(
             "plc fins write signal={} area={} address={}.{} value={}",
             signal.name(),

@@ -28,6 +28,7 @@ public final class WsMessageTypes {
     public static final String SERVER_FP_ZONES_ACK = "server.fp_zones_ack";
     public static final String SERVER_ACTIVE_REFERENCE_VIEW_ACK = "server.active_reference_view_ack";
     public static final String SERVER_LIGHT_BRIGHTNESS_ACK = "server.light_brightness_ack";
+    public static final String SERVER_PLC_FINS_TRAFFIC = "server.plc_fins_traffic";
     public static final String SERVER_STATE = "server.state";
     public static final String SERVER_ERROR = "server.error";
 

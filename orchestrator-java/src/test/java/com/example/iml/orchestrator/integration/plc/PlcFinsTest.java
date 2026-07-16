@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PlcAddressTest {
 
@@ -56,5 +57,75 @@ class FinsFrameBuilderTest {
     );
     assertArrayEquals(new byte[] {0x00, 0x01}, new byte[] {frame[16], frame[17]});
     assertEquals((byte) 0x00, frame[18]);
+  }
+
+  @Test
+  void buildsReadWordsForDm() {
+    byte[] frame = FinsFrameBuilder.buildReadWords(231, 254, 3, PlcMemoryArea.DM, 4400, 5);
+    assertEquals(18, frame.length);
+    assertEquals((byte) 0x01, frame[10]);
+    assertEquals((byte) 0x01, frame[11]);
+    assertEquals((byte) 0x82, frame[12]);
+    assertEquals((byte) 0x11, frame[13]);
+    assertEquals((byte) 0x30, frame[14]);
+    assertEquals((byte) 0x00, frame[15]);
+    assertEquals((byte) 0x00, frame[16]);
+    assertEquals((byte) 0x05, frame[17]);
+  }
+
+  @Test
+  void buildsWriteWordsForDm() {
+    byte[] frame = FinsFrameBuilder.buildWriteWords(
+        231,
+        254,
+        9,
+        PlcMemoryArea.DM,
+        4400,
+        new int[] {PlcBcd.toBcdWord(10), PlcBcd.toBcdWord(20)}
+    );
+    assertEquals(22, frame.length);
+    assertEquals((byte) 0x01, frame[10]);
+    assertEquals((byte) 0x02, frame[11]);
+    assertEquals((byte) 0x82, frame[12]);
+    assertEquals((byte) 0x00, frame[16]);
+    assertEquals((byte) 0x02, frame[17]);
+    assertEquals((byte) 0x00, frame[18]);
+    assertEquals((byte) 0x10, frame[19]);
+    assertEquals((byte) 0x00, frame[20]);
+    assertEquals((byte) 0x20, frame[21]);
+  }
+
+  @Test
+  void parsesReadWordsData() {
+    byte[] response = new byte[18];
+    response[14] = 0x00;
+    response[15] = 0x10;
+    response[16] = 0x00;
+    response[17] = 0x25;
+    int[] words = FinsFrameBuilder.parseReadWordsData(response, response.length, 2);
+    assertArrayEquals(new int[] {0x0010, 0x0025}, words);
+  }
+}
+
+class PlcBcdTest {
+
+  @Test
+  void roundTripsCommonValues() {
+    assertEquals(0x0010, PlcBcd.toBcdWord(10));
+    assertEquals(10, PlcBcd.fromBcdWord(0x0010));
+    assertEquals(0x1234, PlcBcd.toBcdWord(1234));
+    assertEquals(1234, PlcBcd.fromBcdWord(0x1234));
+  }
+
+  @Test
+  void rejectsInvalidBcd() {
+    assertThrows(IllegalArgumentException.class, () -> PlcBcd.fromBcdWord(0x001A));
+    assertThrows(IllegalArgumentException.class, () -> PlcBcd.toBcdWord(10000));
+  }
+
+  @Test
+  void convertsUnitsToMs() {
+    assertEquals(1500, PlcBcd.unitsToMs(15));
+    assertEquals(15, PlcBcd.msToUnits(1599));
   }
 }

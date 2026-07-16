@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
+import com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 
 import java.util.Map;
@@ -17,10 +18,20 @@ public record ClientApiMount(
         Map<String, Object> pythonDetectorYaml,
         Map<Integer, String> analysisProfileByCamera,
         PerCameraInspectionGate inspectionGate,
-        ManualLineDirectionService manualLineDirection
+        ManualLineDirectionService manualLineDirection,
+        PlcFinsServiceHolder plcFinsHolder
 ) {
     public static ClientApiMount disabled() {
-        return new ClientApiMount(false, null, "", null, null, Map.of(), null, null);
+        return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, new PlcFinsServiceHolder());
+    }
+
+    public static ClientApiMount fromRootYaml(
+            Map<String, Object> root,
+            GeometryRuntimeConfig geometryRuntime,
+            PerCameraInspectionGate inspectionGate,
+            ManualLineDirectionService manualLineDirection
+    ) {
+        return fromRootYaml(root, geometryRuntime, inspectionGate, manualLineDirection, new PlcFinsServiceHolder());
     }
 
     @SuppressWarnings("unchecked")
@@ -28,18 +39,20 @@ public record ClientApiMount(
             Map<String, Object> root,
             GeometryRuntimeConfig geometryRuntime,
             PerCameraInspectionGate inspectionGate,
-            ManualLineDirectionService manualLineDirection
+            ManualLineDirectionService manualLineDirection,
+            PlcFinsServiceHolder plcFinsHolder
     ) {
+        PlcFinsServiceHolder holder = plcFinsHolder == null ? new PlcFinsServiceHolder() : plcFinsHolder;
         if (root == null || geometryRuntime == null) {
-            return disabled();
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder);
         }
         Object raw = root.get("client_api");
         if (!(raw instanceof Map<?, ?> m)) {
-            return disabled();
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder);
         }
         boolean en = YamlScalars.toBool(m.get("enabled"), false);
         if (!en) {
-            return disabled();
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder);
         }
         String url = "";
         Object urlObj = m.get("kopcheni_base_url");
@@ -67,7 +80,8 @@ public record ClientApiMount(
                 py,
                 com.example.iml.orchestrator.integration.config.ConfiguredCameras.analysisProfileByCameraId(root),
                 inspectionGate,
-                manualLineDirection
+                manualLineDirection,
+                holder
         );
     }
 

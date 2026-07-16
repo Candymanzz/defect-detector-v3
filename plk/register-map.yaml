@@ -1,5 +1,5 @@
 # Нормализованная карта сигналов техзрения (MAP 25_247).
-# Источник: plk/25_247_MAP - Входы.csv, Состояния-неисправности-управление.csv
+# Источник: plk/25_247_MAP - Входы.csv, Состояния-неисправности-управление.csv, Настройки.csv
 # Адреса W0.xx — рабочая область; CIO — зеркало в логике ПЛК (уточнить, куда писать по FINS).
 
 version: 1
@@ -62,3 +62,50 @@ inputs:
     data_type: bool
     direction: plc_to_pc
     source_csv: "25_247_MAP - Входы.csv"
+
+# Таймауты отбраковки (DM, BCD, единицы 100 ms). Источник: Настройки.csv
+timeouts:
+  - name: reject_control_disable_timeout
+    description: Тайм-аут отключения контроля отбраковки при отсутствии проезда в обратную сторону
+    area: DM
+    address: 4400
+    display_address: D4400
+    encoding: bcd
+    unit: 100ms
+    source_csv: "25_247_MAP - Настройки.csv"
+
+  - name: reject_travel_with_main_timeout
+    description: Тайм-аут длительности движения отбракованного ведёрка вместе с основным движением
+    area: DM
+    address: 4401
+    display_address: D4401
+    encoding: bcd
+    unit: 100ms
+    source_csv: "25_247_MAP - Настройки.csv"
+
+  - name: reject_push_timeout
+    description: Тайм-аут длительности толкания ведёрок отбраковкой
+    area: DM
+    address: 4402
+    display_address: D4402
+    encoding: bcd
+    unit: 100ms
+    source_csv: "25_247_MAP - Настройки.csv"
+
+  - name: reject_buzzer_timeout
+    description: Тайм-аут длительности звукового сигнала отбраковки
+    area: DM
+    address: 4403
+    display_address: D4403
+    encoding: bcd
+    unit: 100ms
+    source_csv: "25_247_MAP - Настройки.csv"
+
+  - name: conveyor_cycle_watch_timeout
+    description: Тайм-аут контроля что конвейер не поехал по циклу
+    area: DM
+    address: 4404
+    display_address: D4404
+    encoding: bcd
+    unit: 100ms
+    source_csv: "25_247_MAP - Настройки.csv"

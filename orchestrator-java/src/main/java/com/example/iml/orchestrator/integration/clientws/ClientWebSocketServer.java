@@ -229,6 +229,13 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         broadcastOpenClients(conn -> outbound.sendInspectBucketResult(conn, result));
     }
 
+    public void notifyPlcFinsTraffic(com.example.iml.orchestrator.integration.plc.PlcFinsTrafficEvent event) {
+        if (event == null) {
+            return;
+        }
+        broadcastOpenClients(conn -> outbound.sendPlcFinsTraffic(conn, event));
+    }
+
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
         if (!WsConnectionPath.allowed(cfg, handshake.getResourceDescriptor())) {

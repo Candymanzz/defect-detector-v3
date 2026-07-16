@@ -389,6 +389,52 @@ public final class WsOutboundMessenger {
         }
     }
 
+    public void sendPlcFinsTraffic(WebSocket conn, com.example.iml.orchestrator.integration.plc.PlcFinsTrafficEvent event) {
+        if (event == null) {
+            return;
+        }
+        try {
+            ObjectNode root = JSON.createObjectNode();
+            root.put("type", WsMessageTypes.SERVER_PLC_FINS_TRAFFIC);
+            root.put("protocol_version", cfg.protocolVersion());
+            root.put("message_id", UUID.randomUUID().toString());
+            ObjectNode payload = JSON.createObjectNode();
+            payload.put("direction", event.direction());
+            payload.put("operation", event.operation());
+            if (event.signal() != null && !event.signal().isBlank()) {
+                payload.put("signal", event.signal());
+            }
+            payload.put("area", event.area());
+            payload.put("address", event.address());
+            if (event.value() != null) {
+                payload.set("value", JSON.valueToTree(event.value()));
+            }
+            payload.put("hex_frame", event.hexFrame() == null ? "" : event.hexFrame());
+            if (event.sid() != null) {
+                payload.put("sid", event.sid());
+            }
+            if (event.endCode() != null) {
+                payload.put("end_code", event.endCode());
+            }
+            payload.put("ok", event.ok());
+            if (event.error() != null && !event.error().isBlank()) {
+                payload.put("error", event.error());
+            }
+            payload.put("server_ts_ms", event.serverTsMs());
+            root.set("payload", payload);
+            sendRaw(conn, writeJson(root), WsMessageTypes.SERVER_PLC_FINS_TRAFFIC);
+            log.debug(
+                    "client_ws sent type={} direction={} op={} address={}",
+                    WsMessageTypes.SERVER_PLC_FINS_TRAFFIC,
+                    event.direction(),
+                    event.operation(),
+                    event.address()
+            );
+        } catch (ClientWsJsonSerializationException | ClientWsSendFailedException e) {
+            log.debug("client_ws plc_fins_traffic send failed: {}", e.getMessage());
+        }
+    }
+
     public void sendError(WebSocket conn, String code, String message) {
         try {
             ObjectNode root = JSON.createObjectNode();

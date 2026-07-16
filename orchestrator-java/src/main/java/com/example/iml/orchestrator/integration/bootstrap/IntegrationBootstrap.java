@@ -132,11 +132,14 @@ public final class IntegrationBootstrap {
                 IoInputMonitorDirectionClient.fromIntegration(log, integration);
         manualLineDirection.setOnChanged(ioInputDirectionClient::publishDirection);
         ioInputDirectionClient.publishDirection(manualLineDirection.wireValue());
+        com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder plcFinsHolder =
+                new com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder();
         ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(
                 root,
                 geometryRuntimeConfig,
                 inspectionGate,
-                manualLineDirection
+                manualLineDirection,
+                plcFinsHolder
         );
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);
         IntegrationFeatureConfig.CaptureFrameDownscaleConfig captureDownscaleCfg =
@@ -418,8 +421,14 @@ public final class IntegrationBootstrap {
                 }
             }
             final PipelineStagesLog pipelineStagesLog = pipelineStagesLogMutable;
-            FanOutCoordinator activeFanOut = FanOutCoordinator.fromConfig(root, projectRoot, clientWsServer);
+            FanOutCoordinator activeFanOut = FanOutCoordinator.fromConfig(
+                    root,
+                    projectRoot,
+                    clientWsServer,
+                    inspectionGate
+            );
             fanOut = activeFanOut;
+            plcFinsHolder.set(activeFanOut);
             log.info("integration parallel settings: camera_parallelism={} geometry_pool_size={}", cfg.cameraParallelism(), geometryPool.size());
             List<Map<String, Object>> activeCameras = new ArrayList<>();
             for (Map<String, Object> camera : cameras) {

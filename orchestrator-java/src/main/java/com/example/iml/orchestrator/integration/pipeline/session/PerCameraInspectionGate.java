@@ -88,6 +88,16 @@ public final class PerCameraInspectionGate {
         return false;
     }
 
+    /** Хотя бы на одной камере инспекция включена (кнопка Start). */
+    public boolean hasAnyInspectionEnabled() {
+        for (AtomicBoolean flag : inspectionEnabled.values()) {
+            if (flag != null && flag.get()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void setInspectionEnabled(int cameraId, boolean enabled) {
         AtomicBoolean flag = inspectionEnabled.get(cameraId);
         AtomicBoolean flight = inFlight.get(cameraId);

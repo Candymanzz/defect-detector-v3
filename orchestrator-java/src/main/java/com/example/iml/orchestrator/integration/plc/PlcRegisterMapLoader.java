@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -43,8 +45,59 @@ public final class PlcRegisterMapLoader {
       if (byName.isEmpty()) {
         throw new IOException("PLC register map: no signals parsed");
       }
-      return new PlcRegisterMap(byName);
+      List<PlcTimeoutDefinition> timeouts = parseTimeouts(root.get("timeouts"));
+      return new PlcRegisterMap(byName, timeouts);
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<PlcTimeoutDefinition> parseTimeouts(Object raw) {
+    if (!(raw instanceof List<?> list) || list.isEmpty()) {
+      return List.of();
+    }
+    List<PlcTimeoutDefinition> timeouts = new ArrayList<>();
+    for (Object item : list) {
+      if (!(item instanceof Map<?, ?> entry)) {
+        continue;
+      }
+      timeouts.add(parseTimeout((Map<String, Object>) entry));
+    }
+    return timeouts;
+  }
+
+  private static PlcTimeoutDefinition parseTimeout(Map<String, Object> entry) {
+    String name = requiredString(entry, "name");
+    String description = String.valueOf(entry.getOrDefault("description", "")).trim();
+    PlcMemoryArea area = PlcMemoryArea.fromConfig(String.valueOf(entry.getOrDefault("area", "DM")));
+    int wordAddress = parseWordAddress(entry);
+    String displayAddress = String.valueOf(entry.getOrDefault("display_address", "D" + wordAddress)).trim();
+    if (displayAddress.isBlank()) {
+      displayAddress = "D" + wordAddress;
+    }
+    String encoding = String.valueOf(entry.getOrDefault("encoding", "bcd")).trim().toLowerCase(Locale.ROOT);
+    String unit = String.valueOf(entry.getOrDefault("unit", "100ms")).trim();
+    return new PlcTimeoutDefinition(name, description, area, wordAddress, displayAddress, encoding, unit);
+  }
+
+  private static int parseWordAddress(Map<String, Object> entry) {
+    Object addressRaw = entry.get("address");
+    if (addressRaw instanceof Number number) {
+      return number.intValue();
+    }
+    if (addressRaw != null) {
+      String text = String.valueOf(addressRaw).trim().toUpperCase(Locale.ROOT);
+      if (text.startsWith("D")) {
+        text = text.substring(1);
+      }
+      if (!text.isBlank()) {
+        return Integer.parseInt(text);
+      }
+    }
+    Object wordRaw = entry.get("word");
+    if (wordRaw instanceof Number number) {
+      return number.intValue();
+    }
+    throw new IllegalArgumentException("PLC timeout missing address/word");
   }
 
   private static PlcSignalDefinition parseSignal(Map<String, Object> entry) {
