@@ -10,6 +10,8 @@
   },
   "capture_source": "hik",
   "capture_trigger_mode": "line0",
+  "line0_trigger_activation": "RisingEdge",
+  "line0_line_inverter": false,
   "frame_timeout_ms": 15000,
   "gige_switch_count": 5,
   "gige_cameras_per_switch": 2,

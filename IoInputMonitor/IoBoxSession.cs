@@ -112,6 +112,53 @@ internal sealed class IoBoxSession : IDisposable
         return MvIoNative.GetPortInputParam(_handle, ref input) == MvIoNative.MvOk;
     }
 
+    public bool TryGetOutPortTriggerSource(int outPort, out uint inPort, out uint reportedOut)
+    {
+        EnsureOpen();
+        inPort = 0;
+        reportedOut = 0;
+        foreach (uint outEnc in new uint[] { (uint)outPort, MvIoNative.OutputPortIndex(outPort) }.Distinct())
+        {
+            var assoc = new MvIoNative.MvIoPortAssociation
+            {
+                InPortNum = 0,
+                OutPortNum = outEnc,
+                Reserved = new uint[8]
+            };
+            if (MvIoNative.GetOutPortTriggerSource(_handle, ref assoc) == MvIoNative.MvOk)
+            {
+                inPort = assoc.InPortNum;
+                reportedOut = assoc.OutPortNum;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public bool TryGetPortOutputParam(int outPort, out MvIoNative.MvIoSetOutput output)
+    {
+        EnsureOpen();
+        foreach (uint portEnc in new uint[]
+                 {
+                     (uint)outPort,
+                     MvIoNative.PortMaskForUint(outPort),
+                     MvIoNative.OutputPortIndex(outPort)
+                 }.Distinct())
+        {
+            output = new MvIoNative.MvIoSetOutput
+            {
+                Port = portEnc,
+                Reserved = new uint[8]
+            };
+            if (MvIoNative.GetPortOutputParam(_handle, ref output) == MvIoNative.MvOk)
+                return true;
+        }
+
+        output = default;
+        return false;
+    }
+
     public static string DescribeEdge(uint edge) =>
         edge switch
         {
@@ -195,7 +242,7 @@ internal sealed class IoBoxSession : IDisposable
     }
 
     /// <summary>
-    /// Импульс на DO. Auto: SetOutput → Timer → hardware (без throw, если Out5←In3).
+    /// Импульс на DO. Auto: SetOutput → Enable → MainLevel (без тихого «hardware» при Soft).
     /// </summary>
     public string FireCapturePulse(IoCaptureOptions capture)
     {
@@ -203,38 +250,8 @@ internal sealed class IoBoxSession : IDisposable
         return capture.OutputMode switch
         {
             IoCaptureOutputMode.Timer => FireTimerOnly(capture),
-            IoCaptureOutputMode.Direct => FireDirectOnly(capture),
-            _ => FireAuto(capture)
+            _ => FireDoSoftwarePulse(capture.OutputPort, capture.PulseDurationMs, capture.ActiveHigh)
         };
-    }
-
-    private string FireAuto(IoCaptureOptions capture)
-    {
-        try
-        {
-            FireOutputPulse(capture.OutputPort, capture.PulseDurationMs);
-            return $"setoutput DO{capture.OutputPort}";
-        }
-        catch (Exception directEx)
-        {
-            try
-            {
-                FireTimerSoftwareTrigger(capture.TimerIndex);
-                return $"timer{capture.TimerIndex} → Out{capture.OutputPort}";
-            }
-            catch (Exception timerEx)
-            {
-                return
-                    $"hardware-passthrough Out{capture.OutputPort}←In{capture.TriggerPort} " +
-                    $"(SetOutput={ShortErr(directEx)}; Timer={ShortErr(timerEx)})";
-            }
-        }
-    }
-
-    private string FireDirectOnly(IoCaptureOptions capture)
-    {
-        FireOutputPulse(capture.OutputPort, capture.PulseDurationMs);
-        return $"setoutput DO{capture.OutputPort}";
     }
 
     private string FireTimerOnly(IoCaptureOptions capture)
@@ -262,59 +279,169 @@ internal sealed class IoBoxSession : IDisposable
         }
     }
 
-    /// <summary>Прямой импульс на DO через MV_IO_SetOutput.</summary>
-    public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true)
+    /// <summary>
+    /// DI3→DO: Soft-источник → параметры (как в MVS) → Enable Start.
+    /// На этой прошивке часто срабатывает Enable по уже записанным PWM-параметрам платы.
+    /// </summary>
+    public string FireDoSoftwarePulse(int outputPort, int durationMs, bool activeHigh = true)
     {
         EnsureOpen();
         if (outputPort is < 1 or > 8)
             throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
 
         int pulseDuration = Math.Clamp(durationMs, 1, 65535);
-        uint[] portCandidates =
-        [
-            MvIoNative.OutputPortIndex(outputPort),
-            MvIoNative.PortMaskForUint(outputPort),
-            (uint)outputPort
-        ];
+        uint level = activeHigh ? 1u : 0u;
+        uint duration = (uint)pulseDuration;
+        uint port = (uint)outputPort;
 
-        foreach (uint portEnc in portCandidates.Distinct())
-            TryOutputEnable(portEnc, MvIoNative.IoOutputEnableType.Start);
+        // Soft / User: InPort=0 → программный импульс, не Out←In.
+        TrySetOutTriggerSource(inPort: 0, outPort: outputPort);
+        TryPnpEnable(port, enabled: true);
+        MvIoNative.SaveParam(_handle);
 
-        int lastRet = unchecked((int)0x80000004);
-        uint usedPort = portCandidates[0];
-        foreach (uint portEnc in portCandidates.Distinct())
+        // Idle перед фронтом — иначе повторный импульс может не дать edge на Line0.
+        TrySetMainOutputLevel(outputPort, !activeHigh);
+        Thread.Sleep(5);
+
+        TryGetPortOutputParam(outputPort, out var board);
+        uint boardPattern = board.Pattern;
+        uint boardPeriod = board.PulsePeriod == 0 ? Math.Max(duration, 1u) : board.PulsePeriod;
+        uint boardWidth = board.PulseWidth == 0 ? Math.Max(1u, boardPeriod / 2) : board.PulseWidth;
+        if (boardWidth >= boardPeriod)
+            boardWidth = Math.Max(1u, boardPeriod / 2);
+
+        var attempts = new List<(string Tag, uint Pattern, uint Width, uint Period, uint Duration)>
         {
-            foreach (uint pattern in new uint[] { 0, 1 })
-            {
-                var output = new MvIoNative.MvIoSetOutput
-                {
-                    Port = portEnc,
-                    Pattern = pattern,
-                    PulseWidth = (uint)pulseDuration,
-                    PulsePeriod = Math.Max(1u, (uint)pulseDuration),
-                    PulseDuration = (uint)pulseDuration,
-                    Level = activeHigh ? 1u : 0u,
-                    Reserved = new uint[8]
-                };
+            // Как в MVS на плите — это уже принималось SDK (pat=5, …).
+            ("board-exact", boardPattern, board.PulseWidth == 0 ? boardWidth : board.PulseWidth, boardPeriod,
+                board.PulseDuration == 0 ? duration : board.PulseDuration),
+            // Длина из конфига при том же pattern.
+            ("board+dur", boardPattern, boardWidth, boardPeriod, duration),
+            ("single", 0, duration, duration, duration),
+            ("single-p1", 0, duration, 1, duration),
+            ("pwm", 1, Math.Max(1u, duration / 2), duration, duration),
+        };
 
-                lastRet = MvIoNative.SetOutput(_handle, ref output);
-                if (lastRet == MvIoNative.MvOk)
-                {
-                    usedPort = portEnc;
-                    goto enableOk;
-                }
+        var errors = new List<string>();
+        foreach (var a in attempts)
+        {
+            uint period = a.Period == 0 ? 1u : a.Period;
+            var output = new MvIoNative.MvIoSetOutput
+            {
+                Port = port,
+                Pattern = a.Pattern,
+                PulseWidth = a.Width,
+                PulsePeriod = period,
+                PulseDuration = a.Duration,
+                Level = level,
+                Reserved = new uint[8]
+            };
+
+            int setRet;
+            try
+            {
+                setRet = MvIoNative.SetOutput(_handle, ref output);
             }
+            catch (Exception ex)
+            {
+                errors.Add($"{a.Tag}:ex={ex.GetType().Name}");
+                continue;
+            }
+
+            if (setRet != MvIoNative.MvOk)
+            {
+                errors.Add($"{a.Tag}:0x{setRet:x8}");
+                continue;
+            }
+
+            int enRet = TryOutputEnable(port, MvIoNative.IoOutputEnableType.Start);
+            if (enRet == MvIoNative.MvOk)
+            {
+                // Доп. фронт уровнем — камеры на RisingEdge часто ждут именно edge на Line0.
+                _ = TryPulseMainOutputLevel(outputPort, Math.Min(pulseDuration, 50), activeHigh);
+                return $"setoutput DO{outputPort} ({a.Tag})";
+            }
+
+            errors.Add($"{a.Tag}:set=ok enable=0x{enRet:x8}");
         }
 
-        throw new InvalidOperationException(
-            $"MV_IO_SetOutput failed for DO{outputPort}: 0x{lastRet:x8}");
-
-        enableOk:
-        int ret = TryOutputEnable(usedPort, MvIoNative.IoOutputEnableType.Start);
-        if (ret != MvIoNative.MvOk)
+        // Как «Execute» в MVS: параметры уже на плате, только Start.
+        TryOutputEnable(port, MvIoNative.IoOutputEnableType.End);
+        int enableOnly = TryOutputEnable(port, MvIoNative.IoOutputEnableType.Start);
+        if (enableOnly == MvIoNative.MvOk)
         {
-            throw new InvalidOperationException(
-                $"MV_IO_SetOutputEnable failed for DO{outputPort}: 0x{ret:x8}");
+            _ = TryPulseMainOutputLevel(outputPort, Math.Min(pulseDuration, 50), activeHigh);
+            return $"enable DO{outputPort} (MVS-params pat={boardPattern} w={board.PulseWidth} p={boardPeriod})";
+        }
+
+        if (TryPulseMainOutputLevel(outputPort, pulseDuration, activeHigh))
+            return $"mainlevel DO{outputPort}";
+
+        throw new InvalidOperationException(
+            $"DO{outputPort} pulse failed enable=0x{enableOnly:x8}; " +
+            string.Join("; ", errors.Take(6)));
+    }
+
+    /// <summary>Прямой импульс (совместимость с тестами/CLI).</summary>
+    public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true) =>
+        _ = FireDoSoftwarePulse(outputPort, durationMs, activeHigh);
+
+    /// <summary>Fallback: тумблер уровня через MV_IO_SetMainOutputLevel (не PWM).</summary>
+    public bool TryPulseMainOutputLevel(int outputPort, int durationMs, bool activeHigh = true)
+    {
+        EnsureOpen();
+        TrySetMainOutputLevel(outputPort, !activeHigh);
+        Thread.Sleep(2);
+        if (!TrySetMainOutputLevel(outputPort, activeHigh))
+            return false;
+
+        Thread.Sleep(Math.Clamp(durationMs, 1, 5000));
+        TrySetMainOutputLevel(outputPort, !activeHigh);
+        return true;
+    }
+
+    private bool TrySetMainOutputLevel(int outputPort, bool high)
+    {
+        uint status = high ? 1u : 0u;
+        uint[] ports = [(uint)outputPort, MvIoNative.OutputPortIndex(outputPort), MvIoNative.PortMaskForUint(outputPort)];
+        foreach (uint p in ports.Distinct())
+        {
+            var lvl = new MvIoNative.MvIoMainOutputLevel { Port = p, Status = status, Reserved = new uint[8] };
+            if (MvIoNative.SetMainOutputLevel(_handle, ref lvl) == MvIoNative.MvOk)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void TryPnpEnable(uint port, bool enabled)
+    {
+        var pnp = new MvIoNative.MvIoPnpEnable
+        {
+            Port = port,
+            Enable = enabled ? 1u : 0u,
+            Reserved = new uint[8]
+        };
+        _ = MvIoNative.ExecutePnpEnable(_handle, ref pnp);
+    }
+
+    private void TrySetOutTriggerSource(uint inPort, int outPort)
+    {
+        uint[] outCandidates = [(uint)outPort, MvIoNative.OutputPortIndex(outPort)];
+        uint[] inCandidates = [inPort, 0u, 9u, 255u];
+        foreach (uint outEnc in outCandidates.Distinct())
+        {
+            foreach (uint inEnc in inCandidates.Distinct())
+            {
+                var assoc = new MvIoNative.MvIoPortAssociation
+                {
+                    InPortNum = inEnc,
+                    OutPortNum = outEnc,
+                    Reserved = new uint[8]
+                };
+                if (MvIoNative.SetOutPortTriggerSource(_handle, ref assoc) == MvIoNative.MvOk)
+                    return;
+            }
         }
     }
 

@@ -188,7 +188,7 @@ internal sealed class IoCaptureGate
     }
 }
 
-internal sealed class IoCaptureOptions
+public sealed class IoCaptureOptions
 {
     public bool Enabled { get; set; }
 
@@ -207,6 +207,28 @@ internal sealed class IoCaptureOptions
 
     public int PulseDurationMs { get; set; } = 20;
 
+    /// <summary>
+    /// Пауза после UDP DI3 перед DO: дать Java/камерам войти в wait_frame (Line0 RisingEdge).
+    /// 0 = DO сразу (часто промах: импульс уходит до arm).
+    /// </summary>
+    public int PulseDelayMs { get; set; } = 80;
+
+    /// <summary>Сколько раз повторить DO после delay (edge мог попасть в flush).</summary>
+    public int PulseRepeat { get; set; } = 3;
+
+    /// <summary>Пауза между повторными DO-импульсами.</summary>
+    public int PulseRepeatGapMs { get; set; } = 80;
+
+    /// <summary>
+    /// Уровень SDK при импульсе DO (Level / MainOutputLevel).
+    /// Должен быть согласован с line0_trigger_activation камер:
+    /// RisingEdge ↔ true (электрический ↑), FallingEdge ↔ true на NPN (энергия = линия ↓).
+    /// </summary>
+    public bool ActiveHigh { get; set; } = true;
+
+    /// <summary>rising|falling — для логов; камеры читают line0_trigger_activation из config.json.</summary>
+    public string Line0Edge { get; set; } = "falling";
+
     public bool DirectionInvert { get; set; }
 
     public bool RequireDirection { get; set; } = true;
@@ -217,7 +239,7 @@ internal sealed class IoCaptureOptions
     public IoDirectionHttpOptions DirectionHttp { get; set; } = new();
 }
 
-internal sealed class IoDirectionHttpOptions
+public sealed class IoDirectionHttpOptions
 {
     public bool Enabled { get; set; } = true;
 

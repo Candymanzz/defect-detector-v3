@@ -28,6 +28,12 @@ internal static class Program
 
         try
         {
+            if (options.SimulateDi3)
+                return RunSimulateDi3(options);
+            if (options.HwDi3Do5)
+                return RunHwDi3Do5(options);
+            if (options.PulsePort is > 0)
+                return RunPulse(options);
             return RunMonitor(options);
         }
         catch (DllNotFoundException)
@@ -40,6 +46,196 @@ internal static class Program
             Console.Error.WriteLine(ex.Message);
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Полный hardware-цикл без физического DI3: UDP DI3↑ (arm wait_frame) → delay → DO5 pulse → DI3↓.
+    /// Кадры только если Line0 реально получает фронт от DO5.
+    /// </summary>
+    private static int RunHwDi3Do5(MonitorOptions options)
+    {
+        var udp = options.UdpPublish;
+        string host = string.IsNullOrWhiteSpace(udp.Host) ? "127.0.0.1" : udp.Host;
+        int port = udp.Port > 0 ? udp.Port : 9100;
+        int di = options.Capture.TriggerPort is >= 1 and <= 8 ? options.Capture.TriggerPort : 3;
+        int doPort = options.Capture.OutputPort is >= 1 and <= 8 ? options.Capture.OutputPort : 5;
+        int delayMs = Math.Clamp(options.Capture.PulseDelayMs, 0, 5000);
+        int durationMs = options.PulseDurationMs > 0
+            ? options.PulseDurationMs
+            : Math.Max(1, options.Capture.PulseDurationMs);
+        int repeats = Math.Clamp(options.Capture.PulseRepeat, 1, 20);
+        int gapMs = Math.Clamp(options.Capture.PulseRepeatGapMs, 0, 2000);
+
+        using var client = new System.Net.Sockets.UdpClient();
+        var endpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse(host), port);
+
+        void SendDi(int value)
+        {
+            long ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string json = $"{{\"di\":{di},\"value\":{value},\"ts_ms\":{ts},\"hw\":true}}";
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            client.Send(bytes, bytes.Length, endpoint);
+            Console.WriteLine($"[{Timestamp()}] HW DI{di} value={value} → {host}:{port}");
+        }
+
+        SendDi(1);
+        Console.WriteLine($"[{Timestamp()}] arm wait_frame, DO{doPort} after {delayMs} ms ×{repeats}");
+        if (delayMs > 0)
+            Thread.Sleep(delayMs);
+
+        var capture = new IoCaptureOptions
+        {
+            Enabled = true,
+            OutputPort = doPort,
+            OutputMode = options.PulseMode == IoCaptureOutputMode.Auto
+                ? IoCaptureOutputMode.Direct
+                : options.PulseMode,
+            TimerIndex = options.Capture.TimerIndex,
+            PulseDurationMs = durationMs,
+            TriggerPort = di,
+            ActiveHigh = options.Capture.ActiveHigh,
+            Line0Edge = options.Capture.Line0Edge
+        };
+
+        using var session = new IoBoxSession(options.ComPort);
+        Console.WriteLine($"Открываю {options.ComPort} для DO{doPort} (edge={capture.Line0Edge} active_high={capture.ActiveHigh})...");
+        session.Open();
+        try { MvIoNative.SetDebugView(1); } catch { /* optional */ }
+
+        string lastHow = "";
+        for (int r = 1; r <= repeats; r++)
+        {
+            try
+            {
+                lastHow = session.FireCapturePulse(capture);
+                Console.WriteLine($"[{Timestamp()}] DO{doPort} pulse {r}/{repeats}: {lastHow}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{Timestamp()}] DO{doPort} pulse {r}/{repeats}: FAIL {ex.Message}");
+                SendDi(0);
+                return 1;
+            }
+
+            if (r < repeats && gapMs > 0)
+                Thread.Sleep(gapMs);
+        }
+
+        Thread.Sleep(50);
+        SendDi(0);
+        Console.WriteLine($"HW DI{di}+DO{doPort}: done via {lastHow} — ждите capture_ok (Line0), не software");
+        return 0;
+    }
+
+    /// <summary>
+    /// Симуляция DI3↑ без железа: UDP на оркестратор (software trigger / trigger_only).
+    /// Пока DO5→Line0 не прокинут — основной способ проверить кадры.
+    /// </summary>
+    private static int RunSimulateDi3(MonitorOptions options)
+    {
+        var udp = options.UdpPublish;
+        string host = string.IsNullOrWhiteSpace(udp.Host) ? "127.0.0.1" : udp.Host;
+        int port = udp.Port > 0 ? udp.Port : 9100;
+        int di = options.Capture.TriggerPort is >= 1 and <= 8 ? options.Capture.TriggerPort : 3;
+        int holdMs = options.SimulateDi3HoldMs > 0 ? options.SimulateDi3HoldMs : 100;
+
+        using var client = new System.Net.Sockets.UdpClient();
+        var endpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse(host), port);
+
+        void Send(int value)
+        {
+            long ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            string json = $"{{\"di\":{di},\"value\":{value},\"ts_ms\":{ts},\"sim\":true}}";
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            client.Send(bytes, bytes.Length, endpoint);
+            Console.WriteLine($"[{Timestamp()}] SIM DI{di} value={value} → {host}:{port} {json}");
+        }
+
+        Send(1);
+        Thread.Sleep(holdMs);
+        Send(0);
+        Console.WriteLine($"SIM DI{di}: OK (ожидайте trigger_only / кадры в оркестраторе)");
+        return 0;
+    }
+
+    /// <summary>Однократный/повторный импульс на DO (пока SetOutput или Timer не пройдёт).</summary>
+    private static int RunPulse(MonitorOptions options)
+    {
+        int port = options.PulsePort!.Value;
+        int durationMs = options.PulseDurationMs > 0
+            ? options.PulseDurationMs
+            : Math.Max(1, options.Capture.PulseDurationMs);
+        var capture = new IoCaptureOptions
+        {
+            Enabled = true,
+            OutputPort = port,
+            OutputMode = options.PulseMode,
+            TimerIndex = options.Capture.TimerIndex,
+            PulseDurationMs = durationMs,
+            TriggerPort = options.Capture.TriggerPort,
+            ActiveHigh = options.Capture.ActiveHigh,
+            Line0Edge = options.Capture.Line0Edge
+        };
+
+        using var session = new IoBoxSession(options.ComPort);
+        Console.WriteLine($"Открываю {options.ComPort} для импульса DO{port}...");
+        session.Open();
+        try { MvIoNative.SetDebugView(1); } catch { /* optional */ }
+        Console.WriteLine(
+            $"OK {session.OpenedComName}: DO{port} mode={capture.OutputMode} " +
+            $"{durationMs} ms, retry every {options.PulseRetryMs} ms");
+        LogOutTriggerSource(session, port);
+
+        for (int attempt = 1; ; attempt++)
+        {
+            string how;
+            try
+            {
+                how = session.FireCapturePulse(capture);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{Timestamp()}] attempt {attempt}: FAIL {ex.Message}");
+                if (options.PulseMaxAttempts > 0 && attempt >= options.PulseMaxAttempts)
+                    return 1;
+                Thread.Sleep(options.PulseRetryMs);
+                continue;
+            }
+
+            bool softwareOk =
+                how.StartsWith("setoutput", StringComparison.OrdinalIgnoreCase) ||
+                how.StartsWith("enable", StringComparison.OrdinalIgnoreCase) ||
+                how.StartsWith("timer", StringComparison.OrdinalIgnoreCase) ||
+                how.StartsWith("mainlevel", StringComparison.OrdinalIgnoreCase);
+            Console.WriteLine($"[{Timestamp()}] attempt {attempt}: {how}");
+            if (softwareOk)
+            {
+                Console.WriteLine($"DO{port} pulse OK via {how}");
+                return 0;
+            }
+
+            if (options.PulseMaxAttempts > 0 && attempt >= options.PulseMaxAttempts)
+                return 1;
+            Thread.Sleep(options.PulseRetryMs);
+        }
+    }
+
+    private static void LogOutTriggerSource(IoBoxSession session, int port)
+    {
+        if (session.TryGetOutPortTriggerSource(port, out uint inPort, out uint outPort))
+            Console.WriteLine($"Out{port} trigger source: InPort={inPort} (reported Out={outPort})");
+        else
+            Console.WriteLine($"Out{port} trigger source: read failed");
+
+        if (session.TryGetPortOutputParam(port, out var output))
+        {
+            Console.WriteLine(
+                $"Out{port} param: port={output.Port} pattern={output.Pattern} " +
+                $"width={output.PulseWidth} period={output.PulsePeriod} " +
+                $"duration={output.PulseDuration} level={output.Level}");
+        }
+        else
+            Console.WriteLine($"Out{port} GetPortOutputParam: failed");
     }
 
     private static int RunMonitor(MonitorOptions options)
@@ -230,10 +426,44 @@ internal static class Program
                 LogCaptureDecision(captureDecision, options.Capture, captureGate);
             }
 
-            if (captureDecision == IoCaptureDecision.FireDo)
-                FireCapturePulseLogged(session, sessionLock, consoleLock, options.Capture);
-
+            // Сначала UDP → Java/камеры в wait_frame, потом DO на Line0 (иначе RisingEdge уже прошёл).
             udpPublisher?.Publish(port, closed);
+
+            if (captureDecision == IoCaptureDecision.FireDo)
+            {
+                IoCaptureOptions capture = options.Capture;
+                int delayMs = Math.Clamp(capture.PulseDelayMs, 0, 5000);
+                int repeats = Math.Clamp(capture.PulseRepeat, 1, 20);
+                int gapMs = Math.Clamp(capture.PulseRepeatGapMs, 0, 2000);
+                lock (consoleLock)
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] DO{capture.OutputPort}: after {delayMs} ms ×{repeats} pulse {capture.PulseDurationMs} ms");
+                }
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (delayMs > 0)
+                            await Task.Delay(delayMs).ConfigureAwait(false);
+                        for (int i = 0; i < repeats; i++)
+                        {
+                            FireCapturePulseLogged(session, sessionLock, consoleLock, capture);
+                            if (i + 1 < repeats && gapMs > 0)
+                                await Task.Delay(gapMs).ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        lock (consoleLock)
+                        {
+                            Console.Error.WriteLine(
+                                $"[{Timestamp()}] DO{capture.OutputPort}: delayed FAIL — {ex.Message}");
+                        }
+                    }
+                });
+            }
 
             if (options.EdgeMode == IoInputEdgeMode.Both && ShouldConfigureSdk(options))
             {
@@ -302,8 +532,9 @@ internal static class Program
         capture.OutputMode switch
         {
             IoCaptureOutputMode.Timer => $"TRIGGER Timer{capture.TimerIndex} → Out{capture.OutputPort}",
-            IoCaptureOutputMode.Direct => $"SEND DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms",
-            _ => $"AUTO DO{capture.OutputPort}"
+            IoCaptureOutputMode.Direct =>
+                $"SEND DO{capture.OutputPort} pulse {capture.PulseDurationMs} ms edge={capture.Line0Edge} active_high={capture.ActiveHigh}",
+            _ => $"AUTO DO{capture.OutputPort} edge={capture.Line0Edge} active_high={capture.ActiveHigh}"
         };
 
     private static void FireCapturePulseLogged(
@@ -331,7 +562,7 @@ internal static class Program
                 bool hardwareOnly = how.StartsWith("hardware-passthrough", StringComparison.Ordinal);
                 Console.WriteLine(
                     hardwareOnly
-                        ? $"[{Timestamp()}] DO{doPort}: {how} — поставь Out{doPort} Line Source = In {capture.TriggerPort}, иначе выхода не будет"
+                        ? $"[{Timestamp()}] DO{doPort}: {how} — Soft DO не прошёл, Out{doPort} Line Source = Soft/User в MVS"
                         : $"[{Timestamp()}] DO{doPort}: OK — {how}");
             }
         }
@@ -476,6 +707,9 @@ internal static class Program
               IoInputMonitor --com COM3 --input 3
               IoInputMonitor --probe
               IoInputMonitor --com COM3 --scan
+              IoInputMonitor --pulse 5
+              IoInputMonitor --hw-di3
+              IoInputMonitor --simulate-di3
               IoInputMonitor --list
 
             Конфиг (по умолчанию config/blocks/52-io-input.yaml):
@@ -490,6 +724,12 @@ internal static class Program
               --com COMx       COM-порт IO box (переопределяет конфиг)
               --input N        DI 1..8 (переопределяет inputs из конфига)
               --scan           Однократно показать DI1..DI8 и выйти
+              --pulse N        Импульс на DO N (1..8); повторяет пока SetOutput/Timer не OK
+              --pulse-ms M     Длительность импульса (по умолчанию из capture.pulse_duration_ms)
+              --pulse-mode M   auto|direct|timer (по умолчанию auto)
+              --hw-di3         UDP DI3↑ + DO5 pulse (hardware Line0; без software trigger)
+              --simulate-di3   только UDP DI3 (software path; для отладки)
+              --simulate-hold  Пауза HIGH перед ↓ (мс, по умолчанию 100)
               --probe          Найти, на каком COM висит IO box с DI
               --list           Показать COM-порты Windows
               --help           Эта справка
@@ -498,6 +738,7 @@ internal static class Program
               - COM1/COM2 часто заняты MV-LE (подсветка), DI там нет.
               - IO box с DI обычно на отдельном COM (у вас COM3).
               - Закройте MVS Client / LightServer, если COM занят.
+              - Кадры от Line0: --hw-di3 при hardware_line_trigger=true.
             """);
     }
 
@@ -511,6 +752,16 @@ internal static class Program
         public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
         public IoCaptureOptions Capture { get; set; } = new();
         public bool ScanAll { get; set; }
+        public int? PulsePort { get; set; }
+        public int PulseDurationMs { get; set; }
+        public IoCaptureOutputMode PulseMode { get; set; } = IoCaptureOutputMode.Auto;
+        public int PulseRetryMs { get; set; } = 250;
+        /// <summary>0 = бесконечно; иначе стоп после N неудач.</summary>
+        public int PulseMaxAttempts { get; set; }
+        public bool SimulateDi3 { get; set; }
+        public int SimulateDi3HoldMs { get; set; } = 100;
+        /// <summary>UDP DI3↑ + DO5 pulse (hardware Line0 path).</summary>
+        public bool HwDi3Do5 { get; set; }
         public bool ProbePorts { get; set; }
         public bool ListPorts { get; set; }
         public bool ShowHelp { get; set; }
@@ -537,6 +788,31 @@ internal static class Program
                     case "--scan":
                         options.ScanAll = true;
                         break;
+                    case "--pulse":
+                        options.PulsePort = int.Parse(RequireValue(args, ref i, "--pulse"));
+                        break;
+                    case "--pulse-ms":
+                        options.PulseDurationMs = int.Parse(RequireValue(args, ref i, "--pulse-ms"));
+                        break;
+                    case "--pulse-mode":
+                        options.PulseMode = ParsePulseMode(RequireValue(args, ref i, "--pulse-mode"));
+                        break;
+                    case "--pulse-attempts":
+                        options.PulseMaxAttempts = int.Parse(RequireValue(args, ref i, "--pulse-attempts"));
+                        break;
+                    case "--simulate-di3":
+                    case "--sim-di3":
+                    case "--fire-di3":
+                        options.SimulateDi3 = true;
+                        break;
+                    case "--simulate-hold":
+                        options.SimulateDi3HoldMs = int.Parse(RequireValue(args, ref i, "--simulate-hold"));
+                        break;
+                    case "--hw-di3":
+                    case "--arm-do5":
+                    case "--do5-capture":
+                        options.HwDi3Do5 = true;
+                        break;
                     case "--probe":
                         options.ProbePorts = true;
                         break;
@@ -557,6 +833,16 @@ internal static class Program
             return options;
         }
 
+        private static IoCaptureOutputMode ParsePulseMode(string value) =>
+            value.Trim().ToLowerInvariant() switch
+            {
+                "auto" => IoCaptureOutputMode.Auto,
+                "direct" => IoCaptureOutputMode.Direct,
+                "timer" => IoCaptureOutputMode.Timer,
+                _ => throw new ArgumentException(
+                    $"Неизвестный --pulse-mode: {value} (ожидается auto|direct|timer)")
+            };
+
         private static MonitorOptions FromConfig(string[] args)
         {
             IoInputConfigLoadResult loaded = IoInputConfigLoader.Load(args);
@@ -575,7 +861,10 @@ internal static class Program
 
         private static void Validate(MonitorOptions options)
         {
-            if (options.InputPorts.Length == 0)
+            if (options.PulsePort is int pulsePort && pulsePort is < 1 or > 8)
+                throw new ArgumentOutOfRangeException(nameof(options.PulsePort), "DO должен быть 1..8.");
+
+            if (options.InputPorts.Length == 0 && options.PulsePort is null)
                 throw new ArgumentException("Список inputs пуст — укажите DI 1..8 в конфиге или --input N.");
 
             foreach (int port in options.InputPorts)

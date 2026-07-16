@@ -159,11 +159,41 @@ public static class IoInputConfigLoader
             OutputMode = ParseOutputMode(raw.OutputMode),
             TimerIndex = raw.TimerIndex is >= 1 and <= 8 ? raw.TimerIndex.Value : 1,
             PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 20,
+            PulseDelayMs = raw.PulseDelayMs is >= 0 and <= 5000 ? raw.PulseDelayMs.Value : 80,
+            PulseRepeat = raw.PulseRepeat is >= 1 and <= 20 ? raw.PulseRepeat.Value : 3,
+            PulseRepeatGapMs = raw.PulseRepeatGapMs is >= 0 and <= 2000 ? raw.PulseRepeatGapMs.Value : 80,
+            ActiveHigh = ResolveActiveHigh(raw),
+            Line0Edge = ResolveLine0Edge(raw),
             DirectionInvert = raw.DirectionInvert ?? false,
             RequireDirection = raw.RequireDirection ?? true,
             InitialDirection = string.IsNullOrWhiteSpace(raw.InitialDirection) ? "reverse" : raw.InitialDirection.Trim(),
             DirectionHttp = ParseDirectionHttp(raw.DirectionHttp)
         };
+    }
+
+    /// <summary>
+    /// Согласование с камерами: falling (NPN DO «вкл» = линия ↓) или rising (PNP/высокий импульс).
+    /// </summary>
+    private static string ResolveLine0Edge(IoInputCaptureYaml raw)
+    {
+        string? edge = raw.Line0Edge ?? raw.PolarityEdge;
+        if (string.IsNullOrWhiteSpace(edge))
+            return "falling";
+
+        return edge.Trim().ToLowerInvariant() switch
+        {
+            "rising" or "rise" or "high" => "rising",
+            _ => "falling"
+        };
+    }
+
+    private static bool ResolveActiveHigh(IoInputCaptureYaml raw)
+    {
+        if (raw.ActiveHigh.HasValue)
+            return raw.ActiveHigh.Value;
+
+        // По умолчанию SDK Level=1. Если камера RisingEdge а линия NPN «вкл=низ» — ставь active_high: false.
+        return true;
     }
 
     private static IoDirectionHttpOptions ParseDirectionHttp(IoDirectionHttpYaml? raw)
@@ -326,6 +356,19 @@ public static class IoInputConfigLoader
         public int? TimerIndex { get; set; }
 
         public int? PulseDurationMs { get; set; }
+
+        public int? PulseDelayMs { get; set; }
+
+        public int? PulseRepeat { get; set; }
+
+        public int? PulseRepeatGapMs { get; set; }
+
+        public bool? ActiveHigh { get; set; }
+
+        /// <summary>rising|falling — полярность импульса DO ↔ Line0.</summary>
+        public string? Line0Edge { get; set; }
+
+        public string? PolarityEdge { get; set; }
 
         public bool? DirectionInvert { get; set; }
 

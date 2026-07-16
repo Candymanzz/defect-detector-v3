@@ -9,7 +9,7 @@ namespace IoInputMonitor;
 internal static class MvIoTimerTrigger
 {
     private static int _initialized;
-    private static Func<IntPtr, uint, int>? _triggerByIndex;
+    private static TriggerByIndexDelegate? _triggerByIndex;
     private static string? _resolvedExport;
 
     public static bool IsAvailable => EnsureInitialized() && _triggerByIndex != null;

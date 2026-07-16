@@ -87,6 +87,8 @@ typedef struct {
     float gamma;
     int black_level;
     int trigger_mode;
+    char trigger_activation[32];
+    int line_inverter;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
     int gige_ftd_cameras_per_link;
@@ -270,6 +272,8 @@ typedef struct {
     char ip[64];
     int exposure_us;
     int trigger_mode;
+    char trigger_activation[32];
+    int line_inverter;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
     int gige_ftd_cameras_per_link;
@@ -485,7 +489,8 @@ static int read_exact(FILE *in, uint8_t *buf, size_t n) {
     }
     return 0;
 }
-(FILE *out_stream, uint8_t msg_type, const char *header_json) {
+
+static int write_message(FILE *out_stream, uint8_t msg_type, const char *header_json) {
     uint8_t prefix[16];
     size_t hlen = strlen(header_json);
     prefix[0] = MAGIC0;
@@ -824,14 +829,24 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
         (void)MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", "Software");
         fprintf(stderr, "hik: TriggerMode=On TriggerSource=Software (sync with flash)\n");
     } else if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
+        const char *line = st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0";
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
-        (void)MV_CC_SetEnumValueByString(
-                st->hik_handle,
-                "TriggerSource",
-                st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0"
-        );
-        fprintf(stderr, "hik: TriggerMode=On TriggerSource=%s (hardware)\n",
-                st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0");
+        (void)MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", line);
+        (void)MV_CC_SetEnumValueByString(st->hik_handle, "LineSelector", line);
+        (void)MV_CC_SetEnumValueByString(st->hik_handle, "LineMode", "Input");
+        (void)MV_CC_SetBoolValue(st->hik_handle, "LineInverter", st->line_inverter ? 1 : 0);
+        {
+            const char *activation = st->trigger_activation[0] != '\0'
+                    ? st->trigger_activation
+                    : "RisingEdge";
+            int act_ret = MV_CC_SetEnumValueByString(st->hik_handle, "TriggerActivation", activation);
+            fprintf(stderr,
+                    "hik: TriggerMode=On TriggerSource=%s LineMode=Input TriggerActivation=%s LineInverter=%d (set=%d)\n",
+                    line,
+                    activation,
+                    st->line_inverter,
+                    act_ret);
+        }
     } else {
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 0);
         fprintf(stderr, "hik: TriggerMode=Off (continuous)\n");
@@ -1957,6 +1972,13 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->gamma = 1.0f;
     st->black_level = 0;
     st->trigger_mode = cam_cfg ? cam_cfg->trigger_mode : TRIGGER_MODE_CONTINUOUS;
+    st->trigger_activation[0] = '\0';
+    if (cam_cfg && cam_cfg->trigger_activation[0] != '\0') {
+        snprintf(st->trigger_activation, sizeof(st->trigger_activation), "%s", cam_cfg->trigger_activation);
+    } else {
+        snprintf(st->trigger_activation, sizeof(st->trigger_activation), "RisingEdge");
+    }
+    st->line_inverter = cam_cfg ? cam_cfg->line_inverter : 0;
     st->gige_inter_packet_delay = cam_cfg ? cam_cfg->gige_inter_packet_delay : 0;
     st->gige_frame_transfer_delay_step = cam_cfg ? cam_cfg->gige_frame_transfer_delay_step : 0;
     st->gige_ftd_cameras_per_link = cam_cfg && cam_cfg->gige_ftd_cameras_per_link > 0
@@ -2507,10 +2529,20 @@ int main(int argc, char **argv) {
     (void)json_find_int(js, (int)jslen, "gige_switch_buffer_kb", &cam_cfg.gige_switch_buffer_kb);
     load_frame_config(js, (int)jslen, &cam_cfg);
 
+    /* Полярность DO5 (ПЛК/IO) ↔ Line0: один edge на обоих концах. */
+    snprintf(cam_cfg.trigger_activation, sizeof(cam_cfg.trigger_activation), "RisingEdge");
+    {
+        char act[32] = {0};
+        if (json_find_string(js, (int)jslen, "line0_trigger_activation", act, sizeof(act)) == 0 && act[0] != '\0') {
+            snprintf(cam_cfg.trigger_activation, sizeof(cam_cfg.trigger_activation), "%s", act);
+        }
+        (void)json_find_bool(js, (int)jslen, "line0_line_inverter", &cam_cfg.line_inverter);
+    }
+
     fprintf(stderr, "worker start config version=%s path=%s camera=%d mode=%s\n", version, path, camera_id,
             binary_mode ? "binary-stdio" : (named_pipe_mode ? "named-pipe" : "stdout"));
     fprintf(stderr,
-            "capture source=%s frame=%dx%d format_pref=%s binning=%dx%d mode=%s frame_timeout_ms=%d ip=%s exposure_us=%d trigger=%s\n",
+            "capture source=%s frame=%dx%d format_pref=%s binning=%dx%d mode=%s frame_timeout_ms=%d ip=%s exposure_us=%d trigger=%s activation=%s inverter=%d\n",
             capture_source,
             cam_cfg.frame_width > 0 ? cam_cfg.frame_width : 1224,
             cam_cfg.frame_height > 0 ? cam_cfg.frame_height : 1024,
@@ -2519,7 +2551,9 @@ int main(int argc, char **argv) {
             cam_cfg.binning_vertical > 0 ? cam_cfg.binning_vertical : 1,
             cam_cfg.binning_mode[0] != '\0' ? cam_cfg.binning_mode : "off",
             frame_timeout_ms, cam_cfg.ip, cam_cfg.exposure_us,
-            trigger_mode_name(cam_cfg.trigger_mode));
+            trigger_mode_name(cam_cfg.trigger_mode),
+            cam_cfg.trigger_activation,
+            cam_cfg.line_inverter);
 
     free(js);
 

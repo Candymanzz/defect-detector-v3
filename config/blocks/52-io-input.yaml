@@ -13,14 +13,20 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # DI3↑ → DO5: auto = SetOutput → Timer → иначе Out5←In3 на плате.
+  # DI3↑ → UDP (arm wait_frame) → delay → DO5 → Line0.
   capture:
     enabled: true
     direction_port: 2
     trigger_port: 3
     output_port: 5
-    output_mode: auto
-    pulse_duration_ms: 20
+    output_mode: direct
+    # Согласовано с line0_trigger_activation в 01-core / config.json.
+    line0_edge: rising
+    active_high: true
+    pulse_delay_ms: 250
+    pulse_duration_ms: 300
+    pulse_repeat: 3
+    pulse_repeat_gap_ms: 100
     require_direction: false
     direction_http:
       enabled: false
