@@ -245,7 +245,7 @@ public record LightServersConfig(
             }
             Map<String, Object> m = (Map<String, Object>) em;
             int cameraId = YamlScalars.toInt(m.get("camera_id"), YamlScalars.toInt(m.get("id"), -1));
-            if (cameraId < 0) {
+            if (cameraId < 0 || !hasFlashHardware(cameraId)) {
                 continue;
             }
             FlashMode mode = parseFlashMode(String.valueOf(m.getOrDefault("mode", defaultModeNameForCameraId(cameraId))));
@@ -267,6 +267,10 @@ public record LightServersConfig(
         }
         List<CameraFlashSpec> out = new ArrayList<>(ids.size());
         for (int cameraId : ids) {
+            // id 8–9 (камеры 9–10 / 5-й коммутатор): вспышек нет — см. 51-light-hardware.yaml.
+            if (!hasFlashHardware(cameraId)) {
+                continue;
+            }
             FlashMode mode = defaultModeForCameraId(cameraId);
             out.add(new CameraFlashSpec(cameraId, mode, globalBrightness, globalBrightness, globalBrightness));
         }
@@ -295,6 +299,9 @@ public record LightServersConfig(
                 continue;
             }
             for (int cameraId : cameraIds) {
+                if (!hasFlashHardware(cameraId)) {
+                    continue;
+                }
                 FlashMode mode = defaultModeForCameraId(cameraId);
                 byCamera.put(cameraId, new CameraFlashSpec(cameraId, mode, percent, percent, percent));
             }
@@ -318,13 +325,21 @@ public record LightServersConfig(
         };
     }
 
-    /** Камеры 9–10 (id 8–9) — single; остальные — pair (см. 51-light-hardware.yaml). */
+    /**
+     * Вспышки только у камер 0–7 (camera_number 1–8, 4× Ethernet MV-LE).
+     * Камеры 8–9 (номера 9–10, 5-й коммутатор) — без подсветки.
+     */
+    static boolean hasFlashHardware(int cameraId) {
+        return cameraId >= 0 && cameraId <= 7;
+    }
+
+    /** Все вспышечные камеры — pair (две стороны на MV-LE). */
     private static FlashMode defaultModeForCameraId(int cameraId) {
-        return cameraId >= 8 ? FlashMode.SINGLE : FlashMode.PAIR;
+        return FlashMode.PAIR;
     }
 
     private static String defaultModeNameForCameraId(int cameraId) {
-        return defaultModeForCameraId(cameraId) == FlashMode.SINGLE ? "single" : "pair";
+        return "pair";
     }
 
     private static int[] parseCameraIds(Object raw) {

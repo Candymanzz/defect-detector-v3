@@ -1,12 +1,16 @@
 # Конфигурация вспышек для LightServer.v3 (авто-поиск: config/blocks/51-light-hardware.yaml).
 # Оркестратор и другие сервисы этот файл не читают.
+#
+# Все вспышки — Ethernet MV-LE (GigE). Bank On/Off: POST /api/camera-flash/bank
+# (постоянные GigE-сессии + Barrier по IP).
 
 light_hardware:
   initialize_on_startup: true
 
   devices:
+    # COM отключён: вспышки только по Ethernet.
     - id: com1
-      enabled: true
+      enabled: false
       type: com
       com_port: COM1
       channels: 2
@@ -31,7 +35,8 @@ light_hardware:
       ip: "169.254.220.1"
       channels: 4
 
-  # POST /api/camera-flash/pair — routes с 2+ каналами; /single — routes с 1 каналом
+  # POST /api/camera-flash/pair — routes с 2+ каналами.
+  # Камеры 1–8 (id 0–7) на 4× MV-LE. Камеры 9–10 (id 8–9, 5-й коммутатор) — без вспышек.
   camera_routes:
     - camera_number: 1
       device_id: mv-le-1
@@ -57,9 +62,3 @@ light_hardware:
     - camera_number: 8
       device_id: mv-le-4
       channels: [3, 4]
-    - camera_number: 9
-      device_id: com1
-      channels: [1]
-    - camera_number: 10
-      device_id: com1
-      channels: [2]

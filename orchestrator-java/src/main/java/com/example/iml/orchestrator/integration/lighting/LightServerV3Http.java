@@ -10,6 +10,7 @@ import java.net.http.HttpResponse;
  * <ul>
  *   <li>COM банк: {@code POST /api/com/light} {@code { state, brightness }} — вкл/выкл</li>
  *   <li>Яркость по камере: {@code POST /api/camera-flash/pair|single}</li>
+ *   <li>Банк вспышек (interval): {@code POST /api/camera-flash/bank} {@code { state }}</li>
  *   <li>Сеть MV-LE (legacy): {@code POST /api/light}</li>
  * </ul>
  */
@@ -21,6 +22,8 @@ public final class LightServerV3Http {
     public static final String PATH_NETWORK_LIGHT = "/api/light";
     public static final String PATH_CAMERA_FLASH_PAIR = "/api/camera-flash/pair";
     public static final String PATH_CAMERA_FLASH_SINGLE = "/api/camera-flash/single";
+    /** Параллельный On/Off всех устройств (Ethernet + COM) для interval_flash. */
+    public static final String PATH_CAMERA_FLASH_BANK = "/api/camera-flash/bank";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

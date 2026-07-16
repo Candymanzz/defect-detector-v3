@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.pipeline.bucket.BucketGroup;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
+import com.example.iml.orchestrator.integration.trigger.parse.IoInputDiChange;
 import com.example.iml.orchestrator.integration.trigger.transport.IoInputMonitorUdpTriggerTransport;
 import com.example.iml.orchestrator.integration.trigger.transport.TriggerTransport;
 import com.example.iml.orchestrator.integration.trigger.transport.UdpTriggerTransport;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Жизненный цикл шины триггеров: IoInputMonitor (UDP) и/или прочие UDP-транспорты.
@@ -41,6 +43,16 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
     /** Конвейер в «Работа» (DI work=1). Если IoInputMonitor выключен — {@code true}. */
     public boolean isLineWorkActive() {
         return ioInputTransport == null || ioInputTransport.isLineWorkActive();
+    }
+
+    /**
+     * Подписка на DI от IoInputMonitor (для interval_flash и т.п.).
+     * Не меняет логику съёмки; no-op если io_input транспорт не запущен.
+     */
+    public void addDiChangeListener(Consumer<IoInputDiChange> listener) {
+        if (ioInputTransport != null) {
+            ioInputTransport.addDiChangeListener(listener);
+        }
     }
 
     public static InspectionTriggerRuntime start(

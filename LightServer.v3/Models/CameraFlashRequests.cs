@@ -14,3 +14,13 @@ public sealed class CameraSingleFlashRequest
     public int CameraNumber { get; set; }
     public int Power { get; set; }
 }
+
+/// <summary>
+/// Одновременный On/Off всех устройств из light_hardware (Ethernet + COM) —
+/// один запрос вместо N× /pair|/single. Для interval_flash.
+/// </summary>
+public sealed class CameraFlashBankRequest
+{
+    /// <summary>on | off</summary>
+    public string State { get; set; } = "off";
+}

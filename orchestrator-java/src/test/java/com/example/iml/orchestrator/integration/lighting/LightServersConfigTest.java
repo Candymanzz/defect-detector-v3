@@ -26,7 +26,9 @@ class LightServersConfigTest {
         root.put("light_servers", ls);
         root.put("cameras", List.of(
                 Map.of("id", 0, "enabled", true),
-                Map.of("id", 8, "enabled", true)
+                Map.of("id", 3, "enabled", true),
+                Map.of("id", 8, "enabled", true),
+                Map.of("id", 9, "enabled", true)
         ));
 
         LightServersConfig cfg = LightServersConfig.fromRootYaml(root);
@@ -35,9 +37,20 @@ class LightServersConfigTest {
         assertEquals("http://127.0.0.1:5080/api/com/light", cfg.offUrl());
         assertEquals("http://127.0.0.1:5080/api/camera-flash/pair", cfg.brightnessPairUrl());
         assertEquals("http://127.0.0.1:5080/api/camera-flash/single", cfg.brightnessSingleUrl());
+        // id 8–9 без вспышек — в light_servers.cameras не попадают.
         assertEquals(2, cfg.cameras().size());
         assertEquals(LightServersConfig.FlashMode.PAIR, cfg.camera(0).mode());
-        assertEquals(LightServersConfig.FlashMode.SINGLE, cfg.camera(8).mode());
+        assertEquals(LightServersConfig.FlashMode.PAIR, cfg.camera(3).mode());
+        assertEquals(null, cfg.camera(8));
+        assertEquals(null, cfg.camera(9));
+    }
+
+    @Test
+    void camerasWithoutFlashHardwareAreSkipped() {
+        assertTrue(LightServersConfig.hasFlashHardware(0));
+        assertTrue(LightServersConfig.hasFlashHardware(7));
+        assertTrue(!LightServersConfig.hasFlashHardware(8));
+        assertTrue(!LightServersConfig.hasFlashHardware(9));
     }
 
     @Test

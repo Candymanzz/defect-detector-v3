@@ -210,7 +210,16 @@
     "brightness_percent": 80,
     "duration_ms": 90,
     "flash_lead_ms": 0,
-    "settle_delay_ms": 0
+    "settle_delay_ms": 0,
+    "interval_flash": {
+      "enabled": true,
+      "on_port": 2,
+      "off_port": 3,
+      "on_edge": "rising",
+      "off_edge": "rising",
+      "off_delay_ms": 300,
+      "start_dark": true
+    }
   },
   "integration": {
     "geometry_pool_size": 10,

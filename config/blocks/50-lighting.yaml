@@ -10,7 +10,8 @@ light_servers:
     brightness_pair: /api/camera-flash/pair
     brightness_single: /api/camera-flash/single
     status: /api/com/light
-  # Постоянная подсветка: яркость применяется при старте и меняется из UI без гашения между кадрами.
+  # hold_mode: capture НЕ трогает вспышки (On/Off только вне пайплайна).
+  # При interval_flash яркость задаётся при старте; On/Off — по DI (см. ниже).
   hold_mode: true
   fail_on_error: false
   timeout_ms: 20000
@@ -18,5 +19,18 @@ light_servers:
   duration_ms: 90
   flash_lead_ms: 0
   settle_delay_ms: 0
+  # Интервальный режим (отдельный контур от съёмки):
+  # DI2↑ «направление движения» → On, DI3↑ «Триггер» → Off (опционально с задержкой).
+  # On/Off — POST /api/camera-flash/bank (Ethernet GigE bank: параллельно по IP, без COM).
+  interval_flash:
+    enabled: true
+    on_port: 2
+    off_port: 3
+    on_edge: rising
+    off_edge: rising
+    # Задержка Off после DI3↑ (мс). Нужна, т.к. DO5→Line0 идёт с pulse_delay_ms≈250 (52-io-input.yaml).
+    # 0 = гасить сразу по фронту (риск погасить до экспозиции).
+    off_delay_ms: 300
+    start_dark: true
   # cameras опционально; по умолчанию — все enabled cameras из корневого конфига.
   # mode: pair (камеры 0–7) | single (камеры 8–9) — см. 51-light-hardware.yaml camera_routes.

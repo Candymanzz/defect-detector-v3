@@ -51,7 +51,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "LightServer API",
         Version = "v1",
-        Description = "COM-подсветка: POST /api/com/light { state: on|off, brightness: \"100,...\" }."
+        Description = "Ethernet MV-LE bank: POST /api/camera-flash/bank { state: on|off }. COM: POST /api/com/light."
     });
 
     string xmlPath = Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
@@ -63,9 +63,11 @@ builder.Services.AddSingleton<MvLeSerialLightSessions>();
 builder.Services.AddSingleton<LightControlService>();
 builder.Services.AddSingleton<ComLightIsolatedBank>();
 builder.Services.AddSingleton<ComLightBankService>();
+builder.Services.AddSingleton<EthernetMvLeBank>();
 builder.Services.AddSingleton<IoControllerComService>();
 builder.Services.AddHostedService<MvsSdkLifetime>();
 builder.Services.AddHostedService<ComLightBankHostedService>();
+builder.Services.AddHostedService<EthernetMvLeBankHostedService>();
 
 var app = builder.Build();
 

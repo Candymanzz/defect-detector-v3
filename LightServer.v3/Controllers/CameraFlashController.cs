@@ -1,7 +1,6 @@
 using LightServer.Models;
 using LightServer.Services;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Concurrent;
 
 namespace LightServer.Controllers;
 
@@ -11,14 +10,16 @@ public sealed class CameraFlashController : ControllerBase
 {
     private readonly LightControlService _light;
     private readonly LightHardwareRegistry _hardware;
-    // Ethernet MV-LE: /pair меняет 2 канала, но SDK пишет все 4 — храним последние значения по IP.
-    private static readonly ConcurrentDictionary<string, int[]> NetworkBrightnessState = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly object NetworkStateLock = new();
+    private readonly EthernetMvLeBank _ethernetBank;
 
-    public CameraFlashController(LightControlService light, LightHardwareRegistry hardware)
+    public CameraFlashController(
+        LightControlService light,
+        LightHardwareRegistry hardware,
+        EthernetMvLeBank ethernetBank)
     {
         _light = light;
         _hardware = hardware;
+        _ethernetBank = ethernetBank;
     }
 
     /// <summary>
@@ -50,6 +51,9 @@ public sealed class CameraFlashController : ControllerBase
                 },
                 defaultChannels: channels);
 
+            if (ok)
+                CameraFlashBrightnessCache.RememberCom(target.ComPort, channels, brightness);
+
             return ok
                 ? Ok(new
                 {
@@ -75,23 +79,64 @@ public sealed class CameraFlashController : ControllerBase
         }
 
         int[] allChannels = target.DeviceChannels;
+        int[] mergedBrightness = CameraFlashBrightnessCache.MergeNetworkPair(
+            target.IpAddress!,
+            allChannels,
+            target.Channels[0],
+            target.Channels[1],
+            request.LeftPower,
+            request.RightPower);
+
+        // Предпочитаем Ethernet bank (открытая GigE-сессия) — иначе Open занят банком.
+        if (_ethernetBank.TryGet(target.IpAddress!, out _))
+        {
+            var (bankOk, bankErr) = _ethernetBank.ApplyOnIp(target.IpAddress!, allChannels, mergedBrightness);
+            if (bankOk)
+            {
+                CameraFlashBrightnessCache.RememberNetwork(
+                    target.IpAddress!,
+                    allChannels,
+                    target.Channels[0],
+                    target.Channels[1],
+                    request.LeftPower,
+                    request.RightPower);
+            }
+
+            return bankOk
+                ? Ok(new
+                {
+                    success = true,
+                    cameraNumber = request.CameraNumber,
+                    deviceId = target.DeviceId,
+                    route = "ethernet-bank",
+                    ipAddress = target.IpAddress,
+                    channels,
+                    brightness
+                })
+                : BadRequest(new
+                {
+                    success = false,
+                    cameraNumber = request.CameraNumber,
+                    deviceId = target.DeviceId,
+                    route = "ethernet-bank",
+                    ipAddress = target.IpAddress,
+                    channels,
+                    brightness,
+                    error = bankErr
+                });
+        }
+
         var (netOk, netError, resolvedIndex) = _light.SetLightNetwork(
             new LightCommandRequest
             {
                 IpAddress = target.IpAddress,
                 LightControllerSource = "On",
                 Channels = allChannels,
-                Brightness = BuildMergedNetworkBrightness(
-                    target.IpAddress!,
-                    allChannels,
-                    target.Channels[0],
-                    target.Channels[1],
-                    request.LeftPower,
-                    request.RightPower)
+                Brightness = mergedBrightness
             });
 
         if (netOk)
-            RememberNetworkBrightness(
+            CameraFlashBrightnessCache.RememberNetwork(
                 target.IpAddress!,
                 allChannels,
                 target.Channels[0],
@@ -153,6 +198,9 @@ public sealed class CameraFlashController : ControllerBase
                 Brightness = brightness
             },
             defaultChannels: channels);
+
+        if (ok)
+            CameraFlashBrightnessCache.RememberCom(target.ComPort, channels, brightness);
 
         return ok
             ? Ok(new
@@ -264,55 +312,6 @@ public sealed class CameraFlashController : ControllerBase
     }
 
     private static bool IsPowerInRange(int value) => value is >= 0 and <= 255;
-
-    private static int[] BuildMergedNetworkBrightness(
-        string ipAddress,
-        int[] deviceChannels,
-        int leftChannel,
-        int rightChannel,
-        int leftPower,
-        int rightPower)
-    {
-        lock (NetworkStateLock)
-        {
-            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing)
-                && existing.Length == deviceChannels.Length
-                ? (int[])existing.Clone()
-                : new int[deviceChannels.Length];
-
-            SetChannelBrightness(merged, deviceChannels, leftChannel, leftPower);
-            SetChannelBrightness(merged, deviceChannels, rightChannel, rightPower);
-            return merged;
-        }
-    }
-
-    private static void RememberNetworkBrightness(
-        string ipAddress,
-        int[] deviceChannels,
-        int leftChannel,
-        int rightChannel,
-        int leftPower,
-        int rightPower)
-    {
-        lock (NetworkStateLock)
-        {
-            int[] merged = NetworkBrightnessState.TryGetValue(ipAddress, out int[]? existing)
-                && existing.Length == deviceChannels.Length
-                ? (int[])existing.Clone()
-                : new int[deviceChannels.Length];
-
-            SetChannelBrightness(merged, deviceChannels, leftChannel, leftPower);
-            SetChannelBrightness(merged, deviceChannels, rightChannel, rightPower);
-            NetworkBrightnessState[ipAddress] = merged;
-        }
-    }
-
-    private static void SetChannelBrightness(int[] merged, int[] deviceChannels, int channel, int power)
-    {
-        int index = Array.IndexOf(deviceChannels, channel);
-        if (index >= 0)
-            merged[index] = power;
-    }
 
     private sealed record RouteTarget(
         string DeviceId,

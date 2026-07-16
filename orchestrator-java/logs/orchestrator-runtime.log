@@ -47352,3 +47352,11 @@ java.io.IOException: EOF
 2026-07-16 14:47:44.191 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit13114587312914041251/settings.json max_frames_per_camera=2
 2026-07-16 14:47:44.192 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
 2026-07-16 14:47:44.197 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit4869946422781362179 max_frames_per_camera=5
+2026-07-16 16:41:19.456 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-16 16:41:19.481 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-07-16 16:41:19.482 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-16 16:49:32.376 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-16 16:49:32.427 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-07-16 16:49:32.428 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-16 17:22:17.201 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-07-16 17:22:17.204 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)

@@ -17,11 +17,13 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
  * UDP-слушатель DI: DI2 — текущее направление, DI3 — триггер съёмки.
@@ -43,6 +45,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private final IoInputDirectionWaiter directionWaiter;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean lineWorkActive = new AtomicBoolean(false);
+    /** Подписчики DI (например interval_flash) — не влияют на capture. */
+    private final CopyOnWriteArrayList<Consumer<IoInputDiChange>> diChangeListeners = new CopyOnWriteArrayList<>();
 
     private volatile boolean workActive;
     private volatile boolean directionRawActive;
@@ -215,7 +219,27 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         return allowed.contains(host);
     }
 
+    /**
+     * Подписка на сырые DI-события (до логики съёмки). Ошибки слушателя не ломают capture.
+     */
+    public void addDiChangeListener(Consumer<IoInputDiChange> listener) {
+        if (listener != null) {
+            diChangeListeners.add(listener);
+        }
+    }
+
+    private void notifyDiChangeListeners(IoInputDiChange change) {
+        for (Consumer<IoInputDiChange> listener : diChangeListeners) {
+            try {
+                listener.accept(change);
+            } catch (Exception e) {
+                log.warn("io_input_trigger di listener failed: {}", e.getMessage());
+            }
+        }
+    }
+
     private void applyDiChange(IoInputDiChange change) {
+        notifyDiChangeListeners(change);
         int port = change.diPort();
         boolean active = change.active();
         if (port == ioInputConfig.workPort()) {

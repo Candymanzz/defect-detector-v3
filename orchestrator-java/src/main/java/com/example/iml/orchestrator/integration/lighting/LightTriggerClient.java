@@ -35,6 +35,7 @@ public final class LightTriggerClient {
     private final String offUrl;
     private final String brightnessPairUrl;
     private final String brightnessSingleUrl;
+    private final String flashBankUrl;
     private final String statusUrl;
     private final HttpClient httpClient;
     private final Duration timeout;
@@ -59,6 +60,8 @@ public final class LightTriggerClient {
         this.offUrl = cfg.offUrl();
         this.brightnessPairUrl = cfg.brightnessPairUrl();
         this.brightnessSingleUrl = cfg.brightnessSingleUrl();
+        this.flashBankUrl = LightServerV3Http.normalizeBaseUrl(cfg.upstreamBaseUrl())
+                + LightServerV3Http.PATH_CAMERA_FLASH_BANK;
         this.statusUrl = cfg.statusUrl();
         this.timeout = Duration.ofMillis(this.timeoutMs);
         this.statusPollTimeout = Duration.ofMillis(Math.min(3000, Math.max(500, this.timeoutMs / 5)));
@@ -69,8 +72,9 @@ public final class LightTriggerClient {
         this.lightCommandLock = new Object();
         if (enabled) {
             LOG.info(
-                    "light_servers: on={} off={} brightness_pair={} brightness_single={} cameras={} default_brightness_percent={} hold_mode={}",
-                    onUrl, offUrl, brightnessPairUrl, brightnessSingleUrl, cameras.size(), defaultBrightnessPercent, holdMode
+                    "light_servers: on={} off={} brightness_pair={} brightness_single={} bank={} cameras={} default_brightness_percent={} hold_mode={}",
+                    onUrl, offUrl, brightnessPairUrl, brightnessSingleUrl, flashBankUrl,
+                    cameras.size(), defaultBrightnessPercent, holdMode
             );
             for (LightServersConfig.CameraFlashSpec c : cameras) {
                 LOG.info("  light camera id={} mode={} brightness_percent={}", c.cameraId(), c.mode(), c.brightnessPercent());
@@ -306,8 +310,65 @@ public final class LightTriggerClient {
         }
     }
 
+    /**
+     * Включить все вспышки по текущей яркости (для интервального режима DI).
+     * Не завязан на hold_mode / capture pipeline.
+     */
+    public boolean lightAllOn(String phase) {
+        return bankAllOn(phase);
+    }
+
+    /**
+     * Параллельный On всех устройств через {@code POST /api/camera-flash/bank} (Ethernet + COM).
+     * Не трогает capture pipeline.
+     */
+    public boolean bankAllOn(String phase) {
+        if (!enabled) {
+            return false;
+        }
+        LOG.info("light bank On phase={} brightness={}", phase, brightnessByEndpoint());
+        synchronized (lightCommandLock) {
+            try {
+                postJson(flashBankUrl, Map.of("state", "on"), "bank-On");
+                return true;
+            } catch (RuntimeException e) {
+                if (failOnError) {
+                    throw e;
+                }
+                LOG.warn("light bank On failed: {}", e.getMessage());
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Параллельный Off всех устройств (Ethernet + COM) через bank API.
+     * В отличие от {@link #forceAllOff()}, гасит и MV-LE, не только COM.
+     */
+    public void bankAllOff() {
+        if (!enabled) {
+            return;
+        }
+        synchronized (lightCommandLock) {
+            try {
+                postJson(flashBankUrl, Map.of("state", "off"), "bank-Off");
+            } catch (RuntimeException e) {
+                if (failOnError) {
+                    throw e;
+                }
+                LOG.warn("light bank Off failed: {}", e.getMessage());
+            }
+        }
+    }
+
     public void forceAllOff() {
         if (!enabled) {
+            return;
+        }
+        // При interval_flash / полном железе (Ethernet+COM) гасим через bank.
+        // Legacy COM-only fallback: /api/com/light.
+        if (hasPerCameraRoutes()) {
+            bankAllOff();
             return;
         }
         synchronized (lightCommandLock) {

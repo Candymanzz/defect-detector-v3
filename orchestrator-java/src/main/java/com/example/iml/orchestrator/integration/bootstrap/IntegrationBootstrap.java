@@ -23,6 +23,8 @@ import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
+import com.example.iml.orchestrator.integration.lighting.IntervalFlashConfig;
+import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
@@ -386,6 +388,7 @@ public final class IntegrationBootstrap {
         LineSynchronizedCaptureCoordinator lineCaptureCoordinator = null;
         CameraStreamService cameraStreamService = null;
         InspectionTriggerRuntime triggerRuntime = null;
+        IntervalFlashController intervalFlashController = null;
         BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster = null;
         BucketInspectionAggregator bucketInspectionAggregator = null;
         try {
@@ -653,6 +656,23 @@ public final class IntegrationBootstrap {
                     bucketInspectionConfig.enabled() ? bucketInspectionConfig.groups() : List.of(),
                     manualLineDirection
             );
+            IntervalFlashConfig intervalFlashCfg = IntervalFlashConfig.fromRootYaml(root);
+            if (intervalFlashCfg.enabled() && lightClient.isEnabled()) {
+                intervalFlashController = new IntervalFlashController(log, lightClient, intervalFlashCfg);
+                triggerRuntime.addDiChangeListener(intervalFlashController::onDiChange);
+                intervalFlashController.armStartDark();
+                log.info(
+                        "interval_flash enabled — On DI{} {}, Off DI{} {} (off_delay_ms={}); capture pipeline без изменений (hold_mode={})",
+                        intervalFlashCfg.onPort(),
+                        intervalFlashCfg.onEdge().name().toLowerCase(),
+                        intervalFlashCfg.offPort(),
+                        intervalFlashCfg.offEdge().name().toLowerCase(),
+                        intervalFlashCfg.offDelayMs(),
+                        lightClient.isHoldMode()
+                );
+            } else if (intervalFlashCfg.enabled()) {
+                log.warn("interval_flash enabled, но light_servers выключены — вспышки по DI не активны");
+            }
             if (lineCaptureCoordinator != null) {
                 final LineSynchronizedCaptureCoordinator lineCaptureRef = lineCaptureCoordinator;
                 triggerRuntime.bus().setLineTriggerListener((seq, at, cameraIds) -> {
@@ -819,6 +839,12 @@ public final class IntegrationBootstrap {
             }
             if (triggerRuntime != null) {
                 triggerRuntime.close();
+            }
+            if (intervalFlashController != null) {
+                try {
+                    intervalFlashController.close();
+                } catch (Exception ignored) {
+                }
             }
             IntegrationShutdownCoordinator.shutdownAll(new IntegrationShutdownCoordinator.ShutdownResources(
                     pipelineStagesLogMutable,
