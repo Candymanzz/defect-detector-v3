@@ -237,7 +237,14 @@ export function trimInspectionHistoryItems(items: InspectionHistoryItem[]) {
     .slice(0, inspectionHistoryLimit);
 }
 
-export async function loadArchivedInspectionHistory(cameraIds: number[]) {
+export type ArchivedInspectionHistoryLoadResult = {
+  historyByCameraId: Record<number, InspectionHistoryItem[]>;
+  failedCameraIds: number[];
+};
+
+export async function loadArchivedInspectionHistory(
+  cameraIds: number[],
+): Promise<ArchivedInspectionHistoryLoadResult> {
   const histories = await Promise.all(
     cameraIds.map(async (cameraId) => {
       try {
@@ -248,13 +255,21 @@ export async function loadArchivedInspectionHistory(cameraIds: number[]) {
           cameraId,
           items: frames.map((frame) => archivedFrameToHistoryItem(cameraId, frame)),
         };
-      } catch {
-        return { cameraId, items: [] as InspectionHistoryItem[] };
+      } catch (error) {
+        return { cameraId, items: [] as InspectionHistoryItem[], error };
       }
     }),
   );
 
-  return Object.fromEntries(histories.map(({ cameraId, items }) => [cameraId, items]));
+  const failedCameraIds = histories.filter((entry) => "error" in entry).map((entry) => entry.cameraId);
+  if (failedCameraIds.length === cameraIds.length && cameraIds.length > 0) {
+    throw new Error(`Не удалось загрузить архив камер: ${failedCameraIds.join(", ")}`);
+  }
+
+  return {
+    historyByCameraId: Object.fromEntries(histories.map(({ cameraId, items }) => [cameraId, items])),
+    failedCameraIds,
+  };
 }
 
 async function enrichArchivedFrameHeatmapSize(frame: FrameArchiveHistoryFrame): Promise<FrameArchiveHistoryFrame> {

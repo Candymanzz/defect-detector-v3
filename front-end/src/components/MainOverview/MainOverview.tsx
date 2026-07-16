@@ -134,7 +134,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           cameraIds={controller.cameraIds}
           historyByCameraId={controller.archivedHistoryByCameraId}
           onClose={controller.closeArchiveViewer}
-          onChanged={() => void controller.loadArchivedHistory(controller.cameraIds)}
+          onChanged={() => controller.loadArchivedHistory(controller.cameraIds)}
         />
       )}
     </div>

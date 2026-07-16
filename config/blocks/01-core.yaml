@@ -182,17 +182,23 @@ integration:
     - "java"
     - "-jar"
     - "java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar"
-  # LightServer.v3 — только если light_servers.enabled=true (сейчас false, COM не используется).
+  # LightServer.v3 — единый процесс для Ethernet MV-LE и COM-вспышек.
   light_server_command_windows:
     - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
+    - "run"
+    - "--project"
+    - "LightServer.v3/LightServer.csproj"
+    - "--no-launch-profile"
+    - "--"
     - "--urls"
     - "http://127.0.0.1:5080"
   light_server_command_linux:
     - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
+    - "run"
+    - "--project"
+    - "LightServer.v3/LightServer.csproj"
+    - "--no-launch-profile"
+    - "--"
     - "--urls"
     - "http://127.0.0.1:5080"
   # IoInputMonitor — DI1/DI2/DI3 → UDP :9100 (см. blocks/52-io-input.yaml).

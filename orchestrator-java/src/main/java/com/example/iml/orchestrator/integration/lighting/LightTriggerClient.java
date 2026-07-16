@@ -214,7 +214,7 @@ public final class LightTriggerClient {
             }
         }
         if (!enabled) {
-            return LightBrightnessApplyResult.none();
+            return LightBrightnessApplyResult.disabled();
         }
         return new LightBrightnessApplyResult(pushCameraBrightnessBatch(toPush));
     }
@@ -230,7 +230,7 @@ public final class LightTriggerClient {
             toPush = replaceCameraBrightnessMemory(cameraId, clamped, clamped, clamped);
         }
         if (!enabled) {
-            return LightBrightnessApplyResult.none();
+            return LightBrightnessApplyResult.disabled();
         }
         return new LightBrightnessApplyResult(pushCameraBrightnessIfEnabled(toPush));
     }
