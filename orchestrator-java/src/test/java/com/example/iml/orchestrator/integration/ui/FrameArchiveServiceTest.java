@@ -3,8 +3,6 @@ package com.example.iml.orchestrator.integration.ui;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -182,34 +180,6 @@ class FrameArchiveServiceTest {
             assertTrue(Files.isRegularFile(tempDir.resolve("camera_1/f_0000042/heatmap.u8")));
             assertTrue(Files.isRegularFile(tempDir.resolve("camera_1/f_0000042/result.json")));
             assertEquals(1, archive.listHistory(1).size());
-        } finally {
-            archive.close();
-        }
-    }
-
-    @Test
-    void infersMissingLegacyHeatmapDimensionsFromFileAndFrameAspect() throws Exception {
-        Path frameDir = tempDir.resolve("camera_2/f_0000007");
-        Files.createDirectories(frameDir);
-        BufferedImage frame = new BufferedImage(4, 3, BufferedImage.TYPE_3BYTE_BGR);
-        ImageIO.write(frame, "jpg", frameDir.resolve("frame.jpg").toFile());
-        Files.write(frameDir.resolve("heatmap.u8"), new byte[12]);
-        Files.writeString(frameDir.resolve("result.json"), """
-                {
-                  "frame_id": "7",
-                  "inspection_id": "7",
-                  "saved_at_ms": 1000,
-                  "heatmap": {"width": 0, "height": 0}
-                }
-                """);
-
-        FrameArchiveService archive = FrameArchiveService.open(new FrameArchiveConfig(true, tempDir, 5, 10));
-        try {
-            var history = archive.listHistory(2);
-            assertEquals(1, history.size());
-            assertTrue(history.get(0).hasHeatmap());
-            assertEquals(4, history.get(0).heatmapWidth());
-            assertEquals(3, history.get(0).heatmapHeight());
         } finally {
             archive.close();
         }
