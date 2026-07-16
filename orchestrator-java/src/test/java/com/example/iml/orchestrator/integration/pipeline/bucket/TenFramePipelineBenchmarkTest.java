@@ -83,7 +83,7 @@ class TenFramePipelineBenchmarkTest {
                     aggregator.recordFrameResult(
                             triggerSequence,
                             cam,
-                            new InspectionDecision(cam, 1000L + cam, true, "ACCEPT", 0.1, "ГОДЕН", "PASS"),
+                            InspectionDecision.simple(cam, 1000L + cam, true, "ACCEPT", 0.1, "ГОДЕН", "PASS"),
                             fanOut
                     );
                     frameDoneMs.put(cam, elapsedMs(t0));

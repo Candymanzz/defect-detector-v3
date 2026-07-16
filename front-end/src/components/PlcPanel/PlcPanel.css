@@ -1,0 +1,294 @@
+.plc-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.plc-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(1180px, 94vw);
+  height: min(860px, 92vh);
+  padding: 16px 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: #15191e;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+  color: #d7e0dc;
+}
+
+.plc-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plc-panel__header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #f4f7f5;
+}
+
+.plc-panel__subtitle {
+  margin: 4px 0 0;
+  color: #9aa8a4;
+  font-size: 0.9rem;
+}
+
+.plc-panel__status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.plc-panel__chip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+  background: #171b20;
+  color: #9aa8a4;
+  font-size: 0.82rem;
+}
+
+.plc-panel__chip strong {
+  color: #f4f7f5;
+}
+
+.plc-panel__chip[data-tone="ok"] strong {
+  color: #65d994;
+}
+
+.plc-panel__chip[data-tone="warn"] strong {
+  color: #fbbf24;
+}
+
+.plc-panel__lock-note,
+.plc-panel__error,
+.plc-panel__empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.plc-panel__lock-note {
+  color: #fbbf24;
+}
+
+.plc-panel__error {
+  color: #f87171;
+}
+
+.plc-panel__empty {
+  color: #7f8b87;
+}
+
+.plc-panel__body {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.plc-panel__timeouts,
+.plc-panel__signals,
+.plc-panel__traffic {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+  background: #12161a;
+}
+
+.plc-panel__timeouts {
+  flex: 0 0 auto;
+  max-height: 220px;
+}
+
+.plc-panel__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plc-panel__section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plc-panel__timeout-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.plc-panel__timeout-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+  background: #171b20;
+}
+
+.plc-panel__timeout-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
+  color: #9aa8a4;
+}
+
+.plc-panel__timeout-meta strong {
+  color: #f4f7f5;
+}
+
+.plc-panel__timeout-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #3a424c;
+  border-radius: 6px;
+  background: #0f1317;
+  color: #f4f7f5;
+  font-size: 0.92rem;
+}
+
+.plc-panel__timeout-input:disabled {
+  opacity: 0.55;
+}
+
+.plc-panel__section-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #e8efeb;
+}
+
+.plc-panel__signal-list,
+.plc-panel__traffic-log {
+  min-height: 0;
+  overflow: auto;
+}
+
+.plc-panel__signal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plc-panel__signal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+  background: #171b20;
+}
+
+.plc-panel__signal-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
+  color: #9aa8a4;
+}
+
+.plc-panel__signal-meta strong {
+  color: #f4f7f5;
+}
+
+.plc-panel__signal-meta [data-value="true"] {
+  color: #65d994;
+}
+
+.plc-panel__signal-meta [data-value="false"] {
+  color: #f87171;
+}
+
+.plc-panel__signal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plc-panel__traffic-log {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.plc-panel__traffic-row {
+  display: grid;
+  grid-template-columns: 88px 72px 88px minmax(120px, 1.2fr) minmax(40px, 0.5fr) minmax(80px, 0.8fr);
+  gap: 6px 8px;
+  padding: 8px;
+  border: 1px solid #2b3038;
+  border-radius: 6px;
+  background: #171b20;
+}
+
+.plc-panel__traffic-row[data-direction="request"] {
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.plc-panel__traffic-row[data-direction="response"][data-ok="true"] {
+  border-color: rgba(101, 217, 148, 0.35);
+}
+
+.plc-panel__traffic-row[data-ok="false"] {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.plc-panel__traffic-hex {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+  color: #7f8b87;
+}
+
+.plc-panel__traffic-dir {
+  text-transform: uppercase;
+  color: #93c5fd;
+}
+
+.plc-panel__traffic-row[data-direction="response"] .plc-panel__traffic-dir {
+  color: #65d994;
+}
+
+.plc-panel__traffic-meta {
+  color: #9aa8a4;
+}
+
+@media (max-width: 960px) {
+  .plc-panel__body {
+    grid-template-columns: 1fr;
+  }
+
+  .plc-panel__traffic-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .plc-panel__traffic-hex {
+    grid-column: 1 / -1;
+  }
+}

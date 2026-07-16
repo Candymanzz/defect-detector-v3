@@ -7,7 +7,7 @@ import java.util.Map;
 
 /**
  * Интервальный режим вспышек (отдельно от capture):
- * холостой ход (DI idle) → On, DI3↑ → On + Off через {@code off_delay_ms}.
+ * DI3↑ → On + Off через {@code off_delay_ms}; опционально холостой DI → On.
  */
 public record IntervalFlashConfig(
         boolean enabled,
@@ -19,7 +19,12 @@ public record IntervalFlashConfig(
         TriggerEdgeMode triggerEdge,
         int offDelayMs,
         /** После startupEngage гасить свет и ждать DI On. */
-        boolean startDark
+        boolean startDark,
+        /**
+         * Включать банк на холостом DI (DI2). По умолчанию false:
+         * иначе пресвет на обратном ходе → «выжиг» следующего кадра.
+         */
+        boolean idleOnEnabled
 ) {
 
     /** @deprecated use {@link #idlePort()} */
@@ -44,7 +49,7 @@ public record IntervalFlashConfig(
 
     public static IntervalFlashConfig disabled() {
         return new IntervalFlashConfig(
-                false, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 300, true
+                false, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 300, true, false
         );
     }
 
@@ -68,7 +73,6 @@ public record IntervalFlashConfig(
                 m.get("trigger_port"),
                 YamlScalars.toInt(m.get("off_port"), 3)
         );
-        // Холостой по умолчанию = DI2↓ (обратный ход). Старый on_edge сохраняем, если задан явно.
         TriggerEdgeMode idleEdge = m.containsKey("idle_edge")
                 ? TriggerEdgeMode.fromConfig(m.get("idle_edge"))
                 : m.containsKey("on_edge")
@@ -81,8 +85,9 @@ public record IntervalFlashConfig(
                         : TriggerEdgeMode.RISING;
         int offDelayMs = Math.max(0, YamlScalars.toInt(m.get("off_delay_ms"), 300));
         boolean startDark = YamlScalars.toBool(m.get("start_dark"), true);
+        boolean idleOnEnabled = YamlScalars.toBool(m.get("idle_on"), false);
         return new IntervalFlashConfig(
-                enabled, idlePort, triggerPort, idleEdge, triggerEdge, offDelayMs, startDark
+                enabled, idlePort, triggerPort, idleEdge, triggerEdge, offDelayMs, startDark, idleOnEnabled
         );
     }
 

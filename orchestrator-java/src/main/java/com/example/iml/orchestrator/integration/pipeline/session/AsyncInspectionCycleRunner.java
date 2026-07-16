@@ -332,15 +332,7 @@ public final class AsyncInspectionCycleRunner {
             return;
         }
         long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
-        InspectionDecision decision = new InspectionDecision(
-                in.cameraId(),
-                frameId,
-                false,
-                "CAPTURE",
-                0.0,
-                "NO_REFERENCE",
-                "SKIPPED"
-        );
+        InspectionDecision decision = InspectionDecision.captureOnly(in.cameraId(), frameId);
         boolean published = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
             if (in.bucketAggregator() != null) {
                 in.bucketAggregator().recordFrameResult(

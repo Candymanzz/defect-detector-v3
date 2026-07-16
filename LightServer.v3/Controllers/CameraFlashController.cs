@@ -87,10 +87,11 @@ public sealed class CameraFlashController : ControllerBase
             request.LeftPower,
             request.RightPower);
 
-        // Предпочитаем Ethernet bank (открытая GigE-сессия) — иначе Open занят банком.
+        // Только яркость в кэш/регистры (без On): 8× Off→On на /pair давали 5–6 кадров задержки.
+        // Latch — один Off→On→Off в interval_flash brightness-refresh.
         if (_ethernetBank.TryGet(target.IpAddress!, out _))
         {
-            var (bankOk, bankErr) = _ethernetBank.ApplyOnIp(target.IpAddress!, allChannels, mergedBrightness);
+            var (bankOk, bankErr) = _ethernetBank.ApplyBrightnessIp(target.IpAddress!, allChannels, mergedBrightness);
             if (bankOk)
             {
                 CameraFlashBrightnessCache.RememberNetwork(
@@ -108,7 +109,7 @@ public sealed class CameraFlashController : ControllerBase
                     success = true,
                     cameraNumber = request.CameraNumber,
                     deviceId = target.DeviceId,
-                    route = "ethernet-bank",
+                    route = "ethernet-bank-brightness",
                     ipAddress = target.IpAddress,
                     channels,
                     brightness
@@ -118,7 +119,7 @@ public sealed class CameraFlashController : ControllerBase
                     success = false,
                     cameraNumber = request.CameraNumber,
                     deviceId = target.DeviceId,
-                    route = "ethernet-bank",
+                    route = "ethernet-bank-brightness",
                     ipAddress = target.IpAddress,
                     channels,
                     brightness,

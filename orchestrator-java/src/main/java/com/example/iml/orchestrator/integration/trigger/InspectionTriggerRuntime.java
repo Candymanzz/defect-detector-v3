@@ -46,6 +46,14 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
     }
 
     /**
+     * Нужно ли держать {@code vision_ready} только при DI1=1.
+     * При {@code require_work: false} съёмка идёт без DI1 — ready тоже не должен ждать DI1.
+     */
+    public boolean gatesVisionReadyByLineWork() {
+        return ioInputTransport != null && ioInputTransport.gatesVisionReadyByLineWork();
+    }
+
+    /**
      * Подписка на DI от IoInputMonitor (для interval_flash и т.п.).
      * Не меняет логику съёмки; no-op если io_input транспорт не запущен.
      */

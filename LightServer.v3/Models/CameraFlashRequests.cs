@@ -16,11 +16,17 @@ public sealed class CameraSingleFlashRequest
 }
 
 /// <summary>
-/// Одновременный On/Off всех устройств из light_hardware (Ethernet + COM) —
+/// Одновременный On/Off всех устройств из light_hardware (Ethernet) —
 /// один запрос вместо N× /pair|/single. Для interval_flash.
 /// </summary>
 public sealed class CameraFlashBankRequest
 {
     /// <summary>on | off</summary>
     public string State { get; set; } = "off";
+
+    /// <summary>
+    /// Опционально: яркость 0..255 по IP устройства (ключ = ip из light_hardware).
+    /// Если задано — bank On пишет эти значения, не только кэш.
+    /// </summary>
+    public Dictionary<string, int[]>? BrightnessByIp { get; set; }
 }

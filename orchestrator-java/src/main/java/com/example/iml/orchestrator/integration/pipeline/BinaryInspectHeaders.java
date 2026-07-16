@@ -46,10 +46,17 @@ public final class BinaryInspectHeaders {
             gHeader.put("client_reference_bundle", true);
         }
         gHeader.put("jointRoi", resolveJointRoi(cameraId, activeReference, geometryCfg));
+        gHeader.put("jointMode", resolveJointMode(cameraId, activeReference, gHeader.get("jointRoi")));
         gHeader.put("pixelsToMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.02));
         gHeader.put("maxShiftMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_shift_mm"), 0.5));
         gHeader.put("maxRotationDeg", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_rotation_deg"), 1.0));
         gHeader.put("maxJointDefectMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_defect_mm"), 0.3));
+        gHeader.put("jointMinWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_min_width_mm"), 0.5));
+        gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 3.0));
+        gHeader.put(
+                "maxJointParallelismDeg",
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_parallelism_deg"), 3.0)
+        );
         double defaultThreshold = YamlScalars.toDouble(pythonCfg == null ? null : pythonCfg.get("fallback_threshold"), 0.25);
         double maxWrinkles = YamlScalars.toDouble(
                 geometryCfg == null ? null : geometryCfg.get("max_wrinkles_score"),
@@ -147,11 +154,7 @@ public final class BinaryInspectHeaders {
 
     private static Object resolveJointRoi(int cameraId, ReferenceSnapshot activeReference, Map<String, Object> geometryCfg) {
         if (activeReference != null && activeReference.header() != null) {
-            int jointCameraId = YamlScalars.toInt(activeReference.header().get("joint_camera_id"), -1);
-            if (jointCameraId >= 0 && cameraId != jointCameraId) {
-                return null;
-            }
-            // joint_roi_norm один на ведро, хранится на каждой камере ведра (как joint_camera_id).
+            // joint_roi_norm один на ведро: на joint-камере — full inspect, на остальных — visibility.
             Object raw = activeReference.header().get("joint_roi_norm");
             if (raw instanceof Map<?, ?> normalized) {
                 int frameWidth = YamlScalars.toInt(activeReference.header().get("width"), 0);
@@ -171,6 +174,19 @@ public final class BinaryInspectHeaders {
             }
         }
         return geometryCfg == null ? null : geometryCfg.get("joint_roi");
+    }
+
+    private static String resolveJointMode(int cameraId, ReferenceSnapshot activeReference, Object jointRoi) {
+        if (jointRoi == null) {
+            return "full";
+        }
+        if (activeReference != null && activeReference.header() != null) {
+            int jointCameraId = YamlScalars.toInt(activeReference.header().get("joint_camera_id"), -1);
+            if (jointCameraId >= 0 && cameraId != jointCameraId) {
+                return "visibility";
+            }
+        }
+        return "full";
     }
 
     /**

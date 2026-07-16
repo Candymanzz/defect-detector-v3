@@ -48,6 +48,16 @@ public static class MvLeFlashSync
     private const string SelectorNode = "LightControllerSelector";
     private const string SourceNode = "LightControllerSource";
 
+    private static readonly string[] BrightnessNodeCandidates =
+    [
+        BrightnessNode,
+        "LightControllerBrightness",
+        "LightIntensity",
+        "LightControllerIntensity",
+        "LightChannelBrightness",
+        "LightControlBrightness"
+    ];
+
     private static readonly string[] BroadcastSelectorNames =
     [
         "All",
@@ -264,7 +274,10 @@ public static class MvLeFlashSync
         return plan;
     }
 
-    /// <summary>Быстрый On: яркость + включение за один проход SDK (без prep Off + fire).</summary>
+    /// <summary>
+    /// Bank On как в LightControlService: Off → на каждом канале Select→Brightness→On.
+    /// Broadcast On при смене яркости пропускаем — он оставлял LED на старом/нулевом значении.
+    /// </summary>
     public static bool ApplyBankDirectOn(
         IDevice device,
         object syncRoot,
@@ -272,6 +285,7 @@ public static class MvLeFlashSync
         int[] channels,
         int[] brightness,
         bool writeBrightness,
+        bool forceOffFirst,
         out int failedChannel,
         out string modeTag)
     {
@@ -279,19 +293,16 @@ public static class MvLeFlashSync
         modeTag = "bank-direct";
         bool ok = true;
         int failCh = 0;
-        string via = "";
+        string? brightnessNodeUsed = null;
+
+        // Всегда Off перед записью яркости: иначе после 0 LED не поднимается.
+        if (writeBrightness || forceOffFirst)
+            FireGroupedOff(device, syncRoot, plan, channels, out _, out _);
 
         WithSdkLock(syncRoot, plan.UseSdkLock, () =>
         {
-            if (writeBrightness
-                && !WriteChannelsBrightnessOnly(device, syncRoot, useSdkLock: false, channels, brightness, out failCh))
-            {
-                ok = false;
-                return;
-            }
-
-            if (TryApplyBroadcastSource(device, syncRoot, plan, "On", out failCh, out via))
-                return;
+            string? brightNode = null;
+            bool brightFloat = false;
 
             for (int i = 0; i < channels.Length; i++)
             {
@@ -303,12 +314,15 @@ public static class MvLeFlashSync
                     return;
                 }
 
-                if (writeBrightness
-                    && device.Parameters.SetIntValue(BrightnessNode, brightness[i]) != MvError.MV_OK)
+                if (writeBrightness)
                 {
-                    failCh = ch;
-                    ok = false;
-                    return;
+                    int value = i < brightness.Length ? brightness[i] : 255;
+                    if (!TrySetBrightness(device, value, ref brightNode, ref brightFloat))
+                    {
+                        failCh = ch;
+                        ok = false;
+                        return;
+                    }
                 }
 
                 if (!SetSource(device, "On"))
@@ -318,6 +332,8 @@ public static class MvLeFlashSync
                     return;
                 }
             }
+
+            brightnessNodeUsed = brightNode;
         });
 
         if (!ok)
@@ -327,7 +343,9 @@ public static class MvLeFlashSync
             return false;
         }
 
-        modeTag = via.Length > 0 ? $"bank-broadcast-on:{via}" : "bank-seq-on";
+        modeTag = brightnessNodeUsed != null
+            ? $"bank-seq-on:{brightnessNodeUsed}"
+            : "bank-seq-on";
         return true;
     }
 
@@ -987,6 +1005,8 @@ public static class MvLeFlashSync
         int failCh = 0;
         WithSdkLock(syncRoot, useSdkLock, () =>
         {
+            string? brightNode = null;
+            bool brightFloat = false;
             for (int i = 0; i < channels.Length; i++)
             {
                 int ch = channels[i];
@@ -997,7 +1017,8 @@ public static class MvLeFlashSync
                     return;
                 }
 
-                if (device.Parameters.SetIntValue(BrightnessNode, brightness[i]) != MvError.MV_OK)
+                int value = i < brightness.Length ? brightness[i] : 255;
+                if (!TrySetBrightness(device, value, ref brightNode, ref brightFloat))
                 {
                     failCh = ch;
                     ok = false;
@@ -1010,6 +1031,72 @@ public static class MvLeFlashSync
             failedChannel = failCh;
 
         return ok;
+    }
+
+    /// <summary>Как LightControlService: int/float + несколько имён узла.</summary>
+    private static bool TrySetBrightness(
+        IDevice device,
+        int value,
+        ref string? cachedNode,
+        ref bool cachedNodeIsFloat)
+    {
+        int clamped = Math.Clamp(value, 0, 255);
+        if (cachedNode != null)
+        {
+            int ret = cachedNodeIsFloat
+                ? device.Parameters.SetFloatValue(cachedNode, clamped)
+                : device.Parameters.SetIntValue(cachedNode, clamped);
+            if (ret == MvError.MV_OK)
+                return true;
+        }
+
+        foreach (string node in BrightnessNodeCandidates)
+        {
+            if (device.Parameters.SetIntValue(node, clamped) == MvError.MV_OK)
+            {
+                cachedNode = node;
+                cachedNodeIsFloat = false;
+                return true;
+            }
+
+            if (device.Parameters.SetFloatValue(node, clamped) == MvError.MV_OK)
+            {
+                cachedNode = node;
+                cachedNodeIsFloat = true;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Прочитать яркость с устройства для диагностики.</summary>
+    public static int[]? ReadChannelsBrightness(IDevice device, object syncRoot, bool useSdkLock, int[] channels)
+    {
+        var values = new int[channels.Length];
+        bool ok = true;
+        WithSdkLock(syncRoot, useSdkLock, () =>
+        {
+            for (int i = 0; i < channels.Length; i++)
+            {
+                if (!SelectChannel(device, channels[i]))
+                {
+                    ok = false;
+                    return;
+                }
+
+                if (device.Parameters.GetIntValue(BrightnessNode, out IIntValue iv) == MvError.MV_OK)
+                    values[i] = (int)iv.CurValue;
+                else if (device.Parameters.GetFloatValue(BrightnessNode, out IFloatValue fv) == MvError.MV_OK)
+                    values[i] = (int)Math.Round(fv.CurValue);
+                else
+                {
+                    ok = false;
+                    return;
+                }
+            }
+        });
+        return ok ? values : null;
     }
 
     private static bool PrepareChannels(

@@ -23,6 +23,13 @@ font-size: 20px;
   gap: 10px;
 }
 
+.app-header-plc-button {
+  min-width: 72px;
+  min-height: 42px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+}
+
 .app-header-status {
   display: flex;
   gap: 10px;

@@ -44,6 +44,8 @@ public final class LightTriggerClient {
     private final Map<Integer, LightServersConfig.CameraFlashSpec> cameraById;
     private volatile boolean constantLightingEngaged;
     private final Object lightCommandLock;
+    /** После HTTP яркости — сразу re-On, если interval_flash держит банк включённым. */
+    private volatile Runnable afterBrightnessApplied;
 
     public static LightTriggerClient fromRootYaml(Map<String, Object> root) {
         return new LightTriggerClient(LightServersConfig.fromRootYaml(root));
@@ -204,7 +206,19 @@ public final class LightTriggerClient {
         for (Map.Entry<String, Integer> entry : update.perEndpoint().entrySet()) {
             result = LightBrightnessApplyResult.merge(result, applyEndpointBrightness(entry.getKey(), entry.getValue()));
         }
+        Runnable hook = afterBrightnessApplied;
+        if (hook != null) {
+            try {
+                hook.run();
+            } catch (RuntimeException e) {
+                LOG.warn("afterBrightnessApplied: {}", e.getMessage());
+            }
+        }
         return result;
+    }
+
+    public void setAfterBrightnessApplied(Runnable hook) {
+        this.afterBrightnessApplied = hook;
     }
 
     private LightBrightnessApplyResult applyGlobalBrightness(int percent) {

@@ -153,6 +153,10 @@ public sealed class EthernetMvLeBank : IDisposable
         Parallel.ForEach(lights, light =>
         {
             int[] brightness = ResolveBrightness(light, brightnessByIp);
+            _log.LogInformation(
+                "Ethernet bank On {Ip} brightness=[{Brightness}]",
+                light.IpAddress,
+                string.Join(",", brightness));
             var (ok, msg) = light.ApplyDirectOn(brightness);
             results[light.IpAddress] = (ok, msg ?? (ok ? "On" : "On failed"));
         });
@@ -200,15 +204,40 @@ public sealed class EthernetMvLeBank : IDisposable
         if (!_byIp.TryGetValue(ip.Trim(), out IsolatedEthernetLight? light))
             return (false, $"Ethernet bank: {ip} не в банке");
 
-        int[] merged = MergeIntoSessionChannels(light.Channels, deviceChannels, brightness);
+        int[] merged = MergeBrightness(ip, light.Channels, deviceChannels, brightness);
         CameraFlashBrightnessCache.RememberNetworkFull(ip, light.Channels, merged);
         return light.ApplyDirectOn(merged);
     }
 
-    private static int[] MergeIntoSessionChannels(int[] sessionChannels, int[] sourceChannels, int[] sourceBrightness)
+    /// <summary>
+    /// Только яркость в открытой сессии (без On). Нужно при interval_flash:
+    /// иначе /pair через ApplyDirectOn включает банк вне DI-цикла и свет остаётся гореть.
+    /// </summary>
+    public (bool ok, string? error) ApplyBrightnessIp(string ip, int[] deviceChannels, int[] brightness)
     {
-        var merged = new int[sessionChannels.Length];
-        Array.Fill(merged, 255);
+        EnsureInitialized();
+        if (!_byIp.TryGetValue(ip.Trim(), out IsolatedEthernetLight? light))
+            return (false, $"Ethernet bank: {ip} не в банке");
+
+        int[] merged = MergeBrightness(ip, light.Channels, deviceChannels, brightness);
+        CameraFlashBrightnessCache.RememberNetworkFull(ip, light.Channels, merged);
+        return light.WriteBrightness(merged);
+    }
+
+    /// <summary>
+    /// Слить яркость в массив каналов сессии, сохраняя уже закэшированные каналы
+    /// (не затирать вторую пару камеры на том же IP значением 255).
+    /// </summary>
+    private static int[] MergeBrightness(string ip, int[] sessionChannels, int[] sourceChannels, int[] sourceBrightness)
+    {
+        if (sourceBrightness.Length == sessionChannels.Length
+            && sourceChannels.Length == sessionChannels.Length
+            && ChannelsEqual(sessionChannels, sourceChannels))
+        {
+            return (int[])sourceBrightness.Clone();
+        }
+
+        int[] merged = CameraFlashBrightnessCache.GetNetworkOrDefault(ip, sessionChannels.Length);
         for (int i = 0; i < sourceChannels.Length && i < sourceBrightness.Length; i++)
         {
             int idx = Array.IndexOf(sessionChannels, sourceChannels[i]);
@@ -217,6 +246,19 @@ public sealed class EthernetMvLeBank : IDisposable
         }
 
         return merged;
+    }
+
+    private static bool ChannelsEqual(int[] a, int[] b)
+    {
+        if (a.Length != b.Length)
+            return false;
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (a[i] != b[i])
+                return false;
+        }
+
+        return true;
     }
 
     private static int[] ResolveBrightness(
@@ -228,7 +270,7 @@ public sealed class EthernetMvLeBank : IDisposable
         {
             return custom.Length == light.Channels.Length
                 ? custom
-                : MergeIntoSessionChannels(light.Channels, light.Channels, custom);
+                : MergeBrightness(light.IpAddress, light.Channels, light.Channels, custom);
         }
 
         return CameraFlashBrightnessCache.GetNetworkOrDefault(light.IpAddress, light.Channels.Length);

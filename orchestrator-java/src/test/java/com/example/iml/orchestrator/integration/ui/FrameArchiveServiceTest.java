@@ -31,7 +31,7 @@ class FrameArchiveServiceTest {
                         frameId + 100,
                         "product",
                         "detector",
-                        new com.example.iml.orchestrator.integration.pipeline.InspectionDecision(
+                        com.example.iml.orchestrator.integration.pipeline.InspectionDecision.simple(
                                 0,
                                 frameId,
                                 frameId % 2 == 0,

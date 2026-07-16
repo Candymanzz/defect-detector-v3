@@ -59,7 +59,11 @@ public final class GeometryCorrectnessGateMain {
                 1.0,
                 0.2,
                 0.3,
-                0.05
+                0.05,
+                "full",
+                0.5,
+                3.0,
+                3.0
         );
 
         OpenCvGeometryAnalysisService baseline = new OpenCvGeometryAnalysisService(
@@ -149,6 +153,9 @@ public final class GeometryCorrectnessGateMain {
         cmp(scenario, "rotationDeg", a.rotationDeg(), b.rotationDeg(), mismatches);
         cmp(scenario, "concentricityMm", a.concentricityMm(), b.concentricityMm(), mismatches);
         cmp(scenario, "jointDefectMm", a.jointDefectMm(), b.jointDefectMm(), mismatches);
+        cmp(scenario, "jointParallelismDeg", a.jointParallelismDeg(), b.jointParallelismDeg(), mismatches);
+        cmp(scenario, "jointWidthMm", a.jointWidthMm(), b.jointWidthMm(), mismatches);
+        cmp(scenario, "jointVisibility", a.jointVisibility(), b.jointVisibility(), mismatches);
         cmp(scenario, "wrinklesScore", a.wrinklesScore(), b.wrinklesScore(), mismatches);
     }
 

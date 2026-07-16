@@ -14,6 +14,13 @@ public record InspectionRequest(
         double maxRotationDeg,
         double maxConcentricityMm,
         double maxJointDefectMm,
-        double maxWrinklesScore
+        double maxWrinklesScore,
+        String jointMode,
+        double jointMinWidthMm,
+        double jointMaxWidthMm,
+        double maxJointParallelismDeg
 ) {
+    public boolean jointVisibilityOnly() {
+        return jointMode != null && "visibility".equalsIgnoreCase(jointMode.trim());
+    }
 }

@@ -296,3 +296,69 @@ export type AnalysisSettingsResponse = {
 };
 
 export type AnalysisSettingsUpdateRequest = Partial<AnalysisSettings>;
+
+export type PlcSignalState = {
+  name: string;
+  description?: string;
+  area: string;
+  address: string;
+  bucketGroupId?: number | null;
+  lastValue?: boolean | null;
+};
+
+export type PlcTimeoutDefinition = {
+  name: string;
+  description?: string;
+  address: string;
+  encoding?: string;
+  unit?: string;
+};
+
+export type PlcTimeoutState = {
+  name: string;
+  description?: string;
+  address: string;
+  valueUnits: number;
+  valueMs: number;
+  rawWord: number;
+  encoding: string;
+  unit: string;
+};
+
+export type PlcStatusResponse = {
+  ok: true;
+  enabled: boolean;
+  inspection_in_flight: boolean;
+  inspection_enabled: boolean;
+  editable: boolean;
+  timeouts_editable?: boolean;
+  signals_editable?: boolean;
+  timeout_definitions?: PlcTimeoutDefinition[];
+  signals: PlcSignalState[];
+};
+
+export type PlcSignalsResponse = {
+  ok: true;
+  enabled: boolean;
+  inspection_in_flight: boolean;
+  inspection_enabled: boolean;
+  editable: boolean;
+  signals: PlcSignalState[];
+};
+
+export type PlcWriteSignalRequest = {
+  signal: string;
+  value: boolean;
+  pulse?: boolean;
+};
+
+export type PlcTimeoutsResponse = {
+  ok: true;
+  enabled: boolean;
+  inspection_in_flight: boolean;
+  inspection_enabled: boolean;
+  editable: boolean;
+  unit?: string;
+  timeouts: PlcTimeoutState[];
+  signals?: PlcSignalState[];
+};

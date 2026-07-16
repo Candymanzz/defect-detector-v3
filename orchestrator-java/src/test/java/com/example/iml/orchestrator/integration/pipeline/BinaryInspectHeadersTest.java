@@ -10,7 +10,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BinaryInspectHeadersTest {
 
@@ -28,7 +28,7 @@ class BinaryInspectHeadersTest {
     );
 
     @Test
-    void jointRoiResolvedOnlyForJointCameraInBucket() {
+    void jointRoiOnAllBucketCamerasWithJointMode() {
         Map<String, Object> jointNorm = Map.of("x", 0.1, "y", 0.1, "width", 0.2, "height", 0.2);
         List<Map<String, Object>> interestPoly = List.of(
                 Map.of("x", 0.1, "y", 0.1),
@@ -65,10 +65,15 @@ class BinaryInspectHeadersTest {
                 1, capture, otherCameraRef, null, null);
 
         assertNotNull(jointHeader.get("jointRoi"));
-        assertNull(otherHeader.get("jointRoi"));
+        assertNotNull(otherHeader.get("jointRoi"));
+        assertEquals("full", jointHeader.get("jointMode"));
+        assertEquals("visibility", otherHeader.get("jointMode"));
         assertNotNull(otherHeader.get("wrinklesRoi"));
         assertEquals(otherHeader.get("mainRoi"), otherHeader.get("wrinklesRoi"));
         assertEquals(0.3, jointHeader.get("maxJointDefectMm"));
+        assertEquals(0.5, jointHeader.get("jointMinWidthMm"));
+        assertEquals(3.0, jointHeader.get("jointMaxWidthMm"));
+        assertEquals(3.0, jointHeader.get("maxJointParallelismDeg"));
     }
 
     @Test

@@ -14,11 +14,13 @@ public interface PlcFinsApi {
 
   boolean inspectionInFlight();
 
+  /**
+   * Для UI ПЛК: {@code true}, если задан эталон ({@code session_state != NO_REFERENCE}).
+   */
   boolean inspectionEnabled();
 
   /**
-   * Ручное управление (таймауты + сигналы) разрешено, пока инспекция не запущена
-   * и нет цикла in-flight.
+   * Ручное управление разрешено, пока нет эталона и нет цикла in-flight.
    */
   boolean manualControlEditable();
 

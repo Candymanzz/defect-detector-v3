@@ -292,6 +292,7 @@ function normalizeServerMessage(parsed: unknown): ServerWsMessage {
     candidate.type === "server.fp_zones_ack" ||
     candidate.type === "server.active_reference_view_ack" ||
     candidate.type === "server.light_brightness_ack" ||
+    candidate.type === "server.plc_fins_traffic" ||
     candidate.type === "server.error"
   ) {
     return parsed as ServerWsMessage;

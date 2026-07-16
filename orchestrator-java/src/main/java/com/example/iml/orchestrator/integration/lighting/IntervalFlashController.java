@@ -39,6 +39,9 @@ public final class IntervalFlashController implements AutoCloseable {
     private boolean idlePortInitialized;
     private boolean triggerPortInitialized;
     private volatile ScheduledFuture<?> pendingOff;
+    /** DI2 idle On отложен, пока не выполнится Off после DI3 (нельзя cancelPendingOff). */
+    private volatile boolean idleOnAfterOff;
+    private volatile String idleOnAfterOffReason;
 
     public IntervalFlashController(Logger log, LightTriggerClient lightClient, IntervalFlashConfig config) {
         this(log, asLights(lightClient), config);
@@ -103,10 +106,46 @@ public final class IntervalFlashController implements AutoCloseable {
         int port = change.diPort();
         boolean active = change.active();
         if (port == config.idlePort()) {
-            handleIdlePort(active);
+            if (config.idleOnEnabled()) {
+                handleIdlePort(active);
+            }
         } else if (port == config.triggerPort()) {
             handleTriggerPort(active);
         }
+    }
+
+    /**
+     * После /pair (WriteBrightness): один Off→On→Off, чтобы MV-LE зафиксировал яркость.
+     * Следующий DI3 On уже из Off — без лишнего Off на каждом кадре.
+     */
+    public void onBrightnessUpdated() {
+        if (!config.enabled()) {
+            return;
+        }
+        lightExecutor.execute(() -> {
+            cancelPendingOff();
+            lights.forceAllOff();
+            lightsOn.set(false);
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            boolean ok = lights.lightAllOn("brightness-refresh");
+            if (!ok) {
+                log.warn("interval_flash brightness-refresh On failed");
+                return;
+            }
+            lightsOn.set(true);
+            try {
+                Thread.sleep(80);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            lights.forceAllOff();
+            lightsOn.set(false);
+            log.info("interval_flash brightness-refresh latched (Off→On→Off)");
+        });
     }
 
     private void handleIdlePort(boolean active) {
@@ -125,8 +164,9 @@ public final class IntervalFlashController implements AutoCloseable {
             }
         }
         if (edge || alreadyIdle) {
-            cancelPendingOff();
-            scheduleOn("холостой DI" + config.idlePort() + " "
+            // Не отменяем pending Off: иначе при быстром DI2↓ Off после DI3 не срабатывает,
+            // банк остаётся On на весь следующий цикл → «через цикл очень ярко».
+            requestIdleOn("холостой DI" + config.idlePort() + " "
                     + (alreadyIdle ? "level" : config.idleEdge().name().toLowerCase()));
         }
     }
@@ -155,6 +195,21 @@ public final class IntervalFlashController implements AutoCloseable {
         lightExecutor.execute(() -> engageLights(reason));
     }
 
+    /**
+     * Холостой On: сразу, если нет отложенного Off; иначе — после Off.
+     */
+    private void requestIdleOn(String reason) {
+        ScheduledFuture<?> off = pendingOff;
+        if (off != null && !off.isDone()) {
+            idleOnAfterOff = true;
+            idleOnAfterOffReason = reason;
+            log.info("interval_flash idle On deferred until Off ({})", reason);
+            return;
+        }
+        idleOnAfterOff = false;
+        scheduleOn(reason);
+    }
+
     private void engageLights(String reason) {
         log.info("interval_flash On ({})", reason);
         boolean ok = lights.lightAllOn("interval_flash");
@@ -166,6 +221,7 @@ public final class IntervalFlashController implements AutoCloseable {
 
     private void scheduleOff() {
         cancelPendingOff();
+        idleOnAfterOff = false;
         int delayMs = config.offDelayMs();
         if (delayMs <= 0) {
             lightExecutor.execute(this::extinguishLights);
@@ -181,6 +237,7 @@ public final class IntervalFlashController implements AutoCloseable {
     }
 
     private void extinguishLights() {
+        pendingOff = null;
         log.info(
                 "interval_flash Off (DI{} {})",
                 config.triggerPort(),
@@ -188,6 +245,11 @@ public final class IntervalFlashController implements AutoCloseable {
         );
         lights.forceAllOff();
         lightsOn.set(false);
+        if (idleOnAfterOff) {
+            idleOnAfterOff = false;
+            String reason = idleOnAfterOffReason != null ? idleOnAfterOffReason : "idle-after-off";
+            engageLights(reason);
+        }
     }
 
     private void cancelPendingOff() {
@@ -228,6 +290,14 @@ public final class IntervalFlashController implements AutoCloseable {
     @Override
     public void close() {
         cancelPendingOff();
+        // Синхронно гасим до shutdown executor: иначе при kill/Ctrl+C банк остаётся On (DI2 idle).
+        try {
+            lights.forceAllOff();
+            lightsOn.set(false);
+            log.info("interval_flash close: bank Off");
+        } catch (Exception e) {
+            log.warn("interval_flash close forceAllOff: {}", e.getMessage());
+        }
         lightExecutor.shutdownNow();
     }
 }

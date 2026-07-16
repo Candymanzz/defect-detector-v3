@@ -45,8 +45,12 @@ public sealed class CameraFlashBankController : ControllerBase
             });
         }
 
+        IReadOnlyDictionary<string, int[]>? brightnessByIp = null;
+        if (turnOn && request.BrightnessByIp is { Count: > 0 })
+            brightnessByIp = request.BrightnessByIp;
+
         IReadOnlyList<(string Ip, bool Ok, string Message)> results = turnOn
-            ? _ethernetBank.ApplyAllOn(brightnessByIp: null)
+            ? _ethernetBank.ApplyAllOn(brightnessByIp)
             : _ethernetBank.ApplyAllOff();
 
         string[] applied = results.Where(static r => r.Ok).Select(static r => $"{r.Ip}: {r.Message}").ToArray();
@@ -54,11 +58,12 @@ public sealed class CameraFlashBankController : ControllerBase
         bool success = errors.Length == 0 && applied.Length > 0;
 
         _log.LogInformation(
-            "camera-flash/bank {State}: ready={Ready} ok={Ok} err={Err}",
+            "camera-flash/bank {State}: ready={Ready} ok={Ok} err={Err} brightnessIps={BrightnessIps}",
             turnOn ? "on" : "off",
             _ethernetBank.ReadyCount,
             applied.Length,
-            errors.Length);
+            errors.Length,
+            brightnessByIp?.Count ?? 0);
 
         var body = new
         {

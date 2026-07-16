@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PreviewFramePayload } from "../../shared/ws";
+import { createCirclePolygonFromRadius } from "../RoiContourEditor/circleRoi";
 import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
 
 function previewFrame(cameraId: number): PreviewFramePayload {
@@ -46,6 +47,30 @@ describe("createReferenceBundleFromCameraFrames", () => {
     expect(bundle.joint_view_index).toBe(1);
     expect(bundle.views).toHaveLength(2);
     expect(bundle.views[1].joint_roi).not.toBeNull();
+  });
+
+  it("accepts circular ROI from radius as interest_polygon_norm for inspect services", () => {
+    const circle = createCirclePolygonFromRadius(
+      { x: 0.5, y: 0.5 },
+      { x: 0.72, y: 0.5 },
+      100,
+      80,
+      48,
+    );
+    expect(circle.length).toBeGreaterThanOrEqual(3);
+
+    const bundle = createReferenceBundleFromCameraFrames(
+      [0],
+      0,
+      { 0: previewFrame(0) },
+      { 0: circle },
+      circle,
+      [],
+    );
+
+    expect(bundle.views[0].interest_polygon_norm).toHaveLength(circle.length);
+    expect(bundle.views[0].interest_roi.width).toBeGreaterThan(1);
+    expect(bundle.views[0].interest_roi.height).toBeGreaterThan(1);
   });
 
   it("rejects missing roi contour", () => {

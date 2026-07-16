@@ -88,7 +88,7 @@ public final class StdioBinaryGeometryLoop {
                 BinaryProtocol.write(
                         out,
                         BinaryProtocol.MSG_RESPONSE,
-                        InspectionResponsePayloadBuilder.toResponseHeader(response, includeDebug),
+                        InspectionResponsePayloadBuilder.toResponseHeader(response, includeDebug, request),
                         new byte[0]
                 );
             }
@@ -134,7 +134,7 @@ public final class StdioBinaryGeometryLoop {
             BinaryProtocol.write(
                     out,
                     BinaryProtocol.MSG_RESPONSE,
-                    InspectionResponsePayloadBuilder.toResponseHeader(response, includeDebug),
+                    InspectionResponsePayloadBuilder.toResponseHeader(response, includeDebug, request),
                     new byte[0]
             );
         } finally {

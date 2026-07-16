@@ -23,6 +23,7 @@ import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
+import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashConfig;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
@@ -45,6 +46,7 @@ import com.example.iml.orchestrator.integration.pipeline.telemetry.PipelineInspe
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
+import com.example.iml.orchestrator.integration.pipeline.bucket.JointSeamPolicy;
 import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadcaster;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
@@ -307,6 +309,7 @@ public final class IntegrationBootstrap {
         LightBrightnessStore lightBrightnessStore = openLightBrightnessStore(projectRoot);
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(root);
         applyPersistedLightBrightness(lightClient, lightBrightnessStore);
+        LightsShutdown.bind(log, lightClient, lightServerProcess, lightHttpPort(lightServersCfgEarly));
         if (lightClient.isEnabled()) {
             log.info("waiting for LightServer COM bank (GET /api/com/light)...");
             lightClient.awaitEndpointsReady();
@@ -578,7 +581,11 @@ public final class IntegrationBootstrap {
                     ? bucketInspectionConfig.allCameraIds()
                     : workersByCamera.keySet().stream().sorted().toList();
             if (bucketInspectionConfig.enabled()) {
-                bucketInspectionAggregator = new BucketInspectionAggregator(log, bucketInspectionConfig);
+                bucketInspectionAggregator = new BucketInspectionAggregator(
+                        log,
+                        bucketInspectionConfig,
+                        JointSeamPolicy.fromGeometryYaml(geometryCfg)
+                );
                 inspectionGate.setInspectionEnabledOnlyFor(inspectionCameraIds);
                 log.info(
                         "inspection bucket enabled groups={} cameras={} timeout_ms={} line_broadcast_interval_ms={}",
@@ -640,9 +647,11 @@ public final class IntegrationBootstrap {
             java.lang.Runnable refreshVisionReady = () -> {
                 InspectionTriggerRuntime runtime = triggerRuntimeHolder[0];
                 if (activeFanOut != null) {
-                    activeFanOut.signalVisionReady(
-                            softwareVisionReady.get() && (runtime == null || runtime.isLineWorkActive())
-                    );
+                    boolean ready = softwareVisionReady.get();
+                    if (ready && runtime != null && runtime.gatesVisionReadyByLineWork()) {
+                        ready = runtime.isLineWorkActive();
+                    }
+                    activeFanOut.signalVisionReady(ready);
                 }
             };
             triggerRuntime = InspectionTriggerRuntime.start(
@@ -659,10 +668,13 @@ public final class IntegrationBootstrap {
             IntervalFlashConfig intervalFlashCfg = IntervalFlashConfig.fromRootYaml(root);
             if (intervalFlashCfg.enabled() && lightClient.isEnabled()) {
                 intervalFlashController = new IntervalFlashController(log, lightClient, intervalFlashCfg);
+                LightsShutdown.bindIntervalFlash(intervalFlashController);
                 triggerRuntime.addDiChangeListener(intervalFlashController::onDiChange);
+                lightClient.setAfterBrightnessApplied(intervalFlashController::onBrightnessUpdated);
                 intervalFlashController.armStartDark();
                 log.info(
-                        "interval_flash enabled — холостой DI{} {} → On; DI{} {} → On + Off (off_delay_ms={}); capture pipeline без изменений (hold_mode={})",
+                        "interval_flash enabled — idle_on={} (DI{} {}); DI{} {} → On + Off (off_delay_ms={}); hold_mode={}",
+                        intervalFlashCfg.idleOnEnabled(),
                         intervalFlashCfg.idlePort(),
                         intervalFlashCfg.idleEdge().name().toLowerCase(),
                         intervalFlashCfg.triggerPort(),
@@ -672,6 +684,15 @@ public final class IntegrationBootstrap {
                 );
             } else if (intervalFlashCfg.enabled()) {
                 log.warn("interval_flash enabled, но light_servers выключены — вспышки по DI не активны");
+            } else if (lightClient.isEnabled()) {
+                lightClient.setAfterBrightnessApplied(null);
+                boolean alwaysOn = lightClient.bankAllOn("always-on-startup");
+                log.info(
+                        "always_on lighting startup bankOn={} hold_mode={} interval_flash={}",
+                        alwaysOn,
+                        lightClient.isHoldMode(),
+                        false
+                );
             }
             if (lineCaptureCoordinator != null) {
                 final LineSynchronizedCaptureCoordinator lineCaptureRef = lineCaptureCoordinator;
@@ -840,12 +861,8 @@ public final class IntegrationBootstrap {
             if (triggerRuntime != null) {
                 triggerRuntime.close();
             }
-            if (intervalFlashController != null) {
-                try {
-                    intervalFlashController.close();
-                } catch (Exception ignored) {
-                }
-            }
+            // Off + kill LightServer здесь и в JVM hook (Ctrl+C), идемпотентно.
+            LightsShutdown.run("bootstrap-finally");
             IntegrationShutdownCoordinator.shutdownAll(new IntegrationShutdownCoordinator.ShutdownResources(
                     pipelineStagesLogMutable,
                     cameraExecutor,
@@ -882,6 +899,20 @@ public final class IntegrationBootstrap {
     }
 
     @SuppressWarnings("unchecked")
+    private static int lightHttpPort(LightServersConfig cfg) {
+        if (cfg == null) {
+            return 5080;
+        }
+        try {
+            String base = cfg.upstreamBaseUrl();
+            java.net.URI uri = java.net.URI.create(base);
+            int port = uri.getPort();
+            return port > 0 ? port : 5080;
+        } catch (Exception e) {
+            return 5080;
+        }
+    }
+
     private static List<Map<String, Object>> enabledCameras(List<Map<String, Object>> cameras) {
         if (cameras == null || cameras.isEmpty()) {
             return List.of();

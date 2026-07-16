@@ -18,12 +18,16 @@ public final class GeometryRuntimeConfig {
             "mainRoi",
             "mainRoiPolygonNorm",
             "jointRoi",
+            "jointMode",
             "wrinklesRoi",
             "pixelsToMm",
             "maxShiftMm",
             "maxRotationDeg",
             "maxConcentricityMm",
             "maxJointDefectMm",
+            "jointMinWidthMm",
+            "jointMaxWidthMm",
+            "maxJointParallelismDeg",
             "maxWrinklesScore",
             "threshold",
             "jointThreshold"
@@ -117,12 +121,16 @@ public final class GeometryRuntimeConfig {
         putIfPresent(overrides, algorithmParams, "mainRoi", "main_roi");
         putIfPresent(overrides, algorithmParams, "mainRoiPolygonNorm", "main_roi_polygon_norm");
         putIfPresent(overrides, algorithmParams, "jointRoi", "joint_roi");
+        putIfPresent(overrides, algorithmParams, "jointMode", "joint_mode");
         putIfPresent(overrides, algorithmParams, "wrinklesRoi", "wrinkles_roi");
         putIfPresent(overrides, algorithmParams, "pixelsToMm", "pixels_to_mm");
         putIfPresent(overrides, algorithmParams, "maxShiftMm", "max_shift_mm");
         putIfPresent(overrides, algorithmParams, "maxRotationDeg", "max_rotation_deg");
         putIfPresent(overrides, algorithmParams, "maxConcentricityMm", "max_concentricity_mm");
         putIfPresent(overrides, algorithmParams, "maxJointDefectMm", "max_joint_defect_mm");
+        putIfPresent(overrides, algorithmParams, "jointMinWidthMm", "joint_min_width_mm");
+        putIfPresent(overrides, algorithmParams, "jointMaxWidthMm", "joint_max_width_mm");
+        putIfPresent(overrides, algorithmParams, "maxJointParallelismDeg", "max_joint_parallelism_deg");
         putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
         putIfPresent(overrides, algorithmParams, "jointThreshold", "joint_threshold");
         putIfPresent(overrides, algorithmParams, "threshold", "threshold");
@@ -165,6 +173,12 @@ public final class GeometryRuntimeConfig {
         m.put("maxShiftMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_shift_mm"), 0.5));
         m.put("maxRotationDeg", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_rotation_deg"), 1.0));
         m.put("maxJointDefectMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_defect_mm"), 0.3));
+        m.put("jointMinWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_min_width_mm"), 0.5));
+        m.put("jointMaxWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_max_width_mm"), 3.0));
+        m.put(
+                "maxJointParallelismDeg",
+                YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_parallelism_deg"), 3.0)
+        );
         double thresholdDefault = defaultPythonThreshold(pythonYaml);
         m.put("threshold", thresholdDefault);
         m.put("maxWrinklesScore", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_wrinkles_score"), thresholdDefault));
@@ -219,12 +233,16 @@ public final class GeometryRuntimeConfig {
             case "roi_polygon_norm" -> "mainRoiPolygonNorm";
             case "interest_polygon_norm" -> "mainRoiPolygonNorm";
             case "joint_roi" -> "jointRoi";
+            case "joint_mode" -> "jointMode";
             case "wrinkles_roi" -> "wrinklesRoi";
             case "pixels_to_mm" -> "pixelsToMm";
             case "max_shift_mm" -> "maxShiftMm";
             case "max_rotation_deg" -> "maxRotationDeg";
             case "max_concentricity_mm" -> "maxConcentricityMm";
             case "max_joint_defect_mm" -> "maxJointDefectMm";
+            case "joint_min_width_mm" -> "jointMinWidthMm";
+            case "joint_max_width_mm" -> "jointMaxWidthMm";
+            case "max_joint_parallelism_deg" -> "maxJointParallelismDeg";
             case "joint_threshold", "jointThreshold" -> "jointThreshold";
             case "max_wrinkles_score" -> "maxWrinklesScore";
             case "fallback_threshold", "inspection_threshold", "sensitivity" -> "threshold";

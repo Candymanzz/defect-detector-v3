@@ -105,11 +105,111 @@ class BucketInspectionAggregatorTest {
         assertTrue(published.get(1).overallPass());
     }
 
+    @Test
+    void lowSiblingVisibilityForcesStrictSeamReject() {
+        JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0, 1))),
+                        1000L,
+                        1000L
+                ),
+                policy
+        );
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = fanOutSink(published);
+
+        // Joint camera passes normal thresholds but fails strict (parallelism 2.0 > 1.5).
+        aggregator.recordFrameResult(
+                30L,
+                0,
+                seamDecision(0, 400L, true, true, 2.0, 1.2, 0.9),
+                fanOut
+        );
+        aggregator.recordFrameResult(
+                30L,
+                1,
+                seamDecision(1, 401L, true, false, 0.0, 0.0, 0.05),
+                fanOut
+        );
+
+        BucketFanOutResult result = published.get();
+        assertTrue(!result.overallPass());
+    }
+
+    @Test
+    void highSiblingVisibilityKeepsNormalBucketPass() {
+        JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0, 1))),
+                        1000L,
+                        1000L
+                ),
+                policy
+        );
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = fanOutSink(published);
+
+        aggregator.recordFrameResult(
+                31L,
+                0,
+                seamDecision(0, 500L, true, true, 2.0, 1.2, 0.9),
+                fanOut
+        );
+        aggregator.recordFrameResult(
+                31L,
+                1,
+                seamDecision(1, 501L, true, false, 0.0, 0.0, 0.8),
+                fanOut
+        );
+
+        BucketFanOutResult result = published.get();
+        assertTrue(result.overallPass());
+    }
+
     private static BucketFanOutSink fanOutSink(AtomicReference<BucketFanOutResult> published) {
         return result -> published.set(result);
     }
 
     private static InspectionDecision decision(int cameraId, long frameId, boolean pass) {
-        return new InspectionDecision(cameraId, frameId, pass, pass ? "ACCEPT" : "REJECT", 0.1, "ГОДЕН", "PASS");
+        return InspectionDecision.simple(
+                cameraId,
+                frameId,
+                pass,
+                pass ? "ACCEPT" : "REJECT",
+                0.1,
+                "ГОДЕН",
+                "PASS"
+        );
+    }
+
+    private static InspectionDecision seamDecision(
+            int cameraId,
+            long frameId,
+            boolean pass,
+            boolean jointCamera,
+            double parallelismDeg,
+            double widthMm,
+            double visibility
+    ) {
+        return new InspectionDecision(
+                cameraId,
+                frameId,
+                pass,
+                pass ? "ACCEPT" : "REJECT",
+                0.1,
+                "ГОДЕН",
+                "PASS",
+                jointCamera,
+                parallelismDeg,
+                widthMm,
+                visibility,
+                true
+        );
     }
 }

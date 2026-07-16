@@ -27,6 +27,7 @@ export type ServerWsMessageType =
   | "server.fp_zones_ack"
   | "server.active_reference_view_ack"
   | "server.light_brightness_ack"
+  | "server.plc_fins_traffic"
   | "server.error";
 
 export type WsConnectionStatus = {
@@ -198,6 +199,23 @@ export type ServerLightBrightnessAckMessage = ServerWsEnvelope<
   }
 >;
 
+export type PlcFinsTrafficPayload = {
+  direction: "request" | "response" | string;
+  operation: "write_bit" | "write_words" | "read_words" | string;
+  signal?: string;
+  area: string;
+  address: string;
+  value?: unknown;
+  hex_frame: string;
+  sid?: number;
+  end_code?: string;
+  ok: boolean;
+  error?: string;
+  server_ts_ms: number;
+};
+
+export type ServerPlcFinsTrafficMessage = ServerWsEnvelope<"server.plc_fins_traffic", PlcFinsTrafficPayload>;
+
 export type ServerErrorMessage = ServerWsEnvelope<
   "server.error",
   {
@@ -226,6 +244,7 @@ export type ServerWsMessage =
   | ServerFpZonesAckMessage
   | ServerActiveReferenceViewAckMessage
   | ServerLightBrightnessAckMessage
+  | ServerPlcFinsTrafficMessage
   | ServerErrorMessage
   | UnknownServerWsMessage;
 
@@ -242,6 +261,7 @@ export type ServerWsPayloadByType = {
   "server.fp_zones_ack": ServerFpZonesAckMessage["payload"];
   "server.active_reference_view_ack": ServerActiveReferenceViewAckMessage["payload"];
   "server.light_brightness_ack": ServerLightBrightnessAckMessage["payload"];
+  "server.plc_fins_traffic": PlcFinsTrafficPayload;
   "server.error": ServerErrorMessage["payload"];
 };
 

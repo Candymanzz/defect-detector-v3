@@ -18,6 +18,10 @@ import type {
   FrameArchiveHistoryResponse,
   FrameArchiveSettings,
   FrameArchiveSettingsUpdateResponse,
+  PlcSignalsResponse,
+  PlcStatusResponse,
+  PlcTimeoutsResponse,
+  PlcWriteSignalRequest,
   UiCameraList,
   UiLatestSnapshot,
 } from "./types";
@@ -163,6 +167,32 @@ export const orchestratorApi = {
     return http.json<LineDirectionUpdateResponse>("/api/client/line-direction", {
       method: "PUT",
       body: { direction },
+    });
+  },
+
+  async getPlcStatus() {
+    return http.json<PlcStatusResponse>("/api/client/plc/status");
+  },
+
+  async getPlcSignals() {
+    return http.json<PlcSignalsResponse>("/api/client/plc/signals");
+  },
+
+  async writePlcSignal(request: PlcWriteSignalRequest) {
+    return http.json<PlcSignalsResponse>("/api/client/plc/signals", {
+      method: "POST",
+      body: request,
+    });
+  },
+
+  async getPlcTimeouts() {
+    return http.json<PlcTimeoutsResponse>("/api/client/plc/timeouts");
+  },
+
+  async putPlcTimeouts(timeouts: Record<string, number>) {
+    return http.json<PlcTimeoutsResponse>("/api/client/plc/timeouts", {
+      method: "PUT",
+      body: { timeouts },
     });
   },
 

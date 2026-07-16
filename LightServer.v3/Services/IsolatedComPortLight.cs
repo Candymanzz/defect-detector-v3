@@ -223,6 +223,7 @@ public sealed class IsolatedComPortLight : IDisposable
                 Channels,
                 brightness,
                 writeBrightness,
+                forceOffFirst: false,
                 out int failCh,
                 out string mode))
         {

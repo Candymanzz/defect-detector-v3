@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using LightServer;
 
 namespace LightServer.Services;
@@ -46,6 +47,17 @@ public sealed class EthernetMvLeBankHostedService : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            var results = _bank.ApplyAllOff();
+            int ok = results.Count(static r => r.Ok);
+            Console.WriteLine($"[LightServer] Ethernet bank shutdown Off: {ok}/{results.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LightServer] Ethernet bank shutdown Off failed: {ex.Message}");
+        }
+
         _bank.Dispose();
         return Task.CompletedTask;
     }

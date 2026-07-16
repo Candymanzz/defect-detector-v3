@@ -88,20 +88,14 @@ public final class IntegrationShutdownCoordinator {
                 geometry.close();
             }
         }
-        if (r.lightTriggerClient != null) {
-            try {
-                r.log.info("turning off all lights before shutdown");
-                r.lightTriggerClient.forceAllOff();
-                Thread.sleep(300);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                r.log.warn("light forceAllOff: {}", e.getMessage());
-            }
-            r.lightTriggerClient.shutdown();
-        }
+        // Вспышки Off + kill LightServer (идемпотентно с JVM shutdown hook).
+        com.example.iml.orchestrator.integration.lighting.LightsShutdown.run("shutdown-coordinator");
+        // Если hook уже отработал — процесса в refs нет; на всякий случай ещё раз close по полю.
         if (r.lightServerProcess != null) {
-            r.lightServerProcess.close();
+            try {
+                r.lightServerProcess.close();
+            } catch (Exception ignored) {
+            }
         }
         if (r.ioInputMonitorProcess != null) {
             r.ioInputMonitorProcess.close();

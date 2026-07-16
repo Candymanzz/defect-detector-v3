@@ -14,6 +14,7 @@ public sealed class IsolatedEthernetLight : IDisposable
     private IDevice? _device;
     private MvLeFlashSyncPlan? _flashPlan;
     private int[]? _lastBrightness;
+    private bool _sourceOn;
     private bool _disposed;
 
     public string DeviceId { get; }
@@ -95,7 +96,13 @@ public sealed class IsolatedEthernetLight : IDisposable
             ? brightness
             : PadBrightness(brightness, Channels.Length);
 
-        bool writeBrightness = !BrightnessMatches(powers);
+        // Всегда Off→brightness→On: после яркости 0 иначе LED не поднимается.
+        const bool forceOffFirst = true;
+        _log.LogInformation(
+            "Ethernet bank ApplyDirectOn {Ip} forceOffFirst={Force} brightness=[{B}]",
+            IpAddress,
+            forceOffFirst,
+            string.Join(",", powers));
         MvLeFlashSyncPlan plan = ClonePlan(_flashPlan);
         if (!MvLeFlashSync.ApplyBankDirectOn(
                 _device,
@@ -103,16 +110,23 @@ public sealed class IsolatedEthernetLight : IDisposable
                 plan,
                 Channels,
                 powers,
-                writeBrightness,
+                writeBrightness: true,
+                forceOffFirst,
                 out int failCh,
                 out string mode))
         {
             return (false, $"{DeviceId}@{IpAddress}: {mode} ch{failCh}");
         }
 
-        if (writeBrightness)
-            _lastBrightness = (int[])powers.Clone();
+        int[]? readBack = MvLeFlashSync.ReadChannelsBrightness(_device, _sync, plan.UseSdkLock, Channels);
+        _log.LogInformation(
+            "Ethernet bank ApplyDirectOn done {Ip} mode={Mode} readBack=[{R}]",
+            IpAddress,
+            mode,
+            readBack == null ? "?" : string.Join(",", readBack));
 
+        _lastBrightness = (int[])powers.Clone();
+        _sourceOn = true;
         return (true, mode);
     }
 
@@ -125,10 +139,15 @@ public sealed class IsolatedEthernetLight : IDisposable
         if (!MvLeFlashSync.FireGroupedOff(_device, _sync, plan, Channels, out int failCh, out string mode))
             return (false, $"{DeviceId}@{IpAddress}: off ch{failCh} ({mode})");
 
+        _sourceOn = false;
         return (true, mode);
     }
 
-    /// <summary>Только обновить кэш яркости в сессии (без On) — для /pair через bank.</summary>
+    /// <summary>
+    /// Обновить яркость в живой сессии.
+    /// Если банк уже On (always-on режим), яркость меняется сразу без Off/On цикла.
+    /// Иначе значение подготавливается для следующего bank On.
+    /// </summary>
     public (bool ok, string? message) WriteBrightness(int[] brightness)
     {
         if (_device == null || _flashPlan == null)
@@ -137,6 +156,27 @@ public sealed class IsolatedEthernetLight : IDisposable
         int[] powers = brightness.Length == Channels.Length
             ? brightness
             : PadBrightness(brightness, Channels.Length);
+
+        if (_sourceOn)
+        {
+            if (!MvLeFlashSync.WriteChannelsBrightnessOnly(
+                    _device,
+                    _sync,
+                    _flashPlan.UseSdkLock,
+                    Channels,
+                    powers,
+                    out int liveFailCh))
+            {
+                return (false, $"{DeviceId}@{IpAddress}: brightness-live ch{liveFailCh}");
+            }
+
+            _lastBrightness = (int[])powers.Clone();
+            _log.LogInformation(
+                "Ethernet bank brightness live {Ip} powers=[{P}]",
+                IpAddress,
+                string.Join(",", powers));
+            return (true, "brightness-live");
+        }
 
         if (!MvLeFlashSync.WriteChannelsBrightnessOnly(
                 _device,
@@ -149,8 +189,13 @@ public sealed class IsolatedEthernetLight : IDisposable
             return (false, $"{DeviceId}@{IpAddress}: brightness ch{failCh}");
         }
 
-        _lastBrightness = (int[])powers.Clone();
-        return (true, "brightness");
+        // Следующий ApplyDirectOn обязан Off→write→On (forceOffFirst).
+        _lastBrightness = null;
+        _log.LogInformation(
+            "Ethernet bank brightness primed {Ip} powers=[{P}]",
+            IpAddress,
+            string.Join(",", powers));
+        return (true, "brightness-primed");
     }
 
     private bool BrightnessMatches(int[] brightness)
@@ -211,6 +256,16 @@ public sealed class IsolatedEthernetLight : IDisposable
         _disposed = true;
         if (_device == null)
             return;
+        try
+        {
+            // Иначе MV-LE остаётся On / GigE «занят» в MVS после Close без Off.
+            ApplyOff();
+        }
+        catch
+        {
+            // ignore
+        }
+
         try
         {
             _device.Close();

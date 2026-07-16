@@ -124,7 +124,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </div>
             )}
             <label className="reference-setup__field">
-                <span>Камера joint ROI (необязательно)</span>
+                <span>Камера шва этикетки (необязательно)</span>
               <span className="reference-setup__readonly">
                 Камера {jointCameraId} / вид {jointViewIndex}
               </span>
@@ -205,6 +205,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   imageUrl={selectedSlot.imageUrl}
                   points={selectedEditorPoints}
                   exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
+                  allowRadiusMode={selectedRoiMode !== "joint"}
                   onChange={(points) => {
                     if (selectedRoiMode === "joint") {
                       setJointRoiPolygon(points);
@@ -252,7 +253,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       handleSelectJointRoi(slot.cameraId);
                     }}
                   >
-                    Joint
+                    Шов
                     <span>
                       {slot.cameraId === jointCameraId
                         ? hasJointRoi

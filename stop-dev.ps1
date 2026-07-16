@@ -12,6 +12,22 @@ function Stop-PidSafe([int]$ProcessId) {
     }
 }
 
+function Send-LightBankOff {
+    try {
+        $body = '{"state":"off"}'
+        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5080/api/camera-flash/bank" `
+            -ContentType "application/json; charset=utf-8" -Body $body -TimeoutSec 2 | Out-Null
+        if (-not $Quiet) {
+            Write-Host "LightServer bank Off отправлен." -ForegroundColor DarkYellow
+        }
+    } catch {
+        # LightServer уже не слушает — ок
+    }
+}
+
+# Сначала гасим MV-LE: force-kill не вызывает Dispose/ApplyAllOff.
+Send-LightBankOff
+
 if (Test-Path $PidFile) {
     $pids = Get-Content $PidFile -Raw | ConvertFrom-Json
     Stop-PidSafe $pids.python

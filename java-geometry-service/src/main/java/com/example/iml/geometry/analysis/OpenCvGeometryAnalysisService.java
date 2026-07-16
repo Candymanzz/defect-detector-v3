@@ -162,7 +162,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             recordStage("warp", tWarp0);
 
             long tJoint0 = System.nanoTime();
-            JointResult joint = inspectJoint(alignedCurrent, request.jointRoi(), request.pixelsToMm());
+            JointResult joint = inspectJoint(alignedCurrent, request);
             recordStage("joint", tJoint0);
 
             long tWrinkles0 = System.nanoTime();
@@ -186,7 +186,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     || (Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
                     && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg());
-            boolean jointPass = request.jointRoi() == null || joint.defectMm <= request.maxJointDefectMm();
+            boolean jointPass = evaluateJointPass(request, joint);
             boolean wrinklesPass = wrinkles.score <= request.maxWrinklesScore();
             boolean overallPass = alignmentPass && jointPass && wrinklesPass;
 
@@ -197,6 +197,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     homographyToArray(alignment.homographyRefToCurrent),
                     0.0,
                     joint.defectMm,
+                    joint.parallelismDeg,
+                    joint.widthMm,
+                    joint.visibility,
                     wrinkles.score,
                     alignmentPass,
                     true,
@@ -692,31 +695,49 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
-    private JointResult inspectJoint(Mat current, RoiRect jointRoi, double pixelsToMm) {
+    private JointResult inspectJoint(Mat current, InspectionRequest request) {
+        RoiRect jointRoi = request.jointRoi();
         if (jointRoi == null) {
-            return new JointResult(0.0);
+            return JointResult.skipped();
         }
 
         Rect roi = toSafeRect(jointRoi, current.cols(), current.rows());
         Mat jointMat = new Mat(current, roi);
-        Mat gray = new Mat();
-        Mat edges = new Mat();
-        Mat closedEdges = new Mat();
-        Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(3, 3));
         try {
-            Imgproc.cvtColor(jointMat, gray, Imgproc.COLOR_BGR2GRAY);
-            Imgproc.Canny(gray, edges, 50.0, 150.0);
-            Imgproc.morphologyEx(edges, closedEdges, Imgproc.MORPH_CLOSE, kernel);
-
-            int edgePixels = Core.countNonZero(closedEdges);
-            double density = edgePixels / (double) (closedEdges.cols() * closedEdges.rows());
-            double defectPx = Math.max(0.0, (0.10 - density) * closedEdges.cols());
-            double defectMm = calibrationService.pixelsToMillimeters(defectPx, pixelsToMm);
-
-            return new JointResult(defectMm);
+            LabelSeamAnalyzer.Result seam = LabelSeamAnalyzer.analyze(
+                    jointMat,
+                    request.pixelsToMm(),
+                    request.jointMinWidthMm(),
+                    request.jointMaxWidthMm()
+            );
+            return new JointResult(
+                    seam.found(),
+                    seam.defectMm(),
+                    seam.parallelismDeg(),
+                    seam.widthMm(),
+                    seam.visibility()
+            );
         } finally {
-            release(jointMat, gray, edges, closedEdges, kernel);
+            release(jointMat);
         }
+    }
+
+    private static boolean evaluateJointPass(InspectionRequest request, JointResult joint) {
+        if (request.jointRoi() == null) {
+            return true;
+        }
+        if (request.jointVisibilityOnly()) {
+            // Sibling cameras only report seam visibility; they must not fail the frame.
+            return true;
+        }
+        if (!joint.found) {
+            return false;
+        }
+        boolean parallelismOk = joint.parallelismDeg <= request.maxJointParallelismDeg();
+        boolean widthOk = joint.widthMm >= request.jointMinWidthMm()
+                && joint.widthMm <= request.jointMaxWidthMm();
+        boolean defectOk = joint.defectMm <= request.maxJointDefectMm();
+        return parallelismOk && widthOk && defectOk;
     }
 
     private WrinklesResult inspectWrinkles(Mat reference, Mat current, RoiRect wrinklesRoi) {
@@ -903,7 +924,16 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
-    private record JointResult(double defectMm) {
+    private record JointResult(
+            boolean found,
+            double defectMm,
+            double parallelismDeg,
+            double widthMm,
+            double visibility
+    ) {
+        static JointResult skipped() {
+            return new JointResult(true, 0.0, 0.0, 0.0, 0.0);
+        }
     }
 
     private record WrinklesResult(double score) {

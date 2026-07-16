@@ -60,6 +60,34 @@
   flex-wrap: wrap;
 }
 
+.roi-editor__canvas--radius {
+  cursor: crosshair;
+}
+
+.roi-editor__hint {
+  margin: 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.roi-editor__overlay .roi-editor__draft-circle {
+  fill: rgba(56, 189, 248, 0.18);
+  stroke: #38bdf8;
+  stroke-width: 0.005;
+  stroke-dasharray: 0.02 0.01;
+}
+
+.roi-editor__overlay .roi-editor__radius-line {
+  stroke: #38bdf8;
+  stroke-width: 0.006;
+}
+
+.roi-editor__overlay .roi-editor__radius-center {
+  fill: #38bdf8;
+  stroke: #e0f2fe;
+  stroke-width: 0.003;
+}
+
 .roi-editor__actions button {
   height: 34px;
   border: 1px solid #4b5563;
@@ -68,6 +96,12 @@
   color: #f2f5f7;
   cursor: pointer;
   padding: 0 12px;
+}
+
+.roi-editor__actions button.roi-editor__actions-button--active {
+  border-color: #38bdf8;
+  background: #0c4a6e;
+  color: #e0f2fe;
 }
 
 .roi-editor__actions button:disabled {

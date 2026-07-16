@@ -25,7 +25,7 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
     ) {
         long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
         if (isCaptureOnlyWithoutReference(pyResp, geomResp)) {
-            return new InspectionDecision(cameraId, frameId, false, "CAPTURE", 0.0, "NO_REFERENCE", "SKIPPED");
+            return InspectionDecision.captureOnly(cameraId, frameId);
         }
         double anomalyScore = pyResp == null ? 0.0 : YamlScalars.toDouble(pyResp.header().get("anomaly_score"), 0.0);
         String pyStatus = pyResp == null ? "UNKNOWN" : String.valueOf(pyResp.header().getOrDefault("status", "UNKNOWN"));
@@ -41,11 +41,36 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
 
         boolean overallPass = pythonPass && geometryPass;
         String action = overallPass ? "ACCEPT" : "REJECT";
-        InspectionDecision decision = new InspectionDecision(cameraId, frameId, overallPass, action, anomalyScore, pyStatus, geometryStatus);
+        boolean jointCamera = geomResp != null
+                && geomResp.header() != null
+                && Boolean.TRUE.equals(geomResp.header().get("jointCamera"));
+        double jointParallelismDeg = geomDouble(geomResp, "jointParallelismDeg");
+        double jointWidthMm = geomDouble(geomResp, "jointWidthMm");
+        double jointVisibility = geomDouble(geomResp, "jointVisibility");
+        boolean jointPass = geomResp == null
+                || geomResp.header() == null
+                || !geomResp.header().containsKey("jointPass")
+                || Boolean.TRUE.equals(geomResp.header().get("jointPass"));
+
+        InspectionDecision decision = new InspectionDecision(
+                cameraId,
+                frameId,
+                overallPass,
+                action,
+                anomalyScore,
+                pyStatus,
+                geometryStatus,
+                jointCamera,
+                jointParallelismDeg,
+                jointWidthMm,
+                jointVisibility,
+                jointPass
+        );
         if (log != null) {
             log.info(
                     "inspection_decision cam={} frame={} overall={} action={} py_ok={} py_status={} "
-                            + "anomaly={} threshold={} geom_pass={} geom_status={} align_pass={} wrinkles={} joint={}",
+                            + "anomaly={} threshold={} geom_pass={} geom_status={} align_pass={} wrinkles={} "
+                            + "joint={} seam_par={} seam_w={} seam_vis={} joint_cam={}",
                     decision.cameraId(),
                     decision.frameId(),
                     decision.overallPass(),
@@ -58,10 +83,21 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
                     decision.geometryStatus(),
                     geomResp == null || geomResp.header() == null ? null : geomResp.header().get("alignmentPass"),
                     geomResp == null || geomResp.header() == null ? null : geomResp.header().get("wrinklesScore"),
-                    geomResp == null || geomResp.header() == null ? null : geomResp.header().get("jointDefectMm")
+                    geomResp == null || geomResp.header() == null ? null : geomResp.header().get("jointDefectMm"),
+                    jointParallelismDeg,
+                    jointWidthMm,
+                    jointVisibility,
+                    jointCamera
             );
         }
         return decision;
+    }
+
+    private static double geomDouble(BinaryProtocol.Message geomResp, String key) {
+        if (geomResp == null || geomResp.header() == null) {
+            return 0.0;
+        }
+        return YamlScalars.toDouble(geomResp.header().get(key), 0.0);
     }
 
     private static boolean isCaptureOnlyWithoutReference(BinaryProtocol.Message pyResp, BinaryProtocol.Message geomResp) {

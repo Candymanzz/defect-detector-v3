@@ -33,10 +33,11 @@ internal static class CameraFlashBrightnessCache
     {
         lock (Sync)
         {
+            // Без кэша — 255, не 0: иначе соседние каналы того же IP гаснут при первом /pair.
             int[] merged = NetworkByIp.TryGetValue(ipAddress, out int[]? existing)
                            && existing.Length == deviceChannels.Length
                 ? (int[])existing.Clone()
-                : new int[deviceChannels.Length];
+                : Enumerable.Repeat(255, deviceChannels.Length).ToArray();
 
             SetChannel(merged, deviceChannels, leftChannel, leftPower);
             SetChannel(merged, deviceChannels, rightChannel, rightPower);
@@ -57,7 +58,7 @@ internal static class CameraFlashBrightnessCache
             int[] merged = NetworkByIp.TryGetValue(ipAddress, out int[]? existing)
                            && existing.Length == deviceChannels.Length
                 ? (int[])existing.Clone()
-                : new int[deviceChannels.Length];
+                : Enumerable.Repeat(255, deviceChannels.Length).ToArray();
 
             SetChannel(merged, deviceChannels, leftChannel, leftPower);
             SetChannel(merged, deviceChannels, rightChannel, rightPower);

@@ -1,0 +1,85 @@
+{
+  "version" : 1,
+  "cameras" : {
+    "1" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "0" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "2" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "3" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "4" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "5" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "6" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "7" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "8" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    },
+    "9" : {
+      "black_level" : 240,
+      "exposure_us" : 3000,
+      "gain_db" : 0.0,
+      "gamma" : 0.7,
+      "frame_timeout_ms" : 15000,
+      "capture_trigger_mode" : "line0"
+    }
+  }
+}

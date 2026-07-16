@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Собирает per-frame решения по trigger sequence и группе камер;
  * каждое ведро публикует вердикт на ПЛК и UI независимо от других.
+ * При низкой видимости шва на соседних камерах — ужесточённый гейт метрик шва.
  */
 public final class BucketInspectionAggregator implements AutoCloseable {
 
@@ -29,10 +30,15 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     private final Map<Integer, BucketGroup> groupById;
     private final Map<Integer, Integer> groupIdByCamera;
     private final long timeoutMs;
+    private final JointSeamPolicy jointSeamPolicy;
     private final ScheduledExecutorService timeoutExecutor;
     private final ConcurrentHashMap<BucketKey, BucketState> buckets = new ConcurrentHashMap<>();
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config) {
+        this(log, config, JointSeamPolicy.defaults());
+    }
+
+    public BucketInspectionAggregator(Logger log, BucketInspectionConfig config, JointSeamPolicy jointSeamPolicy) {
         this.log = log;
         this.groups = List.copyOf(config.groups());
         this.groupById = new HashMap<>();
@@ -44,6 +50,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             }
         }
         this.timeoutMs = config.timeoutMs();
+        this.jointSeamPolicy = jointSeamPolicy == null ? JointSeamPolicy.defaults() : jointSeamPolicy;
         this.timeoutExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "bucket-inspection-timeout");
             t.setDaemon(true);
@@ -165,15 +172,38 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         }
         boolean bucketPass = !anyReject;
         Map<Integer, InspectionDecision> snapshot = Map.copyOf(state.frameDecisions);
+        boolean seamStrict = false;
+        if (bucketPass) {
+            SeamStrictGate seamGate = evaluateSeamStrictGate(snapshot);
+            seamStrict = seamGate.strictActive();
+            if (seamGate.forceReject()) {
+                bucketPass = false;
+            }
+            if (log != null && (seamGate.jointDecision() != null || seamStrict)) {
+                log.info(
+                        "inspection bucket seam_gate seq={} group={} seam_strict={} sibling_vis={} "
+                                + "joint_cam={} par={} width={} strict_pass={}",
+                        state.triggerSequence,
+                        state.groupId,
+                        seamStrict,
+                        seamGate.siblingVisibility(),
+                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().cameraId(),
+                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointParallelismDeg(),
+                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointWidthMm(),
+                        !seamGate.forceReject()
+                );
+            }
+        }
 
         log.info(
-                "inspection bucket complete seq={} group={} pass={} frames={}/{} reject_cameras={}",
+                "inspection bucket complete seq={} group={} pass={} frames={}/{} reject_cameras={} seam_strict={}",
                 state.triggerSequence,
                 state.groupId,
                 bucketPass,
                 snapshot.size(),
                 expectedCameraIds.size(),
-                rejectCameraIds(snapshot)
+                rejectCameraIds(snapshot),
+                seamStrict
         );
 
         if (fanOut != null) {
@@ -187,6 +217,33 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         }
     }
 
+    private SeamStrictGate evaluateSeamStrictGate(Map<Integer, InspectionDecision> decisions) {
+        InspectionDecision joint = null;
+        double siblingSum = 0.0;
+        int siblingCount = 0;
+        for (InspectionDecision decision : decisions.values()) {
+            if (decision == null) {
+                continue;
+            }
+            if (decision.jointCamera()) {
+                joint = decision;
+            } else if (decision.jointVisibility() > 0.0 || !"CAPTURE".equals(decision.action())) {
+                siblingSum += decision.jointVisibility();
+                siblingCount++;
+            }
+        }
+        if (joint == null) {
+            return SeamStrictGate.inactive();
+        }
+        double siblingVisibility = siblingCount == 0 ? 1.0 : siblingSum / siblingCount;
+        boolean strictActive = siblingVisibility < jointSeamPolicy.siblingMinVisibility();
+        if (!strictActive) {
+            return new SeamStrictGate(false, false, siblingVisibility, joint);
+        }
+        boolean strictPass = jointSeamPolicy.passesStrict(joint.jointParallelismDeg(), joint.jointWidthMm());
+        return new SeamStrictGate(true, !strictPass, siblingVisibility, joint);
+    }
+
     private static List<Integer> rejectCameraIds(Map<Integer, InspectionDecision> decisions) {
         return decisions.entrySet().stream()
                 .filter(e -> e.getValue() != null && !e.getValue().overallPass())
@@ -198,6 +255,17 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     @Override
     public void close() {
         timeoutExecutor.shutdownNow();
+    }
+
+    private record SeamStrictGate(
+            boolean strictActive,
+            boolean forceReject,
+            double siblingVisibility,
+            InspectionDecision jointDecision
+    ) {
+        static SeamStrictGate inactive() {
+            return new SeamStrictGate(false, false, 1.0, null);
+        }
     }
 
     private static final class BucketState {

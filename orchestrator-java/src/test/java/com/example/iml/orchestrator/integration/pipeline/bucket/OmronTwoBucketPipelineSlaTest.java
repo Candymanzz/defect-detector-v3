@@ -176,7 +176,7 @@ class OmronTwoBucketPipelineSlaTest {
     }
 
     private static InspectionDecision passDecision(int cameraId) {
-        return new InspectionDecision(cameraId, 1000L + cameraId, true, "ACCEPT", 0.1, "ГОДЕН", "PASS");
+        return InspectionDecision.simple(cameraId, 1000L + cameraId, true, "ACCEPT", 0.1, "ГОДЕН", "PASS");
     }
 
     private static long nanosToMs(long nanos) {

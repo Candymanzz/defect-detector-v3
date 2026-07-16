@@ -139,6 +139,11 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         return lineWorkActive.get();
     }
 
+    /** При {@code require_work: true} vision_ready следует за DI1; иначе — нет. */
+    public boolean gatesVisionReadyByLineWork() {
+        return ioInputConfig.requireWork();
+    }
+
     @Override
     public void start() {
         if (!udpConfig.enabled() || !running.compareAndSet(false, true)) {

@@ -26,7 +26,11 @@ public final class InspectionHeaderMapper {
                 num(h.get("maxRotationDeg"), 1.0),
                 num(h.get("maxConcentricityMm"), 0.2),
                 num(h.get("maxJointDefectMm"), 0.3),
-                wrinklesThreshold(h)
+                wrinklesThreshold(h),
+                jointMode(h),
+                num(h.get("jointMinWidthMm"), 0.5),
+                num(h.get("jointMaxWidthMm"), 3.0),
+                num(h.get("maxJointParallelismDeg"), 3.0)
         );
     }
 
@@ -43,8 +47,24 @@ public final class InspectionHeaderMapper {
                 num(h.get("maxRotationDeg"), 1.0),
                 num(h.get("maxConcentricityMm"), 0.2),
                 num(h.get("maxJointDefectMm"), 0.3),
-                wrinklesThreshold(h)
+                wrinklesThreshold(h),
+                jointMode(h),
+                num(h.get("jointMinWidthMm"), 0.5),
+                num(h.get("jointMaxWidthMm"), 3.0),
+                num(h.get("maxJointParallelismDeg"), 3.0)
         );
+    }
+
+    private static String jointMode(Map<String, Object> h) {
+        Object raw = h.get("jointMode");
+        if (raw == null) {
+            raw = h.get("joint_mode");
+        }
+        if (raw == null) {
+            return "full";
+        }
+        String mode = String.valueOf(raw).trim();
+        return mode.isEmpty() ? "full" : mode;
     }
 
     private static double wrinklesThreshold(Map<String, Object> h) {

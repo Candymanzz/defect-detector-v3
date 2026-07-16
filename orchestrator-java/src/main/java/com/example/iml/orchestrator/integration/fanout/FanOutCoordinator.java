@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.fanout;
 
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
+import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.plc.PlcBcd;
 import com.example.iml.orchestrator.integration.plc.PlcFinsApi;
@@ -100,7 +101,15 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     @Override
     public void publishBucket(BucketFanOutResult result) {
         if (plcPublisher != null) {
-            plcPublisher.publishBucket(result);
+            if (inspectionEnabled()) {
+                plcPublisher.publishBucket(result);
+            } else {
+                log.debug(
+                        "plc fins skip reject publish seq={} group={} — эталон не задан (capture-only)",
+                        result.triggerSequence(),
+                        result.groupId()
+                );
+            }
         }
         if (clientWsServer != null) {
             clientWsServer.notifyInspectBucketResult(result);
@@ -131,7 +140,11 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public boolean inspectionEnabled() {
-        return inspectionGate != null && inspectionGate.hasAnyInspectionEnabled();
+        // Для ПЛК «инспекция включена» = задан эталон (READY/OPERATIONAL), не Start/Stop gate камер.
+        if (clientWsServer != null) {
+            return clientWsServer.sessionState() != ClientWsSessionState.NO_REFERENCE;
+        }
+        return false;
     }
 
     @Override
@@ -166,7 +179,9 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             throws IOException, InterruptedException, TimeoutException {
         ensurePlc();
         if (!manualControlEditable()) {
-            throw new IllegalStateException("PLC signals are locked while inspection is started or in flight");
+            throw new IllegalStateException(
+                    "PLC signals are locked while reference is set or inspection is in flight"
+            );
         }
         if (valuesByName == null || valuesByName.isEmpty()) {
             throw new IllegalArgumentException("signals body is empty");
@@ -209,7 +224,9 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             throws IOException, InterruptedException, TimeoutException {
         ensurePlc();
         if (!manualControlEditable()) {
-            throw new IllegalStateException("PLC timeouts are locked while inspection is started or in flight");
+            throw new IllegalStateException(
+                    "PLC timeouts are locked while reference is set or inspection is in flight"
+            );
         }
         if (unitsByKey == null || unitsByKey.isEmpty()) {
             throw new IllegalArgumentException("timeouts body is empty");

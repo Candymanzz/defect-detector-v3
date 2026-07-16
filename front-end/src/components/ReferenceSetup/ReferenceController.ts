@@ -376,7 +376,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     referenceRoi.selectJointRoi(cameraId);
     setMessage(
       referenceFrames.framesByCameraId[cameraId]
-        ? `Editing optional joint ROI for camera ${cameraId}`
+        ? `Editing label seam ROI for camera ${cameraId}`
         : `Reference frame has not arrived for camera ${cameraId} yet`,
     );
   };
