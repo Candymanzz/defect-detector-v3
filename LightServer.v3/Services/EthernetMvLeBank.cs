@@ -160,7 +160,7 @@ public sealed class EthernetMvLeBank : IDisposable
         return lights
             .Select(l =>
             {
-                var r = results.GetValueOrDefault(l.IpAddress, (false, "missing"));
+                var r = results.GetValueOrDefault(l.IpAddress, (Ok: false, Message: "missing"));
                 return (l.IpAddress, r.Ok, r.Message);
             })
             .ToList();
@@ -187,7 +187,7 @@ public sealed class EthernetMvLeBank : IDisposable
         return lights
             .Select(l =>
             {
-                var r = results.GetValueOrDefault(l.IpAddress, (false, "missing"));
+                var r = results.GetValueOrDefault(l.IpAddress, (Ok: false, Message: "missing"));
                 return (l.IpAddress, r.Ok, r.Message);
             })
             .ToList();

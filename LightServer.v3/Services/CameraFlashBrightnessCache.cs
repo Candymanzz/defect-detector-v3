@@ -90,7 +90,7 @@ internal static class CameraFlashBrightnessCache
             for (int i = 0; i < channels.Length; i++)
             {
                 int ch = channels[i];
-                if (ch is >= 1 and <= merged.Length)
+                if (ch >= 1 && ch <= merged.Length)
                     merged[ch - 1] = powers[i];
             }
 
@@ -113,7 +113,7 @@ internal static class CameraFlashBrightnessCache
                 foreach (int ch in device.Channels)
                 {
                     int raw = 255;
-                    if (byChannel != null && ch is >= 1 and <= byChannel.Length && byChannel[ch - 1] > 0)
+                    if (byChannel != null && ch >= 1 && ch <= byChannel.Length && byChannel[ch - 1] > 0)
                         raw = byChannel[ch - 1];
                     percents.Add((int)Math.Round(raw * 100.0 / 255.0));
                 }

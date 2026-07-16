@@ -73,4 +73,19 @@ public sealed class CameraFlashBankController : ControllerBase
         };
         return success ? Ok(body) : BadRequest(body);
     }
+
+    /// <summary>Статус Ethernet-банка для оркестратора (awaitEndpointsReady).</summary>
+    [HttpGet("bank")]
+    public ActionResult<object> BankStatus()
+    {
+        var (ready, initErr) = _ethernetBank.EnsureInitialized();
+        return Ok(new
+        {
+            initialized = ready,
+            ready = _ethernetBank.ReadyCount,
+            transport = "ethernet-gige",
+            skipped = _ethernetBank.Skipped,
+            error = ready ? null : initErr
+        });
+    }
 }

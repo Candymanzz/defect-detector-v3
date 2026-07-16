@@ -8,12 +8,7 @@ light_hardware:
   initialize_on_startup: true
 
   devices:
-    # COM отключён: вспышки только по Ethernet.
-    - id: com1
-      enabled: false
-      type: com
-      com_port: COM1
-      channels: 2
+    # Только Ethernet MV-LE (COM убран — не работает).
     - id: mv-le-1
       enabled: true
       type: ethernet

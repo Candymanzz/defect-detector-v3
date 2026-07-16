@@ -5,11 +5,12 @@ light_servers:
   enabled: true
   base_url: "http://127.0.0.1:5080"
   urls:
-    on: /api/com/light
-    off: /api/com/light
+    on: /api/camera-flash/bank
+    off: /api/camera-flash/bank
     brightness_pair: /api/camera-flash/pair
     brightness_single: /api/camera-flash/single
-    status: /api/com/light
+    # Готовность Ethernet-банка (не COM).
+    status: /api/camera-flash/bank
   # hold_mode: capture НЕ трогает вспышки (On/Off только вне пайплайна).
   # При interval_flash яркость задаётся при старте; On/Off — по DI (см. ниже).
   hold_mode: true
@@ -19,15 +20,15 @@ light_servers:
   duration_ms: 90
   flash_lead_ms: 0
   settle_delay_ms: 0
-  # Интервальный режим (отдельный контур от съёмки):
-  # DI2↑ «направление движения» → On, DI3↑ «Триггер» → Off (опционально с задержкой).
-  # On/Off — POST /api/camera-flash/bank (Ethernet GigE bank: параллельно по IP, без COM).
+  # Интервальный режим (отдельный контур от съёмки — не трогает capture pipeline):
+  # холостой DI2↓ → On; DI3↑ → On + Off через off_delay_ms.
+  # On/Off — POST /api/camera-flash/bank в своём executor (HTTP не блокирует DI/съёмку).
   interval_flash:
     enabled: true
-    on_port: 2
-    off_port: 3
-    on_edge: rising
-    off_edge: rising
+    idle_port: 2          # холостой / обратный ход (DI2)
+    idle_edge: falling    # DI2↓ → On
+    trigger_port: 3       # DI3: On + отложенный Off
+    trigger_edge: rising
     # Задержка Off после DI3↑ (мс). Нужна, т.к. DO5→Line0 идёт с pulse_delay_ms≈250 (52-io-input.yaml).
     # 0 = гасить сразу по фронту (риск погасить до экспозиции).
     off_delay_ms: 300

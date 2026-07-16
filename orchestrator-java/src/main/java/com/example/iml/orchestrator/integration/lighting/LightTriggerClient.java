@@ -161,7 +161,7 @@ public final class LightTriggerClient {
         startupEngage();
     }
 
-    /** Дождаться инициализации COM-банка в LightServer ({@code GET status_url}). */
+    /** Дождаться готовности LightServer ({@code GET status_url}, ethernet bank или COM). */
     public void awaitEndpointsReady() {
         if (!enabled) {
             return;
@@ -173,7 +173,7 @@ public final class LightTriggerClient {
                     return;
                 }
             } catch (Exception e) {
-                LOG.debug("light COM bank status poll: {}", e.getMessage());
+                LOG.debug("light bank status poll: {}", e.getMessage());
             }
             try {
                 Thread.sleep(400L);
@@ -182,7 +182,7 @@ public final class LightTriggerClient {
                 return;
             }
         }
-        LOG.warn("light COM bank not initialized within {} ms — первый POST on может занять 8–12 s", timeout.toMillis());
+        LOG.warn("light bank not ready within {} ms — первый POST on может занять 8–12 s", timeout.toMillis());
     }
 
     public void setBrightnessPercent(int percent) {
@@ -601,7 +601,11 @@ public final class LightTriggerClient {
             return false;
         }
         JsonNode root = MAPPER.readTree(response.body());
-        return root.path("initialized").asBoolean(false);
+        if (root.path("initialized").asBoolean(false)) {
+            return true;
+        }
+        // Ethernet bank status: { ready: N, initialized: true }
+        return root.path("ready").asInt(0) > 0;
     }
 
     private static Integer parseCameraIdFromEndpoint(String endpointId) {

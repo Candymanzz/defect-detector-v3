@@ -198,11 +198,11 @@
     "enabled": true,
     "base_url": "http://127.0.0.1:5080",
     "urls": {
-      "on": "/api/com/light",
-      "off": "/api/com/light",
+      "on": "/api/camera-flash/bank",
+      "off": "/api/camera-flash/bank",
       "brightness_pair": "/api/camera-flash/pair",
       "brightness_single": "/api/camera-flash/single",
-      "status": "/api/com/light"
+      "status": "/api/camera-flash/bank"
     },
     "hold_mode": true,
     "timeout_ms": 1500,
@@ -213,10 +213,10 @@
     "settle_delay_ms": 0,
     "interval_flash": {
       "enabled": true,
-      "on_port": 2,
-      "off_port": 3,
-      "on_edge": "rising",
-      "off_edge": "rising",
+      "idle_port": 2,
+      "idle_edge": "falling",
+      "trigger_port": 3,
+      "trigger_edge": "rising",
       "off_delay_ms": 300,
       "start_dark": true
     }
@@ -276,21 +276,15 @@
     ],
     "light_server_command_windows": [
       "dotnet",
-      "run",
-      "--project",
-      "LightServer.v3/LightServer.csproj",
-      "--no-launch-profile",
-      "--",
+      "exec",
+      "LightServer.v3/bin/Release/net10.0/LightServer.dll",
       "--urls",
       "http://127.0.0.1:5080"
     ],
     "light_server_command_linux": [
       "dotnet",
-      "run",
-      "--project",
-      "LightServer.v3/LightServer.csproj",
-      "--no-launch-profile",
-      "--",
+      "exec",
+      "LightServer.v3/bin/Release/net10.0/LightServer.dll",
       "--urls",
       "http://127.0.0.1:5080"
     ]

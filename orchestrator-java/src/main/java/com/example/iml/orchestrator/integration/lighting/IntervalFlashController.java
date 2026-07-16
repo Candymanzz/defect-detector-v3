@@ -11,8 +11,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Отдельный контур вспышек: DI2↑ → On, DI3↑ → Off (+ {@code off_delay_ms}).
- * Не участвует в capture/inspection pipeline — только HTTP к LightServer.
+ * Отдельный контур вспышек (не участвует в capture/inspection):
+ * <ul>
+ *   <li>холостой ход (DI idle, обычно DI2↓) → On</li>
+ *   <li>DI3↑ → On и Off через {@code off_delay_ms}</li>
+ * </ul>
+ * HTTP к LightServer только в своём single-thread executor — callback DI не блокируется.
  */
 public final class IntervalFlashController implements AutoCloseable {
 
@@ -25,14 +29,15 @@ public final class IntervalFlashController implements AutoCloseable {
     private final Logger log;
     private final Lights lights;
     private final IntervalFlashConfig config;
-    private final ScheduledExecutorService offScheduler;
+    /** Все On/Off сериализованы здесь — пайплайн съёмки не ждёт HTTP. */
+    private final ScheduledExecutorService lightExecutor;
     private final AtomicBoolean lightsOn = new AtomicBoolean(false);
     private final Object stateLock = new Object();
 
-    private boolean onPortActive;
-    private boolean offPortActive;
-    private boolean onPortInitialized;
-    private boolean offPortInitialized;
+    private boolean idlePortActive;
+    private boolean triggerPortActive;
+    private boolean idlePortInitialized;
+    private boolean triggerPortInitialized;
     private volatile ScheduledFuture<?> pendingOff;
 
     public IntervalFlashController(Logger log, LightTriggerClient lightClient, IntervalFlashConfig config) {
@@ -43,8 +48,8 @@ public final class IntervalFlashController implements AutoCloseable {
         this.log = log;
         this.lights = lights;
         this.config = config;
-        this.offScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "interval-flash-off");
+        this.lightExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "interval-flash");
             t.setDaemon(true);
             return t;
         });
@@ -74,71 +79,88 @@ public final class IntervalFlashController implements AutoCloseable {
             return;
         }
         cancelPendingOff();
-        lights.forceAllOff();
-        lightsOn.set(false);
+        lightExecutor.execute(() -> {
+            lights.forceAllOff();
+            lightsOn.set(false);
+        });
         log.info(
-                "interval_flash start_dark: ждём DI{} {} → On, DI{} {} → Off (delay_ms={})",
-                config.onPort(),
-                config.onEdge().name().toLowerCase(),
-                config.offPort(),
-                config.offEdge().name().toLowerCase(),
+                "interval_flash start_dark: холостой DI{} {} → On; DI{} {} → On + Off (delay_ms={})",
+                config.idlePort(),
+                config.idleEdge().name().toLowerCase(),
+                config.triggerPort(),
+                config.triggerEdge().name().toLowerCase(),
                 config.offDelayMs()
         );
     }
 
+    /**
+     * Сырой DI от IoInputMonitor. Должен возвращаться быстро — без HTTP.
+     */
     public void onDiChange(IoInputDiChange change) {
         if (!config.enabled() || change == null) {
             return;
         }
         int port = change.diPort();
         boolean active = change.active();
-        if (port == config.onPort()) {
-            handleOnPort(active);
-        } else if (port == config.offPort()) {
-            handleOffPort(active);
+        if (port == config.idlePort()) {
+            handleIdlePort(active);
+        } else if (port == config.triggerPort()) {
+            handleTriggerPort(active);
         }
     }
 
-    private void handleOnPort(boolean active) {
+    private void handleIdlePort(boolean active) {
         boolean edge;
+        boolean alreadyIdle;
         synchronized (stateLock) {
-            if (!onPortInitialized) {
-                onPortInitialized = true;
-                onPortActive = active;
-                // Начальное состояние без фронта — не включаем (избегаем ложного On при старте).
-                return;
+            if (!idlePortInitialized) {
+                idlePortInitialized = true;
+                idlePortActive = active;
+                alreadyIdle = isIdleLevel(active, config.idleEdge());
+                edge = false;
+            } else {
+                alreadyIdle = false;
+                edge = isEdge(idlePortActive, active, config.idleEdge());
+                idlePortActive = active;
             }
-            edge = isEdge(onPortActive, active, config.onEdge());
-            onPortActive = active;
         }
-        if (edge) {
+        if (edge || alreadyIdle) {
             cancelPendingOff();
-            engageLights();
+            scheduleOn("холостой DI" + config.idlePort() + " "
+                    + (alreadyIdle ? "level" : config.idleEdge().name().toLowerCase()));
         }
     }
 
-    private void handleOffPort(boolean active) {
+    private void handleTriggerPort(boolean active) {
         boolean edge;
         synchronized (stateLock) {
-            if (!offPortInitialized) {
-                offPortInitialized = true;
-                offPortActive = active;
+            if (!triggerPortInitialized) {
+                triggerPortInitialized = true;
+                triggerPortActive = active;
+                // Начальный уровень DI3 без фронта — не трогаем (избегаем ложного Off при старте).
                 return;
             }
-            edge = isEdge(offPortActive, active, config.offEdge());
-            offPortActive = active;
+            edge = isEdge(triggerPortActive, active, config.triggerEdge());
+            triggerPortActive = active;
         }
         if (edge) {
+            // Съёмка на DI3: гарантируем On и гасим после экспозиции / DO5 pulse.
+            cancelPendingOff();
+            scheduleOn("DI" + config.triggerPort() + " " + config.triggerEdge().name().toLowerCase());
             scheduleOff();
         }
     }
 
-    private void engageLights() {
-        log.info("interval_flash On (DI{} {})", config.onPort(), config.onEdge().name().toLowerCase());
+    private void scheduleOn(String reason) {
+        lightExecutor.execute(() -> engageLights(reason));
+    }
+
+    private void engageLights(String reason) {
+        log.info("interval_flash On ({})", reason);
         boolean ok = lights.lightAllOn("interval_flash");
         lightsOn.set(ok);
         if (!ok) {
-            log.warn("interval_flash On failed");
+            log.warn("interval_flash On failed ({})", reason);
         }
     }
 
@@ -146,20 +168,24 @@ public final class IntervalFlashController implements AutoCloseable {
         cancelPendingOff();
         int delayMs = config.offDelayMs();
         if (delayMs <= 0) {
-            extinguishLights();
+            lightExecutor.execute(this::extinguishLights);
             return;
         }
         log.info(
                 "interval_flash Off scheduled in {} ms (DI{} {})",
                 delayMs,
-                config.offPort(),
-                config.offEdge().name().toLowerCase()
+                config.triggerPort(),
+                config.triggerEdge().name().toLowerCase()
         );
-        pendingOff = offScheduler.schedule(this::extinguishLights, delayMs, TimeUnit.MILLISECONDS);
+        pendingOff = lightExecutor.schedule(this::extinguishLights, delayMs, TimeUnit.MILLISECONDS);
     }
 
     private void extinguishLights() {
-        log.info("interval_flash Off (DI{} {})", config.offPort(), config.offEdge().name().toLowerCase());
+        log.info(
+                "interval_flash Off (DI{} {})",
+                config.triggerPort(),
+                config.triggerEdge().name().toLowerCase()
+        );
         lights.forceAllOff();
         lightsOn.set(false);
     }
@@ -170,6 +196,17 @@ public final class IntervalFlashController implements AutoCloseable {
         if (task != null) {
             task.cancel(false);
         }
+    }
+
+    /**
+     * Уже в «холостом» уровне при первом сэмпле порта (без фронта).
+     * FALLING → active=false; RISING → active=true.
+     */
+    static boolean isIdleLevel(boolean active, TriggerEdgeMode edge) {
+        if (edge == TriggerEdgeMode.FALLING) {
+            return !active;
+        }
+        return active;
     }
 
     static boolean isEdge(boolean previous, boolean current, TriggerEdgeMode edge) {
@@ -183,9 +220,14 @@ public final class IntervalFlashController implements AutoCloseable {
         return lightsOn.get();
     }
 
+    /** Тесты: дождаться опустошения очереди On/Off (включая delay=0). */
+    void awaitLightTasks(long timeoutMs) throws Exception {
+        lightExecutor.submit(() -> null).get(timeoutMs, TimeUnit.MILLISECONDS);
+    }
+
     @Override
     public void close() {
         cancelPendingOff();
-        offScheduler.shutdownNow();
+        lightExecutor.shutdownNow();
     }
 }
