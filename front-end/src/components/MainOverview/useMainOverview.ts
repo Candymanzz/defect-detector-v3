@@ -15,7 +15,6 @@ import {
   FALLBACK_CAMERA_IDS,
   hasDisplayableInspectImage,
   hasImmutableInspectArtifact,
-  inspectionHistoryLimit,
   isInspectionCounterReset,
   latestSnapshotToInspectResult,
   loadArchivedInspectionHistory,
@@ -23,6 +22,7 @@ import {
   resolveInspectionId,
   selectModalInspection as selectModalInspectionSnapshot,
   setInspectionHistoryLimit,
+  trimInspectionHistoryItems,
   upsertInspectionHistoryItem,
   upsertModalInspectionItem,
   updateModalSnapshotResult,
@@ -47,6 +47,9 @@ export function useMainOverview() {
   const [inspectionHistoryByCameraId, setInspectionHistoryByCameraId] = useState<
     Record<number, InspectionHistoryItem[]>
   >({});
+  const [archiveHistoryState, setArchiveHistoryState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [archiveHistoryMessage, setArchiveHistoryMessage] = useState<string | null>(null);
+  const archiveHistoryLoadingRef = useRef(false);
   const [inspectionControlByCameraId, setInspectionControlByCameraId] = useState<
     Record<number, InspectionControlState>
   >({});
@@ -154,6 +157,27 @@ export function useMainOverview() {
 
   const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
 
+  const loadArchivedHistory = useCallback(async (targetCameraIds: number[] = cameraIds) => {
+    if (targetCameraIds.length === 0 || archiveHistoryLoadingRef.current) {
+      return;
+    }
+
+    archiveHistoryLoadingRef.current = true;
+    setArchiveHistoryState("loading");
+    setArchiveHistoryMessage(null);
+    try {
+      const archivedHistory = await loadArchivedInspectionHistory(targetCameraIds);
+      mergeInspectionHistory(setInspectionHistoryByCameraId, archivedHistory);
+      setArchiveHistoryState("loaded");
+      setArchiveHistoryMessage("Архив загружен");
+    } catch (error) {
+      setArchiveHistoryState("error");
+      setArchiveHistoryMessage(errorMessage(error));
+    } finally {
+      archiveHistoryLoadingRef.current = false;
+    }
+  }, [cameraIds]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -185,15 +209,6 @@ export function useMainOverview() {
       if (inspectionStatus) {
         setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
       }
-
-      void loadArchivedInspectionHistory(overviewData.cameraIds)
-        .then((archivedHistory) => {
-          if (!isActive || Object.keys(archivedHistory).length === 0) {
-            return;
-          }
-          mergeInspectionHistory(setInspectionHistoryByCameraId, archivedHistory);
-        })
-        .catch(() => undefined);
     });
 
     return () => {
@@ -337,8 +352,11 @@ export function useMainOverview() {
     inspectArtifactResultsByCameraId,
     inspectionHistoryByCameraId,
     inspectionControlByCameraId,
+    archiveHistoryState,
+    archiveHistoryMessage,
     hasReference,
     toggleInspection,
+    loadArchivedHistory,
     openInspectionModal,
     selectModalInspection,
     closeInspectionModal,
@@ -507,7 +525,7 @@ function applyBucketResult(
           inspectionId,
           result: resultState,
           inspectResult,
-        }).slice(0, inspectionHistoryLimit),
+        }),
       };
     });
   }
@@ -593,7 +611,7 @@ function addInspectionHistoryItem(
         inspectionId: resolveInspectionId(inspectResult),
         result,
         inspectResult,
-      }).slice(0, inspectionHistoryLimit),
+      }),
     };
   });
 }
@@ -750,9 +768,9 @@ function mergeInspectionHistory(
     const merged = { ...current };
     for (const [cameraIdText, snapshotItems] of Object.entries(values)) {
       const cameraId = Number(cameraIdText);
-      merged[cameraId] = snapshotItems
-        .reduce((items, item) => upsertInspectionHistoryItem(items, item), current[cameraId] ?? [])
-        .slice(0, inspectionHistoryLimit);
+      merged[cameraId] = trimInspectionHistoryItems(
+        snapshotItems.reduce((items, item) => upsertInspectionHistoryItem(items, item), current[cameraId] ?? []),
+      );
     }
     return merged;
   });

@@ -181,6 +181,10 @@ export const orchestratorApi = {
     return http.json<FrameArchiveHistoryResponse>(`/api/frame-archive/cameras/${cameraId}/history`);
   },
 
+  async getJson<T>(path: string) {
+    return http.json<T>(path);
+  },
+
   async getAnalysisSettings(productType: string) {
     return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}`);
   },

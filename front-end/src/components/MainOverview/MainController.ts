@@ -205,9 +205,7 @@ export function hasImmutableInspectArtifact(inspectResult: InspectResultPayload)
 }
 
 export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
-  return [nextItem, ...items.filter((item) => item.frameId !== nextItem.frameId)].sort((left, right) =>
-    compareFrameIds(right.frameId, left.frameId),
-  );
+  return trimInspectionHistoryItems([nextItem, ...items.filter((item) => item.frameId !== nextItem.frameId)]);
 }
 
 export function resolveInspectionId(inspectResult: InspectResultPayload) {
@@ -215,9 +213,19 @@ export function resolveInspectionId(inspectResult: InspectResultPayload) {
 }
 
 export function upsertModalInspectionItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
-  return [...items.filter((item) => item.frameId !== nextItem.frameId), nextItem]
-    .sort((left, right) => compareFrameIds(left.frameId, right.frameId))
-    .slice(-inspectionHistoryLimit);
+  return trimInspectionHistoryItems([...items.filter((item) => item.frameId !== nextItem.frameId), nextItem]).sort(
+    (left, right) => compareFrameIds(left.frameId, right.frameId),
+  );
+}
+
+/** Keep newest by wall-clock time so post-restart low frame ids are not dropped by archived high ids. */
+export function trimInspectionHistoryItems(items: InspectionHistoryItem[]) {
+  return [...items]
+    .sort((left, right) => {
+      const byTime = right.inspectResult.server_ts_ms - left.inspectResult.server_ts_ms;
+      return byTime !== 0 ? byTime : compareFrameIds(right.frameId, left.frameId);
+    })
+    .slice(0, inspectionHistoryLimit);
 }
 
 export async function loadArchivedInspectionHistory(cameraIds: number[]) {
@@ -226,9 +234,10 @@ export async function loadArchivedInspectionHistory(cameraIds: number[]) {
       try {
         const response = await orchestratorApi.getFrameArchiveHistory(cameraId);
         setInspectionHistoryLimit(response.max_frames_per_camera);
+        const frames = await Promise.all(response.frames.map((frame) => enrichArchivedFrameHeatmapSize(frame)));
         return {
           cameraId,
-          items: response.frames.map((frame) => archivedFrameToHistoryItem(cameraId, frame)),
+          items: frames.map((frame) => archivedFrameToHistoryItem(cameraId, frame)),
         };
       } catch {
         return { cameraId, items: [] as InspectionHistoryItem[] };
@@ -237,6 +246,33 @@ export async function loadArchivedInspectionHistory(cameraIds: number[]) {
   );
 
   return Object.fromEntries(histories.map(({ cameraId, items }) => [cameraId, items]));
+}
+
+async function enrichArchivedFrameHeatmapSize(frame: FrameArchiveHistoryFrame): Promise<FrameArchiveHistoryFrame> {
+  if (!frame.has_heatmap || ((frame.heatmap_width ?? 0) > 0 && (frame.heatmap_height ?? 0) > 0)) {
+    return frame;
+  }
+  if (!frame.result_url) {
+    return frame;
+  }
+
+  try {
+    const result = await orchestratorApi.getJson<{
+      heatmap?: { width?: number; height?: number };
+    }>(frame.result_url);
+    const width = Number(result.heatmap?.width);
+    const height = Number(result.heatmap?.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return frame;
+    }
+    return {
+      ...frame,
+      heatmap_width: Math.round(width),
+      heatmap_height: Math.round(height),
+    };
+  } catch {
+    return frame;
+  }
 }
 
 export function archivedFrameToInspectResult(
@@ -262,15 +298,16 @@ export function archivedFrameToInspectResult(
       http_path: frameHttpPath,
     },
     http_path: frameHttpPath,
-    heatmap: frame.has_heatmap
-      ? {
-          width: 0,
-          height: 0,
-          pixel_format: "gray_u8",
-          channels: 1,
-          http_path: frame.heatmap_url,
-        }
-      : null,
+    heatmap:
+      frame.has_heatmap && (frame.heatmap_width ?? 0) > 0 && (frame.heatmap_height ?? 0) > 0
+        ? {
+            width: frame.heatmap_width!,
+            height: frame.heatmap_height!,
+            pixel_format: "gray_u8",
+            channels: 1,
+            http_path: frame.heatmap_url,
+          }
+        : null,
     active_reference_view_index: 0,
     detector: {
       detector_id: frame.detector_id,

@@ -158,7 +158,11 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
           ),
         ];
 
-  await Promise.all(analysisSaveRequests);
+  const [frameArchiveResponse] = await Promise.all([
+    orchestratorApi.setFrameArchiveMaxFrames(normalizedForm.savedFramesCount),
+    ...analysisSaveRequests,
+  ]);
+  setInspectionHistoryLimit(frameArchiveResponse.max_frames_per_camera);
 
   const nextData = await loadSettingData(selectedCameraId);
 
@@ -167,6 +171,7 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
     form: {
       ...nextData.form,
       brightnessPercent: normalizedForm.brightnessPercent,
+      savedFramesCount: frameArchiveResponse.max_frames_per_camera,
       analysisSettings: normalizedForm.analysisSettings,
     },
     status: {

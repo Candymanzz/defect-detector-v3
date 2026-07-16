@@ -49,9 +49,33 @@ public final class OmronFinsClient implements AutoCloseable {
     try {
       socket.receive(response);
     } catch (SocketTimeoutException e) {
+      log.warn(
+          "plc fins response timeout host={}:{} area={} address={}.{} value={} sid={}",
+          host,
+          port,
+          area,
+          address.word(),
+          address.bit(),
+          value,
+          sid
+      );
       throw new IOException("FINS timeout host=" + host + ":" + port, e);
     }
     validateResponse(response.getData(), response.getLength(), sid);
+    InetAddress from = response.getAddress();
+    log.info(
+        "plc fins response ok host={}:{} from={}:{} area={} address={}.{} value={} sid={} end_code=0000 len={}",
+        host,
+        port,
+        from != null ? from.getHostAddress() : "?",
+        response.getPort(),
+        area,
+        address.word(),
+        address.bit(),
+        value,
+        sid,
+        response.getLength()
+    );
   }
 
   static void validateResponse(byte[] data, int length, int expectedSid) throws IOException {
@@ -60,12 +84,14 @@ public final class OmronFinsClient implements AutoCloseable {
     }
     int sid = data[9] & 0xFF;
     if (sid != expectedSid) {
-      log.warn("FINS response SID mismatch expected={} actual={}", expectedSid, sid);
+      log.warn("plc fins response SID mismatch expected={} actual={} len={}", expectedSid, sid, length);
     }
     int endCodeHi = data[12] & 0xFF;
     int endCodeLo = data[13] & 0xFF;
     if (endCodeHi != 0 || endCodeLo != 0) {
-      throw new IOException(String.format("FINS end code %02X%02X", endCodeHi, endCodeLo));
+      String endCode = String.format("%02X%02X", endCodeHi, endCodeLo);
+      log.warn("plc fins response error sid={} end_code={} len={}", sid, endCode, length);
+      throw new IOException("FINS end code " + endCode);
     }
   }
 

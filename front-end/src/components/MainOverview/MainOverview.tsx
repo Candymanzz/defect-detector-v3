@@ -78,6 +78,9 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
           <InspectionHistory
             cameraIds={cameraGroup.map((camera) => camera.cameraId)}
             historyByCameraId={controller.inspectionHistoryByCameraId}
+            archiveHistoryState={controller.archiveHistoryState}
+            archiveHistoryMessage={controller.archiveHistoryMessage}
+            onLoadArchivedHistory={(ids) => void controller.loadArchivedHistory(ids)}
           />
         </section>
       ))}

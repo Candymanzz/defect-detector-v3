@@ -128,6 +128,8 @@ public final class FrameArchiveHttpController implements HttpController {
             item.put("frame_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "frame.jpg"));
             if (frame.hasHeatmap()) {
                 item.put("heatmap_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "heatmap.u8"));
+                item.put("heatmap_width", frame.heatmapWidth());
+                item.put("heatmap_height", frame.heatmapHeight());
             }
             item.put("result_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "result.json"));
         }

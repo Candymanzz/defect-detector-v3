@@ -111,7 +111,7 @@ integration:
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: false
+      require_direction: true
       require_work: false
       external_hardware_capture: true
       direction_poll_ms: 1

@@ -27,9 +27,9 @@ io_input:
     pulse_duration_ms: 300
     pulse_repeat: 3
     pulse_repeat_gap_ms: 100
-    require_direction: false
+    require_direction: true
     direction_http:
-      enabled: false
+      enabled: true
       host: 127.0.0.1
       port: 9101
 

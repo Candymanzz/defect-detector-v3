@@ -55,7 +55,9 @@ public final class FrameArchiveService implements AutoCloseable {
             String productType,
             String detectorId,
             long savedAtEpochMs,
-            boolean hasHeatmap
+            boolean hasHeatmap,
+            int heatmapWidth,
+            int heatmapHeight
     ) {
     }
 
@@ -119,6 +121,29 @@ public final class FrameArchiveService implements AutoCloseable {
 
     public void setMaxFramesPerCamera(int value) throws IOException {
         settingsStore.setMaxFramesPerCamera(value);
+        int applied = settingsStore.maxFramesPerCamera();
+        trimAllCameras();
+        LOG.info("frame archive max_frames_per_camera set to {}", applied);
+    }
+
+    private void trimAllCameras() throws IOException {
+        if (!Files.isDirectory(config.directory())) {
+            return;
+        }
+        try (Stream<Path> entries = Files.list(config.directory())) {
+            for (Path cameraDir : entries.filter(Files::isDirectory).toList()) {
+                String name = cameraDir.getFileName().toString();
+                if (!name.startsWith("camera_")) {
+                    continue;
+                }
+                try {
+                    int cameraId = Integer.parseInt(name.substring("camera_".length()));
+                    trimOldFrames(cameraId);
+                } catch (NumberFormatException ignored) {
+                    // skip non-camera directories
+                }
+            }
+        }
     }
 
     public void scheduleSave(SaveRequest request) {
@@ -308,6 +333,13 @@ public final class FrameArchiveService implements AutoCloseable {
             String detectorId = stringValue(root.get("detector_id"));
             long savedAt = parseLong(root.get("saved_at_ms"), 0L);
             boolean hasHeatmap = Files.isRegularFile(frameDir.resolve("heatmap.u8"));
+            int heatmapWidth = 0;
+            int heatmapHeight = 0;
+            Object heatmapRaw = root.get("heatmap");
+            if (heatmapRaw instanceof Map<?, ?> heatmapMap) {
+                heatmapWidth = (int) Math.max(0, parseLong(heatmapMap.get("width"), 0L));
+                heatmapHeight = (int) Math.max(0, parseLong(heatmapMap.get("height"), 0L));
+            }
             return Optional.of(new ArchivedFrame(
                     frameId,
                     inspectionId,
@@ -319,7 +351,9 @@ public final class FrameArchiveService implements AutoCloseable {
                     productType,
                     detectorId,
                     savedAt,
-                    hasHeatmap
+                    hasHeatmap,
+                    heatmapWidth,
+                    heatmapHeight
             ));
         } catch (IOException e) {
             LOG.debug("frame archive metadata read failed {}: {}", frameDir, e.getMessage());

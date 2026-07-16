@@ -422,7 +422,20 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // A newer inspection may arrive while this task is encoding the JPEG.
                     // Keep the frame-ready publication above, but avoid spending detector/CPU
                     // capacity on a heatmap that the UI will immediately replace.
+                    // Archive the frame JPEG immediately so a superseded publish still persists history.
                     if (!isLatestPublish(cameraId, publishSequence)) {
+                        scheduleFrameArchiveSave(
+                                cameraId,
+                                frameId,
+                                inspectionId,
+                                productType,
+                                detectorId,
+                                decision,
+                                hasCur ? currentJpeg : null,
+                                null,
+                                0,
+                                0
+                        );
                         return;
                     }
 

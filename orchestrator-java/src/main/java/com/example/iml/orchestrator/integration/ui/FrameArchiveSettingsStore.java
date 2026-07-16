@@ -86,7 +86,7 @@ final class FrameArchiveSettingsStore {
         } catch (IOException atomicMoveFailed) {
             Files.move(tempPath, storagePath, StandardCopyOption.REPLACE_EXISTING);
         }
-        LOG.debug("frame archive settings saved path={} max_frames_per_camera={}", storagePath, maxFramesPerCamera);
+        LOG.info("frame archive settings saved path={} max_frames_per_camera={}", storagePath, maxFramesPerCamera);
     }
 
     private static int clamp(int value, int maxAllowed) {

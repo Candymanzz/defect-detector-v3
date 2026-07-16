@@ -9,6 +9,9 @@ const INSPECTION_GROUP_WINDOW_MS = 15_000;
 type InspectionHistoryProps = {
   cameraIds: number[];
   historyByCameraId: Record<number, InspectionHistoryItem[]>;
+  archiveHistoryState?: "idle" | "loading" | "loaded" | "error";
+  archiveHistoryMessage?: string | null;
+  onLoadArchivedHistory?: (cameraIds: number[]) => void;
 };
 
 type InspectionHistoryTile = {
@@ -20,12 +23,19 @@ type InspectionHistoryTile = {
   results: InspectionHistoryItem[];
 };
 
-export function InspectionHistory({ cameraIds, historyByCameraId }: InspectionHistoryProps) {
+export function InspectionHistory({
+  cameraIds,
+  historyByCameraId,
+  archiveHistoryState = "idle",
+  archiveHistoryMessage = null,
+  onLoadArchivedHistory,
+}: InspectionHistoryProps) {
   const items = createInspectionHistoryTiles(cameraIds, historyByCameraId);
   const [selectedInspection, setSelectedInspection] = useState<{
     inspectionId: string;
     results: InspectionHistoryItem[];
   } | null>(null);
+  const isLoadingArchive = archiveHistoryState === "loading";
 
   return (
     <>
@@ -33,7 +43,30 @@ export function InspectionHistory({ cameraIds, historyByCameraId }: InspectionHi
         className="inspection-history"
         aria-label="Последние инспекции"
       >
-        <header>Последние инспекции</header>
+        <header className="inspection-history__header">
+          <span>Последние инспекции</span>
+          {onLoadArchivedHistory && (
+            <button
+              className="inspection-history__archive-btn"
+              type="button"
+              disabled={isLoadingArchive || cameraIds.length === 0}
+              onClick={() => onLoadArchivedHistory(cameraIds)}
+            >
+              {isLoadingArchive ? "Загрузка..." : "Загрузить архив"}
+            </button>
+          )}
+        </header>
+        {archiveHistoryMessage && (
+          <p
+            className={
+              archiveHistoryState === "error"
+                ? "inspection-history__archive-status inspection-history__archive-status--error"
+                : "inspection-history__archive-status"
+            }
+          >
+            {archiveHistoryMessage}
+          </p>
+        )}
         <div className="inspection-history__tiles">
           {items.map((item) => (
             <button
