@@ -7,7 +7,8 @@ import java.util.Map;
 
 /**
  * Интервальный режим вспышек (отдельно от capture):
- * DI «направление» → On, DI «триггер» → Off (опционально с задержкой).
+ * DI «направление» → On, DI «триггер» → Off (опционально с задержкой),
+ * затем авто-On через {@code on_reengage_delay_ms} после гашения.
  */
 public record IntervalFlashConfig(
         boolean enabled,
@@ -16,12 +17,14 @@ public record IntervalFlashConfig(
         TriggerEdgeMode onEdge,
         TriggerEdgeMode offEdge,
         int offDelayMs,
+        /** Авто-On через N мс после Off; 0 = только по DI On. */
+        int onReengageDelayMs,
         /** После startupEngage гасить свет и ждать DI On. */
         boolean startDark
 ) {
 
     public static IntervalFlashConfig disabled() {
-        return new IntervalFlashConfig(false, 2, 3, TriggerEdgeMode.RISING, TriggerEdgeMode.RISING, 0, true);
+        return new IntervalFlashConfig(false, 2, 3, TriggerEdgeMode.RISING, TriggerEdgeMode.RISING, 0, 0, true);
     }
 
     @SuppressWarnings("unchecked")
@@ -41,8 +44,11 @@ public record IntervalFlashConfig(
         TriggerEdgeMode onEdge = TriggerEdgeMode.fromConfig(m.get("on_edge"));
         TriggerEdgeMode offEdge = TriggerEdgeMode.fromConfig(m.get("off_edge"));
         int offDelayMs = Math.max(0, YamlScalars.toInt(m.get("off_delay_ms"), 0));
+        int onReengageDelayMs = Math.max(0, YamlScalars.toInt(m.get("on_reengage_delay_ms"), 0));
         boolean startDark = YamlScalars.toBool(m.get("start_dark"), true);
-        return new IntervalFlashConfig(enabled, onPort, offPort, onEdge, offEdge, offDelayMs, startDark);
+        return new IntervalFlashConfig(
+                enabled, onPort, offPort, onEdge, offEdge, offDelayMs, onReengageDelayMs, startDark
+        );
     }
 
     @SuppressWarnings("unchecked")

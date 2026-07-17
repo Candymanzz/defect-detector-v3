@@ -662,9 +662,10 @@ public final class IntegrationBootstrap {
                 triggerRuntime.addDiChangeListener(intervalFlashController::onDiChange);
                 intervalFlashController.armStartDark();
                 log.info(
-                        "interval_flash enabled — On DI{} {}, Off DI{} {} (off_delay_ms={}); capture pipeline без изменений (hold_mode={})",
+                        "interval_flash enabled — On DI{} {} или авто через {} ms после Off, Off DI{} {} (off_delay_ms={}); capture pipeline без изменений (hold_mode={})",
                         intervalFlashCfg.onPort(),
                         intervalFlashCfg.onEdge().name().toLowerCase(),
+                        intervalFlashCfg.onReengageDelayMs(),
                         intervalFlashCfg.offPort(),
                         intervalFlashCfg.offEdge().name().toLowerCase(),
                         intervalFlashCfg.offDelayMs(),

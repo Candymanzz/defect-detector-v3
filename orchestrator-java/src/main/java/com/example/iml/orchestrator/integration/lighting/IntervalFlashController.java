@@ -11,7 +11,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Отдельный контур вспышек: DI2↑ → On, DI3↑ → Off (+ {@code off_delay_ms}).
+ * Отдельный контур вспышек: DI2↑ → On, DI3↑ → Off (+ {@code off_delay_ms}),
+ * затем авто-On через {@code on_reengage_delay_ms} после гашения.
  * Не участвует в capture/inspection pipeline — только HTTP к LightServer.
  */
 public final class IntervalFlashController implements AutoCloseable {
@@ -25,7 +26,7 @@ public final class IntervalFlashController implements AutoCloseable {
     private final Logger log;
     private final Lights lights;
     private final IntervalFlashConfig config;
-    private final ScheduledExecutorService offScheduler;
+    private final ScheduledExecutorService scheduler;
     private final AtomicBoolean lightsOn = new AtomicBoolean(false);
     private final Object stateLock = new Object();
 
@@ -34,6 +35,7 @@ public final class IntervalFlashController implements AutoCloseable {
     private boolean onPortInitialized;
     private boolean offPortInitialized;
     private volatile ScheduledFuture<?> pendingOff;
+    private volatile ScheduledFuture<?> pendingOn;
 
     public IntervalFlashController(Logger log, LightTriggerClient lightClient, IntervalFlashConfig config) {
         this(log, asLights(lightClient), config);
@@ -43,8 +45,8 @@ public final class IntervalFlashController implements AutoCloseable {
         this.log = log;
         this.lights = lights;
         this.config = config;
-        this.offScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "interval-flash-off");
+        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "interval-flash");
             t.setDaemon(true);
             return t;
         });
@@ -74,16 +76,19 @@ public final class IntervalFlashController implements AutoCloseable {
             return;
         }
         cancelPendingOff();
+        cancelPendingOn();
         lights.forceAllOff();
         lightsOn.set(false);
         log.info(
-                "interval_flash start_dark: ждём DI{} {} → On, DI{} {} → Off (delay_ms={})",
+                "interval_flash start_dark: ждём DI{} {} → On, DI{} {} → Off (delay_ms={}), авто-On через {} ms",
                 config.onPort(),
                 config.onEdge().name().toLowerCase(),
                 config.offPort(),
                 config.offEdge().name().toLowerCase(),
-                config.offDelayMs()
+                config.offDelayMs(),
+                config.onReengageDelayMs()
         );
+        scheduleReengage("start_dark");
     }
 
     public void onDiChange(IoInputDiChange change) {
@@ -113,7 +118,8 @@ public final class IntervalFlashController implements AutoCloseable {
         }
         if (edge) {
             cancelPendingOff();
-            engageLights();
+            cancelPendingOn();
+            engageLights("DI" + config.onPort() + " " + config.onEdge().name().toLowerCase());
         }
     }
 
@@ -133,8 +139,8 @@ public final class IntervalFlashController implements AutoCloseable {
         }
     }
 
-    private void engageLights() {
-        log.info("interval_flash On (DI{} {})", config.onPort(), config.onEdge().name().toLowerCase());
+    private void engageLights(String reason) {
+        log.info("interval_flash On ({})", reason);
         boolean ok = lights.lightAllOn("interval_flash");
         lightsOn.set(ok);
         if (!ok) {
@@ -155,18 +161,41 @@ public final class IntervalFlashController implements AutoCloseable {
                 config.offPort(),
                 config.offEdge().name().toLowerCase()
         );
-        pendingOff = offScheduler.schedule(this::extinguishLights, delayMs, TimeUnit.MILLISECONDS);
+        pendingOff = scheduler.schedule(this::extinguishLights, delayMs, TimeUnit.MILLISECONDS);
     }
 
     private void extinguishLights() {
         log.info("interval_flash Off (DI{} {})", config.offPort(), config.offEdge().name().toLowerCase());
         lights.forceAllOff();
         lightsOn.set(false);
+        scheduleReengage("off");
+    }
+
+    private void scheduleReengage(String afterPhase) {
+        cancelPendingOn();
+        int delayMs = config.onReengageDelayMs();
+        if (delayMs <= 0) {
+            return;
+        }
+        log.info("interval_flash On scheduled in {} ms (after {})", delayMs, afterPhase);
+        pendingOn = scheduler.schedule(
+                () -> engageLights("auto re-engage after " + delayMs + " ms"),
+                delayMs,
+                TimeUnit.MILLISECONDS
+        );
     }
 
     private void cancelPendingOff() {
         ScheduledFuture<?> task = pendingOff;
         pendingOff = null;
+        if (task != null) {
+            task.cancel(false);
+        }
+    }
+
+    private void cancelPendingOn() {
+        ScheduledFuture<?> task = pendingOn;
+        pendingOn = null;
         if (task != null) {
             task.cancel(false);
         }
@@ -186,6 +215,7 @@ public final class IntervalFlashController implements AutoCloseable {
     @Override
     public void close() {
         cancelPendingOff();
-        offScheduler.shutdownNow();
+        cancelPendingOn();
+        scheduler.shutdownNow();
     }
 }

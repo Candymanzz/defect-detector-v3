@@ -218,6 +218,7 @@
       "on_edge": "rising",
       "off_edge": "rising",
       "off_delay_ms": 300,
+      "on_reengage_delay_ms": 5000,
       "start_dark": true
     }
   },

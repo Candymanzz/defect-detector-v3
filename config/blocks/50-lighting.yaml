@@ -31,6 +31,8 @@ light_servers:
     # Задержка Off после DI3↑ (мс). Нужна, т.к. DO5→Line0 идёт с pulse_delay_ms≈250 (52-io-input.yaml).
     # 0 = гасить сразу по фронту (риск погасить до экспозиции).
     off_delay_ms: 300
+    # Авто-On через N мс после Off (в т.ч. после start_dark). 0 = только по DI On.
+    on_reengage_delay_ms: 5000
     start_dark: true
   # cameras опционально; по умолчанию — все enabled cameras из корневого конфига.
   # mode: pair (камеры 0–7) | single (камеры 8–9) — см. 51-light-hardware.yaml camera_routes.
