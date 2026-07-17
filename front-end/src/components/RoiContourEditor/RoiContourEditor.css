@@ -28,6 +28,7 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  touch-action: none;
 }
 
 .roi-editor__overlay polygon {
@@ -54,6 +55,30 @@
   stroke-width: 0.004;
 }
 
+.roi-editor__overlay .roi-editor__vertex-handle--draggable,
+.roi-editor__overlay .roi-editor__edge-handle {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.roi-editor__overlay .roi-editor__edge-handle {
+  fill: #111827;
+  stroke: #7cff7c;
+  stroke-width: 0.003;
+  opacity: 0.9;
+}
+
+.roi-editor__overlay .roi-editor__edge-handle:hover {
+  fill: #ffffff;
+}
+
+.roi-editor__overlay .roi-editor__cursor line {
+  stroke: #ffffff;
+  stroke-width: 0.0025;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 1px #000000);
+}
+
 .roi-editor__actions {
   display: flex;
   gap: 8px;
@@ -61,31 +86,17 @@
 }
 
 .roi-editor__canvas--radius {
-  cursor: crosshair;
+  cursor: none;
+}
+
+.roi-editor__canvas--disabled {
+  cursor: default;
 }
 
 .roi-editor__hint {
   margin: 0;
   font-size: 12px;
   color: #9ca3af;
-}
-
-.roi-editor__overlay .roi-editor__draft-circle {
-  fill: rgba(56, 189, 248, 0.18);
-  stroke: #38bdf8;
-  stroke-width: 0.005;
-  stroke-dasharray: 0.02 0.01;
-}
-
-.roi-editor__overlay .roi-editor__radius-line {
-  stroke: #38bdf8;
-  stroke-width: 0.006;
-}
-
-.roi-editor__overlay .roi-editor__radius-center {
-  fill: #38bdf8;
-  stroke: #e0f2fe;
-  stroke-width: 0.003;
 }
 
 .roi-editor__actions button {

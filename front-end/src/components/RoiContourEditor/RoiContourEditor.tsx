@@ -1,6 +1,6 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 import { useRef, useState } from "react";
-import { createCirclePolygonFromRadius, type NormPoint } from "./circleRoi";
+import type { NormPoint } from "./circleRoi";
 import "./RoiContourEditor.css";
 
 export type { NormPoint };
@@ -15,7 +15,7 @@ type RoiContourEditorProps = {
     points_norm_heatmap: NormPoint[];
   }>;
   disabled?: boolean;
-  /** Режим «Радиус» (круг). Для joint ROI должен быть false. */
+  /** Разрешает режим скругления контура перетаскиванием точек на его линиях. */
   allowRadiusMode?: boolean;
   onChange: (points: NormPoint[]) => void;
 };
@@ -29,116 +29,74 @@ export function RoiContourEditor({
   onChange,
 }: RoiContourEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
+  const dragRef = useRef<{ index: number; points: NormPoint[] } | null>(null);
+  const ignoreNextClickRef = useRef(false);
   const [drawMode, setDrawMode] = useState<DrawMode>("polygon");
-  const [radiusCenter, setRadiusCenter] = useState<NormPoint | null>(null);
-  const [hoverPoint, setHoverPoint] = useState<NormPoint | null>(null);
+  const [cursorPoint, setCursorPoint] = useState<NormPoint | null>(null);
   const effectiveDrawMode = allowRadiusMode ? drawMode : "polygon";
-  const svgPoints = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const svgPoints = points.map(toSvgPoint).join(" ");
+  const edgeHandles = createEdgeHandles(points);
 
-  const resolveNormPoint = (event: MouseEvent<HTMLDivElement>): NormPoint | null => {
+  const resolveNormPoint = (event: MouseEvent<Element> | PointerEvent<Element>): NormPoint | null => {
     const rect = imageRef.current?.getBoundingClientRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) {
-      return null;
-    }
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+
     return {
       x: clamp01((event.clientX - rect.left) / rect.width),
       y: clamp01((event.clientY - rect.top) / rect.height),
     };
   };
 
-  const frameSize = () => {
-    const image = imageRef.current;
-    const width = image?.naturalWidth || image?.clientWidth || 1;
-    const height = image?.naturalHeight || image?.clientHeight || 1;
-    return { width, height };
-  };
-
   const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (disabled) {
+    if (ignoreNextClickRef.current) {
+      ignoreNextClickRef.current = false;
       return;
     }
+    if (disabled || effectiveDrawMode === "radius") return;
 
     const nextPoint = resolveNormPoint(event);
-    if (!nextPoint) {
-      return;
-    }
-
-    if (effectiveDrawMode === "radius") {
-      if (!radiusCenter) {
-        setRadiusCenter(nextPoint);
-        setHoverPoint(nextPoint);
-        return;
-      }
-
-      const { width, height } = frameSize();
-      const circle = createCirclePolygonFromRadius(radiusCenter, nextPoint, width, height);
-      setRadiusCenter(null);
-      setHoverPoint(null);
-      if (circle.length >= 3) {
-        onChange(circle);
-      }
-      return;
-    }
-
-    onChange([...points, nextPoint]);
+    if (nextPoint) onChange([...points, nextPoint]);
   };
 
-  const handleCanvasMove = (event: MouseEvent<HTMLDivElement>) => {
-    if (disabled || effectiveDrawMode !== "radius" || !radiusCenter) {
-      return;
-    }
-    const nextPoint = resolveNormPoint(event);
-    if (nextPoint) {
-      setHoverPoint(nextPoint);
-    }
+  const beginDrag = (event: PointerEvent<SVGCircleElement>, index: number, nextPoints = points) => {
+    if (disabled || effectiveDrawMode !== "radius") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { index, points: nextPoints };
+    ignoreNextClickRef.current = true;
+    if (nextPoints !== points) onChange(nextPoints);
   };
 
-  const handleRemoveLastPoint = () => {
-    if (effectiveDrawMode === "radius" && radiusCenter) {
-      setRadiusCenter(null);
-      setHoverPoint(null);
-      return;
-    }
-    onChange(points.slice(0, -1));
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const point = resolveNormPoint(event);
+    setCursorPoint(point);
+
+    const drag = dragRef.current;
+    if (!drag || !point) return;
+
+    const nextPoints = drag.points.map((currentPoint, index) => (index === drag.index ? point : currentPoint));
+    dragRef.current = { ...drag, points: nextPoints };
+    onChange(nextPoints);
   };
 
-  const handleClear = () => {
-    setRadiusCenter(null);
-    setHoverPoint(null);
-    onChange([]);
+  const endDrag = () => {
+    dragRef.current = null;
   };
 
+  const handleClear = () => onChange([]);
   const handleUseFullFrame = () => {
-    setRadiusCenter(null);
-    setHoverPoint(null);
     setDrawMode("polygon");
     onChange(createFullFramePolygon());
   };
-
-  const handleToggleRadiusMode = () => {
-    if (!allowRadiusMode) {
-      return;
-    }
-    setRadiusCenter(null);
-    setHoverPoint(null);
-    setDrawMode((current) => (current === "radius" ? "polygon" : "radius"));
-  };
-
-  const draftCirclePoints =
-    effectiveDrawMode === "radius" && radiusCenter && hoverPoint
-      ? (() => {
-          const { width, height } = frameSize();
-          return createCirclePolygonFromRadius(radiusCenter, hoverPoint, width, height);
-        })()
-      : [];
-  const draftCircleSvg = draftCirclePoints.map((point) => `${point.x},${point.y}`).join(" ");
 
   const actionButtons = [
     ...(allowRadiusMode
       ? [
           {
-            title: effectiveDrawMode === "radius" ? "Полигон" : "Радиус",
-            onClick: handleToggleRadiusMode,
+            title: effectiveDrawMode === "radius" ? "Рисовать контур" : "Задать радиус",
+            onClick: () => setDrawMode((current) => (current === "radius" ? "polygon" : "radius")),
             disabled,
             active: effectiveDrawMode === "radius",
           },
@@ -146,98 +104,84 @@ export function RoiContourEditor({
       : []),
     {
       title: "Удалить точку",
-      onClick: handleRemoveLastPoint,
-      disabled: disabled || (points.length === 0 && !(allowRadiusMode && radiusCenter)),
+      onClick: () => onChange(points.slice(0, -1)),
+      disabled: disabled || points.length === 0,
     },
     {
       title: "Очистить",
       onClick: handleClear,
-      disabled: disabled || (points.length === 0 && !(allowRadiusMode && radiusCenter)),
+      disabled: disabled || points.length === 0,
     },
-    {
-      title: "Весь кадр",
-      onClick: handleUseFullFrame,
-      disabled,
-    },
+    { title: "Весь кадр", onClick: handleUseFullFrame, disabled },
   ];
 
   return (
     <div className="roi-editor">
       <div
-        className={
-          effectiveDrawMode === "radius"
-            ? "roi-editor__canvas roi-editor__canvas--radius"
-            : "roi-editor__canvas"
-        }
+        className={`roi-editor__canvas${effectiveDrawMode === "radius" ? " roi-editor__canvas--radius" : ""}${disabled ? " roi-editor__canvas--disabled" : ""}`}
         onClick={handleCanvasClick}
-        onMouseMove={handleCanvasMove}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => {
+          if (!dragRef.current) setCursorPoint(null);
+        }}
       >
-        <img
-          ref={imageRef}
-          src={imageUrl}
-          alt="ROI"
-        />
+        <img ref={imageRef} src={imageUrl} alt="ROI" />
         <svg
           className="roi-editor__overlay"
           viewBox="0 0 1 1"
           preserveAspectRatio="none"
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
         >
           {points.length >= 3 && <polygon points={svgPoints} />}
-          {exclusionZones.map((zone, index) => {
-            if (zone.points_norm_heatmap.length < 3) {
-              return null;
-            }
-
-            const zonePoints = zone.points_norm_heatmap.map((point) => `${point.x},${point.y}`).join(" ");
-            return (
+          {exclusionZones.map((zone, index) =>
+            zone.points_norm_heatmap.length >= 3 ? (
               <polygon
                 key={zone.id ?? index}
                 className="roi-editor__exclusion-zone"
-                points={zonePoints}
+                points={zone.points_norm_heatmap.map(toSvgPoint).join(" ")}
               />
-            );
-          })}
-          {points.length >= 2 && effectiveDrawMode === "polygon" && <polyline points={svgPoints} />}
-          {allowRadiusMode && draftCirclePoints.length >= 3 && (
-            <polygon
-              className="roi-editor__draft-circle"
-              points={draftCircleSvg}
-            />
+            ) : null,
           )}
-          {allowRadiusMode && radiusCenter && hoverPoint && (
-            <line
-              className="roi-editor__radius-line"
-              x1={radiusCenter.x}
-              y1={radiusCenter.y}
-              x2={hoverPoint.x}
-              y2={hoverPoint.y}
-            />
+          {points.length >= 2 && <polyline points={svgPoints} />}
+          {!disabled && cursorPoint && (
+            <g className="roi-editor__cursor">
+              <line x1={cursorPoint.x - 0.02} y1={cursorPoint.y} x2={cursorPoint.x + 0.02} y2={cursorPoint.y} />
+              <line x1={cursorPoint.x} y1={cursorPoint.y - 0.02} x2={cursorPoint.x} y2={cursorPoint.y + 0.02} />
+            </g>
           )}
-          {allowRadiusMode && radiusCenter && (
-            <circle
-              className="roi-editor__radius-center"
-              cx={radiusCenter.x}
-              cy={radiusCenter.y}
-              r="0.014"
-            />
-          )}
+          {effectiveDrawMode === "radius" &&
+            edgeHandles.map((handle) => (
+              <circle
+                key={`edge-${handle.insertIndex}`}
+                className="roi-editor__edge-handle"
+                cx={handle.point.x}
+                cy={handle.point.y}
+                r="0.015"
+                onPointerDown={(event) => {
+                  const nextPoints = [...points];
+                  nextPoints.splice(handle.insertIndex, 0, handle.point);
+                  beginDrag(event, handle.insertIndex, nextPoints);
+                }}
+              />
+            ))}
           {points.map((point, index) => (
             <circle
               key={`${point.x}-${point.y}-${index}`}
+              className={`roi-editor__vertex-handle${effectiveDrawMode === "radius" ? " roi-editor__vertex-handle--draggable" : ""}`}
               cx={point.x}
               cy={point.y}
               r="0.012"
+              onPointerDown={(event) => beginDrag(event, index)}
             />
           ))}
         </svg>
       </div>
 
       <p className="roi-editor__hint">
-        {allowRadiusMode && effectiveDrawMode === "radius"
-          ? radiusCenter
-            ? "Второй клик — конец радиуса (круг станет ROI-полигоном)"
-            : "Режим радиуса: первый клик — центр круга"
-          : "Режим полигона: клики добавляют вершины контура"}
+        {effectiveDrawMode === "radius"
+          ? "Потяните маркер на линии, чтобы добавить точку и скруглить контур"
+          : "Кликайте по изображению, чтобы добавить вершины контура"}
       </p>
 
       <div className="roi-editor__actions">
@@ -257,6 +201,10 @@ export function RoiContourEditor({
   );
 }
 
+function toSvgPoint(point: NormPoint) {
+  return `${point.x},${point.y}`;
+}
+
 function createFullFramePolygon(): NormPoint[] {
   return [
     { x: 0, y: 0 },
@@ -264,6 +212,20 @@ function createFullFramePolygon(): NormPoint[] {
     { x: 1, y: 1 },
     { x: 0, y: 1 },
   ];
+}
+
+function createEdgeHandles(points: NormPoint[]) {
+  if (points.length < 2) return [];
+  const edgeCount = points.length >= 3 ? points.length : points.length - 1;
+
+  return Array.from({ length: edgeCount }, (_, index) => {
+    const start = points[index];
+    const end = points[(index + 1) % points.length];
+    return {
+      insertIndex: index + 1,
+      point: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
+    };
+  });
 }
 
 function clamp01(value: number) {
