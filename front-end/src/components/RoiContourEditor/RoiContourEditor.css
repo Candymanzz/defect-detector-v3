@@ -10,12 +10,8 @@
   width: fit-content;
   max-width: 100%;
   background: #05070a;
-  cursor: none;
+  cursor: crosshair;
   overflow: hidden;
-}
-
-.roi-editor__canvas--disabled {
-  cursor: default;
 }
 
 .roi-editor__canvas img {
@@ -32,7 +28,6 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  touch-action: none;
 }
 
 .roi-editor__overlay polygon {
@@ -53,35 +48,10 @@
   stroke-width: 0.004;
 }
 
-.roi-editor__overlay .roi-editor__cursor line {
-  stroke: #ffffff;
-  stroke-width: 0.0025;
-  vector-effect: non-scaling-stroke;
-  filter: drop-shadow(0 0 1px #000000);
-}
-
 .roi-editor__overlay circle {
-  pointer-events: auto;
-  cursor: grab;
   fill: #ffffff;
   stroke: #00ff00;
   stroke-width: 0.004;
-}
-
-.roi-editor__overlay circle:active {
-  cursor: grabbing;
-}
-
-.roi-editor__overlay .roi-editor__edge-handle {
-  fill: #111827;
-  stroke: #7cff7c;
-  stroke-width: 0.003;
-  opacity: 0.85;
-}
-
-.roi-editor__overlay .roi-editor__edge-handle:hover {
-  fill: #ffffff;
-  opacity: 1;
 }
 
 .roi-editor__actions {
