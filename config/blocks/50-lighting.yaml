@@ -20,17 +20,20 @@ light_servers:
   duration_ms: 90
   flash_lead_ms: 0
   settle_delay_ms: 0
-  # Временно always-on: DI3 больше не включает/выключает свет.
-  # Банк поднимается один раз при старте оркестратора и дальше горит постоянно.
+  # Интервальный режим (отдельный контур от съёмки):
+  # DI3↑ → On + Off через off_delay_ms; после Off → авто-On через on_reengage_delay_ms.
+  # On/Off — POST /api/camera-flash/bank (не трогает capture pipeline).
   interval_flash:
-    enabled: false
+    enabled: true
     idle_port: 2
     idle_edge: falling
     idle_on: false
     trigger_port: 3
     trigger_edge: rising
-    # DO5: delay 250 + 3×300 + 2×100 ≈ 1350
-    off_delay_ms: 1400
+    # Гасить через 300 мс после DI3↑ (после экспозиции / DO5→Line0).
+    off_delay_ms: 300
+    # Зажечь снова через 5 с после гашения.
+    on_reengage_delay_ms: 5000
     start_dark: true
   # cameras опционально; по умолчанию — все enabled cameras из корневого конфига.
   # mode: pair (камеры 0–7) | single (камеры 8–9) — см. 51-light-hardware.yaml camera_routes.

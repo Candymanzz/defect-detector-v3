@@ -219,13 +219,14 @@
     "flash_lead_ms": 0,
     "settle_delay_ms": 0,
     "interval_flash": {
-      "enabled": false,
+      "enabled": true,
       "idle_port": 2,
       "idle_edge": "falling",
       "idle_on": false,
       "trigger_port": 3,
       "trigger_edge": "rising",
-      "off_delay_ms": 1400,
+      "off_delay_ms": 300,
+      "on_reengage_delay_ms": 5000,
       "start_dark": true
     }
   },

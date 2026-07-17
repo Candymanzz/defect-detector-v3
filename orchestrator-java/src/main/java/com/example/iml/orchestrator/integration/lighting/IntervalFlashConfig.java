@@ -7,7 +7,8 @@ import java.util.Map;
 
 /**
  * Интервальный режим вспышек (отдельно от capture):
- * DI3↑ → On + Off через {@code off_delay_ms}; опционально холостой DI → On.
+ * DI3↑ → On + Off через {@code off_delay_ms}; после Off — авто-On через {@code on_reengage_delay_ms};
+ * опционально холостой DI → On.
  */
 public record IntervalFlashConfig(
         boolean enabled,
@@ -18,6 +19,8 @@ public record IntervalFlashConfig(
         TriggerEdgeMode idleEdge,
         TriggerEdgeMode triggerEdge,
         int offDelayMs,
+        /** Авто-On через N мс после Off; 0 = только по DI / idle. */
+        int onReengageDelayMs,
         /** После startupEngage гасить свет и ждать DI On. */
         boolean startDark,
         /**
@@ -49,7 +52,7 @@ public record IntervalFlashConfig(
 
     public static IntervalFlashConfig disabled() {
         return new IntervalFlashConfig(
-                false, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 300, true, false
+                false, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 300, 0, true, false
         );
     }
 
@@ -84,10 +87,19 @@ public record IntervalFlashConfig(
                         ? TriggerEdgeMode.fromConfig(m.get("off_edge"))
                         : TriggerEdgeMode.RISING;
         int offDelayMs = Math.max(0, YamlScalars.toInt(m.get("off_delay_ms"), 300));
+        int onReengageDelayMs = Math.max(0, YamlScalars.toInt(m.get("on_reengage_delay_ms"), 0));
         boolean startDark = YamlScalars.toBool(m.get("start_dark"), true);
         boolean idleOnEnabled = YamlScalars.toBool(m.get("idle_on"), false);
         return new IntervalFlashConfig(
-                enabled, idlePort, triggerPort, idleEdge, triggerEdge, offDelayMs, startDark, idleOnEnabled
+                enabled,
+                idlePort,
+                triggerPort,
+                idleEdge,
+                triggerEdge,
+                offDelayMs,
+                onReengageDelayMs,
+                startDark,
+                idleOnEnabled
         );
     }
 

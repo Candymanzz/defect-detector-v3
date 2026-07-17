@@ -24,6 +24,7 @@ class IntervalFlashControllerTest {
                 "idle_port", 2,
                 "trigger_port", 3,
                 "off_delay_ms", 40,
+                "on_reengage_delay_ms", 5000,
                 "idle_edge", "falling",
                 "trigger_edge", "rising",
                 "idle_on", true
@@ -36,6 +37,7 @@ class IntervalFlashControllerTest {
         assertEquals(2, cfg.idlePort());
         assertEquals(3, cfg.triggerPort());
         assertEquals(40, cfg.offDelayMs());
+        assertEquals(5000, cfg.onReengageDelayMs());
         assertEquals(TriggerEdgeMode.FALLING, cfg.idleEdge());
         assertEquals(TriggerEdgeMode.RISING, cfg.triggerEdge());
         assertTrue(cfg.idleOnEnabled());
@@ -103,7 +105,7 @@ class IntervalFlashControllerTest {
             }
         };
         IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, true, true
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, true
         );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
@@ -146,7 +148,7 @@ class IntervalFlashControllerTest {
             }
         };
         IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, true, false
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, false
         );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
@@ -181,7 +183,7 @@ class IntervalFlashControllerTest {
             }
         };
         IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 80, true, true
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 80, 0, true, true
         );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
@@ -219,7 +221,7 @@ class IntervalFlashControllerTest {
             }
         };
         IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, true, false
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, false
         );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
@@ -250,7 +252,7 @@ class IntervalFlashControllerTest {
             }
         };
         IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, true, false
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, false
         );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
@@ -278,7 +280,7 @@ class IntervalFlashControllerTest {
             }
         };
         IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, true, true
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, true
         );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
@@ -288,6 +290,50 @@ class IntervalFlashControllerTest {
             controller.onDiChange(new IoInputDiChange(2, false));
             controller.awaitLightTasks(500);
             assertEquals(1, onCount.get());
+        }
+    }
+
+    @Test
+    void di3OffThenAutoReengageAfterDelay() throws Exception {
+        AtomicInteger onCount = new AtomicInteger();
+        AtomicInteger offCount = new AtomicInteger();
+        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
+            @Override
+            public boolean lightAllOn(String phase) {
+                onCount.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public void forceAllOff() {
+                offCount.incrementAndGet();
+            }
+        };
+        IntervalFlashConfig cfg = new IntervalFlashConfig(
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 80, true, false
+        );
+        try (IntervalFlashController controller = new IntervalFlashController(
+                LogManager.getLogger(IntervalFlashControllerTest.class),
+                lights,
+                cfg
+        )) {
+            controller.onDiChange(new IoInputDiChange(2, true));
+            controller.onDiChange(new IoInputDiChange(3, false));
+            controller.awaitLightTasks(500);
+
+            controller.onDiChange(new IoInputDiChange(3, true));
+            controller.awaitLightTasks(500);
+            assertEquals(1, onCount.get());
+            assertEquals(1, offCount.get());
+            assertFalse(controller.lightsOn());
+
+            Thread.sleep(50);
+            assertEquals(1, onCount.get());
+
+            Thread.sleep(50);
+            controller.awaitLightTasks(500);
+            assertEquals(2, onCount.get());
+            assertTrue(controller.lightsOn());
         }
     }
 
@@ -306,7 +352,7 @@ class IntervalFlashControllerTest {
             }
         };
         IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, true, true
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, true
         );
         IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),

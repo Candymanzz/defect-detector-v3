@@ -47360,3 +47360,28 @@ java.io.IOException: EOF
 2026-07-16 16:49:32.428 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
 2026-07-16 17:22:17.201 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
 2026-07-16 17:22:17.204 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-17 13:18:10.158 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-17 13:18:10.184 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-17 13:18:10.185 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-17 13:18:10.186 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-17 13:18:10.296 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash brightness-refresh latched (Off→On→Off)
+2026-07-17 13:18:10.325 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-17 13:18:10.328 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising)
+2026-07-17 13:18:10.328 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-17 13:18:10.329 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-17 13:18:10.409 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-17 13:18:10.409 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-17 13:18:10.479 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-17 13:18:10.484 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-17 13:18:10.485 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-17 13:18:10.485 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-17 13:18:10.485 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-17 13:18:10.488 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-17 13:18:10.489 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-17 13:18:10.491 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-17 13:18:10.492 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-17 13:18:10.497 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-17 13:18:10.498 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-17 13:18:10.498 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-17 13:18:10.580 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-17 13:18:10.599 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off

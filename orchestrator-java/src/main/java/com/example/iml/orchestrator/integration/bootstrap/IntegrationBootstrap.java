@@ -673,13 +673,14 @@ public final class IntegrationBootstrap {
                 lightClient.setAfterBrightnessApplied(intervalFlashController::onBrightnessUpdated);
                 intervalFlashController.armStartDark();
                 log.info(
-                        "interval_flash enabled — idle_on={} (DI{} {}); DI{} {} → On + Off (off_delay_ms={}); hold_mode={}",
+                        "interval_flash enabled — idle_on={} (DI{} {}); DI{} {} → On + Off (off_delay_ms={}); авто-On через {} ms; hold_mode={}",
                         intervalFlashCfg.idleOnEnabled(),
                         intervalFlashCfg.idlePort(),
                         intervalFlashCfg.idleEdge().name().toLowerCase(),
                         intervalFlashCfg.triggerPort(),
                         intervalFlashCfg.triggerEdge().name().toLowerCase(),
                         intervalFlashCfg.offDelayMs(),
+                        intervalFlashCfg.onReengageDelayMs(),
                         lightClient.isHoldMode()
                 );
             } else if (intervalFlashCfg.enabled()) {

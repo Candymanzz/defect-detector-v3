@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <ul>
  *   <li>холостой ход (DI idle, обычно DI2↓) → On</li>
  *   <li>DI3↑ → On и Off через {@code off_delay_ms}</li>
+ *   <li>после Off → авто-On через {@code on_reengage_delay_ms}</li>
  * </ul>
  * HTTP к LightServer только в своём single-thread executor — callback DI не блокируется.
  */
@@ -39,6 +40,7 @@ public final class IntervalFlashController implements AutoCloseable {
     private boolean idlePortInitialized;
     private boolean triggerPortInitialized;
     private volatile ScheduledFuture<?> pendingOff;
+    private volatile ScheduledFuture<?> pendingOn;
     /** DI2 idle On отложен, пока не выполнится Off после DI3 (нельзя cancelPendingOff). */
     private volatile boolean idleOnAfterOff;
     private volatile String idleOnAfterOffReason;
@@ -82,18 +84,21 @@ public final class IntervalFlashController implements AutoCloseable {
             return;
         }
         cancelPendingOff();
+        cancelPendingOn();
         lightExecutor.execute(() -> {
             lights.forceAllOff();
             lightsOn.set(false);
         });
         log.info(
-                "interval_flash start_dark: холостой DI{} {} → On; DI{} {} → On + Off (delay_ms={})",
+                "interval_flash start_dark: холостой DI{} {} → On; DI{} {} → On + Off (delay_ms={}); авто-On через {} ms",
                 config.idlePort(),
                 config.idleEdge().name().toLowerCase(),
                 config.triggerPort(),
                 config.triggerEdge().name().toLowerCase(),
-                config.offDelayMs()
+                config.offDelayMs(),
+                config.onReengageDelayMs()
         );
+        scheduleReengage("start_dark");
     }
 
     /**
@@ -124,6 +129,7 @@ public final class IntervalFlashController implements AutoCloseable {
         }
         lightExecutor.execute(() -> {
             cancelPendingOff();
+            cancelPendingOn();
             lights.forceAllOff();
             lightsOn.set(false);
             try {
@@ -186,12 +192,14 @@ public final class IntervalFlashController implements AutoCloseable {
         if (edge) {
             // Съёмка на DI3: гарантируем On и гасим после экспозиции / DO5 pulse.
             cancelPendingOff();
+            cancelPendingOn();
             scheduleOn("DI" + config.triggerPort() + " " + config.triggerEdge().name().toLowerCase());
             scheduleOff();
         }
     }
 
     private void scheduleOn(String reason) {
+        cancelPendingOn();
         lightExecutor.execute(() -> engageLights(reason));
     }
 
@@ -249,12 +257,39 @@ public final class IntervalFlashController implements AutoCloseable {
             idleOnAfterOff = false;
             String reason = idleOnAfterOffReason != null ? idleOnAfterOffReason : "idle-after-off";
             engageLights(reason);
+            return;
         }
+        scheduleReengage("off");
+    }
+
+    private void scheduleReengage(String afterPhase) {
+        cancelPendingOn();
+        int delayMs = config.onReengageDelayMs();
+        if (delayMs <= 0) {
+            return;
+        }
+        log.info("interval_flash On scheduled in {} ms (after {})", delayMs, afterPhase);
+        pendingOn = lightExecutor.schedule(
+                () -> {
+                    pendingOn = null;
+                    engageLights("auto re-engage after " + delayMs + " ms");
+                },
+                delayMs,
+                TimeUnit.MILLISECONDS
+        );
     }
 
     private void cancelPendingOff() {
         ScheduledFuture<?> task = pendingOff;
         pendingOff = null;
+        if (task != null) {
+            task.cancel(false);
+        }
+    }
+
+    private void cancelPendingOn() {
+        ScheduledFuture<?> task = pendingOn;
+        pendingOn = null;
         if (task != null) {
             task.cancel(false);
         }
@@ -290,6 +325,7 @@ public final class IntervalFlashController implements AutoCloseable {
     @Override
     public void close() {
         cancelPendingOff();
+        cancelPendingOn();
         // Синхронно гасим до shutdown executor: иначе при kill/Ctrl+C банк остаётся On (DI2 idle).
         try {
             lights.forceAllOff();
