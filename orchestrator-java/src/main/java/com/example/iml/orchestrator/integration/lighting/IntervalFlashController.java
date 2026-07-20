@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Отдельный контур вспышек (не участвует в capture/inspection):
  * <ul>
  *   <li>холостой ход (DI idle, обычно DI2↓) → On</li>
- *   <li>DI3↑ → On и Off через {@code off_delay_ms}</li>
+ *   <li>DI3↑ → On и Off через {@code off_delay_ms} (или раньше по первому кадру)</li>
  *   <li>после Off → авто-On через {@code on_reengage_delay_ms}</li>
  * </ul>
  * HTTP к LightServer только в своём single-thread executor — callback DI не блокируется.
@@ -33,6 +33,8 @@ public final class IntervalFlashController implements AutoCloseable {
     /** Все On/Off сериализованы здесь — пайплайн съёмки не ждёт HTTP. */
     private final ScheduledExecutorService lightExecutor;
     private final AtomicBoolean lightsOn = new AtomicBoolean(false);
+    /** Ждём первый кадр, чтобы погасить раньше timeout (off_on_first_frame). */
+    private final AtomicBoolean awaitingFrameOff = new AtomicBoolean(false);
     private final Object stateLock = new Object();
 
     private boolean idlePortActive;
@@ -85,17 +87,19 @@ public final class IntervalFlashController implements AutoCloseable {
         }
         cancelPendingOff();
         cancelPendingOn();
+        awaitingFrameOff.set(false);
         lightExecutor.execute(() -> {
             lights.forceAllOff();
             lightsOn.set(false);
         });
         log.info(
-                "interval_flash start_dark: холостой DI{} {} → On; DI{} {} → On + Off (delay_ms={}); авто-On через {} ms",
+                "interval_flash start_dark: холостой DI{} {} → On; DI{} {} → On + Off (delay_ms={}, off_on_first_frame={}); авто-On через {} ms",
                 config.idlePort(),
                 config.idleEdge().name().toLowerCase(),
                 config.triggerPort(),
                 config.triggerEdge().name().toLowerCase(),
                 config.offDelayMs(),
+                config.offOnFirstFrame(),
                 config.onReengageDelayMs()
         );
         scheduleReengage("start_dark");
@@ -120,6 +124,22 @@ public final class IntervalFlashController implements AutoCloseable {
     }
 
     /**
+     * Первый usable wait_frame после DI3: гасим раньше {@code off_delay_ms}.
+     * Повторные кадры того же цикла — no-op.
+     */
+    public void onFirstFrameCaptured(int cameraId) {
+        if (!config.enabled() || !config.offOnFirstFrame()) {
+            return;
+        }
+        if (!awaitingFrameOff.compareAndSet(true, false)) {
+            return;
+        }
+        cancelPendingOff();
+        log.info("interval_flash Off on first frame cam={}", cameraId);
+        lightExecutor.execute(this::extinguishLights);
+    }
+
+    /**
      * После /pair (WriteBrightness): один Off→On→Off, чтобы MV-LE зафиксировал яркость.
      * Следующий DI3 On уже из Off — без лишнего Off на каждом кадре.
      */
@@ -130,6 +150,7 @@ public final class IntervalFlashController implements AutoCloseable {
         lightExecutor.execute(() -> {
             cancelPendingOff();
             cancelPendingOn();
+            awaitingFrameOff.set(false);
             lights.forceAllOff();
             lightsOn.set(false);
             try {
@@ -190,9 +211,10 @@ public final class IntervalFlashController implements AutoCloseable {
             triggerPortActive = active;
         }
         if (edge) {
-            // Съёмка на DI3: гарантируем On и гасим после экспозиции / DO5 pulse.
+            // Съёмка на DI3: On; Off по первому кадру или timeout off_delay_ms.
             cancelPendingOff();
             cancelPendingOn();
+            awaitingFrameOff.set(config.offOnFirstFrame());
             scheduleOn("DI" + config.triggerPort() + " " + config.triggerEdge().name().toLowerCase());
             scheduleOff();
         }
@@ -236,16 +258,18 @@ public final class IntervalFlashController implements AutoCloseable {
             return;
         }
         log.info(
-                "interval_flash Off scheduled in {} ms (DI{} {})",
+                "interval_flash Off scheduled in {} ms (DI{} {}, off_on_first_frame={})",
                 delayMs,
                 config.triggerPort(),
-                config.triggerEdge().name().toLowerCase()
+                config.triggerEdge().name().toLowerCase(),
+                config.offOnFirstFrame()
         );
         pendingOff = lightExecutor.schedule(this::extinguishLights, delayMs, TimeUnit.MILLISECONDS);
     }
 
     private void extinguishLights() {
         pendingOff = null;
+        awaitingFrameOff.set(false);
         log.info(
                 "interval_flash Off (DI{} {})",
                 config.triggerPort(),
@@ -326,6 +350,7 @@ public final class IntervalFlashController implements AutoCloseable {
     public void close() {
         cancelPendingOff();
         cancelPendingOn();
+        awaitingFrameOff.set(false);
         // Синхронно гасим до shutdown executor: иначе при kill/Ctrl+C банк остаётся On (DI2 idle).
         try {
             lights.forceAllOff();
