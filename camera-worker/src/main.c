@@ -1682,6 +1682,13 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                 snprintf(err, err_len, "hik software trigger failed: 0x%x", nRet);
                 return -1;
             }
+        } else if (wait_only) {
+            /* hardware Line0 (DO5): сбросить буфер, иначе GetOneFrame вернёт старый кадр
+             * до текущего фронта Line0 (DI3 UDP → wait_frame раньше, чем DO5). */
+            int flushed = hik_flush_image_buffer(st);
+            if (flushed > 0) {
+                fprintf(stderr, "hik: wait_frame flushed %d stale frame(s) before Line0\n", flushed);
+            }
         }
         nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
                                         (unsigned int)st->frame_timeout_ms);
