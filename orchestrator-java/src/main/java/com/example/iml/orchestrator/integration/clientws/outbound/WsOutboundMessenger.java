@@ -574,7 +574,10 @@ public final class WsOutboundMessenger {
             hm.put("pixel_format", "gray_u8");
             hm.put("channels", 1);
             String tok = heatmapArtifactTokenOrNull == null ? "" : heatmapArtifactTokenOrNull.trim();
-            if (!bundleId.isEmpty()) {
+            if (previewHttpPath.contains("/api/frame-archive/") && previewHttpPath.endsWith("/frame.jpg")) {
+                hm.put("http_path", previewHttpPath.substring(0, previewHttpPath.length() - "frame.jpg".length())
+                        + "heatmap.u8");
+            } else if (!bundleId.isEmpty()) {
                 hm.put("http_path", "/api/inspection-artifacts/" + bundleId + "/heatmap.u8");
             } else if (!tok.isEmpty()) {
                 hm.put("artifact_id", tok);

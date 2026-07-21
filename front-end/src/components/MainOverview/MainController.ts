@@ -162,7 +162,7 @@ export function createModalInspectionSnapshot(
     initialFrameId: snapshotResult?.frame_id,
     inspectResult: snapshotResult,
     cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl,
-    heatmapUrl: snapshotResult?.heatmap ? resolveHeatmapSourceUrlOrUndefined(snapshotResult.heatmap) : undefined,
+    heatmapUrl: snapshotResult ? resolveInspectHeatmapUrl(snapshotResult) : undefined,
     referenceImageUrl: referenceImage?.imageUrl,
     referenceRoiPoints: referenceImage?.roiPoints.map((point) => ({ ...point })),
     referenceJointRoiPoints: referenceImage?.jointRoiPoints?.map((point) => ({ ...point })),
@@ -191,7 +191,7 @@ export function updateModalSnapshotResult(
     ...currentSnapshot,
     inspectResult,
     cameraImageUrl: resolveImmutableInspectionImageUrl(inspectResult) ?? createWsFrameImageUrl(inspectResult),
-    heatmapUrl: inspectResult.heatmap ? resolveHeatmapSourceUrlOrUndefined(inspectResult.heatmap) : undefined,
+    heatmapUrl: resolveInspectHeatmapUrl(inspectResult),
   };
 }
 
@@ -223,7 +223,7 @@ export function resolveInspectionId(inspectResult: InspectResultPayload) {
 
 export function upsertModalInspectionItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
   return trimInspectionHistoryItems([...items.filter((item) => item.frameId !== nextItem.frameId), nextItem]).sort(
-    (left, right) => compareFrameIds(left.frameId, right.frameId),
+    (left, right) => right.inspectResult.server_ts_ms - left.inspectResult.server_ts_ms,
   );
 }
 
@@ -454,8 +454,18 @@ function createInitialModalInspectionItems(
 
   return availableItems
     .filter((item) => compareFrameIds(item.frameId, selectedResult.frame_id) <= 0)
-    .slice(0, inspectionHistoryLimit)
-    .reverse();
+    .slice(0, inspectionHistoryLimit);
+}
+
+function resolveInspectHeatmapUrl(inspectResult: InspectResultPayload) {
+  if (!inspectResult.heatmap) {
+    return undefined;
+  }
+  const framePath = inspectResult.http_path ?? inspectResult.current?.http_path;
+  if (framePath?.includes("/api/frame-archive/") && framePath.endsWith("/frame.jpg")) {
+    return orchestratorApi.url(framePath.replace(/\/frame\.jpg$/, "/heatmap.u8"));
+  }
+  return resolveHeatmapSourceUrlOrUndefined(inspectResult.heatmap);
 }
 
 function resolveHeatmapSourceUrlOrUndefined(heatmap: HeatmapDescriptor) {

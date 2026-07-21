@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
@@ -165,13 +165,23 @@ function InspectionNavigation({
   selectedFrameId?: string;
   onSelect?: (frameId: string) => void;
 }) {
+  const tilesRef = useRef<HTMLDivElement>(null);
+  const newestFrameId = items[0]?.frameId;
+
+  useEffect(() => {
+    tilesRef.current?.scrollTo({ left: 0 });
+  }, [newestFrameId]);
+
   return (
     <section
       className="modal-inspection-navigation"
       aria-label="Inspection navigation"
     >
       <header>Инспекции</header>
-      <div className="modal-inspection-navigation__tiles">
+      <div
+        ref={tilesRef}
+        className="modal-inspection-navigation__tiles"
+      >
         {items.map((item) => (
           <button
             className="modal-inspection-navigation__tile"
