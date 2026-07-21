@@ -344,27 +344,49 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           </Button>
         </section>
 
+        <div className="setting-list__quick-actions">
+          <Button
+            className="setting-list__quick-action"
+            disabled={isBusy}
+            onClick={() => setIsReferenceSetupOpen(true)}
+          >
+            Задать эталон
+          </Button>
+          <Button
+            className="setting-list__quick-action"
+            disabled={isBusy}
+            onClick={() => setIsCameraSettingsOpen(true)}
+          >
+            Настройки камер
+          </Button>
+          <Button
+            className="setting-list__quick-action"
+            variant="warning"
+            disabled={isBusy}
+            onClick={() => setIsServerStreamOpen(true)}
+          >
+            Открыть стрим
+          </Button>
+        </div>
+
         <section className="setting-list__card setting-list__flash-mode">
           <div className="setting-list__card-header">
             <span>Режим работы вспышек</span>
           </div>
           <div className="setting-list__flash-mode-options">
-            <button
-              type="button"
-              data-active={!settingData.form.constantFlashMode}
-              disabled={!canEditSettings}
-              onClick={() => handleLightModeChange(false)}
-            >
-              По циклу
-            </button>
-            <button
-              type="button"
-              data-active={settingData.form.constantFlashMode}
-              disabled={!canEditSettings}
-              onClick={() => handleLightModeChange(true)}
-            >
-              Постоянный
-            </button>
+            <span data-active={!settingData.form.constantFlashMode}>По циклу</span>
+            <label className="setting-list__flash-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Постоянный режим работы вспышек"
+                checked={settingData.form.constantFlashMode}
+                disabled={!canEditSettings}
+                onChange={(event) => handleLightModeChange(event.target.checked)}
+              />
+              <span aria-hidden="true" />
+            </label>
+            <span data-active={settingData.form.constantFlashMode}>Постоянный</span>
           </div>
           <span className="setting-list__flash-mode-description">
             {settingData.form.constantFlashMode
@@ -400,51 +422,65 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           </div>
         </section>
 
-        <label className="setting-list__field setting-list__card">
-          <span>Макс. смещение, мм</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={settingData.form.maxShiftMm}
-            disabled={!canEditSettings}
-            onChange={handleFieldChange("maxShiftMm")}
-          />
-        </label>
-        <Button
-          className="setting-list__inline-save"
-          disabled={!canEditSettings}
-          onClick={handleMaxShiftSave}
-        >
-          Save max shift
-        </Button>
+        <details className="setting-list__collapsible-setting">
+          <summary className="setting-list__section-header">
+            <h3>Максимальное смещение</h3>
+          </summary>
+          <div className="setting-list__vertical-setting">
+            <label>
+              <span>Задать максимальное смещение, мм</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={settingData.form.maxShiftMm}
+                disabled={!canEditSettings}
+                onChange={handleFieldChange("maxShiftMm")}
+              />
+            </label>
+            <Button
+              className="setting-list__inline-save"
+              disabled={!canEditSettings}
+              onClick={handleMaxShiftSave}
+            >
+              Сохранить
+            </Button>
+          </div>
+        </details>
 
-        <label className="setting-list__field setting-list__card">
-          <span>Сохранять кадров</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="1"
-            value={settingData.form.savedFramesCount}
-            disabled={!canEditSettings}
-            onChange={handleFieldChange("savedFramesCount")}
-          />
-        </label>
-        <Button
-          className="setting-list__inline-save"
-          disabled={!canEditSettings}
-          onClick={handleSavedFramesSave}
-        >
-          Сохранить количество кадров
-        </Button>
+        <details className="setting-list__collapsible-setting">
+          <summary className="setting-list__section-header">
+            <h3>Количество кадров</h3>
+          </summary>
+          <div className="setting-list__vertical-setting">
+            <label>
+              <span>Задать количество сохраняемых кадров</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={settingData.form.savedFramesCount}
+                disabled={!canEditSettings}
+                onChange={handleFieldChange("savedFramesCount")}
+              />
+            </label>
+            <Button
+              className="setting-list__inline-save"
+              disabled={!canEditSettings}
+              onClick={handleSavedFramesSave}
+            >
+              Сохранить
+            </Button>
+          </div>
+        </details>
 
-        <section className="setting-list__analysis">
-          <div className="setting-list__section-header">
+        <details className="setting-list__collapsible-setting setting-list__analysis">
+          <summary className="setting-list__section-header">
             <h3>Analysis settings</h3>
             <strong>{analysisScopeText}</strong>
-          </div>
+          </summary>
           <div className="setting-list__analysis-grid">
             {ANALYSIS_SETTING_FIELDS.map((field) => (
               <label
@@ -471,40 +507,14 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
               </label>
             ))}
           </div>
-        </section>
-
-        <div className="setting-list__actions">
           <Button
-            className="setting-list__submit"
+            className="setting-list__inline-save setting-list__analysis-save"
             type="submit"
             disabled={!canEditSettings}
           >
-            Сохранить настройки
+            Сохранить
           </Button>
-          <Button
-            className="setting-list__submit setting-list__submit--wide"
-            disabled={isBusy}
-            onClick={() => setIsCameraSettingsOpen(true)}
-          >
-            Настройки камер
-          </Button>
-          <Button
-            className="setting-list__submit"
-            variant="warning"
-            disabled={isBusy}
-            onClick={() => setIsReferenceSetupOpen(true)}
-          >
-            Задать эталон
-          </Button>
-          <Button
-            className="setting-list__submit"
-            variant="warning"
-            disabled={isBusy}
-            onClick={() => setIsServerStreamOpen(true)}
-          >
-            Открыть стрим
-          </Button>
-        </div>
+        </details>
       </form>
 
       {isCameraSettingsOpen && (
