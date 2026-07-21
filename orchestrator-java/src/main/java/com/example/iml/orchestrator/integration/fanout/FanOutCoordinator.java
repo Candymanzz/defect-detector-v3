@@ -14,6 +14,7 @@ import com.example.iml.orchestrator.integration.plc.PlcSignalDefinition;
 import com.example.iml.orchestrator.integration.plc.PlcSignalState;
 import com.example.iml.orchestrator.integration.plc.PlcTimeoutDefinition;
 import com.example.iml.orchestrator.integration.plc.PlcTimeoutState;
+import com.example.iml.orchestrator.integration.trigger.IoInputMonitorRejectClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -27,23 +28,27 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Публикация итога инспекции по ведру: ПЛК (FINS) и UI (WebSocket).
+ * Публикация итога инспекции по ведру: брак (дискретные DI через IoInputMonitor),
+ * прочие сигналы ПЛК (FINS) и UI (WebSocket).
  */
 public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink, PlcFinsApi {
     private static final Logger log = LogManager.getLogger(FanOutCoordinator.class);
 
     private final PlcFinsPublisher plcPublisher;
+    private final IoInputMonitorRejectClient rejectClient;
     private final ClientWebSocketServer clientWsServer;
     private final PerCameraInspectionGate inspectionGate;
     private final PlcRegisterMap registerMap;
 
     private FanOutCoordinator(
             PlcFinsPublisher plcPublisher,
+            IoInputMonitorRejectClient rejectClient,
             ClientWebSocketServer clientWsServer,
             PerCameraInspectionGate inspectionGate,
             PlcRegisterMap registerMap
     ) {
         this.plcPublisher = plcPublisher;
+        this.rejectClient = rejectClient;
         this.clientWsServer = clientWsServer;
         this.inspectionGate = inspectionGate;
         this.registerMap = registerMap == null ? new PlcRegisterMap(Map.of()) : registerMap;
@@ -60,6 +65,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         return fromConfig(root, projectRoot, clientWsServer, null);
     }
 
+    @SuppressWarnings("unchecked")
     public static FanOutCoordinator fromConfig(
             Map<String, Object> root,
             Path projectRoot,
@@ -92,24 +98,41 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                 log.debug("plc register map not loaded while disabled: {}", e.getMessage());
             }
         }
+        Map<String, Object> integration = null;
+        if (root != null) {
+            Object raw = root.get("integration");
+            if (raw instanceof Map<?, ?> map) {
+                integration = (Map<String, Object>) map;
+            }
+        }
+        IoInputMonitorRejectClient rejectClient = IoInputMonitorRejectClient.fromIntegration(log, integration);
+        if (rejectClient.isEnabled()) {
+            log.info(
+                    "inspection result plc discrete DI (IoInputMonitor) — ready/fault/reject; FINS only D4400–D4404 (no CIO 240.15)"
+            );
+        } else {
+            log.info("inspection result reject via plc_fins W0.xx (io_input_monitor_reject.enabled=false)");
+        }
         if (clientWsServer == null) {
             log.warn("inspection result client_ws unavailable — bucket verdict will not be sent to UI");
         }
-        return new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
+        return new FanOutCoordinator(plcPublisher, rejectClient, clientWsServer, inspectionGate, registerMap);
     }
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
-        if (plcPublisher != null) {
-            if (inspectionEnabled()) {
+        if (inspectionEnabled()) {
+            if (rejectClient != null && rejectClient.isEnabled()) {
+                rejectClient.publishBucket(result);
+            } else if (plcPublisher != null) {
                 plcPublisher.publishBucket(result);
-            } else {
-                log.debug(
-                        "plc fins skip reject publish seq={} group={} — эталон не задан (capture-only)",
-                        result.triggerSequence(),
-                        result.groupId()
-                );
             }
+        } else {
+            log.debug(
+                    "plc reject skip seq={} group={} — эталон не задан (capture-only)",
+                    result.triggerSequence(),
+                    result.groupId()
+            );
         }
         if (clientWsServer != null) {
             clientWsServer.notifyInspectBucketResult(result);
@@ -117,20 +140,24 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     public void signalVisionReady(boolean ready) {
-        if (plcPublisher != null) {
+        if (rejectClient != null && rejectClient.isEnabled()) {
+            rejectClient.setVisionReady(ready);
+        } else if (plcPublisher != null) {
             plcPublisher.setVisionReady(ready);
         }
     }
 
     public void signalVisionFault(boolean fault) {
-        if (plcPublisher != null) {
+        if (rejectClient != null && rejectClient.isEnabled()) {
+            rejectClient.setVisionFault(fault);
+        } else if (plcPublisher != null) {
             plcPublisher.setVisionFault(fault);
         }
     }
 
     @Override
     public boolean enabled() {
-        return plcPublisher != null;
+        return plcPublisher != null || (rejectClient != null && rejectClient.isEnabled());
     }
 
     @Override
@@ -177,7 +204,6 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     @Override
     public List<PlcSignalState> writeSignals(Map<String, Boolean> valuesByName, Map<String, Boolean> pulseByName)
             throws IOException, InterruptedException, TimeoutException {
-        ensurePlc();
         if (!manualControlEditable()) {
             throw new IllegalStateException(
                     "PLC signals are locked while reference is set or inspection is in flight"
@@ -195,6 +221,19 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             registerMap.find(name).orElseThrow(() -> new IllegalArgumentException("unknown signal: " + name));
             boolean value = Boolean.TRUE.equals(entry.getValue());
             boolean pulse = Boolean.TRUE.equals(pulses.get(name));
+            if (IoInputMonitorRejectClient.isDiscreteSignal(name)
+                    && rejectClient != null
+                    && rejectClient.isEnabled()) {
+                if (IoInputMonitorRejectClient.isRejectSignal(name)) {
+                    if (value || pulse) {
+                        rejectClient.pulseSignal(name);
+                    }
+                } else {
+                    rejectClient.writeSignalLevel(name, value);
+                }
+                continue;
+            }
+            ensurePlc();
             plcPublisher.writeSignal(name, value, pulse);
         }
         return listSignals();
@@ -271,7 +310,10 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         String plcPart = plcPublisher == null
                 ? "plc=disabled"
                 : ("plc.dropped=" + plcPublisher.droppedTotal());
-        return plcPart + " client_ws=" + (clientWsServer == null ? "disabled" : "enabled");
+        String rejectPart = rejectClient != null && rejectClient.isEnabled()
+                ? " reject=discrete_di"
+                : " reject=fins";
+        return plcPart + rejectPart + " client_ws=" + (clientWsServer == null ? "disabled" : "enabled");
     }
 
     private void ensurePlc() {
@@ -307,6 +349,9 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public void close() {
+        if (rejectClient != null) {
+            rejectClient.close();
+        }
         if (plcPublisher != null) {
             plcPublisher.close();
         }

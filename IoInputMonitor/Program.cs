@@ -359,10 +359,22 @@ internal static class Program
                 $"при DI{options.Capture.TriggerPort}↑ шлём импульс (или hardware Out←In если SDK откажется).");
         }
 
+        if (options.Reject.Enabled)
+        {
+            Console.WriteLine(
+                $"PLC discrete DI: DO{options.Reject.ReadyOutputPort}→X4 ready, " +
+                $"DO{options.Reject.FaultOutputPort}→X5 fault, " +
+                $"DO{options.Reject.Line1OutputPort}→X6 reject1, " +
+                $"DO{options.Reject.Line2OutputPort}→X7 reject2, " +
+                $"pulse={options.Reject.PulseDurationMs} ms (FINS только D4400–D4404; CIO 240.15 не используется)");
+        }
+
         using var directionHttp = IoLineDirectionHttpServer.TryStart(
             captureGate,
             options.Capture.DirectionHttp,
-            consoleLock);
+            consoleLock,
+            session,
+            options.Reject);
 
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {

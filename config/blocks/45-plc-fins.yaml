@@ -1,5 +1,7 @@
-# Omron FINS/UDP — обмен с ПЛК (MAP 25_247).
-# Сигналы: plk/register-map.yaml
+# Omron FINS/UDP — только настройки таймаутов D4400–D4404 (картинка «Настройки»).
+# Готовность / ошибка / брак линий — дискретные входы X4–X7 через IoInputMonitor DO
+# (см. 52-io-input.yaml reject). CIO 240.15 «Сброс дискретных входов» не используем.
+# Сигналы/карта: plk/register-map.yaml
 
 plc_fins:
   enabled: true

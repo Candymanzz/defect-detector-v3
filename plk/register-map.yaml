@@ -1,40 +1,47 @@
 # Нормализованная карта сигналов техзрения (MAP 25_247).
-# Источник: plk/25_247_MAP - Входы.csv, Состояния-неисправности-управление.csv, Настройки.csv
-# Адреса W0.xx — рабочая область; CIO — зеркало в логике ПЛК (уточнить, куда писать по FINS).
+# FINS: только таймауты D4400–D4404 (Настройки).
+# Дискретные входы: ready X4, fault X5, reject X6/X7 (IoInputMonitor DO).
+# CIO 240.15 «Сброс дискретных входов» не используем.
 
 version: 1
 map_id: "25_247"
 
-# MVP: исходящие сигналы PC → PLC
+# Исходящие PC → PLC: runtime = discrete DI; адреса W/CIO — для документации / fallback FINS
 signals:
   - name: vision_ready
-    description: Техзрение готовность
+    description: Техзрение готовность → физический вход X4 / CIO 10.04 → 140.02
     area: W
     address: "0.04"
     data_type: bool
     direction: pc_to_plc
+    transport: discrete_di
+    plc_input: X4
     mirror:
       area: CIO
       address: "140.02"
     source_csv: "25_247_MAP - Входы.csv"
 
   - name: vision_fault
-    description: Техзрение ошибка (авария системы зрения)
+    description: Техзрение ошибка → физический вход X5 / CIO 10.05 → 190.00
     area: W
     address: "0.05"
     data_type: bool
     direction: pc_to_plc
+    transport: discrete_di
+    plc_input: X5
     mirror:
       area: CIO
       address: "190.00"
     source_csv: "25_247_MAP - Входы.csv"
 
   - name: reject_line_1
-    description: Техзрение брак линия 1 (ведро камер 0–4)
+    description: Техзрение брак линия 1 → физический вход X6 / CIO 10.06 → 140.08
     area: W
     address: "0.06"
     data_type: bool
     direction: pc_to_plc
+    transport: discrete_di
+    plc_input: X6
     bucket_group_id: 0
     mirror:
       area: CIO
@@ -42,11 +49,13 @@ signals:
     source_csv: "25_247_MAP - Входы.csv"
 
   - name: reject_line_2
-    description: Техзрение брак линия 2 (ведро камер 5–9)
+    description: Техзрение брак линия 2 → физический вход X7 / CIO 10.07 → 140.09
     area: W
     address: "0.07"
     data_type: bool
     direction: pc_to_plc
+    transport: discrete_di
+    plc_input: X7
     bucket_group_id: 1
     mirror:
       area: CIO

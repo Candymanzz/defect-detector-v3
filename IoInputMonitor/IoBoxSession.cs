@@ -382,6 +382,26 @@ internal sealed class IoBoxSession : IDisposable
             string.Join("; ", errors.Take(6)));
     }
 
+    /// <summary>Удержать уровень DO (для vision_ready / vision_fault → X4/X5).</summary>
+    public string SetDoLevel(int outputPort, bool active, bool activeHigh = true)
+    {
+        EnsureOpen();
+        if (outputPort is < 1 or > 8)
+            throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
+
+        bool electricalHigh = active == activeHigh;
+        TrySetOutTriggerSource(inPort: 0, outPort: outputPort);
+        TryPnpEnable((uint)outputPort, enabled: true);
+        _ = TryOutputEnable((uint)outputPort, MvIoNative.IoOutputEnableType.Start);
+        if (!TrySetMainOutputLevel(outputPort, electricalHigh))
+        {
+            throw new InvalidOperationException(
+                $"DO{outputPort} SetMainOutputLevel failed (active={active} active_high={activeHigh})");
+        }
+
+        return $"level={(electricalHigh ? "HIGH" : "LOW")}";
+    }
+
     /// <summary>Прямой импульс (совместимость с тестами/CLI).</summary>
     public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true) =>
         _ = FireDoSoftwarePulse(outputPort, durationMs, activeHigh);

@@ -25,6 +25,8 @@ public sealed class IoInputOptions
     public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
 
     public IoCaptureOptions Capture { get; set; } = new();
+
+    public IoRejectOptions Reject { get; set; } = new();
 }
 
 public sealed class IoInputConfigLoadResult
@@ -141,7 +143,25 @@ public static class IoInputConfigLoader
             ConfigureSdk = section.ConfigureSdk ?? true,
             DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50,
             UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs),
-            Capture = ParseCapture(section.Capture)
+            Capture = ParseCapture(section.Capture),
+            Reject = ParseReject(section.Reject)
+        };
+    }
+
+    private static IoRejectOptions ParseReject(IoInputRejectYaml? raw)
+    {
+        if (raw == null)
+            return new IoRejectOptions();
+
+        return new IoRejectOptions
+        {
+            Enabled = raw.Enabled ?? false,
+            ReadyOutputPort = raw.ReadyOutputPort is >= 1 and <= 8 ? raw.ReadyOutputPort.Value : 4,
+            FaultOutputPort = raw.FaultOutputPort is >= 1 and <= 8 ? raw.FaultOutputPort.Value : 8,
+            Line1OutputPort = raw.Line1OutputPort is >= 1 and <= 8 ? raw.Line1OutputPort.Value : 6,
+            Line2OutputPort = raw.Line2OutputPort is >= 1 and <= 8 ? raw.Line2OutputPort.Value : 7,
+            PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 200,
+            ActiveHigh = raw.ActiveHigh ?? true
         };
     }
 
@@ -313,6 +333,25 @@ public static class IoInputConfigLoader
         public IoInputPublishYaml? Publish { get; set; }
 
         public IoInputCaptureYaml? Capture { get; set; }
+
+        public IoInputRejectYaml? Reject { get; set; }
+    }
+
+    private sealed class IoInputRejectYaml
+    {
+        public bool? Enabled { get; set; }
+
+        public int? ReadyOutputPort { get; set; }
+
+        public int? FaultOutputPort { get; set; }
+
+        public int? Line1OutputPort { get; set; }
+
+        public int? Line2OutputPort { get; set; }
+
+        public int? PulseDurationMs { get; set; }
+
+        public bool? ActiveHigh { get; set; }
     }
 
     private sealed class IoInputPublishYaml

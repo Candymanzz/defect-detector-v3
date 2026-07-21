@@ -247,3 +247,28 @@ public sealed class IoDirectionHttpOptions
 
     public int Port { get; set; } = 9101;
 }
+
+/// <summary>
+/// DO → физические входы ПЛК (техзрение). FINS только для таймаутов D4400–D4404.
+/// X4 готовность, X5 ошибка, X6/X7 брак линий. CIO 240.15 (сброс DI) не используется.
+/// </summary>
+public sealed class IoRejectOptions
+{
+    public bool Enabled { get; set; }
+
+    /// <summary>MV IO DO → PLC X4 (Техзрение готовность), уровень.</summary>
+    public int ReadyOutputPort { get; set; } = 4;
+
+    /// <summary>MV IO DO → PLC X5 (Техзрение ошибка), уровень.</summary>
+    public int FaultOutputPort { get; set; } = 8;
+
+    /// <summary>MV IO DO → PLC X6 (брак линия 1), импульс.</summary>
+    public int Line1OutputPort { get; set; } = 6;
+
+    /// <summary>MV IO DO → PLC X7 (брак линия 2), импульс.</summary>
+    public int Line2OutputPort { get; set; } = 7;
+
+    public int PulseDurationMs { get; set; } = 200;
+
+    public bool ActiveHigh { get; set; } = true;
+}

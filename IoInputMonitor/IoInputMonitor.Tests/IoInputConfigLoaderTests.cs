@@ -94,6 +94,51 @@ public class IoInputConfigLoaderTests
             Environment.SetEnvironmentVariable(IoInputConfigLoader.ConfigEnvVar, null);
         }
     }
+
+    [Fact]
+    public void ParseFile_readsRejectSection()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"io-reject-{Guid.NewGuid():N}.yaml");
+        File.WriteAllText(path, """
+            io_input:
+              reject:
+                enabled: true
+                line1_output_port: 6
+                line2_output_port: 7
+                pulse_duration_ms: 150
+                active_high: false
+            """);
+
+        try
+        {
+            IoInputOptions options = IoInputConfigLoader.ParseFile(path);
+
+            Assert.True(options.Reject.Enabled);
+            Assert.Equal(6, options.Reject.Line1OutputPort);
+            Assert.Equal(7, options.Reject.Line2OutputPort);
+            Assert.Equal(150, options.Reject.PulseDurationMs);
+            Assert.False(options.Reject.ActiveHigh);
+            Assert.Equal(4, options.Reject.ReadyOutputPort);
+            Assert.Equal(8, options.Reject.FaultOutputPort);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+}
+
+public class IoRejectHttpParseTests
+{
+    [Theory]
+    [InlineData("{\"line\":1}", 1)]
+    [InlineData("{\"line\":2}", 2)]
+    [InlineData("{\"group_id\":0}", 1)]
+    [InlineData("{\"group_id\":1}", 2)]
+    [InlineData("{\"signal\":\"reject_line_1\"}", 1)]
+    [InlineData("{\"signal\":\"reject_line_2\"}", 2)]
+    public void ParseRejectLine_mapsBody(string body, int expected) =>
+        Assert.Equal(expected, IoLineDirectionHttpServer.ParseRejectLine(body));
 }
 
 public class IoInputUdpPublisherTests
