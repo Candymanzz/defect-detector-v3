@@ -12,6 +12,7 @@ import type {
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
+  LightModeSettings,
   LineDirection,
   LineDirectionSettings,
   LineDirectionUpdateResponse,
@@ -28,6 +29,7 @@ import type {
 
 const http = new HttpClient(appEnv.apiRequestBaseUrl);
 const LIGHT_BRIGHTNESS_PATH = "/api/orchestrator/light/brightness";
+const LIGHT_MODE_PATH = "/api/orchestrator/light/mode";
 const ANALYSIS_SETTINGS_PATH = "/api/orchestrator/analysis-settings";
 
 export const orchestratorApi = {
@@ -156,6 +158,17 @@ export const orchestratorApi = {
     return http.json<LightBrightnessUpdateResponse>(LIGHT_BRIGHTNESS_PATH, {
       method: "PUT",
       body,
+    });
+  },
+
+  async getLightMode() {
+    return http.json<LightModeSettings>(LIGHT_MODE_PATH);
+  },
+
+  async setLightMode(constant: boolean) {
+    return http.json<LightModeSettings>(LIGHT_MODE_PATH, {
+      method: "PUT",
+      body: { constant },
     });
   },
 

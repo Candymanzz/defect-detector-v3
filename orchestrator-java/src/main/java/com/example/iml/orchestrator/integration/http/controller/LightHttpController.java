@@ -72,6 +72,41 @@ public final class LightHttpController implements HttpController {
         HttpResponses.methodNotAllowed(ctx);
     }
 
+    public void handleMode(HttpRequestContext ctx) throws IOException {
+        if (!requireLight(ctx)) {
+            return;
+        }
+        if ("GET".equalsIgnoreCase(ctx.method())) {
+            sendMode(ctx);
+            return;
+        }
+        if (!"PUT".equalsIgnoreCase(ctx.method()) && !"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        try {
+            JsonNode body = JSON.readTree(ctx.readBody());
+            if (body == null || !body.has("constant")) {
+                HttpResponses.sendJsonError(ctx, 400, "constant boolean is required");
+                return;
+            }
+            lightClient.setConstantFlashMode(body.path("constant").asBoolean(false));
+            persistBrightnessState();
+            sendMode(ctx);
+        } catch (IllegalStateException e) {
+            HttpResponses.sendJsonError(ctx, 502, e.getMessage());
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid JSON body: " + e.getMessage());
+        }
+    }
+
+    private void sendMode(HttpRequestContext ctx) throws IOException {
+        ObjectNode root = JSON.createObjectNode();
+        root.put("constant", lightClient.isConstantFlashMode());
+        root.put("mode", lightClient.isConstantFlashMode() ? "constant" : "interval");
+        HttpResponses.sendJson(ctx, 200, root);
+    }
+
     public void handleTrigger(HttpRequestContext ctx) throws IOException {
         if (!requireLight(ctx)) {
             return;

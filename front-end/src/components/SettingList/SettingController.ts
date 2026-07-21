@@ -46,6 +46,7 @@ export const INITIAL_SETTING_STATUS: SettingStatus = {
 
 export const INITIAL_SETTING_FORM: SettingForm = {
   brightnessPercent: 0,
+  constantFlashMode: false,
   maxShiftMm: DEFAULT_MAX_SHIFT_MM,
   lineDirection: "reverse",
   savedFramesCount: DEFAULT_SAVED_FRAMES_COUNT,
@@ -112,8 +113,9 @@ export async function saveLineDirection(
 }
 
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
-  const [lightBrightness, geometryRuntime, analysisProductTypes, lineDirection, frameArchiveSettings] = await Promise.all([
+  const [lightBrightness, lightMode, geometryRuntime, analysisProductTypes, lineDirection, frameArchiveSettings] = await Promise.all([
     orchestratorApi.getLightBrightness(),
+    orchestratorApi.getLightMode().catch(() => ({ constant: false, mode: "interval" as const })),
     orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
     orchestratorApi.getLineDirection().catch(() => ({ direction: "reverse" as const, source: "manual" as const })),
@@ -136,12 +138,26 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
     },
     form: {
       brightnessPercent: readBrightnessPercent(lightBrightness, selectedCameraId),
+      constantFlashMode: lightMode.constant,
       maxShiftMm: readMaxShiftMm(geometryRuntime),
       lineDirection: lineDirection.direction,
       savedFramesCount,
       analysisSettings,
     },
     analysisProductTypes: resolvedProductTypes,
+  };
+}
+
+export async function saveLightMode(
+  constant: boolean,
+  form: SettingForm,
+  analysisProductTypes: string[],
+): Promise<SettingData> {
+  const response = await orchestratorApi.setLightMode(constant);
+  return {
+    status: { state: "ready", text: "Режим вспышек сохранён" },
+    form: { ...form, constantFlashMode: response.constant },
+    analysisProductTypes,
   };
 }
 
@@ -278,6 +294,7 @@ export function updateAnalysisSettingField(
 function normalizeSettingForm(form: SettingForm): SettingForm {
   return {
     brightnessPercent: clampBrightness(form.brightnessPercent),
+    constantFlashMode: Boolean(form.constantFlashMode),
     maxShiftMm: clampMaxShiftMm(form.maxShiftMm),
     lineDirection: form.lineDirection === "reverse" ? "reverse" : "forward",
     savedFramesCount: clampSavedFramesCount(form.savedFramesCount),

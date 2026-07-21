@@ -43,6 +43,7 @@ public final class LightTriggerClient {
     private final List<LightServersConfig.CameraFlashSpec> cameras;
     private final Map<Integer, LightServersConfig.CameraFlashSpec> cameraById;
     private volatile boolean constantLightingEngaged;
+    private volatile boolean constantFlashMode;
     private final Object lightCommandLock;
     /** После HTTP яркости — сразу re-On, если interval_flash держит банк включённым. */
     private volatile Runnable afterBrightnessApplied;
@@ -71,6 +72,7 @@ public final class LightTriggerClient {
         this.cameras = new ArrayList<>(cfg.cameras());
         this.cameraById = indexCameras(this.cameras);
         this.constantLightingEngaged = false;
+        this.constantFlashMode = false;
         this.lightCommandLock = new Object();
         if (enabled) {
             LOG.info(
@@ -130,6 +132,34 @@ public final class LightTriggerClient {
 
     public boolean isHoldMode() {
         return holdMode;
+    }
+
+    public boolean isConstantFlashMode() {
+        return constantFlashMode;
+    }
+
+    public void setConstantFlashMode(boolean constant) {
+        synchronized (lightCommandLock) {
+            if (constantFlashMode == constant) {
+                return;
+            }
+            if (!enabled) {
+                constantFlashMode = constant;
+                return;
+            }
+            if (constant) {
+                if (!engageLightingLocked()) {
+                    throw new IllegalStateException("failed to enable constant flash mode");
+                }
+                constantFlashMode = true;
+                constantLightingEngaged = true;
+            } else {
+                postOffWithRetriesLocked();
+                constantFlashMode = false;
+                constantLightingEngaged = false;
+            }
+            LOG.info("light flash mode changed to {}", constant ? "constant" : "interval");
+        }
     }
 
     /**

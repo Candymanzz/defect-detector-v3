@@ -183,6 +183,10 @@ public final class HttpFrontController {
 
             router.register(HttpRoute.exact("POST", "/api/orchestrator/light/brightness", light::handleBrightness));
 
+            router.register(HttpRoute.exact("GET", "/api/orchestrator/light/mode", light::handleMode));
+
+            router.register(HttpRoute.exact("PUT", "/api/orchestrator/light/mode", light::handleMode));
+
         }
 
         OrchestratorFpZonesHttpController fpZones = new OrchestratorFpZonesHttpController(ctx.analisSurfaceBaseUrl());

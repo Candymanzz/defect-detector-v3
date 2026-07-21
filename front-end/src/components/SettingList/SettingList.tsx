@@ -6,6 +6,7 @@ import {
   loadSettingData,
   saveBrightnessData,
   saveLineDirection,
+  saveLightMode,
   saveMaxShiftData,
   saveSavedFramesData,
   saveSettingData,
@@ -205,6 +206,31 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       });
   };
 
+  const handleLightModeChange = (constant: boolean) => {
+    if (!canEditSettings) {
+      return;
+    }
+    if (settingData.form.constantFlashMode === constant) {
+      return;
+    }
+    const { form, analysisProductTypes } = settingData;
+    const requestId = ++requestIdRef.current;
+    setSaveFeedback({ state: "saving", text: "Переключение вспышек...", cameraId: selectedCameraId });
+    setSettingData((current) => ({
+      ...current,
+      status: SAVING_SETTING_STATUS,
+      form: { ...current.form, constantFlashMode: constant },
+    }));
+    saveLightMode(constant, form, analysisProductTypes)
+      .catch((error) => ({ ...createSettingErrorData(error, form), analysisProductTypes }))
+      .then((next) => {
+        if (requestId === requestIdRef.current) {
+          setSettingData(next);
+          setSaveFeedback(resolveSaveFeedback(next.status.state, next.status.text, selectedCameraId));
+        }
+      });
+  };
+
   const handleMaxShiftSave = () => {
     if (!canEditSettings) {
       return;
@@ -316,6 +342,35 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
           >
             Сохранить яркость
           </Button>
+        </section>
+
+        <section className="setting-list__card setting-list__flash-mode">
+          <div className="setting-list__card-header">
+            <span>Режим работы вспышек</span>
+          </div>
+          <div className="setting-list__flash-mode-options">
+            <button
+              type="button"
+              data-active={!settingData.form.constantFlashMode}
+              disabled={!canEditSettings}
+              onClick={() => handleLightModeChange(false)}
+            >
+              По циклу
+            </button>
+            <button
+              type="button"
+              data-active={settingData.form.constantFlashMode}
+              disabled={!canEditSettings}
+              onClick={() => handleLightModeChange(true)}
+            >
+              Постоянный
+            </button>
+          </div>
+          <span className="setting-list__flash-mode-description">
+            {settingData.form.constantFlashMode
+              ? "Вспышки горят постоянно"
+              : "Вспышки включаются и выключаются при каждом цикле"}
+          </span>
         </section>
 
         <section className="setting-list__card setting-list__direction">

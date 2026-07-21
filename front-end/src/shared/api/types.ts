@@ -169,6 +169,11 @@ export type LightBrightnessUpdateResponse = {
   brightness_percent?: number;
 };
 
+export type LightModeSettings = {
+  constant: boolean;
+  mode: "interval" | "constant";
+};
+
 export type LineDirection = "forward" | "reverse";
 
 export type LineDirectionSettings = {

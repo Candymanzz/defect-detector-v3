@@ -7,6 +7,7 @@ export type SettingStatus = {
 
 export type SettingForm = {
   brightnessPercent: number;
+  constantFlashMode: boolean;
   maxShiftMm: number;
   lineDirection: LineDirection;
   savedFramesCount: number;

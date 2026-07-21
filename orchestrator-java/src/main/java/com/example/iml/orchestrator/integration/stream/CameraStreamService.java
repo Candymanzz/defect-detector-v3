@@ -225,8 +225,6 @@ public final class CameraStreamService implements AutoCloseable {
                 return;
             }
 
-            String productType = analysisProfileByCamera.getOrDefault(cameraId, "camera-" + cameraId);
-            String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
             long encodeStarted = System.nanoTime();
             PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
             metrics.encodeNs.add(System.nanoTime() - encodeStarted);
@@ -236,24 +234,6 @@ public final class CameraStreamService implements AutoCloseable {
                 }
                 return;
             }
-            if (uiServer != null) {
-                uiServer.update(
-                        cameraId,
-                        frameId,
-                        productType,
-                        detectorId,
-                        shmName,
-                        width,
-                        height,
-                        jpeg.path,
-                        jpeg.width,
-                        jpeg.height,
-                        null,
-                        0,
-                        0,
-                        null
-                );
-            }
             try {
                 byte[] jpegBytes = Files.readAllBytes(jpeg.path);
                 mjpegHub.publish(cameraId, jpegBytes);
@@ -261,19 +241,14 @@ public final class CameraStreamService implements AutoCloseable {
             } catch (IOException e) {
                 log.debug("client_stream mjpeg publish camera={}: {}", cameraId, e.getMessage());
                 return;
+            } finally {
+                try {
+                    Files.deleteIfExists(jpeg.path);
+                } catch (IOException e) {
+                    log.debug("client_stream temp jpeg cleanup camera={}: {}", cameraId, e.getMessage());
+                }
             }
-            if (clientWs != null) {
-                long wsStarted = System.nanoTime();
-                clientWs.notifyPreviewFrame(
-                        cameraId,
-                        productType,
-                        detectorId,
-                        header,
-                        "/api/camera/" + cameraId + "/current.jpg"
-                );
-                metrics.wsNs.add(System.nanoTime() - wsStarted);
-                metrics.frames.increment();
-            }
+            metrics.frames.increment();
             metrics.maybeLog(log, cameraId);
         } catch (Exception e) {
             session.notePollError(log, cameraId, e.getMessage());
@@ -311,7 +286,7 @@ public final class CameraStreamService implements AutoCloseable {
         qualPct = Math.min(100, Math.max(5, qualPct));
         float q = qualPct / 100f;
         UiHttpServer.ClientPreviewArtifact art = UiHttpServer.writeCurrentJpegFromBgrShm(
-                shmName, width, height, stride, shmOffset, previewMaxW, q, cameraId);
+                shmName, width, height, stride, shmOffset, previewMaxW, q, -1);
         return new PathHolder(art.path(), art.width(), art.height(), art.error());
     }
 
@@ -361,7 +336,6 @@ public final class CameraStreamService implements AutoCloseable {
 
         final LongAdder frames = new LongAdder();
         final LongAdder encodeNs = new LongAdder();
-        final LongAdder wsNs = new LongAdder();
         final AtomicLong lastLogAtMs = new AtomicLong(System.currentTimeMillis());
 
         void maybeLog(Logger log, int cameraId) {
@@ -375,17 +349,14 @@ public final class CameraStreamService implements AutoCloseable {
             }
             long frameCount = frames.sumThenReset();
             long encodeTotalNs = encodeNs.sumThenReset();
-            long wsTotalNs = wsNs.sumThenReset();
             double sec = LOG_EVERY_MS / 1000.0;
             double fps = frameCount / sec;
             double avgEncodeMs = frameCount == 0 ? 0.0 : (encodeTotalNs / 1_000_000.0) / frameCount;
-            double avgWsMs = frameCount == 0 ? 0.0 : (wsTotalNs / 1_000_000.0) / frameCount;
             log.info(
-                    "client_stream_stats camera={} fps={} avg_encode_ms={} avg_ws_send_ms={}",
+                    "client_stream_stats camera={} fps={} avg_encode_ms={}",
                     cameraId,
                     String.format("%.2f", fps),
-                    String.format("%.2f", avgEncodeMs),
-                    String.format("%.2f", avgWsMs)
+                    String.format("%.2f", avgEncodeMs)
             );
         }
     }

@@ -25,6 +25,10 @@ public final class IntervalFlashController implements AutoCloseable {
         boolean lightAllOn(String phase);
 
         void forceAllOff();
+
+        default boolean constantMode() {
+            return false;
+        }
     }
 
     private final Logger log;
@@ -73,6 +77,11 @@ public final class IntervalFlashController implements AutoCloseable {
             public void forceAllOff() {
                 client.bankAllOff();
             }
+
+            @Override
+            public boolean constantMode() {
+                return client.isConstantFlashMode();
+            }
         };
     }
 
@@ -82,7 +91,7 @@ public final class IntervalFlashController implements AutoCloseable {
 
     /** После startupEngage: погасить свет и ждать фронт On. */
     public void armStartDark() {
-        if (!config.enabled() || !config.startDark()) {
+        if (!config.enabled() || !config.startDark() || lights.constantMode()) {
             return;
         }
         cancelPendingOff();
@@ -109,7 +118,7 @@ public final class IntervalFlashController implements AutoCloseable {
      * Сырой DI от IoInputMonitor. Должен возвращаться быстро — без HTTP.
      */
     public void onDiChange(IoInputDiChange change) {
-        if (!config.enabled() || change == null) {
+        if (!config.enabled() || change == null || lights.constantMode()) {
             return;
         }
         int port = change.diPort();
@@ -128,7 +137,7 @@ public final class IntervalFlashController implements AutoCloseable {
      * Повторные кадры того же цикла — no-op.
      */
     public void onFirstFrameCaptured(int cameraId) {
-        if (!config.enabled() || !config.offOnFirstFrame()) {
+        if (!config.enabled() || !config.offOnFirstFrame() || lights.constantMode()) {
             return;
         }
         if (!awaitingFrameOff.compareAndSet(true, false)) {
@@ -144,7 +153,7 @@ public final class IntervalFlashController implements AutoCloseable {
      * Следующий DI3 On уже из Off — без лишнего Off на каждом кадре.
      */
     public void onBrightnessUpdated() {
-        if (!config.enabled()) {
+        if (!config.enabled() || lights.constantMode()) {
             return;
         }
         lightExecutor.execute(() -> {
@@ -241,6 +250,9 @@ public final class IntervalFlashController implements AutoCloseable {
     }
 
     private void engageLights(String reason) {
+        if (lights.constantMode()) {
+            return;
+        }
         log.info("interval_flash On ({})", reason);
         boolean ok = lights.lightAllOn("interval_flash");
         lightsOn.set(ok);
@@ -268,6 +280,11 @@ public final class IntervalFlashController implements AutoCloseable {
     }
 
     private void extinguishLights() {
+        if (lights.constantMode()) {
+            pendingOff = null;
+            awaitingFrameOff.set(false);
+            return;
+        }
         pendingOff = null;
         awaitingFrameOff.set(false);
         log.info(
@@ -287,6 +304,9 @@ public final class IntervalFlashController implements AutoCloseable {
     }
 
     private void scheduleReengage(String afterPhase) {
+        if (lights.constantMode()) {
+            return;
+        }
         cancelPendingOn();
         int delayMs = config.onReengageDelayMs();
         if (delayMs <= 0) {

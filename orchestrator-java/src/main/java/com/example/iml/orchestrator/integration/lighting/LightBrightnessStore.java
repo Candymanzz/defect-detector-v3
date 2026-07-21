@@ -24,6 +24,7 @@ public final class LightBrightnessStore {
     private final Path storagePath;
     private final Object lock = new Object();
     private Integer defaultBrightnessPercent;
+    private Boolean constantFlashMode;
     private final Map<String, Integer> endpoints = new LinkedHashMap<>();
 
     private LightBrightnessStore(Path storagePath) {
@@ -55,6 +56,7 @@ public final class LightBrightnessStore {
         }
         synchronized (lock) {
             defaultBrightnessPercent = client.brightnessPercent();
+            constantFlashMode = client.isConstantFlashMode();
             endpoints.clear();
             endpoints.putAll(client.brightnessByEndpoint());
             persistLocked();
@@ -64,6 +66,7 @@ public final class LightBrightnessStore {
     private void load() throws IOException {
         synchronized (lock) {
             defaultBrightnessPercent = null;
+            constantFlashMode = null;
             endpoints.clear();
             if (storagePath == null || !Files.isRegularFile(storagePath)) {
                 return;
@@ -79,6 +82,12 @@ public final class LightBrightnessStore {
                 );
             }
             Object endpointsRaw = root.get("endpoints");
+            Object modeRaw = root.get("constant_flash_mode");
+            if (modeRaw != null) {
+                constantFlashMode = modeRaw instanceof Boolean value
+                        ? value
+                        : Boolean.parseBoolean(String.valueOf(modeRaw));
+            }
             if (endpointsRaw instanceof Map<?, ?> endpointsMap) {
                 for (Map.Entry<?, ?> entry : endpointsMap.entrySet()) {
                     if (entry.getKey() == null || entry.getValue() == null) {
@@ -111,6 +120,9 @@ public final class LightBrightnessStore {
         if (defaultBrightnessPercent != null) {
             root.put("default_brightness_percent", defaultBrightnessPercent);
         }
+        if (constantFlashMode != null) {
+            root.put("constant_flash_mode", constantFlashMode);
+        }
         root.put("endpoints", Map.copyOf(endpoints));
         Path tempPath = storagePath.resolveSibling(storagePath.getFileName() + ".tmp");
         JSON.writerWithDefaultPrettyPrinter().writeValue(tempPath.toFile(), root);
@@ -125,5 +137,11 @@ public final class LightBrightnessStore {
                 defaultBrightnessPercent,
                 endpoints.size()
         );
+    }
+
+    public boolean constantFlashMode() {
+        synchronized (lock) {
+            return Boolean.TRUE.equals(constantFlashMode);
+        }
     }
 }

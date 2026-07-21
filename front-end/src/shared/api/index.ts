@@ -32,6 +32,7 @@ export type {
   LightBrightnessUpdateResponse,
   LightEndpointBrightness,
   LightEndpointBrightnessUpdate,
+  LightModeSettings,
   LineDirection,
   LineDirectionSettings,
   LineDirectionUpdateRequest,
