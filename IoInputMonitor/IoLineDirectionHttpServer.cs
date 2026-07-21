@@ -254,12 +254,14 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         }
 
         int doPort = line == 1 ? _reject.Line1OutputPort : _reject.Line2OutputPort;
+        string plcInput = line == 1 ? "X6" : "X7";
         string how;
         try
         {
             lock (_rejectPulseLock)
             {
-                how = _session.FireDoSoftwarePulse(doPort, _reject.PulseDurationMs, _reject.ActiveHigh);
+                // Level pulse only — board-exact SetOutput can leave DO high and freeze PLC reject.
+                how = _session.FireDoLevelPulse(doPort, _reject.PulseDurationMs, _reject.ActiveHigh);
             }
         }
         catch (Exception ex)
@@ -275,7 +277,7 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         lock (_consoleLock)
         {
             Console.WriteLine(
-                $"[{Timestamp()}] reject line={line} DO{doPort} → PLC X{doPort} pulse {_reject.PulseDurationMs} ms via {how}");
+                $"[{Timestamp()}] reject line={line} DO{doPort} → PLC {plcInput} pulse {_reject.PulseDurationMs} ms via {how}");
         }
 
         WriteJson(ctx.Response, 200, new
@@ -283,7 +285,7 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
             ok = true,
             line,
             do_port = doPort,
-            plc_input = $"X{5 + line}",
+            plc_input = plcInput,
             pulse_ms = _reject.PulseDurationMs,
             how
         });

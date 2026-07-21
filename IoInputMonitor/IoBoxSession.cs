@@ -402,6 +402,49 @@ internal sealed class IoBoxSession : IDisposable
         return $"level={(electricalHigh ? "HIGH" : "LOW")}";
     }
 
+    /// <summary>
+    /// Короткий импульс уровнем для ПЛК (reject X6/X7): без board PWM/SetOutput.
+    /// Гарантированно гасит DO в idle после импульса (иначе ПЛК залипает в отбраковке).
+    /// </summary>
+    public string FireDoLevelPulse(int outputPort, int durationMs, bool activeHigh = true)
+    {
+        EnsureOpen();
+        if (outputPort is < 1 or > 8)
+            throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
+
+        int pulseDuration = Math.Clamp(durationMs, 1, 5000);
+        bool activeLevel = activeHigh;
+        bool idleLevel = !activeHigh;
+
+        TrySetOutTriggerSource(inPort: 0, outPort: outputPort);
+        TryPnpEnable((uint)outputPort, enabled: true);
+        // Stop any leftover board PWM from a previous SetOutput pulse on this port.
+        _ = TryOutputEnable((uint)outputPort, MvIoNative.IoOutputEnableType.End);
+        _ = TryOutputEnable((uint)outputPort, MvIoNative.IoOutputEnableType.Start);
+
+        try
+        {
+            if (!TrySetMainOutputLevel(outputPort, idleLevel))
+                throw new InvalidOperationException($"DO{outputPort} idle level failed before pulse");
+
+            Thread.Sleep(5);
+
+            if (!TrySetMainOutputLevel(outputPort, activeLevel))
+                throw new InvalidOperationException($"DO{outputPort} active level failed");
+
+            Thread.Sleep(pulseDuration);
+        }
+        finally
+        {
+            // Always release PLC input — even if sleep/set failed mid-pulse.
+            _ = TrySetMainOutputLevel(outputPort, idleLevel);
+            _ = TryOutputEnable((uint)outputPort, MvIoNative.IoOutputEnableType.End);
+            _ = TrySetMainOutputLevel(outputPort, idleLevel);
+        }
+
+        return $"level-pulse DO{outputPort} {pulseDuration}ms → idle";
+    }
+
     /// <summary>Прямой импульс (совместимость с тестами/CLI).</summary>
     public void FireOutputPulse(int outputPort, int durationMs, bool activeHigh = true) =>
         _ = FireDoSoftwarePulse(outputPort, durationMs, activeHigh);

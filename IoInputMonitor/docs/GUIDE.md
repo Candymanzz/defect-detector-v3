@@ -126,8 +126,8 @@ DI замкнулся → IoInputMonitor UDP → оркестратор :9100
 |------|-----|-----|
 | `PUT /vision-ready {"value":true}` | DO1 | X4 → 140.02 |
 | `PUT /vision-fault {"value":true}` | DO2 | X5 → 190.00 |
-| `POST /reject {"line":1}` | DO3 | X6 → 140.08 |
-| `POST /reject {"line":2}` | DO4 | X7 → 140.09 |
+| `POST /reject {"line":1}` | DO3 | X6 → 140.08 (level-pulse, затем idle/LOW) |
+| `POST /reject {"line":2}` | DO4 | X7 → 140.09 (level-pulse, затем idle/LOW) |
 
 FINS только **D4400–D4404** (таймауты). **CIO 240.15 не используем.**
 
