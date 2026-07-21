@@ -20,6 +20,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 
 /**
  * Барьер на линии: параллельный {@code trigger_only} (одна экспозиция),
@@ -50,6 +51,8 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private final Object lineCaptureSerialLock = new Object();
     private final Object triggerOnlyLock = new Object();
     private volatile Map<Integer, WorkerProcessSupervisor> lineWorkers = Map.of();
+    /** Первый usable кадр раунда (для interval_flash Off). */
+    private volatile IntConsumer onFirstFrameCaptured;
     private static final long FRAMES_READY_WAIT_MS = 30_000L;
 
     public LineSynchronizedCaptureCoordinator(Collection<Integer> cameraIds, long barrierWaitMs) {
@@ -191,6 +194,11 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             return;
         }
         this.lineWorkers = Map.copyOf(workersByCamera);
+    }
+
+    /** Callback на первый usable wait_frame в раунде (камера id). */
+    public void setOnFirstFrameCaptured(IntConsumer onFirstFrameCaptured) {
+        this.onFirstFrameCaptured = onFirstFrameCaptured;
     }
 
     /**
@@ -620,7 +628,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                 }
                 throw new IllegalStateException("cam=" + camId + " wait_frame failed: " + describeCapture(msg));
             }
-            round.results.put(camId, framePinService.pinCapture(msg, camId));
+            storeUsableFrame(round, camId, framePinService.pinCapture(msg, camId));
             okCount++;
             if (interWaitFrameMs > 0 && i + 1 < entries.size()) {
                 Thread.sleep(interWaitFrameMs);
@@ -662,7 +670,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             );
         }
         BinaryProtocol.Message pinned = framePinService.pinCapture(msg, cameraId);
-        round.results.put(cameraId, pinned);
+        storeUsableFrame(round, cameraId, pinned);
         return pinned;
     }
 
@@ -684,7 +692,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     }
                     throw new IllegalStateException("cam=" + camId + " wait_frame failed: " + describeCapture(msg));
                 }
-                round.results.put(camId, framePinService.pinCapture(msg, camId));
+                storeUsableFrame(round, camId, framePinService.pinCapture(msg, camId));
                 return 1;
             });
         }
@@ -787,12 +795,33 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         }
     }
 
+    private void storeUsableFrame(Round round, int cameraId, BinaryProtocol.Message pinned) {
+        round.results.put(cameraId, pinned);
+        notifyFirstFrameIfNeeded(round, cameraId);
+    }
+
+    private void notifyFirstFrameIfNeeded(Round round, int cameraId) {
+        if (!round.firstFrameNotified.compareAndSet(false, true)) {
+            return;
+        }
+        IntConsumer cb = onFirstFrameCaptured;
+        if (cb == null) {
+            return;
+        }
+        try {
+            cb.accept(cameraId);
+        } catch (Exception e) {
+            LOG.warn("onFirstFrameCaptured cam={}: {}", cameraId, e.getMessage());
+        }
+    }
+
     private final class Round {
         final ConcurrentHashMap<Integer, WorkerProcessSupervisor> participants = new ConcurrentHashMap<>();
         final ConcurrentHashMap<Integer, BinaryProtocol.Message> results = new ConcurrentHashMap<>();
         final AtomicBoolean fired = new AtomicBoolean(false);
         final AtomicBoolean triggerPrefired = new AtomicBoolean(false);
         final AtomicBoolean framesLatched = new AtomicBoolean(false);
+        final AtomicBoolean firstFrameNotified = new AtomicBoolean(false);
         final CountDownLatch framesReady = new CountDownLatch(1);
         final AtomicInteger consumedFrames = new AtomicInteger(0);
         final CountDownLatch fireDone = new CountDownLatch(1);

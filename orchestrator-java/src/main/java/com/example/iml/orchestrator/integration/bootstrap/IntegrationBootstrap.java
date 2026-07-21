@@ -671,15 +671,19 @@ public final class IntegrationBootstrap {
                 LightsShutdown.bindIntervalFlash(intervalFlashController);
                 triggerRuntime.addDiChangeListener(intervalFlashController::onDiChange);
                 lightClient.setAfterBrightnessApplied(intervalFlashController::onBrightnessUpdated);
+                if (lineCaptureCoordinator != null) {
+                    lineCaptureCoordinator.setOnFirstFrameCaptured(intervalFlashController::onFirstFrameCaptured);
+                }
                 intervalFlashController.armStartDark();
                 log.info(
-                        "interval_flash enabled — idle_on={} (DI{} {}); DI{} {} → On + Off (off_delay_ms={}); авто-On через {} ms; hold_mode={}",
+                        "interval_flash enabled — idle_on={} (DI{} {}); DI{} {} → On + Off (off_delay_ms={}, off_on_first_frame={}); авто-On через {} ms; hold_mode={}",
                         intervalFlashCfg.idleOnEnabled(),
                         intervalFlashCfg.idlePort(),
                         intervalFlashCfg.idleEdge().name().toLowerCase(),
                         intervalFlashCfg.triggerPort(),
                         intervalFlashCfg.triggerEdge().name().toLowerCase(),
                         intervalFlashCfg.offDelayMs(),
+                        intervalFlashCfg.offOnFirstFrame(),
                         intervalFlashCfg.onReengageDelayMs(),
                         lightClient.isHoldMode()
                 );

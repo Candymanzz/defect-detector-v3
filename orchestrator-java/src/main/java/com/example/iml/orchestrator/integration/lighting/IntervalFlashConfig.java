@@ -7,7 +7,8 @@ import java.util.Map;
 
 /**
  * Интервальный режим вспышек (отдельно от capture):
- * DI3↑ → On + Off через {@code off_delay_ms}; после Off — авто-On через {@code on_reengage_delay_ms};
+ * DI3↑ → On + Off через {@code off_delay_ms} (или раньше по первому кадру);
+ * после Off — авто-On через {@code on_reengage_delay_ms};
  * опционально холостой DI → On.
  */
 public record IntervalFlashConfig(
@@ -27,7 +28,12 @@ public record IntervalFlashConfig(
          * Включать банк на холостом DI (DI2). По умолчанию false:
          * иначе пресвет на обратном ходе → «выжиг» следующего кадра.
          */
-        boolean idleOnEnabled
+        boolean idleOnEnabled,
+        /**
+         * Гасить банк на первом usable wait_frame после DI3;
+         * {@code off_delay_ms} остаётся аварийным timeout.
+         */
+        boolean offOnFirstFrame
 ) {
 
     /** @deprecated use {@link #idlePort()} */
@@ -52,7 +58,7 @@ public record IntervalFlashConfig(
 
     public static IntervalFlashConfig disabled() {
         return new IntervalFlashConfig(
-                false, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 300, 0, true, false
+                false, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 300, 0, true, false, false
         );
     }
 
@@ -90,6 +96,7 @@ public record IntervalFlashConfig(
         int onReengageDelayMs = Math.max(0, YamlScalars.toInt(m.get("on_reengage_delay_ms"), 0));
         boolean startDark = YamlScalars.toBool(m.get("start_dark"), true);
         boolean idleOnEnabled = YamlScalars.toBool(m.get("idle_on"), false);
+        boolean offOnFirstFrame = YamlScalars.toBool(m.get("off_on_first_frame"), false);
         return new IntervalFlashConfig(
                 enabled,
                 idlePort,
@@ -99,7 +106,8 @@ public record IntervalFlashConfig(
                 offDelayMs,
                 onReengageDelayMs,
                 startDark,
-                idleOnEnabled
+                idleOnEnabled,
+                offOnFirstFrame
         );
     }
 

@@ -225,7 +225,8 @@
       "idle_on": false,
       "trigger_port": 3,
       "trigger_edge": "rising",
-      "off_delay_ms": 300,
+      "off_on_first_frame": true,
+      "off_delay_ms": 1000,
       "on_reengage_delay_ms": 5000,
       "start_dark": true
     }
