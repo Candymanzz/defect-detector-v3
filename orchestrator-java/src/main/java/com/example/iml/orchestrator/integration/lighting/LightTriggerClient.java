@@ -151,6 +151,9 @@ public final class LightTriggerClient {
                 if (!engageLightingLocked()) {
                     throw new IllegalStateException("failed to enable constant flash mode");
                 }
+                // /pair and /single only write brightness registers; they deliberately do not turn LEDs on.
+                // Constant mode therefore always needs an explicit bank On after brightness is prepared.
+                postJson(flashBankUrl, Map.of("state", "on"), "constant-mode bank-On");
                 constantFlashMode = true;
                 constantLightingEngaged = true;
             } else {
@@ -242,6 +245,21 @@ public final class LightTriggerClient {
                 hook.run();
             } catch (RuntimeException e) {
                 LOG.warn("afterBrightnessApplied: {}", e.getMessage());
+            }
+        }
+        if (constantFlashMode && enabled && !result.hasHardwareErrors()) {
+            try {
+                synchronized (lightCommandLock) {
+                    // Brightness endpoints update registers without On. Reassert the bank so the new
+                    // brightness is visible immediately and constant mode remains continuously lit.
+                    postJson(flashBankUrl, Map.of("state", "on"), "constant-mode brightness bank-On");
+                    constantLightingEngaged = true;
+                }
+            } catch (RuntimeException e) {
+                result = LightBrightnessApplyResult.merge(
+                        result,
+                        new LightBrightnessApplyResult(List.of("constant bank-On: " + formatError(e)))
+                );
             }
         }
         return result;
