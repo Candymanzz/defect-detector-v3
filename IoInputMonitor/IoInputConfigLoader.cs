@@ -156,10 +156,10 @@ public static class IoInputConfigLoader
         return new IoRejectOptions
         {
             Enabled = raw.Enabled ?? false,
-            ReadyOutputPort = raw.ReadyOutputPort is >= 1 and <= 8 ? raw.ReadyOutputPort.Value : 4,
-            FaultOutputPort = raw.FaultOutputPort is >= 1 and <= 8 ? raw.FaultOutputPort.Value : 8,
-            Line1OutputPort = raw.Line1OutputPort is >= 1 and <= 8 ? raw.Line1OutputPort.Value : 6,
-            Line2OutputPort = raw.Line2OutputPort is >= 1 and <= 8 ? raw.Line2OutputPort.Value : 7,
+            ReadyOutputPort = raw.ReadyOutputPort is >= 1 and <= 8 ? raw.ReadyOutputPort.Value : 1,
+            FaultOutputPort = raw.FaultOutputPort is >= 1 and <= 8 ? raw.FaultOutputPort.Value : 2,
+            Line1OutputPort = raw.Line1OutputPort is >= 1 and <= 8 ? raw.Line1OutputPort.Value : 3,
+            Line2OutputPort = raw.Line2OutputPort is >= 1 and <= 8 ? raw.Line2OutputPort.Value : 4,
             PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 200,
             ActiveHigh = raw.ActiveHigh ?? true
         };

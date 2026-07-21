@@ -134,13 +134,13 @@ public sealed class IoLineDirectionHttpServer : IDisposable
 
             if (path is "/vision-ready" or "/api/client/vision-ready")
             {
-                HandleVisionLevel(ctx, "vision_ready", _reject?.ReadyOutputPort ?? 4, "X4");
+                HandleVisionLevel(ctx, "vision_ready", _reject?.ReadyOutputPort ?? 1, "X4");
                 return;
             }
 
             if (path is "/vision-fault" or "/api/client/vision-fault")
             {
-                HandleVisionLevel(ctx, "vision_fault", _reject?.FaultOutputPort ?? 8, "X5");
+                HandleVisionLevel(ctx, "vision_fault", _reject?.FaultOutputPort ?? 2, "X5");
                 return;
             }
 

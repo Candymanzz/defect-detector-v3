@@ -19,6 +19,7 @@ class InspectionResponsePayloadBuilderTest {
                 0.3,
                 new double[]{1, 0, 0, 0, 1, 0, 0, 0, 1},
                 0.05,
+                0.2236,
                 0.06,
                 1.2,
                 1.5,
@@ -36,6 +37,7 @@ class InspectionResponsePayloadBuilderTest {
         Map<String, Object> header = InspectionResponsePayloadBuilder.toResponseHeader(response, false);
 
         assertEquals(0.1, header.get("shiftXmm"));
+        assertEquals(0.2236, header.get("deviationRadiusMm"));
         assertEquals("PASS", header.get("status"));
         assertEquals(true, header.get("overallPass"));
         assertEquals(1.2, header.get("jointParallelismDeg"));
@@ -47,7 +49,7 @@ class InspectionResponsePayloadBuilderTest {
     @Test
     void includeDebugAddsDebugImage() {
         InspectionResponse response = new InspectionResponse(
-                0, 0, 0, new double[9], 0, 0, 0, 0, 0, 0,
+                0, 0, 0, new double[9], 0, 0, 0, 0, 0, 0, 0,
                 true, true, true, true, true,
                 "img",
                 "PASS"

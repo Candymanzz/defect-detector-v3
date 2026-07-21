@@ -152,6 +152,7 @@ public final class GeometryCorrectnessGateMain {
         cmp(scenario, "shiftYmm", a.shiftYmm(), b.shiftYmm(), mismatches);
         cmp(scenario, "rotationDeg", a.rotationDeg(), b.rotationDeg(), mismatches);
         cmp(scenario, "concentricityMm", a.concentricityMm(), b.concentricityMm(), mismatches);
+        cmp(scenario, "deviationRadiusMm", a.deviationRadiusMm(), b.deviationRadiusMm(), mismatches);
         cmp(scenario, "jointDefectMm", a.jointDefectMm(), b.jointDefectMm(), mismatches);
         cmp(scenario, "jointParallelismDeg", a.jointParallelismDeg(), b.jointParallelismDeg(), mismatches);
         cmp(scenario, "jointWidthMm", a.jointWidthMm(), b.jointWidthMm(), mismatches);

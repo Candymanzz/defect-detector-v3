@@ -14,14 +14,14 @@ io_input:
     - 3                 # DI3 = триггер съёмки
 
   # Техзрение → физические входы ПЛК (не FINS). FINS только таймауты D4400–D4404.
-  # Проводка: DO4→X4 ready, DO8→X5 fault, DO6→X6 брак1, DO7→X7 брак2.
-  # CIO 240.15 «Сброс дискретных входов» не используем.
+  # Проводка (Никита): DO1→готовность X4, DO2→ошибка X5, DO3→брак1 X6, DO4→брак2 X7.
+  # DO5 занят Line0. CIO 240.15 «Сброс дискретных входов» не используем.
   reject:
     enabled: true
-    ready_output_port: 4
-    fault_output_port: 8
-    line1_output_port: 6
-    line2_output_port: 7
+    ready_output_port: 1
+    fault_output_port: 2
+    line1_output_port: 3
+    line2_output_port: 4
     pulse_duration_ms: 200
     active_high: true
 

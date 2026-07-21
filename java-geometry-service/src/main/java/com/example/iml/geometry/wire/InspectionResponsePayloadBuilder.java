@@ -26,6 +26,7 @@ public final class InspectionResponsePayloadBuilder {
         payload.put("rotationDeg", response.rotationDeg());
         payload.put("homographyRefToCurrent", response.homographyRefToCurrent());
         payload.put("concentricityMm", response.concentricityMm());
+        payload.put("deviationRadiusMm", response.deviationRadiusMm());
         payload.put("jointDefectMm", response.jointDefectMm());
         payload.put("jointParallelismDeg", response.jointParallelismDeg());
         payload.put("jointWidthMm", response.jointWidthMm());
@@ -37,6 +38,12 @@ public final class InspectionResponsePayloadBuilder {
         payload.put("wrinklesPass", response.wrinklesPass());
         payload.put("overallPass", response.overallPass());
         payload.put("status", response.status());
+        if (request != null) {
+            payload.put("maxShiftMm", request.maxShiftMm());
+            payload.put("maxRotationDeg", request.maxRotationDeg());
+            payload.put("maxConcentricityMm", request.maxConcentricityMm());
+            payload.put("pixelsToMm", request.pixelsToMm());
+        }
         if (request != null && request.jointRoi() != null) {
             boolean visibilityOnly = request.jointVisibilityOnly();
             payload.put("jointMode", visibilityOnly ? "visibility" : "full");

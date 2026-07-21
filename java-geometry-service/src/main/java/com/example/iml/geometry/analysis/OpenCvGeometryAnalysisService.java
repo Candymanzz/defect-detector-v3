@@ -173,11 +173,23 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             );
             recordStage("wrinkles", tWrinkles0);
 
+            double deviationRadiusMm = Math.hypot(alignment.shiftXmm, alignment.shiftYmm);
+
+            long tConcentricity0 = System.nanoTime();
+            Mat concentricityRoi = new Mat(alignedCurrent, mainRect);
+            ConcentricityResult concentricity;
+            try {
+                concentricity = estimateConcentricity(concentricityRoi, request.pixelsToMm());
+            } finally {
+                concentricityRoi.release();
+            }
+            recordStage("concentricity", tConcentricity0);
+
             String debugBase64 = "";
             if (includeDebugImage) {
                 long tDebug0 = System.nanoTime();
                 debug = alignedCurrent.clone();
-                drawDebug(debug, mainRect, alignment, request);
+                drawDebug(debug, mainRect, alignment, deviationRadiusMm, request);
                 debugBase64 = imageCodec.encodeBase64Png(debug);
                 recordStage("debug", tDebug0);
             }
@@ -186,23 +198,25 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     || (Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
                     && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg());
+            boolean concentricityPass = concentricity.deviationMm() <= request.maxConcentricityMm();
             boolean jointPass = evaluateJointPass(request, joint);
             boolean wrinklesPass = wrinkles.score <= request.maxWrinklesScore();
-            boolean overallPass = alignmentPass && jointPass && wrinklesPass;
+            boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass;
 
             return new InspectionResponse(
                     alignment.shiftXmm,
                     alignment.shiftYmm,
                     alignment.rotationDeg,
                     homographyToArray(alignment.homographyRefToCurrent),
-                    0.0,
+                    concentricity.deviationMm(),
+                    deviationRadiusMm,
                     joint.defectMm,
                     joint.parallelismDeg,
                     joint.widthMm,
                     joint.visibility,
                     wrinkles.score,
                     alignmentPass,
-                    true,
+                    concentricityPass,
                     jointPass,
                     wrinklesPass,
                     overallPass,
@@ -778,6 +792,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             Mat debugFrame,
             Rect mainRect,
             AlignmentResult alignment,
+            double deviationRadiusMm,
             InspectionRequest request
     ) {
         if (request.mainRoiPolygonNorm() != null && request.mainRoiPolygonNorm().size() >= 3) {
@@ -790,12 +805,29 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         Point shifted = new Point(center.x + alignment.shiftXPx, center.y + alignment.shiftYPx);
         Imgproc.arrowedLine(debugFrame, center, shifted, new Scalar(0, 0, 255), 3);
 
+        double deviationRadiusPx = Math.hypot(alignment.shiftXPx, alignment.shiftYPx);
+        if (deviationRadiusPx > 0.5) {
+            Imgproc.circle(debugFrame, center, (int) Math.round(deviationRadiusPx), new Scalar(0, 0, 255), 2);
+        }
+        double maxShiftPx = request.pixelsToMm() > 0
+                ? request.maxShiftMm() / request.pixelsToMm()
+                : 0.0;
+        if (maxShiftPx > 0.5) {
+            Imgproc.circle(debugFrame, center, (int) Math.round(maxShiftPx), new Scalar(0, 255, 255), 1);
+        }
+
         Imgproc.putText(
                 debugFrame,
-                String.format("dx=%.2fmm dy=%.2fmm rot=%.2fdeg", alignment.shiftXmm, alignment.shiftYmm, alignment.rotationDeg),
+                String.format(
+                        "dx=%.2fmm dy=%.2fmm r=%.2fmm rot=%.2fdeg",
+                        alignment.shiftXmm,
+                        alignment.shiftYmm,
+                        deviationRadiusMm,
+                        alignment.rotationDeg
+                ),
                 new Point(mainRect.x, Math.max(25, mainRect.y - 8)),
                 Imgproc.FONT_HERSHEY_SIMPLEX,
-                0.7,
+                0.65,
                 new Scalar(255, 255, 0),
                 2
         );

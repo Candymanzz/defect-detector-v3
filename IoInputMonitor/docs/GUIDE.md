@@ -122,12 +122,12 @@ DI замкнулся → IoInputMonitor UDP → оркестратор :9100
 
 При `reject.enabled` IoInputMonitor на `:9101`:
 
-| HTTP | DO (default) | ПЛК |
-|------|--------------|-----|
-| `PUT /vision-ready {"value":true}` | DO4 | X4 → 140.02 |
-| `PUT /vision-fault {"value":true}` | DO8 | X5 → 190.00 |
-| `POST /reject {"line":1}` | DO6 | X6 → 140.08 |
-| `POST /reject {"line":2}` | DO7 | X7 → 140.09 |
+| HTTP | DO | ПЛК |
+|------|-----|-----|
+| `PUT /vision-ready {"value":true}` | DO1 | X4 → 140.02 |
+| `PUT /vision-fault {"value":true}` | DO2 | X5 → 190.00 |
+| `POST /reject {"line":1}` | DO3 | X6 → 140.08 |
+| `POST /reject {"line":2}` | DO4 | X7 → 140.09 |
 
 FINS только **D4400–D4404** (таймауты). **CIO 240.15 не используем.**
 

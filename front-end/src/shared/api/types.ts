@@ -94,12 +94,32 @@ export type GeometryLatestSnapshot = {
   geometry: GeometryInspectResponse;
 };
 
-export type GeometryInspectResponse = JsonObject & {
+export type GeometryInspectResponse = {
   status?: string;
   overallPass?: boolean;
-  homographyRefToCurrent?: number[][];
+  alignmentPass?: boolean;
+  concentricityPass?: boolean;
+  jointPass?: boolean;
+  wrinklesPass?: boolean;
+  shiftXmm?: number;
+  shiftYmm?: number;
+  rotationDeg?: number;
+  concentricityMm?: number;
+  /** Radial deviation from etalon: hypot(shiftXmm, shiftYmm). */
+  deviationRadiusMm?: number;
+  maxShiftMm?: number;
+  maxRotationDeg?: number;
+  maxConcentricityMm?: number;
+  pixelsToMm?: number;
+  jointDefectMm?: number;
+  jointParallelismDeg?: number;
+  jointWidthMm?: number;
+  jointVisibility?: number;
+  wrinklesScore?: number;
+  homographyRefToCurrent?: number[] | number[][];
+  debugImageBase64?: string;
   metrics?: JsonObject;
-};
+} & JsonObject;
 
 export type GeometryRuntimeConfig = {
   runtimeOverrides: GeometryRuntimeOverrides;

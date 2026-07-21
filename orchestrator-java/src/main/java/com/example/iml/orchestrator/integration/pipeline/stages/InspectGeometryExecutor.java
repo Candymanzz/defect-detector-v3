@@ -184,8 +184,11 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         fail.put("camera_id", cameraId);
         fail.put("frame_id", h.get("frame_id"));
         fail.put("error", "positioning reject");
-        fail.put("shiftXmm", h.getOrDefault("positioning_shift_x_mm", 9999.0));
-        fail.put("shiftYmm", h.getOrDefault("positioning_shift_y_mm", 9999.0));
+        double shiftX = YamlScalars.toDouble(h.getOrDefault("positioning_shift_x_mm", 9999.0), 9999.0);
+        double shiftY = YamlScalars.toDouble(h.getOrDefault("positioning_shift_y_mm", 9999.0), 9999.0);
+        fail.put("shiftXmm", shiftX);
+        fail.put("shiftYmm", shiftY);
+        fail.put("deviationRadiusMm", Math.hypot(shiftX, shiftY));
         fail.put("rotationDeg", h.getOrDefault("positioning_rotation_deg", 9999.0));
         Object homography = h.get("positioning_homography_ref_to_cur");
         fail.put("homographyRefToCurrent", homography == null ? List.of() : homography);

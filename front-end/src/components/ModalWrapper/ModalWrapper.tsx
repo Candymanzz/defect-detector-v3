@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { HttpError, orchestratorApi } from "../../shared/api";
+import type { GeometryInspectResponse } from "../../shared/api";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { FpZoneNorm, InspectResultPayload, InterestPointNorm } from "../../shared/ws";
+import { GeometryDeviationViewer } from "../GeometryDeviationViewer";
 import { HeatmapViewer } from "../HeatmapViewer";
 import "./ModalWrapper.css";
 
@@ -31,6 +34,12 @@ type InspectionNavigationItem = {
   result: "pass" | "fail" | "capture";
 };
 
+type GeometrySnapshotState = {
+  geometry: GeometryInspectResponse | null;
+  loading: boolean;
+  error: string | null;
+};
+
 export function ModalWrapper({
   isOpen,
   title,
@@ -53,6 +62,8 @@ export function ModalWrapper({
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
+  const geometrySnapshot = useGeometrySnapshot(isOpen, cameraId, inspectResult?.frame_id, inspectResult?.geometry_status);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -113,7 +124,7 @@ export function ModalWrapper({
           </div>
         )}
 
-        <div className="modal__media-grid">
+        <div className="modal__media-grid modal__media-grid--with-geometry">
           <ImagePanel
             imageUrl={referenceImageUrl}
             label="Эталон"
@@ -130,6 +141,11 @@ export function ModalWrapper({
             cameraImageUrl={displayedCurrentImageUrl}
             heatmapUrl={inspectHeatmapUrl}
             inspectResult={inspectResult}
+          />
+          <GeometryDeviationViewer
+            error={geometrySnapshot.error}
+            geometry={geometrySnapshot.geometry}
+            loading={geometrySnapshot.loading}
           />
         </div>
 
@@ -150,10 +166,69 @@ export function ModalWrapper({
           </div>
         )}
 
-        <InspectResultPanel inspectResult={inspectResult} />
+        <InspectResultPanel
+          geometry={geometrySnapshot.geometry}
+          inspectResult={inspectResult}
+        />
       </section>
     </div>
   );
+}
+
+function useGeometrySnapshot(
+  isOpen: boolean,
+  cameraId: number | undefined,
+  frameId: string | undefined,
+  geometryStatus: string | undefined,
+): GeometrySnapshotState {
+  const [state, setState] = useState<GeometrySnapshotState>({
+    geometry: null,
+    loading: false,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!isOpen || cameraId === undefined) {
+      setState({ geometry: null, loading: false, error: null });
+      return;
+    }
+
+    const controller = new AbortController();
+    setState((current) => ({ ...current, loading: true, error: null }));
+
+    void orchestratorApi
+      .getGeometryLatestSnapshot(cameraId)
+      .then((snapshot) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setState({
+          geometry: snapshot.geometry ?? null,
+          loading: false,
+          error: null,
+        });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        const message =
+          error instanceof HttpError && error.status === 404
+            ? "Нет снимка геометрии для камеры"
+            : error instanceof Error
+              ? error.message
+              : "Не удалось загрузить геометрию";
+        setState({
+          geometry: null,
+          loading: false,
+          error: message,
+        });
+      });
+
+    return () => controller.abort();
+  }, [isOpen, cameraId, frameId, geometryStatus]);
+
+  return state;
 }
 
 function InspectionNavigation({
@@ -337,7 +412,13 @@ function HeatmapPanel({
   );
 }
 
-function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPayload }) {
+function InspectResultPanel({
+  inspectResult,
+  geometry,
+}: {
+  inspectResult?: InspectResultPayload;
+  geometry?: GeometryInspectResponse | null;
+}) {
   return (
     <section
       className="modal-inspect-result"
@@ -383,9 +464,17 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
               label="server time"
               value={formatServerTime(inspectResult.server_ts_ms)}
             />
+            <InspectResultField
+              label="deviation radius"
+              value={
+                geometry?.deviationRadiusMm !== undefined
+                  ? `${Number(geometry.deviationRadiusMm).toFixed(3)} mm`
+                  : undefined
+              }
+            />
           </dl>
 
-          <div className="modal-inspect-result__decision">{formatInspectDecisionLine(inspectResult)}</div>
+          <div className="modal-inspect-result__decision">{formatInspectDecisionLine(inspectResult, geometry)}</div>
 
           <InspectResultRaw inspectResult={inspectResult} />
         </>
@@ -420,13 +509,21 @@ function InspectResultField({ label, value }: { label: string; value?: string | 
   );
 }
 
-function formatInspectDecisionLine(inspectResult: InspectResultPayload) {
+function formatInspectDecisionLine(
+  inspectResult: InspectResultPayload,
+  geometry?: GeometryInspectResponse | null,
+) {
+  const deviation =
+    geometry?.deviationRadiusMm !== undefined
+      ? Number(geometry.deviationRadiusMm).toFixed(3)
+      : "-";
   return [
     `overall_pass: ${formatOptionalValue(inspectResult.overall_pass)}`,
     `action: ${formatOptionalValue(inspectResult.action)}`,
     `anomaly_score: ${formatOptionalValue(inspectResult.anomaly_score)}`,
     `python_status: ${formatOptionalValue(inspectResult.python_status)}`,
     `geometry_status: ${formatOptionalValue(inspectResult.geometry_status)}`,
+    `deviation_radius_mm: ${deviation}`,
   ].join(" | ");
 }
 

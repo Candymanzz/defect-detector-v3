@@ -103,8 +103,10 @@ public class IoInputConfigLoaderTests
             io_input:
               reject:
                 enabled: true
-                line1_output_port: 6
-                line2_output_port: 7
+                ready_output_port: 1
+                fault_output_port: 2
+                line1_output_port: 3
+                line2_output_port: 4
                 pulse_duration_ms: 150
                 active_high: false
             """);
@@ -114,12 +116,12 @@ public class IoInputConfigLoaderTests
             IoInputOptions options = IoInputConfigLoader.ParseFile(path);
 
             Assert.True(options.Reject.Enabled);
-            Assert.Equal(6, options.Reject.Line1OutputPort);
-            Assert.Equal(7, options.Reject.Line2OutputPort);
+            Assert.Equal(3, options.Reject.Line1OutputPort);
+            Assert.Equal(4, options.Reject.Line2OutputPort);
             Assert.Equal(150, options.Reject.PulseDurationMs);
             Assert.False(options.Reject.ActiveHigh);
-            Assert.Equal(4, options.Reject.ReadyOutputPort);
-            Assert.Equal(8, options.Reject.FaultOutputPort);
+            Assert.Equal(1, options.Reject.ReadyOutputPort);
+            Assert.Equal(2, options.Reject.FaultOutputPort);
         }
         finally
         {

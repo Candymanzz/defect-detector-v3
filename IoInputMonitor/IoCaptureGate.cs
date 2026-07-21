@@ -256,17 +256,17 @@ public sealed class IoRejectOptions
 {
     public bool Enabled { get; set; }
 
-    /// <summary>MV IO DO → PLC X4 (Техзрение готовность), уровень.</summary>
-    public int ReadyOutputPort { get; set; } = 4;
+    /// <summary>MV IO DO → PLC X4 (Техзрение готовность), уровень. Default DO1.</summary>
+    public int ReadyOutputPort { get; set; } = 1;
 
-    /// <summary>MV IO DO → PLC X5 (Техзрение ошибка), уровень.</summary>
-    public int FaultOutputPort { get; set; } = 8;
+    /// <summary>MV IO DO → PLC X5 (Техзрение ошибка), уровень. Default DO2.</summary>
+    public int FaultOutputPort { get; set; } = 2;
 
-    /// <summary>MV IO DO → PLC X6 (брак линия 1), импульс.</summary>
-    public int Line1OutputPort { get; set; } = 6;
+    /// <summary>MV IO DO → PLC X6 (брак линия 1), импульс. Default DO3.</summary>
+    public int Line1OutputPort { get; set; } = 3;
 
-    /// <summary>MV IO DO → PLC X7 (брак линия 2), импульс.</summary>
-    public int Line2OutputPort { get; set; } = 7;
+    /// <summary>MV IO DO → PLC X7 (брак линия 2), импульс. Default DO4.</summary>
+    public int Line2OutputPort { get; set; } = 4;
 
     public int PulseDurationMs { get; set; } = 200;
 

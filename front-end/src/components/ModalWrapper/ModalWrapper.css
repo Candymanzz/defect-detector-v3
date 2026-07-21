@@ -33,6 +33,18 @@
   overflow: hidden;
 }
 
+.modal__media-grid--with-geometry {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(180px, 1fr);
+  flex-basis: 420px;
+}
+
+@media (min-width: 1400px) {
+  .modal__media-grid--with-geometry {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .modal-inspection-navigation {
   display: grid;
   flex: 0 0 auto;

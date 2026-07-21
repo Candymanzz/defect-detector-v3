@@ -6,6 +6,8 @@ public record InspectionResponse(
         double rotationDeg,
         double[] homographyRefToCurrent,
         double concentricityMm,
+        /** Radial deviation from etalon pose: hypot(shiftXmm, shiftYmm). */
+        double deviationRadiusMm,
         double jointDefectMm,
         double jointParallelismDeg,
         double jointWidthMm,
