@@ -17,8 +17,8 @@ internal enum IoLineDirection
 }
 
 /// <summary>
-/// Съёмка по DI3↑. DI2 только сообщает ход (forward/reverse), без фильтра UI.
-/// При require_direction=true (legacy): DI2 должен совпасть с выбранным UI-ходом.
+/// Съёмка по DI3↑ после направления DI2.
+/// При DirectionLatch: первый DI2=1 вооружает навсегда, дальше DI2 холостой.
 /// </summary>
 internal sealed class IoCaptureGate
 {
@@ -26,12 +26,14 @@ internal sealed class IoCaptureGate
     private readonly int _triggerPort;
     private readonly bool _directionInvert;
     private readonly bool _requireDirection;
+    private readonly bool _directionLatch;
     private readonly object _lock = new();
 
-    private IoLineDirection _selectedDirection = IoLineDirection.Reverse;
+    private IoLineDirection _selectedDirection = IoLineDirection.Forward;
     private bool _directionRawActive;
     private bool _directionKnown;
     private bool _directionArmed;
+    private bool _directionLatched;
     private bool _triggerActive;
     private bool _captureFiredThisPulse;
 
@@ -41,7 +43,8 @@ internal sealed class IoCaptureGate
         _triggerPort = options.TriggerPort;
         _directionInvert = options.DirectionInvert;
         _requireDirection = options.RequireDirection;
-        _selectedDirection = ParseDirection(options.InitialDirection) ?? IoLineDirection.Reverse;
+        _directionLatch = options.DirectionLatch;
+        _selectedDirection = ParseDirection(options.InitialDirection) ?? IoLineDirection.Forward;
     }
 
     public int DirectionPort => _directionPort;
@@ -53,6 +56,11 @@ internal sealed class IoCaptureGate
         get { lock (_lock) return _directionArmed; }
     }
 
+    public bool IsDirectionLatched
+    {
+        get { lock (_lock) return _directionLatched; }
+    }
+
     public IoLineDirection SelectedDirection
     {
         get { lock (_lock) return _selectedDirection; }
@@ -62,7 +70,7 @@ internal sealed class IoCaptureGate
 
     public bool IsSelectedForward => SelectedDirection == IoLineDirection.Forward;
 
-    /// <summary>UI / HTTP: forward|reverse. Сбрасывает arm и переоценивает текущий DI2.</summary>
+    /// <summary>UI / HTTP: forward|reverse (отображение). На DO5 не влияет — фильтр только DI2.</summary>
     public IoCaptureDecision SetSelectedDirection(string? wireValue)
     {
         IoLineDirection? parsed = ParseDirection(wireValue);
@@ -71,13 +79,10 @@ internal sealed class IoCaptureGate
 
         lock (_lock)
         {
-            if (_selectedDirection == parsed.Value && _directionArmed == TravelMatchesSelected())
+            if (_selectedDirection == parsed.Value)
                 return IoCaptureDecision.None;
 
             _selectedDirection = parsed.Value;
-            _directionArmed = false;
-            _captureFiredThisPulse = false;
-            TryArmFromCurrentDirection();
             return IoCaptureDecision.DirectionModeChanged;
         }
     }
@@ -98,6 +103,14 @@ internal sealed class IoCaptureGate
         {
             if (port == _directionPort)
             {
+                // После latch все смены DI2 — холостые (направление уже зафиксировано).
+                if (_directionLatch && _directionLatched)
+                {
+                    _directionRawActive = active;
+                    _directionKnown = true;
+                    return IoCaptureDecision.None;
+                }
+
                 bool wasArmed = _directionArmed;
                 _directionRawActive = active;
                 _directionKnown = true;
@@ -144,10 +157,15 @@ internal sealed class IoCaptureGate
         lock (_lock)
         {
             if (!_requireDirection)
-                return $"DI{_triggerPort}↑ (ход с DI{_directionPort})";
-            return _selectedDirection == IoLineDirection.Forward
-                ? $"DI{_directionPort}=1 затем DI{_triggerPort}↑"
-                : $"DI{_directionPort}=0 затем DI{_triggerPort}↑";
+                return $"DI{_triggerPort}↑";
+            if (_directionLatch)
+            {
+                return _directionLatched
+                    ? $"DI{_triggerPort}↑ (направление зафиксировано)"
+                    : $"один раз DI{_directionPort}=1, далее DI{_triggerPort}↑";
+            }
+
+            return $"DI{_directionPort}=1 затем DI{_triggerPort}↑";
         }
     }
 
@@ -162,15 +180,24 @@ internal sealed class IoCaptureGate
         if (!_directionKnown)
             return;
 
-        // Armed только пока текущий DI2 совпадает с выбранным UI-ходом.
-        _directionArmed = TravelMatchesSelected();
-    }
+        if (_directionLatch && _directionLatched)
+        {
+            _directionArmed = true;
+            return;
+        }
 
-    private bool TravelMatchesSelected()
-    {
-        bool travelForward = MapDirection(_directionRawActive);
-        bool selectedForward = _selectedDirection == IoLineDirection.Forward;
-        return travelForward == selectedForward;
+        bool forward = MapDirection(_directionRawActive);
+        if (forward)
+        {
+            _directionArmed = true;
+            if (_directionLatch)
+                _directionLatched = true;
+        }
+        else if (!_directionLatch)
+        {
+            // Без latch: DI2=0 снимает armed.
+            _directionArmed = false;
+        }
     }
 
     private bool MapDirection(bool raw) =>
@@ -216,7 +243,7 @@ public sealed class IoCaptureOptions
     public int PulseDelayMs { get; set; } = 80;
 
     /// <summary>Сколько раз повторить DO после delay (edge мог попасть в flush).</summary>
-    public int PulseRepeat { get; set; } = 3;
+    public int PulseRepeat { get; set; } = 1;
 
     /// <summary>Пауза между повторными DO-импульсами.</summary>
     public int PulseRepeatGapMs { get; set; } = 80;
@@ -235,8 +262,13 @@ public sealed class IoCaptureOptions
 
     public bool RequireDirection { get; set; } = true;
 
-    /// <summary>Начальный ход (пока UI не переключил): forward|reverse.</summary>
-    public string InitialDirection { get; set; } = "reverse";
+    /// <summary>
+    /// Первый DI2=1 фиксирует направление навсегда; дальнейшие DI2 не снимают armed.
+    /// </summary>
+    public bool DirectionLatch { get; set; } = true;
+
+    /// <summary>Начальный UI-ход (отображение); на DO5 не влияет.</summary>
+    public string InitialDirection { get; set; } = "forward";
 
     public IoDirectionHttpOptions DirectionHttp { get; set; } = new();
 }

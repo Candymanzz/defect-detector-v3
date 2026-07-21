@@ -51,6 +51,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile boolean workActive;
     private volatile boolean directionRawActive;
     private volatile boolean directionActive;
+    /** Первый DI2=1 при direction_latch — дальше DI2 холостой для съёмки. */
+    private volatile boolean directionLatched;
     private volatile boolean directionInitialized;
     private volatile boolean triggerActive;
     private volatile boolean captureFiredThisPulse;
@@ -171,7 +173,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             socket = new DatagramSocket(new InetSocketAddress(bindAddress, udpConfig.bindPort()));
             socket.setReuseAddress(true);
             log.info(
-                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={}",
+                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={}",
                     udpConfig.bindHost(),
                     udpConfig.bindPort(),
                     ioInputConfig.payloadFormat(),
@@ -182,6 +184,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     ioInputConfig.requireDirection(),
                     ioInputConfig.requireWork(),
                     ioInputConfig.di3Only(),
+                    ioInputConfig.directionLatch(),
                     ioInputConfig.directionLatchOnWork(),
                     ioInputConfig.directionArmNextDi3(),
                     ioInputConfig.directionInvert(),
@@ -320,11 +323,26 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 return;
             }
             boolean mapped = mapDirection(active);
+            directionRawActive = active;
+
+            // direction_latch: первый DI2=1 фиксирует ход навсегда; дальше DI2 холостой.
+            if (ioInputConfig.directionLatch() && directionLatched) {
+                if (previousRaw != active) {
+                    log.info(
+                            "io_input_trigger DI2 idle {} -> {} (направление зафиксировано={})",
+                            previousRaw ? 1 : 0,
+                            active ? 1 : 0,
+                            directionActive ? 1 : 0
+                    );
+                }
+                return;
+            }
+
             if (directionActive != mapped) {
                 if (ioInputConfig.directionInvert()) {
                     log.info(
                             "io_input_trigger direction raw {} -> {} (effective {} -> {})",
-                            directionRawActive() ? 1 : 0,
+                            previousRaw ? 1 : 0,
                             active ? 1 : 0,
                             directionActive ? 1 : 0,
                             mapped ? 1 : 0
@@ -333,10 +351,18 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     log.info("io_input_trigger direction {} -> {}", directionActive ? 1 : 0, mapped ? 1 : 0);
                 }
             }
-            directionRawActive = active;
             directionActive = mapped;
-            if (ioInputConfig.directionLatchOnWork()) {
-                return;
+            if (ioInputConfig.directionLatch() && mapped) {
+                directionLatched = true;
+                if (manualLineDirection != null) {
+                    manualLineDirection.setDirection(ManualLineDirectionService.Direction.FORWARD);
+                }
+                log.info(
+                        "io_input_trigger direction latched (DI2=1) — дальнейшие смены DI2 холостые для съёмки"
+                );
+                if (ioInputConfig.di3Only()) {
+                    return;
+                }
             }
             directionLatch.onDirectionChange(mapped, triggerActive);
             if (ioInputConfig.di3Only()) {
@@ -374,12 +400,22 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 } else if (ioInputConfig.di3Only()) {
                     captureFiredThisPulse = false;
                     di3RiseEpochMs = System.currentTimeMillis();
-                    log.info(
-                            "io_input_trigger DI3↑ capture — direction={} source={}",
-                            effectiveDirectionWire(),
-                            directionSourceLabel()
-                    );
-                    fireLineCapture();
+                    boolean directionOk = !ioInputConfig.requireDirection()
+                            || (ioInputConfig.directionLatch() ? directionLatched : directionActive);
+                    if (!directionOk) {
+                        log.info(
+                                "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
+                                directionSourceLabel()
+                        );
+                    } else {
+                        log.info(
+                                "io_input_trigger DI3↑ capture — direction={} latched={} source={}",
+                                effectiveDirectionWire(),
+                                directionLatched ? 1 : 0,
+                                directionSourceLabel()
+                        );
+                        fireLineCapture();
+                    }
                 } else {
                     log.info("io_input_trigger DI3 capture edge direction={}", directionActive ? 1 : 0);
                 }
@@ -446,14 +482,12 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
     }
 
+    /**
+     * Latch-режим (DI2=1 вооружает навсегда) отключён: при {@code require_direction}
+     * проверяем уровень DI2 на фронте DI3.
+     */
     private boolean usesAutoDirection() {
-        if (!ioInputConfig.di3Only() || !ioInputConfig.requireDirection()) {
-            return false;
-        }
-        if (!ioInputConfig.directionLatchOnWork()) {
-            return true;
-        }
-        return !ioInputConfig.requireWork() && !ioInputConfig.stubWorkActive();
+        return false;
     }
 
     private void handleDi3RisingCapture() {
@@ -662,13 +696,24 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     /**
-     * Ход только с DI2 (логирование). Съёмка по DI3 без фильтра UI «Прямой/Обратный».
+     * UI «Прямой/Обратный» не фильтрует. При {@code require_direction} — DI2=1
+     * (или уже latched после первого DI2=1).
      */
     private boolean allowsCaptureForSelectedDirection() {
-        return true;
+        if (!ioInputConfig.requireDirection()) {
+            return true;
+        }
+        if (ioInputConfig.directionLatch() ? directionLatched : directionActive) {
+            return true;
+        }
+        log.info("io_input_trigger skip: DI2=0 (need direction before DI3 capture)");
+        return false;
     }
 
     private String effectiveDirectionWire() {
+        if (ioInputConfig.directionLatch() && directionLatched) {
+            return "forward";
+        }
         return directionActive ? "forward" : "reverse";
     }
 

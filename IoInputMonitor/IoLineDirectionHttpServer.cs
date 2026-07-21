@@ -18,7 +18,7 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _loop;
     private readonly object _consoleLock;
-    private readonly object _rejectPulseLock = new();
+    private readonly IoDoExecutor? _doExecutor;
     private bool _disposed;
 
     private IoLineDirectionHttpServer(
@@ -26,12 +26,14 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         IoBoxSession? session,
         IoRejectOptions? reject,
         string prefix,
-        object consoleLock)
+        object consoleLock,
+        IoDoExecutor? doExecutor)
     {
         _gate = gate;
         _session = session;
         _reject = reject;
         _consoleLock = consoleLock;
+        _doExecutor = doExecutor;
         _listener = new HttpListener();
         _listener.Prefixes.Add(prefix);
         _listener.Start();
@@ -49,7 +51,8 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         IoDirectionHttpOptions? directionHttp,
         object consoleLock,
         IoBoxSession? session = null,
-        IoRejectOptions? reject = null)
+        IoRejectOptions? reject = null,
+        IoDoExecutor? doExecutor = null)
     {
         bool directionEnabled = gate != null && directionHttp is { Enabled: true };
         bool rejectEnabled = session != null && reject is { Enabled: true };
@@ -72,7 +75,8 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
                 rejectEnabled ? session : null,
                 rejectEnabled ? reject : null,
                 prefix,
-                consoleLock);
+                consoleLock,
+                doExecutor);
         }
         catch (Exception ex)
         {
@@ -258,11 +262,13 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         string how;
         try
         {
-            lock (_rejectPulseLock)
+            lock (_consoleLock)
             {
-                // Level pulse only — board-exact SetOutput can leave DO high and freeze PLC reject.
-                how = _session.FireDoLevelPulse(doPort, _reject.PulseDurationMs, _reject.ActiveHigh);
+                Console.WriteLine(
+                    $"[{Timestamp()}] reject line={line} DO{doPort}: зона Plc → board-exact (без SaveParam)…");
             }
+
+            how = FireRejectViaExecutor(doPort);
         }
         catch (Exception ex)
         {
@@ -320,10 +326,19 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         string how;
         try
         {
-            lock (_rejectPulseLock)
+            if (_doExecutor?.Arbiter is { } arbiter)
+            {
+                how = arbiter.RunPlcAfterQuiet(
+                    () => _session.SetDoLevel(doPort, value, _reject.ActiveHigh),
+                    quietTimeoutMs: 8000,
+                    runTimeoutMs: 5000);
+            }
+            else
             {
                 how = _session.SetDoLevel(doPort, value, _reject.ActiveHigh);
             }
+
+            RestoreDiMonitor();
         }
         catch (Exception ex)
         {
@@ -379,6 +394,96 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
                 : el.GetString() is "1" or "on" or "yes",
             _ => throw new ArgumentException("value must be boolean")
         };
+
+    /// <summary>
+    /// Зона Plc: тишина Capture (+cooldown) → рабочий board-exact reject (как в 18:43–19:32).
+    /// DO5/DI не трогаем во время съёмки; после импульса FireRejectPulse сам Restore DI.
+    /// </summary>
+    private string FireRejectViaExecutor(int doPort)
+    {
+        if (_session == null || _reject == null)
+            throw new InvalidOperationException("reject session not available");
+
+        int pulseMs = Math.Clamp(_reject.PulseDurationMs, 1, 5000);
+        bool activeHigh = _reject.ActiveHigh;
+        Exception? last = null;
+        var arbiter = _doExecutor?.Arbiter;
+
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            try
+            {
+                if (arbiter != null)
+                {
+                    return arbiter.RunPlcAfterQuiet(
+                        () => _session.FireRejectPulse(doPort, pulseMs, activeHigh),
+                        quietTimeoutMs: 10000,
+                        runTimeoutMs: 8000);
+                }
+
+                return _session.FireRejectPulse(doPort, pulseMs, activeHigh);
+            }
+            catch (Exception ex)
+            {
+                last = Unwrap(ex);
+                string msg = last?.Message ?? "";
+                bool busy = msg.Contains("80000004", StringComparison.OrdinalIgnoreCase)
+                    || msg.Contains("80000204", StringComparison.OrdinalIgnoreCase)
+                    || msg.Contains("Capture window", StringComparison.OrdinalIgnoreCase)
+                    || msg.Contains("busy", StringComparison.OrdinalIgnoreCase);
+
+                try
+                {
+                    RunOnDoExecutor(() =>
+                    {
+                        _session.ReviveDiAfterReject();
+                        return "di-revive";
+                    }, IoDoExecutor.Priority.Input);
+                }
+                catch
+                {
+                    // best-effort
+                }
+
+                if (!busy || attempt == 3)
+                    break;
+
+                Thread.Sleep(150 * attempt);
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"DO{doPort} reject pulse failed: {Unwrap(last)?.Message ?? "unknown"}");
+    }
+
+    private static Exception? Unwrap(Exception? ex) =>
+        ex is AggregateException ae ? ae.Flatten().InnerException ?? ae : ex;
+
+    private void RestoreDiMonitor()
+    {
+        if (_session == null)
+            return;
+        try
+        {
+            RunOnDoExecutor(() =>
+            {
+                _session.ReviveDiAfterReject();
+                return "di-revive";
+            }, IoDoExecutor.Priority.Input);
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+
+    private string RunOnDoExecutor(Func<string> action, IoDoExecutor.Priority priority = IoDoExecutor.Priority.Plc)
+    {
+        if (_doExecutor != null)
+            return _doExecutor.Run(priority, action, timeoutMs: 10000);
+
+        return action();
+    }
 
     /// <summary>
     /// line: 1|2; group_id: 0|1; signal: reject_line_1|reject_line_2.

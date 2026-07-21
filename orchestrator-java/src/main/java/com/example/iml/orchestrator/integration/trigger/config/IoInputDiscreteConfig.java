@@ -22,6 +22,7 @@ public record IoInputDiscreteConfig(
         boolean directionLatchOnWork,
         boolean directionArmNextDi3,
         boolean directionInvert,
+        boolean directionLatch,
         int directionWaitMs,
         int directionPollMs,
         int captureDelayMs,
@@ -29,7 +30,11 @@ public record IoInputDiscreteConfig(
 ) {
 
     public static IoInputDiscreteConfig defaults() {
-        return new IoInputDiscreteConfig(1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING, true, true, false, false, false, false, 5000, 50, 0, false);
+        return new IoInputDiscreteConfig(
+                1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING,
+                true, true, false, false, false, false, true,
+                5000, 50, 0, false
+        );
     }
 
     public static IoInputDiscreteConfig parse(Map<String, Object> integration, int udpDebounceMs) {
@@ -72,6 +77,7 @@ public record IoInputDiscreteConfig(
                 ? YamlScalars.toBool(io.get("require_work"), true)
                 : YamlScalars.toBool(io.get("require_work"), defaults.requireWork());
         boolean directionInvert = YamlScalars.toBool(io.get("direction_invert"), defaults.directionInvert());
+        boolean directionLatch = YamlScalars.toBool(io.get("direction_latch"), defaults.directionLatch());
         int directionWaitMs = Math.max(0, YamlScalars.toInt(io.get("direction_wait_ms"), defaults.directionWaitMs()));
         int directionPollMs = Math.max(1, YamlScalars.toInt(io.get("direction_poll_ms"), defaults.directionPollMs()));
         int captureDelayMs = Math.max(0, YamlScalars.toInt(io.get("capture_delay_ms"), defaults.captureDelayMs()));
@@ -93,6 +99,7 @@ public record IoInputDiscreteConfig(
                 directionLatchOnWork,
                 directionArmNextDi3,
                 directionInvert,
+                directionLatch,
                 directionWaitMs,
                 directionPollMs,
                 captureDelayMs,
@@ -116,6 +123,7 @@ public record IoInputDiscreteConfig(
                 defaults.directionLatchOnWork(),
                 defaults.directionArmNextDi3(),
                 defaults.directionInvert(),
+                defaults.directionLatch(),
                 defaults.directionWaitMs(),
                 defaults.directionPollMs(),
                 defaults.captureDelayMs(),

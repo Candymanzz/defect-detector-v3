@@ -97,6 +97,27 @@ class IoInputDiscreteConfigTest {
     }
 
     @Test
+    void directionLatchDefaultsTrue() {
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.defaults();
+        assertTrue(cfg.directionLatch());
+    }
+
+    @Test
+    void parsesDirectionLatchFromIntegrationConfig() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of("direction_latch", false)
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertFalse(cfg.directionLatch());
+    }
+
+    @Test
     void parsesExternalHardwareCaptureFromIntegrationConfig() {
         Map<String, Object> integration = Map.of(
                 "inspection_trigger",

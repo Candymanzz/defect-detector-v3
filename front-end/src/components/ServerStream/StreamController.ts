@@ -74,6 +74,8 @@ export function useStreamController({
           setStreamState("playing");
           setMessage(`Stream started: ${wsMessage.payload.max_fps} FPS`);
           clearFirstFrameTimer();
+          // Кадры идут по MJPEG HTTP, не по server.preview_frame.
+          // Таймер сбрасывается в handleStreamImageLoad (onLoad у <img>).
           firstFrameTimerRef.current = window.setTimeout(() => {
             if (streamStateRef.current === "playing") {
               setMjpegUrl(undefined);
@@ -168,6 +170,11 @@ export function useStreamController({
     }
   }, [cameraId, clearFirstFrameTimer, maxFps]);
 
+  const handleStreamImageLoad = useCallback(() => {
+    // MJPEG multipart: первый onLoad = кадры реально приходят (preview_frame по WS не шлётся).
+    clearFirstFrameTimer();
+  }, [clearFirstFrameTimer]);
+
   const handleStreamImageError = useCallback(() => {
     clearFirstFrameTimer();
     setMjpegUrl(undefined);
@@ -242,6 +249,7 @@ export function useStreamController({
     startStream,
     stopStream,
     prepareCameraSwitch,
+    handleStreamImageLoad,
     handleStreamImageError,
   };
 }

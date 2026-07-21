@@ -106,16 +106,18 @@ integration:
       trigger_port: 3
       direction_latch_on_work: false
       di3_only: true
-      # DI3↑ → wait_frame; экспозиция только по DO5→Line0 (без trigger_only).
+      # DI2=1 один раз → направление зафиксировано; дальше DI2 холостой.
+      # DI3↑ → съёмка (после latch). Экспозиция DO5→Line0.
+      direction_latch: true
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: false
+      require_direction: true
       require_work: false
       external_hardware_capture: true
       direction_poll_ms: 1
-  # Куда оркестратор раньше слал UI «Прямой/Обратный ход» (больше не используется — ход только DI2).
+  # UI «Прямой/Обратный» больше не фильтрует съёмку — ход только DI2 (latch).
   io_input_monitor_direction_url: "http://127.0.0.1:9101"
   # Брак/ready/fault → IoInputMonitor DO → PLC X4–X7. FINS только D4400–D4404.
   io_input_monitor_reject:

@@ -37,9 +37,13 @@ io_input:
     active_high: true
     pulse_delay_ms: 250
     pulse_duration_ms: 300
-    pulse_repeat: 3
+    pulse_repeat: 1
     pulse_repeat_gap_ms: 100
-    require_direction: false
+    # DI2=1 один раз вооружает направление навсегда; дальнейшие DI2 — холостые.
+    # DI3↑ → съёмка только после первого arm (и пока require_direction).
+    require_direction: true
+    direction_latch: true
+    initial_direction: forward
     direction_http:
       enabled: true
       host: 127.0.0.1

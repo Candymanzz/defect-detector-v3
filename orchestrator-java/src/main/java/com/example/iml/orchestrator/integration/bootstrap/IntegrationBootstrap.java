@@ -562,10 +562,11 @@ public final class IntegrationBootstrap {
                 }
             }
             if (inspectionTriggerConfig.ioInput().di3Only()
-                    && inspectionTriggerConfig.ioInput().requireDirection()
-                    && !inspectionTriggerConfig.ioInput().directionLatchOnWork()) {
+                    && inspectionTriggerConfig.ioInput().requireDirection()) {
                 log.info(
-                        "inspection_trigger auto direction — prefire на DI3↑ при DI2=1, dispatch на DI3↓ при DI2=0"
+                        "inspection_trigger DI2→DI3: съёмка по DI{}↑ только при DI{}=1",
+                        inspectionTriggerConfig.ioInput().triggerPort(),
+                        inspectionTriggerConfig.ioInput().directionPort()
                 );
             }
             if (inspectionTriggerConfig.ioInput().directionLatchOnWork()) {

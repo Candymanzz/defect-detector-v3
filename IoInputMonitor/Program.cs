@@ -290,8 +290,11 @@ internal static class Program
         var inputSet = new HashSet<int>(options.InputPorts);
         var portPressed = new Dictionary<int, bool>();
         var lastLoggedTicks = new Dictionary<(int Port, MvIoNative.IoEdgeType Edge), long>();
-        object sessionLock = new();
         object consoleLock = new();
+        using var doExecutor = new IoDoExecutor();
+        Console.WriteLine(
+            "IO arbiter: Capture(DI2/3+DO5) | Plc(DO1-4) + 200ms cooldown после DO5; Sleep вне COM");
+        doExecutor.Arbiter.PlcCooldownMs = 200;
 
         foreach (int inputPort in options.InputPorts)
         {
@@ -359,6 +362,26 @@ internal static class Program
                 $"при DI{options.Capture.TriggerPort}↑ шлём импульс (или hardware Out←In если SDK откажется).");
         }
 
+        // После reject Sync уровней → иначе both глотает DI3↑ (portPressed рассинхрон).
+        session.AfterDiRevive = levels =>
+        {
+            foreach (var kv in levels)
+                portPressed[kv.Key] = kv.Value;
+
+            if (captureGate != null
+                && levels.TryGetValue(options.Capture.DirectionPort, out bool dirHigh))
+            {
+                captureGate.SeedDirection(dirHigh);
+            }
+
+            lock (consoleLock)
+            {
+                string summary = string.Join(", ",
+                    levels.OrderBy(k => k.Key).Select(k => $"DI{k.Key}={(k.Value ? 1 : 0)}"));
+                Console.WriteLine($"[{Timestamp()}] DI revive sync: {summary}");
+            }
+        };
+
         if (options.Reject.Enabled)
         {
             Console.WriteLine(
@@ -374,7 +397,8 @@ internal static class Program
             options.Capture.DirectionHttp,
             consoleLock,
             session,
-            options.Reject);
+            options.Reject,
+            doExecutor);
 
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
@@ -455,23 +479,34 @@ internal static class Program
 
                 _ = Task.Run(async () =>
                 {
-                    try
+                    using (doExecutor.Arbiter.CaptureWindow())
                     {
-                        if (delayMs > 0)
-                            await Task.Delay(delayMs).ConfigureAwait(false);
-                        for (int i = 0; i < repeats; i++)
+                        try
                         {
-                            FireCapturePulseLogged(session, sessionLock, consoleLock, capture);
-                            if (i + 1 < repeats && gapMs > 0)
-                                await Task.Delay(gapMs).ConfigureAwait(false);
+                            if (delayMs > 0)
+                                await Task.Delay(delayMs).ConfigureAwait(false);
+                            for (int i = 0; i < repeats; i++)
+                            {
+                                await FireCapturePulseLoggedAsync(session, doExecutor, consoleLock, capture)
+                                    .ConfigureAwait(false);
+                                if (i + 1 < repeats && gapMs > 0)
+                                    await Task.Delay(gapMs).ConfigureAwait(false);
+                            }
+
+                            // Мягко отпустить DO5 внутри Capture-окна — PLC ещё ждёт + cooldown.
+                            await doExecutor.RunAsync(IoDoExecutor.Priority.Capture, () =>
+                            {
+                                session.ReleaseLine0ForPlc();
+                                return true;
+                            }).ConfigureAwait(false);
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        lock (consoleLock)
+                        catch (Exception ex)
                         {
-                            Console.Error.WriteLine(
-                                $"[{Timestamp()}] DO{capture.OutputPort}: delayed FAIL — {ex.Message}");
+                            lock (consoleLock)
+                            {
+                                Console.Error.WriteLine(
+                                    $"[{Timestamp()}] DO{capture.OutputPort}: delayed FAIL — {ex.Message}");
+                            }
                         }
                     }
                 });
@@ -482,7 +517,9 @@ internal static class Program
                 bool pressed = portPressed.TryGetValue(port, out bool p) && p;
                 MvIoNative.IoEdgeType nextEdge = NextEdgeToArm(IoInputEdgeMode.Both, pressed);
                 int rearmPort = port;
-                Task.Run(() => ReArmEdge(session, sessionLock, rearmPort, nextEdge, debounceMs));
+                _ = doExecutor.RunAsync(
+                    IoDoExecutor.Priority.Input,
+                    () => ReArmEdge(session, rearmPort, nextEdge, debounceMs));
             }
         });
         Console.WriteLine("Ожидаю фронты...");
@@ -510,7 +547,7 @@ internal static class Program
         {
             case IoCaptureDecision.DirectionArmed:
                 Console.WriteLine(
-                    $"[{Timestamp()}] capture: DI{capture.DirectionPort} совпал с UI={mode} — armed ({expect})");
+                    $"[{Timestamp()}] capture: DI{capture.DirectionPort}=1 — направление зафиксировано ({expect})");
                 break;
             case IoCaptureDecision.SkipNoDirection:
                 Console.WriteLine(
@@ -549,9 +586,9 @@ internal static class Program
             _ => $"AUTO DO{capture.OutputPort} edge={capture.Line0Edge} active_high={capture.ActiveHigh}"
         };
 
-    private static void FireCapturePulseLogged(
+    private static async Task FireCapturePulseLoggedAsync(
         IoBoxSession session,
-        object sessionLock,
+        IoDoExecutor doExecutor,
         object consoleLock,
         IoCaptureOptions capture)
     {
@@ -560,14 +597,21 @@ internal static class Program
         {
             lock (consoleLock)
             {
-                Console.WriteLine($"[{Timestamp()}] DO{doPort}: вызов SDK…");
+                Console.WriteLine($"[{Timestamp()}] DO{doPort}: очередь Capture…");
             }
 
-            string how;
-            lock (sessionLock)
+            // Только короткий SDK-вызов в executor; settle Sleep — снаружи, чтобы DI re-arm проходил.
+            string how = await doExecutor.RunAsync(IoDoExecutor.Priority.Capture, () =>
+                session.FireCapturePulse(capture)).ConfigureAwait(false);
+
+            int settleMs = Math.Clamp(capture.PulseDurationMs, 1, 2000);
+            await Task.Delay(settleMs).ConfigureAwait(false);
+
+            await doExecutor.RunAsync(IoDoExecutor.Priority.Capture, () =>
             {
-                how = session.FireCapturePulse(capture);
-            }
+                session.StopDoOutput(doPort);
+                return true;
+            }).ConfigureAwait(false);
 
             lock (consoleLock)
             {
@@ -633,18 +677,14 @@ internal static class Program
 
     private static void ReArmEdge(
         IoBoxSession session,
-        object sessionLock,
         int port,
         MvIoNative.IoEdgeType edge,
         uint debounceMs)
     {
-        lock (sessionLock)
+        if (!session.TryConfigureInputEdge(port, (uint)edge, debounceMs))
         {
-            if (!session.TryConfigureInputEdge(port, (uint)edge, debounceMs))
-            {
-                Console.Error.WriteLine(
-                    $"[{Timestamp()}] DI{port}: не удалось перевооружить фронт {IoBoxSession.DescribeEdge((uint)edge)}");
-            }
+            Console.Error.WriteLine(
+                $"[{Timestamp()}] DI{port}: не удалось перевооружить фронт {IoBoxSession.DescribeEdge((uint)edge)}");
         }
     }
 
@@ -763,6 +803,7 @@ internal static class Program
         public int DebounceMs { get; set; } = 50;
         public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
         public IoCaptureOptions Capture { get; set; } = new();
+        public IoRejectOptions Reject { get; set; } = new();
         public bool ScanAll { get; set; }
         public int? PulsePort { get; set; }
         public int PulseDurationMs { get; set; }
@@ -867,6 +908,7 @@ internal static class Program
                 DebounceMs = loaded.Options.DebounceMs,
                 UdpPublish = loaded.Options.UdpPublish,
                 Capture = loaded.Options.Capture,
+                Reject = loaded.Options.Reject,
                 ConfigPath = loaded.ConfigPath
             };
         }

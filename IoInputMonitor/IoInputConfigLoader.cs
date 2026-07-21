@@ -180,13 +180,14 @@ public static class IoInputConfigLoader
             TimerIndex = raw.TimerIndex is >= 1 and <= 8 ? raw.TimerIndex.Value : 1,
             PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 20,
             PulseDelayMs = raw.PulseDelayMs is >= 0 and <= 5000 ? raw.PulseDelayMs.Value : 80,
-            PulseRepeat = raw.PulseRepeat is >= 1 and <= 20 ? raw.PulseRepeat.Value : 3,
+            PulseRepeat = raw.PulseRepeat is >= 1 and <= 20 ? raw.PulseRepeat.Value : 1,
             PulseRepeatGapMs = raw.PulseRepeatGapMs is >= 0 and <= 2000 ? raw.PulseRepeatGapMs.Value : 80,
             ActiveHigh = ResolveActiveHigh(raw),
             Line0Edge = ResolveLine0Edge(raw),
             DirectionInvert = raw.DirectionInvert ?? false,
             RequireDirection = raw.RequireDirection ?? true,
-            InitialDirection = string.IsNullOrWhiteSpace(raw.InitialDirection) ? "reverse" : raw.InitialDirection.Trim(),
+            DirectionLatch = raw.DirectionLatch ?? true,
+            InitialDirection = string.IsNullOrWhiteSpace(raw.InitialDirection) ? "forward" : raw.InitialDirection.Trim(),
             DirectionHttp = ParseDirectionHttp(raw.DirectionHttp)
         };
     }
@@ -412,6 +413,8 @@ public static class IoInputConfigLoader
         public bool? DirectionInvert { get; set; }
 
         public bool? RequireDirection { get; set; }
+
+        public bool? DirectionLatch { get; set; }
 
         public string? InitialDirection { get; set; }
 
