@@ -17,8 +17,8 @@ internal enum IoLineDirection
 }
 
 /// <summary>
-/// Съёмка: DI2 должен совпасть с UI-ходом, затем DI3↑ → DO.
-/// Прямой: DI2=1 → DI3↑; обратный: DI2=0 → DI3↑ (наоборот).
+/// Съёмка по DI3↑. DI2 только сообщает ход (forward/reverse), без фильтра UI.
+/// При require_direction=true (legacy): DI2 должен совпасть с выбранным UI-ходом.
 /// </summary>
 internal sealed class IoCaptureGate
 {
@@ -143,6 +143,8 @@ internal sealed class IoCaptureGate
     {
         lock (_lock)
         {
+            if (!_requireDirection)
+                return $"DI{_triggerPort}↑ (ход с DI{_directionPort})";
             return _selectedDirection == IoLineDirection.Forward
                 ? $"DI{_directionPort}=1 затем DI{_triggerPort}↑"
                 : $"DI{_directionPort}=0 затем DI{_triggerPort}↑";

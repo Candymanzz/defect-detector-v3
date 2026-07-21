@@ -113,12 +113,11 @@ export async function saveLineDirection(
 }
 
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
-  const [lightBrightness, lightMode, geometryRuntime, analysisProductTypes, lineDirection, frameArchiveSettings] = await Promise.all([
+  const [lightBrightness, lightMode, geometryRuntime, analysisProductTypes, frameArchiveSettings] = await Promise.all([
     orchestratorApi.getLightBrightness(),
     orchestratorApi.getLightMode().catch(() => ({ constant: false, mode: "interval" as const })),
     orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
-    orchestratorApi.getLineDirection().catch(() => ({ direction: "reverse" as const, source: "manual" as const })),
     orchestratorApi.getFrameArchiveSettings().catch(() => null),
   ]);
   const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
@@ -140,7 +139,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       brightnessPercent: readBrightnessPercent(lightBrightness, selectedCameraId),
       constantFlashMode: lightMode.constant,
       maxShiftMm: readMaxShiftMm(geometryRuntime),
-      lineDirection: lineDirection.direction,
+      lineDirection: "reverse",
       savedFramesCount,
       analysisSettings,
     },

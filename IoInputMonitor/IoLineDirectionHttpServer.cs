@@ -9,7 +9,7 @@ namespace IoInputMonitor;
 /// GET/PUT /line-direction — ход линии;
 /// POST /reject — импульс DO → ПЛК X6/X7 (брак линии).
 /// </summary>
-public sealed class IoLineDirectionHttpServer : IDisposable
+internal sealed class IoLineDirectionHttpServer : IDisposable
 {
     private readonly IoCaptureGate? _gate;
     private readonly IoBoxSession? _session;

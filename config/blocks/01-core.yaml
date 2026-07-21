@@ -111,11 +111,11 @@ integration:
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: true
+      require_direction: false
       require_work: false
       external_hardware_capture: true
       direction_poll_ms: 1
-  # Куда оркестратор прокидывает UI «Прямой/Обратный ход» (IoInputMonitor direction_http).
+  # Куда оркестратор раньше слал UI «Прямой/Обратный ход» (больше не используется — ход только DI2).
   io_input_monitor_direction_url: "http://127.0.0.1:9101"
   # Брак/ready/fault → IoInputMonitor DO → PLC X4–X7. FINS только D4400–D4404.
   io_input_monitor_reject:

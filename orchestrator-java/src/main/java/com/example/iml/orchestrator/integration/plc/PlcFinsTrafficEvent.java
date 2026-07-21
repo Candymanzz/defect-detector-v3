@@ -23,4 +23,6 @@ public record PlcFinsTrafficEvent(
   public static final String OP_WRITE_BIT = "write_bit";
   public static final String OP_WRITE_WORDS = "write_words";
   public static final String OP_READ_WORDS = "read_words";
+  /** IoInputMonitor DO → физический DI ПЛК (X4–X7). */
+  public static final String OP_DISCRETE_DI = "discrete_di";
 }

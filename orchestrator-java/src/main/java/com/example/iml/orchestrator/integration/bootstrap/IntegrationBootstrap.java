@@ -52,7 +52,6 @@ import com.example.iml.orchestrator.integration.trigger.config.InspectionTrigger
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
-import com.example.iml.orchestrator.integration.trigger.IoInputMonitorDirectionClient;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
@@ -132,10 +131,7 @@ public final class IntegrationBootstrap {
         GeometryRuntimeConfig geometryRuntimeConfig = new GeometryRuntimeConfig();
         PerCameraInspectionGate inspectionGate = PerCameraInspectionGate.fromCameras(cameras);
         ManualLineDirectionService manualLineDirection = new ManualLineDirectionService();
-        IoInputMonitorDirectionClient ioInputDirectionClient =
-                IoInputMonitorDirectionClient.fromIntegration(log, integration);
-        manualLineDirection.setOnChanged(ioInputDirectionClient::publishDirection);
-        ioInputDirectionClient.publishDirection(manualLineDirection.wireValue());
+        // Ход определяется только DI2; UI «Прямой/Обратный» отключён — не синкаем в IoInputMonitor.
         com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder plcFinsHolder =
                 new com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder();
         ClientApiMount clientApiMount = ClientApiMount.fromRootYaml(

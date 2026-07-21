@@ -1,6 +1,8 @@
 package com.example.iml.orchestrator.integration.trigger;
 
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
+import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficEvent;
+import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficListener;
 import org.apache.logging.log4j.Logger;
 
 import java.net.URI;
@@ -10,14 +12,18 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Техзрение → IoInputMonitor DO → физические входы ПЛК (X4 ready, X5 fault, X6/X7 брак).
- * FINS остаётся только для таймаутов D4400–D4404. CIO 240.15 не используется.
+ * События уходят в UI как {@link PlcFinsTrafficEvent} (operation=discrete_di).
  */
 public final class IoInputMonitorRejectClient implements AutoCloseable {
+
+    public static final String OP_DISCRETE_DI = "discrete_di";
 
     private final Logger log;
     private final boolean enabled;
@@ -30,6 +36,8 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         t.setDaemon(true);
         return t;
     });
+    private final AtomicReference<PlcFinsTrafficListener> trafficListener = new AtomicReference<>();
+    private final ConcurrentHashMap<String, Boolean> lastSignalValues = new ConcurrentHashMap<>();
 
     public IoInputMonitorRejectClient(Logger log, boolean enabled, String baseUrl) {
         this.log = log;
@@ -67,13 +75,18 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         return new IoInputMonitorRejectClient(log, enabled, url);
     }
 
+    public void setTrafficListener(PlcFinsTrafficListener listener) {
+        trafficListener.set(listener);
+    }
+
     public boolean isEnabled() {
         return enabled && !baseUrl.isEmpty();
     }
 
-    /**
-     * На fail — импульс DO линии; на pass — no-op (дискретный вход сам отпускается после импульса).
-     */
+    public Boolean lastSignalValue(String name) {
+        return name == null ? null : lastSignalValues.get(name.trim().toLowerCase());
+    }
+
     public void publishBucket(BucketFanOutResult result) {
         if (!isEnabled() || result == null || result.overallPass()) {
             return;
@@ -84,7 +97,14 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
             return;
         }
         int line = groupId + 1;
-        executor.execute(() -> postJson("/reject", "{\"line\":" + line + "}", "reject line=" + line + " seq=" + result.triggerSequence()));
+        String signal = line == 1 ? "reject_line_1" : "reject_line_2";
+        executor.execute(() -> postJson(
+                "/reject",
+                "{\"line\":" + line + "}",
+                signal,
+                true,
+                "reject line=" + line + " seq=" + result.triggerSequence()
+        ));
     }
 
     public void setVisionReady(boolean ready) {
@@ -94,6 +114,8 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         executor.execute(() -> postJson(
                 "/vision-ready",
                 "{\"value\":" + ready + "}",
+                "vision_ready",
+                ready,
                 "vision_ready=" + ready
         ));
     }
@@ -105,6 +127,8 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         executor.execute(() -> postJson(
                 "/vision-fault",
                 "{\"value\":" + fault + "}",
+                "vision_fault",
+                fault,
                 "vision_fault=" + fault
         ));
     }
@@ -115,10 +139,10 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         }
         String name = signalName.trim().toLowerCase();
         switch (name) {
-            case "reject_line_1" -> postJson("/reject", "{\"line\":1}", "reject_line_1");
-            case "reject_line_2" -> postJson("/reject", "{\"line\":2}", "reject_line_2");
-            case "vision_ready" -> postJson("/vision-ready", "{\"value\":true}", "vision_ready pulse→level true");
-            case "vision_fault" -> postJson("/vision-fault", "{\"value\":true}", "vision_fault pulse→level true");
+            case "reject_line_1" -> postJson("/reject", "{\"line\":1}", name, true, name);
+            case "reject_line_2" -> postJson("/reject", "{\"line\":2}", name, true, name);
+            case "vision_ready" -> postJson("/vision-ready", "{\"value\":true}", name, true, name);
+            case "vision_fault" -> postJson("/vision-fault", "{\"value\":true}", name, true, name);
             default -> throw new IllegalArgumentException("not a discrete plc signal: " + signalName);
         }
     }
@@ -129,16 +153,16 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         }
         String name = signalName.trim().toLowerCase();
         switch (name) {
-            case "vision_ready" -> postJson("/vision-ready", "{\"value\":" + value + "}", "vision_ready=" + value);
-            case "vision_fault" -> postJson("/vision-fault", "{\"value\":" + value + "}", "vision_fault=" + value);
+            case "vision_ready" -> postJson("/vision-ready", "{\"value\":" + value + "}", name, value, name + "=" + value);
+            case "vision_fault" -> postJson("/vision-fault", "{\"value\":" + value + "}", name, value, name + "=" + value);
             case "reject_line_1" -> {
                 if (value) {
-                    postJson("/reject", "{\"line\":1}", "reject_line_1");
+                    postJson("/reject", "{\"line\":1}", name, true, name);
                 }
             }
             case "reject_line_2" -> {
                 if (value) {
-                    postJson("/reject", "{\"line\":2}", "reject_line_2");
+                    postJson("/reject", "{\"line\":2}", name, true, name);
                 }
             }
             default -> throw new IllegalArgumentException("not a discrete plc signal: " + signalName);
@@ -164,8 +188,20 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         return "reject_line_1".equals(n) || "reject_line_2".equals(n);
     }
 
-    private void postJson(String path, String body, String label) {
+    private void postJson(String path, String body, String signal, boolean logicalValue, String label) {
         String url = baseUrl + path;
+        String fallbackAddress = fallbackAddress(signal);
+        long ts = System.currentTimeMillis();
+        emitTraffic(
+                PlcFinsTrafficEvent.DIRECTION_REQUEST,
+                signal,
+                fallbackAddress,
+                logicalValue,
+                "",
+                true,
+                null,
+                ts
+        );
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofMillis(3000))
@@ -173,20 +209,180 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
                     .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                     .build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                log.info("io_input_monitor discrete ok {} url={} body={}", label, url, response.body());
+            boolean ok = response.statusCode() >= 200 && response.statusCode() < 300;
+            String address = parseAddress(response.body(), fallbackAddress);
+            if (ok) {
+                lastSignalValues.put(signal, logicalValue);
+                log.info(
+                        "plc discrete DI ok signal={} address={} value={} label={} body={}",
+                        signal,
+                        address,
+                        logicalValue,
+                        label,
+                        response.body()
+                );
+                emitTraffic(
+                        PlcFinsTrafficEvent.DIRECTION_RESPONSE,
+                        signal,
+                        address,
+                        logicalValue,
+                        response.body(),
+                        true,
+                        null,
+                        System.currentTimeMillis()
+                );
             } else {
                 log.warn(
-                        "io_input_monitor discrete failed status={} {} url={} body={}",
+                        "plc discrete DI failed status={} signal={} address={} label={} body={}",
                         response.statusCode(),
+                        signal,
+                        address,
                         label,
-                        url,
                         response.body()
+                );
+                emitTraffic(
+                        PlcFinsTrafficEvent.DIRECTION_RESPONSE,
+                        signal,
+                        address,
+                        logicalValue,
+                        response.body(),
+                        false,
+                        "HTTP " + response.statusCode(),
+                        System.currentTimeMillis()
                 );
             }
         } catch (Exception e) {
-            log.warn("io_input_monitor discrete error {} url={}: {}", label, url, e.getMessage());
+            log.warn(
+                    "plc discrete DI error signal={} address={} label={} url={}: {}",
+                    signal,
+                    fallbackAddress,
+                    label,
+                    url,
+                    e.getMessage()
+            );
+            emitTraffic(
+                    PlcFinsTrafficEvent.DIRECTION_RESPONSE,
+                    signal,
+                    fallbackAddress,
+                    logicalValue,
+                    "",
+                    false,
+                    e.getMessage(),
+                    System.currentTimeMillis()
+            );
         }
+    }
+
+    private void emitTraffic(
+            String direction,
+            String signal,
+            String address,
+            Object value,
+            String detail,
+            boolean ok,
+            String error,
+            long tsMs
+    ) {
+        PlcFinsTrafficListener listener = trafficListener.get();
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.onTraffic(new PlcFinsTrafficEvent(
+                    direction,
+                    OP_DISCRETE_DI,
+                    signal,
+                    "DO→DI",
+                    address,
+                    value,
+                    detail == null ? "" : detail,
+                    null,
+                    ok ? "0000" : "FAIL",
+                    ok,
+                    error,
+                    tsMs
+            ));
+        } catch (RuntimeException e) {
+            log.debug("plc discrete traffic listener failed: {}", e.getMessage());
+        }
+    }
+
+    private static String fallbackAddress(String signal) {
+        return switch (signal == null ? "" : signal) {
+            case "vision_ready" -> "DO1→X4";
+            case "vision_fault" -> "DO2→X5";
+            case "reject_line_1" -> "DO3→X6";
+            case "reject_line_2" -> "DO4→X7";
+            default -> signal == null ? "?" : signal;
+        };
+    }
+
+    private static String parseAddress(String responseBody, String fallback) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return fallback;
+        }
+        try {
+            // лёгкий разбор без полной JSON-библиотеки: "do_port":3 ... "plc_input":"X6"
+            Integer doPort = extractInt(responseBody, "do_port");
+            String plcInput = extractString(responseBody, "plc_input");
+            if (doPort != null && plcInput != null && !plcInput.isBlank()) {
+                return "DO" + doPort + "→" + plcInput;
+            }
+            if (doPort != null) {
+                return "DO" + doPort;
+            }
+            if (plcInput != null && !plcInput.isBlank()) {
+                return plcInput;
+            }
+        } catch (RuntimeException ignored) {
+            // fallback
+        }
+        return fallback;
+    }
+
+    private static Integer extractInt(String json, String key) {
+        String marker = "\"" + key + "\"";
+        int idx = json.indexOf(marker);
+        if (idx < 0) {
+            return null;
+        }
+        int colon = json.indexOf(':', idx + marker.length());
+        if (colon < 0) {
+            return null;
+        }
+        int i = colon + 1;
+        while (i < json.length() && Character.isWhitespace(json.charAt(i))) {
+            i++;
+        }
+        int start = i;
+        while (i < json.length() && (Character.isDigit(json.charAt(i)) || json.charAt(i) == '-')) {
+            i++;
+        }
+        if (start == i) {
+            return null;
+        }
+        return Integer.parseInt(json.substring(start, i));
+    }
+
+    private static String extractString(String json, String key) {
+        String marker = "\"" + key + "\"";
+        int idx = json.indexOf(marker);
+        if (idx < 0) {
+            return null;
+        }
+        int colon = json.indexOf(':', idx + marker.length());
+        if (colon < 0) {
+            return null;
+        }
+        int q1 = json.indexOf('"', colon + 1);
+        if (q1 < 0) {
+            return null;
+        }
+        int q2 = json.indexOf('"', q1 + 1);
+        if (q2 < 0) {
+            return null;
+        }
+        return json.substring(q1 + 1, q2);
     }
 
     @Override

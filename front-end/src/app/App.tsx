@@ -4,7 +4,6 @@ import { PlcPanel } from "../components/PlcPanel";
 import { SettingList } from "../components/SettingList";
 import logo from "../shared/assets/images/savt_logo_white.png";
 import { Button } from "../shared/ui/Button";
-import { lineDirectionLabel, useLineDirection } from "../shared/hooks/useLineDirection";
 import { useBackendStatus } from "./useBackendStatus";
 import "./App.css";
 
@@ -12,7 +11,6 @@ export function App() {
   const [selectedSettingsCameraId, setSelectedSettingsCameraId] = useState<number | null>(null);
   const [isPlcPanelOpen, setIsPlcPanelOpen] = useState(false);
   const backendStatus = useBackendStatus();
-  const lineDirection = useLineDirection();
 
   const handleSettingsCameraToggle = (cameraId: number) => {
     setSelectedSettingsCameraId((currentCameraId) => (currentCameraId === cameraId ? null : cameraId));
@@ -38,10 +36,6 @@ export function App() {
           >
             ПЛК
           </Button>
-          <div className="app-header-status">
-            <span>Направление</span>
-            <strong data-direction={lineDirection}>{lineDirectionLabel(lineDirection)}</strong>
-          </div>
           <div className="app-header-status">
             <span>Статус</span>
             <strong data-status={backendStatus.state}>{backendStatus.text}</strong>

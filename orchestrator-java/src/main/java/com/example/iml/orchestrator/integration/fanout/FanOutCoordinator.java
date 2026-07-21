@@ -55,6 +55,9 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         if (plcPublisher != null && clientWsServer != null) {
             plcPublisher.setTrafficListener(clientWsServer::notifyPlcFinsTraffic);
         }
+        if (rejectClient != null && clientWsServer != null) {
+            rejectClient.setTrafficListener(clientWsServer::notifyPlcFinsTraffic);
+        }
     }
 
     public static FanOutCoordinator fromConfig(
@@ -188,7 +191,14 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     public List<PlcSignalState> listSignals() {
         List<PlcSignalState> signals = new ArrayList<>();
         for (PlcSignalDefinition signal : registerMap.signals()) {
-            Boolean last = plcPublisher == null ? null : plcPublisher.lastSignalValue(signal.name());
+            Boolean last = null;
+            if (rejectClient != null && rejectClient.isEnabled()
+                    && IoInputMonitorRejectClient.isDiscreteSignal(signal.name())) {
+                last = rejectClient.lastSignalValue(signal.name());
+            }
+            if (last == null && plcPublisher != null) {
+                last = plcPublisher.lastSignalValue(signal.name());
+            }
             signals.add(new PlcSignalState(
                     signal.name(),
                     signal.description(),

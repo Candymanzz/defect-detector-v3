@@ -339,7 +339,7 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
 
           <section className="plc-panel__traffic">
             <header className="plc-panel__section-header">
-              <h3>Трафик FINS</h3>
+              <h3>Трафик ПЛК (FINS + DI)</h3>
               <Button type="button" onClick={() => setTraffic([])}>
                 Очистить
               </Button>
@@ -354,8 +354,8 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
             >
               {traffic.length === 0 && (
                 <p className="plc-panel__empty">
-                  Пока нет сообщений. Лог только пока окно открыто — запись vision_ready при старте
-                  оркестратора сюда не попадёт, смотрите чип сверху / last= у сигнала.
+                  Пока нет сообщений. Здесь FINS (D4400…) и дискретные DO→DI (ready/fault/reject).
+                  Лог только пока окно открыто.
                 </p>
               )}
               {traffic.map((entry) => (
@@ -364,13 +364,17 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
                   className="plc-panel__traffic-row"
                   data-direction={entry.direction}
                   data-ok={entry.ok ? "true" : "false"}
+                  data-op={entry.operation}
                 >
                   <span className="plc-panel__traffic-time">{formatTs(entry.server_ts_ms)}</span>
                   <span className="plc-panel__traffic-dir">{entry.direction}</span>
-                  <span className="plc-panel__traffic-op">{entry.operation}</span>
+                  <span className="plc-panel__traffic-op">
+                    {entry.operation === "discrete_di" ? "DI" : entry.operation}
+                  </span>
                   <span className="plc-panel__traffic-addr">
                     {entry.signal ? `${entry.signal} · ` : ""}
                     {entry.area}
+                    {entry.area === "DO→DI" ? " " : ""}
                     {entry.address}
                   </span>
                   <span className="plc-panel__traffic-value">{formatValue(entry.value)}</span>
@@ -380,7 +384,12 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
                     {entry.error ? ` err=${entry.error}` : ""}
                     {entry.ok ? "" : " FAIL"}
                   </span>
-                  {entry.hex_frame ? <code className="plc-panel__traffic-hex">{entry.hex_frame}</code> : null}
+                  {entry.hex_frame && entry.operation !== "discrete_di" ? (
+                    <code className="plc-panel__traffic-hex">{entry.hex_frame}</code>
+                  ) : null}
+                  {entry.hex_frame && entry.operation === "discrete_di" && entry.direction === "response" ? (
+                    <code className="plc-panel__traffic-hex">{entry.hex_frame}</code>
+                  ) : null}
                 </div>
               ))}
               <div ref={logEndRef} />
