@@ -22,7 +22,7 @@ io_input:
     fault_output_port: 2
     line1_output_port: 3
     line2_output_port: 4
-    pulse_duration_ms: 200
+    pulse_duration_ms: 50
     active_high: true
 
   # DI3↑ → UDP (arm wait_frame) → delay → DO5 → Line0.

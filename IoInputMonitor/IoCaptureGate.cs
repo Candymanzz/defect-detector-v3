@@ -270,7 +270,7 @@ public sealed class IoRejectOptions
     /// <summary>MV IO DO → PLC X7 (брак линия 2), импульс. Default DO4.</summary>
     public int Line2OutputPort { get; set; } = 4;
 
-    public int PulseDurationMs { get; set; } = 200;
+    public int PulseDurationMs { get; set; } = 50;
 
     public bool ActiveHigh { get; set; } = true;
 }
