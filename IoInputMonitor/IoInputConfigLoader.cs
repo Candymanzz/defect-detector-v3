@@ -26,7 +26,6 @@ public sealed class IoInputOptions
 
     public IoCaptureOptions Capture { get; set; } = new();
 
-    public IoRejectOptions Reject { get; set; } = new();
 }
 
 public sealed class IoInputConfigLoadResult
@@ -144,49 +143,19 @@ public static class IoInputConfigLoader
             DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50,
             UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs),
             Capture = ParseCapture(section.Capture),
-            Reject = ParseReject(section.Reject)
         };
     }
 
-    private static IoRejectOptions ParseReject(IoInputRejectYaml? raw)
-    {
-        if (raw == null)
-            return new IoRejectOptions();
-
-        return new IoRejectOptions
-        {
-            Enabled = raw.Enabled ?? false,
-            ReadyOutputPort = raw.ReadyOutputPort is >= 1 and <= 8 ? raw.ReadyOutputPort.Value : 1,
-            FaultOutputPort = raw.FaultOutputPort is >= 1 and <= 8 ? raw.FaultOutputPort.Value : 2,
-            Line1OutputPort = raw.Line1OutputPort is >= 1 and <= 8 ? raw.Line1OutputPort.Value : 3,
-            Line2OutputPort = raw.Line2OutputPort is >= 1 and <= 8 ? raw.Line2OutputPort.Value : 4,
-            ReadyPlcInput = NonEmpty(raw.ReadyPlcInput, "X4"),
-            FaultPlcInput = NonEmpty(raw.FaultPlcInput, "X5"),
-            Line1PlcInput = NonEmpty(raw.Line1PlcInput, "X6"),
-            Line2PlcInput = NonEmpty(raw.Line2PlcInput, "X7"),
-            ReadyEnabled = raw.ReadyEnabled ?? false,
-            FaultEnabled = raw.FaultEnabled ?? false,
-            Line1Enabled = raw.Line1Enabled ?? true,
-            Line2Enabled = raw.Line2Enabled ?? true,
-            PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 50,
-            PulseRetries = raw.PulseRetries is >= 1 and <= 20 ? raw.PulseRetries.Value : 3,
-            ActiveHigh = raw.ActiveHigh ?? true,
-            PlcCooldownMs = raw.PlcCooldownMs is >= 0 and <= 2000 ? raw.PlcCooldownMs.Value : 80
-        };
-    }
-
-    private static string NonEmpty(string? value, string fallback) =>
-        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
     private static IoCaptureOptions ParseCapture(IoInputCaptureYaml? raw)
     {
         if (raw == null)
             return new IoCaptureOptions();
 
-        int primary = raw.OutputPort is >= 1 and <= 8 ? raw.OutputPort.Value : 5;
-        int[] outputPorts = ParseInputPorts(raw.OutputPorts);
-        if (outputPorts.Length == 0)
-            outputPorts = [primary];
+        // Только DO5 → Line0. Любые другие output_ports в YAML игнорируются.
+        const int captureDo = 5;
+        int[] outputPorts = [captureDo];
+        int primary = captureDo;
 
         return new IoCaptureOptions
         {
@@ -197,7 +166,7 @@ public static class IoInputConfigLoader
             OutputPorts = outputPorts,
             OutputMode = ParseOutputMode(raw.OutputMode),
             TimerIndex = raw.TimerIndex is >= 1 and <= 8 ? raw.TimerIndex.Value : 1,
-            PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 300,
+            PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 50,
             PulseDelayMs = raw.PulseDelayMs is >= 0 and <= 5000 ? raw.PulseDelayMs.Value : 250,
             PulseRepeat = raw.PulseRepeat is >= 1 and <= 20 ? raw.PulseRepeat.Value : 1,
             PulseRepeatGapMs = raw.PulseRepeatGapMs is >= 0 and <= 2000 ? raw.PulseRepeatGapMs.Value : 80,
@@ -356,45 +325,8 @@ public static class IoInputConfigLoader
 
         public IoInputCaptureYaml? Capture { get; set; }
 
-        public IoInputRejectYaml? Reject { get; set; }
     }
 
-    private sealed class IoInputRejectYaml
-    {
-        public bool? Enabled { get; set; }
-
-        public int? ReadyOutputPort { get; set; }
-
-        public int? FaultOutputPort { get; set; }
-
-        public int? Line1OutputPort { get; set; }
-
-        public int? Line2OutputPort { get; set; }
-
-        public string? ReadyPlcInput { get; set; }
-
-        public string? FaultPlcInput { get; set; }
-
-        public string? Line1PlcInput { get; set; }
-
-        public string? Line2PlcInput { get; set; }
-
-        public bool? ReadyEnabled { get; set; }
-
-        public bool? FaultEnabled { get; set; }
-
-        public bool? Line1Enabled { get; set; }
-
-        public bool? Line2Enabled { get; set; }
-
-        public int? PulseDurationMs { get; set; }
-
-        public int? PulseRetries { get; set; }
-
-        public bool? ActiveHigh { get; set; }
-
-        public int? PlcCooldownMs { get; set; }
-    }
 
     private sealed class IoInputPublishYaml
     {

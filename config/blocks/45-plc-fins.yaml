@@ -1,6 +1,5 @@
-# Omron FINS/UDP — при эталоне: vision_ready sticky HIGH, reject line1/line2 по ведру,
-# vision_fault при аварии сервисов. Карта: plk/register-map.yaml.
-# Discrete DO (io_input_monitor_reject) — только fallback, если FINS publisher не поднялся.
+# Omron FINS/UDP — vision_ready / reject / vision_fault по CIO (не IO-box DO).
+# Карта: plk/register-map.yaml.
 
 plc_fins:
   enabled: true

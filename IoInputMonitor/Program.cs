@@ -32,10 +32,6 @@ internal static class Program
                 return RunSimulateDi3(options);
             if (options.HwDi3Do5)
                 return RunHwDi3Do5(options);
-            if (options.PlcDoOff)
-                return RunPlcDoOff(options);
-            if (options.PlcDoSmoke)
-                return RunPlcDoSmoke(options);
             if (options.PulsePort is > 0)
                 return RunPulse(options);
             return RunMonitor(options);
@@ -167,145 +163,19 @@ internal static class Program
         return 0;
     }
 
-    /// <summary>
-    /// Прямой COM-smoke без HTTP/съёмки: DO1=ready ON, импульс DO3→X6, DO4→X7.
-    /// </summary>
-    private static int RunPlcDoOff(MonitorOptions options)
-    {
-        var session = new IoBoxSession(options.ComPort);
-        Console.WriteLine($"PLC DO off: open {options.ComPort}…");
-        session.Open();
-        Console.WriteLine($"OK {session.OpenedComName}");
-
-        foreach (int p in new[] { 1, 2, 3, 4, 5 })
-        {
-            try { session.StopDoOutput(p); } catch { /* ignore */ }
-        }
-
-        Thread.Sleep(500);
-
-        // X7 ← DO4 — единственный, что ещё горит
-        const int stuck = 4;
-        Console.WriteLine($"[{Timestamp()}] Target DO{stuck} → X7");
-
-        Console.WriteLine($"[{Timestamp()}] probe {session.ProbeDoSetOutput(stuck)}");
-
-        // 1) Level=0 hold
-        bool a = session.TryDriveDoLevel(stuck, electricalHigh: false, holdEnable: true);
-        Console.WriteLine($"[{Timestamp()}] DO{stuck} level=0 hold={(a ? "ok" : "FAIL")} — смотри X7 5s");
-        Thread.Sleep(5_000);
-
-        // 2) Level=1 hold (если 0 не то)
-        bool b = session.TryDriveDoLevel(stuck, electricalHigh: true, holdEnable: true);
-        Console.WriteLine($"[{Timestamp()}] DO{stuck} level=1 hold={(b ? "ok" : "FAIL")} — смотри X7 5s");
-        Thread.Sleep(5_000);
-
-        // 3) Короткий импульс Level=0 (как рабочий reject), потом hold 0
-        try
-        {
-            string p0 = session.FireRejectPulse(stuck, durationMs: 100, activeHigh: false);
-            Console.WriteLine($"[{Timestamp()}] DO{stuck} pulse L0 via {p0}");
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[{Timestamp()}] pulse L0 FAIL: {ex.Message}");
-        }
-
-        session.SoftCleanupAfterReject(stuck, activeHigh: true);
-        _ = session.TryDriveDoLevel(stuck, electricalHigh: false, holdEnable: true);
-        Console.WriteLine($"[{Timestamp()}] DO{stuck} final hold level=0 — смотри X7 10s");
-        Thread.Sleep(10_000);
-
-        // Остальные DO1–3 тоже в inactive, чтобы не мешали
-        foreach (string line in session.ForceAllDoOff(maxPort: 4, activeHigh: true))
-            Console.WriteLine($"[{Timestamp()}] {line}");
-        Thread.Sleep(3_000);
-
-        session.Dispose();
-        Console.WriteLine($"[{Timestamp()}] COM closed — X7 погас?");
-        return 0;
-    }
-
-    private static int RunPlcDoSmoke(MonitorOptions options)
-    {
-        int readyPort = options.Reject.ReadyOutputPort is >= 1 and <= 8 ? options.Reject.ReadyOutputPort : 1;
-        int line1 = options.Reject.Line1OutputPort is >= 1 and <= 8 ? options.Reject.Line1OutputPort : 3;
-        int line2 = options.Reject.Line2OutputPort is >= 1 and <= 8 ? options.Reject.Line2OutputPort : 4;
-        int pulseMs = options.PulseDurationMs > 0
-            ? options.PulseDurationMs
-            : Math.Clamp(options.Reject.PulseDurationMs, 1, 5000);
-        bool activeHigh = options.Reject.ActiveHigh;
-
-        using var session = new IoBoxSession(options.ComPort);
-        Console.WriteLine($"PLC DO smoke: open {options.ComPort} (no capture/HTTP)…");
-        session.Open();
-        Console.WriteLine($"OK {session.OpenedComName}");
-
-        // Сброс leftover Enable на всех DO — иначе 0x80000004.
-        foreach (int p in new[] { 1, 2, 3, 4, 5 })
-        {
-            try { session.StopDoOutput(p); } catch { /* ignore */ }
-        }
-
-        Thread.Sleep(500);
-
-        try
-        {
-            // Ready: SetOutput-hold; если не держит — короткий импульс тем же путём, что брак.
-            try
-            {
-                string readyHow = session.ForceDoHoldViaSetOutput(readyPort, electricalHigh: activeHigh);
-                Console.WriteLine($"[{Timestamp()}] DO{readyPort} vision_ready ON → X4 via {readyHow}");
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"[{Timestamp()}] DO{readyPort} ready hold FAIL: {ex.Message}");
-                try
-                {
-                    string readyPulse = session.FireRejectPulse(readyPort, Math.Max(pulseMs, 200), activeHigh);
-                    Console.WriteLine($"[{Timestamp()}] DO{readyPort} vision_ready PULSE → X4 via {readyPulse}");
-                }
-                catch (Exception ex2)
-                {
-                    Console.Error.WriteLine($"[{Timestamp()}] DO{readyPort} ready pulse also FAIL: {ex2.Message}");
-                }
-            }
-
-            Thread.Sleep(200);
-
-            // Reject — board-exact SetOutput (как в рабочих логах), без MainOutputLevel.
-            string r1 = session.FireRejectPulse(line1, pulseMs, activeHigh);
-            Console.WriteLine($"[{Timestamp()}] DO{line1} reject line1 → X6 pulse {pulseMs} ms via {r1}");
-            Thread.Sleep(500);
-
-            string r2 = session.FireRejectPulse(line2, pulseMs, activeHigh);
-            Console.WriteLine($"[{Timestamp()}] DO{line2} reject line2 → X7 pulse {pulseMs} ms via {r2}");
-            Thread.Sleep(500);
-
-            string r1b = session.FireRejectPulse(line1, pulseMs, activeHigh);
-            Console.WriteLine($"[{Timestamp()}] DO{line1} reject line1 again → X6 via {r1b}");
-
-            Console.WriteLine("PLC DO smoke done.");
-            return 0;
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[{Timestamp()}] PLC DO smoke FAIL: {ex.Message}");
-            return 1;
-        }
-    }
-
-    /// <summary>Однократный/повторный импульс на DO (пока SetOutput или Timer не пройдёт).</summary>
     private static int RunPulse(MonitorOptions options)
     {
         int port = options.PulsePort!.Value;
+        if (port != 5)
+            throw new ArgumentOutOfRangeException(nameof(options.PulsePort), "Только DO5 (Line0).");
         int durationMs = options.PulseDurationMs > 0
             ? options.PulseDurationMs
             : Math.Max(1, options.Capture.PulseDurationMs);
         var capture = new IoCaptureOptions
         {
             Enabled = true,
-            OutputPort = port,
+            OutputPort = 5,
+            OutputPorts = [5],
             OutputMode = options.PulseMode,
             TimerIndex = options.Capture.TimerIndex,
             PulseDurationMs = durationMs,
@@ -440,9 +310,7 @@ internal static class Program
         object consoleLock = new();
         using var doExecutor = new IoDoExecutor();
         Console.WriteLine(
-            $"IO arbiter: Capture(DI{options.Capture.DirectionPort}/{options.Capture.TriggerPort}+{options.Capture.FormatOutputPorts()}) | " +
-            $"Plc(DO{options.Reject.ReadyOutputPort}-{options.Reject.Line2OutputPort}) + {options.Reject.PlcCooldownMs}ms cooldown после {options.Capture.FormatOutputPorts()}; Sleep вне COM");
-        doExecutor.Arbiter.PlcCooldownMs = options.Reject.PlcCooldownMs;
+            $"IO arbiter: Input+Capture(DI{options.Capture.DirectionPort}/{options.Capture.TriggerPort}+{options.Capture.FormatOutputPorts()}); Sleep вне COM");
         session.Line0OutputPort = options.Capture.OutputPort;
         session.Line0OutputPorts = options.Capture.ResolveOutputPorts();
 
@@ -457,20 +325,33 @@ internal static class Program
         }
 
         uint debounceMs = (uint)options.DebounceMs;
+        int triggerPort = options.Capture.Enabled
+            ? options.Capture.TriggerPort
+            : (options.UdpPublish.TriggerPort is >= 1 and <= 8 ? options.UdpPublish.TriggerPort : 3);
         if (ShouldConfigureSdk(options))
         {
             foreach (int inputPort in options.InputPorts)
             {
                 bool pressed = edgeTracker.TryGetPressed(inputPort, out bool p) && p;
-                MvIoNative.IoEdgeType initialEdge = IoDiEdgeTracker.NextEdgeToArm(options.EdgeMode, pressed);
+                // DI3 <10 мс: edge=both не успевает перевооружить Falling → stuck HIGH →
+                // следующие Rising глотаются. Триггер — только Rising.
+                IoInputEdgeMode portMode = inputPort == triggerPort
+                    ? IoInputEdgeMode.Rising
+                    : options.EdgeMode;
+                MvIoNative.IoEdgeType initialEdge = IoDiEdgeTracker.NextEdgeToArm(portMode, pressed);
                 session.ConfigureInputEdge(inputPort, (uint)initialEdge, debounceMs);
+                if (inputPort == triggerPort && options.EdgeMode == IoInputEdgeMode.Both)
+                {
+                    Console.WriteLine(
+                        $"DI{triggerPort}: edge=Rising (override both) — короткий импульс <10 мс иначе stuck");
+                }
             }
 
             if (options.EdgeMode == IoInputEdgeMode.Both)
             {
                 Console.WriteLine(
-                    "both: динамическое перевооружение фронта после каждого события " +
-                    "(SDK поддерживает один фильтр на порт — это самый быстрый событийный режим).");
+                    "both: DI1/DI2 — динамическое перевооружение; " +
+                    $"DI{triggerPort} — только Rising (короткий photoeye).");
             }
         }
         else
@@ -479,9 +360,6 @@ internal static class Program
                 "configure_sdk=false — параметры порта не меняем, используем настройку устройства/MVS.");
         }
 
-        // На шину ПЛК DO не шлём (reject выкл.) — брак/ready/fault по FINS. Capture = только DO5.
-        if (options.Reject.Enabled && ShouldConfigureSdk(options))
-            session.RestoreConfiguredInputs();
 
         using var udpPublisher = IoInputUdpPublisher.TryCreate(options.UdpPublish, options.InputPorts);
         IoCaptureGate? captureGate = options.Capture.Enabled
@@ -526,43 +404,11 @@ internal static class Program
                 $"при DI{options.Capture.TriggerPort}↑ шлём импульс (или hardware Out←In если SDK откажется).");
         }
 
-        // После reject Sync уровней → иначе both глотает DI3↑ (pressed рассинхрон).
-        session.AfterDiRevive = levels =>
-        {
-            edgeTracker.SyncLevels(levels);
-
-            if (captureGate != null
-                && levels.TryGetValue(options.Capture.DirectionPort, out bool dirHigh))
-            {
-                captureGate.SeedDirection(dirHigh);
-            }
-
-            lock (consoleLock)
-            {
-                string summary = string.Join(", ",
-                    levels.OrderBy(k => k.Key).Select(k => $"DI{k.Key}={(k.Value ? 1 : 0)}"));
-                Console.WriteLine($"[{Timestamp()}] DI revive sync: {summary}");
-            }
-        };
-
-        if (options.Reject.Enabled)
-        {
-            Console.WriteLine(
-                $"PLC reject only: DO{options.Reject.Line1OutputPort}→{options.Reject.Line1PlcInput} " +
-                $"line1={(options.Reject.Line1Enabled ? "on" : "off")}, " +
-                $"DO{options.Reject.Line2OutputPort}→{options.Reject.Line2PlcInput} " +
-                $"line2={(options.Reject.Line2Enabled ? "on" : "off")}, " +
-                $"pulse={options.Reject.PulseDurationMs} ms cooldown={options.Reject.PlcCooldownMs} ms " +
-                $"(ready/fault не шлём; FINS только D4400–D4404)");
-        }
 
         using var directionHttp = IoLineDirectionHttpServer.TryStart(
             captureGate,
             options.Capture.DirectionHttp,
-            consoleLock,
-            session,
-            options.Reject,
-            doExecutor);
+            consoleLock);
 
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
@@ -582,7 +428,10 @@ internal static class Program
             if (!inputSet.Contains(port))
                 return;
 
-            if (!edgeTracker.TryAccept(port, edge, options.EdgeMode, out bool closed))
+            IoInputEdgeMode portEdgeMode = port == triggerPort
+                ? IoInputEdgeMode.Rising
+                : options.EdgeMode;
+            if (!edgeTracker.TryAccept(port, edge, portEdgeMode, out bool closed))
                 return;
 
             string edgeName = edge switch
@@ -673,14 +522,22 @@ internal static class Program
                 }
             }
 
-            if (options.EdgeMode == IoInputEdgeMode.Both && ShouldConfigureSdk(options))
+            if (ShouldConfigureSdk(options))
             {
-                bool pressed = edgeTracker.TryGetPressed(port, out bool p) && p;
-                MvIoNative.IoEdgeType nextEdge = IoDiEdgeTracker.NextEdgeToArm(IoInputEdgeMode.Both, pressed);
-                int rearmPort = port;
-                _ = doExecutor.RunAsync(
-                    IoDoExecutor.Priority.Input,
-                    () => ReArmEdge(session, rearmPort, nextEdge, debounceMs));
+                IoInputEdgeMode rearmMode = port == triggerPort
+                    ? IoInputEdgeMode.Rising
+                    : options.EdgeMode;
+                // Rising-only (DI3): после каждого ↑ снова Rising.
+                // Both (DI1/DI2): противоположный фронт.
+                if (rearmMode is IoInputEdgeMode.Both or IoInputEdgeMode.Rising or IoInputEdgeMode.Falling)
+                {
+                    bool pressed = edgeTracker.TryGetPressed(port, out bool p) && p;
+                    MvIoNative.IoEdgeType nextEdge = IoDiEdgeTracker.NextEdgeToArm(rearmMode, pressed);
+                    int rearmPort = port;
+                    _ = doExecutor.RunAsync(
+                        IoDoExecutor.Priority.Input,
+                        () => ReArmEdge(session, rearmPort, nextEdge, debounceMs));
+                }
             }
         });
         Console.WriteLine("Ожидаю фронты...");
@@ -906,7 +763,7 @@ internal static class Program
               --com COMx       COM-порт IO box (переопределяет конфиг)
               --input N        DI 1..8 (переопределяет inputs из конфига)
               --scan           Однократно показать DI1..DI8 и выйти
-              --pulse N        Импульс на DO N (1..8); повторяет пока SetOutput/Timer не OK
+              --pulse 5        Импульс только на DO5 (Line0)
               --pulse-ms M     Длительность импульса (по умолчанию из capture.pulse_duration_ms)
               --pulse-mode M   auto|direct|timer (по умолчанию auto)
               --hw-di3         UDP DI3↑ + DO5 pulse (hardware Line0; без software trigger)
@@ -933,7 +790,6 @@ internal static class Program
         public int DebounceMs { get; set; } = 50;
         public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
         public IoCaptureOptions Capture { get; set; } = new();
-        public IoRejectOptions Reject { get; set; } = new();
         public bool ScanAll { get; set; }
         public int? PulsePort { get; set; }
         public int PulseDurationMs { get; set; }
@@ -945,9 +801,6 @@ internal static class Program
         public int SimulateDi3HoldMs { get; set; } = 100;
         /// <summary>UDP DI3↑ + DO5 pulse (hardware Line0 path).</summary>
         public bool HwDi3Do5 { get; set; }
-        /// <summary>Прямой COM: DO1 ready + DO3/DO4 reject, без HTTP/съёмки.</summary>
-        public bool PlcDoSmoke { get; set; }
-        public bool PlcDoOff { get; set; }
         public bool ProbePorts { get; set; }
         public bool ListPorts { get; set; }
         public bool ShowHelp { get; set; }
@@ -999,14 +852,6 @@ internal static class Program
                     case "--do5-capture":
                         options.HwDi3Do5 = true;
                         break;
-                    case "--plc-do-smoke":
-                    case "--plc-reject-smoke":
-                        options.PlcDoSmoke = true;
-                        break;
-                    case "--plc-do-off":
-                    case "--plc-off":
-                        options.PlcDoOff = true;
-                        break;
                     case "--probe":
                         options.ProbePorts = true;
                         break;
@@ -1049,20 +894,17 @@ internal static class Program
                 DebounceMs = loaded.Options.DebounceMs,
                 UdpPublish = loaded.Options.UdpPublish,
                 Capture = loaded.Options.Capture,
-                Reject = loaded.Options.Reject,
                 ConfigPath = loaded.ConfigPath
             };
         }
 
         private static void Validate(MonitorOptions options)
         {
-            if (options.PulsePort is int pulsePort && pulsePort is < 1 or > 8)
-                throw new ArgumentOutOfRangeException(nameof(options.PulsePort), "DO должен быть 1..8.");
+            if (options.PulsePort is int pulsePort && pulsePort != 5)
+                throw new ArgumentOutOfRangeException(nameof(options.PulsePort), "Только DO5 (Line0).");
 
             if (options.InputPorts.Length == 0
                 && options.PulsePort is null
-                && !options.PlcDoSmoke
-                && !options.PlcDoOff
                 && !options.SimulateDi3
                 && !options.HwDi3Do5)
                 throw new ArgumentException("Список inputs пуст — укажите DI 1..8 в конфиге или --input N.");

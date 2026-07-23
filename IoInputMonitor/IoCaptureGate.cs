@@ -308,7 +308,7 @@ public sealed class IoCaptureOptions
     /// <summary>Номер таймера в MVS (Timer 1 → timer_index: 1).</summary>
     public int TimerIndex { get; set; } = 1;
 
-    public int PulseDurationMs { get; set; } = 300;
+    public int PulseDurationMs { get; set; } = 50;
 
     /// <summary>
     /// Пауза после UDP DI3 перед DO: дать Java/камерам войти в wait_frame (Line0 RisingEdge).
@@ -363,33 +363,3 @@ public sealed class IoDirectionHttpOptions
     public int Port { get; set; } = 9101;
 }
 
-/// <summary>
-/// DO → физические входы ПЛК (техзрение). FINS только для таймаутов D4400–D4404.
-/// Порты/метки PLC — только из config (io_input.reject).
-/// </summary>
-public sealed class IoRejectOptions
-{
-    public bool Enabled { get; set; }
-
-    public int ReadyOutputPort { get; set; } = 1;
-    public int FaultOutputPort { get; set; } = 2;
-    public int Line1OutputPort { get; set; } = 3;
-    public int Line2OutputPort { get; set; } = 4;
-
-    public string ReadyPlcInput { get; set; } = "X4";
-    public string FaultPlcInput { get; set; } = "X5";
-    public string Line1PlcInput { get; set; } = "X6";
-    public string Line2PlcInput { get; set; } = "X7";
-
-    public bool ReadyEnabled { get; set; }
-    public bool FaultEnabled { get; set; }
-    public bool Line1Enabled { get; set; } = true;
-    public bool Line2Enabled { get; set; } = true;
-
-    public int PulseDurationMs { get; set; } = 50;
-    public int PulseRetries { get; set; } = 3;
-    public bool ActiveHigh { get; set; } = true;
-
-    /// <summary>Пауза после capture DO перед PLC DO (мс).</summary>
-    public int PlcCooldownMs { get; set; } = 80;
-}

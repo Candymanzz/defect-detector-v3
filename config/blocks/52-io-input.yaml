@@ -5,9 +5,8 @@
 
 io_input:
   com_port: COM3
-  edge: both            # rising | falling | both
-  # DI3 ~10 мс: SDK Glitch=0 (иначе съест). Soft refractory в коде ≥80 мс —
-  # режет bounce DI3 (несколько UDP/FireDo на один продукт).
+  edge: both            # DI1/DI2: both; DI3 в коде всегда Rising (импульс <10 мс)
+  # DI3 ~10 мс: SDK Glitch=0. Soft refractory ≥80 мс режет bounce Rising.
   debounce_ms: 0
   configure_sdk: true
   inputs:
@@ -15,23 +14,7 @@ io_input:
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # DO на ПЛК (ready/fault/reject) не трогаем — идут по FINS.
-  # IoInputMonitor гоняет только capture DO5 → Line0 камер.
-  reject:
-    enabled: false
-    line1_output_port: 3
-    line2_output_port: 4
-    line1_plc_input: "X6"
-    line2_plc_input: "X7"
-    ready_enabled: false
-    fault_enabled: false
-    line1_enabled: false
-    line2_enabled: false
-    pulse_duration_ms: 50
-    pulse_retries: 3
-    active_high: true
-    plc_cooldown_ms: 80
-
+  # Единственный DO: capture DO5 → Line0 камер. Брак/ready/fault — только FINS.
   # DI3↑ → UDP (arm wait_frame) → delay → один DO5↑ (RisingEdge на Line0).
   capture:
     enabled: true
@@ -47,7 +30,7 @@ io_input:
     line0_edge: rising
     active_high: true
     pulse_delay_ms: 250
-    # RisingEdge: достаточно короткого HIGH; 300 мс только удлинял окно шума.
+    # RisingEdge: короткий HIGH; камеры уже в wait_frame (ClearImageBuffer, без drain).
     pulse_duration_ms: 50
     pulse_repeat: 1
     pulse_repeat_gap_ms: 100

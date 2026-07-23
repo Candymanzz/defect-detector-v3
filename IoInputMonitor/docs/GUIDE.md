@@ -124,8 +124,7 @@ DI замкнулся → IoInputMonitor UDP → оркестратор :9100
 ### DO с IoInputMonitor
 
 На шину бокса уходит **только DO5** (импульс Line0 камер после DI3↑).
-
-Брак / ready / fault на ПЛК — **по FINS**, не через DO1–4. Секция `reject` в YAML выключена (`enabled: false`).
+Код reject/DO1–4/DO6 удалён. Брак / ready / fault — **только FINS**.
 
 ---
 

@@ -854,18 +854,11 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
 }
 
 static int hik_flush_image_buffer(worker_state_t *st) {
-    MV_FRAME_OUT_INFO_EX info;
-    memset(&info, 0, sizeof(info));
-    int flushed = 0;
-    for (int i = 0; i < 32; i++) {
-        int nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info, 30);
-        if (nRet != MV_OK) {
-            break;
-        }
-        flushed++;
-    }
+    /* Только ClearImageBuffer. Drain через GetOneFrameTimeout(30)×N на HW Line0
+     * съедает кадр с DO5, если flush ещё идёт когда приходит фронт → «рандомные» кадры
+     * со следующего импульса / шума. */
     (void)MV_CC_ClearImageBuffer(st->hik_handle);
-    return flushed;
+    return 0;
 }
 
 static int hik_fire_software_trigger(worker_state_t *st) {
@@ -1683,12 +1676,9 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                 return -1;
             }
         } else if (wait_only) {
-            /* hardware Line0 (DO5): сбросить буфер, иначе GetOneFrame вернёт старый кадр
-             * до текущего фронта Line0 (DI3 UDP → wait_frame раньше, чем DO5). */
-            int flushed = hik_flush_image_buffer(st);
-            if (flushed > 0) {
-                fprintf(stderr, "hik: wait_frame flushed %d stale frame(s) before Line0\n", flushed);
-            }
+            /* hardware Line0 (DO5): сбросить очередь SDK без GetOneFrame-drain
+             * (drain гоняется с DO5 и выкидывает нужный кадр). */
+            (void)hik_flush_image_buffer(st);
         }
         nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
                                         (unsigned int)st->frame_timeout_ms);

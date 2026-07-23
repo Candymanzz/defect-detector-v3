@@ -1,13 +1,8 @@
 namespace IoInputMonitor;
 
 /// <summary>
-/// Арбитр одного COM/SDK на две логические зоны:
-/// <list type="bullet">
-/// <item><b>Capture</b> — DI2/DI3 (+ re-arm) и DO5 Line0</item>
-/// <item><b>Plc</b> — опционально DO3/DO4 (reject); в проде выкл. — брак по FINS</item>
-/// </list>
-/// Пока открыто Capture-окно, PLC в очереди ждёт (не долбит SDK).
-/// Sleep импульсов — вне worker; Input/re-arm не голодает.
+/// Арбитр одного COM/SDK: Input (DI re-arm) и Capture (DO5 Line0).
+/// Sleep импульсов — вне worker.
 /// </summary>
 internal sealed class IoMonitorArbiter : IDisposable
 {
@@ -16,23 +11,16 @@ internal sealed class IoMonitorArbiter : IDisposable
         /// <summary>DI edge re-arm — всегда первый.</summary>
         Input = 0,
         /// <summary>DO5 съёмка Line0.</summary>
-        Capture = 1,
-        /// <summary>Опциональный reject DO (обычно выкл.).</summary>
-        Plc = 2
+        Capture = 1
     }
 
     private readonly PriorityQueue<WorkItem, (int Prio, long Seq)> _ready = new();
-    private readonly Queue<WorkItem> _plcWaiting = new();
     private readonly object _lock = new();
     private readonly AutoResetEvent _signal = new(false);
-    private readonly ManualResetEventSlim _captureQuiet = new(true);
     private readonly Thread _worker;
     private readonly CancellationTokenSource _cts = new();
     private long _seq;
     private int _captureHold;
-    private int _plcCooldownMs = 80;
-    private long _quietReadyTick;
-    private int _cooldownGen;
     private bool _disposed;
 
     public IoMonitorArbiter(string threadName = "io-monitor-arbiter")
@@ -46,79 +34,25 @@ internal sealed class IoMonitorArbiter : IDisposable
         _worker.Start();
     }
 
-    /// <summary>Пауза после DO5 перед PLC (мс). Съёмку не режет — только откладывает reject.</summary>
-    public int PlcCooldownMs
-    {
-        get { lock (_lock) return _plcCooldownMs; }
-        set { lock (_lock) _plcCooldownMs = Math.Clamp(value, 0, 2000); }
-    }
-
     public bool IsCaptureBusy
     {
         get
         {
             lock (_lock)
-                return _captureHold > 0 || !_captureQuiet.IsSet;
+                return _captureHold > 0;
         }
     }
 
-    /// <summary>Открыть окно съёмки (DI3↑→DO5…). PLC не стартует, пока не Close + cooldown.</summary>
     public void EnterCaptureWindow()
     {
         lock (_lock)
-        {
             _captureHold++;
-            _cooldownGen++; // отменить отложенный quiet
-            _captureQuiet.Reset();
-        }
     }
 
     public void LeaveCaptureWindow()
     {
-        int gen;
-        int cooldown;
         lock (_lock)
-        {
             _captureHold = Math.Max(0, _captureHold - 1);
-            if (_captureHold != 0)
-                return;
-
-            cooldown = _plcCooldownMs;
-            if (cooldown <= 0)
-            {
-                _captureQuiet.Set();
-                PromotePlcIfQuiet_NoLock();
-                _signal.Set();
-                return;
-            }
-
-            // COM ещё «горячий» после DO5 — не открываем PLC сразу.
-            _captureQuiet.Reset();
-            gen = ++_cooldownGen;
-            _quietReadyTick = Environment.TickCount64 + cooldown;
-        }
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(cooldown).ConfigureAwait(false);
-                lock (_lock)
-                {
-                    if (gen != _cooldownGen || _captureHold != 0)
-                        return;
-                    if (Environment.TickCount64 < _quietReadyTick)
-                        return;
-                    _captureQuiet.Set();
-                    PromotePlcIfQuiet_NoLock();
-                    _signal.Set();
-                }
-            }
-            catch
-            {
-                // shutdown
-            }
-        });
     }
 
     public IDisposable CaptureWindow()
@@ -137,8 +71,7 @@ internal sealed class IoMonitorArbiter : IDisposable
     public Task<T> RunAsync<T>(
         Domain domain,
         Func<T> action,
-        CancellationToken cancellationToken = default,
-        bool forceDuringCapture = false)
+        CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(action);
@@ -156,7 +89,6 @@ internal sealed class IoMonitorArbiter : IDisposable
 
         var item = new WorkItem(
             domain,
-            forceDuringCapture,
             () =>
             {
                 try
@@ -183,19 +115,16 @@ internal sealed class IoMonitorArbiter : IDisposable
         lock (_lock)
         {
             long seq = ++_seq;
-            if (domain == Domain.Plc && _captureHold > 0 && !forceDuringCapture)
-                _plcWaiting.Enqueue(item);
-            else
-                _ready.Enqueue(item, ((int)domain, seq));
+            _ready.Enqueue(item, ((int)domain, seq));
         }
 
         _signal.Set();
         return tcs.Task;
     }
 
-    public T Run<T>(Domain domain, Func<T> action, int timeoutMs = 8000, bool forceDuringCapture = false)
+    public T Run<T>(Domain domain, Func<T> action, int timeoutMs = 8000)
     {
-        Task<T> task = RunAsync(domain, action, default, forceDuringCapture);
+        Task<T> task = RunAsync(domain, action);
         if (!task.Wait(Math.Max(1, timeoutMs)))
             throw new TimeoutException($"IoMonitorArbiter timed out after {timeoutMs} ms (domain={domain})");
         try
@@ -215,39 +144,6 @@ internal sealed class IoMonitorArbiter : IDisposable
             return true;
         }, timeoutMs);
 
-    /// <summary>
-    /// PLC: дождаться тишины Capture, затем короткий SDK-слот.
-    /// Не долбит COM, пока идёт DO5.
-    /// </summary>
-    public T RunPlcAfterQuiet<T>(Func<T> action, int quietTimeoutMs = 5000, int runTimeoutMs = 8000)
-    {
-        if (!_captureQuiet.Wait(Math.Max(1, quietTimeoutMs)))
-        {
-            throw new TimeoutException(
-                $"IoMonitorArbiter: Capture window still open after {quietTimeoutMs} ms — PLC deferred");
-        }
-
-        return Run(Domain.Plc, action, runTimeoutMs);
-    }
-
-    /// <summary>PLC сразу, даже если CaptureWindow открыт (короткий reject-импульс).</summary>
-    public T RunPlcForced<T>(Func<T> action, int timeoutMs = 3000) =>
-        Run(Domain.Plc, action, timeoutMs, forceDuringCapture: true);
-
-    private void PromotePlcIfQuiet_NoLock()
-    {
-        // Во время cooldown (_captureQuiet reset при hold=0) PLC не поднимаем.
-        if (_captureHold != 0 || !_captureQuiet.IsSet)
-            return;
-
-        while (_plcWaiting.Count > 0)
-        {
-            WorkItem item = _plcWaiting.Dequeue();
-            long seq = ++_seq;
-            _ready.Enqueue(item, ((int)Domain.Plc, seq));
-        }
-    }
-
     private void RunLoop()
     {
         while (!_cts.IsCancellationRequested)
@@ -255,7 +151,6 @@ internal sealed class IoMonitorArbiter : IDisposable
             WorkItem? item = null;
             lock (_lock)
             {
-                PromotePlcIfQuiet_NoLock();
                 if (_ready.TryDequeue(out WorkItem? next, out _))
                     item = next;
             }
@@ -264,28 +159,6 @@ internal sealed class IoMonitorArbiter : IDisposable
             {
                 _signal.WaitOne(100);
                 continue;
-            }
-
-            // PLC не стартовать в окне съёмки / cooldown — кроме forceDuringCapture (reject).
-            if (item.Domain == Domain.Plc && !item.ForceDuringCapture)
-            {
-                bool defer;
-                lock (_lock)
-                {
-                    defer = _captureHold > 0 || !_captureQuiet.IsSet;
-                    if (defer)
-                    {
-                        _plcWaiting.Enqueue(item);
-                        item = null;
-                    }
-                }
-
-                if (item == null)
-                {
-                    _captureQuiet.Wait(100);
-                    _signal.Set();
-                    continue;
-                }
             }
 
             try
@@ -305,18 +178,15 @@ internal sealed class IoMonitorArbiter : IDisposable
             return;
         _disposed = true;
         _cts.Cancel();
-        _captureQuiet.Set();
         _signal.Set();
         _ = _worker.Join(2000);
         _signal.Dispose();
-        _captureQuiet.Dispose();
         _cts.Dispose();
     }
 
-    private sealed class WorkItem(Domain domain, bool forceDuringCapture, Action execute)
+    private sealed class WorkItem(Domain domain, Action execute)
     {
         public Domain Domain { get; } = domain;
-        public bool ForceDuringCapture { get; } = forceDuringCapture;
         public void Execute() => execute();
     }
 
@@ -333,14 +203,13 @@ internal sealed class IoMonitorArbiter : IDisposable
     }
 }
 
-/// <summary>Совместимость со старым именем в логах/тестах.</summary>
+/// <summary>Фасад приоритетов Input / Capture для DO5.</summary>
 internal sealed class IoDoExecutor : IDisposable
 {
     public enum Priority
     {
         Input = 0,
-        Capture = 1,
-        Plc = 2
+        Capture = 1
     }
 
     private readonly IoMonitorArbiter _arbiter;
@@ -366,7 +235,6 @@ internal sealed class IoDoExecutor : IDisposable
     private static IoMonitorArbiter.Domain Map(Priority p) => p switch
     {
         Priority.Input => IoMonitorArbiter.Domain.Input,
-        Priority.Capture => IoMonitorArbiter.Domain.Capture,
-        _ => IoMonitorArbiter.Domain.Plc
+        _ => IoMonitorArbiter.Domain.Capture
     };
 }

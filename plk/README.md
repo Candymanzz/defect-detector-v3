@@ -41,7 +41,7 @@
 
 | Канал | Когда | Куда |
 |-------|-------|------|
-| Дискретные DO | `integration.io_input_monitor_reject.enabled: true` | DO→X4…X7 |
+| Дискретные DO IO-box | только **DO5** (Line0) | брак/ready/fault — FINS CIO |
 | FINS | тот же флаг `false` (fallback) или ручная панель ПЛК | `area`+`address` из YAML |
 
 Таймауты отбраковки всегда по FINS: **D4400–D4404** (секция `timeouts`).

@@ -119,26 +119,6 @@ integration:
       direction_poll_ms: 1
   # UI «Прямой/Обратный» больше не фильтрует съёмку — ход только DI2 (latch).
   io_input_monitor_direction_url: "http://127.0.0.1:9101"
-  # Брак/ready/fault → IoInputMonitor DO → PLC. Зеркало io_input.reject из 52-io-input.yaml.
-  io_input_monitor_reject:
-    enabled: true
-    url: "http://127.0.0.1:9101"
-    ready_output_port: 1
-    fault_output_port: 2
-    line1_output_port: 3
-    line2_output_port: 4
-    ready_plc_input: "X4"
-    fault_plc_input: "X5"
-    line1_plc_input: "X6"
-    line2_plc_input: "X7"
-    ready_enabled: false   # DO1 — не шлём
-    fault_enabled: false   # DO2 — не шлём
-    line1_enabled: true    # DO3 reject group0
-    line2_enabled: true    # DO4 reject group1
-    pulse_duration_ms: 50
-    connect_timeout_ms: 500
-    request_timeout_ms: 3000
-    # На ПЛК в рантайме только импульсы reject по браку (ready/fault выкл).
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20

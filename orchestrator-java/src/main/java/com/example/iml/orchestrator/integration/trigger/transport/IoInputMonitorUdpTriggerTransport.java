@@ -254,6 +254,13 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             boolean previousWork = workActive;
             workActive = active;
             updateLineWork(active);
+            // Как IoInputMonitor disarm_on_work_low: DI1↓ снимает direction latch.
+            // Иначе Java ждёт wait_frame без DO5 → timeout / чужие кадры с Line0-шума.
+            if (!active && previousWork && ioInputConfig.directionLatch() && directionLatched) {
+                directionLatched = false;
+                directionActive = false;
+                log.info("io_input_trigger direction unlatched (DI{}↓) — жди DI2=1 снова", port);
+            }
             if (ioInputConfig.directionLatchOnWork()) {
                 if (active && !previousWork) {
                     workSessionDirection.onWorkStarted(directionActive, directionRawActive, triggerActive, log);

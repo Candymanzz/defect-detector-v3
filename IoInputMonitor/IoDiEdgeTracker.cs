@@ -2,7 +2,7 @@ namespace IoInputMonitor;
 
 /// <summary>
 /// Потокобезопасное состояние DI для edge: both (pressed) + software refractory.
-/// SDK callback и AfterDiRevive могут писать одновременно — без lock both глотает/дублирует фронты.
+/// SDK callback может писать одновременно — без lock both глотает/дублирует фронты.
 /// </summary>
 internal sealed class IoDiEdgeTracker
 {
