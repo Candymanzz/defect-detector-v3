@@ -32,7 +32,9 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
 
     private static final Logger LOG = LogManager.getLogger(LineSynchronizedCaptureCoordinator.class);
     private static final long FIRE_DONE_WAIT_MS = 30_000L;
-    private static final int WAIT_FRAME_MAX_ATTEMPTS = 3;
+    /** HW Line0: 1 попытка — retry снова flush’ит и может съесть кадр с единственного DO5. */
+    private static final int WAIT_FRAME_MAX_ATTEMPTS = 1;
+    private static final int WAIT_FRAME_MAX_ATTEMPTS_SOFTWARE = 3;
     private static final long WAIT_FRAME_RETRY_MS = 50L;
     private static final long BARRIER_POLL_MS = 2L;
 
@@ -706,7 +708,8 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
 
     private BinaryProtocol.Message waitFrameWithRetry(WorkerProcessSupervisor worker, int cameraId) throws Exception {
         BinaryProtocol.Message last = null;
-        for (int attempt = 1; attempt <= WAIT_FRAME_MAX_ATTEMPTS; attempt++) {
+        int maxAttempts = hardwareLineTrigger ? WAIT_FRAME_MAX_ATTEMPTS : WAIT_FRAME_MAX_ATTEMPTS_SOFTWARE;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             last = worker.command(Map.of("op", "capture", "wait_frame", true));
             if (isUsableCapture(last)) {
                 return last;
@@ -715,10 +718,10 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     "line capture cam={} wait_frame attempt {}/{} unusable: {}",
                     cameraId,
                     attempt,
-                    WAIT_FRAME_MAX_ATTEMPTS,
+                    maxAttempts,
                     describeCapture(last)
             );
-            if (attempt < WAIT_FRAME_MAX_ATTEMPTS) {
+            if (attempt < maxAttempts) {
                 long retryMs = hardwareLineTrigger ? 0L : WAIT_FRAME_RETRY_MS;
                 if (retryMs > 0L) {
                     Thread.sleep(retryMs);

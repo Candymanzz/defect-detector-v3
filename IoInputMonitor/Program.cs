@@ -430,10 +430,11 @@ internal static class Program
         }
 
         var inputSet = new HashSet<int>(options.InputPorts);
-        // Software refractory = debounce; при 0 — минимум 5 мс в both, иначе bounce проходит.
+        // SDK Glitch = debounce_ms (0 → ловит DI3 ~10 мс). Soft refractory отдельно:
+        // при 0 debounce both иначе глотает bounce DI3 → несколько UDP/FireDo на один продукт.
         int softwareRefractoryMs = options.DebounceMs > 0
             ? options.DebounceMs
-            : (options.EdgeMode == IoInputEdgeMode.Both ? 5 : 0);
+            : (options.EdgeMode == IoInputEdgeMode.Both ? 80 : 0);
         var edgeTracker = new IoDiEdgeTracker(softwareRefractoryMs);
         var capturePulseScheduler = new IoCapturePulseScheduler();
         object consoleLock = new();
@@ -615,7 +616,7 @@ internal static class Program
             {
                 if (!capturePulseScheduler.TryBegin())
                 {
-                    captureGate?.ReleaseCaptureFireSlot();
+                    // Импульс уже в полёте — слот FireDo не отпускаем (bounce DI3 иначе даст 2-й FireDo).
                     lock (consoleLock)
                     {
                         Console.WriteLine(
@@ -651,13 +652,8 @@ internal static class Program
                                         if (i + 1 < repeats && gapMs > 0)
                                             await Task.Delay(gapMs).ConfigureAwait(false);
                                     }
-
-                                    // Мягко отпустить DO внутри Capture-окна — PLC ещё ждёт + cooldown.
-                                    await doExecutor.RunAsync(IoDoExecutor.Priority.Capture, () =>
-                                    {
-                                        session.ReleaseLine0ForPlc(capture.ActiveHigh);
-                                        return true;
-                                    }).ConfigureAwait(false);
+                                    // EndSimpleCaptureLevelPulse уже в FireCapturePulseLoggedAsync —
+                                    // повторный ReleaseLine0ForPlc давал лишние фронты на Line0.
                                 }
                                 catch (Exception ex)
                                 {

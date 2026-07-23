@@ -286,7 +286,10 @@ internal sealed class IoBoxSession : IDisposable
         return string.Join("; ", parts);
     }
 
-    /// <summary>Поднять DO в ACTIVE (гашение — EndSimpleCaptureLevelPulse после settle).</summary>
+    /// <summary>
+    /// Один фронт IDLE→ACTIVE на Line0. Без StopDo/Enable-пляски — иначе камеры RisingEdge
+    /// ловят 2–3 ложных импульса на один FireDo.
+    /// </summary>
     public void BeginSimpleCaptureLevelPulse(int outputPort, bool activeHigh = true)
     {
         EnsureOpen();
@@ -298,19 +301,16 @@ internal sealed class IoBoxSession : IDisposable
 
         TrySetOutTriggerSource(inPort: 0, outPort: outputPort);
         TryPnpEnable(outputPort, enabled: true);
-        StopDoOutput(outputPort);
-        _ = TrySetMainOutputLevel(outputPort, idle);
-
+        // База: idle, Enable Start (без StopDo — Stop даёт лишний фронт).
         if (!TryOutputEnableAny(outputPort, MvIoNative.IoOutputEnableType.Start, out string enableErrors))
             throw new InvalidOperationException($"DO{outputPort} enable failed: {enableErrors}");
+        _ = TrySetMainOutputLevel(outputPort, idle);
 
         if (!TrySetMainOutputLevel(outputPort, active))
             throw new InvalidOperationException($"DO{outputPort} ACTIVE level failed");
     }
 
-    /// <summary>
-    /// Гасить capture DO: StopDo + idle level. Без hold/Enable.
-    /// </summary>
+    /// <summary>Гасить capture DO: один уход в idle (без двойного StopDo).</summary>
     public string EndSimpleCaptureLevelPulse(int outputPort, bool activeHigh = true)
     {
         EnsureOpen();
@@ -318,9 +318,7 @@ internal sealed class IoBoxSession : IDisposable
             throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
 
         bool idle = !activeHigh;
-        StopDoOutput(outputPort);
         _ = TrySetMainOutputLevel(outputPort, idle);
-        StopDoOutput(outputPort);
         return $"DO{outputPort} idle";
     }
 

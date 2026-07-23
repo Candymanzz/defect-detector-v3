@@ -6,8 +6,9 @@
 io_input:
   com_port: COM3
   edge: both            # rising | falling | both
-  # 0 = нет debounce → bounce заливает UDP/DO. 20–50 мс типично для контактов.
-  debounce_ms: 20
+  # DI3 ~10 мс: SDK Glitch=0 (иначе съест). Soft refractory в коде ≥80 мс —
+  # режет bounce DI3 (несколько UDP/FireDo на один продукт).
+  debounce_ms: 0
   configure_sdk: true
   inputs:
     - 1                 # DI1 = работа (конвейер); ↓ снимает direction latch
@@ -31,7 +32,7 @@ io_input:
     active_high: true
     plc_cooldown_ms: 80
 
-  # DI3↑ → UDP (arm wait_frame) → delay → DO5 импульс 300 ms.
+  # DI3↑ → UDP (arm wait_frame) → delay → один DO5↑ (RisingEdge на Line0).
   capture:
     enabled: true
     direction_port: 2
@@ -46,7 +47,8 @@ io_input:
     line0_edge: rising
     active_high: true
     pulse_delay_ms: 250
-    pulse_duration_ms: 300
+    # RisingEdge: достаточно короткого HIGH; 300 мс только удлинял окно шума.
+    pulse_duration_ms: 50
     pulse_repeat: 1
     pulse_repeat_gap_ms: 100
     # DI2=1 один раз вооружает; DI1↓ (work) снимает. Дальнейшие DI2 до disarm — холостые.
