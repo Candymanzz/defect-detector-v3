@@ -58,9 +58,13 @@ class PlcRegisterMapLoaderTest {
       return;
     }
     PlcRegisterMap loaded = PlcRegisterMapLoader.load(map);
-    assertEquals(PlcMemoryArea.CIO, loaded.require("vision_ready").area());
-    assertEquals(140, loaded.require("vision_ready").address().word());
-    assertEquals(2, loaded.require("vision_ready").address().bit());
+    assertEquals(PlcMemoryArea.W, loaded.require("vision_ready").area());
+    assertEquals(0, loaded.require("vision_ready").address().word());
+    assertEquals(4, loaded.require("vision_ready").address().bit());
+    assertEquals(PlcMemoryArea.W, loaded.require("vision_fault").area());
+    assertEquals(5, loaded.require("vision_fault").address().bit());
+    assertEquals(6, loaded.require("reject_line_1").address().bit());
+    assertEquals(7, loaded.require("reject_line_2").address().bit());
     assertEquals(240, loaded.require("alarm_reset").address().word());
     assertEquals(0, loaded.require("alarm_reset").address().bit());
     assertTrue(loaded.require("alarm_reset").writable());
