@@ -580,7 +580,8 @@ internal static class Program
                 break;
             case IoCaptureDecision.SkipAlreadyFired:
                 Console.WriteLine(
-                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: НЕ отправляется — импульс уже был в этом пульсе");
+                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: НЕ отправляется — DI{capture.TriggerPort}↑ холостой " +
+                    $"(уже сняли при DI{capture.DirectionPort}=1)");
                 break;
             case IoCaptureDecision.SkipBusy:
                 Console.WriteLine(

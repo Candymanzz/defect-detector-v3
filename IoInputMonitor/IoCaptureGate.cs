@@ -40,6 +40,8 @@ internal sealed class IoCaptureGate
     private bool _directionLatched;
     private bool _triggerActive;
     private bool _captureFiredThisPulse;
+    /// <summary>Один кадр на окно DI2=1: повторный DI3↑ при том же DI2=1 — холостой.</summary>
+    private bool _captureFiredThisDi2Window;
 
     public IoCaptureGate(IoCaptureOptions options)
     {
@@ -127,17 +129,20 @@ internal sealed class IoCaptureGate
 
             if (port == _directionPort)
             {
-                // После latch все смены DI2 — холостые (направление уже зафиксировано).
-                if (_directionLatch && _directionLatched)
-                {
-                    _directionRawActive = active;
-                    _directionKnown = true;
-                    return IoCaptureDecision.None;
-                }
-
-                bool wasArmed = _directionArmed;
+                bool prevHigh = _directionKnown && MapDirection(_directionRawActive);
                 _directionRawActive = active;
                 _directionKnown = true;
+                bool nowHigh = MapDirection(active);
+
+                // Новое окно DI2=1 / конец окна — снова разрешаем один DI3.
+                if (prevHigh != nowHigh)
+                    _captureFiredThisDi2Window = false;
+
+                // После latch все смены DI2 — холостые (направление уже зафиксировано).
+                if (_directionLatch && _directionLatched)
+                    return IoCaptureDecision.None;
+
+                bool wasArmed = _directionArmed;
                 TryArmFromCurrentDirection();
                 return !wasArmed && _directionArmed
                     ? IoCaptureDecision.DirectionArmed
@@ -148,6 +153,7 @@ internal sealed class IoCaptureGate
                 return IoCaptureDecision.None;
 
             IoCaptureDecision decision = IoCaptureDecision.None;
+            bool di2High = _directionKnown && MapDirection(_directionRawActive);
             if (risingEdge && active && !_triggerActive)
             {
                 if (_requireDirection && !_directionArmed)
@@ -158,9 +164,16 @@ internal sealed class IoCaptureGate
                 {
                     decision = IoCaptureDecision.SkipAlreadyFired;
                 }
+                else if (di2High && _captureFiredThisDi2Window)
+                {
+                    // DI2 ещё 1, а DI3 пришёл повторно — холостой проход.
+                    decision = IoCaptureDecision.SkipAlreadyFired;
+                }
                 else
                 {
                     _captureFiredThisPulse = true;
+                    if (di2High)
+                        _captureFiredThisDi2Window = true;
                     decision = IoCaptureDecision.FireDo;
                 }
             }
@@ -172,6 +185,7 @@ internal sealed class IoCaptureGate
 
             // DI3 Rising-only (короткий photoeye): Falling в Evaluate не приходит —
             // без сброса _triggerActive залипает HIGH и следующие DI3↑ = None (нет DO5).
+            // Окно DI2 (_captureFiredThisDi2Window) НЕ сбрасываем — иначе повторный DI3 при DI2=1 снова стреляет.
             if (risingEdge && active)
             {
                 _triggerActive = false;
@@ -190,6 +204,7 @@ internal sealed class IoCaptureGate
         _directionArmed = false;
         _directionLatched = false;
         _captureFiredThisPulse = false;
+        _captureFiredThisDi2Window = false;
         return IoCaptureDecision.DirectionDisarmed;
     }
 
@@ -203,7 +218,10 @@ internal sealed class IoCaptureGate
     public void ReleaseCaptureFireSlot()
     {
         lock (_lock)
+        {
             _captureFiredThisPulse = false;
+            _captureFiredThisDi2Window = false;
+        }
     }
 
     public string DescribeExpectedArm()

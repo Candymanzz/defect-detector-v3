@@ -56,6 +56,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile boolean directionInitialized;
     private volatile boolean triggerActive;
     private volatile boolean captureFiredThisPulse;
+    /** Один кадр на окно DI2=1: повторный DI3↑ при DI2=1 — холостой. */
+    private volatile boolean captureFiredThisDi2Window;
     private volatile ScheduledFuture<?> delayedCaptureTask;
     private volatile long di3RiseEpochMs;
     private final ScheduledExecutorService captureDelayExecutor;
@@ -335,6 +337,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             // direction_latch: первый DI2=1 фиксирует ход навсегда; дальше DI2 холостой.
             if (ioInputConfig.directionLatch() && directionLatched) {
                 if (previousRaw != active) {
+                    captureFiredThisDi2Window = false;
                     log.info(
                             "io_input_trigger DI2 idle {} -> {} (направление зафиксировано={})",
                             previousRaw ? 1 : 0,
@@ -345,6 +348,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 return;
             }
 
+            boolean previousMapped = directionActive;
             if (directionActive != mapped) {
                 if (ioInputConfig.directionInvert()) {
                     log.info(
@@ -359,6 +363,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 }
             }
             directionActive = mapped;
+            if (previousMapped != mapped) {
+                captureFiredThisDi2Window = false;
+            }
             if (ioInputConfig.directionLatch() && mapped) {
                 directionLatched = true;
                 if (manualLineDirection != null) {
@@ -420,6 +427,11 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                                 "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
                                 directionSourceLabel()
                         );
+                    } else if (directionActive && captureFiredThisDi2Window) {
+                        log.info(
+                                "io_input_trigger skip DI3↑: холостой (уже сняли при DI2=1), source={}",
+                                directionSourceLabel()
+                        );
                     } else {
                         log.info(
                                 "io_input_trigger DI3↑ capture — direction={} latched={} source={}",
@@ -470,6 +482,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 }
             }
             // Rising-only: не держим triggerActive=true — иначе следующий UDP 3:1 молча игнорируется.
+            // captureFiredThisDi2Window НЕ сбрасываем — повторный DI3 при DI2=1 остаётся холостым.
             if (active && ioInputConfig.triggerEdge() == TriggerEdgeMode.RISING) {
                 triggerActive = false;
                 captureFiredThisPulse = false;
@@ -669,6 +682,10 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (captureFiredThisPulse) {
             return;
         }
+        if (directionActive && captureFiredThisDi2Window) {
+            log.info("io_input_trigger skip: холостой DI3 (уже сняли при DI2=1)");
+            return;
+        }
         if (ioInputConfig.requireWork() && !isEffectiveWork()) {
             log.info("io_input_trigger skip: conveyor not running (work=0)");
             return;
@@ -693,6 +710,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
+            if (directionActive) {
+                captureFiredThisDi2Window = true;
+            }
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
             log.info(
                     "io_input_trigger DI3 capture direction={} source={} cameras={} target={} dispatch_ms={} hardware={}",

@@ -137,6 +137,7 @@ public class IoCaptureGateTests
     public void ConsecutiveRisingWithoutFalling_FiresEachPulse()
     {
         // IoInputMonitor DI3 = Rising-only: Falling в Evaluate не приходит.
+        // Без DI2=1 окно one-shot не активно — каждый DI3↑ даёт FireDo.
         var gate = CreateGate(requireDirection: false);
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
@@ -144,12 +145,31 @@ public class IoCaptureGateTests
     }
 
     [Fact]
+    public void Di2High_SecondDi3IsIdle()
+    {
+        var gate = CreateGate(directionLatch: false);
+        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        // DI2 ещё 1 — повторный DI3 холостой.
+        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
+        // DI2↓ открывает новое окно на следующем DI2↑.
+        gate.Evaluate(2, false, risingEdge: false);
+        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+    }
+
+    [Fact]
     public void ResetsCaptureFlagOnDi3Release()
     {
-        var gate = CreateGate();
-        gate.SeedDirection(true);
+        // При DI2=1 повторный DI3 после Falling всё равно холостой — нужен DI2↓↑.
+        var gate = CreateGate(directionLatch: false);
+        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.None, gate.Evaluate(3, false, risingEdge: false));
+        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
+
+        gate.Evaluate(2, false, risingEdge: false);
+        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
     }
 }

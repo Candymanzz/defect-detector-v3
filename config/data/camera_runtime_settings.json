@@ -2,84 +2,84 @@
   "version" : 1,
   "cameras" : {
     "1" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     },
     "0" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     },
     "2" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
       "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "gain_db" : 0.0
     },
     "3" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 1000,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     },
     "4" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     },
     "5" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     },
     "6" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     },
     "7" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 100,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 500,
+      "gain_db" : 0.0
     },
     "8" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     },
     "9" : {
+      "gamma" : 0.7,
       "frame_timeout_ms" : 15000,
       "capture_trigger_mode" : "line0",
       "black_level" : 240,
-      "exposure_us" : 500,
-      "gain_db" : 0.0,
-      "gamma" : 0.7
+      "exposure_us" : 250,
+      "gain_db" : 0.0
     }
   }
 }

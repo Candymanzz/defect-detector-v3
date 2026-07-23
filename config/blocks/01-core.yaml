@@ -107,7 +107,8 @@ integration:
       direction_latch_on_work: false
       di3_only: true
       # Съёмка только при живом DI2=1 (без latch): DI3↑ при DI2=0 → skip.
-      # DI3↑ + DI2=1 → wait_frame; экспозиция DO5→Line0.
+      # Первый DI3↑ + DI2=1 → wait_frame; повторный DI3↑ пока DI2=1 — холостой.
+      # Новое окно после DI2↓↑. Экспозиция DO5→Line0.
       direction_latch: false
       capture_delay_ms: 0
       trigger_edge: rising
