@@ -36,6 +36,7 @@ public final class IntegrationShutdownCoordinator {
             Map<Integer, WorkerProcessSupervisor> workersByCamera,
             List<? extends BinaryRpcSupervisor> pythonPool,
             List<? extends BinaryRpcSupervisor> geometryPool,
+            List<? extends BinaryRpcSupervisor> positioningPool,
             ExternalServiceProcess lightServerProcess,
             ExternalServiceProcess ioInputMonitorProcess,
             ExternalServiceProcess frontendProcess,
@@ -86,6 +87,17 @@ public final class IntegrationShutdownCoordinator {
             if (geometry != null) {
                 r.log.info("{} supervisor restarts={}", geometry.supervisorLabel(), geometry.restartCount());
                 geometry.close();
+            }
+        }
+        if (r.positioningPool() != null) {
+            for (BinaryRpcSupervisor positioning : r.positioningPool()) {
+                if (positioning != null) {
+                    try {
+                        r.log.info("{} supervisor restarts={}", positioning.supervisorLabel(), positioning.restartCount());
+                        positioning.close();
+                    } catch (Exception ignored) {
+                    }
+                }
             }
         }
         // Вспышки Off + kill LightServer (идемпотентно с JVM shutdown hook).

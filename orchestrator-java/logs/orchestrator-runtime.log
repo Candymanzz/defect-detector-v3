@@ -47419,3 +47419,65 @@ java.io.IOException: EOF
 2026-07-19 20:14:30.361 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
 2026-07-19 20:14:30.452 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
 2026-07-19 20:14:30.483 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:11.210 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:11.210 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:12.183 INFO  [pool-4-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:14.833 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:14.846 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:18.848 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket timeout seq=300 group=1 received=3/5 cameras=[5, 6, 7]
+2026-07-23 08:51:18.849 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=1 pass=false frames=3/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:21.048 INFO  [pool-5-thread-5] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:21.059 INFO  [pool-5-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:21.078 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:21.081 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-07-23 08:51:21.084 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 par=2.0 width=1.2 strict_pass=true
+2026-07-23 08:51:21.085 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:21.090 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-07-23 08:51:21.091 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-23 08:51:21.093 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 par=2.0 width=1.2 strict_pass=false
+2026-07-23 08:51:21.093 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-07-23 08:51:21.343 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-07-23 08:51:21.343 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-23 08:51:21.345 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-23 08:51:21.359 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.364 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-23 08:51:21.364 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-23 08:51:21.365 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.369 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-23 08:51:21.369 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-23 08:51:21.449 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-23 08:51:21.470 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.472 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-23 08:51:21.472 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-23 08:51:21.472 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-23 08:51:21.552 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-23 08:51:21.553 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-23 08:51:21.622 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.630 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-23 08:51:21.631 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-23 08:51:21.631 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-23 08:51:21.632 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.635 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-23 08:51:21.635 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.637 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-23 08:51:21.637 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-23 08:51:21.638 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-23 08:51:21.638 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-23 08:51:21.839 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.841 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-23 08:51:21.842 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.845 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.847 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-23 08:51:21.848 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-23 08:51:21.848 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-23 08:51:21.929 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-23 08:51:21.949 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.952 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-23 08:51:21.952 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-23 08:51:21.953 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-23 08:51:21.953 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-23 08:51:21.953 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-23 08:51:21.960 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-23 08:51:21.960 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-23 08:51:21.960 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-23 08:51:21.986 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit4720290263735476049/light_brightness_settings.json default=42 endpoints=2
