@@ -101,12 +101,13 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
   }
 
   const editable = Boolean(status?.editable);
-  const inspectionLocked = Boolean(status?.inspection_enabled || status?.inspection_in_flight);
+  const timeoutsEditable = Boolean(status?.timeouts_editable ?? status?.enabled);
+  const signalsEditable = Boolean(status?.signals_editable ?? editable);
   const signals = status?.signals ?? [];
   const visionReady = signals.find((signal) => signal.name === "vision_ready")?.lastValue;
 
   const handleWriteSignal = async (signal: PlcSignalState, value: boolean, pulse: boolean) => {
-    if (!editable || busySignal) {
+    if (!signalsEditable || busySignal) {
       return;
     }
     setBusySignal(signal.name);
@@ -142,7 +143,7 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
   };
 
   const handleSaveTimeouts = async () => {
-    if (!editable || timeoutsBusy) {
+    if (!timeoutsEditable || timeoutsBusy) {
       return;
     }
     const payload: Record<string, number> = {};
@@ -172,6 +173,7 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
             ? {
                 ...current,
                 editable: response.editable,
+                timeouts_editable: response.timeouts_editable ?? current.timeouts_editable,
                 inspection_enabled: response.inspection_enabled,
                 inspection_in_flight: response.inspection_in_flight,
                 signals: response.signals ?? current.signals,
@@ -229,15 +231,15 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
           />
           <StatusChip
             label="Ручное управление"
-            value={editable ? "разрешено" : "заблокировано"}
-            tone={editable ? "ok" : "warn"}
+            value={signalsEditable ? "разрешено" : "заблокировано"}
+            tone={signalsEditable ? "ok" : "warn"}
           />
         </div>
 
-        {inspectionLocked && (
+        {!signalsEditable && (
           <p className="plc-panel__lock-note">
-            Пока задан эталон или идёт цикл, тайминги и ручные сигналы заблокированы. Сбросьте эталон,
-            чтобы править D4400–D4404.
+            Пока задан эталон или идёт цикл, ручные сигналы заблокированы. Тайминги D4400–D4404 можно
+            менять в любой момент.
           </p>
         )}
         {statusError && <p className="plc-panel__error">Статус: {statusError}</p>}
@@ -250,7 +252,11 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
               <Button type="button" onClick={() => void refreshTimeouts()} disabled={timeoutsBusy}>
                 Прочитать
               </Button>
-              <Button type="button" onClick={() => void handleSaveTimeouts()} disabled={!editable || timeoutsBusy}>
+              <Button
+                type="button"
+                onClick={() => void handleSaveTimeouts()}
+                disabled={!timeoutsEditable || timeoutsBusy}
+              >
                 Записать
               </Button>
             </div>
@@ -274,7 +280,7 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
                   min={0}
                   max={9999}
                   step={1}
-                  disabled={!editable || timeoutsBusy}
+                  disabled={!timeoutsEditable || timeoutsBusy}
                   value={draftUnits[item.name] ?? ""}
                   onChange={(event) => {
                     const value = event.target.value;
@@ -312,14 +318,14 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
                     <div className="plc-panel__signal-actions">
                       <Button
                         type="button"
-                        disabled={!editable || busySignal === signal.name}
+                        disabled={!signalsEditable || busySignal === signal.name}
                         onClick={() => void handleWriteSignal(signal, true, false)}
                       >
                         On
                       </Button>
                       <Button
                         type="button"
-                        disabled={!editable || busySignal === signal.name}
+                        disabled={!signalsEditable || busySignal === signal.name}
                         onClick={() => void handleWriteSignal(signal, false, false)}
                       >
                         Off
@@ -327,7 +333,7 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
                       <Button
                         type="button"
                         variant="warning"
-                        disabled={!editable || busySignal === signal.name}
+                        disabled={!signalsEditable || busySignal === signal.name}
                         onClick={() => void handleWriteSignal(signal, true, true)}
                       >
                         Pulse

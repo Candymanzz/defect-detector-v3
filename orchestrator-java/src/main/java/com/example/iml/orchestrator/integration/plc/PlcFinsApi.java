@@ -20,14 +20,14 @@ public interface PlcFinsApi {
   boolean inspectionEnabled();
 
   /**
-   * Ручное управление разрешено, пока нет эталона и нет цикла in-flight.
+   * Ручные сигналы разрешены, пока нет эталона и нет цикла in-flight.
    */
   boolean manualControlEditable();
 
-  /** @deprecated use {@link #manualControlEditable()} */
-  default boolean timeoutsEditable() {
-    return manualControlEditable();
-  }
+  /**
+   * Тайминги D4400–D4404 можно менять при включённом FINS, в том числе во время инспекции.
+   */
+  boolean timeoutsEditable();
 
   List<PlcTimeoutDefinition> timeoutDefinitions();
 

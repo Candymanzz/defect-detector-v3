@@ -48,15 +48,20 @@ public final class BucketPositioningService {
 
     private static final Logger log = LogManager.getLogger(BucketPositioningService.class);
 
-    /** ORB working resolution — 768 keeps inliers stable while cutting detect cost vs 1024. */
-    private static final int MAX_ORB_DIM = 768;
-    /** 3500 features is enough for >100 inliers on these frames; 6000 mostly burns CPU. */
-    private static final int ORB_FEATURES = 3500;
+    /**
+     * ORB working resolution. 512 is ~2.2× fewer pixels than 768 and still yields stable inliers
+     * on bucket texture; target ≤100 ms/cam wall under a 10-process pool.
+     */
+    private static final int MAX_ORB_DIM = 512;
+    /** Enough for ≥MIN_MATCHES inliers; 3500 mostly burned CPU without lifting PASS rate. */
+    private static final int ORB_FEATURES = 1600;
+    private static final int ORB_PYRAMID_LEVELS = 5;
     private static final double RANSAC_REPROJ_THRESHOLD = 5.0;
-    private static final int MIN_MATCHES = 12;
-    /** 3 pyramid levels (~2× less ECC work than 4); translation refine stays the same. */
-    private static final int ECC_LEVELS = 3;
-    private static final int ECC_MAX_ITER = 25;
+    private static final int RANSAC_MAX_ITERS = 500;
+    private static final int MIN_MATCHES = 10;
+    /** 2 pyramid levels + fewer iters — ECC was often 150–350 ms/cam. */
+    private static final int ECC_LEVELS = 2;
+    private static final int ECC_MAX_ITER = 12;
     /**
      * Conveyor buckets barely rotate; ORB often invents 1–3° twist from background matches.
      * Anything larger is forced to pure translation.
@@ -66,11 +71,14 @@ public final class BucketPositioningService {
     private static final double ECC_MAX_TRANSLATION_PX = 40.0;
     private static final double ECC_MAX_ANGLE_DEG = 0.35;
     /** Skip ECC sooner when ORB already looks locked (same PASS/FAIL gates below). */
-    private static final double ECC_SKIP_NCC = 0.91;
-    private static final double ECC_SKIP_ABSDiff = 3.5;
-    private static final double ECC_SKIP_RESIDUAL_PX = 1.5;
+    private static final double ECC_SKIP_NCC = 0.88;
+    private static final double ECC_SKIP_ABSDiff = 5.0;
+    private static final double ECC_SKIP_RESIDUAL_PX = 3.0;
     /** Stop ECC pyramid early once correlation/translation are good enough. */
-    private static final double ECC_EARLY_STOP_CC = 0.97;
+    private static final double ECC_EARLY_STOP_CC = 0.94;
+    /** Quality / coarse FFT work on downscaled ROI — full-res phaseCorrelate was a hidden tax. */
+    private static final int QUALITY_MAX_DIM = 320;
+    private static final int COARSE_MAX_DIM = 256;
     private static final double RESIDUAL_POLISH_MIN_PX = 2.0;
     private static final double RESIDUAL_POLISH_MAX_PX = 180.0;
     /** Soft gate: both residual + absdiff still bad → refuse PASS (cam=2/4 leftover shift). */
@@ -105,7 +113,7 @@ public final class BucketPositioningService {
 
     public BucketPositioningService(ShmMatWriter shmWriter) {
         this.shmWriter = shmWriter;
-        this.orb = ORB.create(ORB_FEATURES);
+        this.orb = ORB.create(ORB_FEATURES, 1.2f, ORB_PYRAMID_LEVELS);
         this.matcher = BFMatcher.create(Core.NORM_HAMMING, false);
         this.clahe = Imgproc.createCLAHE(2.0, new Size(8, 8));
     }
@@ -153,7 +161,7 @@ public final class BucketPositioningService {
 
             QualityScore q0 = measureQuality(reference, current, qualityRoi, request.mainRoiPolygonNorm());
             putQuality(diag, "raw", q0);
-            log.info(
+            log.debug(
                     "positioning_diag {} stage=raw mean_absdiff={} ncc={} residual_shift=({}, {}) px",
                     ctx(logContext),
                     fmt(q0.meanAbsDiff()),
@@ -199,7 +207,7 @@ public final class BucketPositioningService {
                     diag.put("coarse_residual_fallback", true);
                     diag.put("coarse_dx_px", coarseShift.x);
                     diag.put("coarse_dy_px", coarseShift.y);
-                    log.info(
+                    log.debug(
                             "positioning_diag {} stage=coarse_residual_fallback shift=({}, {}) px absdiff={} residual=({}, {})",
                             ctx(logContext),
                             fmt(coarseShift.x),
@@ -211,7 +219,7 @@ public final class BucketPositioningService {
                 }
             }
             putQuality(diag, "coarse", qCoarse);
-            log.info(
+            log.debug(
                     "positioning_diag {} stage=coarse shift=({}, {}) px mean_absdiff={} ncc={} residual_shift=({}, {}) px",
                     ctx(logContext),
                     fmt(coarseShift.x),
@@ -247,7 +255,7 @@ public final class BucketPositioningService {
                         || orbResult.refKeypoints() < ORB_MIN_REF_KEYPOINTS
                         || orbResult.inliers() < MIN_MATCHES);
                 if (preferFull) {
-                    log.info(
+                    log.debug(
                             "positioning_diag {} stage=orb FALLBACK_FULLFRAME kp_ref={}→{} good={}->{} inliers={}->{}",
                             ctx(logContext),
                             orbResult.refKeypoints(),
@@ -273,7 +281,7 @@ public final class BucketPositioningService {
             diag.put("orb_inliers", orbResult.inliers());
             diag.put("orb_ok", !orbResult.homography().empty());
             diag.put("orb_model", "euclidean");
-            log.info(
+            log.debug(
                     "positioning_diag {} stage=orb model=euclidean kp_ref={} kp_cur={} good_matches={} inliers={} ok={}",
                     ctx(logContext),
                     orbResult.refKeypoints(),
@@ -359,7 +367,7 @@ public final class BucketPositioningService {
                 diag.put("residual_polish", true);
                 diag.put("residual_polish_dx", residualPolish.dx());
                 diag.put("residual_polish_dy", residualPolish.dy());
-                log.info(
+                log.debug(
                         "positioning_diag {} stage=residual_polish shift=({}, {}) px mean_absdiff={} ncc={} residual_shift=({}, {}) px",
                         ctx(logContext),
                         fmt(residualPolish.dx()),
@@ -375,7 +383,7 @@ public final class BucketPositioningService {
 
             AlignmentMetrics metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
             putQuality(diag, "orb", qOrb);
-            log.info(
+            log.debug(
                     "positioning_diag {} stage=after_orb shift_mm=({}, {}) rot_deg={} mean_absdiff={} ncc={} residual_shift=({}, {}) px",
                     ctx(logContext),
                     fmt(metrics.shiftXmm),
@@ -399,7 +407,7 @@ public final class BucketPositioningService {
                 diag.put("ecc_ty", 0.0);
                 diag.put("ecc_angle_deg", 0.0);
                 diag.put("ecc_applied", false);
-                log.info(
+                log.debug(
                         "positioning_diag {} stage=ecc SKIPPED already_good ncc={} absdiff={} residual=({}, {})",
                         ctx(logContext),
                         fmt(qBeforeEcc.ncc()),
@@ -471,7 +479,7 @@ public final class BucketPositioningService {
                     );
                 }
                 diag.put("ecc_applied", acceptEcc);
-                log.info(
+                log.debug(
                         "positioning_diag {} stage=ecc ok={} applied={} cc={} affine_t=({}, {}) angle_deg={}",
                         ctx(logContext),
                         ecc.ok(),
@@ -497,7 +505,7 @@ public final class BucketPositioningService {
                     homographyCurToRef = postEccPolish.homography();
                     metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
                     diag.put("post_ecc_residual_polish", true);
-                    log.info(
+                    log.debug(
                             "positioning_diag {} stage=post_ecc_polish shift=({}, {}) px mean_absdiff={} ncc={} residual=({}, {})",
                             ctx(logContext),
                             fmt(postEccPolish.dx()),
@@ -512,7 +520,7 @@ public final class BucketPositioningService {
 
             QualityScore qFinal = measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
             putQuality(diag, "final", qFinal);
-            log.info(
+            log.debug(
                     "positioning_diag {} stage=final mean_absdiff={} ncc={} residual_shift=({}, {}) px "
                             + "improvement_absdiff={} (raw→final)",
                     ctx(logContext),
@@ -657,8 +665,8 @@ public final class BucketPositioningService {
                 curMasked = curRoi;
                 curRoi = null;
             }
-            ResizeResult r = resizeForProcessing(refMasked, 512);
-            ResizeResult c = resizeForProcessing(curMasked, 512);
+            ResizeResult r = resizeForProcessing(refMasked, COARSE_MAX_DIM);
+            ResizeResult c = resizeForProcessing(curMasked, COARSE_MAX_DIM);
             refSmall = r.mat;
             curSmall = c.mat;
             refSmall.convertTo(ref32, CvType.CV_32F);
@@ -792,7 +800,7 @@ public final class BucketPositioningService {
                         inliersMask,
                         Calib3d.RANSAC,
                         RANSAC_REPROJ_THRESHOLD,
-                        2000,
+                        RANSAC_MAX_ITERS,
                         0.99,
                         10
                 );
@@ -894,18 +902,28 @@ public final class BucketPositioningService {
         Mat curRoi = null;
         Mat mask = null;
         try {
-            Imgproc.cvtColor(reference, refGrayFull, Imgproc.COLOR_BGR2GRAY);
-            Imgproc.cvtColor(aligned, curGrayFull, Imgproc.COLOR_BGR2GRAY);
-            clahe.apply(refGrayFull, refGrayFull);
-            clahe.apply(curGrayFull, curGrayFull);
-
             Rect safe = toSafeRect(
                     new RoiRect(refineRect.x, refineRect.y, refineRect.width, refineRect.height),
                     reference.cols(),
                     reference.rows()
             );
-            refRoi = cloneRoi(refGrayFull, safe);
-            curRoi = cloneRoi(curGrayFull, safe);
+            // Gray+CLAHE only on the refine ROI — full-frame CLAHE was a large fixed cost.
+            Mat refBgrRoi = null;
+            Mat curBgrRoi = null;
+            try {
+                refBgrRoi = new Mat(reference, safe);
+                curBgrRoi = new Mat(aligned, safe);
+                Imgproc.cvtColor(refBgrRoi, refGrayFull, Imgproc.COLOR_BGR2GRAY);
+                Imgproc.cvtColor(curBgrRoi, curGrayFull, Imgproc.COLOR_BGR2GRAY);
+            } finally {
+                release(refBgrRoi, curBgrRoi);
+            }
+            clahe.apply(refGrayFull, refGrayFull);
+            clahe.apply(curGrayFull, curGrayFull);
+            refRoi = refGrayFull;
+            curRoi = curGrayFull;
+            refGrayFull = null;
+            curGrayFull = null;
             if (polygon != null && polygon.size() >= 3) {
                 mask = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
             }
@@ -934,8 +952,8 @@ public final class BucketPositioningService {
                         warp.put(1, 2, t1[0] * 2.0);
                     }
 
-                    // Phase seed only on coarse levels; finest level trusts ECC warping.
-                    if (level > 0) {
+                    // Phase seed only on the coarsest level (avoids repeated FFT on finer pyramids).
+                    if (level == ECC_LEVELS - 1) {
                         double maxPhase = Math.max(8.0, Math.min(refLvl.cols(), refLvl.rows()) * 0.12);
                         try {
                             refLvl.convertTo(eccPhaseRef32, CvType.CV_32F);
@@ -1155,7 +1173,7 @@ public final class BucketPositioningService {
             return ResidualPolish.none();
         }
 
-        // Try both signs — phaseCorrelate vs warpAffine convention can disagree per OpenCV build/ROI.
+        // Prefer the conventional phaseCorrelate sign first; only try the opposite if needed.
         ResidualCandidate best = null;
         double[] signs = {1.0, -1.0};
         for (double sign : signs) {
@@ -1182,6 +1200,10 @@ public final class BucketPositioningService {
                 best = new ResidualCandidate(candidate, after, sx, sy, score);
             } else {
                 candidate.release();
+            }
+            // Good enough on first sign — skip the opposite-sign trial.
+            if (best != null && (afterRes <= RESIDUAL_POLISH_MIN_PX || residualCollapsed)) {
+                break;
             }
         }
         if (best == null) {
@@ -1551,9 +1573,13 @@ public final class BucketPositioningService {
     }
 
     private QualityScore measureQuality(Mat reference, Mat current, Rect roi, List<NormPoint> polygon) {
-        Mat refRoi = null;
-        Mat curRoi = null;
-        Mat mask = null;
+        Mat refRoiHeader = null;
+        Mat curRoiHeader = null;
+        Mat maskFull = null;
+        Mat refWork = null;
+        Mat curWork = null;
+        Mat maskWork = null;
+        boolean ownWork = false;
         try {
             Imgproc.cvtColor(reference, mqRefGray, Imgproc.COLOR_BGR2GRAY);
             Imgproc.cvtColor(current, mqCurGray, Imgproc.COLOR_BGR2GRAY);
@@ -1562,21 +1588,40 @@ public final class BucketPositioningService {
                     reference.cols(),
                     reference.rows()
             );
-            refRoi = new Mat(mqRefGray, safe);
-            curRoi = new Mat(mqCurGray, safe);
+            refRoiHeader = new Mat(mqRefGray, safe);
+            curRoiHeader = new Mat(mqCurGray, safe);
             if (polygon != null && polygon.size() >= 3) {
-                mask = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
+                maskFull = RoiPolygonMask.maskForRect(polygon, safe, reference.cols(), reference.rows());
             }
 
-            Core.absdiff(refRoi, curRoi, mqAbsDiff);
-            Scalar meanDiff = mask == null || mask.empty()
+            double scale = 1.0;
+            int longest = Math.max(safe.width, safe.height);
+            if (longest > QUALITY_MAX_DIM) {
+                scale = QUALITY_MAX_DIM / (double) longest;
+                refWork = new Mat();
+                curWork = new Mat();
+                Imgproc.resize(refRoiHeader, refWork, new Size(), scale, scale, Imgproc.INTER_AREA);
+                Imgproc.resize(curRoiHeader, curWork, new Size(), scale, scale, Imgproc.INTER_AREA);
+                if (maskFull != null && !maskFull.empty()) {
+                    maskWork = new Mat();
+                    Imgproc.resize(maskFull, maskWork, refWork.size(), 0, 0, Imgproc.INTER_NEAREST);
+                }
+                ownWork = true;
+            } else {
+                refWork = refRoiHeader;
+                curWork = curRoiHeader;
+                maskWork = maskFull;
+            }
+
+            Core.absdiff(refWork, curWork, mqAbsDiff);
+            Scalar meanDiff = maskWork == null || maskWork.empty()
                     ? Core.mean(mqAbsDiff)
-                    : Core.mean(mqAbsDiff, mask);
+                    : Core.mean(mqAbsDiff, maskWork);
             double meanAbs = meanDiff.val[0];
 
             double ncc = Double.NaN;
             try {
-                Imgproc.matchTemplate(refRoi, curRoi, mqMatchResult, Imgproc.TM_CCOEFF_NORMED);
+                Imgproc.matchTemplate(refWork, curWork, mqMatchResult, Imgproc.TM_CCOEFF_NORMED);
                 if (!mqMatchResult.empty()) {
                     ncc = mqMatchResult.get(0, 0)[0];
                 }
@@ -1587,11 +1632,11 @@ public final class BucketPositioningService {
             double dx = 0;
             double dy = 0;
             try {
-                refRoi.convertTo(mqRef32, CvType.CV_32F);
-                curRoi.convertTo(mqCur32, CvType.CV_32F);
+                refWork.convertTo(mqRef32, CvType.CV_32F);
+                curWork.convertTo(mqCur32, CvType.CV_32F);
                 Point shift = Imgproc.phaseCorrelate(mqRef32, mqCur32);
-                dx = shift.x;
-                dy = shift.y;
+                dx = shift.x / scale;
+                dy = shift.y / scale;
             } catch (Exception ignored) {
                 // leave 0
             }
@@ -1600,8 +1645,11 @@ public final class BucketPositioningService {
         } catch (Exception e) {
             return new QualityScore(Double.NaN, Double.NaN, 0, 0);
         } finally {
-            // Must release ROI headers — they hold native refcounts on gray data.
-            release(refRoi, curRoi, mask);
+            // ROI headers always need release (native refcounts on gray data).
+            release(refRoiHeader, curRoiHeader, maskFull);
+            if (ownWork) {
+                release(refWork, curWork, maskWork);
+            }
         }
     }
 

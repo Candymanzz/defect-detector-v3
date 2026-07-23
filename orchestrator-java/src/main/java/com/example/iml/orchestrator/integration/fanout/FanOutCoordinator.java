@@ -177,6 +177,11 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     @Override
+    public boolean timeoutsEditable() {
+        return enabled();
+    }
+
+    @Override
     public List<PlcTimeoutDefinition> timeoutDefinitions() {
         return registerMap.timeouts();
     }
@@ -270,10 +275,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     public List<PlcTimeoutState> writeTimeouts(Map<String, Integer> unitsByKey)
             throws IOException, InterruptedException, TimeoutException {
         ensurePlc();
-        if (!manualControlEditable()) {
-            throw new IllegalStateException(
-                    "PLC timeouts are locked while reference is set or inspection is in flight"
-            );
+        if (!timeoutsEditable()) {
+            throw new IllegalStateException("PLC timeouts require plc_fins enabled");
         }
         if (unitsByKey == null || unitsByKey.isEmpty()) {
             throw new IllegalArgumentException("timeouts body is empty");

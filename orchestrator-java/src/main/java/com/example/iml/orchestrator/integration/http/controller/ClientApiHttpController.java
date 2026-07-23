@@ -92,7 +92,7 @@ public final class ClientApiHttpController implements HttpController {
             root.put("inspection_in_flight", plc.inspectionInFlight());
             root.put("inspection_enabled", plc.inspectionEnabled());
             root.put("editable", plc.manualControlEditable());
-            root.put("timeouts_editable", plc.manualControlEditable());
+            root.put("timeouts_editable", plc.timeoutsEditable());
             root.put("signals_editable", plc.manualControlEditable());
             root.set("timeout_definitions", JSON.valueToTree(plc.timeoutDefinitions()));
             root.set("signals", JSON.valueToTree(plc.listSignals()));
@@ -239,6 +239,8 @@ public final class ClientApiHttpController implements HttpController {
         root.put("inspection_in_flight", plc.inspectionInFlight());
         root.put("inspection_enabled", plc.inspectionEnabled());
         root.put("editable", plc.manualControlEditable());
+        root.put("timeouts_editable", plc.timeoutsEditable());
+        root.put("signals_editable", plc.manualControlEditable());
         root.set("signals", JSON.valueToTree(signals));
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }
@@ -254,6 +256,8 @@ public final class ClientApiHttpController implements HttpController {
         root.put("inspection_in_flight", plc.inspectionInFlight());
         root.put("inspection_enabled", plc.inspectionEnabled());
         root.put("editable", plc.manualControlEditable());
+        root.put("timeouts_editable", plc.timeoutsEditable());
+        root.put("signals_editable", plc.manualControlEditable());
         root.put("unit", "100ms_bcd");
         root.set("timeouts", JSON.valueToTree(timeouts));
         root.set("signals", JSON.valueToTree(plc.listSignals()));

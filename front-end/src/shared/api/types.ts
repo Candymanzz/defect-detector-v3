@@ -385,6 +385,7 @@ export type PlcTimeoutsResponse = {
   inspection_in_flight: boolean;
   inspection_enabled: boolean;
   editable: boolean;
+  timeouts_editable?: boolean;
   unit?: string;
   timeouts: PlcTimeoutState[];
   signals?: PlcSignalState[];
