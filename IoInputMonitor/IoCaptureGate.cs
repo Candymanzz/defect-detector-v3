@@ -274,10 +274,10 @@ public sealed class IoCaptureOptions
     public int TriggerPort { get; set; } = 3;
 
     /// <summary>Основной DO съёмки (1..8). Совпадает с первым в OutputPorts.</summary>
-    public int OutputPort { get; set; } = 6;
+    public int OutputPort { get; set; } = 5;
 
-    /// <summary>DO для импульса по DI3↑ (напр. [6]). Пусто → только OutputPort.</summary>
-    public int[] OutputPorts { get; set; } = [6];
+    /// <summary>DO для импульса по DI3↑ (напр. [5]). Пусто → только OutputPort.</summary>
+    public int[] OutputPorts { get; set; } = [5];
 
     /// <summary>Порты съёмки без дублей (всегда ≥1).</summary>
     public int[] ResolveOutputPorts()
@@ -295,7 +295,7 @@ public sealed class IoCaptureOptions
                 return ports.ToArray();
         }
 
-        int primary = OutputPort is >= 1 and <= 8 ? OutputPort : 6;
+        int primary = OutputPort is >= 1 and <= 8 ? OutputPort : 5;
         return [primary];
     }
 

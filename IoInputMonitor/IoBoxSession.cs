@@ -25,7 +25,7 @@ internal sealed class IoBoxSession : IDisposable
     public string OpenedComName { get; private set; } = "";
 
     /// <summary>DO съёмки (Line0), из capture.output_port. Default 6.</summary>
-    public int Line0OutputPort { get; set; } = 6;
+    public int Line0OutputPort { get; set; } = 5;
 
     /// <summary>Все DO съёмки, из capture.output_ports. Default [6].</summary>
     public int[] Line0OutputPorts { get; set; } = [6];

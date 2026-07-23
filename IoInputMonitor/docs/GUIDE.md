@@ -121,19 +121,11 @@ DI замкнулся → IoInputMonitor UDP → оркестратор :9100
 
 `value=1` — триггер «нажато/замкнуто», `value=0` — «отпущено».
 
-### Брак на ПЛК (только DO3 / DO4)
+### DO с IoInputMonitor
 
-При `reject.enabled` и `POST /reject {"line":1|2}`:
+На шину бокса уходит **только DO5** (импульс Line0 камер после DI3↑).
 
-| HTTP | DO | ПЛК |
-|------|-----|-----|
-| `POST /reject {"line":1}` | **DO3** | X6 |
-| `POST /reject {"line":2}` | **DO4** | X7 |
-
-`vision-ready` / `vision-fault` (DO1/DO2) при `ready_enabled`/`fault_enabled: false` — **skip**, на шину не едут.
-Reject **не** гасит capture DO6 и **не** трогает соседнюю reject-линию.
-
-FINS только **D4400–D4404** (таймауты). **CIO 240.15 не используем.**
+Брак / ready / fault на ПЛК — **по FINS**, не через DO1–4. Секция `reject` в YAML выключена (`enabled: false`).
 
 ---
 
@@ -152,7 +144,7 @@ FINS только **D4400–D4404** (таймауты). **CIO 240.15 не исп
 
 1. **`direction_latch: true` без снятия** — после первого DI2=1 каждый DI3↑ шлёт DO/UDP до рестарта. Сейчас: `disarm_on_work_low: true` + DI1↓, или `POST http://127.0.0.1:9101/capture-disarm`.
 2. **`debounce_ms: 0`** — bounce контакта → лавина UDP и очередь DO. Ставь 20–50 мс.
-3. **UDP не режется capture-gate** — gate блокирует только DO6; DI1/DI2/DI3 всё равно уходят в оркестратор на каждый фронт (`edge: both` = rise+fall).
+3. **UDP не режется capture-gate** — gate блокирует только DO5; DI1/DI2/DI3 всё равно уходят в оркестратор на каждый фронт (`edge: both` = rise+fall).
 4. **Несколько `Task.Run` на bounce** — перекрывающиеся импульсы; теперь один in-flight (`IoCapturePulseScheduler`).
 
 ---
@@ -180,6 +172,6 @@ flowchart LR
     B --> C[IoDiEdgeTracker + IoCaptureGate]
     C --> D[Console log]
     C --> E[IoInputUdpPublisher]
-    C -->|FireDo + scheduler| F[DO6 Line0]
+    C -->|FireDo + scheduler| F[DO5 Line0]
     E -->|UDP| G[Оркестратор :9100]
 ```

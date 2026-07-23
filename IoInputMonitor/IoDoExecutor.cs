@@ -3,8 +3,8 @@ namespace IoInputMonitor;
 /// <summary>
 /// Арбитр одного COM/SDK на две логические зоны:
 /// <list type="bullet">
-/// <item><b>Capture</b> — DI2/DI3 (+ re-arm) и DO6 Line0</item>
-/// <item><b>Plc</b> — DO3/DO4 (reject линия1/2 → ПЛК X6/X7); ready/fault выкл. в конфиге</item>
+/// <item><b>Capture</b> — DI2/DI3 (+ re-arm) и DO5 Line0</item>
+/// <item><b>Plc</b> — опционально DO3/DO4 (reject); в проде выкл. — брак по FINS</item>
 /// </list>
 /// Пока открыто Capture-окно, PLC в очереди ждёт (не долбит SDK).
 /// Sleep импульсов — вне worker; Input/re-arm не голодает.
@@ -15,9 +15,9 @@ internal sealed class IoMonitorArbiter : IDisposable
     {
         /// <summary>DI edge re-arm — всегда первый.</summary>
         Input = 0,
-        /// <summary>DO6 съёмка Line0.</summary>
+        /// <summary>DO5 съёмка Line0.</summary>
         Capture = 1,
-        /// <summary>DO3/DO4 брак на ПЛК.</summary>
+        /// <summary>Опциональный reject DO (обычно выкл.).</summary>
         Plc = 2
     }
 
@@ -217,7 +217,7 @@ internal sealed class IoMonitorArbiter : IDisposable
 
     /// <summary>
     /// PLC: дождаться тишины Capture, затем короткий SDK-слот.
-    /// Не долбит COM, пока идёт DO6.
+    /// Не долбит COM, пока идёт DO5.
     /// </summary>
     public T RunPlcAfterQuiet<T>(Func<T> action, int quietTimeoutMs = 5000, int runTimeoutMs = 8000)
     {

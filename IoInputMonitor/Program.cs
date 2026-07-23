@@ -478,7 +478,7 @@ internal static class Program
                 "configure_sdk=false — параметры порта не меняем, используем настройку устройства/MVS.");
         }
 
-        // На шину ПЛК — только импульсы DO3/DO4 при браке. Без ready/fault hold.
+        // На шину ПЛК DO не шлём (reject выкл.) — брак/ready/fault по FINS. Capture = только DO5.
         if (options.Reject.Enabled && ShouldConfigureSdk(options))
             session.RestoreConfiguredInputs();
 

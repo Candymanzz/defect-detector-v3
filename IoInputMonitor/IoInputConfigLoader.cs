@@ -183,7 +183,7 @@ public static class IoInputConfigLoader
         if (raw == null)
             return new IoCaptureOptions();
 
-        int primary = raw.OutputPort is >= 1 and <= 8 ? raw.OutputPort.Value : 6;
+        int primary = raw.OutputPort is >= 1 and <= 8 ? raw.OutputPort.Value : 5;
         int[] outputPorts = ParseInputPorts(raw.OutputPorts);
         if (outputPorts.Length == 0)
             outputPorts = [primary];
