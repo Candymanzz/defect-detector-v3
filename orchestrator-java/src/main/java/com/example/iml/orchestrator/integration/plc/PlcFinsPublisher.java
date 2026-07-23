@@ -108,6 +108,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   public void publishBucket(BucketFanOutResult result) {
+    // ready держится отдельно (sticky HIGH); здесь только вердикт reject.
     Optional<PlcSignalDefinition> signalOpt = registerMap.rejectSignalForGroup(result.groupId());
     if (signalOpt.isEmpty()) {
       log.warn("plc fins: no reject signal for bucket group={}", result.groupId());
@@ -125,7 +126,11 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   public void setVisionReady(boolean ready) {
-    enqueue(new WriteBitJob(registerMap.require(config.visionReadySignal()), ready));
+    // DO1/X4 не шлём.
+  }
+
+  private void forceVisionReadyOff() {
+    // no-op
   }
 
   public void setVisionFault(boolean fault) {
@@ -315,7 +320,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
       Thread.currentThread().interrupt();
     }
     try {
-      setVisionReady(false);
+      forceVisionReadyOff();
       client.close();
     } catch (Exception e) {
       log.debug("plc fins close: {}", e.getMessage());

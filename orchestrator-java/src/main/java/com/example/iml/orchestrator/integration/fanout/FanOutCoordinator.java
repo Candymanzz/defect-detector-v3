@@ -111,7 +111,11 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         IoInputMonitorRejectClient rejectClient = IoInputMonitorRejectClient.fromIntegration(log, integration);
         if (rejectClient.isEnabled()) {
             log.info(
-                    "inspection result plc discrete DI (IoInputMonitor) — ready/fault/reject; FINS only D4400–D4404 (no CIO 240.15)"
+                    "inspection result plc discrete DI (IoInputMonitor) — ready={} fault={} reject1={} reject2={}; FINS only D4400–D4404 (no CIO 240.15)",
+                    rejectClient.readyEnabled(),
+                    rejectClient.faultEnabled(),
+                    rejectClient.line1Enabled(),
+                    rejectClient.line2Enabled()
             );
         } else {
             log.info("inspection result reject via plc_fins W0.xx (io_input_monitor_reject.enabled=false)");
@@ -124,6 +128,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
+        // При включённой инспекции: только reject при браке (vision_ready не шлём).
         if (inspectionEnabled()) {
             if (rejectClient != null && rejectClient.isEnabled()) {
                 rejectClient.publishBucket(result);
@@ -143,19 +148,11 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     public void signalVisionReady(boolean ready) {
-        if (rejectClient != null && rejectClient.isEnabled()) {
-            rejectClient.setVisionReady(ready);
-        } else if (plcPublisher != null) {
-            plcPublisher.setVisionReady(ready);
-        }
+        // На ПЛК только DO3/DO4 reject — ready не шлём.
     }
 
     public void signalVisionFault(boolean fault) {
-        if (rejectClient != null && rejectClient.isEnabled()) {
-            rejectClient.setVisionFault(fault);
-        } else if (plcPublisher != null) {
-            plcPublisher.setVisionFault(fault);
-        }
+        // На ПЛК только DO3/DO4 reject — fault не шлём.
     }
 
     @Override

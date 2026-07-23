@@ -7,6 +7,7 @@ namespace IoInputMonitor;
 /// <summary>
 /// HTTP API IoInputMonitor:
 /// GET/PUT /line-direction — ход линии;
+/// POST /capture-disarm — снять direction latch;
 /// POST /reject — импульс DO → ПЛК X6/X7 (брак линии).
 /// </summary>
 internal sealed class IoLineDirectionHttpServer : IDisposable
@@ -20,6 +21,9 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
     private readonly object _consoleLock;
     private readonly IoDoExecutor? _doExecutor;
     private bool _disposed;
+    /// <summary>vision_ready держим HIGH (DO1→X4) только если ready_enabled и HTTP выставил hold.</summary>
+    private volatile bool _visionReadyHold;
+    private volatile bool _visionReadyApplied;
 
     private IoLineDirectionHttpServer(
         IoCaptureGate? gate,
@@ -40,7 +44,10 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         _loop = Task.Run(ListenLoopAsync);
         var routes = new List<string>();
         if (_gate != null)
+        {
             routes.Add("line-direction (GET/PUT)");
+            routes.Add("capture-disarm (POST)");
+        }
         if (_reject is { Enabled: true } && _session != null)
             routes.Add("reject (POST), vision-ready/vision-fault (PUT)");
         Console.WriteLine($"IO control HTTP ← {prefix}{string.Join(", ", routes)}");
@@ -54,9 +61,9 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         IoRejectOptions? reject = null,
         IoDoExecutor? doExecutor = null)
     {
-        bool directionEnabled = gate != null && directionHttp is { Enabled: true };
+        bool captureHttp = gate != null && directionHttp is { Enabled: true };
         bool rejectEnabled = session != null && reject is { Enabled: true };
-        if (!directionEnabled && !rejectEnabled)
+        if (!captureHttp && !rejectEnabled)
             return null;
 
         IoDirectionHttpOptions http =
@@ -71,7 +78,7 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         try
         {
             return new IoLineDirectionHttpServer(
-                directionEnabled ? gate : null,
+                captureHttp ? gate : null,
                 rejectEnabled ? session : null,
                 rejectEnabled ? reject : null,
                 prefix,
@@ -136,15 +143,29 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
                 return;
             }
 
+            if (path is "/capture-disarm" or "/api/client/capture-disarm" or "/disarm")
+            {
+                HandleCaptureDisarm(ctx);
+                return;
+            }
+
             if (path is "/vision-ready" or "/api/client/vision-ready")
             {
-                HandleVisionLevel(ctx, "vision_ready", _reject?.ReadyOutputPort ?? 1, "X4");
+                HandleVisionLevel(
+                    ctx,
+                    "vision_ready",
+                    _reject?.ReadyOutputPort ?? 1,
+                    _reject?.ReadyPlcInput ?? "X4");
                 return;
             }
 
             if (path is "/vision-fault" or "/api/client/vision-fault")
             {
-                HandleVisionLevel(ctx, "vision_fault", _reject?.FaultOutputPort ?? 2, "X5");
+                HandleVisionLevel(
+                    ctx,
+                    "vision_fault",
+                    _reject?.FaultOutputPort ?? 2,
+                    _reject?.FaultPlcInput ?? "X5");
                 return;
             }
 
@@ -167,6 +188,7 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
                     direction = _gate.SelectedWireValue,
                     source = "manual",
                     armed = _gate.IsDirectionArmed,
+                    latched = _gate.IsDirectionLatched,
                     expect = _gate.DescribeExpectedArm()
                 });
                 return;
@@ -230,6 +252,39 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         }
     }
 
+    private void HandleCaptureDisarm(HttpListenerContext ctx)
+    {
+        if (_gate == null)
+        {
+            WriteJson(ctx.Response, 503, new { error = "capture gate disabled" });
+            return;
+        }
+
+        if (!ctx.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase)
+            && !ctx.Request.HttpMethod.Equals("PUT", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteJson(ctx.Response, 405, new { error = "method not allowed" });
+            return;
+        }
+
+        IoCaptureDecision decision = _gate.Disarm();
+        lock (_consoleLock)
+        {
+            Console.WriteLine(
+                $"[{Timestamp()}] capture: HTTP disarm → armed={_gate.IsDirectionArmed} latched={_gate.IsDirectionLatched}" +
+                (decision == IoCaptureDecision.None ? " (уже снято)" : ""));
+        }
+
+        WriteJson(ctx.Response, 200, new
+        {
+            ok = true,
+            disarmed = decision == IoCaptureDecision.DirectionDisarmed || !_gate.IsDirectionArmed,
+            armed = _gate.IsDirectionArmed,
+            latched = _gate.IsDirectionLatched,
+            expect = _gate.DescribeExpectedArm()
+        });
+    }
+
     private void HandleReject(HttpListenerContext ctx)
     {
         if (_session == null || _reject is not { Enabled: true })
@@ -258,42 +313,82 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         }
 
         int doPort = line == 1 ? _reject.Line1OutputPort : _reject.Line2OutputPort;
-        string plcInput = line == 1 ? "X6" : "X7";
-        string how;
-        try
-        {
-            lock (_consoleLock)
-            {
-                Console.WriteLine(
-                    $"[{Timestamp()}] reject line={line} DO{doPort}: зона Plc → board-exact (без SaveParam)…");
-            }
+        string plcInput = line == 1 ? _reject.Line1PlcInput : _reject.Line2PlcInput;
+        bool lineEnabled = line == 1 ? _reject.Line1Enabled : _reject.Line2Enabled;
 
-            how = FireRejectViaExecutor(doPort);
-        }
-        catch (Exception ex)
+        // Брак на ПЛК — только DO линии 1/2 (обычно DO3/DO4). Ready/fault/capture сюда не входят.
+        if (doPort is < 1 or > 8
+            || doPort == _reject.ReadyOutputPort
+            || doPort == _reject.FaultOutputPort)
         {
-            lock (_consoleLock)
+            WriteJson(ctx.Response, 400, new
             {
-                Console.Error.WriteLine($"[{Timestamp()}] reject line={line} DO{doPort}: FAIL {ex.Message}");
-            }
-            WriteJson(ctx.Response, 500, new { error = ex.Message, line, do_port = doPort });
+                error = $"reject line{line} must map to a dedicated DO (got DO{doPort})",
+                line,
+                do_port = doPort
+            });
             return;
         }
 
+        if (!lineEnabled)
+        {
+            WriteJson(ctx.Response, 200, new
+            {
+                ok = true,
+                skipped = true,
+                reason = $"line{line}_enabled=false",
+                line,
+                do_port = doPort,
+                plc_input = plcInput
+            });
+            lock (_consoleLock)
+            {
+                Console.WriteLine(
+                    $"[{Timestamp()}] reject line={line} DO{doPort}: skipped (line{line}_enabled=false)");
+            }
+            return;
+        }
+
+        int pulseMs = _reject.PulseDurationMs;
+
+        // Не блокируем HTTP на Capture/COM: оркестратор ждёт ≤3 с и ловит timeout.
+        // Импульс в фоне — ПЛК ack не ждём, просто DO pulse.
         lock (_consoleLock)
         {
             Console.WriteLine(
-                $"[{Timestamp()}] reject line={line} DO{doPort} → PLC {plcInput} pulse {_reject.PulseDurationMs} ms via {how}");
+                $"[{Timestamp()}] reject line={line} DO{doPort}: queued async pulse → PLC {plcInput}");
         }
 
         WriteJson(ctx.Response, 200, new
         {
             ok = true,
+            queued = true,
             line,
             do_port = doPort,
             plc_input = plcInput,
-            pulse_ms = _reject.PulseDurationMs,
-            how
+            pulse_ms = pulseMs,
+            how = "async-pulse-queued"
+        });
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                string how = FireRejectViaExecutor(doPort);
+                lock (_consoleLock)
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] reject line={line} DO{doPort} → PLC {plcInput} pulse {pulseMs} ms via {how}");
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_consoleLock)
+                {
+                    Console.Error.WriteLine(
+                        $"[{Timestamp()}] reject line={line} DO{doPort}: async FAIL {ex.Message}");
+                }
+            }
         });
     }
 
@@ -302,6 +397,31 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         if (_session == null || _reject is not { Enabled: true })
         {
             WriteJson(ctx.Response, 503, new { error = "plc discrete disabled" });
+            return;
+        }
+
+        bool outputEnabled = signal switch
+        {
+            "vision_ready" => _reject.ReadyEnabled,
+            "vision_fault" => _reject.FaultEnabled,
+            _ => true
+        };
+        if (!outputEnabled)
+        {
+            WriteJson(ctx.Response, 200, new
+            {
+                ok = true,
+                skipped = true,
+                reason = $"{signal}_disabled — на ПЛК только DO{_reject.Line1OutputPort}/DO{_reject.Line2OutputPort} при браке",
+                signal,
+                do_port = doPort,
+                plc_input = plcInput
+            });
+            lock (_consoleLock)
+            {
+                Console.WriteLine(
+                    $"[{Timestamp()}] {signal} DO{doPort}: skipped ({signal} disabled — только reject DO{_reject.Line1OutputPort}/DO{_reject.Line2OutputPort})");
+            }
             return;
         }
 
@@ -323,47 +443,98 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
             return;
         }
 
-        string how;
-        try
-        {
-            if (_doExecutor?.Arbiter is { } arbiter)
-            {
-                how = arbiter.RunPlcAfterQuiet(
-                    () => _session.SetDoLevel(doPort, value, _reject.ActiveHigh),
-                    quietTimeoutMs: 8000,
-                    runTimeoutMs: 5000);
-            }
-            else
-            {
-                how = _session.SetDoLevel(doPort, value, _reject.ActiveHigh);
-            }
+        // vision_ready как vision_fault: value=true/false оба применяются (нет «всегда 1»).
+        if (signal == "vision_ready")
+            _visionReadyHold = value;
 
-            RestoreDiMonitor();
-        }
-        catch (Exception ex)
+        // Уже держим HIGH — повторный SetDoLevel делает StopDo и даёт скачок на X4.
+        if (signal == "vision_ready" && value && _visionReadyApplied)
         {
             lock (_consoleLock)
             {
-                Console.Error.WriteLine($"[{Timestamp()}] {signal} DO{doPort}: FAIL {ex.Message}");
+                Console.WriteLine(
+                    $"[{Timestamp()}] vision_ready DO{doPort}: already held HIGH — skip re-drive");
             }
-            WriteJson(ctx.Response, 500, new { error = ex.Message, signal, do_port = doPort });
+
+            WriteJson(ctx.Response, 200, new
+            {
+                ok = true,
+                queued = false,
+                signal,
+                value = true,
+                held = true,
+                do_port = doPort,
+                plc_input = plcInput,
+                how = "already-held"
+            });
             return;
         }
 
+        bool activeHigh = _reject.ActiveHigh;
+
+        // Как reject: не блокируем HTTP и не делаем ReviveDi (ломает DI2/DI3).
         lock (_consoleLock)
         {
             Console.WriteLine(
-                $"[{Timestamp()}] {signal} DO{doPort} → PLC {plcInput} value={value} via {how}");
+                $"[{Timestamp()}] {signal} DO{doPort}: queued → PLC {plcInput} value={value}");
         }
 
         WriteJson(ctx.Response, 200, new
         {
             ok = true,
+            queued = true,
             signal,
             value,
             do_port = doPort,
             plc_input = plcInput,
-            how
+            how = "async-level-queued"
+        });
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                string how;
+                if (_doExecutor?.Arbiter is { } arbiter)
+                {
+                    try
+                    {
+                        how = arbiter.RunPlcAfterQuiet(
+                            () => _session.SetDoLevel(doPort, value, activeHigh),
+                            quietTimeoutMs: 2000,
+                            runTimeoutMs: 3000);
+                    }
+                    catch (TimeoutException)
+                    {
+                        how = arbiter.Run(
+                            IoMonitorArbiter.Domain.Plc,
+                            () => _session.SetDoLevel(doPort, value, activeHigh),
+                            timeoutMs: 3000);
+                        how += "; forced-during-capture";
+                    }
+                }
+                else
+                {
+                    how = _session.SetDoLevel(doPort, value, activeHigh);
+                }
+
+                lock (_consoleLock)
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] {signal} DO{doPort} → PLC {plcInput} value={value} via {how}");
+                }
+
+                if (signal == "vision_ready")
+                    _visionReadyApplied = value;
+            }
+            catch (Exception ex)
+            {
+                lock (_consoleLock)
+                {
+                    Console.Error.WriteLine(
+                        $"[{Timestamp()}] {signal} DO{doPort}: async FAIL {ex.Message}");
+                }
+            }
         });
     }
 
@@ -396,8 +567,8 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         };
 
     /// <summary>
-    /// Зона Plc: тишина Capture (+cooldown) → рабочий board-exact reject (как в 18:43–19:32).
-    /// DO5/DI не трогаем во время съёмки; после импульса FireRejectPulse сам Restore DI.
+    /// Зона Plc: тишина Capture (+cooldown) → быстрый board-exact reject.
+    /// После успеха — soft cleanup (без SetInput); full revive только при DI/SDK аварии.
     /// </summary>
     private string FireRejectViaExecutor(int doPort)
     {
@@ -406,22 +577,46 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
 
         int pulseMs = Math.Clamp(_reject.PulseDurationMs, 1, 5000);
         bool activeHigh = _reject.ActiveHigh;
+        int maxAttempts = Math.Clamp(_reject.PulseRetries, 1, 20);
         Exception? last = null;
         var arbiter = _doExecutor?.Arbiter;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
 
-        for (int attempt = 1; attempt <= 3; attempt++)
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
             {
+                string how;
                 if (arbiter != null)
                 {
-                    return arbiter.RunPlcAfterQuiet(
-                        () => _session.FireRejectPulse(doPort, pulseMs, activeHigh),
-                        quietTimeoutMs: 10000,
-                        runTimeoutMs: 8000);
+                    try
+                    {
+                        how = arbiter.RunPlcAfterQuiet(
+                            () => _session.FireRejectPulse(doPort, pulseMs, activeHigh),
+                            quietTimeoutMs: 2500,
+                            runTimeoutMs: 3000);
+                    }
+                    catch (TimeoutException)
+                    {
+                        // Capture долго занят — всё равно короткий импульс (не ждём ПЛК/тишину вечно).
+                        lock (_consoleLock)
+                        {
+                            Console.WriteLine(
+                                $"[{Timestamp()}] reject DO{doPort}: Capture busy >2.5s — force pulse");
+                        }
+
+                        how = arbiter.RunPlcForced(
+                            () => _session.FireRejectPulse(doPort, pulseMs, activeHigh),
+                            timeoutMs: 3000);
+                        how += "; forced-during-capture";
+                    }
+                }
+                else
+                {
+                    how = _session.FireRejectPulse(doPort, pulseMs, activeHigh);
                 }
 
-                return _session.FireRejectPulse(doPort, pulseMs, activeHigh);
+                return $"{how}; soft-cleanup; duration_ms={sw.ElapsedMilliseconds}";
             }
             catch (Exception ex)
             {
@@ -431,29 +626,81 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
                     || msg.Contains("80000204", StringComparison.OrdinalIgnoreCase)
                     || msg.Contains("Capture window", StringComparison.OrdinalIgnoreCase)
                     || msg.Contains("busy", StringComparison.OrdinalIgnoreCase);
+                bool diDead = msg.Contains("80000003", StringComparison.OrdinalIgnoreCase)
+                    || msg.Contains("+save", StringComparison.OrdinalIgnoreCase);
+                bool lastAttempt = attempt >= maxAttempts;
 
-                try
+                // Full revive только если DI/SDK могли умереть — не на каждый busy.
+                if (diDead || lastAttempt)
                 {
-                    RunOnDoExecutor(() =>
+                    try
                     {
-                        _session.ReviveDiAfterReject();
-                        return "di-revive";
-                    }, IoDoExecutor.Priority.Input);
-                }
-                catch
-                {
-                    // best-effort
+                        RunOnDoExecutor(() =>
+                        {
+                            _session.ReviveDiAfterReject();
+                            return "di-revive";
+                        }, IoDoExecutor.Priority.Input);
+                        lock (_consoleLock)
+                        {
+                            Console.WriteLine($"[{Timestamp()}] reject DO{doPort}: full DI revive after fail");
+                        }
+                    }
+                    catch
+                    {
+                        // best-effort
+                    }
                 }
 
-                if (!busy || attempt == 3)
+                if (!busy || lastAttempt)
                     break;
 
-                Thread.Sleep(150 * attempt);
+                Thread.Sleep(80 * attempt);
             }
         }
 
         throw new InvalidOperationException(
-            $"DO{doPort} reject pulse failed: {Unwrap(last)?.Message ?? "unknown"}");
+            $"DO{doPort} reject pulse failed after {sw.ElapsedMilliseconds} ms: {Unwrap(last)?.Message ?? "unknown"}");
+    }
+
+    /// <summary>Снова удержать DO1→X4 HIGH (fallback, если sticky в session ещё не запомнен).</summary>
+    private string ReassertVisionReadyHold()
+    {
+        if (!_visionReadyHold || _session == null || _reject is not { Enabled: true, ReadyEnabled: true })
+            return "";
+
+        string sticky = _session.ReassertStickyReady();
+        if (!string.IsNullOrEmpty(sticky) && sticky != "sticky-ready-fail")
+            return sticky;
+
+        int readyPort = _reject.ReadyOutputPort is >= 1 and <= 8 ? _reject.ReadyOutputPort : 1;
+        bool activeHigh = _reject.ActiveHigh;
+        try
+        {
+            string how;
+            if (_doExecutor?.Arbiter is { } arbiter)
+            {
+                how = arbiter.Run(
+                    IoMonitorArbiter.Domain.Plc,
+                    () => _session.SetDoLevel(readyPort, active: true, activeHigh),
+                    timeoutMs: 2000);
+            }
+            else
+            {
+                how = _session.SetDoLevel(readyPort, active: true, activeHigh);
+            }
+
+            return $"ready-rehold={how}";
+        }
+        catch (Exception ex)
+        {
+            lock (_consoleLock)
+            {
+                Console.Error.WriteLine(
+                    $"[{Timestamp()}] vision_ready DO{readyPort}: re-hold FAIL {ex.Message}");
+            }
+
+            return "ready-rehold-fail";
+        }
     }
 
     private static Exception? Unwrap(Exception? ex) =>

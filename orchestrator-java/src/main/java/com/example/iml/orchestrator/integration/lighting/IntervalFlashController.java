@@ -39,6 +39,8 @@ public final class IntervalFlashController implements AutoCloseable {
     private final AtomicBoolean lightsOn = new AtomicBoolean(false);
     /** Ждём первый кадр, чтобы погасить раньше timeout (off_on_first_frame). */
     private final AtomicBoolean awaitingFrameOff = new AtomicBoolean(false);
+    /** DI3 On → Off после кадра: в этом окне не гасим банк ради brightness latch. */
+    private final AtomicBoolean captureCycleActive = new AtomicBoolean(false);
     private final Object stateLock = new Object();
 
     private boolean idlePortActive;
@@ -50,6 +52,8 @@ public final class IntervalFlashController implements AutoCloseable {
     /** DI2 idle On отложен, пока не выполнится Off после DI3 (нельзя cancelPendingOff). */
     private volatile boolean idleOnAfterOff;
     private volatile String idleOnAfterOffReason;
+    /** После Off по кадру: flush отложенной яркости в LightServer (без latch). */
+    private volatile Runnable flushDeferredBrightness;
 
     public IntervalFlashController(Logger log, LightTriggerClient lightClient, IntervalFlashConfig config) {
         this(log, asLights(lightClient), config);
@@ -89,6 +93,22 @@ public final class IntervalFlashController implements AutoCloseable {
         return config;
     }
 
+    public void setFlushDeferredBrightness(Runnable flush) {
+        this.flushDeferredBrightness = flush;
+    }
+
+    /**
+     * Окно съёмки: DI3 On до Off после кадра (или timeout).
+     * В этом окне hardware-яркость и bank latch откладываются.
+     */
+    public boolean captureLightingActive() {
+        if (captureCycleActive.get() || awaitingFrameOff.get()) {
+            return true;
+        }
+        ScheduledFuture<?> off = pendingOff;
+        return off != null && !off.isDone();
+    }
+
     /** После startupEngage: погасить свет и ждать фронт On. */
     public void armStartDark() {
         if (!config.enabled() || !config.startDark() || lights.constantMode()) {
@@ -97,6 +117,7 @@ public final class IntervalFlashController implements AutoCloseable {
         cancelPendingOff();
         cancelPendingOn();
         awaitingFrameOff.set(false);
+        captureCycleActive.set(false);
         lightExecutor.execute(() -> {
             lights.forceAllOff();
             lightsOn.set(false);
@@ -149,39 +170,12 @@ public final class IntervalFlashController implements AutoCloseable {
     }
 
     /**
-     * После /pair (WriteBrightness): один Off→On→Off, чтобы MV-LE зафиксировал яркость.
-     * Следующий DI3 On уже из Off — без лишнего Off на каждом кадре.
+     * Яркость больше не требует отдельного Off→On→Off:
+     * /pair пишет регистры (live если банк On), следующий DI/idle bank On применяет через ApplyDirectOn.
+     * Оставляем метод для совместимости wiring — no-op.
      */
     public void onBrightnessUpdated() {
-        if (!config.enabled() || lights.constantMode()) {
-            return;
-        }
-        lightExecutor.execute(() -> {
-            cancelPendingOff();
-            cancelPendingOn();
-            awaitingFrameOff.set(false);
-            lights.forceAllOff();
-            lightsOn.set(false);
-            try {
-                Thread.sleep(20);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            boolean ok = lights.lightAllOn("brightness-refresh");
-            if (!ok) {
-                log.warn("interval_flash brightness-refresh On failed");
-                return;
-            }
-            lightsOn.set(true);
-            try {
-                Thread.sleep(80);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            lights.forceAllOff();
-            lightsOn.set(false);
-            log.info("interval_flash brightness-refresh latched (Off→On→Off)");
-        });
+        // no-op: не гасим банк вне штатного цикла DI3/idle
     }
 
     private void handleIdlePort(boolean active) {
@@ -223,6 +217,7 @@ public final class IntervalFlashController implements AutoCloseable {
             // Съёмка на DI3: On; Off по первому кадру или timeout off_delay_ms.
             cancelPendingOff();
             cancelPendingOn();
+            captureCycleActive.set(true);
             awaitingFrameOff.set(config.offOnFirstFrame());
             scheduleOn("DI" + config.triggerPort() + " " + config.triggerEdge().name().toLowerCase());
             scheduleOff();
@@ -283,10 +278,13 @@ public final class IntervalFlashController implements AutoCloseable {
         if (lights.constantMode()) {
             pendingOff = null;
             awaitingFrameOff.set(false);
+            captureCycleActive.set(false);
             return;
         }
         pendingOff = null;
         awaitingFrameOff.set(false);
+        // Сначала выходим из окна съёмки, чтобы flush не снова отложил push.
+        captureCycleActive.set(false);
         log.info(
                 "interval_flash Off (DI{} {})",
                 config.triggerPort(),
@@ -294,6 +292,7 @@ public final class IntervalFlashController implements AutoCloseable {
         );
         lights.forceAllOff();
         lightsOn.set(false);
+        flushDeferredBrightnessAfterCapture();
         if (idleOnAfterOff) {
             idleOnAfterOff = false;
             String reason = idleOnAfterOffReason != null ? idleOnAfterOffReason : "idle-after-off";
@@ -301,6 +300,18 @@ public final class IntervalFlashController implements AutoCloseable {
             return;
         }
         scheduleReengage("off");
+    }
+
+    private void flushDeferredBrightnessAfterCapture() {
+        Runnable flush = flushDeferredBrightness;
+        if (flush == null) {
+            return;
+        }
+        try {
+            flush.run();
+        } catch (RuntimeException e) {
+            log.warn("interval_flash flushDeferredBrightness: {}", e.getMessage());
+        }
     }
 
     private void scheduleReengage(String afterPhase) {
@@ -371,6 +382,7 @@ public final class IntervalFlashController implements AutoCloseable {
         cancelPendingOff();
         cancelPendingOn();
         awaitingFrameOff.set(false);
+        captureCycleActive.set(false);
         // Синхронно гасим до shutdown executor: иначе при kill/Ctrl+C банк остаётся On (DI2 idle).
         try {
             lights.forceAllOff();

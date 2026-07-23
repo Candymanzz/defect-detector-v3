@@ -52,14 +52,17 @@ dotnet publish -c Release -r win-x64 --self-contained false
 
 ```
 IoInputMonitor/
-├── Program.cs              # Точка входа, CLI, основной цикл мониторинга
-├── IoBoxSession.cs         # Обёртка над SDK: open/close, DI, edge callback
-├── MvIoNative.cs           # P/Invoke к MvIOInterfaceBox.dll, маски портов
-├── IoBoxProbe.cs           # Сканирование COM — где висит IO box
-├── IoInputConfigLoader.cs  # Загрузка config/blocks/52-io-input.yaml
-├── IoInputUdpPublisher.cs  # Асинхронная отправка UDP при смене DI
-├── ThirdParty/MVS/IO/win64/  # Нативные DLL SDK (не в git целиком)
-└── docs/GUIDE.md           # Этот файл
+├── Program.cs                 # CLI + monitor loop
+├── IoDiEdgeTracker.cs         # thread-safe DI pressed + refractory
+├── IoCaptureGate.cs           # DI2 arm / DI3 fire / DI1 disarm
+├── IoCapturePulseScheduler.cs # один in-flight DO pulse
+├── IoBoxSession.cs            # SDK: open/close, DI, edge callback, DO
+├── MvIoNative.cs              # P/Invoke MvIOInterfaceBox.dll
+├── IoBoxProbe.cs              # сканирование COM
+├── IoInputConfigLoader.cs     # config/blocks/52-io-input.yaml
+├── IoInputUdpPublisher.cs     # UDP → оркестратор
+├── ThirdParty/MVS/IO/win64/   # нативные DLL SDK
+└── docs/GUIDE.md
 ```
 
 Конфиг по умолчанию: `config/blocks/52-io-input.yaml` (ищется вверх от cwd и от папки exe).
@@ -118,16 +121,17 @@ DI замкнулся → IoInputMonitor UDP → оркестратор :9100
 
 `value=1` — триггер «нажато/замкнуто», `value=0` — «отпущено».
 
-### Брак / готовность / ошибка на ПЛК (дискретные входы)
+### Брак на ПЛК (только DO3 / DO4)
 
-При `reject.enabled` IoInputMonitor на `:9101`:
+При `reject.enabled` и `POST /reject {"line":1|2}`:
 
 | HTTP | DO | ПЛК |
 |------|-----|-----|
-| `PUT /vision-ready {"value":true}` | DO1 | X4 → 140.02 |
-| `PUT /vision-fault {"value":true}` | DO2 | X5 → 190.00 |
-| `POST /reject {"line":1}` | DO3 | X6 → 140.08 (level-pulse, затем idle/LOW) |
-| `POST /reject {"line":2}` | DO4 | X7 → 140.09 (level-pulse, затем idle/LOW) |
+| `POST /reject {"line":1}` | **DO3** | X6 |
+| `POST /reject {"line":2}` | **DO4** | X7 |
+
+`vision-ready` / `vision-fault` (DO1/DO2) при `ready_enabled`/`fault_enabled: false` — **skip**, на шину не едут.
+Reject **не** гасит capture DO6 и **не** трогает соседнюю reject-линию.
 
 FINS только **D4400–D4404** (таймауты). **CIO 240.15 не используем.**
 
@@ -142,6 +146,29 @@ FINS только **D4400–D4404** (таймауты). **CIO 240.15 не исп
 | Порт занят `0x80000004` | Закрыть второй IoInputMonitor, MVS Client, LightServer |
 | Нет событий при `edge: both` | Проверить `configure_sdk` и debounce; смотреть начальный уровень DI в логе |
 | Оркестратор не реагирует | Совпадают ли port/format; `publish.udp.enabled: true` |
+| Сигналы «не прекращаются» | См. ниже |
+
+### Почему сигналы продолжают присылаться
+
+1. **`direction_latch: true` без снятия** — после первого DI2=1 каждый DI3↑ шлёт DO/UDP до рестарта. Сейчас: `disarm_on_work_low: true` + DI1↓, или `POST http://127.0.0.1:9101/capture-disarm`.
+2. **`debounce_ms: 0`** — bounce контакта → лавина UDP и очередь DO. Ставь 20–50 мс.
+3. **UDP не режется capture-gate** — gate блокирует только DO6; DI1/DI2/DI3 всё равно уходят в оркестратор на каждый фронт (`edge: both` = rise+fall).
+4. **Несколько `Task.Run` на bounce** — перекрывающиеся импульсы; теперь один in-flight (`IoCapturePulseScheduler`).
+
+---
+
+## SDK или «просто GPIO»?
+
+**Нужен официальный Hikrobot MVS IO SDK** (`MvIOInterfaceBox.dll` + `MvSerial.dll`). Это не Linux/Windows GPIO и не сырой RS-232 протокол:
+
+| Вариант | Статус |
+|---------|--------|
+| Official MV IO SDK over COM | **Единственный рабочий путь** в этом проекте |
+| Raw GPIO / `System.Device.Gpio` | Нет — плата не экспонирует GPIO чип хосту |
+| Прямой serial без SDK | Нет — протокол закрыт в DLL |
+| Edge callback без polling | Только через `MV_IO_RegisterEdgeDetectionCallBack` |
+
+Железо — **MV IO Box** на COM. «GPIO» здесь = дискретные DI/DO **внутри** бокса, доступные только через SDK.
 
 ---
 
@@ -150,8 +177,9 @@ FINS только **D4400–D4404** (таймауты). **CIO 240.15 не исп
 ```mermaid
 flowchart LR
     A[MV IO Box DI] -->|COM + SDK callback| B[IoBoxSession]
-    B --> C[Program edge handler]
+    B --> C[IoDiEdgeTracker + IoCaptureGate]
     C --> D[Console log]
     C --> E[IoInputUdpPublisher]
-    E -->|UDP| F[Оркестратор :9100]
+    C -->|FireDo + scheduler| F[DO6 Line0]
+    E -->|UDP| G[Оркестратор :9100]
 ```

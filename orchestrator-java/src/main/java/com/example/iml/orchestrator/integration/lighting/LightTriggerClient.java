@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 
 /**
  * HTTP-триггер вспышек LightServer.v3: три типа URL — вкл, выкл, яркость ({@code /api/camera-flash/pair|single}).
@@ -45,8 +46,11 @@ public final class LightTriggerClient {
     private volatile boolean constantLightingEngaged;
     private volatile boolean constantFlashMode;
     private final Object lightCommandLock;
-    /** После HTTP яркости — сразу re-On, если interval_flash держит банк включённым. */
+    /** После HTTP яркости (legacy hook). Interval flash больше не делает Off→On→Off. */
     private volatile Runnable afterBrightnessApplied;
+    /** true в окне DI3→кадр→Off: hardware push яркости откладывается. */
+    private volatile BooleanSupplier captureLightingActive;
+    private volatile boolean deferredHardwareBrightness;
 
     public static LightTriggerClient fromRootYaml(Map<String, Object> root) {
         return new LightTriggerClient(LightServersConfig.fromRootYaml(root));
@@ -232,21 +236,26 @@ public final class LightTriggerClient {
         if (update == null || update.isEmpty()) {
             return LightBrightnessApplyResult.none();
         }
+        boolean deferHardware = shouldDeferHardwareBrightness();
         LightBrightnessApplyResult result = LightBrightnessApplyResult.none();
         if (update.globalPercent() != null) {
-            result = LightBrightnessApplyResult.merge(result, applyGlobalBrightness(update.globalPercent()));
+            result = LightBrightnessApplyResult.merge(
+                    result,
+                    applyGlobalBrightness(update.globalPercent(), deferHardware)
+            );
         }
         for (Map.Entry<String, Integer> entry : update.perEndpoint().entrySet()) {
-            result = LightBrightnessApplyResult.merge(result, applyEndpointBrightness(entry.getKey(), entry.getValue()));
+            result = LightBrightnessApplyResult.merge(
+                    result,
+                    applyEndpointBrightness(entry.getKey(), entry.getValue(), deferHardware)
+            );
         }
-        Runnable hook = afterBrightnessApplied;
-        if (hook != null) {
-            try {
-                hook.run();
-            } catch (RuntimeException e) {
-                LOG.warn("afterBrightnessApplied: {}", e.getMessage());
-            }
+        if (deferHardware) {
+            deferredHardwareBrightness = true;
+            LOG.info("light brightness deferred until after capture Off (memory updated)");
+            return result;
         }
+        runAfterBrightnessApplied();
         if (constantFlashMode && enabled && !result.hasHardwareErrors()) {
             try {
                 synchronized (lightCommandLock) {
@@ -265,11 +274,59 @@ public final class LightTriggerClient {
         return result;
     }
 
+    /**
+     * После Off по кадру: дописать отложенную яркость в LightServer.
+     * Следующий штатный bank On (idle/re-engage/DI3) применит через ApplyDirectOn.
+     */
+    public LightBrightnessApplyResult flushDeferredBrightness() {
+        List<LightServersConfig.CameraFlashSpec> toPush;
+        synchronized (lightCommandLock) {
+            if (!deferredHardwareBrightness) {
+                return LightBrightnessApplyResult.none();
+            }
+            deferredHardwareBrightness = false;
+            if (!enabled) {
+                return LightBrightnessApplyResult.disabled();
+            }
+            toPush = new ArrayList<>(cameras);
+        }
+        LOG.info("light brightness flush after capture Off cameras={}", toPush.size());
+        return new LightBrightnessApplyResult(pushCameraBrightnessBatch(toPush));
+    }
+
+    public boolean hasDeferredHardwareBrightness() {
+        return deferredHardwareBrightness;
+    }
+
     public void setAfterBrightnessApplied(Runnable hook) {
         this.afterBrightnessApplied = hook;
     }
 
-    private LightBrightnessApplyResult applyGlobalBrightness(int percent) {
+    public void setCaptureLightingActive(BooleanSupplier captureLightingActive) {
+        this.captureLightingActive = captureLightingActive;
+    }
+
+    private boolean shouldDeferHardwareBrightness() {
+        if (constantFlashMode) {
+            return false;
+        }
+        BooleanSupplier gate = captureLightingActive;
+        return gate != null && gate.getAsBoolean();
+    }
+
+    private void runAfterBrightnessApplied() {
+        Runnable hook = afterBrightnessApplied;
+        if (hook == null) {
+            return;
+        }
+        try {
+            hook.run();
+        } catch (RuntimeException e) {
+            LOG.warn("afterBrightnessApplied: {}", e.getMessage());
+        }
+    }
+
+    private LightBrightnessApplyResult applyGlobalBrightness(int percent, boolean memoryOnly) {
         int clamped = LightBrightnessScale.clampPercent(percent);
         List<LightServersConfig.CameraFlashSpec> toPush;
         synchronized (lightCommandLock) {
@@ -279,13 +336,16 @@ public final class LightTriggerClient {
                 toPush.add(replaceCameraBrightnessMemory(existing.cameraId(), clamped, clamped, clamped));
             }
         }
+        if (memoryOnly) {
+            return LightBrightnessApplyResult.none();
+        }
         if (!enabled) {
             return LightBrightnessApplyResult.disabled();
         }
         return new LightBrightnessApplyResult(pushCameraBrightnessBatch(toPush));
     }
 
-    private LightBrightnessApplyResult applyEndpointBrightness(String endpointId, int percent) {
+    private LightBrightnessApplyResult applyEndpointBrightness(String endpointId, int percent, boolean memoryOnly) {
         Integer cameraId = parseCameraIdFromEndpoint(endpointId);
         if (cameraId == null) {
             throw new IllegalArgumentException("unknown light endpoint id: " + endpointId);
@@ -294,6 +354,9 @@ public final class LightTriggerClient {
         LightServersConfig.CameraFlashSpec toPush;
         synchronized (lightCommandLock) {
             toPush = replaceCameraBrightnessMemory(cameraId, clamped, clamped, clamped);
+        }
+        if (memoryOnly) {
+            return LightBrightnessApplyResult.none();
         }
         if (!enabled) {
             return LightBrightnessApplyResult.disabled();

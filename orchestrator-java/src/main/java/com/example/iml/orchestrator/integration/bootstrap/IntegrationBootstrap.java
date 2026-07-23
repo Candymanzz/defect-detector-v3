@@ -645,14 +645,7 @@ public final class IntegrationBootstrap {
             final java.util.concurrent.atomic.AtomicBoolean softwareVisionReady = new java.util.concurrent.atomic.AtomicBoolean(false);
             final InspectionTriggerRuntime[] triggerRuntimeHolder = new InspectionTriggerRuntime[1];
             java.lang.Runnable refreshVisionReady = () -> {
-                InspectionTriggerRuntime runtime = triggerRuntimeHolder[0];
-                if (activeFanOut != null) {
-                    boolean ready = softwareVisionReady.get();
-                    if (ready && runtime != null && runtime.gatesVisionReadyByLineWork()) {
-                        ready = runtime.isLineWorkActive();
-                    }
-                    activeFanOut.signalVisionReady(ready);
-                }
+                // vision_ready / DO1 не шлём — только reject при браке.
             };
             triggerRuntime = InspectionTriggerRuntime.start(
                     log,
@@ -670,7 +663,9 @@ public final class IntegrationBootstrap {
                 intervalFlashController = new IntervalFlashController(log, lightClient, intervalFlashCfg);
                 LightsShutdown.bindIntervalFlash(intervalFlashController);
                 triggerRuntime.addDiChangeListener(intervalFlashController::onDiChange);
-                lightClient.setAfterBrightnessApplied(intervalFlashController::onBrightnessUpdated);
+                lightClient.setCaptureLightingActive(intervalFlashController::captureLightingActive);
+                intervalFlashController.setFlushDeferredBrightness(lightClient::flushDeferredBrightness);
+                // Яркость без отдельного Off→On→Off: /pair + штатный bank On в DI/idle цикле.
                 if (lineCaptureCoordinator != null) {
                     lineCaptureCoordinator.setOnFirstFrameCaptured(intervalFlashController::onFirstFrameCaptured);
                 }

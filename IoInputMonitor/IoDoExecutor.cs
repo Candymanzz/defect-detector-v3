@@ -3,8 +3,8 @@ namespace IoInputMonitor;
 /// <summary>
 /// Арбитр одного COM/SDK на две логические зоны:
 /// <list type="bullet">
-/// <item><b>Capture</b> — DI2/DI3 (+ re-arm) и DO5 Line0</item>
-/// <item><b>Plc</b> — DO1–4 (ready/fault/reject → ПЛК)</item>
+/// <item><b>Capture</b> — DI2/DI3 (+ re-arm) и DO6 Line0</item>
+/// <item><b>Plc</b> — DO3/DO4 (reject линия1/2 → ПЛК X6/X7); ready/fault выкл. в конфиге</item>
 /// </list>
 /// Пока открыто Capture-окно, PLC в очереди ждёт (не долбит SDK).
 /// Sleep импульсов — вне worker; Input/re-arm не голодает.
@@ -15,9 +15,9 @@ internal sealed class IoMonitorArbiter : IDisposable
     {
         /// <summary>DI edge re-arm — всегда первый.</summary>
         Input = 0,
-        /// <summary>DO5 съёмка.</summary>
+        /// <summary>DO6 съёмка Line0.</summary>
         Capture = 1,
-        /// <summary>DO1–4 ПЛК.</summary>
+        /// <summary>DO3/DO4 брак на ПЛК.</summary>
         Plc = 2
     }
 
@@ -30,7 +30,7 @@ internal sealed class IoMonitorArbiter : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private long _seq;
     private int _captureHold;
-    private int _plcCooldownMs = 200;
+    private int _plcCooldownMs = 80;
     private long _quietReadyTick;
     private int _cooldownGen;
     private bool _disposed;
@@ -134,7 +134,11 @@ internal sealed class IoMonitorArbiter : IDisposable
             return true;
         }, cancellationToken);
 
-    public Task<T> RunAsync<T>(Domain domain, Func<T> action, CancellationToken cancellationToken = default)
+    public Task<T> RunAsync<T>(
+        Domain domain,
+        Func<T> action,
+        CancellationToken cancellationToken = default,
+        bool forceDuringCapture = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(action);
@@ -152,6 +156,7 @@ internal sealed class IoMonitorArbiter : IDisposable
 
         var item = new WorkItem(
             domain,
+            forceDuringCapture,
             () =>
             {
                 try
@@ -178,7 +183,7 @@ internal sealed class IoMonitorArbiter : IDisposable
         lock (_lock)
         {
             long seq = ++_seq;
-            if (domain == Domain.Plc && _captureHold > 0)
+            if (domain == Domain.Plc && _captureHold > 0 && !forceDuringCapture)
                 _plcWaiting.Enqueue(item);
             else
                 _ready.Enqueue(item, ((int)domain, seq));
@@ -188,9 +193,9 @@ internal sealed class IoMonitorArbiter : IDisposable
         return tcs.Task;
     }
 
-    public T Run<T>(Domain domain, Func<T> action, int timeoutMs = 8000)
+    public T Run<T>(Domain domain, Func<T> action, int timeoutMs = 8000, bool forceDuringCapture = false)
     {
-        Task<T> task = RunAsync(domain, action);
+        Task<T> task = RunAsync(domain, action, default, forceDuringCapture);
         if (!task.Wait(Math.Max(1, timeoutMs)))
             throw new TimeoutException($"IoMonitorArbiter timed out after {timeoutMs} ms (domain={domain})");
         try
@@ -212,7 +217,7 @@ internal sealed class IoMonitorArbiter : IDisposable
 
     /// <summary>
     /// PLC: дождаться тишины Capture, затем короткий SDK-слот.
-    /// Не долбит COM, пока идёт DO5.
+    /// Не долбит COM, пока идёт DO6.
     /// </summary>
     public T RunPlcAfterQuiet<T>(Func<T> action, int quietTimeoutMs = 5000, int runTimeoutMs = 8000)
     {
@@ -224,6 +229,10 @@ internal sealed class IoMonitorArbiter : IDisposable
 
         return Run(Domain.Plc, action, runTimeoutMs);
     }
+
+    /// <summary>PLC сразу, даже если CaptureWindow открыт (короткий reject-импульс).</summary>
+    public T RunPlcForced<T>(Func<T> action, int timeoutMs = 3000) =>
+        Run(Domain.Plc, action, timeoutMs, forceDuringCapture: true);
 
     private void PromotePlcIfQuiet_NoLock()
     {
@@ -257,8 +266,8 @@ internal sealed class IoMonitorArbiter : IDisposable
                 continue;
             }
 
-            // PLC не стартовать в окне съёмки и во время cooldown после DO5.
-            if (item.Domain == Domain.Plc)
+            // PLC не стартовать в окне съёмки / cooldown — кроме forceDuringCapture (reject).
+            if (item.Domain == Domain.Plc && !item.ForceDuringCapture)
             {
                 bool defer;
                 lock (_lock)
@@ -304,9 +313,10 @@ internal sealed class IoMonitorArbiter : IDisposable
         _cts.Dispose();
     }
 
-    private sealed class WorkItem(Domain domain, Action execute)
+    private sealed class WorkItem(Domain domain, bool forceDuringCapture, Action execute)
     {
         public Domain Domain { get; } = domain;
+        public bool ForceDuringCapture { get; } = forceDuringCapture;
         public void Execute() => execute();
     }
 

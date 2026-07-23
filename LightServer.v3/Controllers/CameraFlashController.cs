@@ -88,7 +88,8 @@ public sealed class CameraFlashController : ControllerBase
             request.RightPower);
 
         // Только яркость в кэш/регистры (без On): 8× Off→On на /pair давали 5–6 кадров задержки.
-        // Latch — один Off→On→Off в interval_flash brightness-refresh.
+        // Применение в цикле: live WriteBrightness если банк On; иначе primed → следующий bank On (DI/idle).
+        // Во время DI3→кадр оркестратор откладывает /pair до после Off.
         if (_ethernetBank.TryGet(target.IpAddress!, out _))
         {
             var (bankOk, bankErr) = _ethernetBank.ApplyBrightnessIp(target.IpAddress!, allChannels, mergedBrightness);

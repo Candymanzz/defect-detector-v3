@@ -30,10 +30,11 @@ public record IoInputDiscreteConfig(
 ) {
 
     public static IoInputDiscreteConfig defaults() {
+        // Согласовано с config/blocks/01-core.yaml integration.inspection_trigger.io_input
         return new IoInputDiscreteConfig(
-                1, 2, 3, 100, "json", false, TriggerEdgeMode.RISING,
-                true, true, false, false, false, false, true,
-                5000, 50, 0, false
+                1, 2, 3, 0, "json", false, TriggerEdgeMode.RISING,
+                true, false, false, false, false, false, true,
+                5000, 1, 0, true
         );
     }
 

@@ -90,6 +90,24 @@ public sealed class IoDoExecutorTests
     }
 
     [Fact]
+    public void PlcForced_runs_during_Capture_window()
+    {
+        using var exec = new IoDoExecutor();
+        exec.Arbiter.PlcCooldownMs = 500;
+        exec.Arbiter.EnterCaptureWindow();
+        try
+        {
+            string r = exec.Arbiter.RunPlcForced(() => "forced", timeoutMs: 2000);
+            Assert.Equal("forced", r);
+        }
+        finally
+        {
+            exec.Arbiter.LeaveCaptureWindow();
+            exec.Arbiter.PlcCooldownMs = 0;
+        }
+    }
+
+    [Fact]
     public async Task Plc_still_runs_after_Capture()
     {
         using var exec = new IoDoExecutor();

@@ -92,11 +92,11 @@ public record IntervalFlashConfig(
                 : m.containsKey("off_edge")
                         ? TriggerEdgeMode.fromConfig(m.get("off_edge"))
                         : TriggerEdgeMode.RISING;
-        int offDelayMs = Math.max(0, YamlScalars.toInt(m.get("off_delay_ms"), 300));
-        int onReengageDelayMs = Math.max(0, YamlScalars.toInt(m.get("on_reengage_delay_ms"), 0));
+        int offDelayMs = Math.max(0, YamlScalars.toInt(m.get("off_delay_ms"), 1000));
+        int onReengageDelayMs = Math.max(0, YamlScalars.toInt(m.get("on_reengage_delay_ms"), 5000));
         boolean startDark = YamlScalars.toBool(m.get("start_dark"), true);
         boolean idleOnEnabled = YamlScalars.toBool(m.get("idle_on"), false);
-        boolean offOnFirstFrame = YamlScalars.toBool(m.get("off_on_first_frame"), false);
+        boolean offOnFirstFrame = YamlScalars.toBool(m.get("off_on_first_frame"), true);
         return new IntervalFlashConfig(
                 enabled,
                 idlePort,

@@ -41,7 +41,7 @@ class IntervalFlashControllerTest {
         assertEquals(TriggerEdgeMode.FALLING, cfg.idleEdge());
         assertEquals(TriggerEdgeMode.RISING, cfg.triggerEdge());
         assertTrue(cfg.idleOnEnabled());
-        assertFalse(cfg.offOnFirstFrame());
+        assertTrue(cfg.offOnFirstFrame());
     }
 
     @Test
@@ -55,8 +55,9 @@ class IntervalFlashControllerTest {
 
         assertFalse(cfg.idleOnEnabled());
         assertEquals(TriggerEdgeMode.FALLING, cfg.idleEdge());
-        assertEquals(300, cfg.offDelayMs());
-        assertFalse(cfg.offOnFirstFrame());
+        assertEquals(1000, cfg.offDelayMs());
+        assertEquals(5000, cfg.onReengageDelayMs());
+        assertTrue(cfg.offOnFirstFrame());
     }
 
     @Test
@@ -224,7 +225,7 @@ class IntervalFlashControllerTest {
     }
 
     @Test
-    void brightnessUpdateLatchesWithOffOnOff() throws Exception {
+    void brightnessUpdateDoesNotToggleBank() throws Exception {
         AtomicInteger onCount = new AtomicInteger();
         AtomicInteger offCount = new AtomicInteger();
         IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
@@ -248,11 +249,59 @@ class IntervalFlashControllerTest {
                 cfg
         )) {
             controller.onBrightnessUpdated();
-            Thread.sleep(120);
             controller.awaitLightTasks(500);
+            assertEquals(0, onCount.get());
+            assertEquals(0, offCount.get());
+        }
+    }
+
+    @Test
+    void brightnessDuringCaptureDoesNotExtinguishUntilOff() throws Exception {
+        AtomicInteger onCount = new AtomicInteger();
+        AtomicInteger offCount = new AtomicInteger();
+        AtomicInteger flushCount = new AtomicInteger();
+        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
+            @Override
+            public boolean lightAllOn(String phase) {
+                onCount.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public void forceAllOff() {
+                offCount.incrementAndGet();
+            }
+        };
+        // off_delay large: Off only via first frame; idle_on off
+        IntervalFlashConfig cfg = new IntervalFlashConfig(
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 5_000, 0, true, false, true
+        );
+        try (IntervalFlashController controller = new IntervalFlashController(
+                LogManager.getLogger(IntervalFlashControllerTest.class),
+                lights,
+                cfg
+        )) {
+            controller.setFlushDeferredBrightness(flushCount::incrementAndGet);
+
+            controller.onDiChange(new IoInputDiChange(3, false));
+            controller.awaitLightTasks(500);
+            controller.onDiChange(new IoInputDiChange(3, true));
+            controller.awaitLightTasks(500);
+            assertTrue(controller.captureLightingActive());
             assertEquals(1, onCount.get());
-            assertTrue(offCount.get() >= 2, "Off before and after On");
-            assertFalse(controller.lightsOn());
+            int offBeforeBrightness = offCount.get();
+
+            controller.onBrightnessUpdated();
+            controller.awaitLightTasks(500);
+            assertEquals(offBeforeBrightness, offCount.get(), "brightness must not Off during capture");
+            assertEquals(1, onCount.get(), "brightness must not On during capture");
+            assertTrue(controller.lightsOn());
+
+            controller.onFirstFrameCaptured(0);
+            controller.awaitLightTasks(500);
+            assertFalse(controller.captureLightingActive());
+            assertEquals(1, flushCount.get(), "flush after capture Off");
+            assertTrue(offCount.get() > offBeforeBrightness);
         }
     }
 

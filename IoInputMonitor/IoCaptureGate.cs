@@ -4,9 +4,11 @@ internal enum IoCaptureDecision
 {
     None,
     DirectionArmed,
+    DirectionDisarmed,
     FireDo,
     SkipNoDirection,
     SkipAlreadyFired,
+    SkipBusy,
     DirectionModeChanged
 }
 
@@ -18,12 +20,14 @@ internal enum IoLineDirection
 
 /// <summary>
 /// Съёмка по DI3↑ после направления DI2.
-/// При DirectionLatch: первый DI2=1 вооружает навсегда, дальше DI2 холостой.
+/// При DirectionLatch: первый DI2=1 вооружает; снятие — DI work↓ (если disarm_on_work_low) или Disarm().
 /// </summary>
 internal sealed class IoCaptureGate
 {
     private readonly int _directionPort;
     private readonly int _triggerPort;
+    private readonly int _workPort;
+    private readonly bool _disarmOnWorkLow;
     private readonly bool _directionInvert;
     private readonly bool _requireDirection;
     private readonly bool _directionLatch;
@@ -41,6 +45,8 @@ internal sealed class IoCaptureGate
     {
         _directionPort = options.DirectionPort;
         _triggerPort = options.TriggerPort;
+        _workPort = options.WorkPort;
+        _disarmOnWorkLow = options.DisarmOnWorkLow;
         _directionInvert = options.DirectionInvert;
         _requireDirection = options.RequireDirection;
         _directionLatch = options.DirectionLatch;
@@ -50,6 +56,10 @@ internal sealed class IoCaptureGate
     public int DirectionPort => _directionPort;
 
     public int TriggerPort => _triggerPort;
+
+    public int WorkPort => _workPort;
+
+    public bool DisarmOnWorkLow => _disarmOnWorkLow;
 
     public bool IsDirectionArmed
     {
@@ -97,10 +107,24 @@ internal sealed class IoCaptureGate
         }
     }
 
+    /// <summary>Снять armed/latch (HTTP или DI work↓). Следующий DI2=1 снова вооружит.</summary>
+    public IoCaptureDecision Disarm()
+    {
+        lock (_lock)
+            return DisarmUnlocked();
+    }
+
     public IoCaptureDecision Evaluate(int port, bool active, bool risingEdge)
     {
         lock (_lock)
         {
+            if (_disarmOnWorkLow && _workPort is >= 1 and <= 8 && port == _workPort)
+            {
+                if (!active && !risingEdge)
+                    return DisarmUnlocked();
+                return IoCaptureDecision.None;
+            }
+
             if (port == _directionPort)
             {
                 // После latch все смены DI2 — холостые (направление уже зафиксировано).
@@ -149,8 +173,29 @@ internal sealed class IoCaptureGate
         }
     }
 
+    private IoCaptureDecision DisarmUnlocked()
+    {
+        if (!_directionArmed && !_directionLatched)
+            return IoCaptureDecision.None;
+
+        _directionArmed = false;
+        _directionLatched = false;
+        _captureFiredThisPulse = false;
+        return IoCaptureDecision.DirectionDisarmed;
+    }
+
     public bool TryFireCapture(int port, bool active, bool risingEdge) =>
         Evaluate(port, active, risingEdge) == IoCaptureDecision.FireDo;
+
+    /// <summary>
+    /// Откат слота после FireDo, если импульс не стартовал (scheduler busy).
+    /// Иначе DI3↑ «съеден» без DO до следующего полного цикла.
+    /// </summary>
+    public void ReleaseCaptureFireSlot()
+    {
+        lock (_lock)
+            _captureFiredThisPulse = false;
+    }
 
     public string DescribeExpectedArm()
     {
@@ -160,9 +205,12 @@ internal sealed class IoCaptureGate
                 return $"DI{_triggerPort}↑";
             if (_directionLatch)
             {
+                string disarmHint = _disarmOnWorkLow && _workPort is >= 1 and <= 8
+                    ? $"; DI{_workPort}↓ снимает"
+                    : "";
                 return _directionLatched
-                    ? $"DI{_triggerPort}↑ (направление зафиксировано)"
-                    : $"один раз DI{_directionPort}=1, далее DI{_triggerPort}↑";
+                    ? $"DI{_triggerPort}↑ (направление зафиксировано{disarmHint})"
+                    : $"один раз DI{_directionPort}=1, далее DI{_triggerPort}↑{disarmHint}";
             }
 
             return $"DI{_directionPort}=1 затем DI{_triggerPort}↑";
@@ -225,8 +273,34 @@ public sealed class IoCaptureOptions
 
     public int TriggerPort { get; set; } = 3;
 
-    /// <summary>DO-порт IO box (1..8; по умолчанию DO5 → Line0 камер).</summary>
-    public int OutputPort { get; set; } = 5;
+    /// <summary>Основной DO съёмки (1..8). Совпадает с первым в OutputPorts.</summary>
+    public int OutputPort { get; set; } = 6;
+
+    /// <summary>DO для импульса по DI3↑ (напр. [6]). Пусто → только OutputPort.</summary>
+    public int[] OutputPorts { get; set; } = [6];
+
+    /// <summary>Порты съёмки без дублей (всегда ≥1).</summary>
+    public int[] ResolveOutputPorts()
+    {
+        if (OutputPorts is { Length: > 0 })
+        {
+            var ports = new List<int>(OutputPorts.Length);
+            foreach (int p in OutputPorts)
+            {
+                if (p is >= 1 and <= 8 && !ports.Contains(p))
+                    ports.Add(p);
+            }
+
+            if (ports.Count > 0)
+                return ports.ToArray();
+        }
+
+        int primary = OutputPort is >= 1 and <= 8 ? OutputPort : 6;
+        return [primary];
+    }
+
+    public string FormatOutputPorts() =>
+        string.Join("+", ResolveOutputPorts().Select(static p => $"DO{p}"));
 
     /// <summary>direct = MV_IO_SetOutput; timer = software trigger Timer N (Out5←Timer в MVS).</summary>
     public IoCaptureOutputMode OutputMode { get; set; } = IoCaptureOutputMode.Auto;
@@ -234,13 +308,13 @@ public sealed class IoCaptureOptions
     /// <summary>Номер таймера в MVS (Timer 1 → timer_index: 1).</summary>
     public int TimerIndex { get; set; } = 1;
 
-    public int PulseDurationMs { get; set; } = 20;
+    public int PulseDurationMs { get; set; } = 300;
 
     /// <summary>
     /// Пауза после UDP DI3 перед DO: дать Java/камерам войти в wait_frame (Line0 RisingEdge).
     /// 0 = DO сразу (часто промах: импульс уходит до arm).
     /// </summary>
-    public int PulseDelayMs { get; set; } = 80;
+    public int PulseDelayMs { get; set; } = 250;
 
     /// <summary>Сколько раз повторить DO после delay (edge мог попасть в flush).</summary>
     public int PulseRepeat { get; set; } = 1;
@@ -256,18 +330,25 @@ public sealed class IoCaptureOptions
     public bool ActiveHigh { get; set; } = true;
 
     /// <summary>rising|falling — для логов; камеры читают line0_trigger_activation из config.json.</summary>
-    public string Line0Edge { get; set; } = "falling";
+    public string Line0Edge { get; set; } = "rising";
 
     public bool DirectionInvert { get; set; }
 
     public bool RequireDirection { get; set; } = true;
 
     /// <summary>
-    /// Первый DI2=1 фиксирует направление навсегда; дальнейшие DI2 не снимают armed.
+    /// Первый DI2=1 фиксирует направление; снятие — Disarm() / work_port↓ при disarm_on_work_low.
+    /// Без снятия каждый последующий DI3↑ продолжает FireDo — «сигналы не прекращаются».
     /// </summary>
     public bool DirectionLatch { get; set; } = true;
 
-    /// <summary>Начальный UI-ход (отображение); на DO5 не влияет.</summary>
+    /// <summary>DI «работа/конвейер» (обычно 1). При disarm_on_work_low: DI↓ снимает latch.</summary>
+    public int WorkPort { get; set; } = 1;
+
+    /// <summary>true — DI work↓ → Disarm (иначе latch живёт до рестарта процесса).</summary>
+    public bool DisarmOnWorkLow { get; set; } = true;
+
+    /// <summary>Начальный UI-ход (отображение); на DO не влияет.</summary>
     public string InitialDirection { get; set; } = "forward";
 
     public IoDirectionHttpOptions DirectionHttp { get; set; } = new();
@@ -284,25 +365,31 @@ public sealed class IoDirectionHttpOptions
 
 /// <summary>
 /// DO → физические входы ПЛК (техзрение). FINS только для таймаутов D4400–D4404.
-/// X4 готовность, X5 ошибка, X6/X7 брак линий. CIO 240.15 (сброс DI) не используется.
+/// Порты/метки PLC — только из config (io_input.reject).
 /// </summary>
 public sealed class IoRejectOptions
 {
     public bool Enabled { get; set; }
 
-    /// <summary>MV IO DO → PLC X4 (Техзрение готовность), уровень. Default DO1.</summary>
     public int ReadyOutputPort { get; set; } = 1;
-
-    /// <summary>MV IO DO → PLC X5 (Техзрение ошибка), уровень. Default DO2.</summary>
     public int FaultOutputPort { get; set; } = 2;
-
-    /// <summary>MV IO DO → PLC X6 (брак линия 1), импульс. Default DO3.</summary>
     public int Line1OutputPort { get; set; } = 3;
-
-    /// <summary>MV IO DO → PLC X7 (брак линия 2), импульс. Default DO4.</summary>
     public int Line2OutputPort { get; set; } = 4;
 
-    public int PulseDurationMs { get; set; } = 50;
+    public string ReadyPlcInput { get; set; } = "X4";
+    public string FaultPlcInput { get; set; } = "X5";
+    public string Line1PlcInput { get; set; } = "X6";
+    public string Line2PlcInput { get; set; } = "X7";
 
+    public bool ReadyEnabled { get; set; }
+    public bool FaultEnabled { get; set; }
+    public bool Line1Enabled { get; set; } = true;
+    public bool Line2Enabled { get; set; } = true;
+
+    public int PulseDurationMs { get; set; } = 50;
+    public int PulseRetries { get; set; } = 3;
     public bool ActiveHigh { get; set; } = true;
+
+    /// <summary>Пауза после capture DO перед PLC DO (мс).</summary>
+    public int PlcCooldownMs { get; set; } = 80;
 }

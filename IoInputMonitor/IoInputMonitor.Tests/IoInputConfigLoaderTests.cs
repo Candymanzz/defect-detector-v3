@@ -122,6 +122,110 @@ public class IoInputConfigLoaderTests
             Assert.False(options.Reject.ActiveHigh);
             Assert.Equal(1, options.Reject.ReadyOutputPort);
             Assert.Equal(2, options.Reject.FaultOutputPort);
+                Assert.False(options.Reject.ReadyEnabled);
+            Assert.False(options.Reject.FaultEnabled);
+            Assert.True(options.Reject.Line1Enabled);
+            Assert.True(options.Reject.Line2Enabled);
+            Assert.Equal("X4", options.Reject.ReadyPlcInput);
+            Assert.Equal("X5", options.Reject.FaultPlcInput);
+            Assert.Equal("X6", options.Reject.Line1PlcInput);
+            Assert.Equal("X7", options.Reject.Line2PlcInput);
+            Assert.Equal(80, options.Reject.PlcCooldownMs);
+            Assert.Equal(3, options.Reject.PulseRetries);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ParseFile_readsRejectOutputEnableFlags()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"io-reject-flags-{Guid.NewGuid():N}.yaml");
+        File.WriteAllText(path, """
+            io_input:
+              reject:
+                enabled: true
+                ready_enabled: true
+                fault_enabled: true
+                line1_enabled: false
+                line2_enabled: true
+                ready_plc_input: X10
+                line1_plc_input: X20
+                plc_cooldown_ms: 120
+                pulse_retries: 5
+            """);
+
+        try
+        {
+            IoInputOptions options = IoInputConfigLoader.ParseFile(path);
+
+            Assert.True(options.Reject.ReadyEnabled);
+            Assert.True(options.Reject.FaultEnabled);
+            Assert.False(options.Reject.Line1Enabled);
+            Assert.True(options.Reject.Line2Enabled);
+            Assert.Equal("X10", options.Reject.ReadyPlcInput);
+            Assert.Equal("X20", options.Reject.Line1PlcInput);
+            Assert.Equal(120, options.Reject.PlcCooldownMs);
+            Assert.Equal(5, options.Reject.PulseRetries);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ParseFile_readsCaptureOutputPorts()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"io-capture-ports-{Guid.NewGuid():N}.yaml");
+        File.WriteAllText(path, """
+            io_input:
+              capture:
+                enabled: true
+                output_port: 5
+                output_ports: [5, 6]
+            """);
+
+        try
+        {
+            IoInputOptions options = IoInputConfigLoader.ParseFile(path);
+
+            Assert.True(options.Capture.Enabled);
+            Assert.Equal(5, options.Capture.OutputPort);
+            Assert.Equal([5, 6], options.Capture.OutputPorts);
+            Assert.Equal([5, 6], options.Capture.ResolveOutputPorts());
+            Assert.Equal("DO5+DO6", options.Capture.FormatOutputPorts());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ParseFile_readsCaptureOutputPort6Only()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"io-capture-do6-{Guid.NewGuid():N}.yaml");
+        File.WriteAllText(path, """
+            io_input:
+              capture:
+                enabled: true
+                output_port: 6
+                output_ports: [6]
+                pulse_duration_ms: 300
+            """);
+
+        try
+        {
+            IoInputOptions options = IoInputConfigLoader.ParseFile(path);
+
+            Assert.Equal(6, options.Capture.OutputPort);
+            Assert.Equal([6], options.Capture.OutputPorts);
+            Assert.Equal([6], options.Capture.ResolveOutputPorts());
+            Assert.Equal("DO6", options.Capture.FormatOutputPorts());
+            Assert.Equal(300, options.Capture.PulseDurationMs);
         }
         finally
         {

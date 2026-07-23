@@ -6,31 +6,41 @@
 io_input:
   com_port: COM3
   edge: both            # rising | falling | both
-  debounce_ms: 0
+  # 0 = нет debounce → bounce заливает UDP/DO. 20–50 мс типично для контактов.
+  debounce_ms: 20
   configure_sdk: true
   inputs:
-    - 1                 # DI1 = работа (конвейер)
+    - 1                 # DI1 = работа (конвейер); ↓ снимает direction latch
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
 
-  # Техзрение → физические входы ПЛК (не FINS). FINS только таймауты D4400–D4404.
-  # Проводка (Никита): DO1→готовность X4, DO2→ошибка X5, DO3→брак1 X6, DO4→брак2 X7.
-  # DO5 занят Line0. CIO 240.15 «Сброс дискретных входов» не используем.
+  # На ПЛК только брак: line1→DO3→X6, line2→DO4→X7.
+  # ready/fault (DO1/DO2) выключены — HTTP /vision-ready|/vision-fault = skip.
   reject:
     enabled: true
-    ready_output_port: 1
-    fault_output_port: 2
     line1_output_port: 3
     line2_output_port: 4
+    line1_plc_input: "X6"
+    line2_plc_input: "X7"
+    ready_enabled: false
+    fault_enabled: false
+    line1_enabled: true
+    line2_enabled: true
     pulse_duration_ms: 50
+    pulse_retries: 3
     active_high: true
+    plc_cooldown_ms: 80
 
-  # DI3↑ → UDP (arm wait_frame) → delay → DO5 → Line0.
+  # DI3↑ → UDP (arm wait_frame) → delay → DO6 импульс 300 ms.
   capture:
     enabled: true
     direction_port: 2
     trigger_port: 3
-    output_port: 5
+    work_port: 1
+    # DI1↓ снимает latch — иначе после первого DI2=1 каждый DI3↑ шлёт DO/UDP forever.
+    disarm_on_work_low: true
+    output_port: 6
+    output_ports: [6]   # только DO6 — простой level-импульс, без связки с DO5
     output_mode: direct
     # Согласовано с line0_trigger_activation в 01-core / config.json.
     line0_edge: rising
@@ -39,8 +49,8 @@ io_input:
     pulse_duration_ms: 300
     pulse_repeat: 1
     pulse_repeat_gap_ms: 100
-    # DI2=1 один раз вооружает направление навсегда; дальнейшие DI2 — холостые.
-    # DI3↑ → съёмка только после первого arm (и пока require_direction).
+    # DI2=1 один раз вооружает; DI1↓ (work) снимает. Дальнейшие DI2 до disarm — холостые.
+    # DI3↑ → съёмка только после arm (и пока require_direction).
     require_direction: true
     direction_latch: true
     initial_direction: forward
