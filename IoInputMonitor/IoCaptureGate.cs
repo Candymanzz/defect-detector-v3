@@ -169,6 +169,15 @@ internal sealed class IoCaptureGate
                 _captureFiredThisPulse = false;
 
             _triggerActive = active;
+
+            // DI3 Rising-only (короткий photoeye): Falling в Evaluate не приходит —
+            // без сброса _triggerActive залипает HIGH и следующие DI3↑ = None (нет DO5).
+            if (risingEdge && active)
+            {
+                _triggerActive = false;
+                _captureFiredThisPulse = false;
+            }
+
             return decision;
         }
     }

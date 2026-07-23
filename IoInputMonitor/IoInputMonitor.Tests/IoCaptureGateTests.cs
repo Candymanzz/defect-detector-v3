@@ -129,7 +129,18 @@ public class IoCaptureGateTests
         var gate = CreateGate();
         gate.SeedDirection(true);
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        // Удержание уровня без нового rising — не второй FireDo.
         Assert.Equal(IoCaptureDecision.None, gate.Evaluate(3, true, risingEdge: false));
+    }
+
+    [Fact]
+    public void ConsecutiveRisingWithoutFalling_FiresEachPulse()
+    {
+        // IoInputMonitor DI3 = Rising-only: Falling в Evaluate не приходит.
+        var gate = CreateGate(requireDirection: false);
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
     }
 
     [Fact]
