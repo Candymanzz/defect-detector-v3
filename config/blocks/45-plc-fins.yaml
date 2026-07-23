@@ -1,7 +1,6 @@
-# Omron FINS/UDP — биты CIO 140/190/240 + таймауты D4400–D4404.
-# Карта сигналов: plk/register-map.yaml (правьте area/address/direction там).
-# Runtime-брак по умолчанию — дискретные DO (io_input_monitor_reject), не FINS.
-# FINS для reject включается, если io_input_monitor_reject.enabled=false.
+# Omron FINS/UDP — при эталоне: vision_ready sticky HIGH, reject line1/line2 по ведру,
+# vision_fault при аварии сервисов. Карта: plk/register-map.yaml.
+# Discrete DO (io_input_monitor_reject) — только fallback, если FINS publisher не поднялся.
 
 plc_fins:
   enabled: true

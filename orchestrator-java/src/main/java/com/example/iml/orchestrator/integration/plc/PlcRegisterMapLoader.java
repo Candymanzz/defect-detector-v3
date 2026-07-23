@@ -20,7 +20,6 @@ public final class PlcRegisterMapLoader {
   private PlcRegisterMapLoader() {
   }
 
-  @SuppressWarnings("unchecked")
   public static PlcRegisterMap load(Path path) throws IOException {
     if (!Files.isRegularFile(path)) {
       throw new IOException("PLC register map not found: " + path.toAbsolutePath());

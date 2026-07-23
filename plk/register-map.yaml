@@ -16,9 +16,11 @@
 # FINS реально ходит на area+address. Поменяли "140.08" → "0.06" и area: W —
 # брак пойдёт в W0.06 вместо CIO 140.08.
 #
-# Runtime-брак: если integration.io_input_monitor_reject.enabled=true,
-# reject/ready/fault идут DO→X4..X7, а не FINS. FINS-адреса ниже тогда
-# нужны для ручной панели и для fallback (enabled=false).
+# Runtime (эталон задан):
+#   vision_ready  — sticky HIGH по FINS, пока session != NO_REFERENCE
+#   vision_fault  — HIGH при аварии сервисов (bootstrap fail и т.п.)
+#   reject_line_* — импульс по FINS на брак ведра (bucket_group_id 0|1)
+# Discrete DO — только если FINS publisher не создан (plc_fins.enabled=false).
 #
 # Таймауты D4400–D4404 — секция timeouts внизу (словная запись DM).
 

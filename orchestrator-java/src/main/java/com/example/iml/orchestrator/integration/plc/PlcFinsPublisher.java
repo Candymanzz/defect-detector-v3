@@ -109,6 +109,14 @@ public final class PlcFinsPublisher implements AutoCloseable {
     client.setTrafficListener(listener);
   }
 
+  public void addTrafficObserver(PlcFinsTrafficListener observer) {
+    client.addTrafficObserver(observer);
+  }
+
+  public void removeTrafficObserver(PlcFinsTrafficListener observer) {
+    client.removeTrafficObserver(observer);
+  }
+
   public PlcRegisterMap registerMap() {
     return registerMap;
   }
@@ -131,16 +139,35 @@ public final class PlcFinsPublisher implements AutoCloseable {
     }
   }
 
+  /**
+   * Sticky-уровень готовности техзрения (CIO vision_ready). Повтор с тем же значением не шлём.
+   */
   public void setVisionReady(boolean ready) {
-    // DO1/X4 не шлём.
+    writeLevelIfChanged(config.visionReadySignal(), ready);
   }
 
   private void forceVisionReadyOff() {
-    // no-op
+    try {
+      writeBit(registerMap.require(config.visionReadySignal()), false);
+    } catch (Exception e) {
+      log.debug("plc fins force vision_ready off: {}", e.getMessage());
+    }
   }
 
+  /**
+   * Авария техзрения / сервисов (CIO vision_fault). Повтор с тем же значением не шлём.
+   */
   public void setVisionFault(boolean fault) {
-    enqueue(new WriteBitJob(registerMap.require(config.visionFaultSignal()), fault));
+    writeLevelIfChanged(config.visionFaultSignal(), fault);
+  }
+
+  private void writeLevelIfChanged(String signalName, boolean value) {
+    PlcSignalDefinition signal = registerMap.require(signalName);
+    Boolean last = lastSignalValues.get(signalName);
+    if (last != null && last == value) {
+      return;
+    }
+    enqueue(new WriteBitJob(signal, value));
   }
 
   public int[] readWords(PlcMemoryArea area, int startWord, int count, String signal)
@@ -336,7 +363,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
     }
     if (job instanceof ReadWordsJob read) {
       try {
-        int[] words = client.readWords(read.area(), read.startWord(), read.count(), read.signal());
+        int[] words = client.timings().readWords(read.area(), read.startWord(), read.count(), read.signal());
         read.future().complete(words);
       } catch (Exception e) {
         read.future().completeExceptionally(e);
@@ -345,7 +372,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
     }
     WriteWordsJob writeWords = (WriteWordsJob) job;
     try {
-      client.writeWords(writeWords.area(), writeWords.startWord(), writeWords.words(), writeWords.signal());
+      client.timings().writeWords(writeWords.area(), writeWords.startWord(), writeWords.words(), writeWords.signal());
       writeWords.future().complete(null);
     } catch (Exception e) {
       writeWords.future().completeExceptionally(e);
@@ -353,7 +380,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   private void writeBit(PlcSignalDefinition signal, boolean value) throws IOException {
-    client.writeBit(signal.area(), signal.address(), value, signal.name());
+    client.signals().writeBit(signal.area(), signal.address(), value, signal.name());
     lastSignalValues.put(signal.name(), value);
     log.info(
             "plc fins write signal={} area={} address={}.{} value={}",

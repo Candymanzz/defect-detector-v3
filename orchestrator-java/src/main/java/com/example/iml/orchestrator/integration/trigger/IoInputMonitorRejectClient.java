@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficEvent;
 import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficListener;
+import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficSubject;
 import org.apache.logging.log4j.Logger;
 
 import java.net.URI;
@@ -16,7 +17,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Техзрение → IoInputMonitor DO → физические входы ПЛК.
@@ -49,7 +49,7 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
         t.setDaemon(true);
         return t;
     });
-    private final AtomicReference<PlcFinsTrafficListener> trafficListener = new AtomicReference<>();
+    private final PlcFinsTrafficSubject trafficSubject = new PlcFinsTrafficSubject();
     private final ConcurrentHashMap<String, Boolean> lastSignalValues = new ConcurrentHashMap<>();
 
     public IoInputMonitorRejectClient(Logger log, boolean enabled, String baseUrl) {
@@ -95,7 +95,15 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
     }
 
     public void setTrafficListener(PlcFinsTrafficListener listener) {
-        trafficListener.set(listener);
+        trafficSubject.setObserver(listener);
+    }
+
+    public void addTrafficObserver(PlcFinsTrafficListener observer) {
+        trafficSubject.addObserver(observer);
+    }
+
+    public void removeTrafficObserver(PlcFinsTrafficListener observer) {
+        trafficSubject.removeObserver(observer);
     }
 
     public boolean isEnabled() {
@@ -322,28 +330,20 @@ public final class IoInputMonitorRejectClient implements AutoCloseable {
             String error,
             long tsMs
     ) {
-        PlcFinsTrafficListener listener = trafficListener.get();
-        if (listener == null) {
-            return;
-        }
-        try {
-            listener.onTraffic(new PlcFinsTrafficEvent(
-                    direction,
-                    OP_DISCRETE_DI,
-                    signal,
-                    "DO→DI",
-                    address,
-                    value,
-                    detail == null ? "" : detail,
-                    null,
-                    ok ? "0000" : "FAIL",
-                    ok,
-                    error,
-                    tsMs
-            ));
-        } catch (RuntimeException e) {
-            log.debug("plc discrete traffic listener failed: {}", e.getMessage());
-        }
+        trafficSubject.notifyObservers(new PlcFinsTrafficEvent(
+                direction,
+                OP_DISCRETE_DI,
+                signal,
+                "DO→DI",
+                address,
+                value,
+                detail == null ? "" : detail,
+                null,
+                ok ? "0000" : "FAIL",
+                ok,
+                error,
+                tsMs
+        ));
     }
 
     private String fallbackAddress(String signal) {

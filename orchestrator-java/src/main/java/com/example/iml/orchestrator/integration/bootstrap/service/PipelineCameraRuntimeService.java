@@ -59,6 +59,10 @@ public final class PipelineCameraRuntimeService {
         );
         ctx.setFanOut(fanOut);
         ctx.plcFinsHolder().set(fanOut);
+        if (ctx.clientWsServer() != null) {
+            ctx.clientWsServer().setSessionStateListener(fanOut::onSessionState);
+            fanOut.onSessionState(ctx.clientWsServer().sessionState());
+        }
         log.info(
                 "integration parallel settings: camera_parallelism={} geometry_pool_size={}",
                 ctx.bootConfig().cameraParallelism(),

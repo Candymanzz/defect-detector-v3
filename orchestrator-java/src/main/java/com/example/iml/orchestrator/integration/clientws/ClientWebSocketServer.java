@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * WebSocket-сервер UI: lifecycle + делегирование входящих сообщений {@link WsFrontController}.
@@ -66,6 +67,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     });
     private volatile long lastClientActivityEpochMs = System.currentTimeMillis();
     private volatile CameraStreamService cameraStreamService;
+    private volatile Consumer<ClientWsSessionState> sessionStateListener;
 
     public ClientWebSocketServer(Logger log, ClientWsConfig cfg) {
         super(new InetSocketAddress(cfg.host(), cfg.port()));
@@ -105,7 +107,24 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     }
 
     public void setSessionState(ClientWsSessionState state) {
-        sessionState.set(state == null ? ClientWsSessionState.NO_REFERENCE : state);
+        ClientWsSessionState next = state == null ? ClientWsSessionState.NO_REFERENCE : state;
+        sessionState.set(next);
+        Consumer<ClientWsSessionState> listener = sessionStateListener;
+        if (listener != null) {
+            try {
+                listener.accept(next);
+            } catch (Exception e) {
+                log.warn("client_ws session_state listener error: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Колбэк на смену эталона (READY/OPERATIONAL / NO_REFERENCE) — для FINS vision_ready.
+     */
+    public void setSessionStateListener(Consumer<ClientWsSessionState> listener) {
+        this.sessionStateListener = listener;
+        application.setSessionStateListener(listener);
     }
 
     public void setKopcheniPythonPool(List<? extends BinaryRpcSupervisor> pool) {

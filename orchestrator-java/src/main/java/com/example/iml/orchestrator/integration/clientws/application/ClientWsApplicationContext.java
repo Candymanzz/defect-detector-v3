@@ -20,6 +20,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * Зависимости WebSocket-слоя (DI для handlers).
@@ -40,6 +41,7 @@ public final class ClientWsApplicationContext {
     private volatile LivePreviewGate livePreviewGate;
     private volatile CameraCaptureStage captureStage;
     private volatile List<Integer> referenceCameraIds = List.of(0, 1, 2, 3);
+    private volatile Consumer<ClientWsSessionState> sessionStateListener;
 
     public ClientWsApplicationContext(
             Logger log,
@@ -74,7 +76,20 @@ public final class ClientWsApplicationContext {
     }
 
     public void setSessionState(ClientWsSessionState state) {
-        sessionState.set(state == null ? ClientWsSessionState.NO_REFERENCE : state);
+        ClientWsSessionState next = state == null ? ClientWsSessionState.NO_REFERENCE : state;
+        sessionState.set(next);
+        Consumer<ClientWsSessionState> listener = sessionStateListener;
+        if (listener != null) {
+            try {
+                listener.accept(next);
+            } catch (Exception e) {
+                log.warn("client_ws session_state listener error: {}", e.getMessage());
+            }
+        }
+    }
+
+    public void setSessionStateListener(Consumer<ClientWsSessionState> listener) {
+        this.sessionStateListener = listener;
     }
 
     public ClientWsKopcheniBroadcaster kopcheniBroadcaster() {

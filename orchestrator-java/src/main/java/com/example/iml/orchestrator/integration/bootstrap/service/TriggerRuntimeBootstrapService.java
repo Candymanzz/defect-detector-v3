@@ -98,7 +98,7 @@ public final class TriggerRuntimeBootstrapService {
         AtomicBoolean softwareVisionReady = new AtomicBoolean(false);
         InspectionTriggerRuntime[] triggerRuntimeHolder = new InspectionTriggerRuntime[1];
         Runnable refreshVisionReady = () -> {
-            // vision_ready / DO1 не шлём — только reject при браке.
+            // Ready держит FanOutCoordinator.onSessionState (эталон → FINS vision_ready sticky).
         };
         InspectionTriggerRuntime triggerRuntime = InspectionTriggerRuntime.start(
                 log,

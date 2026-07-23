@@ -111,14 +111,14 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         IoInputMonitorRejectClient rejectClient = IoInputMonitorRejectClient.fromIntegration(log, integration);
         if (rejectClient.isEnabled()) {
             log.info(
-                    "inspection result plc discrete DI (IoInputMonitor) — ready={} fault={} reject1={} reject2={}; FINS map=CIO 140/190/240 + D4400–D4404",
+                    "inspection result plc: FINS ready/fault/reject (CIO); discrete DO fallback ready={} fault={} reject1={} reject2={}",
                     rejectClient.readyEnabled(),
                     rejectClient.faultEnabled(),
                     rejectClient.line1Enabled(),
                     rejectClient.line2Enabled()
             );
         } else {
-            log.info("inspection result reject via plc_fins CIO (io_input_monitor_reject.enabled=false)");
+            log.info("inspection result plc: FINS only (ready sticky + reject lines + fault)");
         }
         if (clientWsServer == null) {
             log.warn("inspection result client_ws unavailable — bucket verdict will not be sent to UI");
@@ -128,12 +128,12 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
-        // При включённой инспекции: только reject при браке (vision_ready не шлём).
+        // Эталон задан → FINS reject по линии ведра (group 0 → line1, group 1 → line2).
         if (inspectionEnabled()) {
-            if (rejectClient != null && rejectClient.isEnabled()) {
-                rejectClient.publishBucket(result);
-            } else if (plcPublisher != null) {
+            if (plcPublisher != null) {
                 plcPublisher.publishBucket(result);
+            } else if (rejectClient != null && rejectClient.isEnabled()) {
+                rejectClient.publishBucket(result);
             }
         } else {
             log.debug(
@@ -147,12 +147,36 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         }
     }
 
+    /**
+     * Реакция на смену session_state: эталон есть → vision_ready=1 (sticky), сброс fault;
+     * эталона нет → vision_ready=0.
+     */
+    public void onSessionState(ClientWsSessionState state) {
+        boolean referenceActive = state != null && state != ClientWsSessionState.NO_REFERENCE;
+        signalVisionReady(referenceActive);
+        if (referenceActive) {
+            signalVisionFault(false);
+        }
+        log.info(
+                "plc fins session_state={} vision_ready={} (reference_active={})",
+                state == null ? "null" : state.name(),
+                referenceActive,
+                referenceActive
+        );
+    }
+
     public void signalVisionReady(boolean ready) {
-        // На ПЛК только DO3/DO4 reject — ready не шлём.
+        if (plcPublisher == null) {
+            return;
+        }
+        plcPublisher.setVisionReady(ready);
     }
 
     public void signalVisionFault(boolean fault) {
-        // На ПЛК только DO3/DO4 reject — fault не шлём.
+        if (plcPublisher == null) {
+            return;
+        }
+        plcPublisher.setVisionFault(fault);
     }
 
     @Override
@@ -340,9 +364,9 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         String plcPart = plcPublisher == null
                 ? "plc=disabled"
                 : ("plc.dropped=" + plcPublisher.droppedTotal());
-        String rejectPart = rejectClient != null && rejectClient.isEnabled()
-                ? " reject=discrete_di"
-                : " reject=fins";
+        String rejectPart = plcPublisher != null
+                ? " reject=fins"
+                : (rejectClient != null && rejectClient.isEnabled() ? " reject=discrete_di" : " reject=off");
         return plcPart + rejectPart + " client_ws=" + (clientWsServer == null ? "disabled" : "enabled");
     }
 
