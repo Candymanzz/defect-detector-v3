@@ -1,76 +1,123 @@
-# Нормализованная карта сигналов техзрения (MAP 25_247).
-# FINS: только таймауты D4400–D4404 (Настройки).
-# Дискретные входы: ready X4, fault X5, reject X6/X7 (IoInputMonitor DO).
-# CIO 240.15 «Сброс дискретных входов» не используем.
+# Карта битов ПЛК для FINS (MAP 25_247, лист «Состояния / Неисправности / Управление»).
+#
+# === Как менять руками (без правки Java) ===
+# Файл читается при старте оркестратора: plc_fins.register_map_path → этот YAML.
+#
+# У каждого сигнала важны только:
+#   name            — ключ в API/UI. Не переименовывайте служебные:
+#                     vision_ready, vision_fault, reject_line_1, reject_line_2
+#                     (на них ссылаются 45-plc-fins.yaml и код брака).
+#   area            — область памяти Omron: CIO | W | H | DM
+#   address         — "слово.бит", как в CX-Programmer: "140.02", "240.15"
+#   direction       — pc_to_plc = оркестратор/UI ПИШЕТ по FINS
+#                     plc_to_pc = только ЧИТАЕМ с ПЛК (кнопки On/Off в UI скрыты)
+#   bucket_group_id — только для брака: 0 → линия 1, 1 → линия 2
+#
+# FINS реально ходит на area+address. Поменяли "140.08" → "0.06" и area: W —
+# брак пойдёт в W0.06 вместо CIO 140.08.
+#
+# Runtime-брак: если integration.io_input_monitor_reject.enabled=true,
+# reject/ready/fault идут DO→X4..X7, а не FINS. FINS-адреса ниже тогда
+# нужны для ручной панели и для fallback (enabled=false).
+#
+# Таймауты D4400–D4404 — секция timeouts внизу (словная запись DM).
 
 version: 1
 map_id: "25_247"
 
-# Исходящие PC → PLC: runtime = discrete DI; адреса W/CIO — для документации / fallback FINS
 signals:
-  - name: vision_ready
-    description: Техзрение готовность → физический вход X4 / CIO 10.04 → 140.02
-    area: W
-    address: "0.04"
-    data_type: bool
-    direction: pc_to_plc
-    transport: discrete_di
-    plc_input: X4
-    mirror:
-      area: CIO
-      address: "140.02"
-    source_csv: "25_247_MAP - Входы.csv"
-
-  - name: vision_fault
-    description: Техзрение ошибка → физический вход X5 / CIO 10.05 → 190.00
-    area: W
-    address: "0.05"
-    data_type: bool
-    direction: pc_to_plc
-    transport: discrete_di
-    plc_input: X5
-    mirror:
-      area: CIO
-      address: "190.00"
-    source_csv: "25_247_MAP - Входы.csv"
-
-  - name: reject_line_1
-    description: Техзрение брак линия 1 → физический вход X6 / CIO 10.06 → 140.08
-    area: W
-    address: "0.06"
-    data_type: bool
-    direction: pc_to_plc
-    transport: discrete_di
-    plc_input: X6
-    bucket_group_id: 0
-    mirror:
-      area: CIO
-      address: "140.08"
-    source_csv: "25_247_MAP - Входы.csv"
-
-  - name: reject_line_2
-    description: Техзрение брак линия 2 → физический вход X7 / CIO 10.07 → 140.09
-    area: W
-    address: "0.07"
-    data_type: bool
-    direction: pc_to_plc
-    transport: discrete_di
-    plc_input: X7
-    bucket_group_id: 1
-    mirror:
-      area: CIO
-      address: "140.09"
-    source_csv: "25_247_MAP - Входы.csv"
-
-# Входящие от ПЛК (фаза 2 — триггер инспекции)
-inputs:
-  - name: robot_trigger
-    description: Робот триггер
-    area: W
-    address: "0.02"
+  # ─── Состояния · CIO 140 ───────────────────────────────────────────
+  - name: robot_working
+    description: Робот работа
+    area: CIO
+    address: "140.00"
     data_type: bool
     direction: plc_to_pc
-    source_csv: "25_247_MAP - Входы.csv"
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: belt_motion_control
+    description: Контроль движения ленты
+    area: CIO
+    address: "140.01"
+    data_type: bool
+    direction: plc_to_pc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: vision_ready
+    description: Техзрение готовность (CIO 140.02)
+    area: CIO
+    address: "140.02"
+    data_type: bool
+    direction: pc_to_plc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: reject_line_1
+    description: Бракуем линию 1 (CIO 140.08)
+    area: CIO
+    address: "140.08"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 0
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: reject_line_2
+    description: Бракуем линию 2 (CIO 140.09)
+    area: CIO
+    address: "140.09"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 1
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: alarm
+    description: Авария
+    area: CIO
+    address: "140.15"
+    data_type: bool
+    direction: plc_to_pc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  # ─── Неисправности · CIO 190 / 191 ─────────────────────────────────
+  - name: vision_fault
+    description: Техзрение ошибка (CIO 190.00)
+    area: CIO
+    address: "190.00"
+    data_type: bool
+    direction: pc_to_plc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: conveyor_fault_not_on
+    description: Авария работы конвейера не включился
+    area: CIO
+    address: "191.00"
+    data_type: bool
+    direction: plc_to_pc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: conveyor_fault_not_moving
+    description: Авария работы конвейера не поехал сам
+    area: CIO
+    address: "191.01"
+    data_type: bool
+    direction: plc_to_pc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  # ─── Управление · CIO 240 ──────────────────────────────────────────
+  - name: alarm_reset
+    description: Сброс аварий
+    area: CIO
+    address: "240.00"
+    data_type: bool
+    direction: pc_to_plc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+
+  - name: discrete_inputs_reset
+    description: Сброс дискретных входов
+    area: CIO
+    address: "240.15"
+    data_type: bool
+    direction: pc_to_plc
+    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
 
 # Таймауты отбраковки (DM, BCD, единицы 100 ms). Источник: Настройки.csv
 timeouts:

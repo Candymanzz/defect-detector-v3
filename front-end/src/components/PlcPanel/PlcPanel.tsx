@@ -302,36 +302,42 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
                     <strong>{signal.name}</strong>
                     <span>
                       {signal.area}
-                      {signal.address} · {signal.description || "—"}
+                      {signal.address} · {signal.direction ?? "pc_to_plc"} · {signal.description || "—"}
                     </span>
                     <span data-value={String(signal.lastValue)}>
                       last={signal.lastValue == null ? "?" : signal.lastValue ? "1" : "0"}
                     </span>
                   </div>
-                  <div className="plc-panel__signal-actions">
-                    <Button
-                      type="button"
-                      disabled={!editable || busySignal === signal.name}
-                      onClick={() => void handleWriteSignal(signal, true, false)}
-                    >
-                      On
-                    </Button>
-                    <Button
-                      type="button"
-                      disabled={!editable || busySignal === signal.name}
-                      onClick={() => void handleWriteSignal(signal, false, false)}
-                    >
-                      Off
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="warning"
-                      disabled={!editable || busySignal === signal.name}
-                      onClick={() => void handleWriteSignal(signal, true, true)}
-                    >
-                      Pulse
-                    </Button>
-                  </div>
+                  {signal.writable !== false ? (
+                    <div className="plc-panel__signal-actions">
+                      <Button
+                        type="button"
+                        disabled={!editable || busySignal === signal.name}
+                        onClick={() => void handleWriteSignal(signal, true, false)}
+                      >
+                        On
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={!editable || busySignal === signal.name}
+                        onClick={() => void handleWriteSignal(signal, false, false)}
+                      >
+                        Off
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="warning"
+                        disabled={!editable || busySignal === signal.name}
+                        onClick={() => void handleWriteSignal(signal, true, true)}
+                      >
+                        Pulse
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="plc-panel__signal-actions">
+                      <span className="plc-panel__empty">только чтение</span>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

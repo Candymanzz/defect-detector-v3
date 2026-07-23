@@ -5,7 +5,13 @@ import com.example.iml.orchestrator.integration.plc.fins.OmronFinsClient;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -178,6 +184,55 @@ public final class PlcFinsPublisher implements AutoCloseable {
 
   public Boolean lastSignalValue(String name) {
     return lastSignalValues.get(name);
+  }
+
+  /**
+   * Читает текущие биты сигналов с ПЛК (словными Memory Area Read).
+   * Слова с дырами читаются отдельными диапазонами (не тянем CIO140…240 одним куском).
+   */
+  public Map<String, Boolean> readSignalBits(Collection<PlcSignalDefinition> signals)
+      throws IOException, InterruptedException, TimeoutException {
+    Map<String, Boolean> values = new java.util.LinkedHashMap<>();
+    if (signals == null || signals.isEmpty()) {
+      return values;
+    }
+    Map<PlcMemoryArea, TreeMap<Integer, List<PlcSignalDefinition>>> byArea = new EnumMap<>(PlcMemoryArea.class);
+    for (PlcSignalDefinition signal : signals) {
+      byArea
+          .computeIfAbsent(signal.area(), ignored -> new TreeMap<>())
+          .computeIfAbsent(signal.address().word(), ignored -> new ArrayList<>())
+          .add(signal);
+    }
+    for (Map.Entry<PlcMemoryArea, TreeMap<Integer, List<PlcSignalDefinition>>> areaEntry : byArea.entrySet()) {
+      PlcMemoryArea area = areaEntry.getKey();
+      TreeMap<Integer, List<PlcSignalDefinition>> byWord = areaEntry.getValue();
+      if (byWord.isEmpty()) {
+        continue;
+      }
+      List<Integer> words = new ArrayList<>(byWord.keySet());
+      int rangeStart = 0;
+      while (rangeStart < words.size()) {
+        int startWord = words.get(rangeStart);
+        int rangeEnd = rangeStart;
+        while (rangeEnd + 1 < words.size() && words.get(rangeEnd + 1) == words.get(rangeEnd) + 1) {
+          rangeEnd++;
+        }
+        int endWord = words.get(rangeEnd);
+        int count = endWord - startWord + 1;
+        int[] raw = readWords(area, startWord, count, "signals_" + area.name() + "_" + startWord + "_" + endWord);
+        for (int i = rangeStart; i <= rangeEnd; i++) {
+          int wordAddr = words.get(i);
+          int wordValue = raw[wordAddr - startWord] & 0xFFFF;
+          for (PlcSignalDefinition signal : byWord.get(wordAddr)) {
+            boolean bit = ((wordValue >> signal.address().bit()) & 1) == 1;
+            values.put(signal.name(), bit);
+            lastSignalValues.put(signal.name(), bit);
+          }
+        }
+        rangeStart = rangeEnd + 1;
+      }
+    }
+    return values;
   }
 
   public long droppedTotal() {

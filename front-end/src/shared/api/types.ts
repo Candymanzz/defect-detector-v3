@@ -329,6 +329,8 @@ export type PlcSignalState = {
   address: string;
   bucketGroupId?: number | null;
   lastValue?: boolean | null;
+  direction?: string;
+  writable?: boolean;
 };
 
 export type PlcTimeoutDefinition = {

@@ -110,7 +110,11 @@ public final class PlcRegisterMapLoader {
     if (groupRaw instanceof Number number) {
       bucketGroupId = number.intValue();
     }
-    return new PlcSignalDefinition(name, description, area, address, bucketGroupId);
+    String direction = String.valueOf(entry.getOrDefault("direction", "pc_to_plc")).trim();
+    if (direction.isEmpty() || "null".equalsIgnoreCase(direction)) {
+      direction = "pc_to_plc";
+    }
+    return new PlcSignalDefinition(name, description, area, address, bucketGroupId, direction);
   }
 
   private static String requiredString(Map<String, Object> entry, String key) {

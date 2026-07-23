@@ -1,7 +1,7 @@
 package com.example.iml.orchestrator.integration.plc;
 
 /**
- * Исходящий сигнал PC→PLC для ручной отправки с UI.
+ * Состояние битового сигнала для HTTP/UI.
  */
 public record PlcSignalState(
     String name,
@@ -9,6 +9,8 @@ public record PlcSignalState(
     String area,
     String address,
     Integer bucketGroupId,
-    Boolean lastValue
+    Boolean lastValue,
+    String direction,
+    boolean writable
 ) {
 }

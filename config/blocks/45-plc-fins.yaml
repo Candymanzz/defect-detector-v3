@@ -1,7 +1,7 @@
-# Omron FINS/UDP — только настройки таймаутов D4400–D4404 (картинка «Настройки»).
-# Готовность / ошибка / брак линий — дискретные входы X4–X7 через IoInputMonitor DO
-# (см. 52-io-input.yaml reject). CIO 240.15 «Сброс дискретных входов» не используем.
-# Сигналы/карта: plk/register-map.yaml
+# Omron FINS/UDP — биты CIO 140/190/240 + таймауты D4400–D4404.
+# Карта сигналов: plk/register-map.yaml (правьте area/address/direction там).
+# Runtime-брак по умолчанию — дискретные DO (io_input_monitor_reject), не FINS.
+# FINS для reject включается, если io_input_monitor_reject.enabled=false.
 
 plc_fins:
   enabled: true

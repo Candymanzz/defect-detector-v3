@@ -111,14 +111,14 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         IoInputMonitorRejectClient rejectClient = IoInputMonitorRejectClient.fromIntegration(log, integration);
         if (rejectClient.isEnabled()) {
             log.info(
-                    "inspection result plc discrete DI (IoInputMonitor) — ready={} fault={} reject1={} reject2={}; FINS only D4400–D4404 (no CIO 240.15)",
+                    "inspection result plc discrete DI (IoInputMonitor) — ready={} fault={} reject1={} reject2={}; FINS map=CIO 140/190/240 + D4400–D4404",
                     rejectClient.readyEnabled(),
                     rejectClient.faultEnabled(),
                     rejectClient.line1Enabled(),
                     rejectClient.line2Enabled()
             );
         } else {
-            log.info("inspection result reject via plc_fins W0.xx (io_input_monitor_reject.enabled=false)");
+            log.info("inspection result reject via plc_fins CIO (io_input_monitor_reject.enabled=false)");
         }
         if (clientWsServer == null) {
             log.warn("inspection result client_ws unavailable — bucket verdict will not be sent to UI");
@@ -186,24 +186,28 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public List<PlcSignalState> listSignals() {
+        Map<String, Boolean> live = Map.of();
+        if (plcPublisher != null) {
+            try {
+                live = plcPublisher.readSignalBits(registerMap.signals());
+            } catch (Exception e) {
+                log.debug("plc fins signal read failed: {}", e.getMessage());
+            }
+        }
         List<PlcSignalState> signals = new ArrayList<>();
         for (PlcSignalDefinition signal : registerMap.signals()) {
-            Boolean last = null;
+            Boolean last = live.get(signal.name());
             if (rejectClient != null && rejectClient.isEnabled()
                     && IoInputMonitorRejectClient.isDiscreteSignal(signal.name())) {
-                last = rejectClient.lastSignalValue(signal.name());
+                Boolean discrete = rejectClient.lastSignalValue(signal.name());
+                if (discrete != null) {
+                    last = discrete;
+                }
             }
             if (last == null && plcPublisher != null) {
                 last = plcPublisher.lastSignalValue(signal.name());
             }
-            signals.add(new PlcSignalState(
-                    signal.name(),
-                    signal.description(),
-                    signal.area().name(),
-                    signal.address().word() + "." + signal.address().bit(),
-                    signal.bucketGroupId(),
-                    last
-            ));
+            signals.add(toState(signal, last));
         }
         return signals;
     }
@@ -225,7 +229,13 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             if (name.isEmpty()) {
                 throw new IllegalArgumentException("signal name required");
             }
-            registerMap.find(name).orElseThrow(() -> new IllegalArgumentException("unknown signal: " + name));
+            PlcSignalDefinition def = registerMap.find(name)
+                    .orElseThrow(() -> new IllegalArgumentException("unknown signal: " + name));
+            if (!def.writable()) {
+                throw new IllegalArgumentException(
+                        "signal is read-only (direction=plc_to_pc): " + name
+                );
+            }
             boolean value = Boolean.TRUE.equals(entry.getValue());
             boolean pulse = Boolean.TRUE.equals(pulses.get(name));
             if (IoInputMonitorRejectClient.isDiscreteSignal(name)
@@ -244,6 +254,19 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             plcPublisher.writeSignal(name, value, pulse);
         }
         return listSignals();
+    }
+
+    private static PlcSignalState toState(PlcSignalDefinition signal, Boolean last) {
+        return new PlcSignalState(
+                signal.name(),
+                signal.description(),
+                signal.area().name(),
+                signal.address().word() + "." + signal.address().bit(),
+                signal.bucketGroupId(),
+                last,
+                signal.direction(),
+                signal.writable()
+        );
     }
 
     @Override
