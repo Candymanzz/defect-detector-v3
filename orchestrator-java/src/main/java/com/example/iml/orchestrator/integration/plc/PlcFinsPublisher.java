@@ -140,7 +140,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   /**
-   * Sticky-уровень готовности техзрения (CIO vision_ready). Повтор с тем же значением не шлём.
+   * Sticky-уровень готовности техзрения (W0.04 vision_ready). Повтор с тем же значением не шлём.
    */
   public void setVisionReady(boolean ready) {
     writeLevelIfChanged(config.visionReadySignal(), ready);

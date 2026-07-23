@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 /**
- * API ПЛК для HTTP/UI: таймауты D4400–D4404, биты CIO 140/190/240 из register-map, ручное управление.
+ * API ПЛК для HTTP/UI: таймауты D4400–D4404, биты W0 / CIO из register-map, ручное управление.
  */
 public interface PlcFinsApi {
 

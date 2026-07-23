@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
     <Properties>
-        <Property name="logDir">${sys:user.dir}/logs</Property>
+        <Property name="logDir">${sys:iml.log.dir:-${sys:user.dir}/logs}</Property>
         <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c{1.} - %msg%n</Property>
     </Properties>
     <Appenders>
@@ -17,8 +17,83 @@
             </Policies>
             <DefaultRolloverStrategy max="10"/>
         </RollingFile>
+        <RollingFile name="PlcFile"
+                     fileName="${logDir}/plc-fins.log"
+                     filePattern="${logDir}/plc-fins-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <RollingFile name="TriggerFile"
+                     fileName="${logDir}/io-trigger.log"
+                     filePattern="${logDir}/io-trigger-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <RollingFile name="PipelineFile"
+                     fileName="${logDir}/pipeline.log"
+                     filePattern="${logDir}/pipeline-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <RollingFile name="LightingFile"
+                     fileName="${logDir}/lighting.log"
+                     filePattern="${logDir}/lighting-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <RollingFile name="SubprocessFile"
+                     fileName="${logDir}/subprocess.log"
+                     filePattern="${logDir}/subprocess-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
     </Appenders>
     <Loggers>
+        <Logger name="com.example.iml.orchestrator.integration.plc" level="info" additivity="true">
+            <AppenderRef ref="PlcFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.trigger" level="info" additivity="true">
+            <AppenderRef ref="TriggerFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.capture" level="info" additivity="true">
+            <AppenderRef ref="PipelineFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.fanout" level="info" additivity="true">
+            <AppenderRef ref="PipelineFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.logging" level="info" additivity="true">
+            <AppenderRef ref="PipelineFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.clientapi" level="info" additivity="true">
+            <AppenderRef ref="PipelineFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.lighting" level="info" additivity="true">
+            <AppenderRef ref="LightingFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.subprocess" level="info" additivity="true">
+            <AppenderRef ref="SubprocessFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.services" level="info" additivity="true">
+            <AppenderRef ref="SubprocessFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.camera" level="info" additivity="true">
+            <AppenderRef ref="SubprocessFile"/>
+        </Logger>
         <Logger name="com.example.iml" level="info" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="OrchestratorFile"/>

@@ -8,18 +8,18 @@
 #                     vision_ready, vision_fault, reject_line_1, reject_line_2
 #                     (на них ссылаются 45-plc-fins.yaml и код брака).
 #   area            — область памяти Omron: CIO | W | H | DM
-#   address         — "слово.бит", как в CX-Programmer: "140.02", "240.15"
+#   address         — "слово.бит", как в CX-Programmer: "0.04", "240.15"
 #   direction       — pc_to_plc = оркестратор/UI ПИШЕТ по FINS
 #                     plc_to_pc = только ЧИТАЕМ с ПЛК (кнопки On/Off в UI скрыты)
 #   bucket_group_id — только для брака: 0 → линия 1, 1 → линия 2
 #
-# FINS реально ходит на area+address. Поменяли "140.08" → "0.06" и area: W —
-# брак пойдёт в W0.06 вместо CIO 140.08.
+# FINS реально ходит на area+address.
 #
-# Runtime (эталон задан):
-#   vision_ready  — sticky HIGH по FINS, пока session != NO_REFERENCE
-#   vision_fault  — HIGH при аварии сервисов (bootstrap fail и т.п.)
-#   reject_line_* — импульс по FINS на брак ведра (bucket_group_id 0|1)
+# Runtime (эталон задан) — лист «Входы», Work Area:
+#   vision_ready   → W0.04 sticky HIGH, пока session != NO_REFERENCE
+#   vision_fault   → W0.05 при аварии сервисов
+#   reject_line_1  → W0.06 импульс (bucket_group_id 0)
+#   reject_line_2  → W0.07 импульс (bucket_group_id 1)
 # Discrete DO — только если FINS publisher не создан (plc_fins.enabled=false).
 #
 # Таймауты D4400–D4404 — секция timeouts внизу (словная запись DM).
@@ -28,7 +28,42 @@ version: 1
 map_id: "25_247"
 
 signals:
-  # ─── Состояния · CIO 140 ───────────────────────────────────────────
+  # ─── Техзрение PC→PLC · W0 (Входы.csv) ─────────────────────────────
+  - name: vision_ready
+    description: Техзрение готовность (W0.04)
+    area: W
+    address: "0.04"
+    data_type: bool
+    direction: pc_to_plc
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: vision_fault
+    description: Техзрение ошибка (W0.05)
+    area: W
+    address: "0.05"
+    data_type: bool
+    direction: pc_to_plc
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: reject_line_1
+    description: Техзрение брак линия 1 (W0.06)
+    area: W
+    address: "0.06"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 0
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: reject_line_2
+    description: Техзрение брак линия 2 (W0.07)
+    area: W
+    address: "0.07"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 1
+    source_csv: "25_247_MAP - Входы.csv"
+
+  # ─── Состояния · CIO 140 (чтение) ──────────────────────────────────
   - name: robot_working
     description: Робот работа
     area: CIO
@@ -45,32 +80,6 @@ signals:
     direction: plc_to_pc
     source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
 
-  - name: vision_ready
-    description: Техзрение готовность (CIO 140.02)
-    area: CIO
-    address: "140.02"
-    data_type: bool
-    direction: pc_to_plc
-    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
-
-  - name: reject_line_1
-    description: Бракуем линию 1 (CIO 140.08)
-    area: CIO
-    address: "140.08"
-    data_type: bool
-    direction: pc_to_plc
-    bucket_group_id: 0
-    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
-
-  - name: reject_line_2
-    description: Бракуем линию 2 (CIO 140.09)
-    area: CIO
-    address: "140.09"
-    data_type: bool
-    direction: pc_to_plc
-    bucket_group_id: 1
-    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
-
   - name: alarm
     description: Авария
     area: CIO
@@ -79,14 +88,7 @@ signals:
     direction: plc_to_pc
     source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
 
-  # ─── Неисправности · CIO 190 / 191 ─────────────────────────────────
-  - name: vision_fault
-    description: Техзрение ошибка (CIO 190.00)
-    area: CIO
-    address: "190.00"
-    data_type: bool
-    direction: pc_to_plc
-    source_csv: "25_247_MAP - Состояния-неисправности-управление.csv"
+  # ─── Неисправности · CIO 191 (чтение) ──────────────────────────────
 
   - name: conveyor_fault_not_on
     description: Авария работы конвейера не включился
