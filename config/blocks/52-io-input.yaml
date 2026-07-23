@@ -34,10 +34,10 @@ io_input:
     pulse_duration_ms: 50
     pulse_repeat: 1
     pulse_repeat_gap_ms: 100
-    # DI2=1 один раз вооружает; DI1↓ (work) снимает. Дальнейшие DI2 до disarm — холостые.
-    # DI3↑ → съёмка только после arm (и пока require_direction).
+    # Съёмка только при DI2=1: DI3↑ + DI2 HIGH → DO5. DI2=0 → DI3↑ игнор (SkipNoDirection).
+    # Без latch — уровень DI2 проверяется на каждом DI3, не «один раз навсегда».
     require_direction: true
-    direction_latch: true
+    direction_latch: false
     initial_direction: forward
     direction_http:
       enabled: true

@@ -335,6 +335,7 @@ internal static class Program
                 bool pressed = edgeTracker.TryGetPressed(inputPort, out bool p) && p;
                 // DI3 <10 мс: edge=both не успевает перевооружить Falling → stuck HIGH →
                 // следующие Rising глотаются. Триггер — только Rising.
+                // IoCaptureGate после Rising сам сбрасывает _triggerActive (Falling не придёт).
                 IoInputEdgeMode portMode = inputPort == triggerPort
                     ? IoInputEdgeMode.Rising
                     : options.EdgeMode;
@@ -412,10 +413,10 @@ internal static class Program
 
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
-            int triggerPort = options.UdpPublish.TriggerPort;
+            int udpTriggerPort = options.UdpPublish.TriggerPort;
             foreach (int inputPort in options.InputPorts)
             {
-                if (!options.UdpPublish.SendInitialTriggerState && inputPort == triggerPort)
+                if (!options.UdpPublish.SendInitialTriggerState && inputPort == udpTriggerPort)
                     continue;
 
                 if (edgeTracker.TryGetPressed(inputPort, out bool closed))

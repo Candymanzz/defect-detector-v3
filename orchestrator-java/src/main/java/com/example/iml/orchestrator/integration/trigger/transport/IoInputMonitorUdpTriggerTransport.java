@@ -389,7 +389,13 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 log.info("io_input_trigger phase1: DI3 ignored until DI2=1 arms direction");
                 return;
             }
-            if (active && !triggerActive) {
+            // Rising-only photoeye: IoInputMonitor шлёт только UDP DI3=1, без DI3=0.
+            // Повторный 3:1 при triggerActive=true — новый импульс, не «залипший HIGH».
+            boolean risingEdge = active && !triggerActive;
+            boolean risingOnlyRetrigger = active
+                    && triggerActive
+                    && ioInputConfig.triggerEdge() == TriggerEdgeMode.RISING;
+            if (risingEdge || risingOnlyRetrigger) {
                 if (usesAutoDirection()) {
                     captureFiredThisPulse = false;
                     directionAutoCapture.onDi3Rising(directionRawActive);
@@ -463,7 +469,13 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     directionWaiter.cancel("DI3 released before direction");
                 }
             }
-            triggerActive = active;
+            // Rising-only: не держим triggerActive=true — иначе следующий UDP 3:1 молча игнорируется.
+            if (active && ioInputConfig.triggerEdge() == TriggerEdgeMode.RISING) {
+                triggerActive = false;
+                captureFiredThisPulse = false;
+            } else {
+                triggerActive = active;
+            }
             if (ioInputConfig.directionLatchOnWork()) {
                 if (active && workActive && !workSessionDirection.sessionDirectionKnown()) {
                     workSessionDirection.onDirectionChange(
