@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
+import com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder;
@@ -19,10 +20,14 @@ public record ClientApiMount(
         Map<Integer, String> analysisProfileByCamera,
         PerCameraInspectionGate inspectionGate,
         ManualLineDirectionService manualLineDirection,
-        PlcFinsServiceHolder plcFinsHolder
+        PlcFinsServiceHolder plcFinsHolder,
+        ClientWsServiceHolder clientWsHolder
 ) {
     public static ClientApiMount disabled() {
-        return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, new PlcFinsServiceHolder());
+        return new ClientApiMount(
+                false, null, "", null, null, Map.of(), null, null,
+                new PlcFinsServiceHolder(), new ClientWsServiceHolder()
+        );
     }
 
     public static ClientApiMount fromRootYaml(
@@ -31,7 +36,31 @@ public record ClientApiMount(
             PerCameraInspectionGate inspectionGate,
             ManualLineDirectionService manualLineDirection
     ) {
-        return fromRootYaml(root, geometryRuntime, inspectionGate, manualLineDirection, new PlcFinsServiceHolder());
+        return fromRootYaml(
+                root,
+                geometryRuntime,
+                inspectionGate,
+                manualLineDirection,
+                new PlcFinsServiceHolder(),
+                new ClientWsServiceHolder()
+        );
+    }
+
+    public static ClientApiMount fromRootYaml(
+            Map<String, Object> root,
+            GeometryRuntimeConfig geometryRuntime,
+            PerCameraInspectionGate inspectionGate,
+            ManualLineDirectionService manualLineDirection,
+            PlcFinsServiceHolder plcFinsHolder
+    ) {
+        return fromRootYaml(
+                root,
+                geometryRuntime,
+                inspectionGate,
+                manualLineDirection,
+                plcFinsHolder,
+                new ClientWsServiceHolder()
+        );
     }
 
     @SuppressWarnings("unchecked")
@@ -40,19 +69,21 @@ public record ClientApiMount(
             GeometryRuntimeConfig geometryRuntime,
             PerCameraInspectionGate inspectionGate,
             ManualLineDirectionService manualLineDirection,
-            PlcFinsServiceHolder plcFinsHolder
+            PlcFinsServiceHolder plcFinsHolder,
+            ClientWsServiceHolder clientWsHolder
     ) {
         PlcFinsServiceHolder holder = plcFinsHolder == null ? new PlcFinsServiceHolder() : plcFinsHolder;
+        ClientWsServiceHolder wsHolder = clientWsHolder == null ? new ClientWsServiceHolder() : clientWsHolder;
         if (root == null || geometryRuntime == null) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder);
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder);
         }
         Object raw = root.get("client_api");
         if (!(raw instanceof Map<?, ?> m)) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder);
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder);
         }
         boolean en = YamlScalars.toBool(m.get("enabled"), false);
         if (!en) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder);
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder);
         }
         String url = "";
         Object urlObj = m.get("kopcheni_base_url");
@@ -81,7 +112,8 @@ public record ClientApiMount(
                 com.example.iml.orchestrator.integration.config.ConfiguredCameras.analysisProfileByCameraId(root),
                 inspectionGate,
                 manualLineDirection,
-                holder
+                holder,
+                wsHolder
         );
     }
 

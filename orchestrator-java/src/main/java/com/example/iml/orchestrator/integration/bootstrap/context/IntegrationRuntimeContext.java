@@ -78,6 +78,7 @@ public final class IntegrationRuntimeContext {
     private PerCameraInspectionGate inspectionGate;
     private ManualLineDirectionService manualLineDirection;
     private PlcFinsServiceHolder plcFinsHolder;
+    private com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder clientWsHolder;
     private ClientApiMount clientApiMount;
     private WorkerCaptureCoordinator captureCoordinator;
     private UiArtifactsSidecar uiSidecar;
@@ -295,6 +296,14 @@ public final class IntegrationRuntimeContext {
 
     public void setPlcFinsHolder(PlcFinsServiceHolder plcFinsHolder) {
         this.plcFinsHolder = plcFinsHolder;
+    }
+
+    public com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder clientWsHolder() {
+        return clientWsHolder;
+    }
+
+    public void setClientWsHolder(com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder clientWsHolder) {
+        this.clientWsHolder = clientWsHolder;
     }
 
     public ClientApiMount clientApiMount() {

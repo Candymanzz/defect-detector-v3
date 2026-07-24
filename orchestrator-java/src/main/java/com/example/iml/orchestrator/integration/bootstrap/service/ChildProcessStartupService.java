@@ -158,12 +158,15 @@ public final class ChildProcessStartupService {
         ctx.setInspectionGate(PerCameraInspectionGate.fromCameras(ctx.cameras()));
         ctx.setManualLineDirection(new ManualLineDirectionService());
         ctx.setPlcFinsHolder(new PlcFinsServiceHolder());
+        var clientWsHolder = new com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder();
+        ctx.setClientWsHolder(clientWsHolder);
         ctx.setClientApiMount(ClientApiMount.fromRootYaml(
                 ctx.root(),
                 ctx.geometryRuntimeConfig(),
                 ctx.inspectionGate(),
                 ctx.manualLineDirection(),
-                ctx.plcFinsHolder()
+                ctx.plcFinsHolder(),
+                clientWsHolder
         ));
 
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);

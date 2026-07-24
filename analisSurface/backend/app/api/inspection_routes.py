@@ -193,3 +193,10 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
         visual_outputs = {}
 
     return to_visuals_response(result, visual_outputs)
+
+
+@router.post("/clear-inspection-context")
+async def clear_inspection_context() -> dict:
+    """POST /clear-inspection-context — сброс эталонов, ROI и FP-зон (полная остановка инспекции)."""
+    cleared = inspection_service.clear_inspection_context()
+    return {"ok": True, "cleared": cleared}
