@@ -22,6 +22,15 @@ export type InspectionStateResponse = {
   unknownCameraIds: CameraId[];
 };
 
+export type InspectionResetResponse = {
+  ok: true;
+  cleared: boolean;
+  session_state: string;
+  inspection_enabled?: boolean;
+  signals_editable?: boolean;
+  timeouts_editable?: boolean;
+};
+
 export type CameraId = number;
 export type EpochMs = number;
 export type FrameId = number;

@@ -425,6 +425,58 @@
   height: 38px;
 }
 
+.setting-list__inspection-reset {
+  display: grid;
+  gap: 7px;
+}
+
+.setting-list__inspection-reset-button {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #ef4444 !important;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+  font-weight: 700;
+}
+
+.setting-list__inspection-reset-button:hover:not(:disabled),
+.setting-list__inspection-reset-button:focus-visible:not(:disabled) {
+  border-color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fecaca !important;
+}
+
+.setting-list__inspection-reset-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.setting-list__inspection-reset-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.setting-list__inspection-reset-status {
+  min-height: 16px;
+  color: #d8e1de;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.setting-list__inspection-reset-status[data-status="resetting"] {
+  color: #fde68a;
+}
+
+.setting-list__inspection-reset-status[data-status="success"] {
+  color: #86efac;
+}
+
+.setting-list__inspection-reset-status[data-status="error"] {
+  color: #fca5a5;
+}
+
 .setting-list__direction-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

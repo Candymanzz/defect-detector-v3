@@ -37,7 +37,7 @@ import type {
   SelectedCamera,
 } from "./type";
 
-export function useMainOverview() {
+export function useMainOverview(inspectionResetVersion = 0) {
   const [cameraIds, setCameraIds] = useState<number[]>(FALLBACK_CAMERA_IDS);
   const [modalSnapshot, setModalSnapshot] = useState<ModalInspectionSnapshot | null>(null);
   const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
@@ -70,6 +70,20 @@ export function useMainOverview() {
   const latestInspectionIdByCameraIdRef = useRef<Record<number, number>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateFrameRef = useRef<number | null>(null);
+
+  const resetLocalInspectionState = useCallback(() => {
+    latestInspectResultByCameraIdRef.current = {};
+    latestArtifactResultByCameraIdRef.current = {};
+    latestInspectionIdByCameraIdRef.current = {};
+    setInspectResultsByCameraId({});
+    setInspectArtifactResultsByCameraId({});
+    setInspectionHistoryByCameraId({});
+    setModalSnapshot(null);
+    setHasReference(false);
+    setInspectionStartedAtMs(undefined);
+    setInspectionStoppedAtMs(undefined);
+    setPreviewImagesEnabled(true);
+  }, []);
 
   const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
     delete latestInspectResultByCameraIdRef.current[cameraId];
@@ -206,6 +220,14 @@ export function useMainOverview() {
   }, []);
 
   useEffect(() => subscribeReferenceImages(() => setReferenceSnapshot(getReferenceImagesSnapshot())), []);
+
+  useEffect(() => {
+    if (inspectionResetVersion <= 0) {
+      return;
+    }
+
+    window.queueMicrotask(resetLocalInspectionState);
+  }, [inspectionResetVersion, resetLocalInspectionState]);
 
   const inspectionStats = useMemo(
     () =>

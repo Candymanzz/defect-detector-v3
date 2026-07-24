@@ -21,7 +21,9 @@ const EMPTY_INSPECTION_STATS: InspectionStats = {
 export function App() {
   const [selectedSettingsCameraId, setSelectedSettingsCameraId] = useState<number | null>(null);
   const [isPlcPanelOpen, setIsPlcPanelOpen] = useState(false);
+  const [isPlasticHandleMode, setIsPlasticHandleMode] = useState(false);
   const [inspectionStats, setInspectionStats] = useState<InspectionStats>(EMPTY_INSPECTION_STATS);
+  const [inspectionResetVersion, setInspectionResetVersion] = useState(0);
   const backendStatus = useBackendStatus();
 
   const handleSettingsCameraToggle = (cameraId: number) => {
@@ -41,6 +43,20 @@ export function App() {
           <h1 style={{ fontSize: "24px", fontWeight: "bold" }}>Автоматизация контроля качества</h1>
         </div>
         <div className="app-header-right">
+          <div className="app-header-handle-mode">
+            <span data-active={!isPlasticHandleMode}>Стальная ручка</span>
+            <label className="app-header-handle-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Режим типа ручки"
+                checked={isPlasticHandleMode}
+                onChange={(event) => setIsPlasticHandleMode(event.target.checked)}
+              />
+              <span aria-hidden="true" />
+            </label>
+            <span data-active={isPlasticHandleMode}>Пластиковая ручка</span>
+          </div>
           <Button
             type="button"
             className="app-header-plc-button"
@@ -56,6 +72,7 @@ export function App() {
       </header>
       <div className="app-content">
         <MainOverview
+          inspectionResetVersion={inspectionResetVersion}
           selectedSettingsCameraId={selectedSettingsCameraId}
           onSettingsCameraToggle={handleSettingsCameraToggle}
           onInspectionStatsChange={setInspectionStats}
@@ -63,6 +80,10 @@ export function App() {
         <SettingList
           selectedCameraId={selectedSettingsCameraId}
           inspectionStats={inspectionStats}
+          onInspectionReset={() => {
+            setInspectionStats(EMPTY_INSPECTION_STATS);
+            setInspectionResetVersion((version) => version + 1);
+          }}
         />
       </div>
       <PlcPanel isOpen={isPlcPanelOpen} onClose={() => setIsPlcPanelOpen(false)} />

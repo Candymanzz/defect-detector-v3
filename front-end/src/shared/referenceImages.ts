@@ -176,6 +176,22 @@ export function getReferenceImagesSnapshot() {
     .sort((left, right) => left.cameraId - right.cameraId);
 }
 
+export function clearReferenceImages() {
+  if (referenceImagesByCameraId.size === 0 && pendingReferenceBundles.size === 0) {
+    return;
+  }
+
+  referenceImagesByCameraId.forEach((referenceImage) => {
+    if (referenceImage.imageUrl.startsWith("blob:") && !isImageUrlArchived(referenceImage.imageUrl)) {
+      URL.revokeObjectURL(referenceImage.imageUrl.split("?")[0]);
+    }
+  });
+  referenceImagesByCameraId.clear();
+  pendingReferenceBundles.clear();
+  referenceImageVersion += 1;
+  emitReferenceImageChange();
+}
+
 export function getArchivedReferenceGroups() {
   if (archivedReferenceGroupsSnapshotVersion !== archivedReferenceGroupsVersion) {
     archivedReferenceGroupsSnapshot = archivedReferenceGroups.map(copyArchivedReferenceGroup);

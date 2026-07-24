@@ -13,17 +13,19 @@ import "./MainOverview.css";
 const CAMERAS_PER_OVERVIEW = 5;
 
 type MainOverviewProps = {
+  inspectionResetVersion: number;
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
   onInspectionStatsChange?: (stats: InspectionStats) => void;
 };
 
 export function MainOverview({
+  inspectionResetVersion,
   selectedSettingsCameraId,
   onSettingsCameraToggle,
   onInspectionStatsChange,
 }: MainOverviewProps) {
-  const controller = useMainOverview();
+  const controller = useMainOverview(inspectionResetVersion);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
   const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
   const modalInspectionControlState = controller.modalSnapshot

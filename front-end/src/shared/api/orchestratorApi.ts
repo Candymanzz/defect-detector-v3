@@ -9,6 +9,7 @@ import type {
   GeometryLatestSnapshot,
   GeometryRuntimeConfig,
   InspectionStateResponse,
+  InspectionResetResponse,
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
@@ -140,6 +141,13 @@ export const orchestratorApi = {
       body: {
         cameraId,
       },
+    });
+  },
+
+  async resetInspection() {
+    return http.json<InspectionResetResponse>("/api/client/inspection/clear-reference", {
+      method: "POST",
+      body: {},
     });
   },
 

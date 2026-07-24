@@ -16,6 +16,9 @@ import {
 import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
+import { orchestratorApi } from "../../shared/api";
+import { errorMessage } from "../../shared/lib/errors";
+import { clearReferenceImages } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
 import type { InspectionStats } from "../MainOverview/type";
 import type { AnalysisSettingFieldName, SettingFieldName } from "./type";
@@ -54,6 +57,7 @@ const ANALYSIS_SETTING_FIELDS: Array<{
 type SettingListProps = {
   selectedCameraId: number | null;
   inspectionStats: InspectionStats;
+  onInspectionReset?: () => void;
 };
 
 type SaveFeedback = {
@@ -62,9 +66,15 @@ type SaveFeedback = {
   cameraId: number | null;
 };
 
-export function SettingList({ selectedCameraId, inspectionStats }: SettingListProps) {
+type ResetFeedback = {
+  state: "resetting" | "success" | "error";
+  text: string;
+};
+
+export function SettingList({ selectedCameraId, inspectionStats, onInspectionReset }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
+  const [resetFeedback, setResetFeedback] = useState<ResetFeedback | null>(null);
   const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
@@ -256,6 +266,27 @@ export function SettingList({ selectedCameraId, inspectionStats }: SettingListPr
             resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
           );
         }
+      });
+  };
+
+  const handleInspectionReset = () => {
+    if (resetFeedback?.state === "resetting") {
+      return;
+    }
+
+    setResetFeedback({ state: "resetting", text: "Сброс инспекции..." });
+    orchestratorApi
+      .resetInspection()
+      .then((response) => {
+        clearReferenceImages();
+        onInspectionReset?.();
+        setResetFeedback({
+          state: "success",
+          text: response.cleared ? "Инспекция сброшена" : "Инспекция уже была сброшена",
+        });
+      })
+      .catch((error: unknown) => {
+        setResetFeedback({ state: "error", text: errorMessage(error) });
       });
   };
 
@@ -463,6 +494,25 @@ export function SettingList({ selectedCameraId, inspectionStats }: SettingListPr
           </Button>
         </details>
       </form>
+
+      <div className="setting-list__inspection-reset">
+        <Button
+          className="setting-list__inspection-reset-button"
+          disabled={resetFeedback?.state === "resetting"}
+          onClick={handleInspectionReset}
+        >
+          {resetFeedback?.state === "resetting" ? "Сброс..." : "Сброс инспекции"}
+        </Button>
+        {resetFeedback && (
+          <span
+            className="setting-list__inspection-reset-status"
+            data-status={resetFeedback.state}
+            aria-live="polite"
+          >
+            {resetFeedback.text}
+          </span>
+        )}
+      </div>
 
       {isCameraSettingsOpen && (
         <CameraSettingsModal
