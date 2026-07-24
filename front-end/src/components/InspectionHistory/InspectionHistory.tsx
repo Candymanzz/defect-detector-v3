@@ -74,7 +74,7 @@ export function InspectionHistory({
               data-result={item.result}
               key={item.groupKey}
               type="button"
-              title={`Inspection ${item.inspectionId}: ${
+              title={`Инспекция ${item.inspectionId}: ${
                 item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "Съёмка"
               }`}
               onClick={() =>

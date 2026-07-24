@@ -17,6 +17,7 @@ import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
 import { Button } from "../../shared/ui/Button";
+import type { InspectionStats } from "../MainOverview/type";
 import type { AnalysisSettingFieldName, SettingFieldName } from "./type";
 import "./SettingList.css";
 
@@ -30,28 +31,29 @@ const ANALYSIS_SETTING_FIELDS: Array<{
   max?: number;
   step?: string;
 }> = [
-  { name: "default_threshold", label: "Default threshold", type: "number", min: 0.01, max: 1, step: "0.01" },
-  { name: "use_patchcore", label: "Use PatchCore", type: "checkbox" },
-  { name: "min_defect_area", label: "Min defect area", type: "number", min: 1, step: "1" },
-  { name: "min_scratch_aspect", label: "Min scratch aspect", type: "number", min: 1, step: "0.1" },
-  { name: "min_diff_signal", label: "Min diff signal", type: "number", min: 0, step: "0.1" },
-  { name: "diff_percentile", label: "Diff percentile", type: "number", min: 50, max: 100, step: "0.1" },
-  { name: "scratch_score_floor", label: "Scratch score floor", type: "number", min: 0, max: 1, step: "0.01" },
-  { name: "scratch_aspect_floor", label: "Scratch aspect floor", type: "number", min: 1, step: "0.1" },
-  { name: "edge_suppress_factor", label: "Edge suppress factor", type: "number", min: 0, max: 1, step: "0.01" },
-  { name: "text_min_contrast", label: "Text min contrast", type: "number", min: 0, max: 255, step: "1" },
-  { name: "text_structure_threshold", label: "Text structure threshold", type: "number", min: 0, max: 255, step: "1" },
-  { name: "contrast_loss_boost", label: "Contrast loss boost", type: "number", min: 1, step: "0.1" },
-  { name: "contrast_loss_ref_grad", label: "Contrast loss ref grad", type: "number", min: 0, step: "0.1" },
-  { name: "contrast_loss_cur_grad", label: "Contrast loss cur grad", type: "number", min: 0, step: "0.1" },
-  { name: "enable_clahe", label: "Enable CLAHE", type: "checkbox" },
-  { name: "clahe_clip_limit", label: "CLAHE clip limit", type: "number", min: 0.01, step: "0.1" },
-  { name: "fp_recheck_enabled", label: "FP recheck enabled", type: "checkbox" },
-  { name: "fp_trigger_diff_q90", label: "FP trigger diff q90", type: "number", min: 0, step: "0.1" },
+  { name: "default_threshold", label: "Порог по умолчанию", type: "number", min: 0.01, max: 1, step: "0.01" },
+  { name: "use_patchcore", label: "Использовать PatchCore", type: "checkbox" },
+  { name: "min_defect_area", label: "Мин. площадь дефекта", type: "number", min: 1, step: "1" },
+  { name: "min_scratch_aspect", label: "Мин. пропорция царапины", type: "number", min: 1, step: "0.1" },
+  { name: "min_diff_signal", label: "Мин. diff-сигнал", type: "number", min: 0, step: "0.1" },
+  { name: "diff_percentile", label: "Перцентиль diff", type: "number", min: 50, max: 100, step: "0.1" },
+  { name: "scratch_score_floor", label: "Нижний порог оценки царапины", type: "number", min: 0, max: 1, step: "0.01" },
+  { name: "scratch_aspect_floor", label: "Нижний порог пропорции царапины", type: "number", min: 1, step: "0.1" },
+  { name: "edge_suppress_factor", label: "Коэффициент подавления краёв", type: "number", min: 0, max: 1, step: "0.01" },
+  { name: "text_min_contrast", label: "Мин. контраст текста", type: "number", min: 0, max: 255, step: "1" },
+  { name: "text_structure_threshold", label: "Порог структуры текста", type: "number", min: 0, max: 255, step: "1" },
+  { name: "contrast_loss_boost", label: "Усиление потери контраста", type: "number", min: 1, step: "0.1" },
+  { name: "contrast_loss_ref_grad", label: "Градиент эталона при потере контраста", type: "number", min: 0, step: "0.1" },
+  { name: "contrast_loss_cur_grad", label: "Градиент текущего кадра при потере контраста", type: "number", min: 0, step: "0.1" },
+  { name: "enable_clahe", label: "Включить CLAHE", type: "checkbox" },
+  { name: "clahe_clip_limit", label: "Предел отсечения CLAHE", type: "number", min: 0.01, step: "0.1" },
+  { name: "fp_recheck_enabled", label: "Включить повторную проверку FP", type: "checkbox" },
+  { name: "fp_trigger_diff_q90", label: "FP триггер diff q90", type: "number", min: 0, step: "0.1" },
 ];
 
 type SettingListProps = {
   selectedCameraId: number | null;
+  inspectionStats: InspectionStats;
 };
 
 type SaveFeedback = {
@@ -60,7 +62,7 @@ type SaveFeedback = {
   cameraId: number | null;
 };
 
-export function SettingList({ selectedCameraId }: SettingListProps) {
+export function SettingList({ selectedCameraId, inspectionStats }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
@@ -71,7 +73,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
   const canEditSettings = !isBusy;
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
-  const analysisScopeText = selectedCameraId === null ? "All camera products" : `Camera ${selectedCameraId} product`;
+  const analysisScopeText = selectedCameraId === null ? "Все изделия камер" : `Изделие камеры ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
 
   useLayoutEffect(() => {
@@ -262,6 +264,8 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
       className="setting-list"
       aria-label="Настройки"
     >
+      <InspectionStatsPanel stats={inspectionStats} />
+
       <div className="setting-list__header">
         <h2>Настройки</h2>
         {saveFeedback?.cameraId === selectedCameraId && (
@@ -421,7 +425,7 @@ export function SettingList({ selectedCameraId }: SettingListProps) {
 
         <details className="setting-list__collapsible-setting setting-list__analysis">
           <summary className="setting-list__section-header">
-            <h3>Analysis settings</h3>
+            <h3>Настройки анализа</h3>
             <strong>{analysisScopeText}</strong>
           </summary>
           <div className="setting-list__analysis-grid">
@@ -492,4 +496,62 @@ function resolveSaveFeedback(
   return status === "error"
     ? { state: "error", text: errorText, cameraId }
     : { state: "success", text: "Сохранено успешно", cameraId };
+}
+
+function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
+  return (
+    <section
+      className="setting-list__inspection-stats"
+      aria-label="Статистика инспекций"
+    >
+      <div className="setting-list__inspection-stats-header">
+        <h2>Статистика инспекций</h2>
+        <span>онлайн</span>
+      </div>
+      <dl className="setting-list__inspection-stats-grid">
+        <div>
+          <dt>Всего</dt>
+          <dd>{stats.total}</dd>
+        </div>
+        <div>
+          <dt>Годные</dt>
+          <dd>{stats.passed}</dd>
+        </div>
+        <div>
+          <dt>Брак</dt>
+          <dd>{stats.failed}</dd>
+        </div>
+      </dl>
+      <div className="setting-list__inspection-times">
+        <div>
+          <span>Старт</span>
+          <strong>{formatStatsTime(stats.inspectionStartedAtMs)}</strong>
+        </div>
+        <div>
+          <span>Эталон</span>
+          <strong>
+            {stats.referenceFrameId
+              ? `кадр ${stats.referenceFrameId}, ${formatStatsTime(stats.referenceSetAtMs)}`
+              : "не задан"}
+          </strong>
+        </div>
+        <div>
+          <span>Стоп</span>
+          <strong>{formatStatsTime(stats.inspectionStoppedAtMs)}</strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatStatsTime(epochMs: number | undefined) {
+  if (!epochMs || !Number.isFinite(epochMs)) {
+    return "—";
+  }
+
+  return new Date(epochMs).toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }

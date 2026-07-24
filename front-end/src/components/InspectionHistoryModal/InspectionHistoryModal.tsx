@@ -30,14 +30,14 @@ export function InspectionHistoryModal({ inspectionId, results, onClose }: Inspe
       onMouseDown={onClose}
     >
       <section
-        aria-label={`Inspection ${inspectionId}`}
+        aria-label={`Инспекция ${inspectionId}`}
         aria-modal="true"
         className="modal inspection-history-modal"
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="modal__header">
-          <h2>Inspection {inspectionId}</h2>
+          <h2>Инспекция {inspectionId}</h2>
           <button
             aria-label="Закрыть"
             className="modal__close"
@@ -72,16 +72,16 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
       data-result={item.result}
     >
       <header className="inspection-history-modal__card-header">
-        <strong>Camera {result.camera_id}</strong>
+        <strong>Камера {result.camera_id}</strong>
         <span>{item.result === "pass" ? "Годен" : "Брак"}</span>
       </header>
 
       <div className="inspection-history-modal__media">
         <figure>
-          <figcaption>Inspection frame</figcaption>
+          <figcaption>Кадр инспекции</figcaption>
           <div className="inspection-history-modal__image-wrap">
             <PreviewImage
-              alt={`Inspection ${item.inspectionId}, camera ${result.camera_id}`}
+              alt={`Инспекция ${item.inspectionId}, камера ${result.camera_id}`}
               className="inspection-history-modal__image"
               emptyLabel="Кадр недоступен"
               placeholderClassName="inspection-history-modal__placeholder"
@@ -91,7 +91,7 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
         </figure>
 
         <figure>
-          <figcaption>Heatmap</figcaption>
+          <figcaption>Тепловая карта</figcaption>
           {heatmap ? (
             <HeatmapViewer
               cameraId={result.camera_id}
@@ -99,22 +99,22 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
               backgroundImageUrl={imageUrl}
             />
           ) : (
-            <div className="inspection-history-modal__placeholder">Heatmap отсутствует</div>
+            <div className="inspection-history-modal__placeholder">Тепловая карта отсутствует</div>
           )}
         </figure>
       </div>
 
       <dl className="inspection-history-modal__summary">
         <ResultField
-          label="Frame"
+          label="Кадр"
           value={result.frame_id}
         />
         <ResultField
-          label="Action"
+          label="Действие"
           value={result.action}
         />
         <ResultField
-          label="Anomaly"
+          label="Аномалия"
           value={result.anomaly_score}
         />
         <ResultField
@@ -122,11 +122,11 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
           value={result.python_status}
         />
         <ResultField
-          label="Geometry"
+          label="Геометрия"
           value={result.geometry_status}
         />
         <ResultField
-          label="Product"
+          label="Изделие"
           value={result.detector.product_type}
         />
       </dl>

@@ -501,7 +501,7 @@ async function freezeImageUrl(imageUrl: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to freeze reference image: HTTP ${response.status}`);
+    throw new Error(`Не удалось зафиксировать эталонное изображение: HTTP ${response.status}`);
   }
 
   return URL.createObjectURL(await response.blob());

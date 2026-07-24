@@ -103,7 +103,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
         <div className="reference-setup__body">
           <div className="reference-setup__toolbar">
             {cameraGroups.length > 1 && (
-              <div className="reference-setup__group-switch" role="tablist" aria-label="Camera groups">
+              <div className="reference-setup__group-switch" role="tablist" aria-label="Группы камер">
                 {cameraGroups.map((groupCameraIds, groupIndex) => (
                   <button
                     key={groupCameraIds.join("-")}

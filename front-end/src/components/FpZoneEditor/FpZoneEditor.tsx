@@ -1,7 +1,10 @@
 import { useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import type { FpZoneNorm, InterestPointNorm } from "../../shared/ws";
+import { createCirclePolygonFromRadius } from "../RoiContourEditor";
 import "./FpZoneEditor.css";
+
+type DrawMode = "polygon" | "radius";
 
 type FpZoneEditorProps = {
   imageUrl: string;
@@ -20,6 +23,9 @@ export function FpZoneEditor({
 }: FpZoneEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [drawMode, setDrawMode] = useState<DrawMode>("polygon");
+  const [radiusCenter, setRadiusCenter] = useState<InterestPointNorm | null>(null);
+  const [cursorPoint, setCursorPoint] = useState<InterestPointNorm | null>(null);
   const safeSelectedIndex = zones.length === 0 ? -1 : Math.min(selectedIndex, zones.length - 1);
   const selectedZone = safeSelectedIndex >= 0 ? zones[safeSelectedIndex] : undefined;
   const roiSvgPoints = roiPoints.map((point) => `${point.x},${point.y}`).join(" ");
@@ -28,16 +34,47 @@ export function FpZoneEditor({
     onChange(zones.map((zone, index) => (index === zoneIndex ? { ...zone, ...update } : zone)));
   };
 
-  const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (disabled) return;
-
+  const resolveNormPoint = (event: MouseEvent<HTMLDivElement>): InterestPointNorm | null => {
     const rect = imageRef.current?.getBoundingClientRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
 
-    const nextPoint = {
+    return {
       x: clamp01((event.clientX - rect.left) / rect.width),
       y: clamp01((event.clientY - rect.top) / rect.height),
     };
+  };
+
+  const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (disabled) return;
+
+    const nextPoint = resolveNormPoint(event);
+    if (!nextPoint) return;
+
+    if (drawMode === "radius") {
+      if (!radiusCenter) {
+        setRadiusCenter(nextPoint);
+        return;
+      }
+
+      const image = imageRef.current;
+      const circlePoints = createCirclePolygonFromRadius(
+        radiusCenter,
+        nextPoint,
+        image?.naturalWidth ?? image?.clientWidth ?? 1,
+        image?.naturalHeight ?? image?.clientHeight ?? 1,
+      );
+      if (circlePoints.length > 0) {
+        const circleZone = selectedZone ? { ...selectedZone, points_norm_heatmap: circlePoints } : createEmptyZone(circlePoints);
+        if (selectedZone) {
+          updateZone(safeSelectedIndex, circleZone);
+        } else {
+          onChange([circleZone]);
+          setSelectedIndex(0);
+        }
+      }
+      setRadiusCenter(null);
+      return;
+    }
 
     if (!selectedZone) {
       onChange([createEmptyZone([nextPoint])]);
@@ -53,6 +90,7 @@ export function FpZoneEditor({
   const handleAddZone = () => {
     onChange([...zones, createEmptyZone()]);
     setSelectedIndex(zones.length);
+    setRadiusCenter(null);
   };
 
   const handleRemoveLastPoint = () => {
@@ -65,19 +103,28 @@ export function FpZoneEditor({
   const handleClearZone = () => {
     if (!selectedZone) return;
     updateZone(safeSelectedIndex, { points_norm_heatmap: [] });
+    setRadiusCenter(null);
   };
 
   const handleDeleteZone = () => {
     if (!selectedZone) return;
     onChange(zones.filter((_, index) => index !== safeSelectedIndex));
     setSelectedIndex(Math.max(0, safeSelectedIndex - 1));
+    setRadiusCenter(null);
+  };
+
+  const handleToggleRadiusMode = () => {
+    setDrawMode((current) => (current === "radius" ? "polygon" : "radius"));
+    setRadiusCenter(null);
   };
 
   return (
     <div className="fp-zone-editor">
       <div
-        className="fp-zone-editor__canvas"
+        className={`fp-zone-editor__canvas${drawMode === "radius" ? " fp-zone-editor__canvas--radius" : ""}`}
         onClick={handleCanvasClick}
+        onMouseMove={(event) => setCursorPoint(resolveNormPoint(event))}
+        onMouseLeave={() => setCursorPoint(null)}
       >
         <img
           ref={imageRef}
@@ -118,10 +165,43 @@ export function FpZoneEditor({
               </g>
             );
           })}
+          {drawMode === "radius" && radiusCenter && (
+            <g className="fp-zone-editor__radius">
+              {cursorPoint && (
+                <>
+                  <line
+                    x1={radiusCenter.x}
+                    y1={radiusCenter.y}
+                    x2={cursorPoint.x}
+                    y2={cursorPoint.y}
+                  />
+                  <circle
+                    cx={radiusCenter.x}
+                    cy={radiusCenter.y}
+                    r={Math.hypot(cursorPoint.x - radiusCenter.x, cursorPoint.y - radiusCenter.y)}
+                  />
+                </>
+              )}
+              <circle
+                className="fp-zone-editor__radius-center"
+                cx={radiusCenter.x}
+                cy={radiusCenter.y}
+                r="0.014"
+              />
+            </g>
+          )}
         </svg>
       </div>
 
       <div className="fp-zone-editor__actions">
+        <button
+          className={drawMode === "radius" ? "fp-zone-editor__mode-button is-active" : "fp-zone-editor__mode-button"}
+          type="button"
+          disabled={disabled}
+          onClick={handleToggleRadiusMode}
+        >
+          {drawMode === "radius" ? "Рисовать контур" : "Задать радиус"}
+        </button>
         <button
           type="button"
           disabled={disabled}
@@ -166,6 +246,13 @@ export function FpZoneEditor({
           </div>
         )}
       </div>
+      <p className="fp-zone-editor__hint">
+        {drawMode === "radius"
+          ? radiusCenter
+            ? "Кликните по краю будущей зоны, чтобы задать радиус"
+            : "Кликните по центру будущей круглой FP-zone"
+          : "Кликайте по изображению, чтобы добавить вершины FP-zone"}
+      </p>
     </div>
   );
 }

@@ -244,7 +244,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
   const handleCaptureNewReferenceFrames = async () => {
     if (activeCameraIds.length === 0) {
-      setMessage("Configured camera list is empty");
+      setMessage("Список настроенных камер пуст");
       return;
     }
 
@@ -305,7 +305,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const sendReferenceForGroups = (targetGroups: number[][]) => {
     const groupsToSend = targetGroups.filter((groupCameraIds) => groupCameraIds.length > 0);
     if (groupsToSend.length === 0) {
-      setMessage("Configured camera list is empty");
+      setMessage("Список настроенных камер пуст");
       return;
     }
 
@@ -367,8 +367,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     referenceRoi.setSelectedCameraId(cameraId);
     setMessage(
       referenceFrames.framesByCameraId[cameraId]
-        ? `Editing ROI for camera ${cameraId}`
-        : `Reference frame has not arrived for camera ${cameraId} yet`,
+        ? `Редактирование ROI для камеры ${cameraId}`
+        : `Эталонный кадр для камеры ${cameraId} ещё не пришёл`,
     );
   };
 
@@ -376,8 +376,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     referenceRoi.selectJointRoi(cameraId);
     setMessage(
       referenceFrames.framesByCameraId[cameraId]
-        ? `Editing label seam ROI for camera ${cameraId}`
-        : `Reference frame has not arrived for camera ${cameraId} yet`,
+        ? `Редактирование ROI шва этикетки для камеры ${cameraId}`
+        : `Эталонный кадр для камеры ${cameraId} ещё не пришёл`,
     );
   };
 

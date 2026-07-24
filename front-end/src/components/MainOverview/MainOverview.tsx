@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
@@ -6,6 +7,7 @@ import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
 import { useMainOverview } from "./useMainOverview";
+import type { InspectionStats } from "./type";
 import "./MainOverview.css";
 
 const CAMERAS_PER_OVERVIEW = 5;
@@ -13,21 +15,31 @@ const CAMERAS_PER_OVERVIEW = 5;
 type MainOverviewProps = {
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
+  onInspectionStatsChange?: (stats: InspectionStats) => void;
 };
 
-export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle }: MainOverviewProps) {
+export function MainOverview({
+  selectedSettingsCameraId,
+  onSettingsCameraToggle,
+  onInspectionStatsChange,
+}: MainOverviewProps) {
   const controller = useMainOverview();
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
   const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
   const modalInspectionControlState = controller.modalSnapshot
     ? controller.inspectionControlByCameraId[controller.modalSnapshot.cameraId]
     : undefined;
+
+  useEffect(() => {
+    onInspectionStatsChange?.(controller.inspectionStats);
+  }, [controller.inspectionStats, onInspectionStatsChange]);
+
   return (
     <div className="camera-overviews">
       {cameraCardGroups.map((cameraGroup, groupIndex) => (
         <section
           className="camera-overview"
-          aria-label={`Camera frames for object ${groupIndex + 1}`}
+          aria-label={`Кадры камер для объекта ${groupIndex + 1}`}
           key={groupIndex}
         >
           <div className="camera-grid">
@@ -123,7 +135,7 @@ export function MainOverview({ selectedSettingsCameraId, onSettingsCameraToggle 
             </button>
           }
           inspectResult={controller.modalSnapshot.inspectResult}
-          title={`${controller.modalSnapshot.objectName} / Camera ${controller.modalSnapshot.cameraId}`}
+          title={`${controller.modalSnapshot.objectName} / Камера ${controller.modalSnapshot.cameraId}`}
           onInspectionSelect={controller.selectModalInspection}
           onClose={controller.closeInspectionModal}
         />
@@ -150,12 +162,12 @@ function chunkItems<T>(items: T[], chunkSize: number) {
 
 function getInspectionActionLabel(state: "idle" | "starting" | "stopping" | "error" | undefined, isEnabled: boolean) {
   if (state === "starting") {
-    return "Starting...";
+    return "Запуск...";
   }
   if (state === "stopping") {
-    return "Stopping...";
+    return "Остановка...";
   }
-  return isEnabled ? "Stop" : "Start";
+  return isEnabled ? "Остановить" : "Запустить";
 }
 
 function getModalInspectionActionLabel(
@@ -163,10 +175,10 @@ function getModalInspectionActionLabel(
   isEnabled: boolean,
 ) {
   if (state === "starting") {
-    return "Starting...";
+    return "Запуск...";
   }
   if (state === "stopping") {
-    return "Stopping...";
+    return "Остановка...";
   }
-  return isEnabled ? "Stop inspection" : "Start inspection";
+  return isEnabled ? "Остановить инспекцию" : "Запустить инспекцию";
 }

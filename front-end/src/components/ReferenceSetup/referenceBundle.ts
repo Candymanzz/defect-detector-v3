@@ -17,21 +17,21 @@ export function createReferenceBundleFromCameraFrames(
   fpZones: FpZoneNorm[],
 ): ClientReferenceBundlePayload {
   if (cameraIds.length === 0) {
-    throw new Error("Configured camera list is empty");
+    throw new Error("Список настроенных камер пуст");
   }
 
   const jointViewIndex = cameraIds.indexOf(jointCameraId);
   if (jointViewIndex < 0) {
-    throw new Error(`Joint ROI camera ${jointCameraId} is not configured`);
+    throw new Error(`Камера ${jointCameraId} для joint ROI не настроена`);
   }
 
   for (const cameraId of cameraIds) {
     if (!framesByCameraId[cameraId]) {
-      throw new Error(`Reference frame for camera ${cameraId} is missing`);
+      throw new Error(`Нет эталонного кадра для камеры ${cameraId}`);
     }
 
     if (!isValidRoiPolygon(roiPolygonsByCameraId[cameraId])) {
-      throw new Error(`ROI contour for camera ${cameraId} is missing`);
+      throw new Error(`Нет контура ROI для камеры ${cameraId}`);
     }
   }
 
@@ -47,7 +47,7 @@ export function createReferenceBundleFromCameraFrames(
     const frame = framesByCameraId[cameraId];
 
     if (!frame) {
-      throw new Error(`Reference frame for camera ${cameraId} is missing`);
+      throw new Error(`Нет эталонного кадра для камеры ${cameraId}`);
     }
 
     return frame;
@@ -98,14 +98,14 @@ function createReferenceViewForFrame(
 ) {
   if (previewFrame.camera_id !== cameraId || previewFrame.current.camera_id !== cameraId) {
     throw new Error(
-      `Reference frame camera mismatch: expected ${cameraId}, received ${previewFrame.camera_id}`,
+      `Несовпадение камеры эталонного кадра: ожидалась ${cameraId}, получена ${previewFrame.camera_id}`,
     );
   }
 
   const roiPolygon = roiPolygonsByCameraId[cameraId];
 
   if (!isValidRoiPolygon(roiPolygon)) {
-    throw new Error(`ROI contour for camera ${cameraId} is missing`);
+    throw new Error(`Нет контура ROI для камеры ${cameraId}`);
   }
 
   const interestPolygonNorm = roiPolygon;

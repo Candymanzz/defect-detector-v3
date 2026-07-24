@@ -43,14 +43,14 @@ async function loadHeatmapBuffer(heatmap: HeatmapDescriptor, signal?: AbortSigna
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to load heatmap: HTTP ${response.status}`);
+      throw new Error(`Не удалось загрузить тепловую карту: HTTP ${response.status}`);
     }
 
     buffer = await response.arrayBuffer();
   } else if (heatmap.artifact_id) {
     buffer = await orchestratorApi.getHeatmapArtifact(heatmap.artifact_id, signal);
   } else {
-    throw new Error("Heatmap source is missing for the selected inspect result");
+    throw new Error("Источник тепловой карты отсутствует для выбранного результата инспекции");
   }
 
   if (cacheKey) {
@@ -62,15 +62,15 @@ async function loadHeatmapBuffer(heatmap: HeatmapDescriptor, signal?: AbortSigna
 
 function validateHeatmap(heatmap: HeatmapDescriptor) {
   if (heatmap.pixel_format !== "gray_u8") {
-    throw new Error(`Unsupported heatmap format: ${heatmap.pixel_format}`);
+    throw new Error(`Неподдерживаемый формат тепловой карты: ${heatmap.pixel_format}`);
   }
 
   if (heatmap.channels !== 1) {
-    throw new Error(`Unsupported heatmap channels: ${heatmap.channels}`);
+    throw new Error(`Неподдерживаемое число каналов тепловой карты: ${heatmap.channels}`);
   }
 
   if (heatmap.width <= 0 || heatmap.height <= 0) {
-    throw new Error(`Invalid heatmap size: ${heatmap.width}x${heatmap.height}`);
+    throw new Error(`Некорректный размер тепловой карты: ${heatmap.width}x${heatmap.height}`);
   }
 }
 
@@ -82,7 +82,7 @@ export function drawGrayU8Heatmap(canvas: HTMLCanvasElement | null, heatmap: Hea
   const expectedSize = heatmap.width * heatmap.height;
 
   if (bytes.length < expectedSize) {
-    throw new Error(`Invalid heatmap byte length: ${bytes.length}, expected ${expectedSize}`);
+    throw new Error(`Некорректная длина данных тепловой карты: ${bytes.length}, ожидалось ${expectedSize}`);
   }
 
   canvas.width = heatmap.width;
@@ -91,7 +91,7 @@ export function drawGrayU8Heatmap(canvas: HTMLCanvasElement | null, heatmap: Hea
   const ctx = canvas.getContext("2d");
 
   if (!ctx) {
-    throw new Error("Canvas context is not available");
+    throw new Error("Контекст canvas недоступен");
   }
 
   const imageData = ctx.createImageData(heatmap.width, heatmap.height);
@@ -127,7 +127,7 @@ export function drawHeatmapBitmap(
   const context = canvas.getContext("2d");
   if (!context) {
     bitmap.close();
-    throw new Error("Canvas context is not available");
+    throw new Error("Контекст canvas недоступен");
   }
   context.clearRect(0, 0, width, height);
   context.drawImage(bitmap, 0, 0);

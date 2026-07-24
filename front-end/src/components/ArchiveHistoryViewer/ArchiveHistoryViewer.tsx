@@ -165,7 +165,7 @@ export function ArchiveHistoryViewer({
                 <button
                   className="archive-history-viewer__tile-open"
                   type="button"
-                  title={`Inspection ${tile.inspectionId}`}
+                  title={`Инспекция ${tile.inspectionId}`}
                   onClick={() => setSelectedKey(tile.groupKey)}
                 >
                   <strong>{tile.inspectionId}</strong>

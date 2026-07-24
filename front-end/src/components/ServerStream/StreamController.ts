@@ -24,7 +24,7 @@ export function useStreamController({
   maxFps = DEFAULT_MAX_FPS,
 }: UseStreamControllerOptions) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
-  const [message, setMessage] = useState("Stream stopped");
+  const [message, setMessage] = useState("Стрим остановлен");
   const [mjpegUrl, setMjpegUrl] = useState<string>();
   const [status, setStatus] = useState<WsConnectionStatus>(orchestratorWs.snapshot);
   const streamStateRef = useRef(streamState);
@@ -72,7 +72,7 @@ export function useStreamController({
 
           setMjpegUrl(streamPath ? orchestratorApi.url(streamPath) : orchestratorApi.streamMjpegUrl(cameraId));
           setStreamState("playing");
-          setMessage(`Stream started: ${wsMessage.payload.max_fps} FPS`);
+          setMessage(`Стрим запущен: ${wsMessage.payload.max_fps} FPS`);
           clearFirstFrameTimer();
           // Кадры идут по MJPEG HTTP, не по server.preview_frame.
           // Таймер сбрасывается в handleStreamImageLoad (onLoad у <img>).
@@ -80,7 +80,7 @@ export function useStreamController({
             if (streamStateRef.current === "playing") {
               setMjpegUrl(undefined);
               setStreamState("error");
-              setMessage("Stream started, but no camera frames were received");
+              setMessage("Стрим запущен, но кадры с камеры не получены");
             }
           }, FIRST_FRAME_TIMEOUT_MS);
           return;
@@ -111,7 +111,7 @@ export function useStreamController({
           clearFirstFrameTimer();
           setMjpegUrl(undefined);
           setStreamState("idle");
-          setMessage("Stream stopped");
+          setMessage("Стрим остановлен");
           resolveStopAck(true);
           return;
 
@@ -151,7 +151,7 @@ export function useStreamController({
   const startStream = useCallback(() => {
     if (!orchestratorWs.isOpen) {
       setStreamState("error");
-      setMessage("WebSocket is not open yet");
+      setMessage("WebSocket ещё не открыт");
       return;
     }
 
@@ -159,7 +159,7 @@ export function useStreamController({
       clearFirstFrameTimer();
       setMjpegUrl(undefined);
       setStreamState("starting");
-      setMessage("Starting stream...");
+      setMessage("Запуск стрима...");
       orchestratorWs.sendStreamStart({
         camera_id: cameraId,
         max_fps: maxFps,
@@ -179,13 +179,13 @@ export function useStreamController({
     clearFirstFrameTimer();
     setMjpegUrl(undefined);
     setStreamState("error");
-    setMessage("MJPEG stream image failed to load");
+    setMessage("Не удалось загрузить изображение MJPEG-стрима");
   }, [clearFirstFrameTimer]);
 
   const stopStream = useCallback(async () => {
     if (!orchestratorWs.isOpen) {
       setStreamState("error");
-      setMessage("WebSocket is not open yet");
+      setMessage("WebSocket ещё не открыт");
       return false;
     }
 
@@ -196,7 +196,7 @@ export function useStreamController({
     try {
       clearFirstFrameTimer();
       setStreamState("stopping");
-      setMessage("Stopping stream...");
+      setMessage("Остановка стрима...");
       const stopAck = new Promise<boolean>((resolve) => {
         resolveStopAck(false);
         stopAckResolverRef.current = resolve;
@@ -204,7 +204,7 @@ export function useStreamController({
           stopAckTimerRef.current = null;
           stopAckResolverRef.current = null;
           setStreamState("error");
-          setMessage("Timed out while stopping the previous stream");
+          setMessage("Истекло время ожидания остановки предыдущего стрима");
           resolve(false);
         }, STOP_ACK_TIMEOUT_MS);
       });

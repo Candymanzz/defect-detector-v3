@@ -58,7 +58,7 @@ workerScope.onmessage = (event: MessageEvent<HeatmapRenderRequest>) => {
   } catch (error) {
     const response: HeatmapRenderFailure = {
       requestId,
-      error: error instanceof Error ? error.message : "Failed to render heatmap",
+      error: error instanceof Error ? error.message : "Не удалось отрисовать тепловую карту",
     };
     workerScope.postMessage(response);
   }

@@ -76,14 +76,14 @@ export function createInspectionControlStates(inspectionStatus: {
     states[cameraId] = {
       isEnabled: true,
       state: "idle",
-      message: "Inspection enabled",
+      message: "Инспекция включена",
     };
   }
   for (const cameraId of inspectionStatus.disabledCameraIds) {
     states[cameraId] = {
       isEnabled: false,
       state: "idle",
-      message: "Inspection stopped",
+      message: "Инспекция остановлена",
     };
   }
   return states;
@@ -504,5 +504,5 @@ function createCameraCardData(
 }
 
 function getObjectName(index: number) {
-  return `Object ${Math.floor(index / CAMERAS_PER_OBJECT) + 1}`;
+  return `Объект ${Math.floor(index / CAMERAS_PER_OBJECT) + 1}`;
 }

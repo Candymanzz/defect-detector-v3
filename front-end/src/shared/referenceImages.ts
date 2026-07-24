@@ -11,6 +11,7 @@ export type StoredReferenceImage = {
   imageUrl: string;
   frame: ShmFrameRefData;
   productType: string;
+  committedAtMs?: number;
   roiPoints: InterestPointNorm[];
   jointRoiPoints?: InterestPointNorm[];
   fpZones?: FpZoneNorm[];
@@ -117,6 +118,7 @@ export function commitReferenceBundleImages(
         imageUrl: versionReferenceImageUrl(baseImageUrl, nextReferenceImageVersion),
         frame: { ...view.frame },
         productType: bundle.product_type,
+        committedAtMs: Date.now(),
         roiPoints: copyRoiPoints(roiPointsByCameraId?.[cameraId] ?? view.interest_polygon_norm),
         jointRoiPoints:
           cameraId === jointCameraId && jointRoiPoints
@@ -166,6 +168,12 @@ export function getReferenceImageUrl(cameraId?: number) {
 
 export function getReferenceImage(cameraId?: number) {
   return cameraId === undefined ? undefined : referenceImagesByCameraId.get(cameraId);
+}
+
+export function getReferenceImagesSnapshot() {
+  return Array.from(referenceImagesByCameraId.entries())
+    .map(([cameraId, referenceImage]) => ({ cameraId, ...copyStoredReferenceImage(referenceImage) }))
+    .sort((left, right) => left.cameraId - right.cameraId);
 }
 
 export function getArchivedReferenceGroups() {
@@ -302,6 +310,7 @@ function copyStoredReferenceImage(referenceImage: StoredReferenceImage): StoredR
     imageUrl: referenceImage.imageUrl,
     frame: { ...referenceImage.frame },
     productType: referenceImage.productType,
+    committedAtMs: referenceImage.committedAtMs,
     roiPoints: copyRoiPoints(referenceImage.roiPoints),
     jointRoiPoints: referenceImage.jointRoiPoints ? copyRoiPoints(referenceImage.jointRoiPoints) : undefined,
     fpZones: referenceImage.fpZones ? copyFpZones(referenceImage.fpZones) : undefined,

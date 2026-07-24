@@ -29,7 +29,7 @@ export function StatusCard({
   isSelected = false,
   isInspectionEnabled = true,
   isInspectionActionDisabled = false,
-  inspectionActionLabel = "Stop",
+  inspectionActionLabel = "Остановить",
   inspectionStatus,
   inspectionResult,
   onOpen,
@@ -75,12 +75,12 @@ export function StatusCard({
       </div>
 
       <div className="camera-card__frame-ids">
-        <span>Live preview frame: {currentFrameId ?? "-"}</span>
-        <span>Latest decision frame: {inspectionFrameId ?? "-"}</span>
+        <span>Кадр предпросмотра: {currentFrameId ?? "-"}</span>
+        <span>Последний кадр решения: {inspectionFrameId ?? "-"}</span>
       </div>
 
       <div className="camera-card__footer">
-        <strong>Camera {cameraId}</strong>
+        <strong>Камера {cameraId}</strong>
         <div className="camera-card__actions">
           <button
             className={isInspectionEnabled ? "camera-card__stop" : "camera-card__start"}

@@ -3,8 +3,11 @@ import type { CSSProperties, ReactNode } from "react";
 import { HttpError, orchestratorApi } from "../../shared/api";
 import type { GeometryInspectResponse } from "../../shared/api";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { updateReferenceFpZones } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
-import type { FpZoneNorm, InspectResultPayload, InterestPointNorm } from "../../shared/ws";
+import { orchestratorWs } from "../../shared/ws";
+import type { FpZoneNorm, InspectResultPayload, InterestPointNorm, ServerWsMessage } from "../../shared/ws";
+import { FpZoneEditor } from "../FpZoneEditor";
 import { GeometryDeviationViewer } from "../GeometryDeviationViewer";
 import { HeatmapViewer } from "../HeatmapViewer";
 import "./ModalWrapper.css";
@@ -40,6 +43,17 @@ type GeometrySnapshotState = {
   error: string | null;
 };
 
+const EMPTY_GEOMETRY_SNAPSHOT: GeometrySnapshotState = {
+  geometry: null,
+  loading: false,
+  error: null,
+};
+
+type FpZonesStatus = {
+  state: "idle" | "loading" | "saving" | "success" | "error";
+  text: string;
+};
+
 export function ModalWrapper({
   isOpen,
   title,
@@ -63,6 +77,8 @@ export function ModalWrapper({
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
   const geometrySnapshot = useGeometrySnapshot(isOpen, cameraId, inspectResult?.frame_id, inspectResult?.geometry_status);
+  const [editedFpZones, setEditedFpZones] = useState<FpZoneNorm[]>(() => copyFpZones(referenceFpZones ?? []));
+  const [fpZonesStatus, setFpZonesStatus] = useState<FpZonesStatus>({ state: "idle", text: "" });
 
   useEffect(() => {
     if (!isOpen) {
@@ -130,7 +146,7 @@ export function ModalWrapper({
             label="Эталон"
             roiPoints={referenceRoiPoints}
             jointRoiPoints={referenceJointRoiPoints}
-            fpZones={referenceFpZones}
+            fpZones={editedFpZones}
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
@@ -148,6 +164,24 @@ export function ModalWrapper({
             loading={geometrySnapshot.loading}
           />
         </div>
+
+        {cameraId !== undefined && referenceImageUrl && (
+          <FpZonesRuntimePanel
+            cameraId={cameraId}
+            disabled={fpZonesStatus.state === "saving" || fpZonesStatus.state === "loading"}
+            heatmapSize={resolveFpZonesHeatmapSize(inspectResult)}
+            imageUrl={referenceImageUrl}
+            productType={inspectResult?.detector.product_type}
+            roiPoints={referenceRoiPoints}
+            status={fpZonesStatus}
+            zones={editedFpZones}
+            onChange={(zones) => {
+              setEditedFpZones(zones);
+              setFpZonesStatus({ state: "idle", text: "" });
+            }}
+            onStatusChange={setFpZonesStatus}
+          />
+        )}
 
         {inspectionItems.length > 0 && (
           <InspectionNavigation
@@ -175,6 +209,143 @@ export function ModalWrapper({
   );
 }
 
+function FpZonesRuntimePanel({
+  cameraId,
+  imageUrl,
+  productType,
+  roiPoints,
+  zones,
+  heatmapSize,
+  status,
+  disabled,
+  onChange,
+  onStatusChange,
+}: {
+  cameraId: number;
+  imageUrl: string;
+  productType?: string;
+  roiPoints?: InterestPointNorm[];
+  zones: FpZoneNorm[];
+  heatmapSize: { width: number; height: number };
+  status: FpZonesStatus;
+  disabled: boolean;
+  onChange: (zones: FpZoneNorm[]) => void;
+  onStatusChange: (status: FpZonesStatus) => void;
+}) {
+  const validZoneCount = zones.filter((zone) => zone.points_norm_heatmap.length >= 3).length;
+
+  const handleLoadServerZones = () => {
+    if (!productType) {
+      onStatusChange({ state: "error", text: "Не найден тип изделия для загрузки FP zones" });
+      return;
+    }
+
+    onStatusChange({ state: "loading", text: "Загрузка FP zones с сервера..." });
+    void orchestratorApi
+      .getFpZones(productType)
+      .then((response) => {
+        const loadedZones = response.zones.map((zone) => ({
+          id: zone.id,
+          camera_id: cameraId,
+          note: zone.note ?? "Исключающая зона",
+          points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({ x: point.x, y: point.y })),
+        }));
+        onChange(loadedZones);
+        onStatusChange({ state: "success", text: `Загружено FP zones: ${loadedZones.length}` });
+      })
+      .catch((error: unknown) => {
+        onStatusChange({
+          state: "error",
+          text: error instanceof Error ? error.message : "Не удалось загрузить FP zones с сервера",
+        });
+      });
+  };
+
+  const handleSave = () => {
+    if (!orchestratorWs.isOpen) {
+      onStatusChange({ state: "error", text: "WebSocket не подключён" });
+      return;
+    }
+
+    const fpZones = zones
+      .filter((zone) => zone.points_norm_heatmap.length >= 3)
+      .map((zone) => ({
+        ...zone,
+        camera_id: cameraId,
+        points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({ x: point.x, y: point.y })),
+      }));
+
+    try {
+      onStatusChange({ state: "saving", text: "Сохранение FP zones..." });
+      const messageId = orchestratorWs.sendFpZonesUpdate({
+        heatmap_width: heatmapSize.width,
+        heatmap_height: heatmapSize.height,
+        fp_zones: fpZones,
+      });
+
+      waitForFpZonesAck(messageId)
+        .then(() => {
+          updateReferenceFpZones([cameraId], fpZones);
+          onStatusChange({ state: "success", text: "FP zones обновлены" });
+        })
+        .catch((error: unknown) => {
+          onStatusChange({
+            state: "error",
+            text: error instanceof Error ? error.message : "Не удалось обновить FP zones",
+          });
+        });
+    } catch (error) {
+      onStatusChange({
+        state: "error",
+        text: error instanceof Error ? error.message : "Не удалось отправить FP zones",
+      });
+    }
+  };
+
+  return (
+    <section className="modal-fp-zones">
+      <header className="modal-fp-zones__header">
+        <div>
+          <h3>FP zones во время инспекции</h3>
+          <span>Зоны отправляются без перезадания эталона</span>
+        </div>
+        <div className="modal-fp-zones__actions">
+          <button
+            type="button"
+            disabled={disabled || !productType}
+            onClick={handleLoadServerZones}
+          >
+            {status.state === "loading" ? "Загрузка..." : "Загрузить зоны"}
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={handleSave}
+          >
+            {status.state === "saving" ? "Сохранение..." : "Обновить FP zones"}
+          </button>
+        </div>
+      </header>
+      <div className="modal-fp-zones__body">
+        <FpZoneEditor
+          disabled={disabled}
+          imageUrl={imageUrl}
+          roiPoints={roiPoints}
+          zones={zones}
+          onChange={onChange}
+        />
+        <div
+          className="modal-fp-zones__status"
+          data-state={status.state}
+          aria-live="polite"
+        >
+          {status.text || `Готовых зон: ${validZoneCount}`}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function useGeometrySnapshot(
   isOpen: boolean,
   cameraId: number | undefined,
@@ -189,12 +360,15 @@ function useGeometrySnapshot(
 
   useEffect(() => {
     if (!isOpen || cameraId === undefined) {
-      setState({ geometry: null, loading: false, error: null });
       return;
     }
 
     const controller = new AbortController();
-    setState((current) => ({ ...current, loading: true, error: null }));
+    window.queueMicrotask(() => {
+      if (!controller.signal.aborted) {
+        setState((current) => ({ ...current, loading: true, error: null }));
+      }
+    });
 
     void orchestratorApi
       .getGeometryLatestSnapshot(cameraId)
@@ -228,6 +402,10 @@ function useGeometrySnapshot(
     return () => controller.abort();
   }, [isOpen, cameraId, frameId, geometryStatus]);
 
+  if (!isOpen || cameraId === undefined) {
+    return EMPTY_GEOMETRY_SNAPSHOT;
+  }
+
   return state;
 }
 
@@ -250,7 +428,7 @@ function InspectionNavigation({
   return (
     <section
       className="modal-inspection-navigation"
-      aria-label="Inspection navigation"
+      aria-label="Навигация по инспекциям"
     >
       <header>Инспекции</header>
       <div
@@ -394,7 +572,7 @@ function HeatmapPanel({
   );
   return (
     <figure className="modal-image-panel">
-      <figcaption>Heatmap</figcaption>
+      <figcaption>Тепловая карта</figcaption>
       {cameraId !== undefined && matchingInspectResult?.heatmap ? (
         <HeatmapViewer
           cameraId={cameraId}
@@ -404,7 +582,7 @@ function HeatmapPanel({
       ) : (
         <div className="modal-image-panel__image-wrap">
           <div className="modal-image-panel__placeholder">
-            {matchingInspectResult ? "Heatmap is being prepared" : "No synchronized inspect result yet"}
+            {matchingInspectResult ? "Тепловая карта готовится" : "Синхронизированного результата инспекции ещё нет"}
           </div>
         </div>
       )}
@@ -422,53 +600,53 @@ function InspectResultPanel({
   return (
     <section
       className="modal-inspect-result"
-      aria-label="Inspect result"
+      aria-label="Результат инспекции"
     >
       <header className="modal-inspect-result__header">
-        <h3>Inspect result</h3>
-        {inspectResult && <span>frame {inspectResult.frame_id}</span>}
+        <h3>Результат инспекции</h3>
+        {inspectResult && <span>кадр {inspectResult.frame_id}</span>}
       </header>
 
       {inspectResult ? (
         <>
           <dl className="modal-inspect-result__summary">
             <InspectResultField
-              label="camera"
+              label="камера"
               value={inspectResult.camera_id}
             />
             <InspectResultField
-              label="state"
+              label="состояние"
               value={inspectResult.session_state}
             />
             <InspectResultField
-              label="product"
+              label="изделие"
               value={inspectResult.detector.product_type}
             />
             <InspectResultField
-              label="detector"
+              label="детектор"
               value={inspectResult.detector.detector_id}
             />
             <InspectResultField
-              label="active view"
+              label="активный вид"
               value={inspectResult.active_reference_view_index}
             />
             <InspectResultField
-              label="fp zones"
+              label="FP зоны"
               value={inspectResult.fp_zones.length}
             />
             <InspectResultField
-              label="heatmap"
-              value={inspectResult.heatmap ? `${inspectResult.heatmap.width}x${inspectResult.heatmap.height}` : "none"}
+              label="тепловая карта"
+              value={inspectResult.heatmap ? `${inspectResult.heatmap.width}x${inspectResult.heatmap.height}` : "нет"}
             />
             <InspectResultField
-              label="server time"
+              label="время сервера"
               value={formatServerTime(inspectResult.server_ts_ms)}
             />
             <InspectResultField
-              label="deviation radius"
+              label="радиус отклонения"
               value={
                 geometry?.deviationRadiusMm !== undefined
-                  ? `${Number(geometry.deviationRadiusMm).toFixed(3)} mm`
+                  ? `${Number(geometry.deviationRadiusMm).toFixed(3)} мм`
                   : undefined
               }
             />
@@ -479,7 +657,7 @@ function InspectResultPanel({
           <InspectResultRaw inspectResult={inspectResult} />
         </>
       ) : (
-        <div className="modal-inspect-result__empty">No synchronized inspect result yet</div>
+        <div className="modal-inspect-result__empty">Синхронизированного результата инспекции ещё нет</div>
       )}
     </section>
   );
@@ -494,7 +672,7 @@ function InspectResultRaw({ inspectResult }: { inspectResult: InspectResultPaylo
       open={isOpen}
       onToggle={(event) => setIsOpen(event.currentTarget.open)}
     >
-      <summary>Raw result</summary>
+      <summary>Исходный результат</summary>
       {isOpen && <pre className="modal-inspect-result__raw">{JSON.stringify(inspectResult, null, 2)}</pre>}
     </details>
   );
@@ -518,12 +696,12 @@ function formatInspectDecisionLine(
       ? Number(geometry.deviationRadiusMm).toFixed(3)
       : "-";
   return [
-    `overall_pass: ${formatOptionalValue(inspectResult.overall_pass)}`,
-    `action: ${formatOptionalValue(inspectResult.action)}`,
-    `anomaly_score: ${formatOptionalValue(inspectResult.anomaly_score)}`,
-    `python_status: ${formatOptionalValue(inspectResult.python_status)}`,
-    `geometry_status: ${formatOptionalValue(inspectResult.geometry_status)}`,
-    `deviation_radius_mm: ${deviation}`,
+    `общий результат: ${formatOptionalValue(inspectResult.overall_pass)}`,
+    `действие: ${formatOptionalValue(inspectResult.action)}`,
+    `оценка аномалии: ${formatOptionalValue(inspectResult.anomaly_score)}`,
+    `статус Python: ${formatOptionalValue(inspectResult.python_status)}`,
+    `статус геометрии: ${formatOptionalValue(inspectResult.geometry_status)}`,
+    `радиус отклонения, мм: ${deviation}`,
   ].join(" | ");
 }
 
@@ -541,6 +719,55 @@ function formatServerTime(serverTsMs: number) {
   }
 
   return new Date(serverTsMs).toLocaleTimeString();
+}
+
+function resolveFpZonesHeatmapSize(inspectResult: InspectResultPayload | undefined) {
+  const width = inspectResult?.heatmap?.width ?? inspectResult?.current?.width ?? 1;
+  const height = inspectResult?.heatmap?.height ?? inspectResult?.current?.height ?? 1;
+
+  return {
+    width: Math.max(1, Math.round(width)),
+    height: Math.max(1, Math.round(height)),
+  };
+}
+
+function waitForFpZonesAck(messageId: string) {
+  return new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      unsubscribe();
+      reject(new Error("Нет подтверждения обновления FP zones"));
+    }, 5000);
+
+    const unsubscribe = orchestratorWs.onMessage((message: ServerWsMessage) => {
+      if (message.message_id !== messageId) {
+        return;
+      }
+
+      if (message.type === "server.fp_zones_ack") {
+        window.clearTimeout(timeoutId);
+        unsubscribe();
+        if (message.payload.ok) {
+          resolve();
+        } else {
+          reject(new Error("Сервер отклонил FP zones"));
+        }
+        return;
+      }
+
+      if (message.type === "server.error") {
+        window.clearTimeout(timeoutId);
+        unsubscribe();
+        reject(new Error(`${message.payload.code}: ${message.payload.message}`));
+      }
+    });
+  });
+}
+
+function copyFpZones(zones: FpZoneNorm[]) {
+  return zones.map((zone) => ({
+    ...zone,
+    points_norm_heatmap: zone.points_norm_heatmap.map((point) => ({ x: point.x, y: point.y })),
+  }));
 }
 
 function getInspectResultSyncState(
@@ -562,12 +789,12 @@ function getInspectResultSyncState(
   if (inspectResultImageUrl) {
     return {
       state: "loading" as const,
-      label: `Кадр инспекции ${inspectResult.frame_id} получен, heatmap готовится`,
+      label: `Кадр инспекции ${inspectResult.frame_id} получен, тепловая карта готовится`,
     };
   }
 
   return {
     state: "partial" as const,
-    label: `Frozen artifacts for frame ${inspectResult.frame_id} are incomplete`,
+    label: `Замороженные артефакты для кадра ${inspectResult.frame_id} неполные`,
   };
 }

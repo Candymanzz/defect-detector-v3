@@ -43,7 +43,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
   const [loadedSettings, setLoadedSettings] = useState<CameraRuntimeSettings | null>(null);
   const [status, setStatus] = useState<{ state: StatusState; text: string }>({
     state: "loading",
-    text: "Loading cameras...",
+    text: "Загрузка камер...",
   });
 
   const targetCameraIds = useMemo(
@@ -90,7 +90,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
         setSelectedCameraId(nextSelectedCameraId);
 
         if (sortedCameraIds.length === 0) {
-          setStatus({ state: "error", text: "No cameras available" });
+          setStatus({ state: "error", text: "Нет доступных камер" });
           return null;
         }
 
@@ -107,7 +107,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
       })
       .catch((error) => {
         if (isActive) {
-          setStatus({ state: "error", text: getErrorMessage(error, "Failed to load camera settings") });
+          setStatus({ state: "error", text: getErrorMessage(error, "Не удалось загрузить настройки камеры") });
         }
       });
 
@@ -134,7 +134,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
       })
       .catch((error) => {
         if (isActive) {
-          setStatus({ state: "error", text: getErrorMessage(error, "Failed to load camera settings") });
+          setStatus({ state: "error", text: getErrorMessage(error, "Не удалось загрузить настройки камеры") });
         }
       });
 
@@ -159,7 +159,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
     }
 
     const update = formToUpdate(form);
-    setStatus({ state: "saving", text: "Applying camera settings..." });
+    setStatus({ state: "saving", text: "Применение настроек камеры..." });
     Promise.all(targetCameraIds.map((cameraId) => orchestratorApi.updateCameraSettings(cameraId, update)))
       .then((responses) => {
         const refreshedSettings = responses.find((settings) => settings.camera_id === selectedCameraId) ?? responses[0];
@@ -171,12 +171,12 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
           state: "success",
           text:
             scope === "all"
-              ? `Applied to ${responses.length} cameras`
-              : `Applied to camera ${responses[0]?.camera_id ?? selectedCameraId}`,
+              ? `Применено к камерам: ${responses.length}`
+              : `Применено к камере ${responses[0]?.camera_id ?? selectedCameraId}`,
         });
       })
       .catch((error) => {
-        setStatus({ state: "error", text: getErrorMessage(error, "Failed to apply camera settings") });
+        setStatus({ state: "error", text: getErrorMessage(error, "Не удалось применить настройки камеры") });
       });
   };
 
@@ -190,7 +190,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
       onMouseDown={onClose}
     >
       <section
-        aria-label="Camera runtime settings"
+        aria-label="Рабочие настройки камеры"
         aria-modal="true"
         className="camera-settings__modal"
         role="dialog"
@@ -198,11 +198,11 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
       >
         <header className="camera-settings__header">
           <div>
-            <h2>Camera settings</h2>
-            <span>Runtime MVS settings</span>
+            <h2>Настройки камеры</h2>
+            <span>Рабочие настройки MVS</span>
           </div>
           <button
-            aria-label="Close camera settings"
+            aria-label="Закрыть настройки камеры"
             className="camera-settings__close"
             type="button"
             onClick={onClose}
@@ -224,7 +224,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
                 value="all"
                 onChange={() => setScope("all")}
               />
-              <span>All cameras</span>
+              <span>Все камеры</span>
             </label>
             <label>
               <input
@@ -233,19 +233,19 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
                 type="radio"
                 value="single"
                 onChange={() => {
-                  setStatus({ state: "loading", text: `Loading camera ${selectedCameraId} settings...` });
+                  setStatus({ state: "loading", text: `Загрузка настроек камеры ${selectedCameraId}...` });
                   setScope("single");
                 }}
               />
-              <span>One camera</span>
+              <span>Одна камера</span>
             </label>
             <select
-              aria-label="Camera"
+              aria-label="Камера"
               disabled={scope !== "single" || cameraIds.length === 0}
               value={selectedCameraId}
               onChange={(event) => {
                 const nextCameraId = Number(event.target.value);
-                setStatus({ state: "loading", text: `Loading camera ${nextCameraId} settings...` });
+                setStatus({ state: "loading", text: `Загрузка настроек камеры ${nextCameraId}...` });
                 setSelectedCameraId(nextCameraId);
               }}
             >
@@ -254,7 +254,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
                   key={cameraId}
                   value={cameraId}
                 >
-                  Camera {cameraId}
+                  Камера {cameraId}
                 </option>
               ))}
             </select>
@@ -262,14 +262,14 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
 
           <div className="camera-settings__grid">
             <NumberField
-              label="Exposure, us"
+              label="Экспозиция, мкс"
               min="1"
               step="1"
               value={form.exposure_us}
               onChange={handleFieldChange("exposure_us")}
             />
             <NumberField
-              label="Gain, dB"
+              label="Усиление, дБ"
               step="0.1"
               value={form.gain_db}
               onChange={handleFieldChange("gain_db")}
@@ -282,13 +282,13 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
               onChange={handleFieldChange("gamma")}
             />
             <NumberField
-              label="Black level"
+              label="Уровень чёрного"
               step="1"
               value={form.black_level}
               onChange={handleFieldChange("black_level")}
             />
             <label className="camera-settings__field">
-              <span>Trigger mode</span>
+              <span>Режим триггера</span>
               <select
                 value={form.capture_trigger_mode}
                 onChange={handleFieldChange("capture_trigger_mode")}
@@ -304,7 +304,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
               </select>
             </label>
             <NumberField
-              label="Frame timeout, ms"
+              label="Таймаут кадра, мс"
               min="1"
               step="1"
               value={form.frame_timeout_ms}
@@ -315,20 +315,20 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
           {loadedSettings && (
             <dl className="camera-settings__summary">
               <CameraSettingsFact
-                label="Loaded camera"
+                label="Загруженная камера"
                 value={loadedSettings.camera_id}
               />
               <CameraSettingsFact
-                label="Effective trigger"
+                label="Активный триггер"
                 value={loadedSettings.effective_trigger_mode}
               />
               <CameraSettingsFact
-                label="Streaming"
-                value={loadedSettings.streaming ? "yes" : "no"}
+                label="Поток"
+                value={loadedSettings.streaming ? "да" : "нет"}
               />
               <CameraSettingsFact
                 label="MVS"
-                value={loadedSettings.mvs_available ? "available" : "offline"}
+                value={loadedSettings.mvs_available ? "доступен" : "не в сети"}
               />
             </dl>
           )}
@@ -348,13 +348,13 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
               disabled={!canSave}
               type="submit"
             >
-              Save settings
+              Сохранить настройки
             </Button>
             <Button
               variant="warning"
               onClick={onClose}
             >
-              Close
+              Закрыть
             </Button>
           </footer>
         </form>

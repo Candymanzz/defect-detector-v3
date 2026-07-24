@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { isCaptureOnlyInspectResult, resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
 import { compareFrameIds } from "../../shared/lib/frameIds";
+import { getReferenceImagesSnapshot, subscribeReferenceImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { InspectResultPayload, InspectBucketResultPayload, PreviewFramePayload } from "../../shared/ws";
 import {
@@ -31,6 +32,7 @@ import type {
   CameraImageUrlsById,
   InspectionControlState,
   InspectionHistoryItem,
+  InspectionStats,
   ModalInspectionSnapshot,
   SelectedCamera,
 } from "./type";
@@ -58,6 +60,9 @@ export function useMainOverview() {
     Record<number, InspectionControlState>
   >({});
   const [hasReference, setHasReference] = useState(false);
+  const [referenceSnapshot, setReferenceSnapshot] = useState(getReferenceImagesSnapshot);
+  const [inspectionStartedAtMs, setInspectionStartedAtMs] = useState<number | undefined>();
+  const [inspectionStoppedAtMs, setInspectionStoppedAtMs] = useState<number | undefined>();
   const latestPreviewTimestampByCameraIdRef = useRef<Record<number, number>>({});
   const latestPreviewFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const latestInspectResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
@@ -99,23 +104,29 @@ export function useMainOverview() {
         [cameraId]: {
           isEnabled: wasEnabled,
           state: nextEnabled ? "starting" : "stopping",
-          message: nextEnabled ? "Starting inspection..." : "Stopping inspection...",
+          message: nextEnabled ? "Запуск инспекции..." : "Остановка инспекции...",
         },
       }));
 
       try {
         const response = await orchestratorApi.setInspectionEnabled(cameraId, nextEnabled);
         if (response.unknownCameraIds.includes(cameraId)) {
-          throw new Error(`Camera ${cameraId} is not configured`);
+          throw new Error(`Камера ${cameraId} не настроена`);
         }
 
         const isEnabled = response.enabledCameraIds.includes(cameraId);
+        const changedAtMs = Date.now();
+        if (isEnabled) {
+          setInspectionStartedAtMs(changedAtMs);
+        } else {
+          setInspectionStoppedAtMs(changedAtMs);
+        }
         setInspectionControlByCameraId((currentStates) => ({
           ...currentStates,
           [cameraId]: {
             isEnabled,
             state: "idle",
-            message: isEnabled ? "Inspection enabled" : "Inspection stopped",
+            message: isEnabled ? "Инспекция включена" : "Инспекция остановлена",
           },
         }));
       } catch (error) {
@@ -193,6 +204,19 @@ export function useMainOverview() {
   const closeArchiveViewer = useCallback(() => {
     setIsArchiveViewerOpen(false);
   }, []);
+
+  useEffect(() => subscribeReferenceImages(() => setReferenceSnapshot(getReferenceImagesSnapshot())), []);
+
+  const inspectionStats = useMemo(
+    () =>
+      createInspectionStats(
+        inspectionHistoryByCameraId,
+        referenceSnapshot,
+        inspectionStartedAtMs,
+        inspectionStoppedAtMs,
+      ),
+    [inspectionHistoryByCameraId, inspectionStartedAtMs, inspectionStoppedAtMs, referenceSnapshot],
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -373,6 +397,7 @@ export function useMainOverview() {
     archiveHistoryState,
     archiveHistoryMessage,
     hasReference,
+    inspectionStats,
     toggleInspection,
     loadArchivedHistory,
     closeArchiveViewer,
@@ -793,4 +818,44 @@ function mergeInspectionHistory(
     }
     return merged;
   });
+}
+
+function createInspectionStats(
+  historyByCameraId: Record<number, InspectionHistoryItem[]>,
+  referenceSnapshot: ReturnType<typeof getReferenceImagesSnapshot>,
+  inspectionStartedAtMs: number | undefined,
+  inspectionStoppedAtMs: number | undefined,
+): InspectionStats {
+  const decisionsByInspectionId = new Map<string, "pass" | "fail">();
+
+  Object.values(historyByCameraId)
+    .flat()
+    .forEach((item) => {
+      if (item.result === "capture") {
+        return;
+      }
+
+      const inspectionId = item.inspectResult.inspection_id ?? item.inspectionId ?? item.frameId;
+      const currentResult = decisionsByInspectionId.get(inspectionId);
+      decisionsByInspectionId.set(inspectionId, currentResult === "fail" || item.result === "fail" ? "fail" : "pass");
+    });
+
+  const failed = Array.from(decisionsByInspectionId.values()).filter((result) => result === "fail").length;
+  const passed = decisionsByInspectionId.size - failed;
+  const reference = referenceSnapshot
+    .filter((item) => item.frame.frame_id !== undefined)
+    .sort((left, right) => {
+      const byTime = (left.committedAtMs ?? 0) - (right.committedAtMs ?? 0);
+      return byTime !== 0 ? byTime : left.cameraId - right.cameraId;
+    })[0];
+
+  return {
+    total: passed + failed,
+    passed,
+    failed,
+    referenceFrameId: reference ? String(reference.frame.frame_id) : undefined,
+    referenceSetAtMs: reference?.committedAtMs,
+    inspectionStartedAtMs,
+    inspectionStoppedAtMs,
+  };
 }

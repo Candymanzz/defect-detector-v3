@@ -28,6 +28,16 @@ export type InspectionHistoryItem = {
   inspectResult: InspectResultPayload;
 };
 
+export type InspectionStats = {
+  total: number;
+  passed: number;
+  failed: number;
+  referenceFrameId?: string;
+  referenceSetAtMs?: number;
+  inspectionStartedAtMs?: number;
+  inspectionStoppedAtMs?: number;
+};
+
 export type ModalInspectionSnapshot = SelectedCamera & {
   initialFrameId?: string;
   inspectResult?: InspectResultPayload;

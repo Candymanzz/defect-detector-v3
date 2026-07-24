@@ -14,6 +14,10 @@
   cursor: crosshair;
 }
 
+.fp-zone-editor__canvas--radius {
+  cursor: none;
+}
+
 .fp-zone-editor__canvas img {
   display: block;
   width: auto;
@@ -65,6 +69,23 @@
   stroke: #fde047;
 }
 
+.fp-zone-editor__radius line {
+  stroke: #38bdf8;
+  stroke-width: 0.004;
+  stroke-dasharray: 0.018 0.012;
+}
+
+.fp-zone-editor__radius circle {
+  fill: rgba(56, 189, 248, 0.12);
+  stroke: #38bdf8;
+  stroke-width: 0.004;
+}
+
+.fp-zone-editor__radius .fp-zone-editor__radius-center {
+  fill: #e0f2fe;
+  stroke: #0284c7;
+}
+
 .fp-zone-editor__actions {
   display: flex;
   flex-wrap: wrap;
@@ -107,4 +128,16 @@
 .fp-zone-editor__zone-tab.is-active {
   border-color: #facc15;
   background: rgba(250, 204, 21, 0.16);
+}
+
+.fp-zone-editor__mode-button.is-active {
+  border-color: #38bdf8;
+  background: #0c4a6e;
+  color: #e0f2fe;
+}
+
+.fp-zone-editor__hint {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
 }

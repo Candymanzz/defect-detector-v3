@@ -100,7 +100,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
 
         clearHeatmapCanvas(canvasRef.current);
         setStatus("error");
-        setError(nextError instanceof Error ? nextError.message : "Failed to render heatmap");
+        setError(nextError instanceof Error ? nextError.message : "Не удалось отрисовать тепловую карту");
       }
     }
 
@@ -115,7 +115,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
   }, [cameraId, heatmap]);
 
   if (!heatmap) {
-    return <div className="heatmap-viewer__empty">No heatmap</div>;
+    return <div className="heatmap-viewer__empty">Нет тепловой карты</div>;
   }
 
   return (
@@ -143,11 +143,11 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
           className="heatmap-viewer__canvas"
         />
 
-        {status === "loading" && <div className="heatmap-viewer__status">Loading heatmap</div>}
+        {status === "loading" && <div className="heatmap-viewer__status">Загрузка тепловой карты</div>}
       </div>
 
       <figcaption>
-        Heatmap {heatmap.width}x{heatmap.height}
+        Тепловая карта {heatmap.width}x{heatmap.height}
         {error && <span className="heatmap-viewer__error"> {error}</span>}
       </figcaption>
     </figure>
@@ -182,16 +182,16 @@ function renderHeatmapInWorker(
       if (event.data.bitmap) {
         resolve(event.data.bitmap);
       } else {
-        reject(new Error(event.data.error ?? "Failed to render heatmap"));
+        reject(new Error(event.data.error ?? "Не удалось отрисовать тепловую карту"));
       }
     };
     const handleError = () => {
       cleanup();
-      reject(new Error("Heatmap worker failed"));
+      reject(new Error("Обработчик тепловой карты завершился с ошибкой"));
     };
     const handleAbort = () => {
       cleanup();
-      reject(new DOMException("Heatmap rendering aborted", "AbortError"));
+      reject(new DOMException("Отрисовка тепловой карты прервана", "AbortError"));
     };
     const cleanup = () => {
       worker.removeEventListener("message", handleMessage);
