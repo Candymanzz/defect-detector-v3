@@ -2,6 +2,8 @@
   "version" : 1,
   "default_brightness_percent" : 100,
   "endpoints" : {
+    "camera-9" : 100,
+    "camera-8" : 100,
     "camera-7" : 100,
     "camera-6" : 100,
     "camera-5" : 100,
