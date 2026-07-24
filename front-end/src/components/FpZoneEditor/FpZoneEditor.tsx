@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 import type { FpZoneNorm, InterestPointNorm } from "../../shared/ws";
-import { createCirclePolygonFromRadius } from "../RoiContourEditor";
 import "./FpZoneEditor.css";
 
 type DrawMode = "polygon" | "radius";
@@ -14,6 +13,12 @@ type FpZoneEditorProps = {
   onChange: (zones: FpZoneNorm[]) => void;
 };
 
+type DragState = {
+  zoneIndex: number;
+  pointIndex: number;
+  points: InterestPointNorm[];
+};
+
 export function FpZoneEditor({
   imageUrl,
   roiPoints = [],
@@ -22,19 +27,21 @@ export function FpZoneEditor({
   onChange,
 }: FpZoneEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const ignoreNextClickRef = useRef(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [drawMode, setDrawMode] = useState<DrawMode>("polygon");
-  const [radiusCenter, setRadiusCenter] = useState<InterestPointNorm | null>(null);
   const [cursorPoint, setCursorPoint] = useState<InterestPointNorm | null>(null);
   const safeSelectedIndex = zones.length === 0 ? -1 : Math.min(selectedIndex, zones.length - 1);
   const selectedZone = safeSelectedIndex >= 0 ? zones[safeSelectedIndex] : undefined;
-  const roiSvgPoints = roiPoints.map((point) => `${point.x},${point.y}`).join(" ");
+  const selectedEdgeHandles = selectedZone ? createEdgeHandles(selectedZone.points_norm_heatmap) : [];
+  const roiSvgPoints = roiPoints.map(toSvgPoint).join(" ");
 
   const updateZone = (zoneIndex: number, update: Partial<FpZoneNorm>) => {
     onChange(zones.map((zone, index) => (index === zoneIndex ? { ...zone, ...update } : zone)));
   };
 
-  const resolveNormPoint = (event: MouseEvent<HTMLDivElement>): InterestPointNorm | null => {
+  const resolveNormPoint = (event: MouseEvent<Element> | PointerEvent<Element>): InterestPointNorm | null => {
     const rect = imageRef.current?.getBoundingClientRect();
     if (!rect || rect.width <= 0 || rect.height <= 0) return null;
 
@@ -45,36 +52,14 @@ export function FpZoneEditor({
   };
 
   const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (disabled) return;
+    if (ignoreNextClickRef.current) {
+      ignoreNextClickRef.current = false;
+      return;
+    }
+    if (disabled || drawMode === "radius") return;
 
     const nextPoint = resolveNormPoint(event);
     if (!nextPoint) return;
-
-    if (drawMode === "radius") {
-      if (!radiusCenter) {
-        setRadiusCenter(nextPoint);
-        return;
-      }
-
-      const image = imageRef.current;
-      const circlePoints = createCirclePolygonFromRadius(
-        radiusCenter,
-        nextPoint,
-        image?.naturalWidth ?? image?.clientWidth ?? 1,
-        image?.naturalHeight ?? image?.clientHeight ?? 1,
-      );
-      if (circlePoints.length > 0) {
-        const circleZone = selectedZone ? { ...selectedZone, points_norm_heatmap: circlePoints } : createEmptyZone(circlePoints);
-        if (selectedZone) {
-          updateZone(safeSelectedIndex, circleZone);
-        } else {
-          onChange([circleZone]);
-          setSelectedIndex(0);
-        }
-      }
-      setRadiusCenter(null);
-      return;
-    }
 
     if (!selectedZone) {
       onChange([createEmptyZone([nextPoint])]);
@@ -87,10 +72,47 @@ export function FpZoneEditor({
     });
   };
 
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const point = resolveNormPoint(event);
+    setCursorPoint(point);
+
+    const drag = dragRef.current;
+    if (!drag || !point) return;
+
+    const nextPoints = drag.points.map((currentPoint, index) =>
+      index === drag.pointIndex ? point : currentPoint,
+    );
+    dragRef.current = { ...drag, points: nextPoints };
+    updateZone(drag.zoneIndex, { points_norm_heatmap: nextPoints });
+  };
+
+  const beginDrag = (
+    event: PointerEvent<SVGCircleElement>,
+    zoneIndex: number,
+    pointIndex: number,
+    nextPoints = zones[zoneIndex]?.points_norm_heatmap ?? [],
+  ) => {
+    if (disabled || drawMode !== "radius") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    ignoreNextClickRef.current = true;
+    dragRef.current = { zoneIndex, pointIndex, points: nextPoints };
+    setSelectedIndex(zoneIndex);
+
+    if (nextPoints !== zones[zoneIndex]?.points_norm_heatmap) {
+      updateZone(zoneIndex, { points_norm_heatmap: nextPoints });
+    }
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+  };
+
   const handleAddZone = () => {
     onChange([...zones, createEmptyZone()]);
     setSelectedIndex(zones.length);
-    setRadiusCenter(null);
   };
 
   const handleRemoveLastPoint = () => {
@@ -103,19 +125,17 @@ export function FpZoneEditor({
   const handleClearZone = () => {
     if (!selectedZone) return;
     updateZone(safeSelectedIndex, { points_norm_heatmap: [] });
-    setRadiusCenter(null);
   };
 
   const handleDeleteZone = () => {
     if (!selectedZone) return;
     onChange(zones.filter((_, index) => index !== safeSelectedIndex));
     setSelectedIndex(Math.max(0, safeSelectedIndex - 1));
-    setRadiusCenter(null);
   };
 
   const handleToggleRadiusMode = () => {
+    dragRef.current = null;
     setDrawMode((current) => (current === "radius" ? "polygon" : "radius"));
-    setRadiusCenter(null);
   };
 
   return (
@@ -123,18 +143,22 @@ export function FpZoneEditor({
       <div
         className={`fp-zone-editor__canvas${drawMode === "radius" ? " fp-zone-editor__canvas--radius" : ""}`}
         onClick={handleCanvasClick}
-        onMouseMove={(event) => setCursorPoint(resolveNormPoint(event))}
-        onMouseLeave={() => setCursorPoint(null)}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => {
+          if (!dragRef.current) setCursorPoint(null);
+        }}
       >
         <img
           ref={imageRef}
           src={imageUrl}
-          alt={"\u0418\u0441\u043a\u043b\u044e\u0447\u0430\u044e\u0449\u0438\u0435 \u0437\u043e\u043d\u044b"}
+          alt="Исключающие зоны"
         />
         <svg
           className="fp-zone-editor__overlay"
           viewBox="0 0 1 1"
           preserveAspectRatio="none"
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
         >
           {roiPoints.length >= 3 && (
             <polygon
@@ -144,7 +168,7 @@ export function FpZoneEditor({
           )}
 
           {zones.map((zone, zoneIndex) => {
-            const points = zone.points_norm_heatmap.map((point) => `${point.x},${point.y}`).join(" ");
+            const points = zone.points_norm_heatmap.map(toSvgPoint).join(" ");
             const isSelected = zoneIndex === safeSelectedIndex;
 
             return (
@@ -165,31 +189,42 @@ export function FpZoneEditor({
               </g>
             );
           })}
-          {drawMode === "radius" && radiusCenter && (
-            <g className="fp-zone-editor__radius">
-              {cursorPoint && (
-                <>
-                  <line
-                    x1={radiusCenter.x}
-                    y1={radiusCenter.y}
-                    x2={cursorPoint.x}
-                    y2={cursorPoint.y}
-                  />
-                  <circle
-                    cx={radiusCenter.x}
-                    cy={radiusCenter.y}
-                    r={Math.hypot(cursorPoint.x - radiusCenter.x, cursorPoint.y - radiusCenter.y)}
-                  />
-                </>
-              )}
-              <circle
-                className="fp-zone-editor__radius-center"
-                cx={radiusCenter.x}
-                cy={radiusCenter.y}
-                r="0.014"
-              />
+
+          {!disabled && cursorPoint && (
+            <g className="fp-zone-editor__cursor">
+              <line x1={cursorPoint.x - 0.02} y1={cursorPoint.y} x2={cursorPoint.x + 0.02} y2={cursorPoint.y} />
+              <line x1={cursorPoint.x} y1={cursorPoint.y - 0.02} x2={cursorPoint.x} y2={cursorPoint.y + 0.02} />
             </g>
           )}
+
+          {drawMode === "radius" &&
+            selectedZone &&
+            selectedEdgeHandles.map((handle) => (
+              <circle
+                key={`edge-${safeSelectedIndex}-${handle.insertIndex}`}
+                className="fp-zone-editor__edge-handle"
+                cx={handle.point.x}
+                cy={handle.point.y}
+                r="0.015"
+                onPointerDown={(event) => {
+                  const nextPoints = [...selectedZone.points_norm_heatmap];
+                  nextPoints.splice(handle.insertIndex, 0, handle.point);
+                  beginDrag(event, safeSelectedIndex, handle.insertIndex, nextPoints);
+                }}
+              />
+            ))}
+
+          {drawMode === "radius" &&
+            selectedZone?.points_norm_heatmap.map((point, pointIndex) => (
+              <circle
+                key={`drag-${selectedZone.id ?? safeSelectedIndex}-${pointIndex}`}
+                className="fp-zone-editor__vertex-handle"
+                cx={point.x}
+                cy={point.y}
+                r="0.012"
+                onPointerDown={(event) => beginDrag(event, safeSelectedIndex, pointIndex)}
+              />
+            ))}
         </svg>
       </div>
 
@@ -207,21 +242,21 @@ export function FpZoneEditor({
           disabled={disabled}
           onClick={handleAddZone}
         >
-          {"\u041d\u043e\u0432\u0430\u044f \u0437\u043e\u043d\u0430"}
+          Новая зона
         </button>
         <button
           type="button"
           disabled={disabled || !selectedZone || selectedZone.points_norm_heatmap.length === 0}
           onClick={handleRemoveLastPoint}
         >
-          {"\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0442\u043e\u0447\u043a\u0443"}
+          Удалить точку
         </button>
         <button
           type="button"
           disabled={disabled || !selectedZone || selectedZone.points_norm_heatmap.length === 0}
           onClick={handleClearZone}
         >
-          {"\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c"}
+          Очистить
         </button>
         <button
           className="fp-zone-editor__delete"
@@ -229,7 +264,7 @@ export function FpZoneEditor({
           disabled={disabled || !selectedZone}
           onClick={handleDeleteZone}
         >
-          {"\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u043e\u043d\u0443"}
+          Удалить зону
         </button>
         {zones.length > 1 && (
           <div className="fp-zone-editor__zone-tabs">
@@ -248,9 +283,7 @@ export function FpZoneEditor({
       </div>
       <p className="fp-zone-editor__hint">
         {drawMode === "radius"
-          ? radiusCenter
-            ? "Кликните по краю будущей зоны, чтобы задать радиус"
-            : "Кликните по центру будущей круглой FP-zone"
+          ? "Потяните маркер на линии, чтобы добавить точку и скруглить контур FP-zone"
           : "Кликайте по изображению, чтобы добавить вершины FP-zone"}
       </p>
     </div>
@@ -260,7 +293,7 @@ export function FpZoneEditor({
 function createEmptyZone(points: FpZoneNorm["points_norm_heatmap"] = []): FpZoneNorm {
   return {
     id: createZoneId(),
-    note: "\u0418\u0441\u043a\u043b\u044e\u0447\u0430\u044e\u0449\u0430\u044f \u0437\u043e\u043d\u0430",
+    note: "Исключающая зона",
     points_norm_heatmap: points,
   };
 }
@@ -268,6 +301,24 @@ function createEmptyZone(points: FpZoneNorm["points_norm_heatmap"] = []): FpZone
 function createZoneId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `fp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createEdgeHandles(points: InterestPointNorm[]) {
+  if (points.length < 2) return [];
+  const edgeCount = points.length >= 3 ? points.length : points.length - 1;
+
+  return Array.from({ length: edgeCount }, (_, index) => {
+    const start = points[index];
+    const end = points[(index + 1) % points.length];
+    return {
+      insertIndex: index + 1,
+      point: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
+    };
+  });
+}
+
+function toSvgPoint(point: InterestPointNorm) {
+  return `${point.x},${point.y}`;
 }
 
 function clamp01(value: number) {

@@ -32,6 +32,7 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  touch-action: none;
 }
 
 .fp-zone-editor__roi {
@@ -69,21 +70,34 @@
   stroke: #fde047;
 }
 
-.fp-zone-editor__radius line {
-  stroke: #38bdf8;
-  stroke-width: 0.004;
-  stroke-dasharray: 0.018 0.012;
+.fp-zone-editor__edge-handle,
+.fp-zone-editor__vertex-handle {
+  pointer-events: auto;
+  cursor: grab;
 }
 
-.fp-zone-editor__radius circle {
-  fill: rgba(56, 189, 248, 0.12);
-  stroke: #38bdf8;
+.fp-zone-editor__edge-handle {
+  fill: #111827;
+  stroke: #fde047;
+  stroke-width: 0.003;
+  opacity: 0.9;
+}
+
+.fp-zone-editor__edge-handle:hover {
+  fill: #ffffff;
+}
+
+.fp-zone-editor__vertex-handle {
+  fill: #ffffff;
+  stroke: #facc15;
   stroke-width: 0.004;
 }
 
-.fp-zone-editor__radius .fp-zone-editor__radius-center {
-  fill: #e0f2fe;
-  stroke: #0284c7;
+.fp-zone-editor__cursor line {
+  stroke: #ffffff;
+  stroke-width: 0.0025;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 1px #000000);
 }
 
 .fp-zone-editor__actions {
