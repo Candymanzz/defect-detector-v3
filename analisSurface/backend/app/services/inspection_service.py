@@ -150,11 +150,27 @@ class InspectionService:
         return False
 
     def get_analysis_settings(self, analysis_profile: str) -> AnalysisSettings:
-        overrides = self._analysis_settings_overrides.get(analysis_profile, {})
+        overrides = self._resolve_analysis_settings_overrides(analysis_profile)
         return AnalysisSettings.from_overrides(overrides)
 
     def get_analysis_settings_overrides(self, analysis_profile: str) -> dict[str, object]:
-        return dict(self._analysis_settings_overrides.get(analysis_profile, {}))
+        return dict(self._resolve_analysis_settings_overrides(analysis_profile))
+
+    def _resolve_analysis_settings_overrides(self, analysis_profile: str) -> dict[str, object]:
+        """UI пишет overrides в analysis_profile (bench-lan1), inspect — в product#cam=N.
+
+        Читаем точный ключ, иначе fallback на базу без суффикса #cam=.
+        """
+        key = (analysis_profile or "").strip()
+        if not key:
+            return {}
+        if key in self._analysis_settings_overrides:
+            return self._analysis_settings_overrides[key]
+        if "#cam=" in key:
+            base = key.rsplit("#cam=", 1)[0].strip()
+            if base and base in self._analysis_settings_overrides:
+                return self._analysis_settings_overrides[base]
+        return {}
 
     def update_analysis_settings(self, analysis_profile: str, partial: dict[str, object]) -> dict[str, object]:
         current = dict(self._analysis_settings_overrides.get(analysis_profile, {}))
@@ -522,32 +538,6 @@ class InspectionService:
         score = float(np.clip((diff_q90 / 255.0) * 0.8 + (diff_max / 255.0) * 0.2 + active_ratio * 1.2, 0.0, 1.0))
         return {"diff_q90": diff_q90, "diff_max": diff_max, "active_ratio": active_ratio, "score": score}
 
-    def _should_suppress_fp_zone(self, zone: FPZone, activity: dict[str, float]) -> bool:
-        """True = всплеск в зоне похож на известный шум (baseline), можно игнорировать."""
-        has_baseline = any(
-            value > 0.0
-            for value in (
-                zone.baseline_diff_q90,
-                zone.baseline_diff_max,
-                zone.baseline_active_ratio,
-                zone.baseline_score,
-            )
-        )
-        if not has_baseline:
-            # Old zones have no baseline. Be conservative so a real new scratch is not hidden.
-            return activity["score"] <= 0.35 and activity["active_ratio"] <= 0.08 and activity["diff_q90"] <= 45.0
-
-        q90_limit = max(zone.baseline_diff_q90 + 18.0, zone.baseline_diff_q90 * 1.45)
-        max_limit = max(zone.baseline_diff_max + 25.0, zone.baseline_diff_max * 1.35)
-        active_limit = max(zone.baseline_active_ratio + 0.04, zone.baseline_active_ratio * 2.0)
-        score_limit = max(zone.baseline_score + 0.20, zone.baseline_score * 1.6)
-        return (
-            activity["diff_q90"] <= q90_limit
-            and activity["diff_max"] <= max_limit
-            and activity["active_ratio"] <= active_limit
-            and activity["score"] <= score_limit
-        )
-
     def _score_region(
         self,
         diff_map: np.ndarray,
@@ -589,7 +579,11 @@ class InspectionService:
         raw_score: float,
         settings: AnalysisSettings,
     ) -> dict:
-        """Если аномалия попала в FP-зону с похожим профилем — вырезать и пересчитать score."""
+        """Исключающие FP-зоны: всегда вырезать полигоны из score (UI «исключающие зоны»).
+
+        baseline / fp_trigger_diff_q90 влияют только на телеметрию (какие зоны «сработали»),
+        не на сам факт исключения.
+        """
         zones = self.get_fp_zones(product_type)
         if not zones or not settings.fp_recheck_enabled:
             return {
@@ -600,10 +594,6 @@ class InspectionService:
             }
 
         h, w = diff_map.shape[:2]
-        seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
-        seg_active = (seg_gray > 0).astype(np.uint8) * 255
-        # Small tolerance around anomaly mask to avoid frame-to-frame misses.
-        seg_active_dilated = cv2.dilate(seg_active, np.ones((9, 9), dtype=np.uint8), iterations=1)
         rechecked_zone_ids: list[str] = []
         combined_suppress_mask = np.zeros((h, w), dtype=bool)
         for zone in zones:
@@ -611,18 +601,10 @@ class InspectionService:
             zone_pixels = zone_mask > 0
             if not np.any(zone_pixels):
                 continue
-            zone_overlap_pixels = float(np.count_nonzero((seg_active_dilated > 0) & zone_pixels))
-            activity = self._measure_zone_activity(diff_map, segmentation_mask, zone.points_norm_ref)
-            # Trigger recheck either by mask overlap (with tolerance) or by strong diff energy.
-            has_zone_activation = zone_overlap_pixels > 0 or activity["diff_q90"] >= settings.fp_trigger_diff_q90
-            if not has_zone_activation:
-                continue
-            if not self._should_suppress_fp_zone(zone, activity):
-                continue
-            rechecked_zone_ids.append(zone.id)
-            # Suppress only activated FP regions, then recompute the score from the remaining image.
+            # Hard exclude: полигон всегда вычитается из diff/mask для вердикта.
             suppress_mask = cv2.dilate(zone_mask, np.ones((5, 5), dtype=np.uint8), iterations=1) > 0
             combined_suppress_mask |= suppress_mask
+            rechecked_zone_ids.append(zone.id)
 
         if not rechecked_zone_ids:
             return {
