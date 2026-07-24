@@ -48,6 +48,11 @@ public final class PipelineReferenceRegistry {
         return byCamera.get(cameraId);
     }
 
+    /** Сброс эталонов пайплайна (остановка инспекции / clear reference). */
+    public void clear() {
+        byCamera.clear();
+    }
+
     /**
      * После {@code client.reference_bundle}: SHM-заголовки в реестр + {@code set_reference_shm} в Python.
      */

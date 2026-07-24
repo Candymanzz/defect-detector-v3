@@ -163,6 +163,26 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         application.setReferenceCameraIds(cameraIds);
     }
 
+    /**
+     * Полная остановка инспекции: сброс эталона/ROI/FP в WS, пайплайне и analisSurface,
+     * сессия {@link ClientWsSessionState#NO_REFERENCE}.
+     */
+    public void clearReferenceSession() {
+        referenceContext.clear();
+        PipelineReferenceRegistry registry = application.pipelineReferences();
+        if (registry != null) {
+            registry.clear();
+        }
+        try {
+            kopcheniBroadcaster.broadcast(Map.of("op", "clear_inspection_context"));
+        } catch (ClientWsKopcheniSyncException e) {
+            log.warn("client_ws clear_inspection_context failed: {}", e.getMessage());
+        }
+        setSessionState(ClientWsSessionState.NO_REFERENCE);
+        broadcastOpenClients(conn -> outbound.sendSessionState(conn, ClientWsSessionState.NO_REFERENCE));
+        log.info("client_ws reference cleared — session_state=NO_REFERENCE inspection stopped");
+    }
+
     public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws ClientWsKopcheniSyncException {
         WebSocket c;
         synchronized (sessionLock) {

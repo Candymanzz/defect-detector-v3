@@ -159,6 +159,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             case "replace_fp_zones" -> replaceFpZones(header);
             case "sync_client_reference_bundle" -> syncClientReferenceBundle(header);
             case "set_active_reference_view" -> setActiveReferenceView(header);
+            case "clear_inspection_context" -> clearInspectionContext();
             default -> new BinaryProtocol.Message(
                     BinaryProtocol.MSG_ERROR,
                     Map.of("error", "unknown op=" + op + " (http transport)", "op", op),
@@ -173,6 +174,28 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         ok.put("product_type", String.valueOf(header.getOrDefault("product_type", "")));
         ok.put("view_index", YamlScalars.toInt(header.get("view_index"), 0));
         ok.put("transport", "http");
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, ok, new byte[0]);
+    }
+
+    private BinaryProtocol.Message clearInspectionContext() throws IOException {
+        SHARED_REFERENCE_SIGNATURES.clear();
+        SHARED_ROI_SIGNATURES.clear();
+        HttpResponse<byte[]> resp = httpPostJson("/clear-inspection-context", Map.of());
+        if (resp.statusCode() / 100 != 2) {
+            return errorMessageToMsg(resp, "clear-inspection-context");
+        }
+        Map<String, Object> ok = new LinkedHashMap<>();
+        ok.put("status", "ok");
+        ok.put("op", "clear_inspection_context");
+        ok.put("transport", "http");
+        try {
+            Map<String, Object> body = readJson(resp.body());
+            if (body.get("cleared") != null) {
+                ok.put("cleared", body.get("cleared"));
+            }
+        } catch (Exception ignored) {
+            // response body optional
+        }
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, ok, new byte[0]);
     }
 

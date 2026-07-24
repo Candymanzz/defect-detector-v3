@@ -104,6 +104,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     @Override
     public void publishBucket(BucketFanOutResult result) {
         // Эталон задан → FINS reject по линии ведра (group 0 → line1, group 1 → line2).
+        // Агрегатор шлёт оба ведра одного seq пакетом — здесь просто запись в очередь FINS.
         if (inspectionEnabled()) {
             if (plcPublisher != null) {
                 plcPublisher.publishBucket(result);

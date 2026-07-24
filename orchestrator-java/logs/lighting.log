@@ -1,0 +1,7 @@
+2026-07-24 08:55:43.744 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-07-24 08:55:43.746 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-24 08:55:43.750 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-24 08:55:43.774 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-24 08:55:43.775 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-24 08:55:43.775 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-24 08:55:43.828 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit6268719565205330812/light_brightness_settings.json default=42 endpoints=2

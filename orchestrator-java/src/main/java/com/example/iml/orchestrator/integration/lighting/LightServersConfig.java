@@ -267,7 +267,6 @@ public record LightServersConfig(
         }
         List<CameraFlashSpec> out = new ArrayList<>(ids.size());
         for (int cameraId : ids) {
-            // id 8–9 (камеры 9–10 / 5-й коммутатор): вспышек нет — см. 51-light-hardware.yaml.
             if (!hasFlashHardware(cameraId)) {
                 continue;
             }
@@ -326,20 +325,21 @@ public record LightServersConfig(
     }
 
     /**
-     * Вспышки только у камер 0–7 (camera_number 1–8, 4× Ethernet MV-LE).
-     * Камеры 8–9 (номера 9–10, 5-й коммутатор) — без подсветки.
+     * Вспышки: id 0–7 (camera_number 1–8) — Ethernet MV-LE pair;
+     * id 8–9 (номера 9–10) — COM1 single (центральные).
+     * См. config/blocks/51-light-hardware.yaml.
      */
     static boolean hasFlashHardware(int cameraId) {
-        return cameraId >= 0 && cameraId <= 7;
+        return cameraId >= 0 && cameraId <= 9;
     }
 
-    /** Все вспышечные камеры — pair (две стороны на MV-LE). */
+    /** 0–7: pair (2 канала); 8–9: single (1 канал COM). */
     private static FlashMode defaultModeForCameraId(int cameraId) {
-        return FlashMode.PAIR;
+        return cameraId >= 8 ? FlashMode.SINGLE : FlashMode.PAIR;
     }
 
     private static String defaultModeNameForCameraId(int cameraId) {
-        return "pair";
+        return cameraId >= 8 ? "single" : "pair";
     }
 
     private static int[] parseCameraIds(Object raw) {

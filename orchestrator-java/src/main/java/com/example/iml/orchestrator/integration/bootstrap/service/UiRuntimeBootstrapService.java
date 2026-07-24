@@ -57,6 +57,9 @@ public final class UiRuntimeBootstrapService {
             }
         }
         ctx.setClientWsServer(clientWsServer);
+        if (ctx.clientWsHolder() != null) {
+            ctx.clientWsHolder().set(clientWsServer);
+        }
         if (clientWsServer != null) {
             clientWsServer.setKopcheniPythonPool(ctx.pythonPool());
             clientWsServer.attachPipelineReferences(ctx.pipelineReferenceRegistry(), ctx.detectorByCamera());

@@ -77,6 +77,25 @@ class InspectionService:
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
         return self.references.get(product_type)
 
+    def clear_inspection_context(self) -> dict[str, int]:
+        """Полный сброс runtime-контекста инспекции: эталоны, ROI, FP-зоны."""
+        cleared = {
+            "references": len(self.references),
+            "roi_polygons": len(self.roi_polygons),
+            "roi_sub_zones": sum(len(zones) for zones in self.roi_sub_zones.values()),
+            "fp_zones": sum(len(zones) for zones in self.fp_zones.values()),
+        }
+        self.references.clear()
+        self._ref_orb_cache.clear()
+        self.roi_polygons.clear()
+        self.roi_sub_zones.clear()
+        self.fp_zones.clear()
+        self._last_diff_maps.clear()
+        self._last_segmentation_masks.clear()
+        self._save_fp_zones()
+        self._save_roi_sub_zones()
+        return cleared
+
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
         self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
 

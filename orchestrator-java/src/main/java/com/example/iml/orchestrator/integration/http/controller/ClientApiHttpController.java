@@ -53,6 +53,10 @@ public final class ClientApiHttpController implements HttpController {
             handleInspectionStatus(ctx);
             return;
         }
+        if (path.equals("/api/client/inspection/clear-reference")) {
+            handleClearReference(ctx);
+            return;
+        }
         if (path.equals("/api/client/inspection/stop")) {
             handleInspectionToggle(ctx, false);
             return;
@@ -413,6 +417,39 @@ public final class ClientApiHttpController implements HttpController {
         }
 
         sendInspectionState(ctx, List.of(), Set.of(), Set.of());
+    }
+
+    private void handleClearReference(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        var holder = clientApi.clientWsHolder();
+        var ws = holder == null ? null : holder.get();
+        if (ws == null) {
+            HttpResponses.sendJsonError(ctx, 503, "client_ws not ready");
+            return;
+        }
+        boolean hadReference = ws.sessionState()
+                != com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState.NO_REFERENCE;
+        if (clientApi.inspectionGate() != null) {
+            for (Integer cameraId : clientApi.inspectionGate().cameraIds()) {
+                clientApi.inspectionGate().requestCancel(cameraId);
+            }
+        }
+        ws.clearReferenceSession();
+        ObjectNode root = JSON.createObjectNode();
+        root.put("ok", true);
+        root.put("cleared", hadReference);
+        root.put("session_state", ws.sessionState().name());
+        var plc = clientApi.plcFinsHolder() == null ? null : clientApi.plcFinsHolder().get();
+        if (plc != null) {
+            root.put("inspection_enabled", plc.inspectionEnabled());
+            root.put("signals_editable", plc.manualControlEditable());
+            root.put("timeouts_editable", plc.timeoutsEditable());
+        }
+        HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }
 
     private void handleInspectionToggle(HttpRequestContext ctx, boolean enabled) throws IOException {
