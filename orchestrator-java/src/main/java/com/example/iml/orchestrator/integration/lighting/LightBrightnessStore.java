@@ -71,7 +71,12 @@ public final class LightBrightnessStore {
             if (storagePath == null || !Files.isRegularFile(storagePath)) {
                 return;
             }
-            Map<String, Object> root = JSON.readValue(Files.readString(storagePath), new TypeReference<>() {});
+            // Windows editors / PowerShell often write UTF-8 BOM; Jackson rejects 0xFEFF.
+            String raw = Files.readString(storagePath);
+            if (!raw.isEmpty() && raw.charAt(0) == '\uFEFF') {
+                raw = raw.substring(1);
+            }
+            Map<String, Object> root = JSON.readValue(raw, new TypeReference<>() {});
             if (root == null) {
                 return;
             }

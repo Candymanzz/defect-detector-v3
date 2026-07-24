@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 /**
  * Общая реализация: один поток вызовов, таймаут, закрытие клиента, {@link #restart()}.
@@ -22,6 +23,7 @@ public abstract class AbstractBinaryRpcSupervisor {
     protected final int commandTimeoutMs;
     protected BinaryClient client;
     protected int restartCount;
+    private volatile Consumer<Boolean> healthListener;
 
     protected AbstractBinaryRpcSupervisor(int commandTimeoutMs, ThreadFactory threadFactory) {
         this.commandTimeoutMs = Math.max(100, commandTimeoutMs);
@@ -51,6 +53,34 @@ public abstract class AbstractBinaryRpcSupervisor {
 
     public int restartCount() {
         return restartCount;
+    }
+
+    public void setHealthListener(Consumer<Boolean> healthListener) {
+        this.healthListener = healthListener;
+    }
+
+    public boolean processAlive() {
+        return client != null && client.isAlive();
+    }
+
+    protected final void reportHealthy() {
+        Consumer<Boolean> listener = healthListener;
+        if (listener != null) {
+            try {
+                listener.accept(true);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    protected final void reportUnhealthy() {
+        Consumer<Boolean> listener = healthListener;
+        if (listener != null) {
+            try {
+                listener.accept(false);
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     public void close() {

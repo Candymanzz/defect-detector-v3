@@ -65,6 +65,7 @@ public final class UiRuntimeBootstrapService {
             clientWsServer.attachPipelineReferences(ctx.pipelineReferenceRegistry(), ctx.detectorByCamera());
             clientWsServer.setCaptureStage(ctx.captureCoordinator());
             clientWsServer.setLightTriggerClient(ctx.lightClient());
+            clientWsServer.setLightBrightnessStore(ctx.lightBrightnessStore());
             clientWsServer.setReferenceCameraIds(ConfiguredCameras.enabledIds(ctx.root()));
         }
         ctx.uiSidecar().setClientWebSocketServer(clientWsServer);

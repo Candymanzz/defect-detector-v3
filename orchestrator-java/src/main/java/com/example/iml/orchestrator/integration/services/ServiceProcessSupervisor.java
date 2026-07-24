@@ -57,11 +57,20 @@ public final class ServiceProcessSupervisor extends AbstractBinaryRpcSupervisor 
     public BinaryProtocol.Message command(Map<String, Object> header) throws IOException {
         ensureAlive();
         try {
-            return commandNoRetry(header);
+            BinaryProtocol.Message response = commandNoRetry(header);
+            reportHealthy();
+            return response;
         } catch (IOException first) {
             log.warn("{} command failed; restart and retry: {}", name, first.getMessage());
-            restart();
-            return commandNoRetry(header);
+            try {
+                restart();
+                BinaryProtocol.Message response = commandNoRetry(header);
+                reportHealthy();
+                return response;
+            } catch (IOException second) {
+                reportUnhealthy();
+                throw second;
+            }
         }
     }
 

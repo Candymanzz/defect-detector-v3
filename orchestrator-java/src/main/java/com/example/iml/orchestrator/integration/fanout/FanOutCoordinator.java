@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.fanout;
 
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
+import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.plc.PlcBcd;
 import com.example.iml.orchestrator.integration.plc.PlcFinsApi;
@@ -37,6 +38,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     private final ClientWebSocketServer clientWsServer;
     private final PerCameraInspectionGate inspectionGate;
     private final PlcRegisterMap registerMap;
+    private volatile ServiceHealthGate healthGate;
+    private volatile ClientWsSessionState lastSessionState = ClientWsSessionState.NO_REFERENCE;
 
     private FanOutCoordinator(
             PlcFinsPublisher plcPublisher,
@@ -122,20 +125,42 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     /**
-     * Реакция на смену session_state: эталон есть → vision_ready=1 (sticky), сброс fault;
-     * эталона нет → vision_ready=0.
+     * Реакция на смену session_state: ready = эталон активен AND сервисы здоровы;
+     * fault = сервисы нездоровы.
      */
     public void onSessionState(ClientWsSessionState state) {
-        boolean referenceActive = state != null && state != ClientWsSessionState.NO_REFERENCE;
-        signalVisionReady(referenceActive);
-        if (referenceActive) {
-            signalVisionFault(false);
+        lastSessionState = state == null ? ClientWsSessionState.NO_REFERENCE : state;
+        refreshPlcLevels();
+    }
+
+    public void setHealthGate(ServiceHealthGate healthGate) {
+        this.healthGate = healthGate;
+        if (healthGate != null) {
+            healthGate.setOnChanged(this::refreshPlcLevels);
         }
+        refreshPlcLevels();
+    }
+
+    /**
+     * Пересчёт sticky vision_ready / vision_fault с учётом эталона и {@link ServiceHealthGate}.
+     */
+    public void refreshPlcLevels() {
+        boolean referenceActive = lastSessionState != null
+                && lastSessionState != ClientWsSessionState.NO_REFERENCE;
+        ServiceHealthGate gate = healthGate;
+        boolean healthy = gate == null || gate.healthy();
+        boolean ready = referenceActive && healthy;
+        boolean fault = !healthy;
+        signalVisionReady(ready);
+        signalVisionFault(fault);
         log.info(
-                "plc fins session_state={} vision_ready={} (reference_active={})",
-                state == null ? "null" : state.name(),
+                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} unhealthy={})",
+                lastSessionState == null ? "null" : lastSessionState.name(),
+                ready,
+                fault,
                 referenceActive,
-                referenceActive
+                healthy,
+                gate == null ? "[]" : gate.unhealthyReasons()
         );
     }
 

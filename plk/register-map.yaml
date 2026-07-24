@@ -16,8 +16,8 @@
 # FINS реально ходит на area+address.
 #
 # Runtime (эталон задан) — лист «Входы», Work Area:
-#   vision_ready   → W0.04 sticky HIGH, пока session != NO_REFERENCE
-#   vision_fault   → W0.05 при аварии сервисов
+#   vision_ready   → W0.04 sticky HIGH, пока session != NO_REFERENCE и сервисы здоровы
+#   vision_fault   → W0.05 при аварии критичных сервисов (сброс после восстановления)
 #   reject_line_1  → W0.06 импульс (bucket_group_id 0)
 #   reject_line_2  → W0.07 импульс (bucket_group_id 1)
 # Discrete DO — только если FINS publisher не создан (plc_fins.enabled=false).

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Запуск внешнего процесса (отдельный OS-процесс) из командной строки, без управления протоколом IML.
@@ -18,10 +19,13 @@ public final class ExternalServiceProcess implements AutoCloseable {
 
     private final String name;
     private final Process process;
+    private final AtomicBoolean closing = new AtomicBoolean(false);
+    private volatile Runnable unexpectedExitListener;
 
     private ExternalServiceProcess(String name, Process process) {
         this.name = name;
         this.process = process;
+        process.onExit().thenRun(this::handleProcessExit);
     }
 
     public static ExternalServiceProcess start(String name, List<String> command, Path workingDir) throws IOException {
@@ -62,8 +66,42 @@ public final class ExternalServiceProcess implements AutoCloseable {
         }
     }
 
+    public String name() {
+        return name;
+    }
+
+    /**
+     * Колбэк при неожиданном выходе процесса (не после {@link #close()}).
+     */
+    public void onUnexpectedExit(Runnable listener) {
+        this.unexpectedExitListener = listener;
+        if (!process.isAlive() && !closing.get()) {
+            handleProcessExit();
+        }
+    }
+
+    public boolean isClosing() {
+        return closing.get();
+    }
+
+    private void handleProcessExit() {
+        if (closing.get()) {
+            return;
+        }
+        Runnable listener = unexpectedExitListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.run();
+        } catch (Exception e) {
+            log.warn("unexpected-exit listener for {} failed: {}", name, e.getMessage());
+        }
+    }
+
     @Override
     public void close() {
+        closing.set(true);
         try {
             if (!process.isAlive()) {
                 return;

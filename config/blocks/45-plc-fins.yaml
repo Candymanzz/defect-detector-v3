@@ -1,5 +1,9 @@
 # Omron FINS/UDP — vision_ready/fault/reject → W0.04–W0.07 (не IO-box DO).
 # Карта: plk/register-map.yaml.
+#
+# vision_ready: эталон активен AND критичные сервисы здоровы.
+# vision_fault: авария сервиса (IoInputMonitor / LightServer / analisSurface / camera-worker…).
+# Выход процесса frontend → полный shutdown оркестратора → vision_ready принудительно 0.
 
 plc_fins:
   enabled: true

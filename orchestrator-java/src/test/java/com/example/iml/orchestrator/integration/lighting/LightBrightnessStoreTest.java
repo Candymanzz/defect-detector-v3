@@ -50,4 +50,17 @@ class LightBrightnessStoreTest {
         LightBrightnessStore store = LightBrightnessStore.open(storagePath);
         assertTrue(store.toUpdate().isEmpty());
     }
+
+    @Test
+    void openStripsUtf8Bom() throws Exception {
+        Path storagePath = tempDir.resolve("bom.json");
+        String json = "\uFEFF{\"version\":1,\"default_brightness_percent\":67,\"endpoints\":{\"camera-0\":67}}";
+        java.nio.file.Files.writeString(storagePath, json);
+
+        LightBrightnessStore store = LightBrightnessStore.open(storagePath);
+        LightBrightnessUpdate update = store.toUpdate();
+
+        assertEquals(67, update.globalPercent());
+        assertEquals(67, update.perEndpoint().get("camera-0"));
+    }
 }

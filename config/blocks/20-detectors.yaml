@@ -19,11 +19,11 @@ java_geometry:
   max_wrinkles_score: 0.45
 
 # Нормализация позы изделия к эталону перед geometry / analisSurface.
-# Большая разбежка сдвига/поворота между кадрами — норма: сервис всегда варпит к эталону.
-# FAIL только если гомографию посчитать не удалось (не из‑за величины сдвига).
+# Позиционирование только выравнивает кадр — брак не ставит (fail_on_reject=false).
+# Вердикт — у geometry / python. При неудачном align идём дальше с исходным кадром.
 java_positioning:
   enabled: true
-  fail_on_reject: true
+  fail_on_reject: false
   write_aligned: true
   pixels_to_mm: 0.02
   # Мягкие метрики в ответе (не гейтят PASS); QC допусков — у java_geometry после выравнивания.

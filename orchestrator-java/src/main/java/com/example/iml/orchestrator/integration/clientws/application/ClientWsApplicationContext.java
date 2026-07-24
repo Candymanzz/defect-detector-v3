@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.clientws.outbound.WsOutboundMess
 import com.example.iml.orchestrator.integration.clientws.service.ClientWsKopcheniBroadcaster;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferenceContext;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
@@ -36,6 +37,7 @@ public final class ClientWsApplicationContext {
     private volatile PipelineReferenceRegistry pipelineReferences;
     private volatile Map<Integer, String> detectorByCamera = Map.of();
     private volatile LightTriggerClient lightTriggerClient;
+    private volatile LightBrightnessStore lightBrightnessStore;
     private volatile CameraStreamService cameraStreamService;
     private volatile ClientStreamConfig clientStreamConfig = ClientStreamConfig.defaults();
     private volatile LivePreviewGate livePreviewGate;
@@ -119,6 +121,14 @@ public final class ClientWsApplicationContext {
 
     public LightTriggerClient lightTriggerClient() {
         return lightTriggerClient;
+    }
+
+    public void setLightBrightnessStore(LightBrightnessStore lightBrightnessStore) {
+        this.lightBrightnessStore = lightBrightnessStore;
+    }
+
+    public LightBrightnessStore lightBrightnessStore() {
+        return lightBrightnessStore;
     }
 
     public void setCameraStreamService(CameraStreamService cameraStreamService) {

@@ -67,7 +67,9 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
         for (int attempt = 1; attempt <= 3; attempt++) {
             ensureAlive();
             try {
-                return commandNoRetry(header);
+                BinaryProtocol.Message response = commandNoRetry(header);
+                reportHealthy();
+                return response;
             } catch (IOException error) {
                 lastError = error;
                 if (attempt == 3) {
@@ -77,6 +79,7 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
                 restart();
             }
         }
+        reportUnhealthy();
         throw lastError == null ? new IOException("worker command failed") : lastError;
     }
 

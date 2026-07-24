@@ -173,8 +173,12 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
           ),
         ];
 
+  const lightBrightness = await orchestratorApi.getLightBrightness();
   const [frameArchiveResponse] = await Promise.all([
     orchestratorApi.setFrameArchiveMaxFrames(normalizedForm.savedFramesCount),
+    orchestratorApi.setLightBrightness(
+      createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedForm.brightnessPercent),
+    ),
     ...analysisSaveRequests,
   ]);
   setInspectionHistoryLimit(frameArchiveResponse.max_frames_per_camera);

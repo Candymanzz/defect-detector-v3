@@ -14,6 +14,7 @@ import com.example.iml.orchestrator.integration.clientws.session.ClientWsReferen
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
+import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.preview.LivePreviewGate;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
@@ -141,6 +142,10 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     public void setLightTriggerClient(LightTriggerClient lightTriggerClient) {
         application.setLightTriggerClient(lightTriggerClient);
+    }
+
+    public void setLightBrightnessStore(LightBrightnessStore lightBrightnessStore) {
+        application.setLightBrightnessStore(lightBrightnessStore);
     }
 
     public void setCameraStreamService(CameraStreamService cameraStreamService) {

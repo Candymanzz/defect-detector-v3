@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBoot
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.CloseableIntegrationComponent;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationComponent;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownCoordinator;
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
@@ -12,6 +13,8 @@ import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
+import com.example.iml.orchestrator.integration.health.CriticalServiceWatchdog;
+import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
@@ -72,6 +75,9 @@ public final class IntegrationRuntimeContext {
     private ExternalServiceProcess lightServerProcess;
     private ExternalServiceProcess ioInputMonitorProcess;
     private ExternalServiceProcess frontendProcess;
+    private ServiceHealthGate serviceHealthGate;
+    private OrchestratorStopSignal stopSignal;
+    private CriticalServiceWatchdog criticalServiceWatchdog;
 
     private GeometrySnapshotCache geometrySnapshotCache;
     private GeometryRuntimeConfig geometryRuntimeConfig;
@@ -256,6 +262,30 @@ public final class IntegrationRuntimeContext {
 
     public void setFrontendProcess(ExternalServiceProcess frontendProcess) {
         this.frontendProcess = frontendProcess;
+    }
+
+    public ServiceHealthGate serviceHealthGate() {
+        return serviceHealthGate;
+    }
+
+    public void setServiceHealthGate(ServiceHealthGate serviceHealthGate) {
+        this.serviceHealthGate = serviceHealthGate;
+    }
+
+    public OrchestratorStopSignal stopSignal() {
+        return stopSignal;
+    }
+
+    public void setStopSignal(OrchestratorStopSignal stopSignal) {
+        this.stopSignal = stopSignal;
+    }
+
+    public CriticalServiceWatchdog criticalServiceWatchdog() {
+        return criticalServiceWatchdog;
+    }
+
+    public void setCriticalServiceWatchdog(CriticalServiceWatchdog criticalServiceWatchdog) {
+        this.criticalServiceWatchdog = criticalServiceWatchdog;
     }
 
     public GeometrySnapshotCache geometrySnapshotCache() {
@@ -610,6 +640,7 @@ public final class IntegrationRuntimeContext {
         components.add(CloseableIntegrationComponent.ofNullable(livePreview));
         components.add(CloseableIntegrationComponent.ofNullable(cameraStreamService));
         components.add(CloseableIntegrationComponent.ofNullable(triggerRuntime));
+        components.add(CloseableIntegrationComponent.ofNullable(criticalServiceWatchdog));
         return components.stream().filter(c -> c != null).toList();
     }
 

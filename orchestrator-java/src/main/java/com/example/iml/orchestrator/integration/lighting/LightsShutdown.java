@@ -42,6 +42,15 @@ public final class LightsShutdown {
         INTERVAL_FLASH.set(controller);
     }
 
+    /** Сменить ref процесса без полного lights shutdown (рестарт LightServer). */
+    public static void replaceProcess(ExternalServiceProcess process) {
+        PROCESS.set(process);
+    }
+
+    public static void clearProcessRefOnly() {
+        PROCESS.set(null);
+    }
+
     private static synchronized void ensureHook() {
         if (hookRegistered) {
             return;

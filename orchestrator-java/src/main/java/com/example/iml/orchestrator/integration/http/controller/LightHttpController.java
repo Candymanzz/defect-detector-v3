@@ -61,6 +61,7 @@ public final class LightHttpController implements HttpController {
             LightBrightnessUpdate fromQuery = LightBrightnessCommands.parseBrightnessUpdateFromQuery(ctx.query());
             if (!fromQuery.isEmpty()) {
                 applyBrightnessUpdate(fromQuery);
+                persistBrightnessState();
             }
             sendBrightness(ctx);
             return;
@@ -210,10 +211,10 @@ public final class LightHttpController implements HttpController {
         }
         LightBrightnessApplyResult applyResult = applyBrightnessUpdate(merged);
         LOG.info("light brightness updated via {} {} -> {}", ctx.method(), ctx.path(), lightClient.brightnessByEndpoint());
+        // Всегда пишем на диск: настройки должны переживать рестарт даже если LightServer сейчас недоступен.
+        persistBrightnessState();
         if (applyResult.hasHardwareErrors()) {
             LOG.warn("light brightness hardware errors: {}", String.join("; ", applyResult.hardwareErrors()));
-        } else {
-            persistBrightnessState();
         }
         int defaultPercent = lightClient.brightnessPercent();
         ObjectNode ok = JSON.createObjectNode();

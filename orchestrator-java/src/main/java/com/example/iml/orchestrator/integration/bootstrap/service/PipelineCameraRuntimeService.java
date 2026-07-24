@@ -3,10 +3,13 @@ package com.example.iml.orchestrator.integration.bootstrap.service;
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.factory.IntegrationServicePoolFactory;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationLifecycleComposite;
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
+import com.example.iml.orchestrator.integration.health.CriticalServiceWatchdog;
+import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
@@ -19,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
@@ -59,6 +64,20 @@ public final class PipelineCameraRuntimeService {
         );
         ctx.setFanOut(fanOut);
         ctx.plcFinsHolder().set(fanOut);
+
+        ServiceHealthGate healthGate = new ServiceHealthGate();
+        ctx.setServiceHealthGate(healthGate);
+        fanOut.setHealthGate(healthGate);
+
+        OrchestratorStopSignal stopSignal = new OrchestratorStopSignal();
+        ctx.setStopSignal(stopSignal);
+        if (ctx.frontendProcess() != null) {
+            ctx.frontendProcess().onUnexpectedExit(() -> {
+                log.warn("frontend process exited — requesting orchestrator shutdown (vision_ready=0)");
+                stopSignal.request("frontend_exited");
+            });
+        }
+
         if (ctx.clientWsServer() != null) {
             ctx.clientWsServer().setSessionStateListener(fanOut::onSessionState);
             fanOut.onSessionState(ctx.clientWsServer().sessionState());
@@ -73,6 +92,9 @@ public final class PipelineCameraRuntimeService {
             return false;
         }
         workers.attachStreamService(ctx);
+
+        CriticalServiceWatchdog watchdog = CriticalServiceWatchdog.start(log, ctx, healthGate);
+        ctx.setCriticalServiceWatchdog(watchdog);
 
         IntegrationFeatureConfig.DevAutoTriggerStubConfig devAutoTriggerStub =
                 IntegrationFeatureConfig.parseDevAutoTriggerStub(ctx.integration());
@@ -109,7 +131,7 @@ public final class PipelineCameraRuntimeService {
         // Components already started by owning services; close-only composite.
         lifecycle.start();
 
-        runCameraTasks(ctx, triggerWire);
+        runCameraTasks(ctx, triggerWire, stopSignal);
         return true;
     }
 
@@ -170,7 +192,8 @@ public final class PipelineCameraRuntimeService {
 
     private void runCameraTasks(
             IntegrationRuntimeContext ctx,
-            TriggerRuntimeBootstrapService.TriggerWireResult triggerWire
+            TriggerRuntimeBootstrapService.TriggerWireResult triggerWire,
+            OrchestratorStopSignal stopSignal
     ) throws Exception {
         Semaphore geometrySlots = new Semaphore(Math.max(1, ctx.geometryPool().size()));
         Semaphore pythonSlots = new Semaphore(Math.max(1, ctx.pythonPool().size()));
@@ -254,9 +277,62 @@ public final class PipelineCameraRuntimeService {
         }
         triggerWire.softwareVisionReady().set(true);
         triggerWire.refreshVisionReady().run();
-        List<Future<Void>> futures = ctx.cameraExecutor().invokeAll(tasks);
-        for (Future<Void> future : futures) {
-            future.get();
+        List<Future<Void>> futures = new ArrayList<>(tasks.size());
+        for (Callable<Void> task : tasks) {
+            futures.add(ctx.cameraExecutor().submit(task));
+        }
+        awaitCameraTasksOrStop(futures, stopSignal);
+    }
+
+    private void awaitCameraTasksOrStop(List<Future<Void>> futures, OrchestratorStopSignal stopSignal)
+            throws Exception {
+        while (true) {
+            if (stopSignal != null && stopSignal.isRequested()) {
+                log.warn("orchestrator stop requested reason={} — cancelling camera tasks", stopSignal.reason());
+                for (Future<Void> future : futures) {
+                    future.cancel(true);
+                }
+                return;
+            }
+            boolean allDone = true;
+            for (Future<Void> future : futures) {
+                if (!future.isDone()) {
+                    allDone = false;
+                    break;
+                }
+            }
+            if (allDone) {
+                for (Future<Void> future : futures) {
+                    try {
+                        future.get();
+                    } catch (CancellationException ignored) {
+                    } catch (ExecutionException e) {
+                        Throwable cause = e.getCause();
+                        if (cause instanceof Exception ex) {
+                            throw ex;
+                        }
+                        throw e;
+                    }
+                }
+                return;
+            }
+            if (stopSignal == null) {
+                // No stop signal (no frontend): block on first unfinished future.
+                for (Future<Void> future : futures) {
+                    try {
+                        future.get();
+                    } catch (CancellationException ignored) {
+                    } catch (ExecutionException e) {
+                        Throwable cause = e.getCause();
+                        if (cause instanceof Exception ex) {
+                            throw ex;
+                        }
+                        throw e;
+                    }
+                }
+                return;
+            }
+            stopSignal.await(250, TimeUnit.MILLISECONDS);
         }
     }
 }
