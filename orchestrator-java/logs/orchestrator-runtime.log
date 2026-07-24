@@ -47491,3 +47491,23 @@ java.io.IOException: EOF
 2026-07-24 08:55:43.775 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
 2026-07-24 08:55:43.775 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
 2026-07-24 08:55:43.828 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit6268719565205330812/light_brightness_settings.json default=42 endpoints=2
+2026-07-24 09:02:19.218 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:19.218 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:19.225 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=100 groups=[0, 1] passes=[true, true]
+2026-07-24 09:02:20.197 INFO  [pool-4-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:22.847 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:22.848 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=150 groups=[0, 1] passes=[true, true]
+2026-07-24 09:02:22.857 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:26.859 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence sync timeout seq=300 missing_group=1 — synthetic reject for line
+2026-07-24 09:02:26.861 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=300 groups=[0, 1] passes=[true, false]
+2026-07-24 09:02:26.861 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket timeout seq=300 group=1 received=3/5 cameras=[5, 6, 7]
+2026-07-24 09:02:26.862 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=1 pass=false frames=3/5 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:26.891 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:26.895 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-07-24 09:02:26.895 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:26.895 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection sequence fanout seq=20 groups=[0, 1] passes=[false, true]
+2026-07-24 09:02:26.898 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-07-24 09:02:26.901 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 par=2.0 width=1.2 strict_pass=true
+2026-07-24 09:02:26.901 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-24 09:02:26.903 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 par=2.0 width=1.2 strict_pass=false
+2026-07-24 09:02:26.903 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true

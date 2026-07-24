@@ -16,8 +16,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Собирает per-frame решения по trigger sequence и группе камер;
- * каждое ведро публикует вердикт на ПЛК и UI независимо от других.
+ * Собирает per-frame решения по trigger sequence и группе камер.
+ * При нескольких вёдрах (две линии) вердикты на ПЛК/UI уходят только когда
+ * готовы все вёдра одного {@code triggerSequence} — одним пакетом.
  * При низкой видимости шва на соседних камерах — ужесточённый гейт метрик шва.
  */
 public final class BucketInspectionAggregator implements AutoCloseable {
@@ -33,6 +34,8 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     private final JointSeamPolicy jointSeamPolicy;
     private final ScheduledExecutorService timeoutExecutor;
     private final ConcurrentHashMap<BucketKey, BucketState> buckets = new ConcurrentHashMap<>();
+    /** Барьер: ждать все groupId одного triggerSequence перед fanOut. */
+    private final ConcurrentHashMap<Long, SequenceBarrier> sequenceBarriers = new ConcurrentHashMap<>();
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config) {
         this(log, config, JointSeamPolicy.defaults());
@@ -206,14 +209,120 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 seamStrict
         );
 
-        if (fanOut != null) {
-            fanOut.publishBucket(new BucketFanOutResult(
-                    state.groupId,
-                    state.triggerSequence,
-                    bucketPass,
-                    expectedCameraIds,
-                    snapshot
-            ));
+        enqueueSyncedFanOut(
+                new BucketFanOutResult(
+                        state.groupId,
+                        state.triggerSequence,
+                        bucketPass,
+                        expectedCameraIds,
+                        snapshot
+                ),
+                fanOut
+        );
+    }
+
+    /**
+     * Одно ведро → сразу в fanOut. Два+ ведра → ждать все groupId одного seq, потом слать пакетом
+     * (reject_line_1 и reject_line_2 синхронно).
+     */
+    private void enqueueSyncedFanOut(BucketFanOutResult result, BucketFanOutSink fanOut) {
+        if (fanOut == null) {
+            return;
+        }
+        if (groups.size() <= 1) {
+            fanOut.publishBucket(result);
+            return;
+        }
+        SequenceBarrier barrier = sequenceBarriers.computeIfAbsent(
+                result.triggerSequence(),
+                seq -> new SequenceBarrier(seq)
+        );
+        List<BucketFanOutResult> toPublish = null;
+        synchronized (barrier) {
+            if (barrier.flushed) {
+                return;
+            }
+            barrier.readyByGroup.put(result.groupId(), result);
+            scheduleSequenceSyncTimeout(barrier, fanOut);
+            if (barrier.readyByGroup.size() >= groups.size()) {
+                toPublish = takeBarrierResults(barrier);
+            }
+        }
+        if (toPublish != null) {
+            publishSyncedResults(toPublish, fanOut);
+        }
+    }
+
+    private void scheduleSequenceSyncTimeout(SequenceBarrier barrier, BucketFanOutSink fanOut) {
+        if (barrier.syncTimeoutFuture != null) {
+            return;
+        }
+        barrier.syncTimeoutFuture = timeoutExecutor.schedule(
+                () -> onSequenceSyncTimeout(barrier.triggerSequence, fanOut),
+                timeoutMs,
+                TimeUnit.MILLISECONDS
+        );
+    }
+
+    private void onSequenceSyncTimeout(long triggerSequence, BucketFanOutSink fanOut) {
+        SequenceBarrier barrier = sequenceBarriers.get(triggerSequence);
+        if (barrier == null) {
+            return;
+        }
+        List<BucketFanOutResult> toPublish;
+        synchronized (barrier) {
+            if (barrier.flushed) {
+                return;
+            }
+            for (BucketGroup group : groups) {
+                if (barrier.readyByGroup.containsKey(group.id())) {
+                    continue;
+                }
+                log.warn(
+                        "inspection sequence sync timeout seq={} missing_group={} — synthetic reject for line",
+                        triggerSequence,
+                        group.id()
+                );
+                barrier.readyByGroup.put(
+                        group.id(),
+                        new BucketFanOutResult(
+                                group.id(),
+                                triggerSequence,
+                                false,
+                                group.cameraIds(),
+                                Map.of()
+                        )
+                );
+            }
+            toPublish = takeBarrierResults(barrier);
+        }
+        publishSyncedResults(toPublish, fanOut);
+    }
+
+    private List<BucketFanOutResult> takeBarrierResults(SequenceBarrier barrier) {
+        barrier.flushed = true;
+        if (barrier.syncTimeoutFuture != null) {
+            barrier.syncTimeoutFuture.cancel(false);
+        }
+        sequenceBarriers.remove(barrier.triggerSequence, barrier);
+        return groups.stream()
+                .map(group -> barrier.readyByGroup.get(group.id()))
+                .filter(result -> result != null)
+                .toList();
+    }
+
+    private void publishSyncedResults(List<BucketFanOutResult> results, BucketFanOutSink fanOut) {
+        if (fanOut == null || results == null || results.isEmpty()) {
+            return;
+        }
+        log.info(
+                "inspection sequence fanout seq={} groups={} passes={}",
+                results.get(0).triggerSequence(),
+                results.stream().map(BucketFanOutResult::groupId).toList(),
+                results.stream().map(BucketFanOutResult::overallPass).toList()
+        );
+        for (BucketFanOutResult result : results) {
+            fanOut.publishBucket(result);
         }
     }
 
@@ -284,6 +393,18 @@ public final class BucketInspectionAggregator implements AutoCloseable {
 
         private BucketKey key() {
             return new BucketKey(triggerSequence, groupId);
+        }
+    }
+
+    /** Ожидание всех вёдер одного triggerSequence перед отправкой на ПЛК/UI. */
+    private static final class SequenceBarrier {
+        private final long triggerSequence;
+        private final Map<Integer, BucketFanOutResult> readyByGroup = new LinkedHashMap<>();
+        private volatile boolean flushed;
+        private volatile ScheduledFuture<?> syncTimeoutFuture;
+
+        private SequenceBarrier(long triggerSequence) {
+            this.triggerSequence = triggerSequence;
         }
     }
 }

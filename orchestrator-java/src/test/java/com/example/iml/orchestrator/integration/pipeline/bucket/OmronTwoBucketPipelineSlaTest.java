@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * SLA: два независимых ведра Omron (reject_line_1 / reject_line_2) должны получить вердикт
- * не позже {@link #OMRON_TWO_BUCKET_SLA_MS} после старта цикла.
+ * SLA: два ведра Omron (reject_line_1 / reject_line_2) получают вердикт синхронно
+ * (оба готовы → один fanout-пакет) не позже {@link #OMRON_TWO_BUCKET_SLA_MS} после старта цикла.
  */
 class OmronTwoBucketPipelineSlaTest {
 

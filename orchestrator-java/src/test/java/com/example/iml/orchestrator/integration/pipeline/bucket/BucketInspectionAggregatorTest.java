@@ -76,7 +76,7 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
-    void independentGroupsPublishSeparateBucketSignals() {
+    void twoGroupsPublishTogetherOnlyWhenBothBucketsReady() {
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),
                 new BucketInspectionConfig(
@@ -94,13 +94,13 @@ class BucketInspectionAggregatorTest {
 
         aggregator.recordFrameResult(20L, 0, decision(0, 300L, true), fanOut);
         aggregator.recordFrameResult(20L, 1, decision(1, 301L, false), fanOut);
-        assertEquals(1, published.size());
-        assertEquals(0, published.get(0).groupId());
-        assertTrue(!published.get(0).overallPass());
+        assertEquals(0, published.size(), "line1 must wait for line2 before FINS/UI fanout");
 
         aggregator.recordFrameResult(20L, 2, decision(2, 302L, true), fanOut);
         aggregator.recordFrameResult(20L, 3, decision(3, 303L, true), fanOut);
         assertEquals(2, published.size());
+        assertEquals(0, published.get(0).groupId());
+        assertTrue(!published.get(0).overallPass());
         assertEquals(1, published.get(1).groupId());
         assertTrue(published.get(1).overallPass());
     }
