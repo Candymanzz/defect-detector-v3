@@ -27,10 +27,10 @@ body {
 
 .app-shell {
   display: flex;
-  gap: 28px;
+  gap: 15px;
   flex-direction: column;
   min-height: 100vh;
-  padding: 20px;
+  padding: 10px;
   background:
     linear-gradient(135deg, rgba(47, 113, 119, 0.24), transparent 42%),
     linear-gradient(180deg, #111418 0%, #171b20 100%);
@@ -40,7 +40,6 @@ body {
   display: block;
   width: min(240px, 40vw);
   height: auto;
-  margin-bottom: 24px;
 }
 
 .eyebrow {

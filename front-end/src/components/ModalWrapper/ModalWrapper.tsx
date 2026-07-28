@@ -184,11 +184,20 @@ export function ModalWrapper({
         )}
 
         {inspectionItems.length > 0 && (
-          <InspectionNavigation
-            items={inspectionItems}
-            selectedFrameId={selectedInspectionFrameId}
-            onSelect={onInspectionSelect}
-          />
+          <>
+            <InspectionNavigation
+              items={inspectionItems}
+              selectedFrameId={selectedInspectionFrameId}
+              onSelect={onInspectionSelect}
+            />
+            <InspectionNavigation
+              title="Общие результаты инспекций"
+              className="modal-inspection-navigation--summary"
+              items={inspectionItems}
+              selectedFrameId={selectedInspectionFrameId}
+              onSelect={onInspectionSelect}
+            />
+          </>
         )}
 
         {inspectResultSyncState && (
@@ -410,10 +419,14 @@ function useGeometrySnapshot(
 }
 
 function InspectionNavigation({
+  title = "Инспекции",
+  className,
   items,
   selectedFrameId,
   onSelect,
 }: {
+  title?: string;
+  className?: string;
   items: InspectionNavigationItem[];
   selectedFrameId?: string;
   onSelect?: (frameId: string) => void;
@@ -427,7 +440,8 @@ function InspectionNavigation({
 
   return (
     <section
-      className="modal-inspection-navigation"
+      className={["modal-inspection-navigation", className].filter(Boolean).join(" ")}
+      title={title}
       aria-label="Навигация по инспекциям"
     >
       <header>Инспекции</header>

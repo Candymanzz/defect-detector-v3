@@ -32,10 +32,20 @@ export type InspectionStats = {
   total: number;
   passed: number;
   failed: number;
+  groups?: InspectionStatsGroup[];
   referenceFrameId?: string;
   referenceSetAtMs?: number;
   inspectionStartedAtMs?: number;
   inspectionStoppedAtMs?: number;
+};
+
+export type InspectionStatsGroup = {
+  id: string;
+  label: string;
+  cameraIds: number[];
+  total: number;
+  passed: number;
+  failed: number;
 };
 
 export type ModalInspectionSnapshot = SelectedCamera & {

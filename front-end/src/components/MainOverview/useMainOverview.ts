@@ -49,6 +49,9 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const [inspectionHistoryByCameraId, setInspectionHistoryByCameraId] = useState<
     Record<number, InspectionHistoryItem[]>
   >({});
+  const [inspectionStatsByCameraId, setInspectionStatsByCameraId] = useState<
+    Record<number, InspectionHistoryItem[]>
+  >({});
   const [archiveHistoryState, setArchiveHistoryState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [archiveHistoryMessage, setArchiveHistoryMessage] = useState<string | null>(null);
   const [archivedHistoryByCameraId, setArchivedHistoryByCameraId] = useState<
@@ -68,6 +71,9 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const latestInspectResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
   const latestArtifactResultByCameraIdRef = useRef<Record<number, InspectResultPayload>>({});
   const latestInspectionIdByCameraIdRef = useRef<Record<number, number>>({});
+  const inspectionEnabledByCameraIdRef = useRef<Record<number, boolean>>({});
+  const inspectionAcceptedAfterMsByCameraIdRef = useRef<Record<number, number>>({});
+  const inspectionAcceptedFromFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateFrameRef = useRef<number | null>(null);
 
@@ -75,9 +81,13 @@ export function useMainOverview(inspectionResetVersion = 0) {
     latestInspectResultByCameraIdRef.current = {};
     latestArtifactResultByCameraIdRef.current = {};
     latestInspectionIdByCameraIdRef.current = {};
+    inspectionEnabledByCameraIdRef.current = {};
+    inspectionAcceptedAfterMsByCameraIdRef.current = {};
+    inspectionAcceptedFromFrameIdByCameraIdRef.current = {};
     setInspectResultsByCameraId({});
     setInspectArtifactResultsByCameraId({});
     setInspectionHistoryByCameraId({});
+    setInspectionStatsByCameraId({});
     setModalSnapshot(null);
     setHasReference(false);
     setInspectionStartedAtMs(undefined);
@@ -88,7 +98,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
     delete latestInspectResultByCameraIdRef.current[cameraId];
     delete latestArtifactResultByCameraIdRef.current[cameraId];
-    delete latestInspectionIdByCameraIdRef.current[cameraId];
     setInspectResultsByCameraId((previousResults) => removeCameraResult(previousResults, cameraId));
     setInspectArtifactResultsByCameraId((previousResults) => removeCameraResult(previousResults, cameraId));
     setModalSnapshot((currentSnapshot) =>
@@ -132,8 +141,15 @@ export function useMainOverview(inspectionResetVersion = 0) {
         const changedAtMs = Date.now();
         if (isEnabled) {
           setInspectionStartedAtMs(changedAtMs);
+          inspectionEnabledByCameraIdRef.current[cameraId] = true;
+          inspectionAcceptedAfterMsByCameraIdRef.current[cameraId] = changedAtMs;
+          const resumeFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
+          if (resumeFrameId !== undefined) {
+            inspectionAcceptedFromFrameIdByCameraIdRef.current[cameraId] = resumeFrameId;
+          }
         } else {
           setInspectionStoppedAtMs(changedAtMs);
+          inspectionEnabledByCameraIdRef.current[cameraId] = false;
         }
         setInspectionControlByCameraId((currentStates) => ({
           ...currentStates,
@@ -232,12 +248,13 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const inspectionStats = useMemo(
     () =>
       createInspectionStats(
-        inspectionHistoryByCameraId,
+        inspectionStatsByCameraId,
+        cameraIds,
         referenceSnapshot,
         inspectionStartedAtMs,
         inspectionStoppedAtMs,
       ),
-    [inspectionHistoryByCameraId, inspectionStartedAtMs, inspectionStoppedAtMs, referenceSnapshot],
+    [cameraIds, inspectionStartedAtMs, inspectionStatsByCameraId, inspectionStoppedAtMs, referenceSnapshot],
   );
 
   useEffect(() => {
@@ -263,12 +280,19 @@ export function useMainOverview(inspectionResetVersion = 0) {
         setInspectResultsByCameraId,
         setInspectArtifactResultsByCameraId,
         setInspectionHistoryByCameraId,
+        setInspectionStatsByCameraId,
         latestPreviewTimestampByCameraIdRef,
         latestPreviewFrameIdByCameraIdRef,
         latestInspectResultByCameraIdRef,
         latestArtifactResultByCameraIdRef,
       });
       if (inspectionStatus) {
+        inspectionEnabledByCameraIdRef.current = Object.fromEntries(
+          [
+            ...inspectionStatus.enabledCameraIds.map((cameraId) => [cameraId, true] as const),
+            ...inspectionStatus.disabledCameraIds.map((cameraId) => [cameraId, false] as const),
+          ],
+        );
         setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
       }
     });
@@ -322,7 +346,21 @@ export function useMainOverview(inspectionResetVersion = 0) {
       }
 
       if (message.type === "server.inspect_bucket_result") {
-        applyBucketResult(message.payload, setInspectionHistoryByCameraId, latestInspectResultByCameraIdRef);
+        applyBucketResult(
+          message.payload,
+          setInspectionHistoryByCameraId,
+          setInspectionStatsByCameraId,
+          latestInspectResultByCameraIdRef,
+          (cameraId, serverTsMs, frameId) =>
+            shouldAcceptInspectionResult(
+              cameraId,
+              serverTsMs,
+              frameId,
+              inspectionEnabledByCameraIdRef,
+              inspectionAcceptedAfterMsByCameraIdRef,
+              inspectionAcceptedFromFrameIdByCameraIdRef,
+            ),
+        );
         return;
       }
 
@@ -332,6 +370,18 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+      if (
+        !shouldAcceptInspectionResult(
+          cameraId,
+          inspectResult.server_ts_ms,
+          inspectResult.frame_id,
+          inspectionEnabledByCameraIdRef,
+          inspectionAcceptedAfterMsByCameraIdRef,
+          inspectionAcceptedFromFrameIdByCameraIdRef,
+        )
+      ) {
+        return;
+      }
 
       if (isCaptureOnlyInspectResult(inspectResult)) {
         applyCaptureOnlyInspectResult(
@@ -341,6 +391,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           setPreviewFrameIdsByCameraId,
           setPreviewImageUrlsByCameraId,
           setInspectionHistoryByCameraId,
+          setInspectionStatsByCameraId,
         );
         return;
       }
@@ -348,6 +399,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
       logMissingInspectionResults(latestInspectionIdByCameraIdRef, inspectResult);
       setHasReference(true);
       addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
+      addInspectionStatsItem(setInspectionStatsByCameraId, inspectResult);
       addModalInspectionItem(setModalSnapshot, inspectResult);
 
       const previousLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
@@ -525,10 +577,33 @@ function removeCameraResult<T>(results: Record<number, T>, cameraId: number) {
   return nextResults;
 }
 
+function shouldAcceptInspectionResult(
+  cameraId: number,
+  serverTsMs: number,
+  frameId: string,
+  enabledByCameraIdRef: React.MutableRefObject<Record<number, boolean>>,
+  acceptedAfterMsByCameraIdRef: React.MutableRefObject<Record<number, number>>,
+  acceptedFromFrameIdByCameraIdRef: React.MutableRefObject<Record<number, string>>,
+) {
+  if (enabledByCameraIdRef.current[cameraId] === false) {
+    return false;
+  }
+
+  const acceptedAfterMs = acceptedAfterMsByCameraIdRef.current[cameraId];
+  if (acceptedAfterMs !== undefined && serverTsMs < acceptedAfterMs) {
+    return false;
+  }
+
+  const acceptedFromFrameId = acceptedFromFrameIdByCameraIdRef.current[cameraId];
+  return acceptedFromFrameId === undefined || compareFrameIds(frameId, acceptedFromFrameId) >= 0;
+}
+
 function applyBucketResult(
   bucket: InspectBucketResultPayload,
   setHistory: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+  setStats: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
   latestInspectResultByCameraIdRef: React.MutableRefObject<Record<number, InspectResultPayload>>,
+  shouldAccept: (cameraId: number, serverTsMs: number, frameId: string) => boolean,
 ) {
   const inspectionId = String(bucket.trigger_sequence);
   const bucketResult: "pass" | "fail" | "capture" = bucket.frames.every(
@@ -540,6 +615,10 @@ function applyBucketResult(
       : "fail";
 
   for (const frame of bucket.frames) {
+    if (!shouldAccept(frame.camera_id, bucket.server_ts_ms, frame.frame_id)) {
+      continue;
+    }
+
     const previous = latestInspectResultByCameraIdRef.current[frame.camera_id];
     const inspectResult: InspectResultPayload =
       previous && compareFrameIds(previous.frame_id, frame.frame_id) === 0
@@ -594,6 +673,7 @@ function applyBucketResult(
         }),
       };
     });
+    addInspectionStatsItem(setStats, inspectResult);
   }
 }
 
@@ -622,6 +702,7 @@ function applyCaptureOnlyInspectResult(
   setPreviewFrameIdsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
   setPreviewImageUrlsByCameraId: Dispatch<SetStateAction<CameraImageUrlsById>>,
   setInspectionHistoryByCameraId: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+  setInspectionStatsByCameraId: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
 ) {
   const cameraId = inspectResult.camera_id;
   const previous = latestInspectResultByCameraIdRef.current[cameraId];
@@ -657,6 +738,7 @@ function applyCaptureOnlyInspectResult(
   }
 
   addInspectionHistoryItem(setInspectionHistoryByCameraId, merged);
+  addInspectionStatsItem(setInspectionStatsByCameraId, merged);
 }
 
 function addInspectionHistoryItem(
@@ -740,6 +822,7 @@ async function hydrateCardsFromLatestSnapshots(
     setInspectResultsByCameraId: Dispatch<SetStateAction<Record<number, InspectResultPayload>>>;
     setInspectArtifactResultsByCameraId: Dispatch<SetStateAction<Record<number, InspectResultPayload>>>;
     setInspectionHistoryByCameraId: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>;
+    setInspectionStatsByCameraId: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>;
     latestPreviewTimestampByCameraIdRef: React.MutableRefObject<Record<number, number>>;
     latestPreviewFrameIdByCameraIdRef: React.MutableRefObject<Record<number, string>>;
     latestInspectResultByCameraIdRef: React.MutableRefObject<Record<number, InspectResultPayload>>;
@@ -814,6 +897,7 @@ async function hydrateCardsFromLatestSnapshots(
   mergeRecordState(deps.setInspectResultsByCameraId, inspectResults);
   mergeRecordState(deps.setInspectArtifactResultsByCameraId, artifactResults);
   mergeInspectionHistory(deps.setInspectionHistoryByCameraId, inspectionHistory);
+  mergeInspectionStats(deps.setInspectionStatsByCameraId, inspectionHistory);
 }
 
 function mergeRecordState<T>(setter: Dispatch<SetStateAction<Record<number, T>>>, values: Record<number, T>) {
@@ -844,10 +928,99 @@ function mergeInspectionHistory(
 
 function createInspectionStats(
   historyByCameraId: Record<number, InspectionHistoryItem[]>,
+  cameraIds: number[],
   referenceSnapshot: ReturnType<typeof getReferenceImagesSnapshot>,
   inspectionStartedAtMs: number | undefined,
   inspectionStoppedAtMs: number | undefined,
 ): InspectionStats {
+  const totals = createInspectionStatsCounts(historyByCameraId);
+  const groups = createInspectionStatsGroups(historyByCameraId, cameraIds);
+  const reference = referenceSnapshot
+    .filter((item) => item.frame.frame_id !== undefined)
+    .sort((left, right) => {
+      const byTime = (left.committedAtMs ?? 0) - (right.committedAtMs ?? 0);
+      return byTime !== 0 ? byTime : left.cameraId - right.cameraId;
+    })[0];
+
+  return {
+    total: totals.total,
+    passed: totals.passed,
+    failed: totals.failed,
+    groups,
+    referenceFrameId: reference ? String(reference.frame.frame_id) : undefined,
+    referenceSetAtMs: reference?.committedAtMs,
+    inspectionStartedAtMs,
+    inspectionStoppedAtMs,
+  };
+}
+
+function createInspectionStatsGroups(
+  historyByCameraId: Record<number, InspectionHistoryItem[]>,
+  cameraIds: number[],
+) {
+  return chunkItems(cameraIds, 5).slice(0, 2).map((groupCameraIds, index) => {
+    const groupHistory = Object.fromEntries(
+      groupCameraIds.map((cameraId) => [cameraId, historyByCameraId[cameraId] ?? []]),
+    );
+    const counts = createInspectionStatsCounts(groupHistory);
+    return {
+      id: `group-${index + 1}`,
+      label: `Группа ${index + 1}`,
+      cameraIds: groupCameraIds,
+      ...counts,
+    };
+  });
+}
+
+function mergeInspectionStats(
+  setter: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+  values: Record<number, InspectionHistoryItem[]>,
+) {
+  if (Object.keys(values).length === 0) {
+    return;
+  }
+
+  setter((current) => {
+    const merged = { ...current };
+    for (const [cameraIdText, snapshotItems] of Object.entries(values)) {
+      const cameraId = Number(cameraIdText);
+      const currentItems = merged[cameraId] ?? [];
+      merged[cameraId] = snapshotItems.reduce((items, item) => {
+        if (item.result === "capture") {
+          return items;
+        }
+        return [item, ...items.filter((existingItem) => existingItem.frameId !== item.frameId)];
+      }, currentItems);
+    }
+    return merged;
+  });
+}
+
+function addInspectionStatsItem(
+  setStats: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+  inspectResult: InspectResultPayload,
+) {
+  const result = resolveInspectionResultState(inspectResult);
+  if (!result || result === "capture") {
+    return;
+  }
+
+  setStats((current) => {
+    const cameraStats = current[inspectResult.camera_id] ?? [];
+    const nextItem = {
+      frameId: inspectResult.frame_id,
+      inspectionId: resolveInspectionId(inspectResult),
+      result,
+      inspectResult,
+    };
+    return {
+      ...current,
+      [inspectResult.camera_id]: [nextItem, ...cameraStats.filter((item) => item.frameId !== nextItem.frameId)],
+    };
+  });
+}
+
+function createInspectionStatsCounts(historyByCameraId: Record<number, InspectionHistoryItem[]>) {
   const decisionsByInspectionId = new Map<string, "pass" | "fail">();
 
   Object.values(historyByCameraId)
@@ -864,20 +1037,16 @@ function createInspectionStats(
 
   const failed = Array.from(decisionsByInspectionId.values()).filter((result) => result === "fail").length;
   const passed = decisionsByInspectionId.size - failed;
-  const reference = referenceSnapshot
-    .filter((item) => item.frame.frame_id !== undefined)
-    .sort((left, right) => {
-      const byTime = (left.committedAtMs ?? 0) - (right.committedAtMs ?? 0);
-      return byTime !== 0 ? byTime : left.cameraId - right.cameraId;
-    })[0];
-
   return {
     total: passed + failed,
     passed,
     failed,
-    referenceFrameId: reference ? String(reference.frame.frame_id) : undefined,
-    referenceSetAtMs: reference?.committedAtMs,
-    inspectionStartedAtMs,
-    inspectionStoppedAtMs,
   };
+}
+
+function chunkItems<T>(items: T[], chunkSize: number) {
+  return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
+    const startIndex = groupIndex * chunkSize;
+    return items.slice(startIndex, startIndex + chunkSize);
+  });
 }

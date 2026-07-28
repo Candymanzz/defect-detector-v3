@@ -75,8 +75,8 @@ export function StatusCard({
       </div>
 
       <div className="camera-card__frame-ids">
-        <span>Кадр предпросмотра: {currentFrameId ?? "-"}</span>
-        <span>Последний кадр решения: {inspectionFrameId ?? "-"}</span>
+        <span>№ предпросмотра: {currentFrameId ?? "-"}</span>
+        <span>№ инспекции: {inspectionFrameId ?? "-"}</span>
       </div>
 
       <div className="camera-card__footer">

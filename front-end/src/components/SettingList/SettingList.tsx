@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, CSSProperties, FormEvent } from "react";
 import {
   createSettingErrorData,
   INITIAL_SETTING_DATA,
@@ -17,6 +17,10 @@ import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
 import { orchestratorApi } from "../../shared/api";
+import benchmarkIconUrl from "../../shared/assets/images/benchmark.svg";
+import camerasIconUrl from "../../shared/assets/images/cameras.svg";
+import resetIconUrl from "../../shared/assets/images/reset.svg";
+import streamIconUrl from "../../shared/assets/images/stream.svg";
 import { errorMessage } from "../../shared/lib/errors";
 import { clearReferenceImages } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
@@ -57,6 +61,7 @@ const ANALYSIS_SETTING_FIELDS: Array<{
 type SettingListProps = {
   selectedCameraId: number | null;
   inspectionStats: InspectionStats;
+  maxHeightPx?: number;
   onInspectionReset?: () => void;
 };
 
@@ -71,7 +76,7 @@ type ResetFeedback = {
   text: string;
 };
 
-export function SettingList({ selectedCameraId, inspectionStats, onInspectionReset }: SettingListProps) {
+export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, onInspectionReset }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [resetFeedback, setResetFeedback] = useState<ResetFeedback | null>(null);
@@ -294,225 +299,233 @@ export function SettingList({ selectedCameraId, inspectionStats, onInspectionRes
     <aside
       className="setting-list"
       aria-label="Настройки"
+      style={createSettingListStyle(maxHeightPx)}
     >
       <InspectionStatsPanel stats={inspectionStats} />
-
-      <div className="setting-list__header">
-        <h2>Настройки</h2>
-        {saveFeedback?.cameraId === selectedCameraId && (
-          <strong
-            aria-live="polite"
-            data-status={saveFeedback.state}
-          >
-            {saveFeedback.text}
-          </strong>
-        )}
-      </div>
 
       <form
         className="setting-list__form"
         onSubmit={handleSubmit}
       >
-        <section className="setting-list__card setting-list__brightness">
-          <div className="setting-list__card-header">
-            <span>Яркость света</span>
-            <strong className="setting-list__scope">{brightnessScopeText}</strong>
-          </div>
-          <label className="setting-list__control-row">
-            <span className="setting-list__visually-hidden">Уровень яркости</span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={settingData.form.brightnessPercent}
-              disabled={!canEditSettings}
-              onChange={handleFieldChange("brightnessPercent")}
-            />
-            <input
-              className="setting-list__number"
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value={settingData.form.brightnessPercent}
-              disabled={!canEditSettings}
-              onChange={handleFieldChange("brightnessPercent")}
-            />
-          </label>
-          <Button
-            className="setting-list__brightness-save"
-            disabled={!canEditSettings}
-            onClick={handleBrightnessSave}
-          >
-            Сохранить яркость
-          </Button>
-        </section>
-
-        <div className="setting-list__quick-actions">
-          <Button
-            className="setting-list__quick-action"
-            disabled={isBusy}
-            onClick={() => setIsReferenceSetupOpen(true)}
-          >
-            Задать эталон
-          </Button>
-          <Button
-            className="setting-list__quick-action"
-            disabled={isBusy}
-            onClick={() => setIsCameraSettingsOpen(true)}
-          >
-            Настройки камер
-          </Button>
-          <Button
-            className="setting-list__quick-action"
-            variant="warning"
-            disabled={isBusy}
-            onClick={() => setIsServerStreamOpen(true)}
-          >
-            Открыть стрим
-          </Button>
-        </div>
-
-        <section className="setting-list__card setting-list__flash-mode">
-          <div className="setting-list__card-header">
-            <span>Режим работы вспышек</span>
-          </div>
-          <div className="setting-list__flash-mode-options">
-            <span data-active={!settingData.form.constantFlashMode}>По циклу</span>
-            <label className="setting-list__flash-switch">
-              <input
-                type="checkbox"
-                role="switch"
-                aria-label="Постоянный режим работы вспышек"
-                checked={settingData.form.constantFlashMode}
-                disabled={!canEditSettings}
-                onChange={(event) => handleLightModeChange(event.target.checked)}
-              />
-              <span aria-hidden="true" />
-            </label>
-            <span data-active={settingData.form.constantFlashMode}>Постоянный</span>
-          </div>
-          <span className="setting-list__flash-mode-description">
-            {settingData.form.constantFlashMode
-              ? "Вспышки горят постоянно"
-              : "Вспышки включаются и выключаются при каждом цикле"}
-          </span>
-        </section>
-
-        <details className="setting-list__collapsible-setting">
-          <summary className="setting-list__section-header">
-            <h3>Максимальное смещение</h3>
-          </summary>
-          <div className="setting-list__vertical-setting">
-            <label>
-              <span>Задать максимальное смещение, мм</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={settingData.form.maxShiftMm}
-                disabled={!canEditSettings}
-                onChange={handleFieldChange("maxShiftMm")}
-              />
-            </label>
+        <section className="setting-list__panel">
+          <h2 className="setting-list__panel-title">Управление процессом</h2>
+          <div className="setting-list__quick-actions">
             <Button
-              className="setting-list__inline-save"
-              disabled={!canEditSettings}
-              onClick={handleMaxShiftSave}
+              className="setting-list__quick-action setting-list__quick-action--stream"
+              variant="warning"
+              disabled={isBusy}
+              onClick={() => setIsServerStreamOpen(true)}
             >
-              Сохранить
+              <SettingActionIcon name="stream" />
+              Стрим
+            </Button>
+            <Button
+              className="setting-list__quick-action setting-list__quick-action--reference"
+              disabled={isBusy}
+              onClick={() => setIsReferenceSetupOpen(true)}
+            >
+              <SettingActionIcon name="reference" />
+              Эталон
+            </Button>
+            <Button
+              className="setting-list__quick-action setting-list__quick-action--camera"
+              disabled={isBusy}
+              onClick={() => setIsCameraSettingsOpen(true)}
+            >
+              <SettingActionIcon name="camera" />
+              Камеры
+            </Button>
+            <Button
+              className="setting-list__quick-action setting-list__quick-action--reset"
+              disabled={resetFeedback?.state === "resetting"}
+              onClick={handleInspectionReset}
+            >
+              <SettingActionIcon name="reset" />
+              {resetFeedback?.state === "resetting" ? "Сброс..." : "Сброс"}
             </Button>
           </div>
-        </details>
+          {resetFeedback && (
+            <span
+              className="setting-list__inspection-reset-status"
+              data-status={resetFeedback.state}
+              aria-live="polite"
+            >
+              {resetFeedback.text}
+            </span>
+          )}
+        </section>
 
-        <details className="setting-list__collapsible-setting">
-          <summary className="setting-list__section-header">
-            <h3>Количество кадров</h3>
-          </summary>
-          <div className="setting-list__vertical-setting">
-            <label>
-              <span>Задать количество сохраняемых кадров</span>
+        <section className="setting-list__panel setting-list__light-panel">
+          <h2 className="setting-list__panel-title">Управление светом</h2>
+          <div className="setting-list__card setting-list__brightness">
+            <div className="setting-list__card-header">
+              <span>Яркость света</span>
+              <strong className="setting-list__scope">{brightnessScopeText}</strong>
+            </div>
+            <label className="setting-list__control-row">
+              <span className="setting-list__visually-hidden">Уровень яркости</span>
+              <SettingActionIcon name="light" className="setting-list__brightness-icon" />
               <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={settingData.form.brightnessPercent}
+                disabled={!canEditSettings}
+                onChange={handleFieldChange("brightnessPercent")}
+              />
+              <input
+                className="setting-list__number"
                 type="number"
                 min="0"
                 max="100"
                 step="1"
-                value={settingData.form.savedFramesCount}
+                value={settingData.form.brightnessPercent}
                 disabled={!canEditSettings}
-                onChange={handleFieldChange("savedFramesCount")}
+                onChange={handleFieldChange("brightnessPercent")}
               />
             </label>
             <Button
-              className="setting-list__inline-save"
+              className="setting-list__brightness-save"
               disabled={!canEditSettings}
-              onClick={handleSavedFramesSave}
+              onClick={handleBrightnessSave}
+            >
+              Сохранить яркость
+            </Button>
+          </div>
+
+          <section className="setting-list__card setting-list__flash-mode">
+            <div className="setting-list__card-header">
+              <span>Режим работы вспышек</span>
+            </div>
+            <div className="setting-list__flash-mode-options">
+              <button
+                type="button"
+                data-active={!settingData.form.constantFlashMode}
+                disabled={!canEditSettings}
+                onClick={() => handleLightModeChange(false)}
+              >
+                <span aria-hidden="true">↻</span>
+                По циклу
+              </button>
+              <button
+                type="button"
+                data-active={settingData.form.constantFlashMode}
+                disabled={!canEditSettings}
+                onClick={() => handleLightModeChange(true)}
+              >
+                Постоянный
+              </button>
+            </div>
+          </section>
+        </section>
+
+        <section className="setting-list__panel">
+          <h2 className="setting-list__panel-title">Параметры анализа</h2>
+          {saveFeedback?.cameraId === selectedCameraId && (
+            <strong
+              className="setting-list__save-feedback"
+              aria-live="polite"
+              data-status={saveFeedback.state}
+            >
+              {saveFeedback.text}
+            </strong>
+          )}
+          <details className="setting-list__collapsible-setting">
+            <summary className="setting-list__section-header">
+              <h3>Максимальное смещение</h3>
+            </summary>
+            <div className="setting-list__vertical-setting">
+              <label>
+                <span>Задать максимальное смещение, мм</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={settingData.form.maxShiftMm}
+                  disabled={!canEditSettings}
+                  onChange={handleFieldChange("maxShiftMm")}
+                />
+              </label>
+              <Button
+                className="setting-list__inline-save"
+                disabled={!canEditSettings}
+                onClick={handleMaxShiftSave}
+              >
+                Сохранить
+              </Button>
+            </div>
+          </details>
+
+          <details className="setting-list__collapsible-setting">
+            <summary className="setting-list__section-header">
+              <h3>Количество кадров</h3>
+            </summary>
+            <div className="setting-list__vertical-setting">
+              <label>
+                <span>Задать количество сохраняемых кадров</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={settingData.form.savedFramesCount}
+                  disabled={!canEditSettings}
+                  onChange={handleFieldChange("savedFramesCount")}
+                />
+              </label>
+              <Button
+                className="setting-list__inline-save"
+                disabled={!canEditSettings}
+                onClick={handleSavedFramesSave}
+              >
+                Сохранить
+              </Button>
+            </div>
+          </details>
+
+          <details className="setting-list__collapsible-setting setting-list__analysis">
+            <summary className="setting-list__section-header">
+              <h3>Настройки анализа</h3>
+              <strong>{analysisScopeText}</strong>
+            </summary>
+            <div className="setting-list__analysis-grid">
+              {ANALYSIS_SETTING_FIELDS.map((field) => (
+                <label
+                  key={field.name}
+                  className={
+                    field.type === "checkbox"
+                      ? "setting-list__field setting-list__field--checkbox"
+                      : "setting-list__field"
+                  }
+                >
+                  <span>{field.label}</span>
+                  <input
+                    type={field.type}
+                    min={field.min}
+                    max={field.max}
+                    step={field.step}
+                    checked={
+                      field.type === "checkbox" ? Boolean(settingData.form.analysisSettings[field.name]) : undefined
+                    }
+                    value={field.type === "number" ? Number(settingData.form.analysisSettings[field.name]) : undefined}
+                    disabled={!canEditSettings}
+                    onChange={handleAnalysisFieldChange(field.name)}
+                  />
+                </label>
+              ))}
+            </div>
+            <Button
+              className="setting-list__inline-save setting-list__analysis-save"
+              type="submit"
+              disabled={!canEditSettings}
             >
               Сохранить
             </Button>
-          </div>
-        </details>
-
-        <details className="setting-list__collapsible-setting setting-list__analysis">
-          <summary className="setting-list__section-header">
-            <h3>Настройки анализа</h3>
-            <strong>{analysisScopeText}</strong>
-          </summary>
-          <div className="setting-list__analysis-grid">
-            {ANALYSIS_SETTING_FIELDS.map((field) => (
-              <label
-                key={field.name}
-                className={
-                  field.type === "checkbox"
-                    ? "setting-list__field setting-list__field--checkbox"
-                    : "setting-list__field"
-                }
-              >
-                <span>{field.label}</span>
-                <input
-                  type={field.type}
-                  min={field.min}
-                  max={field.max}
-                  step={field.step}
-                  checked={
-                    field.type === "checkbox" ? Boolean(settingData.form.analysisSettings[field.name]) : undefined
-                  }
-                  value={field.type === "number" ? Number(settingData.form.analysisSettings[field.name]) : undefined}
-                  disabled={!canEditSettings}
-                  onChange={handleAnalysisFieldChange(field.name)}
-                />
-              </label>
-            ))}
-          </div>
-          <Button
-            className="setting-list__inline-save setting-list__analysis-save"
-            type="submit"
-            disabled={!canEditSettings}
-          >
-            Сохранить
-          </Button>
-        </details>
+          </details>
+        </section>
       </form>
-
-      <div className="setting-list__inspection-reset">
-        <Button
-          className="setting-list__inspection-reset-button"
-          disabled={resetFeedback?.state === "resetting"}
-          onClick={handleInspectionReset}
-        >
-          {resetFeedback?.state === "resetting" ? "Сброс..." : "Сброс инспекции"}
-        </Button>
-        {resetFeedback && (
-          <span
-            className="setting-list__inspection-reset-status"
-            data-status={resetFeedback.state}
-            aria-live="polite"
-          >
-            {resetFeedback.text}
-          </span>
-        )}
-      </div>
 
       {isCameraSettingsOpen && (
         <CameraSettingsModal
@@ -548,6 +561,101 @@ function resolveSaveFeedback(
     : { state: "success", text: "Сохранено успешно", cameraId };
 }
 
+function createSettingListStyle(maxHeightPx: number | undefined): CSSProperties | undefined {
+  if (!maxHeightPx || !Number.isFinite(maxHeightPx)) {
+    return undefined;
+  }
+
+  const height = `${Math.round(maxHeightPx)}px`;
+  return { height, maxHeight: height };
+}
+
+function SettingActionIcon({
+  name,
+  className,
+}: {
+  name: "stream" | "reference" | "camera" | "reset" | "light";
+  className?: string;
+}) {
+  const iconClassName = ["setting-list__action-icon", className].filter(Boolean).join(" ");
+  const assetIconUrl = resolveSettingActionIconUrl(name);
+
+  if (assetIconUrl) {
+    return (
+      <span className={iconClassName} aria-hidden="true">
+        <img
+          alt=""
+          src={assetIconUrl}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className={iconClassName} aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        {name === "stream" && (
+          <>
+            <rect x="4" y="5" width="16" height="14" rx="3" />
+            <path d="M10 9.5v5l4-2.5-4-2.5Z" />
+          </>
+        )}
+        {name === "reference" && (
+          <>
+            <circle cx="12" cy="12" r="5.5" />
+            <circle cx="12" cy="12" r="1.8" />
+            <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+          </>
+        )}
+        {name === "camera" && (
+          <>
+            <rect x="4" y="7" width="12" height="10" rx="2" />
+            <path d="M16 10l4-2.2v8.4L16 14v-4Z" />
+            <path d="M8 7l1-2h3l1 2" />
+          </>
+        )}
+        {name === "reset" && (
+          <>
+            <path d="M7 7h10" />
+            <path d="M10 7V5h4v2" />
+            <path d="M9 10v7M15 10v7" />
+            <path d="M6 7l1 13h10l1-13" />
+          </>
+        )}
+        {name === "light" && (
+          <>
+            <circle cx="12" cy="12" r="3.5" />
+            <path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
+          </>
+        )}
+      </svg>
+    </span>
+  );
+}
+
+function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "reset" | "light") {
+  if (name === "stream") {
+    return streamIconUrl;
+  }
+
+  if (name === "reference") {
+    return benchmarkIconUrl;
+  }
+
+  if (name === "camera") {
+    return camerasIconUrl;
+  }
+
+  if (name === "reset") {
+    return resetIconUrl;
+  }
+
+  return undefined;
+}
+
 function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
   return (
     <section
@@ -558,20 +666,33 @@ function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
         <h2>Статистика инспекций</h2>
         <span>онлайн</span>
       </div>
-      <dl className="setting-list__inspection-stats-grid">
-        <div>
-          <dt>Всего</dt>
-          <dd>{stats.total}</dd>
+      {stats.groups && stats.groups.length > 0 && (
+        <div className="setting-list__inspection-groups">
+          {stats.groups.map((group) => (
+            <div
+              key={group.id}
+              className="setting-list__inspection-group"
+            >
+              <span className="setting-list__inspection-group-title">
+                {group.label}
+                <small>к. {group.cameraIds.join(", ")}</small>
+              </span>
+              <span>
+                <small>Всего</small>
+                <strong>{group.total}</strong>
+              </span>
+              <span>
+                <small>Год</small>
+                <strong>{group.passed}</strong>
+              </span>
+              <span>
+                <small>Брак</small>
+                <strong>{group.failed}</strong>
+              </span>
+            </div>
+          ))}
         </div>
-        <div>
-          <dt>Годные</dt>
-          <dd>{stats.passed}</dd>
-        </div>
-        <div>
-          <dt>Брак</dt>
-          <dd>{stats.failed}</dd>
-        </div>
-      </dl>
+      )}
       <div className="setting-list__inspection-times">
         <div>
           <span>Старт</span>

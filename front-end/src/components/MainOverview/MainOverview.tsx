@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { Ref } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
@@ -17,6 +18,7 @@ type MainOverviewProps = {
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
   onInspectionStatsChange?: (stats: InspectionStats) => void;
+  rootRef?: Ref<HTMLDivElement>;
 };
 
 export function MainOverview({
@@ -24,6 +26,7 @@ export function MainOverview({
   selectedSettingsCameraId,
   onSettingsCameraToggle,
   onInspectionStatsChange,
+  rootRef,
 }: MainOverviewProps) {
   const controller = useMainOverview(inspectionResetVersion);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
@@ -37,7 +40,7 @@ export function MainOverview({
   }, [controller.inspectionStats, onInspectionStatsChange]);
 
   return (
-    <div className="camera-overviews">
+    <div className="camera-overviews" ref={rootRef}>
       {cameraCardGroups.map((cameraGroup, groupIndex) => (
         <section
           className="camera-overview"

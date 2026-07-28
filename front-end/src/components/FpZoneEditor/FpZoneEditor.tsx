@@ -235,7 +235,7 @@ export function FpZoneEditor({
           disabled={disabled}
           onClick={handleToggleRadiusMode}
         >
-          {drawMode === "radius" ? "Рисовать контур" : "Задать радиус"}
+          {drawMode === "radius" ? "Рисовать контур" : "Скруглить линии"}
         </button>
         <button
           type="button"

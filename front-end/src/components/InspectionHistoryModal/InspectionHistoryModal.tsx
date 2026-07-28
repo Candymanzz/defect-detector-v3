@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { orchestratorApi } from "../../shared/api";
+import { getReferenceImage } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { HeatmapDescriptor, InspectResultPayload } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
@@ -64,6 +65,8 @@ export function InspectionHistoryModal({ inspectionId, results, onClose }: Inspe
 function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
   const result = item.inspectResult;
   const imageUrl = resolveInspectionImageUrl(result);
+  const referenceImageUrl = getReferenceImage(result.camera_id)?.imageUrl;
+  const comparisonImageUrl = referenceImageUrl ?? imageUrl;
   const heatmap = resolveInspectionHeatmap(result);
 
   return (
@@ -78,14 +81,14 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
 
       <div className="inspection-history-modal__media">
         <figure>
-          <figcaption>Кадр инспекции</figcaption>
+          <figcaption>Эталон</figcaption>
           <div className="inspection-history-modal__image-wrap">
             <PreviewImage
               alt={`Инспекция ${item.inspectionId}, камера ${result.camera_id}`}
               className="inspection-history-modal__image"
-              emptyLabel="Кадр недоступен"
+              emptyLabel="Эталон недоступен"
               placeholderClassName="inspection-history-modal__placeholder"
-              src={imageUrl}
+              src={comparisonImageUrl}
             />
           </div>
         </figure>
@@ -96,7 +99,7 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
             <HeatmapViewer
               cameraId={result.camera_id}
               heatmap={heatmap}
-              backgroundImageUrl={imageUrl}
+              backgroundImageUrl={comparisonImageUrl}
             />
           ) : (
             <div className="inspection-history-modal__placeholder">Тепловая карта отсутствует</div>

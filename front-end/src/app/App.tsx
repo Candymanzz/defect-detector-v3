@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { MainOverview } from "../components/MainOverview";
 import { PlcPanel } from "../components/PlcPanel";
 import { SettingList } from "../components/SettingList";
@@ -12,6 +12,7 @@ const EMPTY_INSPECTION_STATS: InspectionStats = {
   total: 0,
   passed: 0,
   failed: 0,
+  groups: [],
   referenceFrameId: undefined,
   referenceSetAtMs: undefined,
   inspectionStartedAtMs: undefined,
@@ -24,11 +25,35 @@ export function App() {
   const [isPlasticHandleMode, setIsPlasticHandleMode] = useState(false);
   const [inspectionStats, setInspectionStats] = useState<InspectionStats>(EMPTY_INSPECTION_STATS);
   const [inspectionResetVersion, setInspectionResetVersion] = useState(0);
+  const [settingsMaxHeightPx, setSettingsMaxHeightPx] = useState<number | undefined>(undefined);
+  const cameraOverviewsRef = useRef<HTMLDivElement | null>(null);
   const backendStatus = useBackendStatus();
 
   const handleSettingsCameraToggle = (cameraId: number) => {
     setSelectedSettingsCameraId((currentCameraId) => (currentCameraId === cameraId ? null : cameraId));
   };
+
+  useLayoutEffect(() => {
+    const cameraOverviewsElement = cameraOverviewsRef.current;
+    if (!cameraOverviewsElement) {
+      return;
+    }
+
+    const updateSettingsHeight = () => {
+      setSettingsMaxHeightPx(cameraOverviewsElement.getBoundingClientRect().height);
+    };
+
+    updateSettingsHeight();
+
+    const resizeObserver = new ResizeObserver(updateSettingsHeight);
+    resizeObserver.observe(cameraOverviewsElement);
+    window.addEventListener("resize", updateSettingsHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSettingsHeight);
+    };
+  }, []);
 
   return (
     <main className="app-shell">
@@ -72,6 +97,7 @@ export function App() {
       </header>
       <div className="app-content">
         <MainOverview
+          rootRef={cameraOverviewsRef}
           inspectionResetVersion={inspectionResetVersion}
           selectedSettingsCameraId={selectedSettingsCameraId}
           onSettingsCameraToggle={handleSettingsCameraToggle}
@@ -80,6 +106,7 @@ export function App() {
         <SettingList
           selectedCameraId={selectedSettingsCameraId}
           inspectionStats={inspectionStats}
+          maxHeightPx={settingsMaxHeightPx}
           onInspectionReset={() => {
             setInspectionStats(EMPTY_INSPECTION_STATS);
             setInspectionResetVersion((version) => version + 1);
