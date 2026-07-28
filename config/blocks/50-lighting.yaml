@@ -39,4 +39,4 @@ light_servers:
     on_reengage_delay_ms: 5000
     start_dark: true
   # cameras опционально; по умолчанию — все enabled cameras из корневого конфига.
-  # mode: pair (id 0–7, Ethernet) | single (id 8–9, COM1 центральные) — см. 51-light-hardware.yaml.
+  # mode: pair (Ethernet) | single (COM, camera id 2 и 7) — см. 51-light-hardware.yaml.

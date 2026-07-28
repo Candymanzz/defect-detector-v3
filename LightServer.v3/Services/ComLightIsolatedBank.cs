@@ -261,6 +261,37 @@ public sealed class ComLightIsolatedBank : IDisposable
         return BuildResults(commands, results);
     }
 
+    /// <summary>
+    /// Яркость + On на уже открытом COM из банка (для /camera-flash/single|pair).
+    /// </summary>
+    public (bool ok, string? error) ApplyChannelBrightness(
+        string comPort,
+        int[] updateChannels,
+        int[] powers,
+        bool turnOn = true)
+    {
+        string com = MvsComPortEnumerator.NormalizeComPort(comPort);
+        if (!_initialized)
+        {
+            var (initOk, initErr) = InitializeAll();
+            if (!initOk)
+                return (false, initErr ?? "IsolatedBank не инициализирован.");
+        }
+
+        if (!_ports.TryGetValue(com, out IsolatedComPortLight? port))
+            return (false, $"{com}: нет в IsolatedBank.");
+
+        if (!_readyPorts.Contains(com))
+        {
+            string reason = _skippedPorts.TryGetValue(com, out string? detail)
+                ? detail
+                : "не готов";
+            return (false, $"{com}: {reason}");
+        }
+
+        return port.ApplyChannelBrightness(updateChannels, powers, turnOn);
+    }
+
     private bool TryRecordSkipped(
         string comPort,
         ConcurrentDictionary<string, (bool Ok, string? Message)> results)

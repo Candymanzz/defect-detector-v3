@@ -325,21 +325,24 @@ public record LightServersConfig(
     }
 
     /**
-     * Вспышки: id 0–7 (camera_number 1–8) — Ethernet MV-LE pair;
-     * id 8–9 (номера 9–10) — COM1 single (центральные).
+     * Вспышки: id 0–9 (camera_number 1–10) — Ethernet MV-LE pair, кроме id 2 и 7 (COM single).
      * См. config/blocks/51-light-hardware.yaml.
      */
     static boolean hasFlashHardware(int cameraId) {
         return cameraId >= 0 && cameraId <= 9;
     }
 
-    /** 0–7: pair (2 канала); 8–9: single (1 канал COM). */
+    /** id 2 и 7 — COM single (1 канал); остальные — Ethernet pair (2 канала). */
     private static FlashMode defaultModeForCameraId(int cameraId) {
-        return cameraId >= 8 ? FlashMode.SINGLE : FlashMode.PAIR;
+        return isComFlashCamera(cameraId) ? FlashMode.SINGLE : FlashMode.PAIR;
     }
 
     private static String defaultModeNameForCameraId(int cameraId) {
-        return cameraId >= 8 ? "single" : "pair";
+        return isComFlashCamera(cameraId) ? "single" : "pair";
+    }
+
+    private static boolean isComFlashCamera(int cameraId) {
+        return cameraId == 2 || cameraId == 7;
     }
 
     private static int[] parseCameraIds(Object raw) {

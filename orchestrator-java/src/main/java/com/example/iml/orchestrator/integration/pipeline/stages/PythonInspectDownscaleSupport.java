@@ -41,7 +41,10 @@ final class PythonInspectDownscaleSupport {
         putDescriptor(pyHeader, "", downscaledCurrent);
 
         ShmDescriptor reference = descriptorFromHeader(pyHeader, "reference_", cameraId);
-        String cacheKey = reference.cacheKey(scale);
+        // Fingerprint by on-disk content: same shm path/dims after reference retake must bust cache.
+        String contentFp = contentFingerprint(reference, cameraId);
+        pyHeader.put("reference_content_fingerprint", contentFp);
+        String cacheKey = reference.cacheKey(scale) + "|" + contentFp;
         ShmDescriptor cached = REFERENCE_CACHE.get(cacheKey);
         if (cached != null && cached.existsForCamera(cameraId)) {
             putDescriptor(pyHeader, "reference_", cached);
@@ -51,6 +54,18 @@ final class PythonInspectDownscaleSupport {
         ShmDescriptor downscaledReference = writeDownscaled(reference, cameraId, refName, scale);
         REFERENCE_CACHE.put(cacheKey, downscaledReference);
         putDescriptor(pyHeader, "reference_", downscaledReference);
+    }
+
+    private static String contentFingerprint(ShmDescriptor source, int fallbackCameraId) {
+        try {
+            Path path = FrameJpegWriter.resolveShmPath(source.shmName(), source.cameraIdOr(fallbackCameraId));
+            if (path == null || !Files.isRegularFile(path)) {
+                return "missing";
+            }
+            return Files.getLastModifiedTime(path).toMillis() + ":" + Files.size(path);
+        } catch (IOException e) {
+            return "err";
+        }
     }
 
     private static double sanitizeScale(double raw) {

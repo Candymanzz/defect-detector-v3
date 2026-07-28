@@ -153,7 +153,11 @@ public final class LightTriggerClient {
             }
             if (constant) {
                 if (!engageLightingLocked()) {
-                    throw new IllegalStateException("failed to enable constant flash mode");
+                    // fail_on_error=false: не валим весь bootstrap из‑за одной COM/Ethernet вспышки.
+                    if (failOnError) {
+                        throw new IllegalStateException("failed to enable constant flash mode");
+                    }
+                    LOG.warn("constant flash mode: brightness apply partial failure — continuing with bank On");
                 }
                 // /pair and /single only write brightness registers; they deliberately do not turn LEDs on.
                 // Constant mode therefore always needs an explicit bank On after brightness is prepared.

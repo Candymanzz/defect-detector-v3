@@ -249,6 +249,75 @@ public sealed class IsolatedComPortLight : IDisposable
         return FireFlash();
     }
 
+    /// <summary>
+    /// Обновить яркость отдельных каналов на уже открытой COM-сессии банка.
+    /// Не открывает вторую сессию (в отличие от legacy ApplyComPort).
+    /// </summary>
+    public (bool ok, string? message) ApplyChannelBrightness(int[] updateChannels, int[] powers, bool turnOn = true)
+    {
+        if (updateChannels.Length == 0 || powers.Length != updateChannels.Length)
+            return (false, $"{ComPort}: channels/brightness length mismatch.");
+
+        var (ready, readyErr) = EnsureOpenCore();
+        if (!ready)
+            return (false, readyErr);
+
+        int[] merged = _lastAppliedBrightness is { Length: > 0 } && _lastAppliedBrightness.Length == Channels.Length
+            ? (int[])_lastAppliedBrightness.Clone()
+            : Enumerable.Repeat(255, Channels.Length).ToArray();
+
+        for (int i = 0; i < updateChannels.Length; i++)
+        {
+            int idx = Array.IndexOf(Channels, updateChannels[i]);
+            if (idx < 0)
+                return (false, $"{ComPort}: канал {updateChannels[i]} не в device channels [{string.Join(",", Channels)}].");
+            merged[idx] = powers[i];
+        }
+
+        return turnOn ? ApplyOn(merged) : WriteBrightness(merged);
+    }
+
+    /// <summary>Только яркость в регистрах (без On) — как Ethernet bank WriteBrightness.</summary>
+    public (bool ok, string? message) WriteBrightness(int[] brightness)
+    {
+        var (ready, readyErr) = EnsureOpenCore();
+        if (!ready)
+            return (false, readyErr);
+
+        if (_device == null || _flashPlan == null)
+            return (false, $"{ComPort}: не открыт");
+
+        int[] powers = brightness.Length == Channels.Length
+            ? brightness
+            : PadBrightness(brightness, Channels.Length);
+
+        MvLeFlashSyncPlan plan = ClonePlan(_flashPlan);
+        plan.UseSdkLock = !_options.DisableSdkLock;
+        if (!MvLeFlashSync.WriteChannelsBrightnessOnly(
+                _device,
+                _portSync,
+                plan.UseSdkLock,
+                Channels,
+                powers,
+                out int failCh))
+        {
+            return (false, $"{ComPort}: brightness ch{failCh}");
+        }
+
+        _lastAppliedBrightness = (int[])powers.Clone();
+        _log.LogInformation("{ComPort}: brightness powers=[{P}]", ComPort, string.Join(",", powers));
+        return (true, "brightness");
+    }
+
+    private static int[] PadBrightness(int[] brightness, int len)
+    {
+        var outArr = new int[len];
+        Array.Fill(outArr, 255);
+        for (int i = 0; i < Math.Min(brightness.Length, len); i++)
+            outArr[i] = brightness[i];
+        return outArr;
+    }
+
     private bool BrightnessMatchesLast(int[] brightness)
     {
         if (_lastAppliedBrightness == null || _lastAppliedBrightness.Length != brightness.Length)

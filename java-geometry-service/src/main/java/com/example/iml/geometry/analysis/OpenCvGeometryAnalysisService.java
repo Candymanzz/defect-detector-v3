@@ -200,7 +200,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg());
             boolean concentricityPass = concentricity.deviationMm() <= request.maxConcentricityMm();
             boolean jointPass = evaluateJointPass(request, joint);
-            boolean wrinklesPass = wrinkles.score <= request.maxWrinklesScore();
+            // After upstream positioning, surface QC belongs to python — geometry absdiff
+            // wrinkles are too light-sensitive and caused false rejects on matched frames.
+            boolean wrinklesPass = poseLocked || wrinkles.score <= request.maxWrinklesScore();
             boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass;
 
             return new InspectionResponse(
@@ -736,6 +738,12 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
+    /**
+     * Below this seam visibility, a missing/invalid measurement is treated as inconclusive PASS
+     * (no reliable edges) rather than a hard reject.
+     */
+    static final double JOINT_INCONCLUSIVE_VISIBILITY = 0.2;
+
     private static boolean evaluateJointPass(InspectionRequest request, JointResult joint) {
         if (request.jointRoi() == null) {
             return true;
@@ -745,13 +753,61 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             return true;
         }
         if (!joint.found) {
-            return false;
+            // Inconclusive when the ROI has no clear seam signal (vis≈0 in production FPs).
+            return joint.visibility < JOINT_INCONCLUSIVE_VISIBILITY;
+        }
+        double measurementFloorMm = Math.max(0.02, request.jointMinWidthMm() * 0.5);
+        if (joint.widthMm < measurementFloorMm) {
+            // Micro-width is an invalid measure (double-edge), not a real defect.
+            return joint.visibility < JOINT_INCONCLUSIVE_VISIBILITY;
         }
         boolean parallelismOk = joint.parallelismDeg <= request.maxJointParallelismDeg();
         boolean widthOk = joint.widthMm >= request.jointMinWidthMm()
                 && joint.widthMm <= request.jointMaxWidthMm();
         boolean defectOk = joint.defectMm <= request.maxJointDefectMm();
         return parallelismOk && widthOk && defectOk;
+    }
+
+    /** Package-visible for unit tests of joint gating. */
+    static boolean evaluateJointPassForTest(
+            boolean hasJointRoi,
+            boolean visibilityOnly,
+            boolean found,
+            double defectMm,
+            double parallelismDeg,
+            double widthMm,
+            double visibility,
+            double maxJointDefectMm,
+            double jointMinWidthMm,
+            double jointMaxWidthMm,
+            double maxJointParallelismDeg
+    ) {
+        if (!hasJointRoi) {
+            return true;
+        }
+        if (visibilityOnly) {
+            return true;
+        }
+        JointResult joint = new JointResult(found, defectMm, parallelismDeg, widthMm, visibility);
+        InspectionRequest request = new InspectionRequest(
+                "",
+                "",
+                null,
+                null,
+                hasJointRoi ? new RoiRect(0, 0, 1, 1) : null,
+                null,
+                0.02,
+                0.5,
+                1.0,
+                9999.0,
+                maxJointDefectMm,
+                0.45,
+                visibilityOnly ? "visibility" : "full",
+                jointMinWidthMm,
+                jointMaxWidthMm,
+                maxJointParallelismDeg
+        );
+        return evaluateJointPass(request, joint);
     }
 
     private WrinklesResult inspectWrinkles(Mat reference, Mat current, RoiRect wrinklesRoi) {

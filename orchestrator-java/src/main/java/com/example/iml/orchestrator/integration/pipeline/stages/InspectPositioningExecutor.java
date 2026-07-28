@@ -183,7 +183,10 @@ public final class InspectPositioningExecutor {
             putIfPresent(captureHeader, "positioning_diagnostics", resp.header().get("diagnostics"));
         }
 
-        if (alignedWritten && resp != null) {
+        // Только при overallPass: иначе в SHM может лежать raw/битый кадр, а Python
+        // получит identity H и даст anomaly=1.0. При FAIL идём с исходным capture
+        // (как в комментарии java_positioning: «при неудачном align — исходный кадр»).
+        if (ok && alignedWritten && resp != null) {
             String outName = String.valueOf(resp.header().getOrDefault("output_shm_name", "")).trim();
             if (outName.isEmpty()) {
                 outName = String.valueOf(resp.header().getOrDefault("shm_name", "")).trim();
@@ -205,6 +208,14 @@ public final class InspectPositioningExecutor {
                         "camera_id", cameraId
                 ));
             }
+        } else if (alignedWritten && !ok && log != null) {
+            log.info(
+                    "positioning fallback_to_raw cam={} frame={} status={} absdiff={} — not marking aligned for python",
+                    cameraId,
+                    captureHeader.get("frame_id"),
+                    captureHeader.get("positioning_status"),
+                    captureHeader.get("positioning_final_absdiff")
+            );
         }
 
         if (resp != null && resp.header() != null) {

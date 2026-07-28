@@ -26,9 +26,10 @@ class LightServersConfigTest {
         root.put("light_servers", ls);
         root.put("cameras", List.of(
                 Map.of("id", 0, "enabled", true),
+                Map.of("id", 2, "enabled", true),
                 Map.of("id", 3, "enabled", true),
-                Map.of("id", 8, "enabled", true),
-                Map.of("id", 9, "enabled", true)
+                Map.of("id", 7, "enabled", true),
+                Map.of("id", 8, "enabled", true)
         ));
 
         LightServersConfig cfg = LightServersConfig.fromRootYaml(root);
@@ -37,12 +38,13 @@ class LightServersConfigTest {
         assertEquals("http://127.0.0.1:5080/api/com/light", cfg.offUrl());
         assertEquals("http://127.0.0.1:5080/api/camera-flash/pair", cfg.brightnessPairUrl());
         assertEquals("http://127.0.0.1:5080/api/camera-flash/single", cfg.brightnessSingleUrl());
-        // id 8–9 — COM single (центральные вспышки).
-        assertEquals(4, cfg.cameras().size());
+        // id 2 и 7 — COM single (центральные вспышки).
+        assertEquals(5, cfg.cameras().size());
         assertEquals(LightServersConfig.FlashMode.PAIR, cfg.camera(0).mode());
+        assertEquals(LightServersConfig.FlashMode.SINGLE, cfg.camera(2).mode());
         assertEquals(LightServersConfig.FlashMode.PAIR, cfg.camera(3).mode());
-        assertEquals(LightServersConfig.FlashMode.SINGLE, cfg.camera(8).mode());
-        assertEquals(LightServersConfig.FlashMode.SINGLE, cfg.camera(9).mode());
+        assertEquals(LightServersConfig.FlashMode.SINGLE, cfg.camera(7).mode());
+        assertEquals(LightServersConfig.FlashMode.PAIR, cfg.camera(8).mode());
     }
 
     @Test
@@ -74,6 +76,8 @@ class LightServersConfigTest {
 
         assertEquals(1, cfg.cameras().size());
         assertEquals(2, cfg.camera(2).cameraId());
+        assertEquals(LightServersConfig.FlashMode.SINGLE, cfg.camera(2).mode());
+        assertEquals(3, cfg.camera(2).cameraNumber());
         assertEquals(80, cfg.camera(2).brightnessPercent());
     }
 

@@ -54,7 +54,48 @@ class LabelSeamAnalyzerTest {
         Mat roi = new Mat(120, 120, CvType.CV_8UC3, new Scalar(40, 40, 40));
         try {
             LabelSeamAnalyzer.Result result = LabelSeamAnalyzer.analyze(roi, 0.02, 0.5, 3.0);
+            assertTrue(!result.found(), "empty ROI must not report a seam");
             assertTrue(result.visibility() < 0.2, "visibility=" + result.visibility());
+        } finally {
+            roi.release();
+        }
+    }
+
+    @Test
+    void cannyDoubleEdgeMicroGapIsNotTreatedAsSeam() {
+        // Single thick stroke → Canny often yields ~2–5 px parallel edges (false seam).
+        Mat roi = new Mat(160, 200, CvType.CV_8UC3, new Scalar(30, 30, 30));
+        try {
+            Imgproc.line(roi, new Point(100, 10), new Point(100, 150), new Scalar(220, 220, 220), 4);
+            LabelSeamAnalyzer.Result result = LabelSeamAnalyzer.analyze(roi, 0.02, 0.5, 3.0);
+            assertTrue(
+                    !result.found() || result.widthMm() >= 0.25,
+                    "micro double-edge must not count as a valid seam widthMm=" + result.widthMm()
+            );
+            if (!result.found()) {
+                assertEquals(9999.0, result.defectMm(), 1e-6);
+            }
+        } finally {
+            roi.release();
+        }
+    }
+
+    @Test
+    void realSeamPreferredOverNearbyDoubleEdge() {
+        double pixelsToMm = 0.02;
+        int gapPx = 40;
+        Mat roi = syntheticSeam(200, 160, 0.0, gapPx);
+        try {
+            // Extra thick stroke that can produce a micro-gap pair — must not win.
+            Imgproc.line(roi, new Point(20, 20), new Point(20, 140), new Scalar(220, 220, 220), 5);
+            LabelSeamAnalyzer.Result result = LabelSeamAnalyzer.analyze(roi, pixelsToMm, 0.5, 3.0);
+            assertTrue(result.found(), "expected real seam edges");
+            assertTrue(
+                    result.widthMm() >= 0.5 && result.widthMm() <= 3.0,
+                    "width must stay in seam band, got " + result.widthMm()
+            );
+            assertTrue(result.widthMm() > 0.25, "must not pick micro double-edge");
+            assertEquals(0.0, result.defectMm(), 1e-6);
         } finally {
             roi.release();
         }

@@ -21,7 +21,7 @@ function Send-LightBankOff {
             Write-Host "LightServer bank Off отправлен." -ForegroundColor DarkYellow
         }
     } catch {
-        # LightServer уже не слушает — ок
+        # LightServer already not listening - ok
     }
 }
 

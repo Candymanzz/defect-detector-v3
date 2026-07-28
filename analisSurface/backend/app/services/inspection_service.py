@@ -554,7 +554,47 @@ class InspectionService:
         diff_q90 = float(np.percentile(zone_diff, 90))
         diff_max = float(np.max(zone_diff))
         active_ratio = float(np.mean(zone_active))
-        score = float(np.clip((diff_q90 / 255.0) * 0.8 + (diff_max / 255.0) * 0.2 + active_ratio * 1.2, 0.0, 1.0))
+        score = self._activity_score(diff_q90, diff_max, active_ratio)
+        return {"diff_q90": diff_q90, "diff_max": diff_max, "active_ratio": active_ratio, "score": score}
+
+    @staticmethod
+    def _activity_score(diff_q90: float, diff_max: float, active_ratio: float) -> float:
+        """Свести метрики активности в score 0..1 без мгновенного насыщения до 1.0.
+
+        Раньше active_ratio*1.2 зажимал score в 1.0 уже при ~80% маски — любой
+        умеренный шум/свет давал вечный БРАК независимо от силы diff.
+        """
+        return float(
+            np.clip(
+                (diff_q90 / 255.0) * 0.55
+                + (diff_max / 255.0) * 0.20
+                + float(active_ratio) * 0.35,
+                0.0,
+                1.0,
+            )
+        )
+
+    def _measure_zone_activity_mask(
+        self,
+        diff_map: np.ndarray,
+        segmentation_mask: np.ndarray,
+        region_mask: np.ndarray,
+    ) -> dict[str, float]:
+        """Метрики активности строго по region_mask (без bbox-аппроксимации)."""
+        if region_mask is None or not np.any(region_mask):
+            return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
+
+        diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+        seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
+        zone_diff = diff_gray[region_mask]
+        zone_active = seg_gray[region_mask] > 0
+        if zone_diff.size == 0:
+            return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
+
+        diff_q90 = float(np.percentile(zone_diff, 90))
+        diff_max = float(np.max(zone_diff))
+        active_ratio = float(np.mean(zone_active))
+        score = self._activity_score(diff_q90, diff_max, active_ratio)
         return {"diff_q90": diff_q90, "diff_max": diff_max, "active_ratio": active_ratio, "score": score}
 
     def _score_region(
@@ -570,7 +610,9 @@ class InspectionService:
         masked_diff = diff_map.copy()
         masked_diff[~region_mask] = 0
         score, _ = self._run_anomaly_model(masked_diff, settings)
-        activity = self._measure_zone_activity(diff_map, segmentation_mask, self._mask_to_norm_points(region_mask))
+        # Важно: считать activity по реальной маске ROI, а не по bbox-полигону —
+        # bbox раздувает зону и завышает active_ratio вне ROI.
+        activity = self._measure_zone_activity_mask(diff_map, segmentation_mask, region_mask)
         blended = float(max(score, activity["score"]))
         return blended
 
@@ -725,9 +767,16 @@ class InspectionService:
     ) -> np.ndarray:
         """Привести current к системе координат reference.
 
-        Приоритет: гомография от java-geometry → ORB-матчи + findHomography → resize.
-        После warp всегда ECC-подстройка микросдвига.
+        Приоритет: гомография от java-geometry/positioning → ORB-матчи + findHomography → resize.
+        Если кадр уже выровнен upstream (identity H от positioning) — не трогаем:
+        повторный warp+ECC на фоне разницы яркости ломает совмещение и раздувает diff до 1.0.
+        Иначе после нетривиального warp — ECC-подстройка микросдвига.
         """
+        if self._is_identity_homography(alignment_h_ref_to_cur):
+            if current.shape[:2] != reference.shape[:2]:
+                return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            return current
+
         geometry_aligned = self._align_with_geometry_homography(
             current,
             reference,
@@ -765,6 +814,24 @@ class InspectionService:
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
         return self._refine_alignment_ecc(aligned, reference)
+
+    @staticmethod
+    def _is_identity_homography(
+        alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]],
+        atol: float = 1e-6,
+    ) -> bool:
+        """True если оркестратор передал identity (кадр уже в системе эталона)."""
+        if alignment_h_ref_to_cur is None:
+            return False
+        try:
+            homography = np.asarray(alignment_h_ref_to_cur, dtype=np.float64)
+            if homography.size == 9:
+                homography = homography.reshape(3, 3)
+            if homography.shape != (3, 3) or not np.all(np.isfinite(homography)):
+                return False
+            return bool(np.allclose(homography, np.eye(3), atol=atol, rtol=0.0))
+        except (TypeError, ValueError):
+            return False
 
     @staticmethod
     def _align_with_geometry_homography(

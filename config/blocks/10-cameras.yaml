@@ -1,10 +1,10 @@
 cameras:
-  # Топология: 5 коммутаторов × 2 камеры — пары id на одном коммутаторе: 0+1, 2+3, 4+5, 6+7, 8+9.
+  # Топология: 5 коммутаторов × 2 камеры — пары id на одном коммутаторе (после переноса IP): 0+3, 1+4, 2+8, 5+9, 6+7.
   # id в ПО ↔ LAN на линии. IP должны совпадать в config.json.
   - id: 0
     enabled: true
     inspection_enabled: true
-    ip: "169.254.218.1"
+    ip: "169.254.222.4"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -14,7 +14,7 @@ cameras:
   - id: 1
     enabled: true
     inspection_enabled: true
-    ip: "169.254.218.2"
+    ip: "169.254.146.5"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -24,7 +24,7 @@ cameras:
   - id: 2
     enabled: true
     inspection_enabled: true
-    ip: "169.254.222.3"
+    ip: "169.254.220.9"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -34,7 +34,7 @@ cameras:
   - id: 3
     enabled: true
     inspection_enabled: true
-    ip: "169.254.222.4"
+    ip: "169.254.222.3"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -44,7 +44,7 @@ cameras:
   - id: 4
     enabled: true
     inspection_enabled: true
-    ip: "169.254.146.5"
+    ip: "169.254.146.6"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -54,7 +54,7 @@ cameras:
   - id: 5
     enabled: true
     inspection_enabled: true
-    ip: "169.254.146.6"
+    ip: "169.254.6.7"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -64,7 +64,7 @@ cameras:
   - id: 6
     enabled: true
     inspection_enabled: true
-    ip: "169.254.6.7"
+    ip: "169.254.218.1"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -74,7 +74,7 @@ cameras:
   - id: 7
     enabled: true
     inspection_enabled: true
-    ip: "169.254.6.8"
+    ip: "169.254.218.2"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -84,7 +84,7 @@ cameras:
   - id: 8
     enabled: true
     inspection_enabled: true
-    ip: "169.254.220.9"
+    ip: "169.254.220.10"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -94,7 +94,7 @@ cameras:
   - id: 9
     enabled: true
     inspection_enabled: true
-    ip: "169.254.220.10"
+    ip: "169.254.6.8"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"

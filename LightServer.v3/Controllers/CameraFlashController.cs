@@ -11,15 +11,18 @@ public sealed class CameraFlashController : ControllerBase
     private readonly LightControlService _light;
     private readonly LightHardwareRegistry _hardware;
     private readonly EthernetMvLeBank _ethernetBank;
+    private readonly ComLightIsolatedBank _comBank;
 
     public CameraFlashController(
         LightControlService light,
         LightHardwareRegistry hardware,
-        EthernetMvLeBank ethernetBank)
+        EthernetMvLeBank ethernetBank,
+        ComLightIsolatedBank comBank)
     {
         _light = light;
         _hardware = hardware;
         _ethernetBank = ethernetBank;
+        _comBank = comBank;
     }
 
     /// <summary>
@@ -41,16 +44,7 @@ public sealed class CameraFlashController : ControllerBase
 
         if (target.ComPort != null)
         {
-            var (ok, error) = _light.ApplyComPort(
-                new LightCommandRequestCom
-                {
-                    ComPort = target.ComPort,
-                    LightControllerSource = "On",
-                    Channels = channels,
-                    Brightness = brightness
-                },
-                defaultChannels: channels);
-
+            var (ok, error) = ApplyComViaIsolatedBank(target.ComPort, channels, brightness);
             if (ok)
                 CameraFlashBrightnessCache.RememberCom(target.ComPort, channels, brightness);
 
@@ -60,7 +54,7 @@ public sealed class CameraFlashController : ControllerBase
                     success = true,
                     cameraNumber = request.CameraNumber,
                     deviceId = target.DeviceId,
-                    route = "com",
+                    route = "com-bank",
                     comPort = target.ComPort,
                     channels,
                     brightness
@@ -70,7 +64,7 @@ public sealed class CameraFlashController : ControllerBase
                     success = false,
                     cameraNumber = request.CameraNumber,
                     deviceId = target.DeviceId,
-                    route = "com",
+                    route = "com-bank",
                     comPort = target.ComPort,
                     channels,
                     brightness,
@@ -191,15 +185,7 @@ public sealed class CameraFlashController : ControllerBase
         if (target.ComPort == null)
             return BadRequest(new { success = false, error = $"cameraNumber {request.CameraNumber}: single поддерживает только COM-устройства." });
 
-        var (ok, error) = _light.ApplyComPort(
-            new LightCommandRequestCom
-            {
-                ComPort = target.ComPort,
-                LightControllerSource = "On",
-                Channels = channels,
-                Brightness = brightness
-            },
-            defaultChannels: channels);
+        var (ok, error) = ApplyComViaIsolatedBank(target.ComPort, channels, brightness);
 
         if (ok)
             CameraFlashBrightnessCache.RememberCom(target.ComPort, channels, brightness);
@@ -210,7 +196,7 @@ public sealed class CameraFlashController : ControllerBase
                 success = true,
                 cameraNumber = request.CameraNumber,
                 deviceId = target.DeviceId,
-                route = "com",
+                route = "com-bank",
                 comPort = target.ComPort,
                 channels,
                 brightness
@@ -220,13 +206,17 @@ public sealed class CameraFlashController : ControllerBase
                 success = false,
                 cameraNumber = request.CameraNumber,
                 deviceId = target.DeviceId,
-                route = "com",
+                route = "com-bank",
                 comPort = target.ComPort,
                 channels,
                 brightness,
                 error
             });
     }
+
+    /// <summary>COM через IsolatedBank (уже открытая сессия), без второго Open в ApplyComPort.</summary>
+    private (bool ok, string? error) ApplyComViaIsolatedBank(string comPort, int[] channels, int[] brightness) =>
+        _comBank.ApplyChannelBrightness(comPort, channels, brightness, turnOn: true);
 
     /// <summary>Загруженные camera_routes (для отладки, без перезапуска сервера).</summary>
     [HttpGet("routes")]

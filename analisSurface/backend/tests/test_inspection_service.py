@@ -47,6 +47,48 @@ def test_inspect_detects_large_difference(inspection_service: InspectionService,
     assert result.anomaly_score >= result.threshold
 
 
+def test_identity_homography_skips_realign(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    assert inspection_service._is_identity_homography(identity)
+    assert not inspection_service._is_identity_homography([1.0, 0.0, 5.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
+
+    aligned = inspection_service._align_to_reference(
+        gray_frame.copy(),
+        gray_frame,
+        "bench",
+        alignment_h_ref_to_cur=identity,
+    )
+    assert np.array_equal(aligned, gray_frame)
+
+
+def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
+    # Раньше active_ratio*1.2 давал 1.0 уже при ~0.84 покрытия маски.
+    score = InspectionService._activity_score(diff_q90=40.0, diff_max=80.0, active_ratio=0.85)
+    assert score < 1.0
+    assert score > 0.3
+
+
+def test_score_region_uses_real_mask_not_bbox(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
+    h, w = gray_frame.shape[:2]
+    region_mask = np.zeros((h, w), dtype=bool)
+    # Узкий треугольник: bbox намного больше самой ROI.
+    region_mask[10:50, 20:25] = True
+    region_mask[10:30, 25:40] = True
+
+    diff_map = np.zeros_like(gray_frame)
+    # Сильный diff только ВНЕ треугольника, но ВНУТРИ bbox — раньше раздувал score.
+    diff_map[10:50, 40:70] = (0, 0, 255)
+    segmentation_mask = diff_map.copy()
+
+    score = inspection_service._score_region(
+        diff_map,
+        segmentation_mask,
+        region_mask,
+        inspection_service.get_analysis_settings("bench"),
+    )
+    assert score < 0.2
+
+
 def test_set_and_get_reference(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     inspection_service.set_reference_frame("product-a", gray_frame)
     stored = inspection_service.get_reference("product-a")

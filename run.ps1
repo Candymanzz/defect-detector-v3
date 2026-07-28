@@ -107,7 +107,7 @@ Write-Host "  WS  : ws://127.0.0.1:8765" -ForegroundColor Gray
 if (-not $NoFrontend) {
     Write-Host "  UI  : http://localhost:5173 (autostart by orchestrator)" -ForegroundColor Gray
 }
-Write-Host "  IoInputMonitor + LightServer + analisSurface — autostart by orchestrator" -ForegroundColor Gray
+Write-Host "  IoInputMonitor + LightServer + analisSurface - autostart by orchestrator" -ForegroundColor Gray
 Write-Host ""
 
 try {

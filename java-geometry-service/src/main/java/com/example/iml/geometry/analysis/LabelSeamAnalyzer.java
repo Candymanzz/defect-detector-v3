@@ -11,6 +11,9 @@ import java.util.List;
 
 /**
  * Контроль шва этикетки внутри joint ROI: две кромки → параллельность, ширина, видимость.
+ *
+ * <p>Пары линий скорятся с учётом ожидаемой ширины шва, чтобы Canny double-edge
+ * (микрозазор ~2–5 px) не выигрывал у реального стыка.
  */
 public final class LabelSeamAnalyzer {
 
@@ -18,6 +21,8 @@ public final class LabelSeamAnalyzer {
     private static final double CANNY_HIGH = 150.0;
     private static final double MAX_PAIR_ANGLE_DEG = 25.0;
     private static final int MAX_CANDIDATE_LINES = 24;
+    /** Absolute floor so near-coincident edges are never treated as a seam. */
+    private static final double ABS_MIN_PAIR_DIST_PX = 2.0;
 
     private LabelSeamAnalyzer() {
     }
@@ -38,6 +43,14 @@ public final class LabelSeamAnalyzer {
         if (bgrRoi == null || bgrRoi.empty() || bgrRoi.cols() < 8 || bgrRoi.rows() < 8) {
             return Result.empty(0.0);
         }
+        double safePixelsToMm = pixelsToMm > 1e-9 ? pixelsToMm : 0.02;
+        double minWidthPx = Math.max(0.0, minWidthMm) / safePixelsToMm;
+        double maxWidthPx = Math.max(minWidthPx, Math.max(0.0, maxWidthMm) / safePixelsToMm);
+        // Reject Canny double-edges: require at least half of configured min seam width.
+        double minPairDistPx = Math.max(ABS_MIN_PAIR_DIST_PX, 0.5 * minWidthPx);
+        double maxPairDistPx = maxWidthPx > 0.0 ? maxWidthPx * 1.25 : Double.POSITIVE_INFINITY;
+        double midBandPx = (minWidthPx + maxWidthPx) * 0.5;
+
         Mat gray = new Mat();
         Mat edges = new Mat();
         Mat closed = new Mat();
@@ -71,15 +84,23 @@ public final class LabelSeamAnalyzer {
                 lines = new ArrayList<>(lines.subList(0, MAX_CANDIDATE_LINES));
             }
 
-            SeamPair best = findBestPair(lines);
+            SeamPair best = findBestPair(lines, minPairDistPx, maxPairDistPx, midBandPx);
+            double fallbackVisibility = clamp01(edgeDensity * 4.0);
             if (best == null) {
-                return Result.empty(clamp01(edgeDensity * 4.0));
+                return Result.empty(fallbackVisibility);
             }
 
             double widthPx = best.distancePx();
-            double widthMm = widthPx * pixelsToMm;
+            double widthMm = widthPx * safePixelsToMm;
             double visibility = clamp01((best.a().length() + best.b().length()) / (2.0 * diagonal));
             visibility = Math.max(visibility, clamp01(edgeDensity * 3.0));
+
+            // Micro-width measurement is invalid (still a double-edge leak) — inconclusive, not a defect.
+            double measurementFloorMm = Math.max(safePixelsToMm * ABS_MIN_PAIR_DIST_PX, minWidthMm * 0.5);
+            if (widthMm < measurementFloorMm) {
+                return Result.empty(visibility);
+            }
+
             double defectMm;
             if (widthMm >= minWidthMm && widthMm <= maxWidthMm) {
                 defectMm = 0.0;
@@ -92,9 +113,14 @@ public final class LabelSeamAnalyzer {
         }
     }
 
-    private static SeamPair findBestPair(List<SeamLine> lines) {
+    private static SeamPair findBestPair(
+            List<SeamLine> lines,
+            double minPairDistPx,
+            double maxPairDistPx,
+            double midBandPx
+    ) {
         SeamPair best = null;
-        double bestScore = -1.0;
+        double bestScore = Double.NEGATIVE_INFINITY;
         for (int i = 0; i < lines.size(); i++) {
             SeamLine a = lines.get(i);
             for (int j = i + 1; j < lines.size(); j++) {
@@ -104,10 +130,12 @@ public final class LabelSeamAnalyzer {
                     continue;
                 }
                 double distancePx = distanceBetweenLines(a, b);
-                if (distancePx < 2.0) {
+                if (distancePx < minPairDistPx || distancePx > maxPairDistPx) {
                     continue;
                 }
-                double score = a.length() + b.length() + Math.min(distancePx, 80.0);
+                // Prefer long edges near the expected seam-width band; penalize outliers.
+                double widthPenalty = Math.abs(distancePx - midBandPx);
+                double score = a.length() + b.length() - widthPenalty;
                 if (score > bestScore) {
                     bestScore = score;
                     best = new SeamPair(a, b, angleDiff, distancePx);

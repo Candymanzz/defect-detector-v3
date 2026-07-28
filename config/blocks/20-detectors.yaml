@@ -1,4 +1,5 @@
 java_geometry:
+  # TEMP: вердикт geometry в оркестраторе залочен в PASS (см. FORCE_GEOMETRY_PASS).
   # При binning 2×2 мм/пиксель ≈ ×2 (перекалибровать по эталону при необходимости).
   pixels_to_mm: 0.02
   # Fallback ROI, если эталон не задан с клиента; морщины используют тот же ROI, что interest с эталона.

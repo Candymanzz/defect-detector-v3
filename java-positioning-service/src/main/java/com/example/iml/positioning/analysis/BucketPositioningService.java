@@ -306,7 +306,7 @@ public final class BucketPositioningService {
                             affine,
                             current.size(),
                             Imgproc.INTER_LINEAR,
-                            Core.BORDER_CONSTANT,
+                            Core.BORDER_REPLICATE,
                             new Scalar(0, 0, 0)
                     );
                     QualityScore qCand = measureQuality(
@@ -552,16 +552,18 @@ public final class BucketPositioningService {
                 );
             }
 
-            if (request.writeAligned() && !outputName.isEmpty() && working != null && !working.empty()) {
+            // Пишем aligned SHM только при удачном качестве. Иначе оркестратор/Python
+            // могут пометить кадр как pre-aligned (identity H) и получить ложный БРАК.
+            if (request.writeAligned()
+                    && !stillMisaligned
+                    && !outputName.isEmpty()
+                    && working != null
+                    && !working.empty()) {
                 long tWrite0 = System.nanoTime();
                 try {
-                    // Never publish a smeared failed warp to SHM/UI — keep the original capture.
-                    Mat toWrite = stillMisaligned ? current : working;
-                    shmWriter.writeBgrMat(outputName, toWrite);
+                    shmWriter.writeBgrMat(outputName, working);
                     alignedWritten = true;
-                    if (stillMisaligned) {
-                        diag.put("write_source", "raw_current_not_warped");
-                    }
+                    diag.put("write_source", "warped_working");
                 } catch (Exception e) {
                     writeError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
                     diag.put("write_error", writeError);
@@ -573,6 +575,8 @@ public final class BucketPositioningService {
                     );
                 }
                 stageMsWrite = nanosToMs(System.nanoTime() - tWrite0);
+            } else if (stillMisaligned) {
+                diag.put("write_source", "skipped_misaligned");
             }
 
             boolean withinSoftTolerance = matched
@@ -694,7 +698,7 @@ public final class BucketPositioningService {
                     warp,
                     current.size(),
                     Imgproc.INTER_LINEAR,
-                    Core.BORDER_CONSTANT,
+                    Core.BORDER_REPLICATE,
                     new Scalar(0, 0, 0)
             );
             Mat transferred = out;
@@ -1082,7 +1086,7 @@ public final class BucketPositioningService {
                             warp,
                             aligned.size(),
                             Imgproc.INTER_LINEAR | Imgproc.WARP_INVERSE_MAP,
-                            Core.BORDER_CONSTANT,
+                            Core.BORDER_REPLICATE,
                             new Scalar(0, 0, 0)
                     );
                     Mat transferred = refined;

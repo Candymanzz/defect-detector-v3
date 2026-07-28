@@ -438,7 +438,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 header.get("reference_shm_offset"),
                 header.get("reference_width"),
                 header.get("reference_height"),
-                header.get("reference_stride")
+                header.get("reference_stride"),
+                referenceContentFingerprint(header, String.valueOf(referenceShmName), cameraId)
         );
         String cacheKey = runtimeKey(productType, cameraId);
         if (expectedSignature.equals(SHARED_REFERENCE_SIGNATURES.get(cacheKey))) {
@@ -897,7 +898,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 header.get("shm_offset"),
                 header.get("width"),
                 header.get("height"),
-                header.get("stride")
+                header.get("stride"),
+                referenceContentFingerprint(header, shmName, cameraId)
         );
         SHARED_REFERENCE_SIGNATURES.put(runtimeKey(productType, cameraId), signature);
     }
@@ -931,7 +933,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             Object shmOffset,
             Object width,
             Object height,
-            Object stride
+            Object stride,
+            String contentFingerprint
     ) {
         return String.join(
                 "|",
@@ -939,8 +942,34 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 String.valueOf(shmOffset),
                 String.valueOf(width),
                 String.valueOf(height),
-                String.valueOf(stride)
+                String.valueOf(stride),
+                contentFingerprint == null ? "" : contentFingerprint
         );
+    }
+
+    /**
+     * Без fingerprint перезапись эталона в тот же SHM (те же width/height) не триггерит
+     * re-upload → Python сравнивает новый кадр со старым эталоном → anomaly=1.0.
+     */
+    private static String referenceContentFingerprint(Map<String, Object> header, String shmName, int cameraId) {
+        Object explicit = header == null ? null : header.get("reference_content_fingerprint");
+        if (explicit != null) {
+            String value = String.valueOf(explicit).trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        try {
+            Path path = FrameJpegWriter.resolveShmPath(shmName, cameraId);
+            if (path == null || !java.nio.file.Files.isRegularFile(path)) {
+                return "missing";
+            }
+            return java.nio.file.Files.getLastModifiedTime(path).toMillis()
+                    + ":"
+                    + java.nio.file.Files.size(path);
+        } catch (Exception e) {
+            return "err";
+        }
     }
 
     private static String roiSignature(List<Map<String, Object>> points) {
