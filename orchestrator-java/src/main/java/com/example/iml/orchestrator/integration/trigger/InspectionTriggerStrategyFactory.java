@@ -1,9 +1,11 @@
 package com.example.iml.orchestrator.integration.trigger;
 
+import com.example.iml.orchestrator.integration.trigger.api.InspectionTriggerStrategy;
+
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
-import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
-import com.example.iml.orchestrator.integration.trigger.strategy.ContinuousTriggerStrategy;
-import com.example.iml.orchestrator.integration.trigger.strategy.TimerTriggerStrategy;
+import com.example.iml.orchestrator.integration.trigger.impl.BusTriggerStrategyImpl;
+import com.example.iml.orchestrator.integration.trigger.impl.ContinuousTriggerStrategyImpl;
+import com.example.iml.orchestrator.integration.trigger.impl.TimerTriggerStrategyImpl;
 
 public final class InspectionTriggerStrategyFactory {
 
@@ -17,9 +19,9 @@ public final class InspectionTriggerStrategyFactory {
             IntegrationFeatureConfig.ContinuousInspectionConfig continuous
     ) {
         return switch (mode) {
-            case TIMER -> new TimerTriggerStrategy(devStub.intervalMs());
-            case CONTINUOUS -> new ContinuousTriggerStrategy(continuous.cycleDelayMs());
-            case EXTERNAL -> new BusTriggerStrategy(bus);
+            case TIMER -> new TimerTriggerStrategyImpl(devStub.intervalMs());
+            case CONTINUOUS -> new ContinuousTriggerStrategyImpl(continuous.cycleDelayMs());
+            case EXTERNAL -> new BusTriggerStrategyImpl(bus);
         };
     }
 }

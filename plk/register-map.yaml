@@ -170,7 +170,7 @@ timeouts:
     unit: 100ms
     source_csv: "25_247_MAP - Настройки.csv"
 
-  - name: conveyor_cycle_watch_timeout
+  - name: chose_cycle_mode_timeout
     description: Переключение или ручки или метал
     area: DM
     address: 4405

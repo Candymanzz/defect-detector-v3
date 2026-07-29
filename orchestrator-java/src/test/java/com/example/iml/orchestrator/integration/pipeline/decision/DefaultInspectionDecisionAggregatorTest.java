@@ -58,6 +58,26 @@ class DefaultInspectionDecisionAggregatorTest {
     }
 
     @Test
+    void captureOnlyWhenPythonReportsMissingReferenceAfterClear() {
+        InspectionDecision decision = aggregator.decide(
+                1,
+                capture,
+                message(BinaryProtocol.MSG_ERROR, Map.of(
+                        "status", "ERROR",
+                        "error", "inspect-shm: Reference for product_type 'bench-lan1#cam=0' is not set"
+                )),
+                message(BinaryProtocol.MSG_ERROR, Map.of(
+                        "status", "ERROR",
+                        "error", "geometry skipped: no reference snapshot"
+                ))
+        );
+
+        assertEquals("CAPTURE", decision.action());
+        assertEquals("NO_REFERENCE", decision.pythonStatus());
+        assertFalse(decision.overallPass());
+    }
+
+    @Test
     void rejectsMissingOrAmbiguousStageResponses() {
         assertFalse(aggregator.decide(1, capture, null, null).overallPass());
         assertTrue(aggregator.decide(

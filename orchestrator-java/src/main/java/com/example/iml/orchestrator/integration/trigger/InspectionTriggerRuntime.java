@@ -6,9 +6,9 @@ import com.example.iml.orchestrator.integration.trigger.config.InspectionTrigger
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.trigger.parse.IoInputDiChange;
-import com.example.iml.orchestrator.integration.trigger.transport.IoInputMonitorUdpTriggerTransport;
-import com.example.iml.orchestrator.integration.trigger.transport.TriggerTransport;
-import com.example.iml.orchestrator.integration.trigger.transport.UdpTriggerTransport;
+import com.example.iml.orchestrator.integration.trigger.impl.IoInputMonitorUdpTriggerTransportImpl;
+import com.example.iml.orchestrator.integration.trigger.api.TriggerTransport;
+import com.example.iml.orchestrator.integration.trigger.impl.UdpTriggerTransportImpl;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -24,12 +24,12 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
 
     private final InspectionTriggerBus bus;
     private final List<TriggerTransport> transports;
-    private final IoInputMonitorUdpTriggerTransport ioInputTransport;
+    private final IoInputMonitorUdpTriggerTransportImpl ioInputTransport;
 
     private InspectionTriggerRuntime(
             InspectionTriggerBus bus,
             List<TriggerTransport> transports,
-            IoInputMonitorUdpTriggerTransport ioInputTransport
+            IoInputMonitorUdpTriggerTransportImpl ioInputTransport
     ) {
         this.bus = bus;
         this.transports = transports;
@@ -124,12 +124,12 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             log.info("inspection trigger stagger enabled delay_ms={} cameras={}", captureTriggerStaggerMs, cameraIds.size());
         }
         List<TriggerTransport> transports = new ArrayList<>();
-        IoInputMonitorUdpTriggerTransport ioInputTransport = null;
+        IoInputMonitorUdpTriggerTransportImpl ioInputTransport = null;
         if (mode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
             InspectionTriggerConfig cfg = InspectionTriggerConfig.parse(integration);
             UdpTriggerConfig udp = cfg.udp();
             if (cfg.usesIoInputMonitor()) {
-                ioInputTransport = new IoInputMonitorUdpTriggerTransport(
+                ioInputTransport = new IoInputMonitorUdpTriggerTransportImpl(
                         log,
                         udp,
                         cfg.ioInput(),
@@ -140,7 +140,7 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
                 );
                 transports.add(ioInputTransport);
             } else if (udp.enabled()) {
-                transports.add(new UdpTriggerTransport(log, udp, bus));
+                transports.add(new UdpTriggerTransportImpl(log, udp, bus));
             } else {
                 log.warn("inspection_trigger mode=external but udp.enabled=false — no transport started");
             }
