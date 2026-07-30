@@ -62,6 +62,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     private final Logger log;
     private volatile ClientWebSocketServer clientWebSocketServer;
     private volatile FrameArchiveService frameArchiveService;
+    private volatile UiHttpServer uiServer;
+    private volatile Map<String, Object> uiCfg;
+    private volatile BinaryRpcSupervisor uiVisualsPython;
+    private volatile ExecutorService uiArtifactsExecutor;
     private final java.util.concurrent.atomic.LongAdder droppedUiPublishTasks = new java.util.concurrent.atomic.LongAdder();
     private final AtomicLong uiPublishSequence = new AtomicLong();
     private final ConcurrentHashMap<Integer, Long> latestUiPublishByCamera = new ConcurrentHashMap<>();
@@ -69,6 +73,21 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     public UiArtifactsSidecar(Logger log) {
         this.log = log;
+    }
+
+    /**
+     * Bind UI publish collaborators once at bootstrap (SPI no longer receives UiHttpServer per call).
+     */
+    public void bindPublishContext(
+            UiHttpServer uiServer,
+            Map<String, Object> uiCfg,
+            BinaryRpcSupervisor uiVisualsPython,
+            ExecutorService uiArtifactsExecutor
+    ) {
+        this.uiServer = uiServer;
+        this.uiCfg = uiCfg;
+        this.uiVisualsPython = uiVisualsPython;
+        this.uiArtifactsExecutor = uiArtifactsExecutor;
     }
 
     /**
@@ -180,10 +199,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     @Override
     public void scheduleAfterInspection(
-            UiHttpServer uiServer,
-            Map<String, Object> uiCfg,
-            BinaryRpcSupervisor uiVisualsPython,
-            ExecutorService uiArtifactsExecutor,
             int cameraId,
             String productType,
             String detectorId,
@@ -194,6 +209,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             BinaryProtocol.Message pyResp,
             BinaryProtocol.Message geometry
     ) {
+        UiHttpServer uiServer = this.uiServer;
+        Map<String, Object> uiCfg = this.uiCfg;
+        BinaryRpcSupervisor uiVisualsPython = this.uiVisualsPython;
+        ExecutorService uiArtifactsExecutor = this.uiArtifactsExecutor;
         if (capture == null) {
             return;
         }

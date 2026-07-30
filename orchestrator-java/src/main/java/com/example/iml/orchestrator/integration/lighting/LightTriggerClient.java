@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.example.iml.orchestrator.integration.pipeline.spi.CaptureLightingPort;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
@@ -19,7 +20,7 @@ import java.util.function.BooleanSupplier;
 /**
  * HTTP-триггер вспышек LightServer.v3: три типа URL — вкл, выкл, яркость ({@code /api/camera-flash/pair|single}).
  */
-public final class LightTriggerClient {
+public final class LightTriggerClient implements CaptureLightingPort {
 
     private static final Logger LOG = LogManager.getLogger(LightTriggerClient.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -365,12 +366,13 @@ public final class LightTriggerClient {
         lightOn(cameraId, frameId, phase);
     }
 
+    @Override
     public void runCaptureWithLighting(
             int cameraId,
             long frameId,
             String phase,
             int flashLeadMs,
-            CaptureStep captureStep
+            CaptureLightingPort.CaptureStep captureStep
     ) throws Exception {
         if (!enabled) {
             captureStep.run();
@@ -405,11 +407,6 @@ public final class LightTriggerClient {
                 sleepSettle();
             }
         }
-    }
-
-    @FunctionalInterface
-    public interface CaptureStep {
-        void run() throws Exception;
     }
 
     public boolean lightOn(int cameraId, long frameId, String phase) {

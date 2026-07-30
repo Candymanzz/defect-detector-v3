@@ -1,20 +1,18 @@
 package com.example.iml.orchestrator.integration.bootstrap.context.state;
 
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
-import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Workers / stream / reference snapshots per camera. */
+/** Workers / stream per camera. Reference snapshots live in PipelineReferenceRegistry. */
 public final class CameraWorkersState {
 
     private List<Map<String, Object>> activeCameras = List.of();
     private Map<Integer, WorkerProcessSupervisor> workersByCamera = new LinkedHashMap<>();
     private CameraStreamService cameraStreamService;
-    private Map<Integer, ReferenceSnapshot> referenceByCamera;
 
     public List<Map<String, Object>> activeCameras() {
         return activeCameras;
@@ -38,9 +36,5 @@ public final class CameraWorkersState {
 
     public void setCameraStreamService(CameraStreamService cameraStreamService) {
         this.cameraStreamService = cameraStreamService;
-    }
-
-    public Map<Integer, ReferenceSnapshot> referenceByCamera() {
-        return referenceByCamera;
     }
 }

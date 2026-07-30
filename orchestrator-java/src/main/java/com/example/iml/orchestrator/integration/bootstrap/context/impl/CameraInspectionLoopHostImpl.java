@@ -1,26 +1,23 @@
 package com.example.iml.orchestrator.integration.bootstrap.context.impl;
 
-import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfig;
 import com.example.iml.orchestrator.integration.bootstrap.context.CameraRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.AbstractCameraRuntimeHost;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.CameraInspectionLoopHost;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
-import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
-import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
-import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
+import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.pipeline.CameraInspectionDeps;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
-import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
-import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
+import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.trigger.api.InspectionTriggerStrategy;
-import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Адаптер: per-camera inspection loops. */
 public final class CameraInspectionLoopHostImpl extends AbstractCameraRuntimeHost implements CameraInspectionLoopHost {
@@ -55,83 +52,8 @@ public final class CameraInspectionLoopHostImpl extends AbstractCameraRuntimeHos
     }
 
     @Override
-    public List<BinaryRpcSupervisor> pythonPool() {
-        return processes().pythonPool();
-    }
-
-    @Override
-    public List<? extends ServiceProcessSupervisor> geometryPool() {
-        return processes().geometryPool();
-    }
-
-    @Override
-    public LightTriggerClient lightClient() {
-        return pipeline().lightClient();
-    }
-
-    @Override
-    public Map<String, Object> pythonCfg() {
-        return processes().pythonCfg();
-    }
-
-    @Override
-    public Map<String, Object> geometryCfg() {
-        return processes().geometryCfg();
-    }
-
-    @Override
-    public FanOutCoordinator fanOut() {
-        return health().fanOut();
-    }
-
-    @Override
-    public Map<Integer, ReferenceSnapshot> referenceByCamera() {
-        return workers().referenceByCamera();
-    }
-
-    @Override
-    public ExecutorService captureStageExecutor() {
-        return stages().captureStageExecutor();
-    }
-
-    @Override
-    public ExecutorService pythonStageExecutor() {
-        return stages().pythonStageExecutor();
-    }
-
-    @Override
-    public ExecutorService geometryStageExecutor() {
-        return stages().geometryStageExecutor();
-    }
-
-    @Override
-    public ExecutorService decisionStageExecutor() {
-        return stages().decisionStageExecutor();
-    }
-
-    @Override
-    public ExecutorService cameraExecutor() {
-        return stages().cameraExecutor();
-    }
-
-    @Override
-    public Map<String, Object> uiCfg() {
-        return processes().uiCfg();
-    }
-
-    @Override
-    public UiHttpServer uiServer() {
-        return ui().uiServer();
-    }
-
-    @Override
-    public BinaryRpcSupervisor uiVisualsPython() {
-        return ui().uiVisualsPython();
-    }
-
-    @Override
-    public ExecutorService uiArtifactsExecutor() {
-        return ui().uiArtifactsExecutor();
+    public InspectionPipeline inspectionPipeline() {
+        return pipeline().inspectionPipeline();
     }
 
     @Override
@@ -140,27 +62,42 @@ public final class CameraInspectionLoopHostImpl extends AbstractCameraRuntimeHos
     }
 
     @Override
-    public int flashLeadMs() {
-        return pipeline().flashLeadMs();
+    public java.util.concurrent.ExecutorService cameraExecutor() {
+        return stages().cameraExecutor();
     }
 
     @Override
-    public PipelineStagesLog pipelineStagesLog() {
-        return stages().pipelineStagesLog();
-    }
-
-    @Override
-    public PerCameraInspectionGate inspectionGate() {
-        return processes().inspectionGate();
-    }
-
-    @Override
-    public BucketInspectionAggregator bucketInspectionAggregator() {
-        return triggers().bucketInspectionAggregator();
-    }
-
-    @Override
-    public InspectionPipeline inspectionPipeline() {
-        return pipeline().inspectionPipeline();
+    public CameraInspectionDeps createInspectionDeps() {
+        Semaphore geometrySlots = new Semaphore(Math.max(1, processes().geometryPool().size()));
+        Semaphore pythonSlots = new Semaphore(Math.max(1, processes().pythonPool().size()));
+        PipelineReferenceRegistry registry = pipeline().pipelineReferenceRegistry();
+        Map<Integer, ReferenceSnapshot> refs =
+                registry != null ? registry.byCamera() : new ConcurrentHashMap<>();
+        long inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(integration());
+        return new CameraInspectionDeps(
+                processes().pythonPool(),
+                processes().geometryPool(),
+                pipeline().lightClient(),
+                processes().pythonCfg(),
+                processes().geometryCfg(),
+                health().fanOut(),
+                geometrySlots,
+                pythonSlots,
+                new AtomicInteger(0),
+                new AtomicInteger(0),
+                refs,
+                bootConfig().referenceSource(),
+                bootConfig().reloadReference(),
+                stages().captureStageExecutor(),
+                stages().pythonStageExecutor(),
+                stages().geometryStageExecutor(),
+                stages().decisionStageExecutor(),
+                ui().uiVisualsPython(),
+                pipeline().flashLeadMs(),
+                stages().pipelineStagesLog(),
+                processes().inspectionGate(),
+                inspectionCycleTimeoutMs,
+                triggers().bucketInspectionAggregator()
+        );
     }
 }

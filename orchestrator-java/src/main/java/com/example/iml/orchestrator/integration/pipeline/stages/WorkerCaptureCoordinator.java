@@ -6,11 +6,11 @@ import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureC
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.diagnostics.CaptureSyncDiagnostics;
-import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
+import com.example.iml.orchestrator.integration.pipeline.spi.CaptureLightingPort;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -77,7 +77,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             ReferenceSnapshot activeReference,
             int flashLeadMs,
             WorkerProcessSupervisor worker,
-            LightTriggerClient lightClient,
+            CaptureLightingPort lighting,
             ExecutorService captureStageExecutor,
             long triggerSequence,
             String debugLogSuffix
@@ -92,7 +92,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                             activeReference,
                             flashLeadMs,
                             worker,
-                            lightClient,
+                            lighting,
                             triggerSequence,
                             debugLogSuffix
                     ),
@@ -107,7 +107,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                         activeReference,
                         flashLeadMs,
                         worker,
-                        lightClient,
+                        lighting,
                         triggerSequence,
                         debugLogSuffix
                 ),
@@ -123,7 +123,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             ReferenceSnapshot activeReference,
             int flashLeadMs,
             WorkerProcessSupervisor worker,
-            LightTriggerClient lightClient,
+            CaptureLightingPort lighting,
             long triggerSequence,
             String debugLogSuffix
     ) {
@@ -145,7 +145,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                     : -1L;
             final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
             LineSynchronizedCaptureCoordinator lineCapture = lineCaptureCoordinator;
-            lightClient.runCaptureWithLighting(cameraId, refFrameId, "capture", flashLeadMs, () -> {
+            lighting.runCaptureWithLighting(cameraId, refFrameId, "capture", flashLeadMs, () -> {
                 try {
                     if (lineCapture != null && lineCapture.isEnabled() && triggerSequence > 0L) {
                         captureHolder[0] = lineCapture.captureForLine(triggerSequence, cameraId, worker);

@@ -3,11 +3,11 @@ package com.example.iml.orchestrator.integration.pipeline.reference;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
-import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
+import com.example.iml.orchestrator.integration.pipeline.spi.CaptureLightingPort;
 import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.integration.pipeline.spi.PipelineRunTelemetry;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
@@ -46,7 +46,7 @@ public final class ReferenceSnapshotBootstrap {
             boolean needCapture,
             ReferenceSnapshot existingSnapshot,
             WorkerProcessSupervisor worker,
-            LightTriggerClient lightClient,
+            CaptureLightingPort lighting,
             List<? extends BinaryRpcSupervisor> pythonPool,
             BinaryRpcSupervisor uiVisualsPython,
             int referenceRepeatCount,
@@ -64,7 +64,7 @@ public final class ReferenceSnapshotBootstrap {
         }
         long tRef0 = System.nanoTime();
         final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
-        lightClient.runCaptureWithLighting(cameraId, -1L, "reference", 0, () -> {
+        lighting.runCaptureWithLighting(cameraId, -1L, "reference", 0, () -> {
             captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
         });
         BinaryProtocol.Message referenceCapture = captureHolder[0];

@@ -511,3 +511,49 @@
 2026-07-30 09:10:39.694 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
 2026-07-30 09:10:39.697 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit4767253082765113409/light_brightness_settings.json default=42 endpoints=2
 2026-07-30 09:10:39.699 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit12043671678733969398/bom.json default=67 endpoints=1
+2026-07-30 11:44:19.818 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-07-30 11:44:19.819 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-30 11:44:19.821 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-30 11:44:19.834 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:19.841 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:19.841 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:19.842 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:19.845 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-30 11:44:19.845 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:19.925 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:19.946 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:19.949 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-30 11:44:19.949 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:19.949 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-30 11:44:20.029 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.030 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-30 11:44:20.100 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.106 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-30 11:44:20.107 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.107 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.108 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.110 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-30 11:44:20.110 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.113 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-30 11:44:20.113 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.113 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-30 11:44:20.114 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.314 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.316 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-30 11:44:20.318 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.320 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.322 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.323 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.323 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-30 11:44:20.410 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-30 11:44:20.424 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.427 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-30 11:44:20.427 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.429 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-30 11:44:20.430 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.430 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.433 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-30 11:44:20.433 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-30 11:44:20.433 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-30 11:44:20.440 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit5160482414676854584/light_brightness_settings.json default=42 endpoints=2
+2026-07-30 11:44:20.446 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit16072390642127752364/bom.json default=67 endpoints=1

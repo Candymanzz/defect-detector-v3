@@ -2,7 +2,6 @@ package com.example.iml.orchestrator.integration.pipeline.spi;
 
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
-import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -58,7 +57,7 @@ public interface CameraCaptureStage {
             ReferenceSnapshot activeReference,
             int flashLeadMs,
             WorkerProcessSupervisor worker,
-            LightTriggerClient lightClient,
+            CaptureLightingPort lighting,
             ExecutorService captureStageExecutor,
             long triggerSequence,
             String debugLogSuffix
@@ -71,7 +70,7 @@ public interface CameraCaptureStage {
             ReferenceSnapshot activeReference,
             int flashLeadMs,
             WorkerProcessSupervisor worker,
-            LightTriggerClient lightClient,
+            CaptureLightingPort lighting,
             long triggerSequence,
             String debugLogSuffix
     );

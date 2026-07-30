@@ -247,7 +247,6 @@ class AsyncInspectionCycleRunnerTest {
         ExecutorService geometryExec = trackedExecutor();
         ExecutorService pythonExec = trackedExecutor();
         ExecutorService decisionExec = trackedExecutor();
-        ExecutorService uiExec = trackedExecutor();
 
         var saveCaptures = new IntegrationFeatureConfig.SaveCapturesConfig(false, "testimage", 0.92f);
         return AsyncInspectionCycleInput.of(
@@ -274,10 +273,7 @@ class AsyncInspectionCycleRunnerTest {
                 pythonExec,
                 geometryExec,
                 decisionExec,
-                Map.of(),
                 null,
-                null,
-                uiExec,
                 0,
                 null,
                 1L,
@@ -320,7 +316,7 @@ class AsyncInspectionCycleRunnerTest {
                     ReferenceSnapshot activeReference,
                     int flashLeadMs,
                     com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor worker,
-                    com.example.iml.orchestrator.integration.lighting.LightTriggerClient lightClient,
+                    com.example.iml.orchestrator.integration.pipeline.spi.CaptureLightingPort lighting,
                     ExecutorService captureStageExecutor,
                     long triggerSequence,
                     String debugLogSuffix
@@ -338,7 +334,7 @@ class AsyncInspectionCycleRunnerTest {
                     ReferenceSnapshot activeReference,
                     int flashLeadMs,
                     com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor worker,
-                    com.example.iml.orchestrator.integration.lighting.LightTriggerClient lightClient,
+                    com.example.iml.orchestrator.integration.pipeline.spi.CaptureLightingPort lighting,
                     long triggerSequence,
                     String debugLogSuffix
             ) {
@@ -360,10 +356,6 @@ class AsyncInspectionCycleRunnerTest {
         AfterInspectionSidecar sidecar = new AfterInspectionSidecar() {
             @Override
             public void scheduleAfterInspection(
-                    com.example.iml.orchestrator.integration.ui.UiHttpServer uiServer,
-                    Map<String, Object> uiCfg,
-                    com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor uiVisualsPython,
-                    ExecutorService uiArtifactsExecutor,
                     int cameraId,
                     String productType,
                     String detectorId,

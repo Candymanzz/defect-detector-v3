@@ -47,7 +47,7 @@ public final class AsyncInspectionCycleRunner {
                 in.activeReference(),
                 in.flashLeadMs(),
                 in.worker(),
-                in.lightClient(),
+                in.lighting(),
                 in.captureStageExecutor(),
                 in.triggerSequence(),
                 "current capture"
@@ -134,10 +134,6 @@ public final class AsyncInspectionCycleRunner {
                 }
                 try {
                     svc.afterInspectionSidecar().scheduleAfterInspection(
-                            in.uiServer(),
-                            in.uiCfg(),
-                            in.uiVisualsPython(),
-                            in.uiArtifactsExecutor(),
                             in.cameraId(),
                             in.productType(),
                             in.detectorId(),
@@ -291,7 +287,7 @@ public final class AsyncInspectionCycleRunner {
                 in.activeReference(),
                 in.flashLeadMs(),
                 in.worker(),
-                in.lightClient(),
+                in.lighting(),
                 in.captureStageExecutor(),
                 in.triggerSequence(),
                 "capture without reference"
@@ -344,10 +340,6 @@ public final class AsyncInspectionCycleRunner {
             }
             try {
                 svc.afterInspectionSidecar().scheduleAfterInspection(
-                        in.uiServer(),
-                        in.uiCfg(),
-                        in.uiVisualsPython(),
-                        in.uiArtifactsExecutor(),
                         in.cameraId(),
                         in.productType(),
                         in.detectorId(),

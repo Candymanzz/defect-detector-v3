@@ -1,19 +1,14 @@
 package com.example.iml.orchestrator.integration.bootstrap.service.impl;
 
 import com.example.iml.orchestrator.integration.bootstrap.service.api.BootstrapInspectionFeatures;
-
 import com.example.iml.orchestrator.integration.bootstrap.service.api.CameraInspectionLoopRunner;
-
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
 import com.example.iml.orchestrator.integration.bootstrap.service.api.TriggerRuntimeBootstrap;
-
 import com.example.iml.orchestrator.integration.bootstrap.context.port.CameraInspectionLoopHost;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
-import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
-import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
-import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
+import com.example.iml.orchestrator.integration.pipeline.CameraInspectionDeps;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import org.apache.logging.log4j.Logger;
 
@@ -25,9 +20,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Только submit/await camera inspection tasks.
@@ -45,30 +38,23 @@ public final class CameraInspectionLoopRunnerImpl extends AbstractBootstrapServi
             TriggerRuntimeBootstrap.TriggerWireResult triggerWire,
             OrchestratorStopSignal stopSignal
     ) throws Exception {
-        Semaphore geometrySlots = new Semaphore(Math.max(1, ctx.geometryPool().size()));
-        Semaphore pythonSlots = new Semaphore(Math.max(1, ctx.pythonPool().size()));
-        AtomicInteger geometryRoundRobin = new AtomicInteger(0);
-        AtomicInteger pythonRoundRobin = new AtomicInteger(0);
-
         IntegrationFeatureConfig.SaveCapturesConfig saveCaptures =
                 BootstrapInspectionFeatures.saveCaptures(ctx.integration());
-        int inspectionCycleTimeoutMs = IntegrationFeatureConfig.parseInspectionCycleTimeoutMs(ctx.integration());
         boolean captureWithoutReference = IntegrationFeatureConfig.parseCaptureWithoutReference(ctx.integration());
         if (captureWithoutReference) {
             log.info("integration capture_without_reference enabled — trigger capture without client.reference_bundle");
         }
+
+        CameraInspectionDeps deps = ctx.createInspectionDeps();
         log.info(
                 "inspection gate per-camera in-flight enabled timeout_ms={} cameras={}",
-                inspectionCycleTimeoutMs,
+                deps.inspectionCycleTimeoutMs(),
                 ctx.workersByCamera().keySet()
         );
 
         BucketInspectionConfig bucketInspectionConfig =
                 BootstrapInspectionFeatures.bucketInspection(ctx.integration(), ctx.workersByCamera().keySet());
         Set<Integer> activeInspectionCameraIds = Set.copyOf(triggerWire.inspectionCameraIds());
-        BucketInspectionAggregator activeBucketAggregator = ctx.bucketInspectionAggregator();
-        PipelineStagesLog pipelineStagesLog = ctx.pipelineStagesLog();
-        FanOutCoordinator activeFanOut = ctx.fanOut();
 
         List<Callable<Void>> tasks = new ArrayList<>();
         for (Map<String, Object> camera : ctx.activeCameras()) {
@@ -91,35 +77,10 @@ public final class CameraInspectionLoopRunnerImpl extends AbstractBootstrapServi
                         ctx.projectRoot(),
                         camera,
                         worker,
-                        ctx.pythonPool(),
-                        ctx.geometryPool(),
-                        ctx.lightClient(),
-                        ctx.pythonCfg(),
-                        ctx.geometryCfg(),
-                        activeFanOut,
-                        geometrySlots,
-                        pythonSlots,
-                        geometryRoundRobin,
-                        pythonRoundRobin,
-                        ctx.referenceByCamera(),
-                        ctx.bootConfig().referenceSource(),
-                        ctx.bootConfig().reloadReference(),
-                        ctx.captureStageExecutor(),
-                        ctx.pythonStageExecutor(),
-                        ctx.geometryStageExecutor(),
-                        ctx.decisionStageExecutor(),
-                        ctx.uiCfg(),
-                        ctx.uiServer(),
-                        ctx.uiVisualsPython(),
-                        ctx.uiArtifactsExecutor(),
+                        deps,
                         ctx.sharedTriggerStrategy(),
                         triggerWire.triggerMode(),
                         saveCaptures,
-                        ctx.flashLeadMs(),
-                        pipelineStagesLog,
-                        ctx.inspectionGate(),
-                        inspectionCycleTimeoutMs,
-                        activeBucketAggregator,
                         captureWithoutReference
                 );
                 return null;

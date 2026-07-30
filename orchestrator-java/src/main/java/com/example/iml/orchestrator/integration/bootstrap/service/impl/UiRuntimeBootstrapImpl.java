@@ -90,5 +90,11 @@ public final class UiRuntimeBootstrapImpl extends AbstractBootstrapService imple
                 processes.pythonPool().isEmpty() ? null : processes.pythonPool().get(0)
         ));
         ui.setUiArtifactsExecutor(processes.uiSidecar().startUiPublishExecutorIfEnabled(processes.uiCfg()));
+        processes.uiSidecar().bindPublishContext(
+                ui.uiServer(),
+                processes.uiCfg(),
+                ui.uiVisualsPython(),
+                ui.uiArtifactsExecutor()
+        );
     }
 }

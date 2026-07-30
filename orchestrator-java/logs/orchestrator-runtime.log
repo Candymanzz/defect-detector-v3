@@ -49033,3 +49033,137 @@ java.io.IOException: EOF
 2026-07-30 09:46:08.595 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false shutdown_prep=true unhealthy=[io_input_monitor])
 2026-07-30 09:46:08.595 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
 2026-07-30 09:46:08.595 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
+2026-07-30 11:44:04.808 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit1101586413708897677/camera_runtime_settings.json cameras=2
+2026-07-30 11:44:04.820 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit14115624916533481440/camera_runtime_settings.json cameras=1
+2026-07-30 11:44:04.856 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit15430471672154566919 max_frames_per_camera=2
+2026-07-30 11:44:04.857 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit15430471672154566919/settings.json max_frames_per_camera=2
+2026-07-30 11:44:04.857 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-30 11:44:04.876 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit16439576111727727369 max_frames_per_camera=20
+2026-07-30 11:44:04.876 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit16439576111727727369/settings.json max_frames_per_camera=37
+2026-07-30 11:44:04.876 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 37
+2026-07-30 11:44:04.877 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=/tmp/junit16439576111727727369/settings.json max_frames_per_camera=37
+2026-07-30 11:44:04.877 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit16439576111727727369 max_frames_per_camera=37
+2026-07-30 11:44:04.879 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit14002551192062746188 max_frames_per_camera=5
+2026-07-30 11:44:04.883 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit16191921572429441165 max_frames_per_camera=2
+2026-07-30 11:44:04.884 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit16191921572429441165/settings.json max_frames_per_camera=2
+2026-07-30 11:44:04.884 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-30 11:44:04.949 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit6574985175074288502 max_frames_per_camera=5
+2026-07-30 11:44:04.956 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit17718027303655226752 max_frames_per_camera=5
+2026-07-30 11:44:04.956 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit17718027303655226752/settings.json max_frames_per_camera=5
+2026-07-30 11:44:04.956 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 5
+2026-07-30 11:44:04.981 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=/tmp/junit17718027303655226752/settings.json max_frames_per_camera=2
+2026-07-30 11:44:04.982 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-07-30 11:44:04.986 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=/tmp/junit16688006370360004679 max_frames_per_camera=5
+2026-07-30 11:44:05.019 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-07-30 11:44:05.056 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-07-30 11:44:05.056 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-07-30 11:44:05.057 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.058 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.058 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false shutdown_prep=false unhealthy=[io_input_monitor])
+2026-07-30 11:44:05.058 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.060 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-07-30 11:44:05.062 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.062 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins shutdown prep — vision_ready=0 vision_fault=1 reason=di1_power_supply
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
+2026-07-30 11:44:05.063 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false shutdown_prep=true unhealthy=[io_input_monitor])
+2026-07-30 11:44:05.063 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
+2026-07-30 11:44:05.063 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
+2026-07-30 11:44:05.078 INFO  [main] c.e.i.o.i.b.p.BootstrapPipelineTest - bootstrap stage start name=to-string
+2026-07-30 11:44:05.079 INFO  [main] c.e.i.o.i.b.p.BootstrapPipelineTest - bootstrap stage done name=to-string
+2026-07-30 11:44:05.081 INFO  [main] c.e.i.o.i.b.p.BootstrapPipelineTest - bootstrap stage start name=inc
+2026-07-30 11:44:05.081 INFO  [main] c.e.i.o.i.b.p.BootstrapPipelineTest - bootstrap stage done name=inc
+2026-07-30 11:44:05.081 INFO  [main] c.e.i.o.i.b.p.BootstrapPipelineTest - bootstrap stage start name=stop
+2026-07-30 11:44:05.081 INFO  [main] c.e.i.o.i.b.p.BootstrapPipelineTest - bootstrap stage stop name=stop
+2026-07-30 11:44:05.087 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=false py_status=UNKNOWN anomaly=0.0 threshold=null geom_pass=true geom_status=UNKNOWN align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-07-30 11:44:05.088 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.0 threshold=null geom_pass=true geom_status=UNKNOWN align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-07-30 11:44:05.088 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=false py_status=PASS anomaly=0.0 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-07-30 11:44:05.088 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=true py_status=PASS anomaly=0.0 threshold=null geom_pass=false geom_status=ERROR align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-07-30 11:44:05.091 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.1 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-07-30 11:44:05.109 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-30 11:44:05.119 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_decision cam=0 frame=7 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.05 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-07-30 11:44:05.120 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 positioning_ms=0 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=8
+2026-07-30 11:44:05.122 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=8 pipeline_ms=6 reference_ms=0 capture_ms=1 positioning_ms=0 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 pos_orb_ms=0.0 pos_warp_ms=0.0 pos_ecc_ms=0.0 pos_write_ms=0.0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-07-30 11:44:05.124 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-07-30 11:44:05.127 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-07-30 11:44:05.142 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=0 bucket_group=0 product_type=product-0 frame_id=frame-0 shm=/iml_ref_cam0 source_shm=bucket-a-cam-0
+2026-07-30 11:44:05.142 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=1 bucket_group=0 product_type=product-0 frame_id=frame-1 shm=/iml_ref_cam1 source_shm=bucket-a-cam-1
+2026-07-30 11:44:05.142 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=2 bucket_group=0 product_type=product-0 frame_id=frame-2 shm=/iml_ref_cam2 source_shm=bucket-a-cam-2
+2026-07-30 11:44:05.143 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=3 bucket_group=0 product_type=product-0 frame_id=frame-3 shm=/iml_ref_cam3 source_shm=bucket-a-cam-3
+2026-07-30 11:44:05.143 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=4 bucket_group=0 product_type=product-0 frame_id=frame-4 shm=/iml_ref_cam4 source_shm=bucket-a-cam-4
+2026-07-30 11:44:05.144 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=5 bucket_group=1 product_type=product-5 frame_id=frame-5 shm=/iml_ref_cam5 source_shm=bucket-b-cam-5
+2026-07-30 11:44:05.144 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=6 bucket_group=1 product_type=product-5 frame_id=frame-6 shm=/iml_ref_cam6 source_shm=bucket-b-cam-6
+2026-07-30 11:44:05.144 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=7 bucket_group=1 product_type=product-5 frame_id=frame-7 shm=/iml_ref_cam7 source_shm=bucket-b-cam-7
+2026-07-30 11:44:05.144 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=8 bucket_group=1 product_type=product-5 frame_id=frame-8 shm=/iml_ref_cam8 source_shm=bucket-b-cam-8
+2026-07-30 11:44:05.145 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client cam=9 bucket_group=1 product_type=product-5 frame_id=frame-9 shm=/iml_ref_cam9 source_shm=bucket-b-cam-9
+2026-07-30 11:44:07.151 INFO  [pool-35-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:07.151 INFO  [pool-35-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:07.154 INFO  [pool-35-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=100 groups=[0, 1] passes=[true, true]
+2026-07-30 11:44:08.112 INFO  [pool-36-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:10.762 INFO  [pool-36-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:10.763 INFO  [pool-36-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=150 groups=[0, 1] passes=[true, true]
+2026-07-30 11:44:10.775 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:14.775 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence sync timeout seq=300 missing_group=1 — synthetic reject for line
+2026-07-30 11:44:14.776 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=300 groups=[0, 1] passes=[true, false]
+2026-07-30 11:44:14.776 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket timeout seq=300 group=1 received=3/5 cameras=[5, 6, 7]
+2026-07-30 11:44:14.776 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=1 pass=false frames=3/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:16.954 INFO  [pool-37-thread-5] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:16.964 INFO  [pool-37-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:16.965 INFO  [pool-37-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection sequence fanout seq=1 groups=[0, 1] passes=[true, true]
+2026-07-30 11:44:16.977 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:16.979 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-07-30 11:44:16.979 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:16.979 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection sequence fanout seq=20 groups=[0, 1] passes=[false, true]
+2026-07-30 11:44:16.981 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-07-30 11:44:16.982 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 par=2.0 width=1.2 strict_pass=true
+2026-07-30 11:44:16.982 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-07-30 11:44:16.987 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 par=2.0 width=1.2 strict_pass=false
+2026-07-30 11:44:16.988 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-07-30 11:44:19.818 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-07-30 11:44:19.819 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-30 11:44:19.821 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-07-30 11:44:19.834 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:19.841 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:19.841 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:19.842 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:19.845 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-30 11:44:19.845 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:19.925 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:19.946 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:19.949 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-30 11:44:19.949 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:19.949 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-30 11:44:20.029 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.030 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-30 11:44:20.100 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.106 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-30 11:44:20.107 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.107 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.108 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.110 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-30 11:44:20.110 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.113 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-30 11:44:20.113 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.113 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-30 11:44:20.114 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.314 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.316 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-30 11:44:20.318 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.320 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.322 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.323 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.323 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-30 11:44:20.410 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-30 11:44:20.424 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.427 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-30 11:44:20.427 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-30 11:44:20.429 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-30 11:44:20.430 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-30 11:44:20.430 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-30 11:44:20.433 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-07-30 11:44:20.433 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-07-30 11:44:20.433 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-07-30 11:44:20.440 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit5160482414676854584/light_brightness_settings.json default=42 endpoints=2
+2026-07-30 11:44:20.446 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit16072390642127752364/bom.json default=67 endpoints=1

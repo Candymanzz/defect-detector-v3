@@ -20,3 +20,5 @@
 2026-07-30 09:09:31.096 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit1812114015554535675/camera_runtime_settings.json cameras=1
 2026-07-30 09:10:24.172 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit9164023846915601012/camera_runtime_settings.json cameras=2
 2026-07-30 09:10:24.182 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit2704077670838863078/camera_runtime_settings.json cameras=1
+2026-07-30 11:44:04.808 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit1101586413708897677/camera_runtime_settings.json cameras=2
+2026-07-30 11:44:04.820 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=/tmp/junit14115624916533481440/camera_runtime_settings.json cameras=1

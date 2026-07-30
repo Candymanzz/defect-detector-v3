@@ -23,6 +23,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Запуск camera-worker процессов, persisted settings, client stream.
@@ -38,59 +44,121 @@ public final class CameraWorkerBootstrapImpl extends AbstractBootstrapService im
      */
     @Override
     public boolean startWorkers(CameraWorkerHost ctx) {
-        Map<Integer, WorkerProcessSupervisor> workersByCamera = new LinkedHashMap<>();
-        List<Map<String, Object>> activeCameras = new ArrayList<>();
         var cfg = ctx.bootConfig();
-
-        for (Map<String, Object> camera : ctx.cameras()) {
-            int cameraId = ((Number) camera.get("id")).intValue();
-            List<String> cmd = new ArrayList<>();
-            cmd.add(ctx.workerBin().toString());
-            cmd.add(ctx.workerConfigPath().toString());
-            cmd.add(String.valueOf(cameraId));
-            if (cfg.workerIpcMode() == WorkerIpcMode.STDIO) {
-                cmd.add("--binary-stdio");
-            } else {
-                cmd.add("--named-pipe");
-                cmd.add(String.format(cfg.workerPipeTemplate(), cameraId));
-            }
-            String workerPipePath = String.format(cfg.workerPipeTemplate(), cameraId);
-            try {
-                WorkerProcessSupervisor worker = new WorkerProcessSupervisor(
-                        cameraId,
-                        cmd,
-                        ctx.projectRoot(),
-                        cfg.workerIpcMode(),
-                        workerPipePath,
-                        cfg.workerPipeConnectTimeoutMs(),
-                        cfg.workerCommandTimeoutMs()
-                );
-                worker.start();
-                BinaryProtocol.Message health = worker.health();
-                log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
-                workersByCamera.put(cameraId, worker);
-                activeCameras.add(camera);
-                sleepWorkerStartupStagger(cfg.workerStartupStaggerMs());
-            } catch (Exception e) {
-                log.error(
-                        "worker cam={} failed to start/health; skipping this camera and continuing with others: {}",
-                        cameraId,
-                        e.getMessage()
-                );
-                log.debug("worker start failure details cam={}", cameraId, e);
-            }
-        }
-        ctx.setWorkersByCamera(workersByCamera);
-        ctx.setActiveCameras(activeCameras);
-        if (workersByCamera.isEmpty()) {
-            log.error("No camera workers started successfully; integration pipeline skipped.");
+        List<Map<String, Object>> cameras = ctx.cameras();
+        int cameraCount = cameras.size();
+        if (cameraCount == 0) {
+            log.error("No cameras configured; integration pipeline skipped.");
             return false;
         }
 
-        SimultaneousLineCaptureConfig lineCaptureCfg =
-                SimultaneousLineCaptureConfigMapper.fromYaml(ctx.integration(), ctx.root());
-        applyPersistedCameraSettings(workersByCamera, ctx.cameraSettingsStore(), lineCaptureCfg.hardwareLineTrigger());
-        return true;
+        // Parallel start: все воркеры поднимаются одновременно (порядок камер сохраняем при сборке результата).
+        // worker_startup_stagger_ms > 0 — опциональный сдвиг старта i-й камеры на i*stagger (мягкий ramp).
+        ExecutorService startPool = Executors.newFixedThreadPool(
+                cameraCount,
+                r -> {
+                    Thread t = new Thread(r, "camera-worker-start-" + START_THREAD_SEQ.incrementAndGet());
+                    t.setDaemon(true);
+                    return t;
+                }
+        );
+        List<CompletableFuture<StartedWorker>> futures = new ArrayList<>(cameraCount);
+        try {
+            for (int i = 0; i < cameraCount; i++) {
+                Map<String, Object> camera = cameras.get(i);
+                int launchIndex = i;
+                futures.add(CompletableFuture.supplyAsync(
+                        () -> startOneWorker(ctx, camera, launchIndex, cfg.workerStartupStaggerMs()),
+                        startPool
+                ));
+            }
+            Map<Integer, WorkerProcessSupervisor> workersByCamera = new LinkedHashMap<>();
+            List<Map<String, Object>> activeCameras = new ArrayList<>();
+            for (int i = 0; i < futures.size(); i++) {
+                StartedWorker started;
+                try {
+                    started = futures.get(i).join();
+                } catch (CompletionException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    int cameraId = ((Number) cameras.get(i).get("id")).intValue();
+                    log.error(
+                            "worker cam={} failed to start/health; skipping this camera and continuing with others: {}",
+                            cameraId,
+                            cause.getMessage()
+                    );
+                    log.debug("worker start failure details cam={}", cameraId, cause);
+                    continue;
+                }
+                if (started == null) {
+                    continue;
+                }
+                workersByCamera.put(started.cameraId(), started.worker());
+                activeCameras.add(started.camera());
+            }
+            ctx.setWorkersByCamera(workersByCamera);
+            ctx.setActiveCameras(activeCameras);
+            if (workersByCamera.isEmpty()) {
+                log.error("No camera workers started successfully; integration pipeline skipped.");
+                return false;
+            }
+            log.info(
+                    "camera workers started parallel count={}/{} stagger_ms={}",
+                    workersByCamera.size(),
+                    cameraCount,
+                    cfg.workerStartupStaggerMs()
+            );
+
+            SimultaneousLineCaptureConfig lineCaptureCfg =
+                    SimultaneousLineCaptureConfigMapper.fromYaml(ctx.integration(), ctx.root());
+            applyPersistedCameraSettings(workersByCamera, ctx.cameraSettingsStore(), lineCaptureCfg.hardwareLineTrigger());
+            return true;
+        } finally {
+            startPool.shutdownNow();
+            try {
+                startPool.awaitTermination(5, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private StartedWorker startOneWorker(
+            CameraWorkerHost ctx,
+            Map<String, Object> camera,
+            int launchIndex,
+            int staggerMs
+    ) {
+        int cameraId = ((Number) camera.get("id")).intValue();
+        sleepWorkerStartupStagger(launchIndex * Math.max(0, staggerMs));
+        var cfg = ctx.bootConfig();
+        List<String> cmd = new ArrayList<>();
+        cmd.add(ctx.workerBin().toString());
+        cmd.add(ctx.workerConfigPath().toString());
+        cmd.add(String.valueOf(cameraId));
+        if (cfg.workerIpcMode() == WorkerIpcMode.STDIO) {
+            cmd.add("--binary-stdio");
+        } else {
+            cmd.add("--named-pipe");
+            cmd.add(String.format(cfg.workerPipeTemplate(), cameraId));
+        }
+        String workerPipePath = String.format(cfg.workerPipeTemplate(), cameraId);
+        try {
+            WorkerProcessSupervisor worker = new WorkerProcessSupervisor(
+                    cameraId,
+                    cmd,
+                    ctx.projectRoot(),
+                    cfg.workerIpcMode(),
+                    workerPipePath,
+                    cfg.workerPipeConnectTimeoutMs(),
+                    cfg.workerCommandTimeoutMs()
+            );
+            worker.start();
+            BinaryProtocol.Message health = worker.health();
+            log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
+            return new StartedWorker(cameraId, camera, worker);
+        } catch (Exception e) {
+            throw new CompletionException(e);
+        }
     }
 
     @Override
@@ -158,4 +226,9 @@ public final class CameraWorkerBootstrapImpl extends AbstractBootstrapService im
         Set<String> excludeKeys = hardwareLineTrigger ? Set.of("capture_trigger_mode") : Set.of();
         new CameraSettingsService(workersHolder, null, cameraSettingsStore).applyPersistedSettings(excludeKeys);
     }
+
+    private record StartedWorker(int cameraId, Map<String, Object> camera, WorkerProcessSupervisor worker) {
+    }
+
+    private static final AtomicInteger START_THREAD_SEQ = new AtomicInteger();
 }

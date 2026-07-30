@@ -137,3 +137,20 @@
 2026-07-30 09:46:08.595 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false shutdown_prep=true unhealthy=[io_input_monitor])
 2026-07-30 09:46:08.595 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
 2026-07-30 09:46:08.595 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
+2026-07-30 11:44:05.019 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-07-30 11:44:05.056 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-07-30 11:44:05.056 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-07-30 11:44:05.057 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.058 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.058 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false shutdown_prep=false unhealthy=[io_input_monitor])
+2026-07-30 11:44:05.058 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.060 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-07-30 11:44:05.062 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true shutdown_prep=false unhealthy=[])
+2026-07-30 11:44:05.062 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins shutdown prep — vision_ready=0 vision_fault=1 reason=di1_power_supply
+2026-07-30 11:44:05.062 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
+2026-07-30 11:44:05.063 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false shutdown_prep=true unhealthy=[io_input_monitor])
+2026-07-30 11:44:05.063 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])
+2026-07-30 11:44:05.063 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=true shutdown_prep=true unhealthy=[])

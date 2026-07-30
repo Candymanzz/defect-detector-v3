@@ -3,12 +3,11 @@ package com.example.iml.orchestrator.integration.pipeline.session;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
-import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
-import com.example.iml.orchestrator.integration.ui.UiHttpServer;
+import com.example.iml.orchestrator.integration.pipeline.spi.CaptureLightingPort;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -30,7 +29,7 @@ public record AsyncInspectionCycleInput(
         long referenceMsFinal,
         long tCameraStartNanos,
         WorkerProcessSupervisor worker,
-        LightTriggerClient lightClient,
+        CaptureLightingPort lighting,
         List<? extends BinaryRpcSupervisor> pythonPool,
         List<? extends BinaryRpcSupervisor> geometryPool,
         Map<String, Object> pythonCfg,
@@ -44,10 +43,7 @@ public record AsyncInspectionCycleInput(
         ExecutorService pythonStageExecutor,
         ExecutorService geometryStageExecutor,
         ExecutorService decisionStageExecutor,
-        Map<String, Object> uiCfg,
-        UiHttpServer uiServer,
         BinaryRpcSupervisor uiVisualsPython,
-        ExecutorService uiArtifactsExecutor,
         int flashLeadMs,
         PipelineStagesLog pipelineStagesLog,
         long inspectionId,
@@ -71,7 +67,7 @@ public record AsyncInspectionCycleInput(
                 referenceMsFinal,
                 tCameraStartNanos,
                 worker,
-                lightClient,
+                lighting,
                 pythonPool,
                 geometryPool,
                 pythonCfg,
@@ -85,10 +81,7 @@ public record AsyncInspectionCycleInput(
                 pythonStageExecutor,
                 geometryStageExecutor,
                 decisionStageExecutor,
-                uiCfg,
-                uiServer,
                 uiVisualsPython,
-                uiArtifactsExecutor,
                 flashLeadMs,
                 pipelineStagesLog,
                 inspectionId,
@@ -108,7 +101,7 @@ public record AsyncInspectionCycleInput(
                 referenceMsFinal,
                 tCameraStartNanos,
                 worker,
-                lightClient,
+                lighting,
                 pythonPool,
                 geometryPool,
                 pythonCfg,
@@ -122,10 +115,7 @@ public record AsyncInspectionCycleInput(
                 pythonStageExecutor,
                 geometryStageExecutor,
                 decisionStageExecutor,
-                uiCfg,
-                uiServer,
                 uiVisualsPython,
-                uiArtifactsExecutor,
                 flashLeadMs,
                 pipelineStagesLog,
                 inspectionId,
@@ -145,7 +135,7 @@ public record AsyncInspectionCycleInput(
                 referenceMsFinal,
                 tCameraStartNanos,
                 worker,
-                lightClient,
+                lighting,
                 pythonPool,
                 geometryPool,
                 pythonCfg,
@@ -159,10 +149,7 @@ public record AsyncInspectionCycleInput(
                 pythonStageExecutor,
                 geometryStageExecutor,
                 decisionStageExecutor,
-                uiCfg,
-                uiServer,
                 uiVisualsPython,
-                uiArtifactsExecutor,
                 flashLeadMs,
                 pipelineStagesLog,
                 inspectionId,
@@ -181,7 +168,7 @@ public record AsyncInspectionCycleInput(
             long referenceMsFinal,
             long tCameraStartNanos,
             WorkerProcessSupervisor worker,
-            LightTriggerClient lightClient,
+            CaptureLightingPort lighting,
             List<? extends BinaryRpcSupervisor> pythonPool,
             List<? extends BinaryRpcSupervisor> geometryPool,
             Map<String, Object> pythonCfg,
@@ -195,10 +182,7 @@ public record AsyncInspectionCycleInput(
             ExecutorService pythonStageExecutor,
             ExecutorService geometryStageExecutor,
             ExecutorService decisionStageExecutor,
-            Map<String, Object> uiCfg,
-            UiHttpServer uiServer,
             BinaryRpcSupervisor uiVisualsPython,
-            ExecutorService uiArtifactsExecutor,
             int flashLeadMs,
             PipelineStagesLog pipelineStagesLog,
             long inspectionId,
@@ -215,7 +199,7 @@ public record AsyncInspectionCycleInput(
                 referenceMsFinal,
                 tCameraStartNanos,
                 worker,
-                lightClient,
+                lighting,
                 pythonPool,
                 geometryPool,
                 pythonCfg,
@@ -229,15 +213,58 @@ public record AsyncInspectionCycleInput(
                 pythonStageExecutor,
                 geometryStageExecutor,
                 decisionStageExecutor,
-                uiCfg,
-                uiServer,
                 uiVisualsPython,
-                uiArtifactsExecutor,
                 flashLeadMs,
                 pipelineStagesLog,
                 inspectionId,
                 triggerSequence,
                 bucketAggregator
+        );
+    }
+
+    /** Build cycle input from shared deps + per-camera identity. */
+    public static AsyncInspectionCycleInput fromDeps(
+            Path projectRoot,
+            IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
+            int cameraId,
+            String productType,
+            String detectorId,
+            ReferenceSnapshot activeReference,
+            long referenceMsFinal,
+            long tCameraStartNanos,
+            WorkerProcessSupervisor worker,
+            com.example.iml.orchestrator.integration.pipeline.CameraInspectionDeps deps
+    ) {
+        return of(
+                projectRoot,
+                saveCaptures,
+                cameraId,
+                productType,
+                detectorId,
+                activeReference,
+                referenceMsFinal,
+                tCameraStartNanos,
+                worker,
+                deps.lighting(),
+                deps.pythonPool(),
+                deps.geometryPool(),
+                deps.pythonCfg(),
+                deps.geometryCfg(),
+                deps.fanOut(),
+                deps.geometrySlots(),
+                deps.pythonSlots(),
+                deps.geometryRoundRobin(),
+                deps.pythonRoundRobin(),
+                deps.captureStageExecutor(),
+                deps.pythonStageExecutor(),
+                deps.geometryStageExecutor(),
+                deps.decisionStageExecutor(),
+                deps.uiVisualsPython(),
+                deps.flashLeadMs(),
+                deps.pipelineStagesLog(),
+                0L,
+                0L,
+                deps.bucketAggregator()
         );
     }
 }

@@ -1,28 +1,17 @@
 package com.example.iml.orchestrator.integration.pipeline;
 
-import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
-import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
-import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
-import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceBootstrapOutcome;
 import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspectionCycleInput;
-import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
-import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.pipeline.session.ProductionInspectionOrchestrator;
 import com.example.iml.orchestrator.integration.trigger.api.InspectionTriggerStrategy;
-import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Точка входа потока камеры: выбор режима и делегирование оркестраторам (без реализации сценариев внутри).
@@ -39,35 +28,10 @@ public final class InspectionPipeline {
             Path projectRoot,
             Map<String, Object> camera,
             WorkerProcessSupervisor worker,
-            List<? extends BinaryRpcSupervisor> pythonPool,
-            List<? extends BinaryRpcSupervisor> geometryPool,
-            LightTriggerClient lightClient,
-            Map<String, Object> pythonCfg,
-            Map<String, Object> geometryCfg,
-            FanOutCoordinator fanOut,
-            Semaphore geometrySlots,
-            Semaphore pythonSlots,
-            AtomicInteger geometryRoundRobin,
-            AtomicInteger pythonRoundRobin,
-            Map<Integer, ReferenceSnapshot> referenceByCamera,
-            ReferenceSource referenceSource,
-            boolean reloadReferenceGlobal,
-            ExecutorService captureStageExecutor,
-            ExecutorService pythonStageExecutor,
-            ExecutorService geometryStageExecutor,
-            ExecutorService decisionStageExecutor,
-            Map<String, Object> uiCfg,
-            UiHttpServer uiServer,
-            BinaryRpcSupervisor uiVisualsPython,
-            ExecutorService uiArtifactsExecutor,
+            CameraInspectionDeps deps,
             InspectionTriggerStrategy triggerStrategy,
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
-            int flashLeadMs,
-            PipelineStagesLog pipelineStagesLog,
-            PerCameraInspectionGate inspectionGate,
-            long inspectionCycleTimeoutMs,
-            BucketInspectionAggregator bucketAggregator,
             boolean captureWithoutReference
     ) throws Exception {
         int cameraId = ((Number) camera.get("id")).intValue();
@@ -76,49 +40,15 @@ public final class InspectionPipeline {
         boolean reloadReferenceLocal = YamlScalars.toBool(camera.get("reload_reference"), false);
         long tCameraStartNanos = System.nanoTime();
 
-        AsyncInspectionCycleInput shared = AsyncInspectionCycleInput.of(
-                projectRoot,
-                saveCaptures,
-                cameraId,
-                productType,
-                detectorId,
-                referenceByCamera.get(cameraId),
-                0L,
-                tCameraStartNanos,
-                worker,
-                lightClient,
-                pythonPool,
-                geometryPool,
-                pythonCfg,
-                geometryCfg,
-                fanOut,
-                geometrySlots,
-                pythonSlots,
-                geometryRoundRobin,
-                pythonRoundRobin,
-                captureStageExecutor,
-                pythonStageExecutor,
-                geometryStageExecutor,
-                decisionStageExecutor,
-                uiCfg,
-                uiServer,
-                uiVisualsPython,
-                uiArtifactsExecutor,
-                flashLeadMs,
-                pipelineStagesLog,
-                0L,
-                0L,
-                bucketAggregator
-        );
-
+        Map<Integer, ReferenceSnapshot> referenceByCamera = deps.referenceByCamera();
         ReferenceSnapshot referenceSnapshot = referenceByCamera.get(cameraId);
         boolean needReference = referenceSnapshot == null
                 || !productType.equals(referenceSnapshot.productType())
-                || reloadReferenceGlobal
+                || deps.reloadReferenceGlobal()
                 || reloadReferenceLocal;
         long referenceMsFinal = 0L;
         ReferenceSnapshot activeReference = referenceSnapshot;
-        boolean referenceFromClient = referenceSource == ReferenceSource.CLIENT;
+        boolean referenceFromClient = deps.referenceSource() == ReferenceSource.CLIENT;
         if (referenceFromClient) {
             if (needReference && !captureWithoutReference) {
                 svc.log().info(
@@ -143,12 +73,12 @@ public final class InspectionPipeline {
                         needReference,
                         referenceSnapshot,
                         worker,
-                        lightClient,
-                        pythonPool,
-                        uiVisualsPython,
+                        deps.lighting(),
+                        deps.pythonPool(),
+                        deps.uiVisualsPython(),
                         1,
                         referenceByCamera,
-                        pipelineStagesLog,
+                        deps.pipelineStagesLog(),
                         null,
                         true
                 );
@@ -165,17 +95,28 @@ public final class InspectionPipeline {
             }
         }
 
-        AsyncInspectionCycleInput in = shared.withPerCycleIdentity(productType, activeReference, referenceMsFinal);
+        AsyncInspectionCycleInput in = AsyncInspectionCycleInput.fromDeps(
+                projectRoot,
+                saveCaptures,
+                cameraId,
+                productType,
+                detectorId,
+                activeReference,
+                referenceMsFinal,
+                tCameraStartNanos,
+                worker,
+                deps
+        );
 
         ProductionInspectionOrchestrator.run(
                 svc,
                 in,
                 triggerStrategy,
                 triggerMode,
-                referenceSource,
+                deps.referenceSource(),
                 referenceByCamera,
-                inspectionGate,
-                inspectionCycleTimeoutMs,
+                deps.inspectionGate(),
+                deps.inspectionCycleTimeoutMs(),
                 captureWithoutReference
         );
     }

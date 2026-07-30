@@ -10,14 +10,20 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Запуск пулов дочерних сервисов по команде из YAML и пулов потоков стадий пайплайна (capture/geometry/python/decision).
  */
 public final class ServicePoolLifecycle {
+
+    private static final AtomicInteger POOL_START_SEQ = new AtomicInteger();
 
     private final Logger log;
 
@@ -33,23 +39,82 @@ public final class ServicePoolLifecycle {
             int poolSize
     ) {
         List<ServiceProcessSupervisor> pool = new ArrayList<>();
-        if (command == null || command.isEmpty()) {
+        if (command == null || command.isEmpty() || poolSize <= 0) {
             return pool;
         }
         List<String> cmd = new ArrayList<>(command);
-        for (int i = 0; i < poolSize; i++) {
-            String serviceName = poolSize == 1 ? label : (label + "-" + i);
+        if (poolSize == 1) {
+            startOneOptional(pool, cmd, projectRoot, label, commandTimeoutMs);
+            return pool;
+        }
+
+        ExecutorService startPool = Executors.newFixedThreadPool(
+                poolSize,
+                r -> {
+                    Thread t = new Thread(r, label + "-start-" + POOL_START_SEQ.incrementAndGet());
+                    t.setDaemon(true);
+                    return t;
+                }
+        );
+        List<CompletableFuture<ServiceProcessSupervisor>> futures = new ArrayList<>(poolSize);
+        try {
+            for (int i = 0; i < poolSize; i++) {
+                String serviceName = label + "-" + i;
+                futures.add(CompletableFuture.supplyAsync(
+                        () -> startOneOptionalSupervisor(cmd, projectRoot, serviceName, commandTimeoutMs),
+                        startPool
+                ));
+            }
+            for (CompletableFuture<ServiceProcessSupervisor> future : futures) {
+                try {
+                    ServiceProcessSupervisor supervisor = future.join();
+                    if (supervisor != null) {
+                        pool.add(supervisor);
+                    }
+                } catch (CompletionException e) {
+                    // already logged in startOneOptionalSupervisor
+                }
+            }
+        } finally {
+            startPool.shutdownNow();
             try {
-                ServiceProcessSupervisor supervisor = new ServiceProcessSupervisor(serviceName, cmd, projectRoot, commandTimeoutMs);
-                supervisor.start();
-                BinaryProtocol.Message health = supervisor.health();
-                log.info("{} health => {}", serviceName, health.header());
-                pool.add(supervisor);
-            } catch (Exception e) {
-                log.warn("failed to start optional {} service command={}: {}", serviceName, command, e.getMessage());
+                startPool.awaitTermination(5, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
             }
         }
         return pool;
+    }
+
+    private void startOneOptional(
+            List<ServiceProcessSupervisor> pool,
+            List<String> cmd,
+            Path projectRoot,
+            String serviceName,
+            int commandTimeoutMs
+    ) {
+        ServiceProcessSupervisor supervisor = startOneOptionalSupervisor(cmd, projectRoot, serviceName, commandTimeoutMs);
+        if (supervisor != null) {
+            pool.add(supervisor);
+        }
+    }
+
+    private ServiceProcessSupervisor startOneOptionalSupervisor(
+            List<String> cmd,
+            Path projectRoot,
+            String serviceName,
+            int commandTimeoutMs
+    ) {
+        try {
+            ServiceProcessSupervisor supervisor = new ServiceProcessSupervisor(serviceName, cmd, projectRoot, commandTimeoutMs);
+            supervisor.start();
+            BinaryProtocol.Message health = supervisor.health();
+            log.info("{} health => {}", serviceName, health.header());
+            return supervisor;
+        } catch (Exception e) {
+            log.warn("failed to start optional {} service command={}: {}", serviceName, cmd, e.getMessage());
+            return null;
+        }
     }
 
     /**
