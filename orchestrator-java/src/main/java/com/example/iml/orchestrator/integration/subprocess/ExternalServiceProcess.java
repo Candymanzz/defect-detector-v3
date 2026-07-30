@@ -38,6 +38,20 @@ public final class ExternalServiceProcess implements AutoCloseable {
             Path workingDir,
             Map<String, String> extraEnv
     ) throws IOException {
+        return start(name, command, workingDir, extraEnv, true);
+    }
+
+    /**
+     * @param inheritIo {@code false} — не писать stdout/stderr в консоль оркестратора
+     *                  (иначе рестарт-луп IoInputMonitor заливает терминал Cursor → OOM).
+     */
+    public static ExternalServiceProcess start(
+            String name,
+            List<String> command,
+            Path workingDir,
+            Map<String, String> extraEnv,
+            boolean inheritIo
+    ) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workingDir.toFile());
         if (extraEnv != null) {
@@ -47,8 +61,13 @@ public final class ExternalServiceProcess implements AutoCloseable {
                 }
             }
         }
-        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        if (inheritIo) {
+            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        } else {
+            pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+            pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+        }
         Process process = pb.start();
         log.info("started external service {} pid={} command={}", name, process.pid(), command);
         return new ExternalServiceProcess(name, process);

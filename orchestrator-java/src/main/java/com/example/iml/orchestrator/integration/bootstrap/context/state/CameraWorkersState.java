@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Workers / stream / reference snapshots per camera. */
 public final class CameraWorkersState {
@@ -14,7 +15,7 @@ public final class CameraWorkersState {
     private List<Map<String, Object>> activeCameras = List.of();
     private Map<Integer, WorkerProcessSupervisor> workersByCamera = new LinkedHashMap<>();
     private CameraStreamService cameraStreamService;
-    private Map<Integer, ReferenceSnapshot> referenceByCamera;
+    private final Map<Integer, ReferenceSnapshot> referenceByCamera = new ConcurrentHashMap<>();
 
     public List<Map<String, Object>> activeCameras() {
         return activeCameras;

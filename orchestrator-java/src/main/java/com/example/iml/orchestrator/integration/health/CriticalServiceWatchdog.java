@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
+import com.example.iml.orchestrator.integration.subprocess.IoInputMonitorShutdown;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -20,11 +21,15 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
- * Следит за критичными внешними процессами: death → ServiceHealthGate + одна попытка рестарта.
+ * Следит за критичными внешними процессами: death → ServiceHealthGate + рестарт с backoff.
+ * Без backoff рестарт-луп IoInputMonitor (COM busy) заливает терминал Cursor → OOM.
  */
 public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     private static final long POLL_MS = 2000L;
+    /** После стольких неудачных рестартов подряд — пауза {@link #BACKOFF_MS}. */
+    private static final int MAX_FAST_FAILURES = 3;
+    private static final long BACKOFF_MS = 60_000L;
 
     private final Logger log;
     private final ServiceHealthGate healthGate;
@@ -36,6 +41,8 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean restarting = new AtomicBoolean(false);
     private final List<WatchedExternal> watched = new ArrayList<>();
+    private final Map<String, Integer> consecutiveFailures = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Long> nextRestartAtMs = new java.util.concurrent.ConcurrentHashMap<>();
 
     private CriticalServiceWatchdog(
             Logger log,
@@ -200,6 +207,11 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             return;
         }
         healthGate.markUnhealthy(name);
+        long now = System.currentTimeMillis();
+        Long gatedUntil = nextRestartAtMs.get(name);
+        if (gatedUntil != null && now < gatedUntil) {
+            return;
+        }
         log.warn("critical service dead name={} — vision_fault; attempting restart", name);
         if (!restarting.compareAndSet(false, true)) {
             return;
@@ -212,11 +224,28 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 log.warn("critical service restart failed name={}: {}", name, e.getMessage());
             }
             if (ok) {
+                consecutiveFailures.remove(name);
+                nextRestartAtMs.remove(name);
                 healthGate.markHealthy(name);
                 log.info("critical service restarted name={} — clearing fault if all healthy", name);
                 reattachAfterRestart(name);
             } else {
-                log.error("critical service restart unsuccessful name={} — vision_fault stays", name);
+                int fails = consecutiveFailures.merge(name, 1, Integer::sum);
+                log.error(
+                        "critical service restart unsuccessful name={} fails={} — vision_fault stays",
+                        name,
+                        fails
+                );
+                if (fails >= MAX_FAST_FAILURES) {
+                    long until = now + BACKOFF_MS;
+                    nextRestartAtMs.put(name, until);
+                    consecutiveFailures.put(name, 0);
+                    log.error(
+                            "critical service restart backoff name={} for {} ms (stops terminal spam / Cursor OOM)",
+                            name,
+                            BACKOFF_MS
+                    );
+                }
             }
         } finally {
             restarting.set(false);
@@ -243,10 +272,14 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     }
 
     private boolean restartIoInputMonitor() {
+        if (closed.get()) {
+            return false;
+        }
         ExternalServiceProcess old = ctx.ioInputMonitorProcess();
         if (old != null) {
             old.close();
         }
+        IoInputMonitorShutdown.clearProcessRefOnly();
         ExternalServiceProcess next = externalLauncher.startIfConfigured(
                 ctx.integration(),
                 ctx.projectRoot(),
@@ -258,6 +291,9 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 "."
         );
         ctx.setIoInputMonitorProcess(next);
+        if (next != null) {
+            IoInputMonitorShutdown.replaceProcess(next);
+        }
         return next != null && next.isAlive();
     }
 

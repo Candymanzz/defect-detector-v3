@@ -23,6 +23,7 @@ import com.example.iml.orchestrator.integration.bootstrap.service.impl.CameraRun
 import com.example.iml.orchestrator.integration.bootstrap.service.impl.UiRuntimeBootstrapImpl;
 import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
+import com.example.iml.orchestrator.integration.subprocess.IoInputMonitorShutdown;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -100,8 +101,10 @@ public final class IntegrationBootstrap {
                 OrchestratorStopSignal stop = session.stopSignal().orElse(null);
                 exitJvm = stop != null && stop.isRequested();
                 exitReason = stop == null ? null : stop.reason();
-                LightsShutdown.run("bootstrap-finally");
+                // Сначала watchdog — иначе он успеет поднять сироту во время kill.
                 lifecycle.close();
+                LightsShutdown.run("bootstrap-finally");
+                IoInputMonitorShutdown.run("bootstrap-finally");
                 IntegrationShutdownCoordinator.shutdownAll(session.toShutdownResources());
             }
             if (exitJvm) {

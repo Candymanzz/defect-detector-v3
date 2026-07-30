@@ -102,6 +102,8 @@ public final class IntegrationShutdownCoordinator {
         }
         // Вспышки Off + kill LightServer (идемпотентно с JVM shutdown hook).
         com.example.iml.orchestrator.integration.lighting.LightsShutdown.run("shutdown-coordinator");
+        // IoInputMonitor: hook + orphan kill (идемпотентно с bootstrap-finally).
+        com.example.iml.orchestrator.integration.subprocess.IoInputMonitorShutdown.run("shutdown-coordinator");
         // Если hook уже отработал — процесса в refs нет; на всякий случай ещё раз close по полю.
         if (r.lightServerProcess != null) {
             try {
@@ -110,7 +112,10 @@ public final class IntegrationShutdownCoordinator {
             }
         }
         if (r.ioInputMonitorProcess != null) {
-            r.ioInputMonitorProcess.close();
+            try {
+                r.ioInputMonitorProcess.close();
+            } catch (Exception ignored) {
+            }
         }
         if (r.frontendProcess != null) {
             r.frontendProcess.close();

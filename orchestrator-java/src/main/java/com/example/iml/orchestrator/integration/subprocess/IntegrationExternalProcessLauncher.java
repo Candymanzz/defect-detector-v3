@@ -57,6 +57,32 @@ public final class IntegrationExternalProcessLauncher {
             String serviceName,
             String defaultRelativeWorkingDir
     ) {
+        // IoInputMonitor при fail COM сыплет в консоль — не inherit, иначе Cursor OOM.
+        boolean inheritIo = !"io-input-monitor".equals(serviceName);
+        return startIfConfigured(
+                integration,
+                projectRoot,
+                isWindows,
+                autostartBlockKey,
+                commandWindowsKey,
+                commandLinuxKey,
+                serviceName,
+                defaultRelativeWorkingDir,
+                inheritIo
+        );
+    }
+
+    public ExternalServiceProcess startIfConfigured(
+            Map<String, Object> integration,
+            Path projectRoot,
+            boolean isWindows,
+            String autostartBlockKey,
+            String commandWindowsKey,
+            String commandLinuxKey,
+            String serviceName,
+            String defaultRelativeWorkingDir,
+            boolean inheritIo
+    ) {
         AutostartSettings autostart = parseAutostart(
                 integration,
                 autostartBlockKey,
@@ -87,7 +113,7 @@ public final class IntegrationExternalProcessLauncher {
             List<String> launchCommand = prepareCommand(command, isWindows);
             Map<String, String> extraEnv = prepareChildEnv(launchCommand, isWindows);
             ExternalServiceProcess process = ExternalServiceProcess.start(
-                    serviceName, launchCommand, workingDir, extraEnv);
+                    serviceName, launchCommand, workingDir, extraEnv, inheritIo);
             if (autostart.startupDelayMs() > 0) {
                 Thread.sleep(autostart.startupDelayMs());
             }

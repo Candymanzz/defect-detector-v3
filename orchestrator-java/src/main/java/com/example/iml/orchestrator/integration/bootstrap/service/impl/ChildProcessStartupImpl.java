@@ -15,6 +15,7 @@ import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
+import com.example.iml.orchestrator.integration.subprocess.IoInputMonitorShutdown;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import org.apache.logging.log4j.Logger;
 
@@ -104,6 +105,8 @@ public final class ChildProcessStartupImpl extends AbstractBootstrapService impl
 
         InspectionTriggerConfig inspectionTriggerConfig = InspectionTriggerConfig.parse(preflight.integration());
         if (inspectionTriggerConfig.usesIoInputMonitor()) {
+            // Сироты с прошлого crash держат COM3 (0x80000004) — убрать до старта.
+            IoInputMonitorShutdown.killOrphans(log);
             processes.setIoInputMonitorProcess(externalProcessLauncher.startIfConfigured(
                     preflight.integration(),
                     env.projectRoot(),
@@ -114,6 +117,7 @@ public final class ChildProcessStartupImpl extends AbstractBootstrapService impl
                     "io-input-monitor",
                     "."
             ));
+            IoInputMonitorShutdown.bind(log, processes.ioInputMonitorProcess());
         }
         if (shouldAutostartFrontend()) {
             processes.setFrontendProcess(externalProcessLauncher.startIfConfigured(
