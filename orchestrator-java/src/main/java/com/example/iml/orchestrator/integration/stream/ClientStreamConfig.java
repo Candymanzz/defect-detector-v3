@@ -14,11 +14,8 @@ public record ClientStreamConfig(int defaultMaxFps, int maxFpsCap) {
         if (root == null) {
             return defaults();
         }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> integration = root.get("integration") instanceof Map<?, ?> im
-                ? (Map<String, Object>) im
-                : null;
-        if (integration == null) {
+        Object integrationRaw = root.get("integration");
+        if (!(integrationRaw instanceof Map<?, ?> integration)) {
             return defaults();
         }
         Object raw = integration.get("client_stream");

@@ -1,7 +1,7 @@
 package com.example.iml.orchestrator.integration.plc;
 
 /**
- * Таймаут ПЛК из register-map (D4400–D4404).
+ * Слово DM из register-map: BCD-таймаут (D4400–D4404) или флаг 0/1 ({@code unit: flag}).
  */
 public record PlcTimeoutDefinition(
     String name,

@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.plc;
 
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.nio.file.Path;
@@ -26,8 +27,7 @@ public record PlcFinsConfig(
     if (root == null) {
       return disabled(projectRoot);
     }
-    @SuppressWarnings("unchecked")
-    Map<String, Object> plc = (Map<String, Object>) root.get("plc_fins");
+    Map<String, Object> plc = YamlMaps.stringObjectMapOrNull(root.get("plc_fins"));
     if (plc == null) {
       return disabled(projectRoot);
     }

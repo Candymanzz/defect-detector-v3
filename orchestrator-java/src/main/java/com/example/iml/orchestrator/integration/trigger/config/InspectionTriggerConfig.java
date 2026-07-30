@@ -15,19 +15,15 @@ public record InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfi
             return new InspectionTriggerConfig(udpDefaults, ioInput);
         }
         Object raw = integration.get("inspection_trigger");
-        if (!(raw instanceof Map<?, ?> root)) {
+        if (!(raw instanceof Map<?, ?> m)) {
             IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(null, udpDefaults.debounceMs());
             return new InspectionTriggerConfig(udpDefaults, ioInput);
         }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> m = (Map<String, Object>) root;
         IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(integration, udpDefaults.debounceMs());
         Object udpRaw = m.get("udp");
-        if (!(udpRaw instanceof Map<?, ?> udpMap)) {
+        if (!(udpRaw instanceof Map<?, ?> udp)) {
             return new InspectionTriggerConfig(udpDefaults, ioInput);
         }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> udp = (Map<String, Object>) udpMap;
         boolean enabled = YamlScalars.toBool(udp.get("enabled"), udpDefaults.enabled());
         String bindHost = udp.get("bind_host") != null ? String.valueOf(udp.get("bind_host")) : udpDefaults.bindHost();
         int bindPort = Math.max(1, Math.min(65535, YamlScalars.toInt(udp.get("bind_port"), udpDefaults.bindPort())));

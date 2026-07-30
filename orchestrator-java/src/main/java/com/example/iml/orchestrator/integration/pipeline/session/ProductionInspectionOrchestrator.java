@@ -5,7 +5,7 @@ import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
-import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
+import com.example.iml.orchestrator.integration.trigger.api.InspectionTriggerStrategy;
 
 import java.util.Map;
 import java.util.concurrent.TimeoutException;

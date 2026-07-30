@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.bootstrap.factory;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfig;
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
@@ -57,7 +58,6 @@ public final class DefaultIntegrationServicePoolFactory implements IntegrationSe
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<ServiceProcessSupervisor> createPositioningPool(
             Map<String, Object> root,
             Map<String, Object> integration,
@@ -65,7 +65,7 @@ public final class DefaultIntegrationServicePoolFactory implements IntegrationSe
             Path projectRoot,
             IntegrationBootConfig cfg
     ) {
-        Map<String, Object> positioningCfg = root == null ? null : (Map<String, Object>) root.get("java_positioning");
+        Map<String, Object> positioningCfg = root == null ? null : YamlMaps.stringObjectMapOrNull(root.get("java_positioning"));
         boolean positioningEnabled = YamlScalars.toBool(
                 positioningCfg == null ? null : positioningCfg.get("enabled"),
                 true

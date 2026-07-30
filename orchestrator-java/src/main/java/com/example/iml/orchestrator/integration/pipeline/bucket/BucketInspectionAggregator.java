@@ -73,10 +73,6 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 .toList();
     }
 
-    public boolean isBucketCamera(int cameraId) {
-        return groupIdByCamera.containsKey(cameraId);
-    }
-
     public void recordFrameResult(
             long triggerSequence,
             int cameraId,
@@ -179,16 +175,13 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         if (bucketPass) {
             SeamStrictGate seamGate = evaluateSeamStrictGate(snapshot);
             seamStrict = seamGate.strictActive();
-            // TEMP: geometry stub (PASS_FORCED) — не валить ведро seam_gate по joint-метрикам.
-            boolean geometryForced = snapshot.values().stream()
-                    .anyMatch(d -> d != null && "PASS_FORCED".equals(d.geometryStatus()));
-            if (seamGate.forceReject() && !geometryForced) {
+            if (seamGate.forceReject()) {
                 bucketPass = false;
             }
             if (log != null && (seamGate.jointDecision() != null || seamStrict)) {
                 log.info(
                         "inspection bucket seam_gate seq={} group={} seam_strict={} sibling_vis={} "
-                                + "joint_cam={} par={} width={} strict_pass={} geometry_forced={}",
+                                + "joint_cam={} par={} width={} strict_pass={}",
                         state.triggerSequence,
                         state.groupId,
                         seamStrict,
@@ -196,8 +189,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                         seamGate.jointDecision() == null ? null : seamGate.jointDecision().cameraId(),
                         seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointParallelismDeg(),
                         seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointWidthMm(),
-                        !seamGate.forceReject(),
-                        geometryForced
+                        !seamGate.forceReject()
                 );
             }
         }

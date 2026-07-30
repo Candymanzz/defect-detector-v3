@@ -352,7 +352,7 @@ function archivedFrameToHistoryItem(cameraId: number, frame: FrameArchiveHistory
   return {
     frameId: frame.frame_id,
     inspectionId: frame.inspection_id,
-    result: frame.overall_pass ? "pass" : "fail",
+    result: resolveInspectionResultState(inspectResult) ?? (frame.overall_pass ? "pass" : "fail"),
     inspectResult,
   };
 }

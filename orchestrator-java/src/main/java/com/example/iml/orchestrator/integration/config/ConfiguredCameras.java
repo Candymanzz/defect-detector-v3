@@ -12,21 +12,12 @@ public final class ConfiguredCameras {
     private ConfiguredCameras() {
     }
 
-    @SuppressWarnings("unchecked")
     public static List<Integer> enabledIds(Map<String, Object> root) {
         if (root == null) {
             return List.of();
         }
-        Object raw = root.get("cameras");
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            return List.of();
-        }
         List<Integer> ids = new ArrayList<>();
-        for (Object o : list) {
-            if (!(o instanceof Map<?, ?> em)) {
-                continue;
-            }
-            Map<String, Object> cam = (Map<String, Object>) em;
+        for (Map<String, Object> cam : YamlMaps.listOfStringObjectMaps(root.get("cameras"))) {
             if (!YamlScalars.toBool(cam.get("enabled"), true)) {
                 continue;
             }
@@ -44,7 +35,6 @@ public final class ConfiguredCameras {
      * Ключ профиля настроек анализа для камеры ({@code analysis_profile} в YAML).
      * Legacy {@code product_type} читается как fallback.
      */
-    @SuppressWarnings("unchecked")
     public static String analysisProfileForCamera(Map<String, Object> camera, int cameraId) {
         if (camera == null) {
             return "camera-" + cameraId;
@@ -60,21 +50,12 @@ public final class ConfiguredCameras {
         return "camera-" + cameraId;
     }
 
-    @SuppressWarnings("unchecked")
     public static Map<Integer, String> analysisProfileByCameraId(Map<String, Object> root) {
         if (root == null) {
             return Map.of();
         }
-        Object raw = root.get("cameras");
-        if (!(raw instanceof List<?> list) || list.isEmpty()) {
-            return Map.of();
-        }
         Map<Integer, String> byCamera = new LinkedHashMap<>();
-        for (Object o : list) {
-            if (!(o instanceof Map<?, ?> em)) {
-                continue;
-            }
-            Map<String, Object> cam = (Map<String, Object>) em;
+        for (Map<String, Object> cam : YamlMaps.listOfStringObjectMaps(root.get("cameras"))) {
             if (!YamlScalars.toBool(cam.get("enabled"), true)) {
                 continue;
             }

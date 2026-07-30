@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 /**
- * API ПЛК для HTTP/UI: таймауты D4400–D4404, биты W0 / CIO из register-map, ручное управление.
+ * API ПЛК для HTTP/UI: таймауты D4400–D4404, флаги DM (0/1), биты W0 / CIO из register-map.
  */
 public interface PlcFinsApi {
 
@@ -25,7 +25,7 @@ public interface PlcFinsApi {
   boolean manualControlEditable();
 
   /**
-   * Тайминги D4400–D4404 можно менять при включённом FINS, в том числе во время инспекции.
+   * Тайминги / флаги DM можно менять при включённом FINS, в том числе во время инспекции.
    */
   boolean timeoutsEditable();
 
@@ -34,7 +34,9 @@ public interface PlcFinsApi {
   List<PlcTimeoutState> readTimeouts() throws IOException, InterruptedException, TimeoutException;
 
   /**
-   * @param unitsByKey ключ — {@code D4400} / имя сигнала / индекс; значение — единицы 100 ms (десятичные).
+   * Пишет только переданные ключи (отдельные слова DM), остальные не трогает.
+   *
+   * @param unitsByKey ключ — {@code D4400} / имя; значение — единицы 100 ms (BCD) или 0/1 для {@code unit: flag}
    */
   List<PlcTimeoutState> writeTimeouts(Map<String, Integer> unitsByKey)
       throws IOException, InterruptedException, TimeoutException;

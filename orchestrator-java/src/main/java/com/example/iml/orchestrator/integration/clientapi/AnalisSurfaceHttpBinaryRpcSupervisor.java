@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -269,7 +270,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, ok, new byte[0]);
     }
 
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> findViewByIndex(Object viewsObj, int index) {
         if (!(viewsObj instanceof List<?> views)) {
             return null;
@@ -278,17 +278,16 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             if (o instanceof Map<?, ?> m) {
                 int vi = YamlScalars.toInt(m.get("view_index"), -1);
                 if (vi == index) {
-                    return (Map<String, Object>) m;
+                    return YamlMaps.stringObjectMap(m);
                 }
             }
         }
         if (index >= 0 && index < views.size() && views.get(index) instanceof Map<?, ?> m) {
-            return (Map<String, Object>) m;
+            return YamlMaps.stringObjectMap(m);
         }
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> findInterestPolygonNorm(Object polysObj, int index) {
         if (!(polysObj instanceof List<?> polys)) {
             return null;
@@ -315,27 +314,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             if (o instanceof Map<?, ?> m) {
                 int vi = YamlScalars.toInt(m.get("view_index"), -1);
                 if (vi == index) {
-                    return (Map<String, Object>) m;
+                    return YamlMaps.stringObjectMap(m);
                 }
             }
         }
         return null;
-    }
-
-    private static List<Map<String, Object>> bboxToPolygonPoints(Map<String, Object> roi) {
-        int x = YamlScalars.toInt(roi.get("x"), 0);
-        int y = YamlScalars.toInt(roi.get("y"), 0);
-        int w = YamlScalars.toInt(roi.get("width"), 0);
-        int h = YamlScalars.toInt(roi.get("height"), 0);
-        if (w <= 0 || h <= 0) {
-            return List.of();
-        }
-        List<Map<String, Object>> pts = new ArrayList<>(4);
-        pts.add(Map.of("x", (double) x, "y", (double) y));
-        pts.add(Map.of("x", (double) (x + w), "y", (double) y));
-        pts.add(Map.of("x", (double) (x + w), "y", (double) (y + h)));
-        pts.add(Map.of("x", (double) x, "y", (double) (y + h)));
-        return pts;
     }
 
     private static List<?> filterFpZonesForCamera(List<?> zones, int cameraId) {
@@ -665,7 +648,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return body;
     }
 
-    @SuppressWarnings("unchecked")
     private static void appendAlgorithmParams(Map<String, Object> body, Map<String, Object> header) {
         Map<String, Object> params = new LinkedHashMap<>();
         Object explicit = header.get("algorithm_params");

@@ -628,6 +628,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (archive == null || !archive.enabled() || frameJpeg == null) {
             return false;
         }
+        // После сброса эталона идут capture-only кадры (overallPass=false) — это не брак инспекции.
+        if (isCaptureOnlyDecision(decision)) {
+            return false;
+        }
         return archive.saveImmediately(new FrameArchiveService.SaveRequest(
                 cameraId,
                 frameId,
@@ -640,6 +644,18 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 heatmapWidth,
                 heatmapHeight
         ));
+    }
+
+    /** Кадр без эталона: preview/capture-only, не результат инспекции для архива. */
+    static boolean isCaptureOnlyDecision(InspectionDecision decision) {
+        if (decision == null) {
+            return false;
+        }
+        if ("CAPTURE".equals(decision.action())) {
+            return true;
+        }
+        String pythonStatus = decision.pythonStatus();
+        return pythonStatus != null && "NO_REFERENCE".equalsIgnoreCase(pythonStatus.trim());
     }
 
     private void removeQueuedPublishForCamera(ExecutorService executor, int cameraId) {

@@ -243,19 +243,6 @@ public final class FrameArchiveService implements AutoCloseable {
         return !Files.exists(frameDir);
     }
 
-    public int deleteFrames(int cameraId, Iterable<Long> frameIds) {
-        int deleted = 0;
-        if (frameIds == null) {
-            return 0;
-        }
-        for (Long frameId : frameIds) {
-            if (frameId != null && deleteFrame(cameraId, frameId)) {
-                deleted++;
-            }
-        }
-        return deleted;
-    }
-
     public int clearCamera(int cameraId) throws IOException {
         if (!enabled()) {
             return 0;
@@ -321,23 +308,6 @@ public final class FrameArchiveService implements AutoCloseable {
                 Thread.currentThread().interrupt();
                 executor.shutdownNow();
             }
-        }
-    }
-
-    private void saveNow(SaveRequest request) {
-        try {
-            byte[] frameBytes = Files.readAllBytes(request.frameJpeg());
-            byte[] heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
-                    ? Files.readAllBytes(request.heatmapU8())
-                    : null;
-            savePrepared(new PreparedSave(request, frameBytes, heatmapBytes));
-        } catch (Exception e) {
-            LOG.warn(
-                    "frame archive save failed camera_id={} frame_id={}: {}",
-                    request.cameraId(),
-                    request.frameId(),
-                    e.getMessage()
-            );
         }
     }
 

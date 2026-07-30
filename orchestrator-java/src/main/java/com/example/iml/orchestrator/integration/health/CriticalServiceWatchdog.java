@@ -1,6 +1,6 @@
 package com.example.iml.orchestrator.integration.health;
 
-import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
+import com.example.iml.orchestrator.integration.bootstrap.context.port.ProcessRestartHost;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationComponent;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
@@ -28,7 +28,7 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     private final Logger log;
     private final ServiceHealthGate healthGate;
-    private final IntegrationRuntimeContext ctx;
+    private final ProcessRestartHost ctx;
     private final IntegrationExternalProcessLauncher externalLauncher;
     private final LightServerLauncher lightLauncher;
     private final AnalisSurfaceLauncher analisLauncher;
@@ -40,7 +40,7 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     private CriticalServiceWatchdog(
             Logger log,
             ServiceHealthGate healthGate,
-            IntegrationRuntimeContext ctx,
+            ProcessRestartHost ctx,
             IntegrationExternalProcessLauncher externalLauncher,
             LightServerLauncher lightLauncher,
             AnalisSurfaceLauncher analisLauncher
@@ -60,7 +60,7 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     public static CriticalServiceWatchdog start(
             Logger log,
-            IntegrationRuntimeContext ctx,
+            ProcessRestartHost ctx,
             ServiceHealthGate healthGate
     ) {
         CriticalServiceWatchdog watchdog = new CriticalServiceWatchdog(

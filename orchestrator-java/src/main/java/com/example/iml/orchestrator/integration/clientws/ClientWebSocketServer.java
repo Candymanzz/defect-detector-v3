@@ -188,14 +188,6 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         log.info("client_ws reference cleared — session_state=NO_REFERENCE inspection stopped");
     }
 
-    public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws ClientWsKopcheniSyncException {
-        WebSocket c;
-        synchronized (sessionLock) {
-            c = activeClient;
-        }
-        ReferenceBundleLifecycleService.applyFromDraft(application, c, snap);
-    }
-
     public void notifyPreviewFrame(
             int cameraId,
             String productType,

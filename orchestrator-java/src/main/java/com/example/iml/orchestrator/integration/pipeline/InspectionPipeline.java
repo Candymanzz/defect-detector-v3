@@ -14,7 +14,7 @@ import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspection
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.pipeline.session.ProductionInspectionOrchestrator;
-import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
+import com.example.iml.orchestrator.integration.trigger.api.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 
 import java.nio.file.Path;

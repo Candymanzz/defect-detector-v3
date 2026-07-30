@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.config;
 
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -18,27 +19,21 @@ public final class StartupConfigurationReporter {
 
     public void report(Map<String, Object> root, Path configPath) {
         Object version = root.get("version");
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> cameras = (List<Map<String, Object>>) root.get("cameras");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> orchestrator = (Map<String, Object>) root.get("orchestrator");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> client = (Map<String, Object>) root.get("client");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> robot = (Map<String, Object>) root.get("robot");
+        List<Map<String, Object>> cameras = YamlMaps.listOfStringObjectMaps(root.get("cameras"));
+        Map<String, Object> orchestrator = YamlMaps.stringObjectMapOrNull(root.get("orchestrator"));
+        Map<String, Object> client = YamlMaps.stringObjectMapOrNull(root.get("client"));
+        Map<String, Object> robot = YamlMaps.stringObjectMapOrNull(root.get("robot"));
 
-        int camCount = Optional.ofNullable(cameras).map(List::size).orElse(0);
         log.info(
                 "Оркестратор: старт с конфигом версии {} ({}) — камер: {}",
                 version,
                 configPath.toAbsolutePath(),
-                camCount
+                cameras.size()
         );
 
         logMapKeys(orchestrator, "control_pipe", "control_pipe_linux");
         logMapKey(client, "client.url", "url");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> clientWs = (Map<String, Object>) root.get("client_ws");
+        Map<String, Object> clientWs = YamlMaps.stringObjectMapOrNull(root.get("client_ws"));
         Optional.ofNullable(clientWs).ifPresent(ws -> log.info(
                 "  client_ws: enabled={} host={} port={} path={}",
                 ws.get("enabled"),

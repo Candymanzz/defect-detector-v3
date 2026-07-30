@@ -29,6 +29,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -312,15 +313,15 @@ public final class LivePreviewPublisher implements AutoCloseable {
     ) throws Exception {
         if (cfg.flashOnTick()) {
             int flashCameraId = workersByCamera.keySet().stream().sorted().findFirst().orElse(0);
-            final Map<Integer, BinaryProtocol.Message>[] capturedHolder = new Map[1];
+            AtomicReference<Map<Integer, BinaryProtocol.Message>> capturedHolder = new AtomicReference<>();
             lightClient.runCaptureWithLighting(flashCameraId, -1L, "preview", flashLeadMs, () -> {
                 try {
-                    capturedHolder[0] = lineCapture.captureLineBatch(lineSeq, workersByCamera, true);
+                    capturedHolder.set(lineCapture.captureLineBatch(lineSeq, workersByCamera, true));
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
-            return capturedHolder[0];
+            return capturedHolder.get();
         }
         return lineCapture.captureLineBatch(lineSeq, workersByCamera, true);
     }

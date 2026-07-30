@@ -6,7 +6,7 @@ import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 import java.util.Map;
 
 /**
- * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа, DI2=направление, DI3=триггер.
+ * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа/БП, DI2=направление, DI3=триггер.
  */
 public record IoInputDiscreteConfig(
         int workPort,
@@ -26,15 +26,16 @@ public record IoInputDiscreteConfig(
         int directionWaitMs,
         int directionPollMs,
         int captureDelayMs,
-        boolean externalHardwareCapture
-) {
+        boolean externalHardwareCapture,
+        boolean shutdownPrepOnWorkHigh
+    ) {
 
     public static IoInputDiscreteConfig defaults() {
         // Согласовано с config/blocks/01-core.yaml integration.inspection_trigger.io_input
         return new IoInputDiscreteConfig(
                 1, 2, 3, 0, "json", false, TriggerEdgeMode.RISING,
                 true, false, false, false, false, false, true,
-                5000, 1, 0, true
+                5000, 1, 0, true, true
         );
     }
 
@@ -44,17 +45,13 @@ public record IoInputDiscreteConfig(
             return withDebounce(defaults, udpDebounceMs);
         }
         Object rootRaw = integration.get("inspection_trigger");
-        if (!(rootRaw instanceof Map<?, ?> root)) {
+        if (!(rootRaw instanceof Map<?, ?> triggerRoot)) {
             return withDebounce(defaults, udpDebounceMs);
         }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> triggerRoot = (Map<String, Object>) root;
         Object ioRaw = triggerRoot.get("io_input");
-        if (!(ioRaw instanceof Map<?, ?> ioMap)) {
+        if (!(ioRaw instanceof Map<?, ?> io)) {
             return withDebounce(defaults, udpDebounceMs);
         }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> io = (Map<String, Object>) ioMap;
         int workPort = clampDiPort(YamlScalars.toInt(io.get("work_port"), defaults.workPort()));
         int directionPort = clampDiPort(YamlScalars.toInt(io.get("direction_port"), defaults.directionPort()));
         int triggerPort = clampDiPort(YamlScalars.toInt(io.get("trigger_port"), defaults.triggerPort()));
@@ -86,6 +83,10 @@ public record IoInputDiscreteConfig(
                 io.get("external_hardware_capture"),
                 defaults.externalHardwareCapture()
         );
+        boolean shutdownPrepOnWorkHigh = YamlScalars.toBool(
+                io.get("shutdown_prep_on_work_high"),
+                defaults.shutdownPrepOnWorkHigh()
+        );
         return new IoInputDiscreteConfig(
                 workPort,
                 directionPort,
@@ -104,7 +105,8 @@ public record IoInputDiscreteConfig(
                 directionWaitMs,
                 directionPollMs,
                 captureDelayMs,
-                externalHardwareCapture
+                externalHardwareCapture,
+                shutdownPrepOnWorkHigh
         );
     }
 
@@ -128,7 +130,8 @@ public record IoInputDiscreteConfig(
                 defaults.directionWaitMs(),
                 defaults.directionPollMs(),
                 defaults.captureDelayMs(),
-                defaults.externalHardwareCapture()
+                defaults.externalHardwareCapture(),
+                defaults.shutdownPrepOnWorkHigh()
         );
     }
 

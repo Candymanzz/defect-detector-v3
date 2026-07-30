@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.lighting;
 
 import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.util.ArrayList;
@@ -63,17 +64,16 @@ public record LightServersConfig(
         }
     }
 
-    @SuppressWarnings("unchecked")
     public static LightServersConfig fromRootYaml(Map<String, Object> root) {
         Map<String, Object> ls = null;
         Object multi = root == null ? null : root.get("light_servers");
-        if (multi instanceof Map<?, ?> m) {
-            ls = (Map<String, Object>) m;
+        if (multi instanceof Map<?, ?>) {
+            ls = YamlMaps.stringObjectMap(multi);
         }
         if (ls == null) {
             Object legacy = root == null ? null : root.get("light_server");
-            if (legacy instanceof Map<?, ?> m) {
-                ls = legacyFromSingle((Map<String, Object>) m);
+            if (legacy instanceof Map<?, ?>) {
+                ls = legacyFromSingle(YamlMaps.stringObjectMap(legacy));
             }
         }
         if (ls == null) {
@@ -132,10 +132,6 @@ public record LightServersConfig(
         );
     }
 
-    public boolean hasCameras() {
-        return !cameras.isEmpty();
-    }
-
     public CameraFlashSpec camera(int cameraId) {
         for (CameraFlashSpec spec : cameras) {
             if (spec.cameraId() == cameraId) {
@@ -175,10 +171,8 @@ public record LightServersConfig(
     ) {
     }
 
-    @SuppressWarnings("unchecked")
     private static UrlPaths parseUrls(Map<String, Object> ls, String baseUrl) {
-        Object urlsObj = ls.get("urls");
-        Map<String, Object> urls = urlsObj instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+        Map<String, Object> urls = YamlMaps.stringObjectMap(ls.get("urls"));
 
         String on = resolveUrl(
                 urls.get("on"),
@@ -228,7 +222,6 @@ public record LightServersConfig(
         return trimSlash(baseUrl) + raw;
     }
 
-    @SuppressWarnings("unchecked")
     private static List<CameraFlashSpec> parseCameras(
             Map<String, Object> ls,
             Map<String, Object> root,
@@ -243,7 +236,7 @@ public record LightServersConfig(
             if (!(o instanceof Map<?, ?> em)) {
                 continue;
             }
-            Map<String, Object> m = (Map<String, Object>) em;
+            Map<String, Object> m = YamlMaps.stringObjectMap(em);
             int cameraId = YamlScalars.toInt(m.get("camera_id"), YamlScalars.toInt(m.get("id"), -1));
             if (cameraId < 0 || !hasFlashHardware(cameraId)) {
                 continue;
@@ -276,7 +269,6 @@ public record LightServersConfig(
         return List.copyOf(out);
     }
 
-    @SuppressWarnings("unchecked")
     private static List<CameraFlashSpec> migrateLegacyEndpoints(Map<String, Object> ls, int globalBrightness) {
         Object raw = ls.get("endpoints");
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
@@ -287,7 +279,7 @@ public record LightServersConfig(
             if (!(o instanceof Map<?, ?> em)) {
                 continue;
             }
-            Map<String, Object> m = (Map<String, Object>) em;
+            Map<String, Object> m = YamlMaps.stringObjectMap(em);
             if (!YamlScalars.toBool(m.get("enabled"), true)) {
                 continue;
             }

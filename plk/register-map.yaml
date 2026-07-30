@@ -17,12 +17,14 @@
 #
 # Runtime (эталон задан) — лист «Входы», Work Area:
 #   vision_ready   → W0.04 sticky HIGH, пока session != NO_REFERENCE и сервисы здоровы
-#   vision_fault   → W0.05 при аварии критичных сервисов (сброс после восстановления)
+#                     (при DI1↑ БП / shutdown_prep → принудительно LOW)
+#   vision_fault   → W0.05 при аварии критичных сервисов ИЛИ при DI1↑ (подготовка к выключению)
 #   reject_line_1  → W0.06 импульс (bucket_group_id 0)
 #   reject_line_2  → W0.07 импульс (bucket_group_id 1)
 # Discrete DO — только если FINS publisher не создан (plc_fins.enabled=false).
 #
-# Таймауты D4400–D4404 — секция timeouts внизу (словная запись DM).
+# Таймауты D4400–D4404 — секция timeouts (BCD ×100 ms).
+# Флаги DM (0/1, raw) — там же, unit: flag; пишутся только по запросу UI.
 
 version: 1
 map_id: "25_247"
@@ -30,7 +32,7 @@ map_id: "25_247"
 signals:
   # ─── Техзрение PC→PLC · W0 (Входы.csv) ─────────────────────────────
   - name: vision_ready
-    description: Техзрение готовность (W0.04)
+    description: Техзрение готовность (W0.04); DI1↑ БП → 0
     area: W
     address: "0.04"
     data_type: bool
@@ -38,7 +40,7 @@ signals:
     source_csv: "25_247_MAP - Входы.csv"
 
   - name: vision_fault
-    description: Техзрение ошибка (W0.05)
+    description: Техзрение ошибка (W0.05); DI1↑ БП → 1
     area: W
     address: "0.05"
     data_type: bool
@@ -168,4 +170,15 @@ timeouts:
     display_address: D4404
     encoding: bcd
     unit: 100ms
+    source_csv: "25_247_MAP - Настройки.csv"
+
+  # D4405 — не таймер: слово 0/1 в DM, зеркало H30.05. Не перезаписывать с таймаутами.
+  # 1 = металлическая ручка, 0 = пластиковая
+  - name: chose_cycle_mode
+    description: Тип ручки (1 — металлическая, 0 — пластиковая)
+    area: DM
+    address: 4405
+    display_address: D4405
+    encoding: raw
+    unit: flag
     source_csv: "25_247_MAP - Настройки.csv"

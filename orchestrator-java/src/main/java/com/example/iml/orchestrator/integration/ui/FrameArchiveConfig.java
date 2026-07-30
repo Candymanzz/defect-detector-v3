@@ -14,7 +14,6 @@ public record FrameArchiveConfig(
     private static final int DEFAULT_MAX_FRAMES = 20;
     private static final int DEFAULT_MAX_ALLOWED = 100;
 
-    @SuppressWarnings("unchecked")
     public static FrameArchiveConfig fromRootYaml(Map<String, Object> root, boolean isWindows) {
         if (root == null) {
             return disabled(isWindows);

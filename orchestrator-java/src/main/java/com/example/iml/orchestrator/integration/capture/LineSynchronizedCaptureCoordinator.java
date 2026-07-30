@@ -333,11 +333,6 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         return waitMs;
     }
 
-    /** @deprecated use {@link #prefireLineTrigger} */
-    public void captureLineAtTrigger(long triggerSequence, long triggerReceivedEpochMs) {
-        prefireLineTrigger(triggerSequence, triggerReceivedEpochMs);
-    }
-
     public boolean isEnabled() {
         return expectedParties > 1;
     }

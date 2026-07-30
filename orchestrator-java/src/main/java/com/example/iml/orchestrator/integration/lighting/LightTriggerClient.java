@@ -197,13 +197,6 @@ public final class LightTriggerClient {
         }
     }
 
-    public void engageConstantLighting() {
-        if (!enabled || !holdMode) {
-            return;
-        }
-        startupEngage();
-    }
-
     /** Дождаться готовности LightServer ({@code GET status_url}, ethernet bank или COM). */
     public void awaitEndpointsReady() {
         if (!enabled) {
@@ -426,16 +419,6 @@ public final class LightTriggerClient {
         LOG.info("light On cam={} frame={} phase={} brightness={}", cameraId, frameId, phase, brightnessByEndpoint());
         synchronized (lightCommandLock) {
             return engageCameraLightingLocked(cameraId);
-        }
-    }
-
-    public void lightOff(int cameraId, long frameId, String phase) {
-        if (!enabled) {
-            return;
-        }
-        LOG.info("light Off cam={} frame={} phase={}", cameraId, frameId, phase);
-        synchronized (lightCommandLock) {
-            postOffWithRetriesLocked();
         }
     }
 
@@ -783,4 +766,3 @@ public final class LightTriggerClient {
         }
     }
 }
-

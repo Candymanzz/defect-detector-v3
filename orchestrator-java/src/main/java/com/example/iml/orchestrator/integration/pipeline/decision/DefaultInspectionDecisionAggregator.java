@@ -10,12 +10,6 @@ import org.apache.logging.log4j.Logger;
  */
 public final class DefaultInspectionDecisionAggregator implements InspectionDecisionPolicy {
 
-    /**
-     * TEMP stub: geometry всегда PASS (не влияет на overall/PLC reject).
-     * Включить false, когда починят geometry на cam2/cam7.
-     */
-    private static final boolean FORCE_GEOMETRY_PASS = true;
-
     private final Logger log;
 
     public DefaultInspectionDecisionAggregator(Logger log) {
@@ -38,16 +32,12 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
         boolean pythonPass = pyResp != null
                 && pyResp.type() == BinaryProtocol.MSG_RESPONSE
                 && Boolean.TRUE.equals(pyResp.header().get("ok"));
-        boolean geometryPassRaw = geomResp == null
+        boolean geometryPass = geomResp == null
                 || (geomResp.type() == BinaryProtocol.MSG_RESPONSE
                 && Boolean.TRUE.equals(geomResp.header().get("overallPass")));
-        boolean geometryPass = FORCE_GEOMETRY_PASS || geometryPassRaw;
         String geometryStatus = geomResp == null ? "UNKNOWN" : String.valueOf(
-                geomResp.header().getOrDefault("status", geometryPassRaw ? "PASS" : "FAIL")
+                geomResp.header().getOrDefault("status", geometryPass ? "PASS" : "FAIL")
         );
-        if (FORCE_GEOMETRY_PASS) {
-            geometryStatus = "PASS_FORCED";
-        }
 
         boolean overallPass = pythonPass && geometryPass;
         String action = overallPass ? "ACCEPT" : "REJECT";
@@ -57,8 +47,7 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
         double jointParallelismDeg = geomDouble(geomResp, "jointParallelismDeg");
         double jointWidthMm = geomDouble(geomResp, "jointWidthMm");
         double jointVisibility = geomDouble(geomResp, "jointVisibility");
-        boolean jointPass = FORCE_GEOMETRY_PASS
-                || geomResp == null
+        boolean jointPass = geomResp == null
                 || geomResp.header() == null
                 || !geomResp.header().containsKey("jointPass")
                 || Boolean.TRUE.equals(geomResp.header().get("jointPass"));
@@ -112,19 +101,42 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
     }
 
     private static boolean isCaptureOnlyWithoutReference(BinaryProtocol.Message pyResp, BinaryProtocol.Message geomResp) {
-        if (!isSkippedBecauseNoReference(pyResp)) {
+        if (isSkippedBecauseNoReference(pyResp)) {
+            return geomResp == null || isSkippedBecauseNoReference(geomResp) || isErrorOrSkipped(geomResp);
+        }
+        return false;
+    }
+
+    private static boolean isErrorOrSkipped(BinaryProtocol.Message response) {
+        if (response == null) {
+            return true;
+        }
+        if (response.type() == BinaryProtocol.MSG_ERROR) {
+            return true;
+        }
+        if (response.header() == null) {
             return false;
         }
-        return geomResp == null || isSkippedBecauseNoReference(geomResp);
+        String status = String.valueOf(response.header().getOrDefault("status", ""));
+        return "SKIPPED".equals(status) || "ERROR".equalsIgnoreCase(status);
     }
 
     private static boolean isSkippedBecauseNoReference(BinaryProtocol.Message response) {
         if (response == null || response.header() == null) {
             return false;
         }
-        if (!"SKIPPED".equals(String.valueOf(response.header().getOrDefault("status", "")))) {
+        String error = String.valueOf(response.header().getOrDefault("error", ""));
+        String detail = String.valueOf(response.header().getOrDefault("detail", ""));
+        String combined = (error + " " + detail).toLowerCase();
+        boolean missingReference = combined.contains("no reference")
+                || combined.contains("reference for product_type");
+        if (!missingReference) {
             return false;
         }
-        return String.valueOf(response.header().getOrDefault("error", "")).contains("no reference");
+        String status = String.valueOf(response.header().getOrDefault("status", ""));
+        // SKIPPED (локальный short-circuit) или ERROR/400 после clear_inspection_context на Python.
+        return "SKIPPED".equals(status)
+                || "ERROR".equalsIgnoreCase(status)
+                || response.type() == BinaryProtocol.MSG_ERROR;
     }
 }

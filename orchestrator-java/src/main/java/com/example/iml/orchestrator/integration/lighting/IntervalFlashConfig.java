@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 
@@ -36,43 +37,21 @@ public record IntervalFlashConfig(
         boolean offOnFirstFrame
 ) {
 
-    /** @deprecated use {@link #idlePort()} */
-    public int onPort() {
-        return idlePort;
-    }
-
-    /** @deprecated use {@link #triggerPort()} */
-    public int offPort() {
-        return triggerPort;
-    }
-
-    /** @deprecated use {@link #idleEdge()} */
-    public TriggerEdgeMode onEdge() {
-        return idleEdge;
-    }
-
-    /** @deprecated use {@link #triggerEdge()} */
-    public TriggerEdgeMode offEdge() {
-        return triggerEdge;
-    }
-
     public static IntervalFlashConfig disabled() {
         return new IntervalFlashConfig(
                 false, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 300, 0, true, false, false
         );
     }
 
-    @SuppressWarnings("unchecked")
     public static IntervalFlashConfig fromRootYaml(Map<String, Object> root) {
-        Map<String, Object> ls = section(root, "light_servers");
+        Map<String, Object> ls = YamlMaps.stringObjectMapOrNull(root == null ? null : root.get("light_servers"));
         if (ls == null) {
             return disabled();
         }
         Object raw = ls.get("interval_flash");
-        if (!(raw instanceof Map<?, ?>)) {
+        if (!(raw instanceof Map<?, ?> m)) {
             return disabled();
         }
-        Map<String, Object> m = (Map<String, Object>) raw;
         boolean enabled = YamlScalars.toBool(m.get("enabled"), false);
         int idlePort = YamlScalars.toInt(
                 m.get("idle_port"),
@@ -109,14 +88,5 @@ public record IntervalFlashConfig(
                 idleOnEnabled,
                 offOnFirstFrame
         );
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> section(Map<String, Object> root, String key) {
-        if (root == null) {
-            return null;
-        }
-        Object raw = root.get(key);
-        return raw instanceof Map<?, ?> map ? (Map<String, Object>) map : null;
     }
 }
