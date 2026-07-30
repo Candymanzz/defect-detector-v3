@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.preview;
 
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.util.Map;
@@ -25,11 +26,7 @@ public record LivePreviewConfig(boolean enabled, boolean flashOnTick, int maxFps
             fps = Math.max(1, Math.min(30, YamlScalars.toInt(cm.get("preview_max_fps"), 10)));
         }
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> integration = root.get("integration") instanceof Map<?, ?> im
-                ? (Map<String, Object>) im
-                : null;
-
+        Map<String, Object> integration = YamlMaps.stringObjectMapOrNull(root.get("integration"));
         if (integration != null) {
             Object raw = integration.get("live_preview");
             if (raw instanceof Map<?, ?> m) {

@@ -28,10 +28,6 @@ public final class PlcFinsTrafficSubject {
     }
   }
 
-  public void clearObservers() {
-    observers.clear();
-  }
-
   /**
    * Совместимость со старым {@code setTrafficListener}: один observer (или ни одного).
    */

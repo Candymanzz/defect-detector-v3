@@ -10,8 +10,6 @@ import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
-import com.example.iml.orchestrator.integration.lighting.LightUpstreamClient;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -22,7 +20,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * HTTP API подсветки: яркость по endpoint, вспышка по триггеру, прокси LightServer.v3.
+ * HTTP API подсветки: яркость по endpoint и режим constant/interval.
  */
 public final class LightHttpController implements HttpController {
 
@@ -30,7 +28,6 @@ public final class LightHttpController implements HttpController {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final LightTriggerClient lightClient;
-    private final LightUpstreamClient upstream;
     private final LightBrightnessStore brightnessStore;
 
     public LightHttpController(LightTriggerClient lightClient, LightServersConfig cfg) {
@@ -43,7 +40,6 @@ public final class LightHttpController implements HttpController {
             LightBrightnessStore brightnessStore
     ) {
         this.lightClient = lightClient;
-        this.upstream = cfg != null && cfg.enabled() ? new LightUpstreamClient(cfg) : null;
         this.brightnessStore = brightnessStore;
     }
 
@@ -81,21 +77,28 @@ public final class LightHttpController implements HttpController {
             sendMode(ctx);
             return;
         }
-        if (!"PUT".equalsIgnoreCase(ctx.method()) && !"POST".equalsIgnoreCase(ctx.method())) {
-            HttpResponses.methodNotAllowed(ctx);
+        if ("PUT".equalsIgnoreCase(ctx.method()) || "POST".equalsIgnoreCase(ctx.method())) {
+            setMode(ctx);
             return;
         }
+        HttpResponses.methodNotAllowed(ctx);
+    }
+
+    private void setMode(HttpRequestContext ctx) throws IOException {
         try {
-            JsonNode body = JSON.readTree(ctx.readBody());
-            if (body == null || !body.has("constant")) {
-                HttpResponses.sendJsonError(ctx, 400, "constant boolean is required");
-                return;
+            var root = JSON.readTree(ctx.readBody());
+            boolean constant = root.path("constant").asBoolean(false);
+            if (root.has("mode")) {
+                String mode = root.path("mode").asText("").trim().toLowerCase();
+                if ("constant".equals(mode)) {
+                    constant = true;
+                } else if ("interval".equals(mode)) {
+                    constant = false;
+                }
             }
-            lightClient.setConstantFlashMode(body.path("constant").asBoolean(false));
+            lightClient.setConstantFlashMode(constant);
             persistBrightnessState();
             sendMode(ctx);
-        } catch (IllegalStateException e) {
-            HttpResponses.sendJsonError(ctx, 502, e.getMessage());
         } catch (Exception e) {
             HttpResponses.sendJsonError(ctx, 400, "invalid JSON body: " + e.getMessage());
         }
@@ -106,97 +109,6 @@ public final class LightHttpController implements HttpController {
         root.put("constant", lightClient.isConstantFlashMode());
         root.put("mode", lightClient.isConstantFlashMode() ? "constant" : "interval");
         HttpResponses.sendJson(ctx, 200, root);
-    }
-
-    public void handleTrigger(HttpRequestContext ctx) throws IOException {
-        if (!requireLight(ctx)) {
-            return;
-        }
-        if (!"POST".equalsIgnoreCase(ctx.method())) {
-            HttpResponses.methodNotAllowed(ctx);
-            return;
-        }
-        byte[] body = ctx.readBody();
-        applyBrightnessUpdate(LightBrightnessCommands.parseBrightnessUpdateFromQuery(ctx.query()));
-        applyBrightnessUpdate(LightBrightnessCommands.parseBrightnessUpdate(body));
-        int cameraId = 0;
-        long frameId = -1L;
-        String phase = "capture";
-        try {
-            if (body != null && body.length > 0) {
-                JsonNode root = JSON.readTree(body);
-                cameraId = root.path("cameraId").asInt(0);
-                frameId = root.path("frameId").asLong(-1L);
-                if (root.hasNonNull("phase")) {
-                    phase = root.get("phase").asText("capture");
-                }
-            }
-        } catch (Exception e) {
-            HttpResponses.sendJsonError(ctx, 400, "invalid JSON body: " + e.getMessage());
-            return;
-        }
-        try {
-            lightClient.trigger(cameraId, frameId, phase);
-            ObjectNode root = JSON.createObjectNode();
-            root.put("ok", true);
-            root.put("cameraId", cameraId);
-            root.put("frameId", frameId);
-            root.put("phase", phase);
-            root.set("endpoints", buildEndpointsNode());
-            HttpResponses.sendJson(ctx, 200, root);
-        } catch (Exception e) {
-            HttpResponses.sendJsonError(ctx, 502, "light trigger failed: " + e.getMessage());
-        }
-    }
-
-    public void handleNetworkDevices(HttpRequestContext ctx) throws IOException {
-        if (!requireUpstream(ctx)) {
-            return;
-        }
-        if (!"GET".equalsIgnoreCase(ctx.method())) {
-            HttpResponses.methodNotAllowed(ctx);
-            return;
-        }
-        forwardGet(ctx, "/api/devices");
-    }
-
-    public void handleComDevices(HttpRequestContext ctx) throws IOException {
-        if (!requireUpstream(ctx)) {
-            return;
-        }
-        if (!"GET".equalsIgnoreCase(ctx.method())) {
-            HttpResponses.methodNotAllowed(ctx);
-            return;
-        }
-        forwardGet(ctx, "/api/com/devices");
-    }
-
-    public void handleNetworkLight(HttpRequestContext ctx) throws IOException {
-        if (!requireUpstream(ctx)) {
-            return;
-        }
-        if (!"POST".equalsIgnoreCase(ctx.method())) {
-            HttpResponses.methodNotAllowed(ctx);
-            return;
-        }
-        byte[] body = ctx.readBody();
-        applyBrightnessUpdate(LightBrightnessCommands.parseBrightnessUpdateFromQuery(ctx.query()));
-        applyBrightnessUpdate(LightBrightnessCommands.parseBrightnessUpdate(body));
-        forwardPost(ctx, "/api/light", body);
-    }
-
-    public void handleComLight(HttpRequestContext ctx) throws IOException {
-        if (!requireUpstream(ctx)) {
-            return;
-        }
-        if (!"POST".equalsIgnoreCase(ctx.method())) {
-            HttpResponses.methodNotAllowed(ctx);
-            return;
-        }
-        byte[] body = ctx.readBody();
-        applyBrightnessUpdate(LightBrightnessCommands.parseBrightnessUpdateFromQuery(ctx.query()));
-        applyBrightnessUpdate(LightBrightnessCommands.parseBrightnessUpdate(body));
-        forwardPost(ctx, "/api/com/light", body);
     }
 
     private void setBrightness(HttpRequestContext ctx) throws IOException {
@@ -211,7 +123,6 @@ public final class LightHttpController implements HttpController {
         }
         LightBrightnessApplyResult applyResult = applyBrightnessUpdate(merged);
         LOG.info("light brightness updated via {} {} -> {}", ctx.method(), ctx.path(), lightClient.brightnessByEndpoint());
-        // Всегда пишем на диск: настройки должны переживать рестарт даже если LightServer сейчас недоступен.
         persistBrightnessState();
         if (applyResult.hasHardwareErrors()) {
             LOG.warn("light brightness hardware errors: {}", String.join("; ", applyResult.hardwareErrors()));
@@ -270,7 +181,6 @@ public final class LightHttpController implements HttpController {
         root.put("default_brightness_percent", defaultPercent);
         root.put("brightness_percent", defaultPercent);
         root.set("endpoints", buildEndpointsNode());
-        root.put("upstream_base_url", upstream == null ? "" : upstream.baseUrl());
         HttpResponses.sendJson(ctx, 200, root);
     }
 
@@ -292,59 +202,8 @@ public final class LightHttpController implements HttpController {
         return arr;
     }
 
-    private void forwardGet(HttpRequestContext ctx, String path) throws IOException {
-        String q = ctx.query();
-        String pathAndQuery = q == null || q.isBlank() ? path : path + "?" + q;
-        try {
-            LightUpstreamClient.UpstreamResponse resp = upstream.get(pathAndQuery);
-            passthroughJson(ctx, resp);
-        } catch (Exception e) {
-            HttpResponses.sendJsonError(ctx, 502, "light upstream GET failed: " + e.getMessage());
-        }
-    }
-
-    private void forwardPost(HttpRequestContext ctx, String path, byte[] body) throws IOException {
-        String q = ctx.query();
-        String pathAndQuery = q == null || q.isBlank() ? path : path + "?" + q;
-        try {
-            LightUpstreamClient.UpstreamResponse resp = upstream.post(pathAndQuery, body);
-            passthroughJson(ctx, resp);
-        } catch (Exception e) {
-            HttpResponses.sendJsonError(ctx, 502, "light upstream POST failed: " + e.getMessage());
-        }
-    }
-
-    private static void passthroughJson(HttpRequestContext ctx, LightUpstreamClient.UpstreamResponse resp)
-            throws IOException {
-        if (resp.body() != null && !resp.body().isBlank()) {
-            try {
-                JsonNode node = JSON.readTree(resp.body());
-                HttpResponses.sendJson(ctx, resp.ok() ? 200 : resp.statusCode(), node);
-                return;
-            } catch (Exception ignored) {
-            }
-        }
-        ObjectNode wrap = JSON.createObjectNode();
-        wrap.put("ok", resp.ok());
-        if (resp.body() != null) {
-            wrap.put("body", resp.body());
-        }
-        HttpResponses.sendJson(ctx, resp.ok() ? 200 : resp.statusCode(), wrap);
-    }
-
     private boolean requireLight(HttpRequestContext ctx) throws IOException {
         if (lightClient == null || !lightClient.isEnabled()) {
-            HttpResponses.sendJsonError(ctx, 503, "light_servers disabled");
-            return false;
-        }
-        return true;
-    }
-
-    private boolean requireUpstream(HttpRequestContext ctx) throws IOException {
-        if (!requireLight(ctx)) {
-            return false;
-        }
-        if (upstream == null) {
             HttpResponses.sendJsonError(ctx, 503, "light_servers disabled");
             return false;
         }

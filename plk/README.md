@@ -26,6 +26,8 @@
 | `reject_line_1` | **W0.06** | `pc_to_plc` |
 | `reject_line_2` | **W0.07** | `pc_to_plc` |
 
+При `shutdown_prep_on_work_high: true` (DI1↑ блок питания): `vision_ready` → 0, `vision_fault` → 1 (sticky до остановки оркестратора).
+
 ## Лист «Состояния / Неисправности / Управление» → FINS (чтение / управление)
 
 | Колонка | Слова CIO | direction | Что делает оркестратор |
@@ -41,7 +43,8 @@
 | FINS | runtime ready/fault/reject | **W0.04–W0.07** |
 | Discrete DO | только Line0 (съёмка), не брак | IO-box |
 
-Таймауты отбраковки всегда по FINS: **D4400–D4404** (секция `timeouts`).
+Таймауты отбраковки всегда по FINS: **D4400–D4404** (секция `timeouts`, BCD).
+Флаг режима цикла: **D4405** (`chose_cycle_mode`, `encoding: raw`, `unit: flag`) — только 0/1 с UI, без автозаписи.
 
 ## Листы CSV
 

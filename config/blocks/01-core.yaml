@@ -96,7 +96,7 @@ integration:
       enabled: true
       bind_host: "0.0.0.0"
       bind_port: 9100
-      # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер
+      # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=БП (shutdown prep), DI2=направление, DI3=триггер
       format: io_input
       debounce_ms: 0
       # allowed_remote_hosts: ["127.0.0.1"]
@@ -106,6 +106,9 @@ integration:
       trigger_port: 3
       direction_latch_on_work: false
       di3_only: true
+      # DI1↑ (блок питания): vision_ready→0, vision_fault→1, graceful stop оркестратора.
+      # Не включать вместе с direction_latch_on_work (там DI1 = «заведение»).
+      shutdown_prep_on_work_high: true
       # Съёмка только при живом DI2=1 (без latch): DI3↑ при DI2=0 → skip.
       # Первый DI3↑ + DI2=1 → wait_frame; повторный DI3↑ пока DI2=1 — холостой.
       # Новое окно после DI2↓↑. Экспозиция DO5→Line0.

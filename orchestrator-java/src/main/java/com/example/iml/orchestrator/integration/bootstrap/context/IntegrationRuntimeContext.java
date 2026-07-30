@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.context;
 
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownCoordinator;
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 
 import java.util.Objects;
@@ -32,10 +33,6 @@ public final class IntegrationRuntimeContext {
         return preflight;
     }
 
-    public PreflightContext preflightContext() {
-        return require(preflight, "preflight");
-    }
-
     public ChildProcessesContext beginChildProcesses() {
         this.processes = new ChildProcessesContext(require(preflight, "preflight"));
         return processes;
@@ -59,21 +56,17 @@ public final class IntegrationRuntimeContext {
         return uiRuntime;
     }
 
-    public UiRuntimeContext uiRuntimeContext() {
-        return require(uiRuntime, "ui-runtime");
-    }
-
     public CameraRuntimeContext beginCameraRuntime() {
         this.cameraRuntime = new CameraRuntimeContext(require(uiRuntime, "ui-runtime"));
         return cameraRuntime;
     }
 
-    public CameraRuntimeContext cameraRuntimeContext() {
-        return require(cameraRuntime, "camera-runtime");
-    }
-
     public Optional<FanOutCoordinator> fanOut() {
         return Optional.ofNullable(cameraRuntime).map(c -> c.health().fanOut());
+    }
+
+    public Optional<OrchestratorStopSignal> stopSignal() {
+        return Optional.ofNullable(cameraRuntime).map(c -> c.health().stopSignal());
     }
 
     public IntegrationShutdownCoordinator.ShutdownResources toShutdownResources() {

@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.bootstrap.service.api.CameraWork
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
 
 import com.example.iml.orchestrator.integration.bootstrap.config.SimultaneousLineCaptureConfig;
+import com.example.iml.orchestrator.integration.bootstrap.config.SimultaneousLineCaptureConfigMapper;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.CameraWorkerHost;
 import com.example.iml.orchestrator.integration.camera.CameraSettingsService;
 import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
@@ -87,7 +88,7 @@ public final class CameraWorkerBootstrapImpl extends AbstractBootstrapService im
         }
 
         SimultaneousLineCaptureConfig lineCaptureCfg =
-                SimultaneousLineCaptureConfig.parse(ctx.integration(), ctx.root());
+                SimultaneousLineCaptureConfigMapper.fromYaml(ctx.integration(), ctx.root());
         applyPersistedCameraSettings(workersByCamera, ctx.cameraSettingsStore(), lineCaptureCfg.hardwareLineTrigger());
         return true;
     }

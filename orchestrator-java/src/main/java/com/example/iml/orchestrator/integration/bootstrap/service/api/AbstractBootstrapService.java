@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * Общая база bootstrap-сервисов: logger и повторяющееся открытие optional JSON-store.
@@ -49,9 +48,5 @@ public abstract class AbstractBootstrapService {
     @FunctionalInterface
     public interface StoreOpener<T> {
         T open(Path path) throws IOException;
-    }
-
-    protected final <T, R> R mapNonNull(T value, Function<T, R> mapper) {
-        return value == null ? null : mapper.apply(value);
     }
 }

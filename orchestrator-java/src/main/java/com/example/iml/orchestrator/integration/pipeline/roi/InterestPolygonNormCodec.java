@@ -48,7 +48,7 @@ public final class InterestPolygonNormCodec {
     /**
      * Охватывающий прямоугольник полигона в пикселях (для {@code mainRoi}).
      */
-    public static Map<String, Object> boundingPixelRoi(List<Map<String, Object>> polygonNorm, int frameWidth, int frameHeight) {
+    public static Map<String, Object> boundingPixelRoi(List<?> polygonNorm, int frameWidth, int frameHeight) {
         if (polygonNorm == null || polygonNorm.size() < 3 || frameWidth <= 0 || frameHeight <= 0) {
             return null;
         }
@@ -58,7 +58,10 @@ public final class InterestPolygonNormCodec {
         double minY = Double.POSITIVE_INFINITY;
         double maxX = Double.NEGATIVE_INFINITY;
         double maxY = Double.NEGATIVE_INFINITY;
-        for (Map<String, Object> pt : polygonNorm) {
+        for (Object item : polygonNorm) {
+            if (!(item instanceof Map<?, ?> pt)) {
+                continue;
+            }
             double nx = toDouble(pt.get("x"));
             double ny = toDouble(pt.get("y"));
             if (Double.isNaN(nx) || Double.isNaN(ny)) {

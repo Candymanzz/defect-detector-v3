@@ -33,8 +33,7 @@ public final class BinaryInspectHeaders {
             gHeader.put("mainRoiPolygonNorm", poly);
             int fw = YamlScalars.toInt(activeReference.header().get("width"), YamlScalars.toInt(capture.header().get("width"), 1224));
             int fh = YamlScalars.toInt(activeReference.header().get("height"), YamlScalars.toInt(capture.header().get("height"), 1024));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi((List<Map<String, Object>>) poly, fw, fh);
+            Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi(poly, fw, fh);
             if (bbox != null) {
                 mainRoi = bbox;
             }
@@ -91,8 +90,7 @@ public final class BinaryInspectHeaders {
             pHeader.put("mainRoiPolygonNorm", poly);
             int fw = YamlScalars.toInt(activeReference.header().get("width"), YamlScalars.toInt(capture.header().get("width"), 1224));
             int fh = YamlScalars.toInt(activeReference.header().get("height"), YamlScalars.toInt(capture.header().get("height"), 1024));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi((List<Map<String, Object>>) poly, fw, fh);
+            Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi(poly, fw, fh);
             if (bbox != null) {
                 mainRoi = bbox;
             }
@@ -192,7 +190,6 @@ public final class BinaryInspectHeaders {
     /**
      * После runtime-override: пересчитать {@code mainRoi} по ограничивающему прямоугольнику полигона.
      */
-    @SuppressWarnings("unchecked")
     public static void applyMainRoiFromPolygon(
             Map<String, Object> gHeader,
             BinaryProtocol.Message capture,
@@ -210,7 +207,7 @@ public final class BinaryInspectHeaders {
                 activeReference != null && activeReference.header() != null ? activeReference.header().get("height") : null,
                 YamlScalars.toInt(capture.header().get("height"), 1024)
         );
-        Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi((List<Map<String, Object>>) poly, fw, fh);
+        Map<String, Object> bbox = InterestPolygonNormCodec.boundingPixelRoi(list, fw, fh);
         if (bbox != null) {
             gHeader.put("mainRoi", bbox);
             syncWrinklesRoiFromMainRoi(gHeader);
@@ -283,7 +280,6 @@ public final class BinaryInspectHeaders {
         return pyHeader;
     }
 
-    @SuppressWarnings("unchecked")
     private static Object resolveMainRoiPolygonNorm(ReferenceSnapshot activeReference, Map<String, Object> geometryCfg) {
         if (geometryCfg != null) {
             Object cfgPoly = geometryCfg.get("main_roi_polygon_norm");

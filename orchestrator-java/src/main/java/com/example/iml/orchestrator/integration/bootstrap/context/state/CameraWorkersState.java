@@ -43,8 +43,4 @@ public final class CameraWorkersState {
     public Map<Integer, ReferenceSnapshot> referenceByCamera() {
         return referenceByCamera;
     }
-
-    public void setReferenceByCamera(Map<Integer, ReferenceSnapshot> referenceByCamera) {
-        this.referenceByCamera = referenceByCamera;
-    }
 }

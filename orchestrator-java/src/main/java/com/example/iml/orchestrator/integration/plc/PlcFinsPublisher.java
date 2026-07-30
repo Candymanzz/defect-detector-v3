@@ -161,6 +161,15 @@ public final class PlcFinsPublisher implements AutoCloseable {
     writeLevelIfChanged(config.visionFaultSignal(), fault);
   }
 
+  /**
+   * Синхронная запись ready/fault до teardown (DI1 БП / shutdown prep).
+   */
+  public void flushVisionLevels(boolean ready, boolean fault)
+      throws IOException, InterruptedException, TimeoutException {
+    writeSignal(config.visionReadySignal(), ready, false);
+    writeSignal(config.visionFaultSignal(), fault, false);
+  }
+
   private void writeLevelIfChanged(String signalName, boolean value) {
     PlcSignalDefinition signal = registerMap.require(signalName);
     Boolean last = lastSignalValues.get(signalName);

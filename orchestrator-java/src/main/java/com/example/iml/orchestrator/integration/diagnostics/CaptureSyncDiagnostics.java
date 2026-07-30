@@ -128,17 +128,6 @@ public final class CaptureSyncDiagnostics implements AutoCloseable {
         );
     }
 
-    public void recordLineEvent(String event, long triggerSequence, int cameraCount, long staggerMs) {
-        log.info(
-                "sync_diag channel={} event={} trigger_sequence={} cameras={} stagger_ms={}",
-                channel,
-                event,
-                triggerSequence,
-                cameraCount,
-                staggerMs
-        );
-    }
-
     public static void logInspectCapture(
             Logger log,
             int cameraId,

@@ -1,8 +1,10 @@
 package com.example.iml.orchestrator.integration.bootstrap.context.port;
 
 import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfig;
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
+import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
@@ -37,6 +39,10 @@ public interface TriggerWiringHost {
     ManualLineDirectionService manualLineDirection();
 
     LightTriggerClient lightClient();
+
+    FanOutCoordinator fanOut();
+
+    OrchestratorStopSignal stopSignal();
 
     LineSynchronizedCaptureCoordinator lineCaptureCoordinator();
 

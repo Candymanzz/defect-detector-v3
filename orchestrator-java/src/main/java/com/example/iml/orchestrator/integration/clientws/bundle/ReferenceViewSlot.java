@@ -16,9 +16,6 @@ public record ReferenceViewSlot(
          */
         List<FpZoneNorm.PointNorm> interestPolygonNorm
 ) {
-    public boolean hasJointRoi() {
-        return jointRoi != null;
-    }
 
     public boolean hasInterestPolygonNorm() {
         return interestPolygonNorm != null && interestPolygonNorm.size() >= 3;

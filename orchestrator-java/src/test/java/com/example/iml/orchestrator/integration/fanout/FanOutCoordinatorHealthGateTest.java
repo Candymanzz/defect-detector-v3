@@ -70,4 +70,50 @@ class FanOutCoordinatorHealthGateTest {
         assertTrue(gate.healthy());
         fanOut.close();
     }
+
+    @Test
+    void shutdownPrepForcesReadyOffAndFaultOnSticky() throws Exception {
+        Path map = tempDir.resolve("register-map.yaml");
+        Files.writeString(map, """
+                version: 1
+                map_id: test
+                signals:
+                  - name: vision_ready
+                    area: W
+                    address: "0.04"
+                    data_type: bool
+                    direction: pc_to_plc
+                  - name: vision_fault
+                    area: W
+                    address: "0.05"
+                    data_type: bool
+                    direction: pc_to_plc
+                """);
+        Map<String, Object> root = Map.of(
+                "plc_fins", Map.of(
+                        "enabled", false,
+                        "register_map_path", map.toString(),
+                        "vision_ready_signal", "vision_ready",
+                        "vision_fault_signal", "vision_fault"
+                )
+        );
+        FanOutCoordinator fanOut = FanOutCoordinator.fromConfig(root, tempDir, null);
+        ServiceHealthGate gate = new ServiceHealthGate();
+        fanOut.setHealthGate(gate);
+        fanOut.onSessionState(ClientWsSessionState.READY);
+        assertFalse(fanOut.isShutdownPrepActive());
+
+        fanOut.enterShutdownPrep("di1_power_supply");
+        assertTrue(fanOut.isShutdownPrepActive());
+
+        // Health recovery must not clear shutdown-prep latch.
+        gate.markUnhealthy("io_input_monitor");
+        gate.markHealthy("io_input_monitor");
+        fanOut.refreshPlcLevels();
+        assertTrue(fanOut.isShutdownPrepActive());
+
+        fanOut.enterShutdownPrep("again");
+        assertTrue(fanOut.isShutdownPrepActive());
+        fanOut.close();
+    }
 }

@@ -60,14 +60,6 @@ public final class PlcRegisterMap {
     return Optional.empty();
   }
 
-  public Map<String, PlcTimeoutDefinition> timeoutsByDisplayAddress() {
-    Map<String, PlcTimeoutDefinition> map = new LinkedHashMap<>();
-    for (PlcTimeoutDefinition timeout : timeouts) {
-      map.put(timeout.displayAddress(), timeout);
-    }
-    return map;
-  }
-
   public Collection<PlcSignalDefinition> signals() {
     return byName.values();
   }

@@ -129,7 +129,7 @@ public final class ClientApiHttpController implements HttpController {
             });
             Map<String, Integer> units = parseTimeoutUnits(body);
             if (units.isEmpty()) {
-                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required (D4400..D4404 or names)");
+                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required (D4400..D4405 / names)");
                 return;
             }
             sendTimeoutsResponse(ctx, plc, plc.writeTimeouts(units));
@@ -268,7 +268,6 @@ public final class ClientApiHttpController implements HttpController {
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Integer> parseTimeoutUnits(Map<String, Object> body) {
         Object raw = body.get("timeouts");
         if (raw == null) {

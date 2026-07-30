@@ -17,11 +17,6 @@ public final class LightBrightnessCommands {
     private LightBrightnessCommands() {
     }
 
-    public static Integer parseUnifiedPercentFromHttpBody(byte[] raw) {
-        LightBrightnessUpdate u = parseBrightnessUpdate(raw);
-        return u.globalPercent();
-    }
-
     public static LightBrightnessUpdate parseBrightnessUpdate(byte[] raw) {
         if (raw == null || raw.length == 0) {
             return LightBrightnessUpdate.empty();
@@ -86,26 +81,8 @@ public final class LightBrightnessCommands {
         return new LightBrightnessUpdate(global, per);
     }
 
-    public static Integer parseUnifiedPercentFromQuery(String query) {
-        return parseBrightnessUpdateFromQuery(query).globalPercent();
-    }
-
     public static LightBrightnessUpdate parseBrightnessUpdateFromWsPayload(JsonNode payload) {
         return parseBrightnessUpdate(payload);
-    }
-
-    public static Integer parseUnifiedPercentFromWsPayload(JsonNode payload) {
-        return parseBrightnessUpdate(payload).globalPercent();
-    }
-
-    public static void applyIfPresent(LightTriggerClient lightClient, Integer percent) {
-        if (percent != null) {
-            LightBrightnessUpdate.apply(lightClient, LightBrightnessUpdate.globalOnly(percent));
-        }
-    }
-
-    public static void applyIfPresent(LightTriggerClient lightClient, LightBrightnessUpdate update) {
-        LightBrightnessUpdate.apply(lightClient, update);
     }
 
     private static Map<String, Integer> parsePerEndpointNode(JsonNode endpoints) {
@@ -173,28 +150,5 @@ public final class LightBrightnessCommands {
     public static int mvLe255ToUnified(int mvLe) {
         int b = Math.max(0, Math.min(255, mvLe));
         return LightBrightnessScale.clampPercent(Math.round(b * 100f / 255f));
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Integer parseUnifiedPercentFromMap(Map<String, Object> body) {
-        if (body == null || body.isEmpty()) {
-            return null;
-        }
-        try {
-            return parseBrightnessUpdate(JSON.writeValueAsBytes(body)).globalPercent();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public static LightBrightnessUpdate parseBrightnessUpdateFromMap(Map<String, Object> body) {
-        if (body == null || body.isEmpty()) {
-            return LightBrightnessUpdate.empty();
-        }
-        try {
-            return parseBrightnessUpdate(JSON.writeValueAsBytes(body));
-        } catch (Exception e) {
-            return LightBrightnessUpdate.empty();
-        }
     }
 }

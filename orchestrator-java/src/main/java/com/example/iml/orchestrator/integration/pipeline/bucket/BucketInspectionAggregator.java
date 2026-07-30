@@ -73,10 +73,6 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 .toList();
     }
 
-    public boolean isBucketCamera(int cameraId) {
-        return groupIdByCamera.containsKey(cameraId);
-    }
-
     public void recordFrameResult(
             long triggerSequence,
             int cameraId,

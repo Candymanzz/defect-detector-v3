@@ -280,21 +280,6 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         httpServer.stop(0);
     }
 
-    private static Path resolveImlShmPath(String fileNameInShmDir) {
-        String os = System.getProperty("os.name", "").toLowerCase();
-        if (os.contains("win")) {
-            String la = System.getenv("LOCALAPPDATA");
-            if (la == null || la.isBlank()) {
-                la = System.getenv("TEMP");
-            }
-            if (la == null || la.isBlank()) {
-                la = ".";
-            }
-            return Path.of(la, "iml_shm", fileNameInShmDir);
-        }
-        return Path.of("/dev/shm", fileNameInShmDir);
-    }
-
     public static ClientPreviewArtifact writeCurrentJpegFromBgrShm(
             String shmName, int width, int height, int stride, int previewMaxWidth, float quality
     ) {

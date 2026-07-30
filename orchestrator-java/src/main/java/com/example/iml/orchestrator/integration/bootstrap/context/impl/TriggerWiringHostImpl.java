@@ -4,8 +4,10 @@ import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBoot
 import com.example.iml.orchestrator.integration.bootstrap.context.CameraRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.AbstractCameraRuntimeHost;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.TriggerWiringHost;
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
+import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
@@ -68,6 +70,16 @@ public final class TriggerWiringHostImpl extends AbstractCameraRuntimeHost imple
     @Override
     public LightTriggerClient lightClient() {
         return pipeline().lightClient();
+    }
+
+    @Override
+    public FanOutCoordinator fanOut() {
+        return health().fanOut();
+    }
+
+    @Override
+    public OrchestratorStopSignal stopSignal() {
+        return health().stopSignal();
     }
 
     @Override

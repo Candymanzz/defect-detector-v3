@@ -69,5 +69,22 @@ class PlcRegisterMapLoaderTest {
     assertEquals(0, loaded.require("alarm_reset").address().bit());
     assertTrue(loaded.require("alarm_reset").writable());
     assertFalse(loaded.require("robot_working").writable());
+    assertEquals(6, loaded.timeouts().size());
+    assertEquals(
+        "chose_cycle_mode",
+        loaded.timeouts().stream()
+            .filter((t) -> t.wordAddress() == 4405)
+            .findFirst()
+            .orElseThrow()
+            .name()
+    );
+    assertEquals(
+        "flag",
+        loaded.findTimeout("chose_cycle_mode").orElseThrow().unit()
+    );
+    assertEquals(
+        "raw",
+        loaded.findTimeout("D4405").orElseThrow().encoding()
+    );
   }
 }

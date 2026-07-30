@@ -5,10 +5,12 @@ import com.example.iml.orchestrator.integration.bootstrap.service.api.PreflightB
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
 
 import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfig;
+import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfigMapper;
 import com.example.iml.orchestrator.integration.bootstrap.context.PreflightContext;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
 import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import org.apache.logging.log4j.Logger;
 
@@ -28,10 +30,9 @@ public final class PreflightBootstrapImpl extends AbstractBootstrapService imple
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean run(PreflightContext preflight) {
         var env = preflight.env();
-        List<Map<String, Object>> cameras = enabledCameras((List<Map<String, Object>>) env.root().get("cameras"));
+        List<Map<String, Object>> cameras = enabledCameras(YamlMaps.listOfStringObjectMaps(env.root().get("cameras")));
         if (cameras.isEmpty()) {
             log.warn("No enabled cameras in config; integration pipeline skipped");
             return false;
@@ -42,7 +43,7 @@ public final class PreflightBootstrapImpl extends AbstractBootstrapService imple
 
         Path workerBin = CameraWorkerPaths.resolveCameraWorkerExecutable(env.projectRoot());
         preflight.setWorkerBin(workerBin);
-        Map<String, Object> integration = (Map<String, Object>) env.root().get("integration");
+        Map<String, Object> integration = YamlMaps.stringObjectMapOrNull(env.root().get("integration"));
         preflight.setIntegration(integration);
 
         if (!Files.isRegularFile(workerBin)) {
@@ -55,8 +56,11 @@ public final class PreflightBootstrapImpl extends AbstractBootstrapService imple
 
         List<String> geometryCommand = CameraWorkerPaths.pickIntegrationCommandList(
                 integration, env.windows(), "geometry_command_windows", "geometry_command_linux");
-        IntegrationBootConfig cfg = IntegrationBootConfig.load(integration, cameras.size(), env.windows())
-                .withPoolCommands(List.of(), geometryCommand);
+        IntegrationBootConfig cfg = IntegrationBootConfigMapper.withPoolCommands(
+                IntegrationBootConfigMapper.fromYaml(integration, cameras.size(), env.windows()),
+                List.of(),
+                geometryCommand
+        );
         preflight.setBootConfig(cfg);
 
         Path workerConfigPath = CameraWorkerPaths.resolveWorkerConfigPath(env.projectRoot(), integration);

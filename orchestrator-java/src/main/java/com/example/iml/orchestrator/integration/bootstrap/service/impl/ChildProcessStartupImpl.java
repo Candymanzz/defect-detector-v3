@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBo
 import com.example.iml.orchestrator.integration.bootstrap.context.ChildProcessesContext;
 import com.example.iml.orchestrator.integration.bootstrap.factory.IntegrationServicePoolFactory;
 import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
@@ -37,7 +38,6 @@ public final class ChildProcessStartupImpl extends AbstractBootstrapService impl
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean start(ChildProcessesContext processes, IntegrationServicePoolFactory poolFactory) {
         var env = processes.env();
         var preflight = processes.preflight();
@@ -128,9 +128,9 @@ public final class ChildProcessStartupImpl extends AbstractBootstrapService impl
             ));
         }
 
-        processes.setPythonCfg((Map<String, Object>) env.root().get("python_detector"));
-        processes.setGeometryCfg((Map<String, Object>) env.root().get("java_geometry"));
-        Map<String, Object> positioningCfgEarly = (Map<String, Object>) env.root().get("java_positioning");
+        processes.setPythonCfg(YamlMaps.stringObjectMapOrNull(env.root().get("python_detector")));
+        processes.setGeometryCfg(YamlMaps.stringObjectMapOrNull(env.root().get("java_geometry")));
+        Map<String, Object> positioningCfgEarly = YamlMaps.stringObjectMapOrNull(env.root().get("java_positioning"));
         boolean positioningEnabled = YamlScalars.toBool(
                 positioningCfgEarly == null ? null : positioningCfgEarly.get("enabled"),
                 true
@@ -138,7 +138,7 @@ public final class ChildProcessStartupImpl extends AbstractBootstrapService impl
         processes.setPositioningCfg(positioningCfgEarly != null
                 ? positioningCfgEarly
                 : Map.of("enabled", positioningEnabled));
-        processes.setUiCfg((Map<String, Object>) env.root().get("ui_http"));
+        processes.setUiCfg(YamlMaps.stringObjectMapOrNull(env.root().get("ui_http")));
         return true;
     }
 

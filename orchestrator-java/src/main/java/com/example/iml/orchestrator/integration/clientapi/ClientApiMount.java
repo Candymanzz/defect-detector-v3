@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder;
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder;
@@ -63,7 +64,6 @@ public record ClientApiMount(
         );
     }
 
-    @SuppressWarnings("unchecked")
     public static ClientApiMount fromRootYaml(
             Map<String, Object> root,
             GeometryRuntimeConfig geometryRuntime,
@@ -93,16 +93,8 @@ public record ClientApiMount(
         if (url.endsWith("/")) {
             url = url.substring(0, url.length() - 1);
         }
-        Map<String, Object> jg = null;
-        Object jgo = root.get("java_geometry");
-        if (jgo instanceof Map<?, ?> jgm) {
-            jg = (Map<String, Object>) jgm;
-        }
-        Map<String, Object> py = null;
-        Object pyo = root.get("python_detector");
-        if (pyo instanceof Map<?, ?> pym) {
-            py = (Map<String, Object>) pym;
-        }
+        Map<String, Object> jg = YamlMaps.stringObjectMapOrNull(root.get("java_geometry"));
+        Map<String, Object> py = YamlMaps.stringObjectMapOrNull(root.get("python_detector"));
         return new ClientApiMount(
                 true,
                 geometryRuntime,

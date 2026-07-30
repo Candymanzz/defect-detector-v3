@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.plc;
 
+import com.example.iml.orchestrator.integration.config.YamlMaps;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -38,7 +39,7 @@ public final class PlcRegisterMapLoader {
         if (!(item instanceof Map<?, ?> entry)) {
           continue;
         }
-        PlcSignalDefinition signal = parseSignal((Map<String, Object>) entry);
+        PlcSignalDefinition signal = parseSignal(YamlMaps.stringObjectMap(entry));
         byName.put(signal.name(), signal);
       }
       if (byName.isEmpty()) {
@@ -49,7 +50,6 @@ public final class PlcRegisterMapLoader {
     }
   }
 
-  @SuppressWarnings("unchecked")
   private static List<PlcTimeoutDefinition> parseTimeouts(Object raw) {
     if (!(raw instanceof List<?> list) || list.isEmpty()) {
       return List.of();
@@ -59,7 +59,7 @@ public final class PlcRegisterMapLoader {
       if (!(item instanceof Map<?, ?> entry)) {
         continue;
       }
-      timeouts.add(parseTimeout((Map<String, Object>) entry));
+      timeouts.add(parseTimeout(YamlMaps.stringObjectMap(entry)));
     }
     return timeouts;
   }

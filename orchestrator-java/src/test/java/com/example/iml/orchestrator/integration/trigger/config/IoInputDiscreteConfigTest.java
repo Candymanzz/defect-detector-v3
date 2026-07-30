@@ -118,17 +118,18 @@ class IoInputDiscreteConfigTest {
     }
 
     @Test
-    void parsesExternalHardwareCaptureFromIntegrationConfig() {
+    void parsesShutdownPrepOnWorkHighFromIntegrationConfig() {
         Map<String, Object> integration = Map.of(
                 "inspection_trigger",
                 Map.of(
                         "io_input",
-                        Map.of("external_hardware_capture", true)
+                        Map.of("shutdown_prep_on_work_high", false)
                 )
         );
 
         IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
 
-        assertTrue(cfg.externalHardwareCapture());
+        assertFalse(cfg.shutdownPrepOnWorkHigh());
+        assertTrue(IoInputDiscreteConfig.defaults().shutdownPrepOnWorkHigh());
     }
 }

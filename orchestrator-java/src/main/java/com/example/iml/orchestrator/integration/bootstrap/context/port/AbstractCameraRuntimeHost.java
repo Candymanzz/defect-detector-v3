@@ -76,10 +76,6 @@ public abstract class AbstractCameraRuntimeHost {
         return env().projectRoot();
     }
 
-    protected final Map<String, Object> integrationMap() {
-        return preflight().integration();
-    }
-
     protected final IntegrationBootConfig bootCfg() {
         return preflight().bootConfig();
     }

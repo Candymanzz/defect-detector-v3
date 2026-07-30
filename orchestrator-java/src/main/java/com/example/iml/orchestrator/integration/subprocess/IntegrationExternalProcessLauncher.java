@@ -35,11 +35,9 @@ public final class IntegrationExternalProcessLauncher {
             return new AutostartSettings(false, 0, projectRoot.resolve(defaultRelativeWorkingDir).normalize());
         }
         Object raw = integration.get(blockKey);
-        if (!(raw instanceof Map<?, ?> block)) {
+        if (!(raw instanceof Map<?, ?> settings)) {
             return new AutostartSettings(false, 0, projectRoot.resolve(defaultRelativeWorkingDir).normalize());
         }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> settings = (Map<String, Object>) block;
         boolean enabled = YamlScalars.toBool(settings.get("enabled"), false);
         int startupDelayMs = Math.max(0, YamlScalars.toInt(settings.get("startup_delay_ms"), 0));
         String workingDirRel = settings.get("working_dir") != null

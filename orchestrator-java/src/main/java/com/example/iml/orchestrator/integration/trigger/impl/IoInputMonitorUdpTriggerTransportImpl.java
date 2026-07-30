@@ -774,13 +774,6 @@ public final class IoInputMonitorUdpTriggerTransportImpl implements TriggerTrans
         return targetCameras.toString();
     }
 
-    private static String cycleLabel(IoInputDirectionAutoCapture.CycleDirection direction) {
-        return switch (direction) {
-            case FORWARD -> "forward";
-            case UNKNOWN -> "unknown";
-        };
-    }
-
     private void tryCommitLineCapture(String source, boolean ignoreDirectionCheck) {
         if (captureFiredThisPulse) {
             return;
@@ -832,10 +825,6 @@ public final class IoInputMonitorUdpTriggerTransportImpl implements TriggerTrans
 
     private boolean mapDirection(boolean rawDiActive) {
         return ioInputConfig.directionInvert() ? !rawDiActive : rawDiActive;
-    }
-
-    private boolean directionRawActive() {
-        return directionRawActive;
     }
 
     private void updateLineWork(boolean work) {

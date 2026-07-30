@@ -40,6 +40,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     private final PlcRegisterMap registerMap;
     private volatile ServiceHealthGate healthGate;
     private volatile ClientWsSessionState lastSessionState = ClientWsSessionState.NO_REFERENCE;
+    /** Sticky: DI1 (БП) → ready=0 / fault=1 до завершения процесса; refresh не снимает. */
+    private volatile boolean shutdownPrepActive;
 
     private FanOutCoordinator(
             PlcFinsPublisher plcPublisher,
@@ -64,7 +66,6 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         return fromConfig(root, projectRoot, clientWsServer, null);
     }
 
-    @SuppressWarnings("unchecked")
     public static FanOutCoordinator fromConfig(
             Map<String, Object> root,
             Path projectRoot,
@@ -142,24 +143,62 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     /**
+     * Подготовка к завершению (триггер БП по DI1): vision_ready→0, vision_fault→1, sticky.
+     * Пишет FINS синхронно, чтобы биты ушли в ПЛК до graceful stop / {@code System.exit}.
+     */
+    public void enterShutdownPrep(String reason) {
+        if (shutdownPrepActive) {
+            return;
+        }
+        shutdownPrepActive = true;
+        log.warn(
+                "plc fins shutdown prep — vision_ready=0 vision_fault=1 reason={}",
+                reason == null || reason.isBlank() ? "shutdown_prep" : reason.trim()
+        );
+        if (plcPublisher != null) {
+            try {
+                plcPublisher.flushVisionLevels(false, true);
+            } catch (Exception e) {
+                log.warn("plc fins shutdown prep flush failed: {}", e.getMessage());
+                refreshPlcLevels();
+                return;
+            }
+        }
+        refreshPlcLevels();
+    }
+
+    public boolean isShutdownPrepActive() {
+        return shutdownPrepActive;
+    }
+
+    /**
      * Пересчёт sticky vision_ready / vision_fault с учётом эталона и {@link ServiceHealthGate}.
+     * При {@link #enterShutdownPrep} всегда ready=0 / fault=1.
      */
     public void refreshPlcLevels() {
         boolean referenceActive = lastSessionState != null
                 && lastSessionState != ClientWsSessionState.NO_REFERENCE;
         ServiceHealthGate gate = healthGate;
         boolean healthy = gate == null || gate.healthy();
-        boolean ready = referenceActive && healthy;
-        boolean fault = !healthy;
+        boolean ready;
+        boolean fault;
+        if (shutdownPrepActive) {
+            ready = false;
+            fault = true;
+        } else {
+            ready = referenceActive && healthy;
+            fault = !healthy;
+        }
         signalVisionReady(ready);
         signalVisionFault(fault);
         log.info(
-                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} unhealthy={})",
+                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} shutdown_prep={} unhealthy={})",
                 lastSessionState == null ? "null" : lastSessionState.name(),
                 ready,
                 fault,
                 referenceActive,
                 healthy,
+                shutdownPrepActive,
                 gate == null ? "[]" : gate.unhealthyReasons()
         );
     }
@@ -311,36 +350,24 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         if (defs.isEmpty()) {
             throw new IllegalStateException("PLC timeouts not configured in register map");
         }
-        Map<Integer, Integer> unitsByWord = new LinkedHashMap<>();
+        Map<Integer, Integer> encodedByWord = new LinkedHashMap<>();
         for (Map.Entry<String, Integer> entry : unitsByKey.entrySet()) {
             PlcTimeoutDefinition def = registerMap.findTimeout(entry.getKey())
                     .orElseThrow(() -> new IllegalArgumentException("unknown timeout key: " + entry.getKey()));
             int units = entry.getValue() == null ? 0 : entry.getValue();
-            if (units < 0 || units > 9999) {
-                throw new IllegalArgumentException(def.displayAddress() + " out of range 0..9999 units");
-            }
-            unitsByWord.put(def.wordAddress(), units);
+            encodedByWord.put(def.wordAddress(), encodeTimeoutWord(def, units));
         }
-        int start = defs.get(0).wordAddress();
-        int end = defs.get(defs.size() - 1).wordAddress();
-        int count = end - start + 1;
-        int[] current = plcPublisher.readWords(PlcMemoryArea.DM, start, count, "timeouts_read_before_write");
-        int[] next = current.clone();
-        for (Map.Entry<Integer, Integer> entry : unitsByWord.entrySet()) {
-            int index = entry.getKey() - start;
-            PlcTimeoutDefinition def = registerMap.findTimeout("D" + entry.getKey()).orElseThrow();
-            if ("bcd".equalsIgnoreCase(def.encoding())) {
-                next[index] = PlcBcd.toBcdWord(entry.getValue());
-            } else {
-                next[index] = entry.getValue() & 0xFFFF;
-            }
+        // Пишем только изменённые слова — флаги DM (0/1) не затираются при сохранении таймаутов.
+        for (Map.Entry<Integer, Integer> entry : encodedByWord.entrySet()) {
+            int wordAddress = entry.getKey();
+            plcPublisher.writeWords(
+                    PlcMemoryArea.DM,
+                    wordAddress,
+                    new int[]{entry.getValue()},
+                    "timeout_D" + wordAddress
+            );
         }
-        plcPublisher.writeWords(PlcMemoryArea.DM, start, next, "timeouts_D" + start + "_D" + end);
-        List<PlcTimeoutState> states = new ArrayList<>(defs.size());
-        for (PlcTimeoutDefinition def : defs) {
-            states.add(toState(def, next[def.wordAddress() - start] & 0xFFFF));
-        }
-        return states;
+        return readTimeouts();
     }
 
     public String metricsSummary() {
@@ -363,19 +390,42 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         return defs;
     }
 
+    private static int encodeTimeoutWord(PlcTimeoutDefinition def, int units) {
+        if (isFlag(def)) {
+            if (units != 0 && units != 1) {
+                throw new IllegalArgumentException(def.displayAddress() + " flag must be 0 or 1");
+            }
+            return units & 0xFFFF;
+        }
+        if (units < 0 || units > 9999) {
+            throw new IllegalArgumentException(def.displayAddress() + " out of range 0..9999 units");
+        }
+        if ("bcd".equalsIgnoreCase(def.encoding())) {
+            return PlcBcd.toBcdWord(units);
+        }
+        return units & 0xFFFF;
+    }
+
+    private static boolean isFlag(PlcTimeoutDefinition def) {
+        return "flag".equalsIgnoreCase(def.unit()) || "bool".equalsIgnoreCase(def.unit());
+    }
+
     private static PlcTimeoutState toState(PlcTimeoutDefinition def, int rawWord) {
         int units;
         if ("bcd".equalsIgnoreCase(def.encoding())) {
             units = PlcBcd.fromBcdWord(rawWord);
+        } else if (isFlag(def)) {
+            units = (rawWord & 0xFFFF) != 0 ? 1 : 0;
         } else {
             units = rawWord & 0xFFFF;
         }
+        int valueMs = isFlag(def) ? 0 : PlcBcd.unitsToMs(units);
         return new PlcTimeoutState(
                 def.name(),
                 def.description(),
                 def.displayAddress(),
                 units,
-                PlcBcd.unitsToMs(units),
+                valueMs,
                 rawWord & 0xFFFF,
                 def.encoding(),
                 def.unit()

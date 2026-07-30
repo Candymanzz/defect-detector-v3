@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.bootstrap.service.impl;
 
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.bootstrap.service.api.BootstrapInspectionFeatures;
 
 import com.example.iml.orchestrator.integration.bootstrap.service.api.TriggerRuntimeBootstrap;
@@ -7,9 +8,11 @@ import com.example.iml.orchestrator.integration.bootstrap.service.api.TriggerRun
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
 
 import com.example.iml.orchestrator.integration.bootstrap.config.SimultaneousLineCaptureConfig;
+import com.example.iml.orchestrator.integration.bootstrap.config.SimultaneousLineCaptureConfigMapper;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.TriggerWiringHost;
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashConfig;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
@@ -97,7 +100,7 @@ public final class TriggerRuntimeBootstrapImpl extends AbstractBootstrapService 
         }
 
         SimultaneousLineCaptureConfig lineCaptureCfg =
-                SimultaneousLineCaptureConfig.parse(ctx.integration(), ctx.root());
+                SimultaneousLineCaptureConfigMapper.fromYaml(ctx.integration(), ctx.root());
         wireLineCapture(ctx, lineCaptureCfg, inspectionCameraIds);
 
         AtomicBoolean softwareVisionReady = new AtomicBoolean(false);
@@ -117,6 +120,7 @@ public final class TriggerRuntimeBootstrapImpl extends AbstractBootstrapService 
                 ctx.manualLineDirection()
         );
         ctx.setTriggerRuntime(triggerRuntime);
+        wireShutdownPrepOnDi1(ctx, inspectionTriggerConfig, triggerRuntime);
 
         wireIntervalFlash(ctx);
 
@@ -168,6 +172,45 @@ public final class TriggerRuntimeBootstrapImpl extends AbstractBootstrapService 
         );
     }
 
+    /**
+     * DI1↑ (триггер БП): vision_ready→0, vision_fault→1, затем graceful stop оркестратора.
+     */
+    private void wireShutdownPrepOnDi1(
+            TriggerWiringHost ctx,
+            InspectionTriggerConfig triggerCfg,
+            InspectionTriggerRuntime triggerRuntime
+    ) {
+        if (!triggerCfg.usesIoInputMonitor() || !triggerCfg.ioInput().shutdownPrepOnWorkHigh()) {
+            return;
+        }
+        FanOutCoordinator fanOut = ctx.fanOut();
+        OrchestratorStopSignal stopSignal = ctx.stopSignal();
+        int workPort = triggerCfg.ioInput().workPort();
+        AtomicBoolean armed = new AtomicBoolean(false);
+        triggerRuntime.addDiChangeListener(change -> {
+            if (change.diPort() != workPort || !change.active()) {
+                return;
+            }
+            if (!armed.compareAndSet(false, true)) {
+                return;
+            }
+            log.warn(
+                    "DI{}↑ power-supply trigger — shutdown prep then process exit (vision_ready=0, vision_fault=1)",
+                    workPort
+            );
+            if (fanOut != null) {
+                fanOut.enterShutdownPrep("di" + workPort + "_power_supply");
+            }
+            if (stopSignal != null) {
+                stopSignal.request("di" + workPort + "_power_supply");
+            }
+        });
+        log.info(
+                "inspection_trigger shutdown_prep_on_work_high=true — DI{}↑ → vision_ready=0 / vision_fault=1 → stop → System.exit",
+                workPort
+        );
+    }
+
     private void wireLineCapture(
             TriggerWiringHost ctx,
             SimultaneousLineCaptureConfig lineCaptureCfg,
@@ -188,7 +231,7 @@ public final class TriggerRuntimeBootstrapImpl extends AbstractBootstrapService 
             lineCaptureCoordinator.bindWorkers(ctx.workersByCamera());
             ctx.setLineCaptureCoordinator(lineCaptureCoordinator);
             ctx.captureCoordinator().setLineCaptureCoordinator(lineCaptureCoordinator);
-            lineCaptureCfg.logTopology(log, ctx.root());
+            SimultaneousLineCaptureConfigMapper.logTopology(lineCaptureCfg, log, ctx.root());
             if (lineCaptureCfg.hardwareLineTrigger()) {
                 log.info(
                         "hardware_line_trigger: экспозиция по DI3→Line0, Java только wait_frame (без trigger_only/settle/barrier)"

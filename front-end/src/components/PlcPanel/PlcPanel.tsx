@@ -10,6 +10,11 @@ import "./PlcPanel.css";
 const MAX_TRAFFIC_ENTRIES = 300;
 const STATUS_POLL_MS = 1500;
 
+function isDmFlag(item: PlcTimeoutState): boolean {
+  const unit = (item.unit ?? "").toLowerCase();
+  return unit === "flag" || unit === "bool";
+}
+
 type PlcPanelProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -147,7 +152,7 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
       return;
     }
     const payload: Record<string, number> = {};
-    for (const item of timeouts) {
+    for (const item of timeouts.filter((entry) => !isDmFlag(entry))) {
       const raw = draftUnits[item.name];
       const units = Number.parseInt(String(raw ?? "").trim(), 10);
       if (!Number.isFinite(units) || units < 0 || units > 9999) {
@@ -190,6 +195,26 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
     }
   };
 
+  const handleWriteFlag = async (item: PlcTimeoutState, value: 0 | 1) => {
+    if (!timeoutsEditable || timeoutsBusy || item.valueUnits === value) {
+      return;
+    }
+    setTimeoutsBusy(true);
+    setActionError(null);
+    try {
+      const response = await orchestratorApi.putPlcTimeouts({ [item.name]: value });
+      applyTimeouts(response.timeouts ?? []);
+    } catch (error) {
+      setActionError(errorMessage(error));
+      void refreshTimeouts();
+    } finally {
+      setTimeoutsBusy(false);
+    }
+  };
+
+  const timingItems = timeouts.filter((item) => !isDmFlag(item));
+  const flagItems = timeouts.filter((item) => isDmFlag(item));
+
   return (
     <div className="plc-panel-backdrop" role="presentation" onClick={onClose}>
       <section
@@ -203,8 +228,8 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
           <div>
             <h2>ПЛК · FINS</h2>
             <p className="plc-panel__subtitle">
-              Тайминги D4400–D4404, сигналы и трафик. vision_ready пишется при готовности оркестратора
-              (камеры подняты), не при старте инспекции.
+              Тайминги D4400–D4404, флаг D4405 (0/1), сигналы и трафик. vision_ready пишется при
+              готовности оркестратора (камеры подняты), не при старте инспекции.
             </p>
           </div>
           <Button type="button" onClick={onClose}>
@@ -238,8 +263,8 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
 
         {!signalsEditable && (
           <p className="plc-panel__lock-note">
-            Пока задан эталон или идёт цикл, ручные сигналы заблокированы. Тайминги D4400–D4404 можно
-            менять в любой момент.
+            Пока задан эталон или идёт цикл, ручные сигналы заблокированы. Тайминги D4400–D4404 и флаг
+            D4405 можно менять в любой момент.
           </p>
         )}
         {statusError && <p className="plc-panel__error">Статус: {statusError}</p>}
@@ -262,8 +287,8 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
             </div>
           </header>
           <div className="plc-panel__timeout-list">
-            {timeouts.length === 0 && <p className="plc-panel__empty">Тайминги не загружены</p>}
-            {timeouts.map((item) => (
+            {timingItems.length === 0 && <p className="plc-panel__empty">Тайминги не загружены</p>}
+            {timingItems.map((item) => (
               <label key={item.name} className="plc-panel__timeout-row">
                 <div className="plc-panel__timeout-meta">
                   <strong>
@@ -291,6 +316,50 @@ export function PlcPanel({ isOpen, onClose }: PlcPanelProps) {
             ))}
           </div>
         </section>
+
+        {flagItems.length > 0 && (
+          <section className="plc-panel__timeouts">
+            <header className="plc-panel__section-header">
+              <h3>Флаги DM (0 / 1)</h3>
+              <Button type="button" onClick={() => void refreshTimeouts()} disabled={timeoutsBusy}>
+                Прочитать
+              </Button>
+            </header>
+            <div className="plc-panel__timeout-list">
+              {flagItems.map((item) => (
+                <article key={item.name} className="plc-panel__timeout-row">
+                  <div className="plc-panel__timeout-meta">
+                    <strong>
+                      {item.address} · {item.name}
+                    </strong>
+                    <span>{item.description || "—"}</span>
+                    <span data-value={String(item.valueUnits)}>
+                      сейчас{" "}
+                      {item.valueUnits === 1 ? "1 · металлическая" : "0 · пластиковая"}{" "}
+                      (raw=0x{item.rawWord.toString(16)})
+                    </span>
+                  </div>
+                  <div className="plc-panel__signal-actions">
+                    <Button
+                      type="button"
+                      disabled={!timeoutsEditable || timeoutsBusy || item.valueUnits === 1}
+                      onClick={() => void handleWriteFlag(item, 1)}
+                    >
+                      1 · металлическая
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={!timeoutsEditable || timeoutsBusy || item.valueUnits === 0}
+                      onClick={() => void handleWriteFlag(item, 0)}
+                    >
+                      0 · пластиковая
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="plc-panel__body">
           <section className="plc-panel__signals">

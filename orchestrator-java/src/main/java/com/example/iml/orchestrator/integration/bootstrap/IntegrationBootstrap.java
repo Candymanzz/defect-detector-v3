@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRun
 import com.example.iml.orchestrator.integration.bootstrap.factory.DefaultIntegrationServicePoolFactory;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationLifecycleComposite;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownCoordinator;
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.bootstrap.pipeline.api.BootstrapPipeline;
 import com.example.iml.orchestrator.integration.bootstrap.pipeline.impl.CameraRuntimeBootstrapStageImpl;
 import com.example.iml.orchestrator.integration.bootstrap.pipeline.impl.ChildProcessBootstrapStageImpl;
@@ -93,10 +94,19 @@ public final class IntegrationBootstrap {
                 session.fanOut().ifPresent(fanOut -> fanOut.signalVisionFault(true));
             }
         } finally {
+            boolean exitJvm = false;
+            String exitReason = null;
             if (resourcesStarted && session != null) {
+                OrchestratorStopSignal stop = session.stopSignal().orElse(null);
+                exitJvm = stop != null && stop.isRequested();
+                exitReason = stop == null ? null : stop.reason();
                 LightsShutdown.run("bootstrap-finally");
                 lifecycle.close();
                 IntegrationShutdownCoordinator.shutdownAll(session.toShutdownResources());
+            }
+            if (exitJvm) {
+                log.warn("orchestrator process exit reason={}", exitReason == null ? "stop" : exitReason);
+                System.exit(0);
             }
         }
     }

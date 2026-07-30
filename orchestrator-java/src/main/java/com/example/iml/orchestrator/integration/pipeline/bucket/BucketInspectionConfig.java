@@ -34,7 +34,6 @@ public record BucketInspectionConfig(
                 .toList();
     }
 
-    @SuppressWarnings("unchecked")
     public static BucketInspectionConfig parse(Map<String, Object> integration, Collection<Integer> enabledCameraIds) {
         if (integration == null) {
             return disabled();
@@ -65,7 +64,6 @@ public record BucketInspectionConfig(
         return cameraCount > DEFAULT_CAMERAS_PER_PRESET_GROUP ? 6000L : 4000L;
     }
 
-    @SuppressWarnings("unchecked")
     private static List<BucketGroup> parseGroups(Map<?, ?> m, Collection<Integer> enabledCameraIds) {
         Object rawGroups = m.get("groups");
         if (rawGroups instanceof List<?> list && !list.isEmpty()) {
@@ -82,16 +80,14 @@ public record BucketInspectionConfig(
         return resolvePresetGroupsForMode(mode, enabledCameraIds);
     }
 
-    @SuppressWarnings("unchecked")
     private static List<BucketGroup> parseExplicitGroups(List<?> list) {
         List<BucketGroup> groups = new ArrayList<>();
         Set<Integer> seenGroupIds = new HashSet<>();
         Set<Integer> seenCameraIds = new HashSet<>();
         for (Object item : list) {
-            if (!(item instanceof Map<?, ?> rawGroup)) {
+            if (!(item instanceof Map<?, ?> groupMap)) {
                 continue;
             }
-            Map<String, Object> groupMap = (Map<String, Object>) rawGroup;
             int groupId = YamlScalars.toInt(groupMap.get("id"), groups.size());
             if (!seenGroupIds.add(groupId)) {
                 throw new IllegalStateException("inspection_bucket.groups: duplicate group id=" + groupId);
