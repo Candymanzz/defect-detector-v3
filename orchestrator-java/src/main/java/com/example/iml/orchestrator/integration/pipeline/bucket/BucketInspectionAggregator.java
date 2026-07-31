@@ -1,19 +1,15 @@
 package com.example.iml.orchestrator.integration.pipeline.bucket;
 
-import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutSink;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import org.apache.logging.log4j.Logger;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Собирает per-frame решения по trigger sequence и группе камер.
@@ -23,19 +19,15 @@ import java.util.concurrent.TimeUnit;
  */
 public final class BucketInspectionAggregator implements AutoCloseable {
 
-    private record BucketKey(long triggerSequence, int groupId) {
-    }
-
     private final Logger log;
     private final List<BucketGroup> groups;
     private final Map<Integer, BucketGroup> groupById;
     private final Map<Integer, Integer> groupIdByCamera;
-    private final long timeoutMs;
-    private final JointSeamPolicy jointSeamPolicy;
     private final ScheduledExecutorService timeoutExecutor;
     private final ConcurrentHashMap<BucketKey, BucketState> buckets = new ConcurrentHashMap<>();
-    /** Барьер: ждать все groupId одного triggerSequence перед fanOut. */
-    private final ConcurrentHashMap<Long, SequenceBarrier> sequenceBarriers = new ConcurrentHashMap<>();
+    private final BucketSequenceFanOut sequenceFanOut;
+    private final BucketPublishHelper publishHelper;
+    private final BucketTimeoutScheduler timeoutScheduler;
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config) {
         this(log, config, JointSeamPolicy.defaults());
@@ -52,13 +44,16 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 groupIdByCamera.put(cameraId, group.id());
             }
         }
-        this.timeoutMs = config.timeoutMs();
-        this.jointSeamPolicy = jointSeamPolicy == null ? JointSeamPolicy.defaults() : jointSeamPolicy;
         this.timeoutExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "bucket-inspection-timeout");
             t.setDaemon(true);
             return t;
         });
+        JointSeamPolicy policy = jointSeamPolicy == null ? JointSeamPolicy.defaults() : jointSeamPolicy;
+        this.sequenceFanOut = new BucketSequenceFanOut(log, groups, config.timeoutMs(), timeoutExecutor);
+        this.publishHelper = new BucketPublishHelper(log, policy, buckets, sequenceFanOut::enqueueSyncedFanOut);
+        this.timeoutScheduler = new BucketTimeoutScheduler(
+                log, config.timeoutMs(), timeoutExecutor, buckets, publishHelper);
     }
 
     public List<BucketGroup> groups() {
@@ -66,11 +61,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     }
 
     public List<Integer> allCameraIds() {
-        return groups.stream()
-                .flatMap(group -> group.cameraIds().stream())
-                .distinct()
-                .sorted()
-                .toList();
+        return BucketInspectionConfig.collectCameraIds(groups);
     }
 
     public void recordFrameResult(
@@ -103,304 +94,15 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 return;
             }
             state.frameDecisions.put(cameraId, decision);
-            scheduleTimeoutIfNeeded(state, fanOut);
+            timeoutScheduler.scheduleTimeoutIfNeeded(state, fanOut);
             if (state.frameDecisions.size() >= group.cameraIds().size()) {
-                publishBucket(state, fanOut, false);
+                publishHelper.publishBucket(state, fanOut, false);
             }
         }
-    }
-
-    private void scheduleTimeoutIfNeeded(BucketState state, BucketFanOutSink fanOut) {
-        if (state.timeoutFuture != null) {
-            return;
-        }
-        state.timeoutFuture = timeoutExecutor.schedule(
-                () -> onTimeout(state.key(), fanOut),
-                timeoutMs,
-                TimeUnit.MILLISECONDS
-        );
-    }
-
-    private void onTimeout(BucketKey key, BucketFanOutSink fanOut) {
-        BucketState state = buckets.get(key);
-        if (state == null) {
-            return;
-        }
-        synchronized (state) {
-            if (state.published) {
-                return;
-            }
-            log.warn(
-                    "inspection bucket timeout seq={} group={} received={}/{} cameras={}",
-                    key.triggerSequence(),
-                    key.groupId(),
-                    state.frameDecisions.size(),
-                    state.group.cameraIds().size(),
-                    state.frameDecisions.keySet()
-            );
-            publishBucket(state, fanOut, true);
-        }
-    }
-
-    private void publishBucket(BucketState state, BucketFanOutSink fanOut, boolean timedOut) {
-        if (state.published) {
-            return;
-        }
-        state.published = true;
-        if (state.timeoutFuture != null) {
-            state.timeoutFuture.cancel(false);
-        }
-        buckets.remove(state.key(), state);
-
-        List<Integer> expectedCameraIds = state.group.cameraIds();
-        boolean anyReject = timedOut || state.frameDecisions.size() < expectedCameraIds.size();
-        if (!anyReject) {
-            boolean captureOnly = state.frameDecisions.values().stream()
-                    .allMatch(decision -> decision != null && "CAPTURE".equals(decision.action()));
-            if (captureOnly) {
-                anyReject = false;
-            } else {
-                for (Integer cameraId : expectedCameraIds) {
-                    InspectionDecision frameDecision = state.frameDecisions.get(cameraId);
-                    if (frameDecision == null || !frameDecision.overallPass()) {
-                        anyReject = true;
-                        break;
-                    }
-                }
-            }
-        }
-        boolean bucketPass = !anyReject;
-        Map<Integer, InspectionDecision> snapshot = Map.copyOf(state.frameDecisions);
-        boolean seamStrict = false;
-        if (bucketPass) {
-            SeamStrictGate seamGate = evaluateSeamStrictGate(snapshot);
-            seamStrict = seamGate.strictActive();
-            if (seamGate.forceReject()) {
-                bucketPass = false;
-            }
-            if (log != null && (seamGate.jointDecision() != null || seamStrict)) {
-                log.info(
-                        "inspection bucket seam_gate seq={} group={} seam_strict={} sibling_vis={} "
-                                + "joint_cam={} par={} width={} strict_pass={}",
-                        state.triggerSequence,
-                        state.groupId,
-                        seamStrict,
-                        seamGate.siblingVisibility(),
-                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().cameraId(),
-                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointParallelismDeg(),
-                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointWidthMm(),
-                        !seamGate.forceReject()
-                );
-            }
-        }
-
-        log.info(
-                "inspection bucket complete seq={} group={} pass={} frames={}/{} reject_cameras={} seam_strict={}",
-                state.triggerSequence,
-                state.groupId,
-                bucketPass,
-                snapshot.size(),
-                expectedCameraIds.size(),
-                rejectCameraIds(snapshot),
-                seamStrict
-        );
-
-        enqueueSyncedFanOut(
-                new BucketFanOutResult(
-                        state.groupId,
-                        state.triggerSequence,
-                        bucketPass,
-                        expectedCameraIds,
-                        snapshot
-                ),
-                fanOut
-        );
-    }
-
-    /**
-     * Одно ведро → сразу в fanOut. Два+ ведра → ждать все groupId одного seq, потом слать пакетом
-     * (reject_line_1 и reject_line_2 синхронно).
-     */
-    private void enqueueSyncedFanOut(BucketFanOutResult result, BucketFanOutSink fanOut) {
-        if (fanOut == null) {
-            return;
-        }
-        if (groups.size() <= 1) {
-            fanOut.publishBucket(result);
-            return;
-        }
-        SequenceBarrier barrier = sequenceBarriers.computeIfAbsent(
-                result.triggerSequence(),
-                seq -> new SequenceBarrier(seq)
-        );
-        List<BucketFanOutResult> toPublish = null;
-        synchronized (barrier) {
-            if (barrier.flushed) {
-                return;
-            }
-            barrier.readyByGroup.put(result.groupId(), result);
-            scheduleSequenceSyncTimeout(barrier, fanOut);
-            if (barrier.readyByGroup.size() >= groups.size()) {
-                toPublish = takeBarrierResults(barrier);
-            }
-        }
-        if (toPublish != null) {
-            publishSyncedResults(toPublish, fanOut);
-        }
-    }
-
-    private void scheduleSequenceSyncTimeout(SequenceBarrier barrier, BucketFanOutSink fanOut) {
-        if (barrier.syncTimeoutFuture != null) {
-            return;
-        }
-        barrier.syncTimeoutFuture = timeoutExecutor.schedule(
-                () -> onSequenceSyncTimeout(barrier.triggerSequence, fanOut),
-                timeoutMs,
-                TimeUnit.MILLISECONDS
-        );
-    }
-
-    private void onSequenceSyncTimeout(long triggerSequence, BucketFanOutSink fanOut) {
-        SequenceBarrier barrier = sequenceBarriers.get(triggerSequence);
-        if (barrier == null) {
-            return;
-        }
-        List<BucketFanOutResult> toPublish;
-        synchronized (barrier) {
-            if (barrier.flushed) {
-                return;
-            }
-            for (BucketGroup group : groups) {
-                if (barrier.readyByGroup.containsKey(group.id())) {
-                    continue;
-                }
-                log.warn(
-                        "inspection sequence sync timeout seq={} missing_group={} — synthetic reject for line",
-                        triggerSequence,
-                        group.id()
-                );
-                barrier.readyByGroup.put(
-                        group.id(),
-                        new BucketFanOutResult(
-                                group.id(),
-                                triggerSequence,
-                                false,
-                                group.cameraIds(),
-                                Map.of()
-                        )
-                );
-            }
-            toPublish = takeBarrierResults(barrier);
-        }
-        publishSyncedResults(toPublish, fanOut);
-    }
-
-    private List<BucketFanOutResult> takeBarrierResults(SequenceBarrier barrier) {
-        barrier.flushed = true;
-        if (barrier.syncTimeoutFuture != null) {
-            barrier.syncTimeoutFuture.cancel(false);
-        }
-        sequenceBarriers.remove(barrier.triggerSequence, barrier);
-        return groups.stream()
-                .map(group -> barrier.readyByGroup.get(group.id()))
-                .filter(result -> result != null)
-                .toList();
-    }
-
-    private void publishSyncedResults(List<BucketFanOutResult> results, BucketFanOutSink fanOut) {
-        if (fanOut == null || results == null || results.isEmpty()) {
-            return;
-        }
-        log.info(
-                "inspection sequence fanout seq={} groups={} passes={}",
-                results.get(0).triggerSequence(),
-                results.stream().map(BucketFanOutResult::groupId).toList(),
-                results.stream().map(BucketFanOutResult::overallPass).toList()
-        );
-        for (BucketFanOutResult result : results) {
-            fanOut.publishBucket(result);
-        }
-    }
-
-    private SeamStrictGate evaluateSeamStrictGate(Map<Integer, InspectionDecision> decisions) {
-        InspectionDecision joint = null;
-        double siblingSum = 0.0;
-        int siblingCount = 0;
-        for (InspectionDecision decision : decisions.values()) {
-            if (decision == null) {
-                continue;
-            }
-            if (decision.jointCamera()) {
-                joint = decision;
-            } else if (decision.jointVisibility() > 0.0 || !"CAPTURE".equals(decision.action())) {
-                siblingSum += decision.jointVisibility();
-                siblingCount++;
-            }
-        }
-        if (joint == null) {
-            return SeamStrictGate.inactive();
-        }
-        double siblingVisibility = siblingCount == 0 ? 1.0 : siblingSum / siblingCount;
-        boolean strictActive = siblingVisibility < jointSeamPolicy.siblingMinVisibility();
-        if (!strictActive) {
-            return new SeamStrictGate(false, false, siblingVisibility, joint);
-        }
-        boolean strictPass = jointSeamPolicy.passesStrict(joint.jointParallelismDeg(), joint.jointWidthMm());
-        return new SeamStrictGate(true, !strictPass, siblingVisibility, joint);
-    }
-
-    private static List<Integer> rejectCameraIds(Map<Integer, InspectionDecision> decisions) {
-        return decisions.entrySet().stream()
-                .filter(e -> e.getValue() != null && !e.getValue().overallPass())
-                .map(Map.Entry::getKey)
-                .sorted()
-                .toList();
     }
 
     @Override
     public void close() {
         timeoutExecutor.shutdownNow();
-    }
-
-    private record SeamStrictGate(
-            boolean strictActive,
-            boolean forceReject,
-            double siblingVisibility,
-            InspectionDecision jointDecision
-    ) {
-        static SeamStrictGate inactive() {
-            return new SeamStrictGate(false, false, 1.0, null);
-        }
-    }
-
-    private static final class BucketState {
-        private final long triggerSequence;
-        private final int groupId;
-        private final BucketGroup group;
-        private final Map<Integer, InspectionDecision> frameDecisions = new LinkedHashMap<>();
-        private volatile boolean published;
-        private volatile ScheduledFuture<?> timeoutFuture;
-
-        private BucketState(long triggerSequence, int groupId, BucketGroup group) {
-            this.triggerSequence = triggerSequence;
-            this.groupId = groupId;
-            this.group = group;
-        }
-
-        private BucketKey key() {
-            return new BucketKey(triggerSequence, groupId);
-        }
-    }
-
-    /** Ожидание всех вёдер одного triggerSequence перед отправкой на ПЛК/UI. */
-    private static final class SequenceBarrier {
-        private final long triggerSequence;
-        private final Map<Integer, BucketFanOutResult> readyByGroup = new LinkedHashMap<>();
-        private volatile boolean flushed;
-        private volatile ScheduledFuture<?> syncTimeoutFuture;
-
-        private SequenceBarrier(long triggerSequence) {
-            this.triggerSequence = triggerSequence;
-        }
     }
 }

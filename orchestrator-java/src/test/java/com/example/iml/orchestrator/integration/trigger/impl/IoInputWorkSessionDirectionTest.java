@@ -14,7 +14,7 @@ class IoInputWorkSessionDirectionTest {
     void latchesDirectionAfterWorkStartAndAllowsCaptureOnDi3Only() {
         var log = LogManager.getLogger("test");
 
-        session.onWorkStarted(false, false, false, log);
+        session.onWorkStarted(false, log);
         assertFalse(session.allowsCapture(true, true, true));
 
         session.onDirectionChange(true, true, true, false, log);
@@ -28,7 +28,7 @@ class IoInputWorkSessionDirectionTest {
     void clearsSessionWhenWorkStops() {
         var log = LogManager.getLogger("test");
 
-        session.onWorkStarted(true, true, false, log);
+        session.onWorkStarted(false, log);
         session.onDirectionChange(true, true, true, false, log);
         assertTrue(session.allowsCapture(true, true, true));
 
@@ -40,7 +40,7 @@ class IoInputWorkSessionDirectionTest {
     void backwardSessionBlocksCapture() {
         var log = LogManager.getLogger("test");
 
-        session.onWorkStarted(false, false, false, log);
+        session.onWorkStarted(false, log);
         session.onDirectionChange(false, false, true, false, log);
         assertFalse(session.allowsCapture(true, true, true));
     }

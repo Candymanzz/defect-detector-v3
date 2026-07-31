@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
@@ -8,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -79,13 +79,7 @@ final class FrameArchiveSettingsStore {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("version", VERSION);
         root.put("max_frames_per_camera", maxFramesPerCamera);
-        Path tempPath = storagePath.resolveSibling(storagePath.getFileName() + ".tmp");
-        JSON.writerWithDefaultPrettyPrinter().writeValue(tempPath.toFile(), root);
-        try {
-            Files.move(tempPath, storagePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException atomicMoveFailed) {
-            Files.move(tempPath, storagePath, StandardCopyOption.REPLACE_EXISTING);
-        }
+        CameraSettingsStore.kashPath(root, storagePath, JSON);
         LOG.info("frame archive settings saved path={} max_frames_per_camera={}", storagePath, maxFramesPerCamera);
     }
 

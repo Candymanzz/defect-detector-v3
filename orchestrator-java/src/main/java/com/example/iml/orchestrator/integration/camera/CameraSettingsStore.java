@@ -35,10 +35,6 @@ public final class CameraSettingsStore {
         return store;
     }
 
-    public Path storagePath() {
-        return storagePath;
-    }
-
     public Map<String, Object> settingsForCamera(int cameraId) {
         synchronized (lock) {
             Map<String, Object> settings = byCamera.get(cameraId);
@@ -62,9 +58,7 @@ public final class CameraSettingsStore {
         }
         synchronized (lock) {
             Map<String, Object> current = byCamera.computeIfAbsent(cameraId, ignored -> new LinkedHashMap<>());
-            for (Map.Entry<String, Object> entry : patch.entrySet()) {
-                current.put(entry.getKey(), entry.getValue());
-            }
+            current.putAll(patch);
             persistLocked();
         }
     }
@@ -112,14 +106,18 @@ public final class CameraSettingsStore {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("version", VERSION);
         root.put("cameras", cameras);
+        kashPath(root, storagePath, JSON);
+        LOG.debug("camera settings store saved path={} cameras={}", storagePath.toAbsolutePath(), byCamera.size());
+    }
+
+    public static void kashPath(Map<String, Object> root, Path storagePath, ObjectMapper json) throws IOException {
         Path tempPath = storagePath.resolveSibling(storagePath.getFileName() + ".tmp");
-        JSON.writerWithDefaultPrettyPrinter().writeValue(tempPath.toFile(), root);
+        json.writerWithDefaultPrettyPrinter().writeValue(tempPath.toFile(), root);
         try {
             Files.move(tempPath, storagePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException atomicMoveFailed) {
             Files.move(tempPath, storagePath, StandardCopyOption.REPLACE_EXISTING);
         }
-        LOG.debug("camera settings store saved path={} cameras={}", storagePath.toAbsolutePath(), byCamera.size());
     }
 
     private static int parseCameraId(Object raw) {

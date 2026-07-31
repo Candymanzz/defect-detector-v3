@@ -1,26 +1,15 @@
 package com.example.iml.orchestrator.integration.stream;
 
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
-import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.outbound.WsOutboundMessenger;
-import com.example.iml.orchestrator.integration.config.YamlScalars;
-import com.example.iml.orchestrator.protocol.BinaryProtocol;
-import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import org.apache.logging.log4j.Logger;
 import org.java_websocket.WebSocket;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Клиентский видеопоток: worker {@code start_stream} (continuous MVS) + {@code stream_poll} + JPEG на UI/WS.
@@ -33,36 +22,24 @@ public final class CameraStreamService implements AutoCloseable {
     private final Logger log;
     private final ClientStreamConfig cfg;
     private final Map<Integer, WorkerProcessSupervisor> workersByCamera;
-    private final Map<Integer, String> analysisProfileByCamera;
-    private final Map<Integer, String> detectorByCamera;
-    private final UiHttpServer uiServer;
-    private final ClientWebSocketServer clientWs;
     private final Map<String, Object> uiCfg;
     private final ScheduledExecutorService scheduler;
-    private final ConcurrentHashMap<Integer, StreamSession> sessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, CameraStreamSession> sessions = new ConcurrentHashMap<>();
     private final MjpegStreamHub mjpegHub;
-    private final ConcurrentHashMap<Integer, StreamMetrics> metricsByCamera = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, CameraStreamMetrics> metricsByCamera = new ConcurrentHashMap<>();
     private volatile WsOutboundMessenger outbound;
 
     public CameraStreamService(
             Logger log,
             ClientStreamConfig cfg,
             Map<Integer, WorkerProcessSupervisor> workersByCamera,
-            Map<Integer, String> analysisProfileByCamera,
-            Map<Integer, String> detectorByCamera,
-            UiHttpServer uiServer,
-            ClientWebSocketServer clientWs,
             Map<String, Object> uiCfg
     ) {
         this.log = log;
         this.cfg = cfg == null ? ClientStreamConfig.defaults() : cfg;
         this.workersByCamera = workersByCamera == null ? Map.of() : workersByCamera;
-        this.analysisProfileByCamera = analysisProfileByCamera == null ? Map.of() : analysisProfileByCamera;
-        this.detectorByCamera = detectorByCamera == null ? Map.of() : detectorByCamera;
-        this.uiServer = uiServer;
-        this.clientWs = clientWs;
         this.uiCfg = uiCfg == null ? Map.of() : uiCfg;
-        this.mjpegHub = new MjpegStreamHub(log);
+        this.mjpegHub = new MjpegStreamHub();
         this.scheduler = Executors.newScheduledThreadPool(
                 Math.max(1, this.workersByCamera.size()),
                 r -> {
@@ -86,19 +63,11 @@ public final class CameraStreamService implements AutoCloseable {
     }
 
     public boolean isStreaming(int cameraId) {
-        StreamSession s = sessions.get(cameraId);
+        CameraStreamSession s = sessions.get(cameraId);
         return s != null && s.running.get();
     }
 
     public record StreamStartResult(int cameraId, int maxFps, String httpPath, String mjpegPath) {
-    }
-
-    public record StreamStatus(int cameraId, boolean active, int maxFps, String httpPath, String mjpegPath) {
-    }
-
-    /** @deprecated use {@link #start(int, int, WebSocket)} */
-    public void start(WebSocket connection, int cameraId, int requestedFps) {
-        start(cameraId, requestedFps, connection);
     }
 
     /**
@@ -116,9 +85,9 @@ public final class CameraStreamService implements AutoCloseable {
         long intervalMs = Math.max(1, 1000L / fps);
         String httpPath = "/api/camera/" + cameraId + "/current.jpg";
         String mjpegPath = mjpegPath(cameraId);
-        StreamSession session = new StreamSession(wsNotify, fps);
-        metricsByCamera.putIfAbsent(cameraId, new StreamMetrics());
-        StreamSession prev = sessions.putIfAbsent(cameraId, session);
+        CameraStreamSession session = new CameraStreamSession(wsNotify, fps);
+        metricsByCamera.putIfAbsent(cameraId, new CameraStreamMetrics());
+        CameraStreamSession prev = sessions.putIfAbsent(cameraId, session);
         if (prev != null) {
             throw new IllegalStateException("stream already active for camera " + cameraId);
         }
@@ -126,31 +95,29 @@ public final class CameraStreamService implements AutoCloseable {
             synchronized (worker) {
                 worker.command(Map.of("op", "start_stream", "fps", fps));
             }
+        } catch (RuntimeException e) {
+            sessions.remove(cameraId);
+            throw e;
         } catch (Exception e) {
             sessions.remove(cameraId);
-            throw new RuntimeException("start_stream failed: " + e.getMessage(), e);
+            throw new StreamException("start_stream failed: " + e.getMessage(), e);
         }
         // Дать worker stream_thread время снять первый кадр (stream_poll иначе no_stream_frame_yet).
         session.future = scheduler.scheduleAtFixedRate(
-                () -> pollAndPublish(cameraId),
+                () -> CameraStreamPollSupport.pollAndPublish(
+                        log, uiCfg, workersByCamera, sessions, metricsByCamera, mjpegHub, outbound, cameraId),
                 STREAM_POLL_INITIAL_DELAY_MS,
                 intervalMs,
                 TimeUnit.MILLISECONDS
         );
-        log.info("client_stream started camera={} fps={} interval_ms={} (ws notify after first frame)", cameraId, fps, intervalMs);
+        log.info(
+                "client_stream started camera={} fps={} interval_ms={} (ws notify after first frame)",
+                cameraId, fps, intervalMs);
         return new StreamStartResult(cameraId, fps, httpPath, mjpegPath);
     }
 
-    public StreamStatus status(int cameraId) {
-        StreamSession session = sessions.get(cameraId);
-        boolean active = session != null && session.running.get();
-        int fps = active ? session.fps : 0;
-        String httpPath = "/api/camera/" + cameraId + "/current.jpg";
-        return new StreamStatus(cameraId, active, fps, httpPath, mjpegPath(cameraId));
-    }
-
     public void stop(int cameraId) {
-        StreamSession session = sessions.remove(cameraId);
+        CameraStreamSession session = sessions.remove(cameraId);
         metricsByCamera.remove(cameraId);
         if (session == null) {
             return;
@@ -182,114 +149,6 @@ public final class CameraStreamService implements AutoCloseable {
         }
     }
 
-    private void pollAndPublish(int cameraId) {
-        StreamSession session = sessions.get(cameraId);
-        if (session == null || !session.running.get()) {
-            return;
-        }
-        if (!session.tickInProgress.compareAndSet(false, true)) {
-            return;
-        }
-        try {
-            WorkerProcessSupervisor worker = workersByCamera.get(cameraId);
-            if (worker == null) {
-                return;
-            }
-            BinaryProtocol.Message capture;
-            StreamMetrics metrics = metricsByCamera.computeIfAbsent(cameraId, ignored -> new StreamMetrics());
-            synchronized (worker) {
-                capture = worker.command(Map.of("op", "stream_poll"));
-            }
-            if (capture == null) {
-                return;
-            }
-            if (capture.type() == BinaryProtocol.MSG_ERROR) {
-                session.notePollError(log, cameraId, formatWorkerError(capture));
-                return;
-            }
-            if (capture.header() == null) {
-                return;
-            }
-            Map<String, Object> header = capture.header();
-            session.pollErrors.set(0);
-            long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
-            if (frameId < 0) {
-                return;
-            }
-            String shmName = String.valueOf(header.get("shm_name"));
-            int width = YamlScalars.toInt(header.get("width"), 0);
-            int height = YamlScalars.toInt(header.get("height"), 0);
-            int stride = YamlScalars.toInt(header.get("stride"), 0);
-            long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
-            if (shmName.isBlank() || width <= 0 || height <= 0) {
-                return;
-            }
-
-            long encodeStarted = System.nanoTime();
-            PathHolder jpeg = writePreviewJpeg(cameraId, shmName, width, height, stride, shmOffset);
-            metrics.encodeNs.add(System.nanoTime() - encodeStarted);
-            if (jpeg.path == null || !Files.isRegularFile(jpeg.path)) {
-                if (jpeg.error != null) {
-                    log.warn("client_stream cam={} frame={}: {}", cameraId, frameId, jpeg.error);
-                }
-                return;
-            }
-            try {
-                byte[] jpegBytes = Files.readAllBytes(jpeg.path);
-                mjpegHub.publish(cameraId, jpegBytes);
-                maybeNotifyStreamStarted(session, cameraId);
-            } catch (IOException e) {
-                log.debug("client_stream mjpeg publish camera={}: {}", cameraId, e.getMessage());
-                return;
-            } finally {
-                try {
-                    Files.deleteIfExists(jpeg.path);
-                } catch (IOException e) {
-                    log.debug("client_stream temp jpeg cleanup camera={}: {}", cameraId, e.getMessage());
-                }
-            }
-            metrics.frames.increment();
-            metrics.maybeLog(log, cameraId);
-        } catch (Exception e) {
-            session.notePollError(log, cameraId, e.getMessage());
-        } finally {
-            session.tickInProgress.set(false);
-        }
-    }
-
-    private void maybeNotifyStreamStarted(StreamSession session, int cameraId) {
-        if (!session.wsStartedSent.compareAndSet(false, true)) {
-            return;
-        }
-        if (outbound == null || session.connection == null || !session.connection.isOpen()) {
-            return;
-        }
-        String httpPath = "/api/camera/" + cameraId + "/current.jpg";
-        outbound.sendStreamStarted(session.connection, cameraId, session.fps, httpPath, mjpegPath(cameraId));
-        log.info("client_stream ws stream_started camera={} after first published frame", cameraId);
-    }
-
-    private static String formatWorkerError(BinaryProtocol.Message capture) {
-        if (capture.payload() != null && capture.payload().length > 0) {
-            try {
-                return new String(capture.payload(), java.nio.charset.StandardCharsets.UTF_8);
-            } catch (Exception ignored) {
-                // fall through
-            }
-        }
-        return capture.header() == null ? "worker_error" : String.valueOf(capture.header());
-    }
-
-    private PathHolder writePreviewJpeg(int cameraId, String shmName, int width, int height, int stride, long shmOffset) {
-        int previewMaxW = YamlScalars.toInt(uiCfg.get("client_preview_max_width"), 0);
-        int qualPct = YamlScalars.toInt(uiCfg.get("client_preview_jpeg_quality"), 58);
-        qualPct = Math.min(100, Math.max(5, qualPct));
-        float q = qualPct / 100f;
-        UiHttpServer.ClientPreviewArtifact art = UiHttpServer.writeCurrentJpegFromBgrShm(
-                shmName, width, height, stride, shmOffset, previewMaxW, q, -1);
-        return new PathHolder(art.path(), art.width(), art.height(), art.error());
-    }
-
     @Override
     public void close() {
         stopAll();
@@ -301,63 +160,6 @@ public final class CameraStreamService implements AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             scheduler.shutdownNow();
-        }
-    }
-
-    private static final class StreamSession {
-        private static final int POLL_ERROR_LOG_EVERY = 20;
-
-        final WebSocket connection;
-        final int fps;
-        final AtomicBoolean running = new AtomicBoolean(true);
-        final AtomicBoolean tickInProgress = new AtomicBoolean(false);
-        final AtomicBoolean wsStartedSent = new AtomicBoolean(false);
-        final java.util.concurrent.atomic.AtomicInteger pollErrors = new java.util.concurrent.atomic.AtomicInteger();
-        volatile ScheduledFuture<?> future;
-
-        StreamSession(WebSocket connection, int fps) {
-            this.connection = connection;
-            this.fps = fps;
-        }
-
-        void notePollError(Logger log, int cameraId, String reason) {
-            int n = pollErrors.incrementAndGet();
-            if (n == 1 || n % POLL_ERROR_LOG_EVERY == 0) {
-                log.warn("client_stream poll camera={} fail #{}: {}", cameraId, n, reason);
-            }
-        }
-    }
-
-    private record PathHolder(Path path, int width, int height, String error) {
-    }
-
-    private static final class StreamMetrics {
-        private static final long LOG_EVERY_MS = 10_000L;
-
-        final LongAdder frames = new LongAdder();
-        final LongAdder encodeNs = new LongAdder();
-        final AtomicLong lastLogAtMs = new AtomicLong(System.currentTimeMillis());
-
-        void maybeLog(Logger log, int cameraId) {
-            long now = System.currentTimeMillis();
-            long prev = lastLogAtMs.get();
-            if (now - prev < LOG_EVERY_MS) {
-                return;
-            }
-            if (!lastLogAtMs.compareAndSet(prev, now)) {
-                return;
-            }
-            long frameCount = frames.sumThenReset();
-            long encodeTotalNs = encodeNs.sumThenReset();
-            double sec = LOG_EVERY_MS / 1000.0;
-            double fps = frameCount / sec;
-            double avgEncodeMs = frameCount == 0 ? 0.0 : (encodeTotalNs / 1_000_000.0) / frameCount;
-            log.info(
-                    "client_stream_stats camera={} fps={} avg_encode_ms={}",
-                    cameraId,
-                    String.format("%.2f", fps),
-                    String.format("%.2f", avgEncodeMs)
-            );
         }
     }
 }

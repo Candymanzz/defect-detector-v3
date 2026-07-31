@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.lifecycle;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -34,7 +36,7 @@ public final class IntegrationLifecycleComposite implements IntegrationComponent
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() throws BootstrapException {
         for (int i = 0; i < children.size(); i++) {
             children.get(i).start();
             startedThrough = i;

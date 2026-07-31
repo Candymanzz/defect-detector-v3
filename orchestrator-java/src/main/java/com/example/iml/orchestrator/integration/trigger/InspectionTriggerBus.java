@@ -6,9 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -16,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -30,6 +27,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     private final AtomicLong sequence = new AtomicLong(0);
     private final int captureTriggerStaggerMs;
     private final ScheduledExecutorService staggerScheduler;
+    private final InspectionTriggerDispatch dispatch;
     private volatile LineTriggerListener lineTriggerListener;
 
     public InspectionTriggerBus(Collection<Integer> cameraIds) {
@@ -48,6 +46,8 @@ public final class InspectionTriggerBus implements AutoCloseable {
         for (int cameraId : cameraIds) {
             perCamera.put(cameraId, new LinkedBlockingQueue<>(512));
         }
+        this.dispatch = new InspectionTriggerDispatch(
+                perCamera, this.captureTriggerStaggerMs, this.staggerScheduler, LOG);
     }
 
     public boolean hasCamera(int cameraId) {
@@ -63,7 +63,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
         if (raw.broadcast()) {
             return publishBroadcast(raw) > 0;
         }
-        return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
+        return dispatch.offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
     }
 
     public long prefireLineBroadcast(String source) {
@@ -91,7 +91,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
             return 0;
         }
         Instant receivedAt = Instant.now();
-        return dispatchLineBroadcast(source, seq, receivedAt, null);
+        return dispatch.dispatchLineBroadcast(source, seq, receivedAt, null);
     }
 
     public int dispatchLineBroadcast(String source, long seq, List<Integer> cameraIds) {
@@ -99,7 +99,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
             return 0;
         }
         Instant receivedAt = Instant.now();
-        return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
+        return dispatch.dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
     }
 
     /** Рассылка триггера инспекции без prefire (экспозиция уже на Line0 через IoInputMonitor→DO0). */
@@ -112,7 +112,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
                 source,
                 cameraIds == null || cameraIds.isEmpty() ? "all" : cameraIds.size()
         );
-        return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
+        return dispatch.dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
     }
 
     /** Рассылка одного триггера на все активные камеры (prefire + dispatch в одном шаге). */
@@ -123,66 +123,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     public int publishBroadcast(InspectionTriggerEvent raw, List<Integer> cameraIds) {
         long seq = prefireLineBroadcast(raw.source(), cameraIds);
         Instant receivedAt = raw.receivedAt() == null ? Instant.now() : raw.receivedAt();
-        return dispatchLineBroadcast(raw.source(), seq, receivedAt, cameraIds);
-    }
-
-    private int dispatchLineBroadcast(String source, long seq, Instant receivedAt, List<Integer> cameraIds) {
-        List<Integer> targets = resolveTargetCameras(cameraIds);
-        if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
-            LOG.info(
-                    "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms=0 mode=simultaneous",
-                    seq,
-                    targets.size()
-            );
-            int published = 0;
-            for (Integer cameraId : targets) {
-                if (offerToCamera(cameraId, receivedAt, source, seq)) {
-                    published++;
-                }
-            }
-            return published;
-        }
-        LOG.info(
-                "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms={} mode=staggered",
-                seq,
-                targets.size(),
-                captureTriggerStaggerMs
-        );
-        for (int i = 0; i < targets.size(); i++) {
-            int cameraId = targets.get(i);
-            long delayMs = (long) i * captureTriggerStaggerMs;
-            staggerScheduler.schedule(
-                    () -> offerToCamera(cameraId, receivedAt, source, seq),
-                    delayMs,
-                    TimeUnit.MILLISECONDS
-            );
-        }
-        return targets.size();
-    }
-
-    private List<Integer> resolveTargetCameras(List<Integer> cameraIds) {
-        if (cameraIds == null || cameraIds.isEmpty()) {
-            List<Integer> all = new ArrayList<>(perCamera.keySet());
-            Collections.sort(all);
-            return all;
-        }
-        List<Integer> filtered = new ArrayList<>();
-        for (Integer cameraId : cameraIds) {
-            if (cameraId != null && perCamera.containsKey(cameraId)) {
-                filtered.add(cameraId);
-            }
-        }
-        filtered.sort(Integer::compareTo);
-        return filtered;
-    }
-
-    private boolean offerToCamera(int cameraId, Instant receivedAt, String source, long seq) {
-        BlockingQueue<InspectionTriggerEvent> queue = perCamera.get(cameraId);
-        if (queue == null) {
-            return false;
-        }
-        InspectionTriggerEvent event = new InspectionTriggerEvent(cameraId, seq, receivedAt, source, false);
-        return queue.offer(event);
+        return dispatch.dispatchLineBroadcast(raw.source(), seq, receivedAt, cameraIds);
     }
 
     public InspectionTriggerEvent take(int cameraId) throws InterruptedException {

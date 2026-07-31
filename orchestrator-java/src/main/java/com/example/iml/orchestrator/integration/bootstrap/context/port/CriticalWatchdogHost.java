@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 
 /**
  * Порт старта CriticalServiceWatchdog.
+ * Extends composed {@link ProcessRestartHost}; adds health-gate collaborator + watchdog sink.
  */
 public interface CriticalWatchdogHost extends ProcessRestartHost {
 

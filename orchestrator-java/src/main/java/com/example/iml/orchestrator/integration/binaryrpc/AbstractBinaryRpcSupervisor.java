@@ -95,7 +95,7 @@ public abstract class AbstractBinaryRpcSupervisor {
             try {
                 return client.command(header);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new BinaryRpcException(e);
             }
         }, callExecutor);
         try {

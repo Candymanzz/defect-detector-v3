@@ -28,17 +28,17 @@ public final class CameraInspectionLoopHostImpl extends AbstractCameraRuntimeHos
 
     @Override
     public Map<String, Object> integration() {
-        return preflight().integration();
+        return integrationMap();
     }
 
     @Override
     public Path projectRoot() {
-        return env().projectRoot();
+        return projectRootPath();
     }
 
     @Override
     public IntegrationBootConfig bootConfig() {
-        return preflight().bootConfig();
+        return bootCfg();
     }
 
     @Override

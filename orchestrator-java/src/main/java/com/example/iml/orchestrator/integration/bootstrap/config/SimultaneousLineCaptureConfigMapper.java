@@ -9,7 +9,7 @@ import java.util.Optional;
 /**
  * YAML → {@link SimultaneousLineCaptureConfig} и диагностика топологии GigE.
  */
-public final class SimultaneousLineCaptureConfigMapper {
+public final class  SimultaneousLineCaptureConfigMapper {
 
     private SimultaneousLineCaptureConfigMapper() {
     }

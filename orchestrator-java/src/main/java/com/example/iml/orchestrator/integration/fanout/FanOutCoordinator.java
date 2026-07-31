@@ -2,16 +2,16 @@ package com.example.iml.orchestrator.integration.fanout;
 
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
+import com.example.iml.orchestrator.integration.fanout.gate.InspectionGateQuery;
+import com.example.iml.orchestrator.integration.fanout.notify.FanOutUiNotifier;
+import com.example.iml.orchestrator.integration.fanout.plc.PlcSignalWritePath;
+import com.example.iml.orchestrator.integration.fanout.plc.PlcTimeoutWritePath;
+import com.example.iml.orchestrator.integration.fanout.plc.PlcVisionLevelController;
 import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
-import com.example.iml.orchestrator.integration.plc.PlcBcd;
 import com.example.iml.orchestrator.integration.plc.PlcFinsApi;
-import com.example.iml.orchestrator.integration.plc.PlcFinsConfig;
 import com.example.iml.orchestrator.integration.plc.PlcFinsPublisher;
-import com.example.iml.orchestrator.integration.plc.PlcMemoryArea;
 import com.example.iml.orchestrator.integration.plc.PlcRegisterMap;
-import com.example.iml.orchestrator.integration.plc.PlcRegisterMapLoader;
-import com.example.iml.orchestrator.integration.plc.PlcSignalDefinition;
 import com.example.iml.orchestrator.integration.plc.PlcSignalState;
 import com.example.iml.orchestrator.integration.plc.PlcTimeoutDefinition;
 import com.example.iml.orchestrator.integration.plc.PlcTimeoutState;
@@ -20,9 +20,6 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
@@ -35,13 +32,11 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     private static final Logger log = LogManager.getLogger(FanOutCoordinator.class);
 
     private final PlcFinsPublisher plcPublisher;
-    private final ClientWebSocketServer clientWsServer;
-    private final PerCameraInspectionGate inspectionGate;
-    private final PlcRegisterMap registerMap;
-    private volatile ServiceHealthGate healthGate;
-    private volatile ClientWsSessionState lastSessionState = ClientWsSessionState.NO_REFERENCE;
-    /** Sticky: DI1 (БП) → ready=0 / fault=1 до завершения процесса; refresh не снимает. */
-    private volatile boolean shutdownPrepActive;
+    private final FanOutUiNotifier uiNotifier;
+    private final InspectionGateQuery inspectionGateQuery;
+    private final PlcVisionLevelController visionLevels;
+    private final PlcSignalWritePath signalWritePath;
+    private final PlcTimeoutWritePath timeoutWritePath;
 
     private FanOutCoordinator(
             PlcFinsPublisher plcPublisher,
@@ -49,20 +44,27 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             PerCameraInspectionGate inspectionGate,
             PlcRegisterMap registerMap
     ) {
+        PlcRegisterMap map = registerMap == null ? new PlcRegisterMap(Map.of()) : registerMap;
         this.plcPublisher = plcPublisher;
-        this.clientWsServer = clientWsServer;
-        this.inspectionGate = inspectionGate;
-        this.registerMap = registerMap == null ? new PlcRegisterMap(Map.of()) : registerMap;
-        if (plcPublisher != null && clientWsServer != null) {
-            plcPublisher.setTrafficListener(clientWsServer::notifyPlcFinsTraffic);
-        }
+        this.uiNotifier = new FanOutUiNotifier(clientWsServer);
+        this.inspectionGateQuery = new InspectionGateQuery(inspectionGate);
+        this.visionLevels = new PlcVisionLevelController(log, plcPublisher);
+        this.signalWritePath = new PlcSignalWritePath(log, plcPublisher, map);
+        this.timeoutWritePath = new PlcTimeoutWritePath(plcPublisher, map);
+        uiNotifier.bindPlcTraffic(plcPublisher);
+    }
+
+    static FanOutCoordinator create(
+            PlcFinsPublisher plcPublisher,
+            ClientWebSocketServer clientWsServer,
+            PerCameraInspectionGate inspectionGate,
+            PlcRegisterMap registerMap
+    ) {
+        return new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
     }
 
     public static FanOutCoordinator fromConfig(
-            Map<String, Object> root,
-            Path projectRoot,
-            ClientWebSocketServer clientWsServer
-    ) {
+            Map<String, Object> root, Path projectRoot, ClientWebSocketServer clientWsServer) {
         return fromConfig(root, projectRoot, clientWsServer, null);
     }
 
@@ -72,43 +74,12 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             ClientWebSocketServer clientWsServer,
             PerCameraInspectionGate inspectionGate
     ) {
-        PlcFinsPublisher plcPublisher = null;
-        PlcRegisterMap registerMap = null;
-        PlcFinsConfig plcCfg = PlcFinsConfig.fromRoot(root, projectRoot);
-        if (plcCfg.enabled()) {
-            try {
-                registerMap = PlcRegisterMapLoader.load(plcCfg.registerMapPath());
-                plcPublisher = PlcFinsPublisher.create(log, plcCfg, registerMap);
-                log.info(
-                        "inspection result plc_fins enabled host={}:{} map={} pulse_ms={} timeouts={}",
-                        plcCfg.host(),
-                        plcCfg.port(),
-                        plcCfg.registerMapPath(),
-                        plcCfg.pulseMs(),
-                        registerMap.timeouts().size()
-                );
-            } catch (IOException e) {
-                throw new IllegalStateException("failed to start plc fins publisher", e);
-            }
-        } else {
-            log.info("inspection result plc_fins disabled (plc_fins.enabled=false)");
-            try {
-                registerMap = PlcRegisterMapLoader.load(plcCfg.registerMapPath());
-            } catch (IOException e) {
-                log.debug("plc register map not loaded while disabled: {}", e.getMessage());
-            }
-        }
-        log.info("inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)");
-        if (clientWsServer == null) {
-            log.warn("inspection result client_ws unavailable — bucket verdict will not be sent to UI");
-        }
-        return new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
+        return FanOutCoordinatorFactory.create(root, projectRoot, clientWsServer, inspectionGate, log);
     }
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
         // Эталон задан → FINS reject по линии ведра (group 0 → line1, group 1 → line2).
-        // Агрегатор шлёт оба ведра одного seq пакетом — здесь просто запись в очередь FINS.
         if (inspectionEnabled()) {
             if (plcPublisher != null) {
                 plcPublisher.publishBucket(result);
@@ -120,101 +91,38 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                     result.groupId()
             );
         }
-        if (clientWsServer != null) {
-            clientWsServer.notifyInspectBucketResult(result);
-        }
+        uiNotifier.notifyBucket(result);
     }
 
-    /**
-     * Реакция на смену session_state: ready = эталон активен AND сервисы здоровы;
-     * fault = сервисы нездоровы.
-     */
+    /** ready = эталон активен AND сервисы здоровы; fault = сервисы нездоровы. */
     public void onSessionState(ClientWsSessionState state) {
-        lastSessionState = state == null ? ClientWsSessionState.NO_REFERENCE : state;
-        refreshPlcLevels();
+        visionLevels.onSessionState(state);
     }
 
     public void setHealthGate(ServiceHealthGate healthGate) {
-        this.healthGate = healthGate;
-        if (healthGate != null) {
-            healthGate.setOnChanged(this::refreshPlcLevels);
-        }
-        refreshPlcLevels();
+        visionLevels.setHealthGate(healthGate);
     }
 
-    /**
-     * Подготовка к завершению (триггер БП по DI1): vision_ready→0, vision_fault→1, sticky.
-     * Пишет FINS синхронно, чтобы биты ушли в ПЛК до graceful stop / {@code System.exit}.
-     */
+    /** Shutdown prep: vision_ready→0, vision_fault→1 sticky; FINS sync before exit. */
     public void enterShutdownPrep(String reason) {
-        if (shutdownPrepActive) {
-            return;
-        }
-        shutdownPrepActive = true;
-        log.warn(
-                "plc fins shutdown prep — vision_ready=0 vision_fault=1 reason={}",
-                reason == null || reason.isBlank() ? "shutdown_prep" : reason.trim()
-        );
-        if (plcPublisher != null) {
-            try {
-                plcPublisher.flushVisionLevels(false, true);
-            } catch (Exception e) {
-                log.warn("plc fins shutdown prep flush failed: {}", e.getMessage());
-                refreshPlcLevels();
-                return;
-            }
-        }
-        refreshPlcLevels();
+        visionLevels.enterShutdownPrep(reason);
     }
 
     public boolean isShutdownPrepActive() {
-        return shutdownPrepActive;
+        return visionLevels.isShutdownPrepActive();
     }
 
-    /**
-     * Пересчёт sticky vision_ready / vision_fault с учётом эталона и {@link ServiceHealthGate}.
-     * При {@link #enterShutdownPrep} всегда ready=0 / fault=1.
-     */
+    /** Sticky vision_ready/fault from эталон + {@link ServiceHealthGate}; shutdown prep forces ready=0/fault=1. */
     public void refreshPlcLevels() {
-        boolean referenceActive = lastSessionState != null
-                && lastSessionState != ClientWsSessionState.NO_REFERENCE;
-        ServiceHealthGate gate = healthGate;
-        boolean healthy = gate == null || gate.healthy();
-        boolean ready;
-        boolean fault;
-        if (shutdownPrepActive) {
-            ready = false;
-            fault = true;
-        } else {
-            ready = referenceActive && healthy;
-            fault = !healthy;
-        }
-        signalVisionReady(ready);
-        signalVisionFault(fault);
-        log.info(
-                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} shutdown_prep={} unhealthy={})",
-                lastSessionState == null ? "null" : lastSessionState.name(),
-                ready,
-                fault,
-                referenceActive,
-                healthy,
-                shutdownPrepActive,
-                gate == null ? "[]" : gate.unhealthyReasons()
-        );
+        visionLevels.refreshPlcLevels();
     }
 
     public void signalVisionReady(boolean ready) {
-        if (plcPublisher == null) {
-            return;
-        }
-        plcPublisher.setVisionReady(ready);
+        visionLevels.signalVisionReady(ready);
     }
 
     public void signalVisionFault(boolean fault) {
-        if (plcPublisher == null) {
-            return;
-        }
-        plcPublisher.setVisionFault(fault);
+        visionLevels.signalVisionFault(fault);
     }
 
     @Override
@@ -224,16 +132,12 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public boolean inspectionInFlight() {
-        return inspectionGate != null && inspectionGate.hasAnyInspectionInFlight();
+        return inspectionGateQuery.inspectionInFlight();
     }
 
     @Override
     public boolean inspectionEnabled() {
-        // Для ПЛК «инспекция включена» = задан эталон (READY/OPERATIONAL), не Start/Stop gate камер.
-        if (clientWsServer != null) {
-            return clientWsServer.sessionState() != ClientWsSessionState.NO_REFERENCE;
-        }
-        return false;
+        return uiNotifier.inspectionEnabled();
     }
 
     @Override
@@ -248,126 +152,29 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public List<PlcTimeoutDefinition> timeoutDefinitions() {
-        return registerMap.timeouts();
+        return timeoutWritePath.timeoutDefinitions();
     }
 
     @Override
     public List<PlcSignalState> listSignals() {
-        Map<String, Boolean> live = Map.of();
-        if (plcPublisher != null) {
-            try {
-                live = plcPublisher.readSignalBits(registerMap.signals());
-            } catch (Exception e) {
-                log.debug("plc fins signal read failed: {}", e.getMessage());
-            }
-        }
-        List<PlcSignalState> signals = new ArrayList<>();
-        for (PlcSignalDefinition signal : registerMap.signals()) {
-            Boolean last = live.get(signal.name());
-            if (last == null && plcPublisher != null) {
-                last = plcPublisher.lastSignalValue(signal.name());
-            }
-            signals.add(toState(signal, last));
-        }
-        return signals;
+        return signalWritePath.listSignals();
     }
 
     @Override
     public List<PlcSignalState> writeSignals(Map<String, Boolean> valuesByName, Map<String, Boolean> pulseByName)
             throws IOException, InterruptedException, TimeoutException {
-        if (!manualControlEditable()) {
-            throw new IllegalStateException(
-                    "PLC signals are locked while reference is set or inspection is in flight"
-            );
-        }
-        if (valuesByName == null || valuesByName.isEmpty()) {
-            throw new IllegalArgumentException("signals body is empty");
-        }
-        Map<String, Boolean> pulses = pulseByName == null ? Map.of() : pulseByName;
-        for (Map.Entry<String, Boolean> entry : valuesByName.entrySet()) {
-            String name = entry.getKey() == null ? "" : entry.getKey().trim();
-            if (name.isEmpty()) {
-                throw new IllegalArgumentException("signal name required");
-            }
-            PlcSignalDefinition def = registerMap.find(name)
-                    .orElseThrow(() -> new IllegalArgumentException("unknown signal: " + name));
-            if (!def.writable()) {
-                throw new IllegalArgumentException(
-                        "signal is read-only (direction=plc_to_pc): " + name
-                );
-            }
-            boolean value = Boolean.TRUE.equals(entry.getValue());
-            boolean pulse = Boolean.TRUE.equals(pulses.get(name));
-            ensurePlc();
-            plcPublisher.writeSignal(name, value, pulse);
-        }
-        return listSignals();
-    }
-
-    private static PlcSignalState toState(PlcSignalDefinition signal, Boolean last) {
-        return new PlcSignalState(
-                signal.name(),
-                signal.description(),
-                signal.area().name(),
-                signal.address().word() + "." + signal.address().bit(),
-                signal.bucketGroupId(),
-                last,
-                signal.direction(),
-                signal.writable()
-        );
+        return signalWritePath.writeSignals(valuesByName, pulseByName, manualControlEditable());
     }
 
     @Override
     public List<PlcTimeoutState> readTimeouts() throws IOException, InterruptedException, TimeoutException {
-        ensurePlc();
-        List<PlcTimeoutDefinition> defs = sortedTimeouts();
-        if (defs.isEmpty()) {
-            return List.of();
-        }
-        int start = defs.get(0).wordAddress();
-        int end = defs.get(defs.size() - 1).wordAddress();
-        int count = end - start + 1;
-        int[] raw = plcPublisher.readWords(PlcMemoryArea.DM, start, count, "timeouts_D" + start + "_D" + end);
-        List<PlcTimeoutState> states = new ArrayList<>(defs.size());
-        for (PlcTimeoutDefinition def : defs) {
-            int rawWord = raw[def.wordAddress() - start] & 0xFFFF;
-            states.add(toState(def, rawWord));
-        }
-        return states;
+        return timeoutWritePath.readTimeouts();
     }
 
     @Override
     public List<PlcTimeoutState> writeTimeouts(Map<String, Integer> unitsByKey)
             throws IOException, InterruptedException, TimeoutException {
-        ensurePlc();
-        if (!timeoutsEditable()) {
-            throw new IllegalStateException("PLC timeouts require plc_fins enabled");
-        }
-        if (unitsByKey == null || unitsByKey.isEmpty()) {
-            throw new IllegalArgumentException("timeouts body is empty");
-        }
-        List<PlcTimeoutDefinition> defs = sortedTimeouts();
-        if (defs.isEmpty()) {
-            throw new IllegalStateException("PLC timeouts not configured in register map");
-        }
-        Map<Integer, Integer> encodedByWord = new LinkedHashMap<>();
-        for (Map.Entry<String, Integer> entry : unitsByKey.entrySet()) {
-            PlcTimeoutDefinition def = registerMap.findTimeout(entry.getKey())
-                    .orElseThrow(() -> new IllegalArgumentException("unknown timeout key: " + entry.getKey()));
-            int units = entry.getValue() == null ? 0 : entry.getValue();
-            encodedByWord.put(def.wordAddress(), encodeTimeoutWord(def, units));
-        }
-        // Пишем только изменённые слова — флаги DM (0/1) не затираются при сохранении таймаутов.
-        for (Map.Entry<Integer, Integer> entry : encodedByWord.entrySet()) {
-            int wordAddress = entry.getKey();
-            plcPublisher.writeWords(
-                    PlcMemoryArea.DM,
-                    wordAddress,
-                    new int[]{entry.getValue()},
-                    "timeout_D" + wordAddress
-            );
-        }
-        return readTimeouts();
+        return timeoutWritePath.writeTimeouts(unitsByKey, timeoutsEditable());
     }
 
     public String metricsSummary() {
@@ -375,61 +182,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                 ? "plc=disabled"
                 : ("plc.dropped=" + plcPublisher.droppedTotal());
         String rejectPart = plcPublisher != null ? " reject=fins" : " reject=off";
-        return plcPart + rejectPart + " client_ws=" + (clientWsServer == null ? "disabled" : "enabled");
-    }
-
-    private void ensurePlc() {
-        if (plcPublisher == null) {
-            throw new IllegalStateException("plc_fins disabled");
-        }
-    }
-
-    private List<PlcTimeoutDefinition> sortedTimeouts() {
-        List<PlcTimeoutDefinition> defs = new ArrayList<>(registerMap.timeouts());
-        defs.sort(Comparator.comparingInt(PlcTimeoutDefinition::wordAddress));
-        return defs;
-    }
-
-    private static int encodeTimeoutWord(PlcTimeoutDefinition def, int units) {
-        if (isFlag(def)) {
-            if (units != 0 && units != 1) {
-                throw new IllegalArgumentException(def.displayAddress() + " flag must be 0 or 1");
-            }
-            return units & 0xFFFF;
-        }
-        if (units < 0 || units > 9999) {
-            throw new IllegalArgumentException(def.displayAddress() + " out of range 0..9999 units");
-        }
-        if ("bcd".equalsIgnoreCase(def.encoding())) {
-            return PlcBcd.toBcdWord(units);
-        }
-        return units & 0xFFFF;
-    }
-
-    private static boolean isFlag(PlcTimeoutDefinition def) {
-        return "flag".equalsIgnoreCase(def.unit()) || "bool".equalsIgnoreCase(def.unit());
-    }
-
-    private static PlcTimeoutState toState(PlcTimeoutDefinition def, int rawWord) {
-        int units;
-        if ("bcd".equalsIgnoreCase(def.encoding())) {
-            units = PlcBcd.fromBcdWord(rawWord);
-        } else if (isFlag(def)) {
-            units = (rawWord & 0xFFFF) != 0 ? 1 : 0;
-        } else {
-            units = rawWord & 0xFFFF;
-        }
-        int valueMs = isFlag(def) ? 0 : PlcBcd.unitsToMs(units);
-        return new PlcTimeoutState(
-                def.name(),
-                def.description(),
-                def.displayAddress(),
-                units,
-                valueMs,
-                rawWord & 0xFFFF,
-                def.encoding(),
-                def.unit()
-        );
+        return plcPart + rejectPart + " " + uiNotifier.metricsClientWsPart();
     }
 
     @Override

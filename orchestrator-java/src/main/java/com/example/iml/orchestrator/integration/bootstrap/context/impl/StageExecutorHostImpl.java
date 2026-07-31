@@ -17,7 +17,7 @@ public final class StageExecutorHostImpl extends AbstractCameraRuntimeHost imple
 
     @Override
     public IntegrationBootConfig bootConfig() {
-        return preflight().bootConfig();
+        return bootCfg();
     }
 
     @Override

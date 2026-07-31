@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.pipeline.impl;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import com.example.iml.orchestrator.integration.bootstrap.pipeline.api.AbstractBootstrapStage;
 import com.example.iml.orchestrator.integration.bootstrap.pipeline.api.BootstrapStageResult;
 
@@ -30,7 +32,7 @@ public final class CameraRuntimeBootstrapStageImpl
 
     @Override
     protected BootstrapStageResult<IntegrationRuntimeContext> execute(IntegrationRuntimeContext session)
-            throws Exception {
+            throws BootstrapException {
         CameraRuntimeContext runtime = session.beginCameraRuntime();
         if (!cameraRuntime.runBlocking(runtime, session.environment().poolFactory(), lifecycle)) {
             return BootstrapStageResult.stop();

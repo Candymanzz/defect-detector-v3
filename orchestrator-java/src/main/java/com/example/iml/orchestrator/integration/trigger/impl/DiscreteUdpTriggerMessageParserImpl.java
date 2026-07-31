@@ -15,6 +15,7 @@ import java.util.Optional;
 public final class DiscreteUdpTriggerMessageParserImpl implements UdpTriggerMessageParser {
 
     @Override
+    @SuppressWarnings("unused")
     public Optional<InspectionTriggerEvent> parse(
             byte[] payload,
             int length,

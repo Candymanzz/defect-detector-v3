@@ -46,6 +46,13 @@ public final class OrchestratorApplication {
         }
         startupReporter.report(root, configPath);
         Path projectRoot = configPath.toAbsolutePath().getParent().getParent();
-        integrationBootstrap.start(root, projectRoot);
+        try {
+            integrationBootstrap.start(root, projectRoot);
+        } catch (OrchestratorException e) {
+            throw new OrchestratorStartupException(
+                    "Ошибка интеграции при старте оркестратора: " + e.getMessage(),
+                    e
+            );
+        }
     }
 }

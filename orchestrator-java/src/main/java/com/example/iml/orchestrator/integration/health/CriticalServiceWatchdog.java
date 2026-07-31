@@ -3,21 +3,16 @@ package com.example.iml.orchestrator.integration.health;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.ProcessRestartHost;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationComponent;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
-import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
 import org.apache.logging.log4j.Logger;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 /**
  * Следит за критичными внешними процессами: death → ServiceHealthGate + одна попытка рестарта.
@@ -29,13 +24,10 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     private final Logger log;
     private final ServiceHealthGate healthGate;
     private final ProcessRestartHost ctx;
-    private final IntegrationExternalProcessLauncher externalLauncher;
-    private final LightServerLauncher lightLauncher;
-    private final AnalisSurfaceLauncher analisLauncher;
     private final ScheduledExecutorService scheduler;
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean restarting = new AtomicBoolean(false);
-    private final List<WatchedExternal> watched = new ArrayList<>();
+    private final CriticalServiceBindings bindings;
 
     private CriticalServiceWatchdog(
             Logger log,
@@ -48,14 +40,15 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         this.log = log;
         this.healthGate = healthGate;
         this.ctx = ctx;
-        this.externalLauncher = externalLauncher;
-        this.lightLauncher = lightLauncher;
-        this.analisLauncher = analisLauncher;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "critical-service-watchdog");
             t.setDaemon(true);
             return t;
         });
+        CriticalServiceRestarter restarter = new CriticalServiceRestarter(
+                ctx, externalLauncher, lightLauncher, analisLauncher);
+        this.bindings = new CriticalServiceBindings(
+                ctx, restarter, this::applySupervisorHealth, this::handleDeath);
     }
 
     public static CriticalServiceWatchdog start(
@@ -71,91 +64,11 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 new LightServerLauncher(log),
                 new AnalisSurfaceLauncher(log)
         );
-        watchdog.bindExternals();
-        watchdog.bindSupervisors();
+        watchdog.bindings.bindExternals();
+        watchdog.bindings.bindSupervisors();
         watchdog.scheduler.scheduleAtFixedRate(watchdog::poll, POLL_MS, POLL_MS, TimeUnit.MILLISECONDS);
         log.info("critical service watchdog started poll_ms={}", POLL_MS);
         return watchdog;
-    }
-
-    private void bindExternals() {
-        if (ctx.ioInputMonitorProcess() != null) {
-            watchExternal(
-                    "io_input_monitor",
-                    ctx::ioInputMonitorProcess,
-                    this::restartIoInputMonitor
-            );
-        }
-        if (ctx.lightServerProcess() != null) {
-            watchExternal(
-                    "light_server",
-                    ctx::lightServerProcess,
-                    this::restartLightServer
-            );
-        }
-        if (ctx.analisSurfaceProcesses() != null && !ctx.analisSurfaceProcesses().isEmpty()) {
-            watchExternal(
-                    "analis_surface",
-                    () -> {
-                        List<ExternalServiceProcess> list = ctx.analisSurfaceProcesses();
-                        if (list == null || list.isEmpty()) {
-                            return null;
-                        }
-                        for (ExternalServiceProcess process : list) {
-                            if (process != null && !process.isAlive() && !process.isClosing()) {
-                                return process;
-                            }
-                        }
-                        return list.get(0);
-                    },
-                    this::restartAnalisSurfacePool
-            );
-            for (ExternalServiceProcess process : ctx.analisSurfaceProcesses()) {
-                if (process != null) {
-                    attachExit(process, "analis_surface", this::restartAnalisSurfacePool);
-                }
-            }
-        }
-    }
-
-    private void watchExternal(String name, Supplier<ExternalServiceProcess> current, BooleanSupplier restart) {
-        ExternalServiceProcess process = current.get();
-        if (process != null) {
-            attachExit(process, name, restart);
-        }
-        watched.add(new WatchedExternal(name, current, restart));
-    }
-
-    private void attachExit(ExternalServiceProcess process, String name, BooleanSupplier restart) {
-        process.onUnexpectedExit(() -> handleDeath(name, restart));
-    }
-
-    private void bindSupervisors() {
-        if (ctx.workersByCamera() != null) {
-            ctx.workersByCamera().forEach((cameraId, worker) -> {
-                if (worker == null) {
-                    return;
-                }
-                String key = "camera_worker_" + cameraId;
-                worker.setHealthListener(ok -> applySupervisorHealth(key, ok));
-            });
-        }
-        bindPool(ctx.geometryPool(), "geometry");
-        bindPool(ctx.positioningPool(), "positioning");
-        // python HTTP pool is client-side; analis_surface OS process is watched separately
-    }
-
-    private void bindPool(List<?> pool, String prefix) {
-        if (pool == null) {
-            return;
-        }
-        for (int i = 0; i < pool.size(); i++) {
-            Object item = pool.get(i);
-            if (item instanceof com.example.iml.orchestrator.integration.binaryrpc.AbstractBinaryRpcSupervisor supervisor) {
-                String key = prefix + "_" + i;
-                supervisor.setHealthListener(ok -> applySupervisorHealth(key, ok));
-            }
-        }
     }
 
     private void applySupervisorHealth(String key, boolean ok) {
@@ -173,13 +86,13 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         if (closed.get() || restarting.get()) {
             return;
         }
-        for (WatchedExternal item : watched) {
-            ExternalServiceProcess process = item.current.get();
+        for (CriticalServiceBindings.WatchedExternal item : bindings.watched()) {
+            ExternalServiceProcess process = item.current().get();
             if (process == null) {
                 continue;
             }
             if (!process.isAlive() && !process.isClosing()) {
-                handleDeath(item.name, item.restart);
+                handleDeath(item.name(), item.restart());
             }
         }
         if (ctx.workersByCamera() != null) {
@@ -214,96 +127,13 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             if (ok) {
                 healthGate.markHealthy(name);
                 log.info("critical service restarted name={} — clearing fault if all healthy", name);
-                reattachAfterRestart(name);
+                bindings.reattachAfterRestart(name);
             } else {
                 log.error("critical service restart unsuccessful name={} — vision_fault stays", name);
             }
         } finally {
             restarting.set(false);
         }
-    }
-
-    private void reattachAfterRestart(String name) {
-        for (WatchedExternal item : watched) {
-            if (!item.name.equals(name)) {
-                continue;
-            }
-            ExternalServiceProcess process = item.current.get();
-            if (process != null) {
-                attachExit(process, name, item.restart);
-            }
-            if ("analis_surface".equals(name) && ctx.analisSurfaceProcesses() != null) {
-                for (ExternalServiceProcess p : ctx.analisSurfaceProcesses()) {
-                    if (p != null) {
-                        attachExit(p, name, item.restart);
-                    }
-                }
-            }
-        }
-    }
-
-    private boolean restartIoInputMonitor() {
-        ExternalServiceProcess old = ctx.ioInputMonitorProcess();
-        if (old != null) {
-            old.close();
-        }
-        ExternalServiceProcess next = externalLauncher.startIfConfigured(
-                ctx.integration(),
-                ctx.projectRoot(),
-                ctx.windows(),
-                "io_input_monitor_autostart",
-                "io_input_monitor_command_windows",
-                "io_input_monitor_command_linux",
-                "io-input-monitor",
-                "."
-        );
-        ctx.setIoInputMonitorProcess(next);
-        return next != null && next.isAlive();
-    }
-
-    private boolean restartLightServer() {
-        ExternalServiceProcess old = ctx.lightServerProcess();
-        if (old != null) {
-            old.close();
-        }
-        LightsShutdown.clearProcessRefOnly();
-        ExternalServiceProcess next = lightLauncher.startIfConfigured(
-                ctx.integration(),
-                ctx.projectRoot(),
-                ctx.windows(),
-                ctx.bootConfig().lightStartupDelayMs()
-        );
-        ctx.setLightServerProcess(next);
-        if (next != null) {
-            LightsShutdown.replaceProcess(next);
-        }
-        return next != null && next.isAlive();
-    }
-
-    private boolean restartAnalisSurfacePool() {
-        List<ExternalServiceProcess> old = ctx.analisSurfaceProcesses();
-        if (old != null) {
-            for (ExternalServiceProcess process : old) {
-                if (process != null) {
-                    process.close();
-                }
-            }
-        }
-        Map<String, Object> pythonCfg = ctx.pythonCfg();
-        String baseUrl = pythonCfg == null ? null : String.valueOf(pythonCfg.getOrDefault("base_url", "http://127.0.0.1:8000"));
-        int poolSize = Math.max(1, ctx.pythonPool() == null ? 1 : ctx.pythonPool().size());
-        AnalisSurfaceLauncher.PoolStartResult result = analisLauncher.startPoolIfConfigured(
-                ctx.integration(),
-                ctx.projectRoot(),
-                ctx.windows(),
-                baseUrl,
-                poolSize,
-                ctx.bootConfig().workerStartupStaggerMs()
-        );
-        ctx.setAnalisSurfaceProcesses(result.processes());
-        return result.processes() != null
-                && !result.processes().isEmpty()
-                && result.processes().stream().allMatch(p -> p != null && p.isAlive());
     }
 
     @Override
@@ -322,12 +152,5 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private record WatchedExternal(
-            String name,
-            Supplier<ExternalServiceProcess> current,
-            BooleanSupplier restart
-    ) {
     }
 }

@@ -19,14 +19,12 @@ public final class ClientWsReferenceContext {
 
     private final AtomicReference<ReferenceBundleSnapshot> bundle = new AtomicReference<>();
     private final AtomicReference<FpZonesOverride> fpOverride = new AtomicReference<>();
-    private final AtomicBoolean dirty = new AtomicBoolean(false);
     private final AtomicBoolean bundleCommitted = new AtomicBoolean(false);
     private final AtomicInteger activeReferenceViewIndex = new AtomicInteger(0);
 
     public void applyBundle(ReferenceBundleSnapshot snapshot) {
         bundle.set(snapshot);
         fpOverride.set(null);
-        dirty.set(false);
         bundleCommitted.set(true);
         activeReferenceViewIndex.set(0);
     }
@@ -34,7 +32,6 @@ public final class ClientWsReferenceContext {
     public void clear() {
         bundle.set(null);
         fpOverride.set(null);
-        dirty.set(false);
         bundleCommitted.set(false);
         activeReferenceViewIndex.set(0);
     }
@@ -45,14 +42,6 @@ public final class ClientWsReferenceContext {
 
     public boolean hasCommittedBundle() {
         return bundleCommitted.get();
-    }
-
-    public boolean dirty() {
-        return dirty.get();
-    }
-
-    public void markDirty() {
-        dirty.set(true);
     }
 
     public int activeReferenceViewIndex() {
@@ -67,7 +56,6 @@ public final class ClientWsReferenceContext {
 
     public void applyFpZonesHotUpdate(int heatmapWidth, int heatmapHeight, List<FpZoneNorm> zones) {
         fpOverride.set(new FpZonesOverride(heatmapWidth, heatmapHeight, List.copyOf(zones)));
-        markDirty();
     }
 
     public List<FpZoneNorm> effectiveFpZones() {

@@ -14,10 +14,6 @@ public final class CameraWorkersHolder {
         return current == null ? null : current.get(cameraId);
     }
 
-    public Map<Integer, WorkerProcessSupervisor> all() {
-        return workers;
-    }
-
     public void set(Map<Integer, WorkerProcessSupervisor> workers) {
         this.workers = workers == null ? Map.of() : Map.copyOf(workers);
     }

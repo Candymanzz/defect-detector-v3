@@ -17,8 +17,8 @@
 #
 # Runtime (эталон задан) — лист «Входы», Work Area:
 #   vision_ready   → W0.04 sticky HIGH, пока session != NO_REFERENCE и сервисы здоровы
-#                     (при DI1↑ БП / shutdown_prep → принудительно LOW)
-#   vision_fault   → W0.05 при аварии критичных сервисов ИЛИ при DI1↑ (подготовка к выключению)
+#                     (при DI4↑ БП / shutdown_prep → принудительно LOW)
+#   vision_fault   → W0.05 при аварии критичных сервисов ИЛИ при DI4↑ (подготовка к выключению)
 #   reject_line_1  → W0.06 импульс (bucket_group_id 0)
 #   reject_line_2  → W0.07 импульс (bucket_group_id 1)
 # Discrete DO — только если FINS publisher не создан (plc_fins.enabled=false).
@@ -32,7 +32,7 @@ map_id: "25_247"
 signals:
   # ─── Техзрение PC→PLC · W0 (Входы.csv) ─────────────────────────────
   - name: vision_ready
-    description: Техзрение готовность (W0.04); DI1↑ БП → 0
+    description: Техзрение готовность (W0.04); DI4↑ БП → 0
     area: W
     address: "0.04"
     data_type: bool
@@ -40,7 +40,7 @@ signals:
     source_csv: "25_247_MAP - Входы.csv"
 
   - name: vision_fault
-    description: Техзрение ошибка (W0.05); DI1↑ БП → 1
+    description: Техзрение ошибка (W0.05); DI4↑ БП → 1
     area: W
     address: "0.05"
     data_type: bool

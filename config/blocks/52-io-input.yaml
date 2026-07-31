@@ -5,7 +5,7 @@
 
 io_input:
   com_port: COM3
-  edge: both            # DI1/DI2: both; DI3 в коде всегда Rising (импульс <10 мс)
+  edge: both            # DI1/DI2/DI4: both; DI3 в коде всегда Rising (импульс <10 мс)
   # DI3 ~10 мс: SDK Glitch=0. Soft refractory ≥80 мс режет bounce Rising.
   debounce_ms: 0
   configure_sdk: true
@@ -13,6 +13,7 @@ io_input:
     - 1                 # DI1 = работа (конвейер); ↓ снимает direction latch
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
+    - 4                 # DI4 = триггер БП (↑ → оркестратор: ready=0/fault=1 + exit)
 
   # Единственный DO: capture DO5 → Line0 камер. Брак/ready/fault — только FINS.
   # DI3↑ → UDP (arm wait_frame) → delay → один DO5↑ (RisingEdge на Line0).
@@ -50,8 +51,8 @@ io_input:
       host: 127.0.0.1
       port: 9100          # куда слушает оркестратор (inspection_trigger.udp.bind_port)
       format: json        # json {"di":3,"value":1,"ts_ms":...} | text_di "3:1" | byte_di | byte/text (legacy 0/1)
-      inputs: [1, 2, 3]   # какие DI публиковать; по умолчанию = inputs
+      inputs: [1, 2, 3, 4]   # какие DI публиковать; по умолчанию = inputs
       trigger_port: 3     # DI3 — не слать начальное состояние при старте (см. send_initial_trigger_state)
-      low_latency_trigger: true   # DI1/DI2/DI3 — синхронный UDP из SDK callback, без очереди
+      low_latency_trigger: true   # DI1/DI2/DI3/DI4 — синхронный UDP из SDK callback, без очереди
       send_initial_state: true
       send_initial_trigger_state: false   # не слать DI3 при старте (ложный FIRE)

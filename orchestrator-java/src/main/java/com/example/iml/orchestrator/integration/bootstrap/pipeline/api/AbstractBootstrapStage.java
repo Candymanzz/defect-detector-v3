@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.pipeline.api;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import org.apache.logging.log4j.Logger;
 
 /**
@@ -21,7 +23,7 @@ public abstract class AbstractBootstrapStage<I, O> implements BootstrapStage<I, 
     }
 
     @Override
-    public final BootstrapStageResult<O> run(I input) throws Exception {
+    public final BootstrapStageResult<O> run(I input) throws BootstrapException {
         log.info("bootstrap stage start name={}", name);
         BootstrapStageResult<O> result = execute(input);
         if (result == null || !result.continuePipeline()) {
@@ -32,5 +34,5 @@ public abstract class AbstractBootstrapStage<I, O> implements BootstrapStage<I, 
         return result;
     }
 
-    protected abstract BootstrapStageResult<O> execute(I input) throws Exception;
+    protected abstract BootstrapStageResult<O> execute(I input) throws BootstrapException;
 }

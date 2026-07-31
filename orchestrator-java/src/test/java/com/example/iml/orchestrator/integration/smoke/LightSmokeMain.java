@@ -1,9 +1,15 @@
 package com.example.iml.orchestrator.integration.smoke;
 
 import com.example.iml.orchestrator.integration.lighting.LightServerV3Http;
+import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,20 +24,27 @@ public final class LightSmokeMain {
 
   public static List<SmokeResult> run(Map<String, Object> root) throws Exception {
     List<SmokeResult> results = new ArrayList<>();
-    var cfg = com.example.iml.orchestrator.integration.lighting.LightServersConfig.fromRootYaml(root);
+    LightServersConfig cfg = LightServersConfig.fromRootYaml(root);
     if (!cfg.enabled()) {
       results.add(SmokeResult.skip("light", "config", "light_servers.enabled=false"));
       return results;
     }
 
-    var upstream = new com.example.iml.orchestrator.integration.lighting.LightUpstreamClient(cfg);
-    SmokeSupport.logStep("GET status " + cfg.upstreamBaseUrl() + LightServerV3Http.PATH_COM_LIGHT);
+    Duration timeout = Duration.ofMillis(Math.max(100, cfg.timeoutMs()));
+    HttpClient http = HttpClient.newBuilder().connectTimeout(timeout).build();
+    String statusUrl = LightServerV3Http.normalizeBaseUrl(cfg.upstreamBaseUrl()) + LightServerV3Http.PATH_COM_LIGHT;
+    SmokeSupport.logStep("GET status " + statusUrl);
     try {
-      var status = upstream.get(LightServerV3Http.PATH_COM_LIGHT);
-      if (status.ok()) {
-        results.add(SmokeResult.ok("light", "status", "HTTP " + status.statusCode() + " " + truncate(status.body())));
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(statusUrl))
+          .timeout(timeout)
+          .GET()
+          .build();
+      HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() / 100 == 2) {
+        results.add(SmokeResult.ok("light", "status", "HTTP " + response.statusCode() + " " + truncate(response.body())));
       } else {
-        results.add(SmokeResult.fail("light", "status", "HTTP " + status.statusCode()));
+        results.add(SmokeResult.fail("light", "status", "HTTP " + response.statusCode()));
         return results;
       }
     } catch (Exception e) {
@@ -68,14 +81,12 @@ public final class LightSmokeMain {
     return results;
   }
 
-  private static int[] sampleCameraIds(
-      com.example.iml.orchestrator.integration.lighting.LightServersConfig cfg
-  ) {
+  private static int[] sampleCameraIds(LightServersConfig cfg) {
     if (cfg.cameras().isEmpty()) {
       return new int[] {0, 8};
     }
     List<Integer> ids = cfg.cameras().stream()
-        .map(com.example.iml.orchestrator.integration.lighting.LightServersConfig.CameraFlashSpec::cameraId)
+        .map(LightServersConfig.CameraFlashSpec::cameraId)
         .sorted()
         .toList();
     List<Integer> sample = new ArrayList<>();

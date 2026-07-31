@@ -22,7 +22,7 @@ public final class CriticalWatchdogBootstrapImpl extends AbstractBootstrapServic
     public void start(CriticalWatchdogHost session) {
         CriticalServiceWatchdog watchdog = CriticalServiceWatchdog.start(
                 log,
-                session,
+                session, // ProcessRestartHost = config + collaborators + sink
                 session.serviceHealthGate()
         );
         session.setCriticalServiceWatchdog(watchdog);

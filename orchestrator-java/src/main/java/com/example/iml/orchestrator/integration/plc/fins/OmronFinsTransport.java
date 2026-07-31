@@ -73,20 +73,7 @@ public final class OmronFinsTransport implements AutoCloseable {
       byte[] frame,
       int sid
   ) {
-    trafficSubject.notifyObservers(new PlcFinsTrafficEvent(
-        PlcFinsTrafficEvent.DIRECTION_REQUEST,
-        operation,
-        signal,
-        area,
-        address,
-        value,
-        FinsFrameBuilder.toHex(frame, frame.length),
-        sid,
-        null,
-        true,
-        null,
-        System.currentTimeMillis()
-    ));
+    OmronFinsTransportSupport.emitRequest(trafficSubject, operation, signal, area, address, value, frame, sid);
   }
 
   public void emitResponse(
@@ -102,20 +89,8 @@ public final class OmronFinsTransport implements AutoCloseable {
       boolean ok,
       String error
   ) {
-    trafficSubject.notifyObservers(new PlcFinsTrafficEvent(
-        PlcFinsTrafficEvent.DIRECTION_RESPONSE,
-        operation,
-        signal,
-        area,
-        address,
-        value,
-        frame == null ? "" : FinsFrameBuilder.toHex(frame, length),
-        sid,
-        endCode,
-        ok,
-        error,
-        System.currentTimeMillis()
-    ));
+    OmronFinsTransportSupport.emitResponse(
+        trafficSubject, operation, signal, area, address, value, frame, length, sid, endCode, ok, error);
   }
 
   /**
@@ -153,9 +128,9 @@ public final class OmronFinsTransport implements AutoCloseable {
       throw new IOException("FINS timeout host=" + host + ":" + port, e);
     }
     try {
-      validateResponse(response.getData(), response.getLength(), sid);
+      OmronFinsTransportSupport.validateResponse(response.getData(), response.getLength(), sid, log);
     } catch (IOException e) {
-      String endCode = extractEndCode(response.getData(), response.getLength());
+      String endCode = OmronFinsTransportSupport.extractEndCode(response.getData(), response.getLength());
       emitResponse(
           operation,
           signal,
@@ -203,27 +178,7 @@ public final class OmronFinsTransport implements AutoCloseable {
   }
 
   static void validateResponse(byte[] data, int length, int expectedSid) throws IOException {
-    if (length < 14) {
-      throw new IOException("FINS response too short len=" + length);
-    }
-    int sid = data[9] & 0xFF;
-    if (sid != expectedSid) {
-      log.warn("plc fins response SID mismatch expected={} actual={} len={}", expectedSid, sid, length);
-    }
-    int endCodeHi = data[12] & 0xFF;
-    int endCodeLo = data[13] & 0xFF;
-    if (endCodeHi != 0 || endCodeLo != 0) {
-      String endCode = String.format("%02X%02X", endCodeHi, endCodeLo);
-      log.warn("plc fins response error sid={} end_code={} len={}", sid, endCode, length);
-      throw new IOException("FINS end code " + endCode);
-    }
-  }
-
-  private static String extractEndCode(byte[] data, int length) {
-    if (data == null || length < 14) {
-      return null;
-    }
-    return String.format("%02X%02X", data[12] & 0xFF, data[13] & 0xFF);
+    OmronFinsTransportSupport.validateResponse(data, length, expectedSid, log);
   }
 
   @Override

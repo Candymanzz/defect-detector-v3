@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unused")
 class AsyncInspectionCycleRunnerTest {
 
     private final List<ExecutorService> executors = new ArrayList<>();

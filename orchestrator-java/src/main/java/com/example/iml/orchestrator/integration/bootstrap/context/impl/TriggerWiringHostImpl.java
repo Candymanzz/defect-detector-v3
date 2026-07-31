@@ -8,7 +8,6 @@ import com.example.iml.orchestrator.integration.bootstrap.lifecycle.Orchestrator
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
-import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
@@ -29,12 +28,12 @@ public final class TriggerWiringHostImpl extends AbstractCameraRuntimeHost imple
 
     @Override
     public Map<String, Object> root() {
-        return env().root();
+        return rootMap();
     }
 
     @Override
     public Map<String, Object> integration() {
-        return preflight().integration();
+        return integrationMap();
     }
 
     @Override
@@ -44,7 +43,7 @@ public final class TriggerWiringHostImpl extends AbstractCameraRuntimeHost imple
 
     @Override
     public IntegrationBootConfig bootConfig() {
-        return preflight().bootConfig();
+        return bootCfg();
     }
 
     @Override
@@ -110,11 +109,6 @@ public final class TriggerWiringHostImpl extends AbstractCameraRuntimeHost imple
     @Override
     public void setBucketLineTriggerBroadcaster(BucketLineTriggerBroadcaster broadcaster) {
         triggers().setBucketLineTriggerBroadcaster(broadcaster);
-    }
-
-    @Override
-    public void setIntervalFlashController(IntervalFlashController controller) {
-        triggers().setIntervalFlashController(controller);
     }
 
     @Override

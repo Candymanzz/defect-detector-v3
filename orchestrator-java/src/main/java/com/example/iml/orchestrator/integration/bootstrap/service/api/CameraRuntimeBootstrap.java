@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.service.api;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import com.example.iml.orchestrator.integration.bootstrap.context.CameraRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.factory.IntegrationServicePoolFactory;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationLifecycleComposite;
@@ -16,5 +18,5 @@ public interface CameraRuntimeBootstrap {
             CameraRuntimeContext runtime,
             IntegrationServicePoolFactory poolFactory,
             IntegrationLifecycleComposite lifecycle
-    ) throws Exception;
+    ) throws BootstrapException;
 }

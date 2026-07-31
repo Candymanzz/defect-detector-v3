@@ -1,3 +1,8 @@
 {
-  "recommendations": ["esbenp.prettier-vscode"]
+  "recommendations": [
+    "redhat.java",
+    "vscjava.vscode-java-pack",
+    "esbenp.prettier-vscode",
+    "usernamehw.errorlens"
+  ]
 }

@@ -1,5 +1,18 @@
 {
-  "java.configuration.updateBuildConfiguration": "interactive",
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.settings.url": "${workspaceFolder}/.vscode/java-jdt-all-warnings.prefs",
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.errors.incompleteClasspath.severity": "warning",
+  "java.diagnostic.filter": [],
+  "java.import.maven.enabled": true,
+  "java.autobuild.enabled": true,
+  "problems.showCurrentInStatus": true,
+  "problems.decorations.enabled": true,
+  "[java]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
   "editor.formatOnSave": true,
   "prettier.requireConfig": true,
   "[javascript]": {

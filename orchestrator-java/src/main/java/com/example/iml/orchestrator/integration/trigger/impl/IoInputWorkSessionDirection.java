@@ -12,7 +12,7 @@ final class IoInputWorkSessionDirection {
     private volatile boolean sessionDirectionRaw;
     private volatile boolean awaitingDirectionAfterWorkStart;
 
-    void onWorkStarted(boolean mappedDirectionActive, boolean rawDirectionActive, boolean triggerActive, Logger log) {
+    void onWorkStarted(boolean triggerActive, Logger log) {
         sessionDirectionKnown = false;
         sessionDirectionActive = false;
         awaitingDirectionAfterWorkStart = true;

@@ -1,7 +1,5 @@
 package com.example.iml.orchestrator.integration.lighting;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Результат разбора запроса на изменение яркости (глобально и/или по endpoint id). */

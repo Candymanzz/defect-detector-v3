@@ -1,6 +1,5 @@
 package com.example.iml.orchestrator.integration.stream;
 
-import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -22,7 +21,7 @@ class MjpegStreamHubTest {
 
     @Test
     void publishDeliversMultipartFrameToSubscriber() throws Exception {
-        MjpegStreamHub hub = new MjpegStreamHub(LogManager.getLogger("test"));
+        MjpegStreamHub hub = new MjpegStreamHub();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         CountDownLatch frameReceived = new CountDownLatch(1);
         AtomicReference<byte[]> captured = new AtomicReference<>();
@@ -53,7 +52,7 @@ class MjpegStreamHubTest {
 
     @Test
     void publishIgnoresEmptyPayloadAndOtherCameras() throws Exception {
-        MjpegStreamHub hub = new MjpegStreamHub(LogManager.getLogger("test"));
+        MjpegStreamHub hub = new MjpegStreamHub();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         Thread subscriber = new Thread(() -> {

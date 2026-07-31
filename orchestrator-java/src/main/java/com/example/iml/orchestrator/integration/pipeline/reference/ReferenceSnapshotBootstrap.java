@@ -1,19 +1,24 @@
 package com.example.iml.orchestrator.integration.pipeline.reference;
 
+import com.example.iml.orchestrator.integration.pipeline.PipelineException;
+
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
+import com.example.iml.orchestrator.integration.capture.CaptureException;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.lighting.LightingException;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.CameraCaptureStage;
 import com.example.iml.orchestrator.integration.pipeline.spi.CaptureLightingPort;
-import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.integration.pipeline.spi.PipelineRunTelemetry;
-import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +59,7 @@ public final class ReferenceSnapshotBootstrap {
             PipelineStagesLog pipelineStagesLog,
             Map<String, Object> telemetryExtras,
             boolean logReuseDebug
-    ) throws Exception {
+    ) throws PipelineException {
         if (!needCapture) {
             if (logReuseDebug && log.isDebugEnabled() && existingSnapshot != null) {
                 log.debug("worker cam={} reuse reference product_type={} frame_id={}",
@@ -64,9 +69,17 @@ public final class ReferenceSnapshotBootstrap {
         }
         long tRef0 = System.nanoTime();
         final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
-        lighting.runCaptureWithLighting(cameraId, -1L, "reference", 0, () -> {
-            captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
-        });
+        try {
+            lighting.runCaptureWithLighting(cameraId, -1L, "reference", 0, () -> {
+                try {
+                    captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
+                } catch (IOException e) {
+                    throw new CaptureException(e);
+                }
+            });
+        } catch (LightingException | CaptureException e) {
+            throw new PipelineException(e);
+        }
         BinaryProtocol.Message referenceCapture = captureHolder[0];
         log.info("worker cam={} reference capture header={}", cameraId, referenceCapture.header());
         capture.saveReferenceCapture(projectRoot, saveCaptures, referenceCapture);
@@ -79,13 +92,17 @@ public final class ReferenceSnapshotBootstrap {
                 detectorId,
                 effectiveReferenceHeader
         );
-        for (int r = 0; r < referenceRepeatCount; r++) {
-            for (BinaryRpcSupervisor python : AnalisSurfacePoolSupport.uniqueServerClients(pythonPool)) {
-                python.command(refHdr);
+        try {
+            for (int r = 0; r < referenceRepeatCount; r++) {
+                for (BinaryRpcSupervisor python : AnalisSurfacePoolSupport.uniqueServerClients(pythonPool)) {
+                    python.command(refHdr);
+                }
+                if (uiVisualsPython != null) {
+                    uiVisualsPython.command(refHdr);
+                }
             }
-            if (uiVisualsPython != null) {
-                uiVisualsPython.command(refHdr);
-            }
+        } catch (IOException e) {
+            throw new PipelineException(e);
         }
         long wallMs = YamlScalars.nanosToMs(System.nanoTime() - tRef0);
         telemetry.logReferenceSnapshot(

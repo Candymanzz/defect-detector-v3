@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
+import com.example.iml.orchestrator.integration.pipeline.PipelineException;
+
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -67,9 +69,9 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             AtomicInteger geometryRoundRobin
     ) {
         if (positioningExecutor != null) {
-            state = positioningExecutor.apply(state, cameraId, productType, activeReference, geometryCfg, pythonCfg);
+            state = positioningExecutor.apply(state, cameraId, activeReference, geometryCfg);
         }
-        if (isPositioningHardFail(state)) {
+        if (InspectCaptureGuards.isPositioningHardFail(state)) {
             BinaryProtocol.Message geomFail = positioningRejectMessage(state, cameraId);
             return new PipelineState(
                     state.capture(),
@@ -102,7 +104,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                     0L
             );
         }
-        if (!hasValidCaptureFrame(state)) {
+        if (!InspectCaptureGuards.hasValidCaptureFrame(state)) {
             BinaryProtocol.Message geomError = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_ERROR,
                     Map.of(
@@ -152,27 +154,14 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             } finally {
                 geometrySlots.release();
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PipelineException(e);
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new PipelineException(e);
         }
-    }
-
-    private static boolean hasValidCaptureFrame(PipelineState state) {
-        if (state == null || state.capture() == null || state.capture().header() == null) {
-            return false;
-        }
-        Map<String, Object> h = state.capture().header();
-        String shmName = String.valueOf(h.getOrDefault("shm_name", "")).trim();
-        int width = YamlScalars.toInt(h.get("width"), 0);
-        int height = YamlScalars.toInt(h.get("height"), 0);
-        return !shmName.isEmpty() && width > 0 && height > 0;
-    }
-
-    private static boolean isPositioningHardFail(PipelineState state) {
-        return state != null
-                && state.capture() != null
-                && state.capture().header() != null
-                && YamlScalars.toBool(state.capture().header().get(InspectPositioningExecutor.HEADER_HARD_FAIL), false);
     }
 
     private static BinaryProtocol.Message positioningRejectMessage(PipelineState state, int cameraId) {

@@ -21,6 +21,7 @@ public interface AfterInspectionSidecar {
             BinaryProtocol.Message geometry
     );
 
+    @SuppressWarnings("unused")
     default void discardInspectionArtifacts(BinaryProtocol.Message python) {
     }
 }

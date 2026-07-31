@@ -27,6 +27,13 @@ public record BucketInspectionConfig(
     }
 
     public List<Integer> allCameraIds() {
+        return collectCameraIds(groups);
+    }
+
+    public static List<Integer> collectCameraIds(List<BucketGroup> groups) {
+        if (groups == null || groups.isEmpty()) {
+            return List.of();
+        }
         return groups.stream()
                 .flatMap(group -> group.cameraIds().stream())
                 .distinct()

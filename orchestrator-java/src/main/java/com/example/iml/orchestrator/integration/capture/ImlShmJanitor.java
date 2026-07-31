@@ -9,7 +9,6 @@ import java.time.Duration;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -26,17 +25,6 @@ public final class ImlShmJanitor {
 
     /** TTL для осиротевших line-pin: цикл ~4 с, запас на backlog и UI sidecar. */
     public static final Duration DEFAULT_EPHEMERAL_TTL = Duration.ofSeconds(45);
-
-    private static final Pattern STABLE_FILE = Pattern.compile(
-            "^iml_cam_\\d+_frame$"
-                    + "|^iml_ref_cam\\d+$"
-                    + "|^iml_pos_cam_\\d+$"
-                    + "|^iml_ds_[a-z_]+_cam\\d+$"
-                    + "|^iml_py_ds_(cur|ref)_cam\\d+$"
-                    + "|^iml_ui_(inspect|heatmap)_cam_\\d+$"
-    );
-
-    private static final Pattern LINE_PIN_FILE = Pattern.compile("^iml_line_pin_cam\\d+_f\\d+$");
 
     private ImlShmJanitor() {
     }
@@ -72,14 +60,14 @@ public final class ImlShmJanitor {
                     continue;
                 }
                 String name = entry.getFileName().toString();
-                if (!isEphemeralLinePin(name)) {
+                if (!ImlShmNames.isEphemeralLinePin(name)) {
                     continue;
                 }
-                if (fileTimeMs(entry) >= cutoffMs) {
+                if (ImlShmFileOps.fileTimeMs(entry) >= cutoffMs) {
                     continue;
                 }
-                long size = safeSize(entry);
-                if (deleteQuietly(entry)) {
+                long size = ImlShmFileOps.safeSize(entry);
+                if (ImlShmFileOps.deleteQuietly(entry)) {
                     deleted++;
                     freedBytes += size;
                 }
@@ -110,18 +98,18 @@ public final class ImlShmJanitor {
             return;
         }
         Set<String> candidates = new LinkedHashSet<>(4);
-        addShmCandidate(candidates, header.get("shm_name"));
-        addShmCandidate(candidates, header.get("original_shm_name"));
+        ImlShmNames.addShmCandidate(candidates, header.get("shm_name"));
+        ImlShmNames.addShmCandidate(candidates, header.get("original_shm_name"));
         // line_pin_source_shm is the worker ring (iml_cam_*) — never delete it.
         int deleted = 0;
         long freed = 0L;
         for (String base : candidates) {
-            if (!isEphemeralLinePin(base)) {
+            if (!ImlShmNames.isEphemeralLinePin(base)) {
                 continue;
             }
             Path path = FrameJpegWriter.imlShmFilePath(base);
-            long size = safeSize(path);
-            if (deleteQuietly(path)) {
+            long size = ImlShmFileOps.safeSize(path);
+            if (ImlShmFileOps.deleteQuietly(path)) {
                 deleted++;
                 freed += size;
             }
@@ -137,8 +125,7 @@ public final class ImlShmJanitor {
     }
 
     public static boolean isEphemeralLinePin(String shmNameOrBase) {
-        String base = shmBaseName(shmNameOrBase);
-        return base != null && LINE_PIN_FILE.matcher(base).matches();
+        return ImlShmNames.isEphemeralLinePin(shmNameOrBase);
     }
 
     private static void purge(Logger log, boolean orchestratorBuffersOnly) {
@@ -155,14 +142,14 @@ public final class ImlShmJanitor {
                 }
                 String name = entry.getFileName().toString();
                 if (orchestratorBuffersOnly) {
-                    if (!isOrchestratorOwnedBuffer(name) && !isEphemeralLinePin(name)) {
+                    if (!ImlShmNames.isOrchestratorOwnedBuffer(name) && !ImlShmNames.isEphemeralLinePin(name)) {
                         continue;
                     }
-                } else if (STABLE_FILE.matcher(name).matches()) {
+                } else if (ImlShmNames.STABLE_FILE.matcher(name).matches()) {
                     continue;
                 }
-                long size = safeSize(entry);
-                if (deleteQuietly(entry)) {
+                long size = ImlShmFileOps.safeSize(entry);
+                if (ImlShmFileOps.deleteQuietly(entry)) {
                     deleted++;
                     freedBytes += size;
                 }
@@ -189,69 +176,6 @@ public final class ImlShmJanitor {
     }
 
     public static boolean isDedicatedOrchestratorBuffer(String baseName) {
-        if (baseName == null || baseName.isBlank()) {
-            return false;
-        }
-        return baseName.startsWith("iml_ds_")
-                || baseName.startsWith("iml_py_ds_")
-                || baseName.startsWith("iml_pos_")
-                || baseName.startsWith("iml_ui_");
-    }
-
-    private static boolean isOrchestratorOwnedBuffer(String name) {
-        return name.startsWith("iml_ds_")
-                || name.startsWith("iml_py_ds_")
-                || name.startsWith("iml_pos_")
-                || name.startsWith("iml_ui_");
-    }
-
-    private static void addShmCandidate(Set<String> out, Object raw) {
-        String base = shmBaseName(raw == null ? null : String.valueOf(raw));
-        if (base != null) {
-            out.add(base);
-        }
-    }
-
-    private static String shmBaseName(String shmName) {
-        if (shmName == null || shmName.isBlank() || "null".equals(shmName)) {
-            return null;
-        }
-        String name = shmName.trim();
-        if (name.startsWith("/")) {
-            name = name.substring(1);
-        }
-        name = name.replace('/', '_');
-        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
-        if (slash >= 0 && slash + 1 < name.length()) {
-            name = name.substring(slash + 1);
-        }
-        if (name.endsWith(".bin")) {
-            name = name.substring(0, name.length() - 4);
-        }
-        return name.isBlank() ? null : name;
-    }
-
-    private static long safeSize(Path path) {
-        try {
-            return Files.size(path);
-        } catch (IOException ignored) {
-            return 0L;
-        }
-    }
-
-    private static long fileTimeMs(Path path) {
-        try {
-            return Files.getLastModifiedTime(path).toMillis();
-        } catch (IOException ignored) {
-            return System.currentTimeMillis();
-        }
-    }
-
-    private static boolean deleteQuietly(Path path) {
-        try {
-            return Files.deleteIfExists(path);
-        } catch (IOException ignored) {
-            return false;
-        }
+        return ImlShmNames.isDedicatedOrchestratorBuffer(baseName);
     }
 }

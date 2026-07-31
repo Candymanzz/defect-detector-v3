@@ -5,6 +5,8 @@ package com.example.iml.orchestrator.integration.clientws.exception;
  */
 public final class ClientWsKopcheniSyncException extends ClientWsException {
 
+    private static final long serialVersionUID = 1L;
+
     public ClientWsKopcheniSyncException(String message) {
         super(message);
     }

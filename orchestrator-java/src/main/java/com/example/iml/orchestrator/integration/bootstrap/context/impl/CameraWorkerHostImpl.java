@@ -25,22 +25,22 @@ public final class CameraWorkerHostImpl extends AbstractCameraRuntimeHost implem
 
     @Override
     public Map<String, Object> root() {
-        return env().root();
+        return rootMap();
     }
 
     @Override
     public Path projectRoot() {
-        return env().projectRoot();
+        return projectRootPath();
     }
 
     @Override
     public Map<String, Object> integration() {
-        return preflight().integration();
+        return integrationMap();
     }
 
     @Override
     public IntegrationBootConfig bootConfig() {
-        return preflight().bootConfig();
+        return bootCfg();
     }
 
     @Override

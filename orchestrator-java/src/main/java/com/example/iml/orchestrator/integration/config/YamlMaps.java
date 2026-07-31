@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Безопасное чтение Map/List из YAML без unchecked-cast.
@@ -13,14 +12,6 @@ import java.util.Optional;
 public final class YamlMaps {
 
     private YamlMaps() {
-    }
-
-    public static Map<?, ?> asMap(Object raw) {
-        return raw instanceof Map<?, ?> map ? map : Map.of();
-    }
-
-    public static Optional<Map<?, ?>> optionalMap(Object raw) {
-        return raw instanceof Map<?, ?> map ? Optional.of(map) : Optional.empty();
     }
 
     /**
@@ -45,10 +36,6 @@ public final class YamlMaps {
         return raw instanceof Map<?, ?> ? stringObjectMap(raw) : null;
     }
 
-    public static List<?> asList(Object raw) {
-        return raw instanceof List<?> list ? list : List.of();
-    }
-
     public static List<Map<String, Object>> listOfStringObjectMaps(Object raw) {
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
             return List.of();
@@ -60,17 +47,5 @@ public final class YamlMaps {
             }
         }
         return out;
-    }
-
-    public static void putAllStringKeys(Map<String, Object> target, Object raw) {
-        if (!(raw instanceof Map<?, ?> source) || target == null) {
-            return;
-        }
-        for (Map.Entry<?, ?> entry : source.entrySet()) {
-            if (entry.getKey() == null) {
-                continue;
-            }
-            target.put(String.valueOf(entry.getKey()), entry.getValue());
-        }
     }
 }

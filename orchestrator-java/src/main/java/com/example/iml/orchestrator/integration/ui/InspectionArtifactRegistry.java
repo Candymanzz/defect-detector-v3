@@ -4,15 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.time.Duration;
-import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
-import java.security.SecureRandom;
-import java.util.stream.Stream;
 
 public final class InspectionArtifactRegistry {
 
@@ -27,18 +21,13 @@ public final class InspectionArtifactRegistry {
     ) {
     }
 
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final Pattern TOKEN = Pattern.compile("^[0-9a-f]{32}$");
-    private static final long RETENTION_MS = Duration.ofMinutes(2).toMillis();
-    private static final int MAX_BUNDLES = 40;
-
     private final Path root;
     private final ConcurrentHashMap<String, Bundle> byId = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, String> latestIdByCamera = new ConcurrentHashMap<>();
 
     public InspectionArtifactRegistry(Path root) {
         this.root = Objects.requireNonNull(root, "root").toAbsolutePath().normalize();
-        cleanupOrphanedDirectories();
+        InspectionArtifactStoreSupport.cleanupOrphanedDirectories(this.root);
     }
 
     public synchronized Bundle register(int cameraId, long frameId, Path frameJpeg, Path heatmapU8) throws IOException {
@@ -62,9 +51,9 @@ public final class InspectionArtifactRegistry {
             throw new IOException("inspection heatmap source is missing");
         }
 
-        cleanup();
+        InspectionArtifactStoreSupport.cleanup(byId, latestIdByCamera, this::remove);
         Files.createDirectories(root);
-        String id = newToken();
+        String id = InspectionArtifactStoreSupport.newToken();
         Path bundleDir = root.resolve(id);
         Files.createDirectories(bundleDir);
         Path storedFrame = bundleDir.resolve("frame.jpg");
@@ -77,7 +66,7 @@ public final class InspectionArtifactRegistry {
                 Files.copy(heatmapU8, storedHeatmap, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
-            deleteBundleDirectory(bundleDir);
+            InspectionArtifactStoreSupport.deleteBundleDirectory(bundleDir);
             throw e;
         }
 
@@ -98,7 +87,7 @@ public final class InspectionArtifactRegistry {
                 remove(previous);
             }
         }
-        cleanup();
+        InspectionArtifactStoreSupport.cleanup(byId, latestIdByCamera, this::remove);
         return bundle;
     }
 
@@ -128,7 +117,7 @@ public final class InspectionArtifactRegistry {
             return Optional.empty();
         }
         String id = rawId.trim();
-        if (!TOKEN.matcher(id).matches()) {
+        if (!InspectionArtifactStoreSupport.TOKEN.matcher(id).matches()) {
             return Optional.empty();
         }
         Bundle bundle = byId.get(id);
@@ -155,59 +144,9 @@ public final class InspectionArtifactRegistry {
         return artifact == null ? null : Files.readAllBytes(artifact);
     }
 
-    private void cleanup() {
-        long cutoff = System.currentTimeMillis() - RETENTION_MS;
-        byId.values().stream()
-                .filter(bundle -> !bundle.id().equals(latestIdByCamera.get(bundle.cameraId())))
-                .filter(bundle -> bundle.createdAtEpochMs() < cutoff)
-                .forEach(this::remove);
-
-        int overflow = byId.size() - MAX_BUNDLES;
-        if (overflow <= 0) {
-            return;
-        }
-        byId.values().stream()
-                .filter(bundle -> !bundle.id().equals(latestIdByCamera.get(bundle.cameraId())))
-                .sorted(Comparator.comparingLong(Bundle::createdAtEpochMs))
-                .limit(overflow)
-                .forEach(this::remove);
-    }
-
     private void remove(Bundle bundle) {
         if (byId.remove(bundle.id(), bundle)) {
-            deleteBundleDirectory(bundle.frameJpeg().getParent());
-        }
-    }
-
-    private static String newToken() {
-        byte[] bytes = new byte[16];
-        RANDOM.nextBytes(bytes);
-        return HexFormat.of().formatHex(bytes);
-    }
-
-    private static void deleteBundleDirectory(Path directory) {
-        if (directory == null) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(directory.resolve("frame.jpg"));
-            Files.deleteIfExists(directory.resolve("card.jpg"));
-            Files.deleteIfExists(directory.resolve("heatmap.u8"));
-            Files.deleteIfExists(directory);
-        } catch (IOException ignored) {
-        }
-    }
-
-    private void cleanupOrphanedDirectories() {
-        try {
-            Files.createDirectories(root);
-            try (Stream<Path> entries = Files.list(root)) {
-                entries.filter(Files::isDirectory)
-                        .filter(path -> TOKEN.matcher(path.getFileName().toString()).matches())
-                        .forEach(InspectionArtifactRegistry::deleteBundleDirectory);
-            }
-        } catch (IOException ignored) {
-            // Best effort: stale files must not prevent the UI server from starting.
+            InspectionArtifactStoreSupport.deleteBundleDirectory(bundle.frameJpeg().getParent());
         }
     }
 }

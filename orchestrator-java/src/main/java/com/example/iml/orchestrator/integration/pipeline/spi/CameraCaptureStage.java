@@ -23,6 +23,7 @@ public interface CameraCaptureStage {
     /**
      * Optionally remap capture descriptor to downscaled SHM before downstream stages.
      */
+    @SuppressWarnings("unused")
     default BinaryProtocol.Message maybeDownscaleInspectionCapture(
             BinaryProtocol.Message capture,
             int cameraId
@@ -33,6 +34,7 @@ public interface CameraCaptureStage {
     /**
      * Optionally remap reference descriptor to downscaled SHM before set_reference_shm.
      */
+    @SuppressWarnings("unused")
     default Map<String, Object> maybeDownscaleReferenceHeader(
             Map<String, Object> referenceHeader,
             int cameraId
@@ -43,6 +45,7 @@ public interface CameraCaptureStage {
     /**
      * Optionally remap client reference-bundle frame descriptor to downscaled SHM.
      */
+    @SuppressWarnings("unused")
     default Map<String, Object> maybeDownscaleClientReferenceHeader(
             Map<String, Object> referenceHeader,
             int cameraId

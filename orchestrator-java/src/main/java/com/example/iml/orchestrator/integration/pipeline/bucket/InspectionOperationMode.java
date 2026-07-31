@@ -4,18 +4,8 @@ package com.example.iml.orchestrator.integration.pipeline.bucket;
  * Необязательный preset, если {@code inspection_bucket.groups} не задан явно в YAML.
  */
 public enum InspectionOperationMode {
-    FIVE_CAMERAS(5),
-    TEN_CAMERAS(10);
-
-    private final int cameraCount;
-
-    InspectionOperationMode(int cameraCount) {
-        this.cameraCount = cameraCount;
-    }
-
-    public int cameraCount() {
-        return cameraCount;
-    }
+    FIVE_CAMERAS,
+    TEN_CAMERAS;
 
     public static InspectionOperationMode fromConfig(String raw) {
         if (raw == null || raw.isBlank()) {

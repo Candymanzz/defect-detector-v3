@@ -15,6 +15,7 @@ public final class JsonUdpTriggerMessageParserImpl implements UdpTriggerMessageP
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Override
+    @SuppressWarnings("unused")
     public Optional<InspectionTriggerEvent> parse(
             byte[] payload,
             int length,

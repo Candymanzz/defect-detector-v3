@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.service.api;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import com.example.iml.orchestrator.integration.bootstrap.context.port.CameraInspectionLoopHost;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 
@@ -12,5 +14,5 @@ public interface CameraInspectionLoopRunner {
             CameraInspectionLoopHost session,
             TriggerRuntimeBootstrap.TriggerWireResult triggerWire,
             OrchestratorStopSignal stopSignal
-    ) throws Exception;
+    ) throws BootstrapException;
 }

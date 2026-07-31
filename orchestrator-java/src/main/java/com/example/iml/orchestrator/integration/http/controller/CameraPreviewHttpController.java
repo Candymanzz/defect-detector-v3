@@ -4,7 +4,6 @@ import com.example.iml.orchestrator.integration.http.HttpController;
 import com.example.iml.orchestrator.integration.http.HttpRequestContext;
 import com.example.iml.orchestrator.integration.http.HttpResponses;
 import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -19,8 +18,6 @@ import java.util.Map;
 import java.util.Set;
 
 public final class CameraPreviewHttpController implements HttpController {
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final CameraPreviewStore store;
     private final List<Integer> configuredCameraIds;
@@ -42,7 +39,7 @@ public final class CameraPreviewHttpController implements HttpController {
             return;
         }
         HttpResponses.corsJson(ctx.exchange());
-        ArrayNode ids = JSON.createArrayNode();
+        ArrayNode ids = CameraPreviewJsonBuilder.json().createArrayNode();
         Set<Integer> merged = new LinkedHashSet<>(configuredCameraIds);
         merged.addAll(store.latestByCamera().keySet());
         List<Integer> keys = new ArrayList<>(merged);
@@ -50,13 +47,13 @@ public final class CameraPreviewHttpController implements HttpController {
         for (int cam : keys) {
             ids.add(cam);
         }
-        ObjectNode root = JSON.createObjectNode();
+        ObjectNode root = CameraPreviewJsonBuilder.json().createObjectNode();
         root.set("cameras", ids);
         ObjectNode profiles = root.putObject("analysisProfileByCamera");
         for (int cam : keys) {
             profiles.put(String.valueOf(cam), configuredAnalysisProfile(cam));
         }
-        HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+        HttpResponses.send(ctx, 200, "application/json; charset=utf-8", CameraPreviewJsonBuilder.json().writeValueAsBytes(root));
     }
 
     public void handleCameraPath(HttpRequestContext ctx) throws IOException {
@@ -76,7 +73,14 @@ public final class CameraPreviewHttpController implements HttpController {
             if (l == null) {
                 if (uri.endsWith("/latest.json") && configuredCameraIds.contains(cam)) {
                     HttpResponses.corsJson(ctx.exchange());
-                    HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(emptyLatestJson(cam)));
+                    HttpResponses.send(
+                            ctx,
+                            200,
+                            "application/json; charset=utf-8",
+                            CameraPreviewJsonBuilder.json().writeValueAsBytes(
+                                    CameraPreviewJsonBuilder.emptyLatestJson(cam, this::configuredAnalysisProfile)
+                            )
+                    );
                     return;
                 }
                 HttpResponses.sendText(ctx, 404, "no data\n");
@@ -84,7 +88,12 @@ public final class CameraPreviewHttpController implements HttpController {
             }
             if (uri.endsWith("/latest.json")) {
                 HttpResponses.corsJson(ctx.exchange());
-                HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(latestJson(cam, l)));
+                HttpResponses.send(
+                        ctx,
+                        200,
+                        "application/json; charset=utf-8",
+                        CameraPreviewJsonBuilder.json().writeValueAsBytes(CameraPreviewJsonBuilder.latestJson(cam, l))
+                );
                 return;
             }
             if (uri.endsWith("/current.jpg") && l.currentJpeg() != null && Files.isRegularFile(l.currentJpeg())) {
@@ -177,87 +186,6 @@ public final class CameraPreviewHttpController implements HttpController {
         } else {
             HttpResponses.notFound(ctx);
         }
-    }
-
-    private static ObjectNode latestJson(int cameraId, CameraPreviewStore.Latest l) {
-        boolean hasCur = l.currentJpeg() != null && l.currentJpegWidth() > 0 && Files.isRegularFile(l.currentJpeg());
-        boolean hasHm = l.heatmapU8() != null && l.heatmapU8Width() > 0 && l.heatmapU8Height() > 0
-                && Files.isRegularFile(l.heatmapU8());
-        ObjectNode root = JSON.createObjectNode();
-        root.put("cameraId", cameraId);
-        root.put("frameId", l.frameId());
-        root.put("productType", l.productType() == null ? "" : l.productType());
-        root.put("detectorId", l.detectorId() == null ? "" : l.detectorId());
-        root.put("shmName", l.shmName() == null ? "" : l.shmName());
-        root.put("updatedAtMs", l.updatedAtEpochMs());
-        if (l.overallPass() != null) {
-            root.put("overall_pass", l.overallPass());
-        } else {
-            root.putNull("overall_pass");
-        }
-        if (l.action() != null) {
-            root.put("action", l.action());
-        } else {
-            root.putNull("action");
-        }
-        if (l.anomalyScore() != null) {
-            root.put("anomaly_score", l.anomalyScore());
-        } else {
-            root.putNull("anomaly_score");
-        }
-        if (l.pythonStatus() != null) {
-            root.put("python_status", l.pythonStatus());
-        } else {
-            root.putNull("python_status");
-        }
-        if (l.geometryStatus() != null) {
-            root.put("geometry_status", l.geometryStatus());
-        } else {
-            root.putNull("geometry_status");
-        }
-        root.put("hasCurrent", hasCur);
-        root.put("hasHeatmap", hasHm);
-        ObjectNode cap = root.putObject("capture");
-        cap.put("width", l.captureWidth());
-        cap.put("height", l.captureHeight());
-        ObjectNode cur = root.putObject("currentJpeg");
-        cur.put("width", l.currentJpegWidth());
-        cur.put("height", l.currentJpegHeight());
-        cur.put("path", "/api/camera/" + cameraId + "/current.jpg");
-        ObjectNode hm = root.putObject("heatmapU8");
-        hm.put("width", l.heatmapU8Width());
-        hm.put("height", l.heatmapU8Height());
-        hm.put("path", "/api/camera/" + cameraId + "/heatmap.u8");
-        return root;
-    }
-
-    private ObjectNode emptyLatestJson(int cameraId) {
-        ObjectNode root = JSON.createObjectNode();
-        root.put("cameraId", cameraId);
-        root.put("frameId", -1);
-        root.put("productType", configuredAnalysisProfile(cameraId));
-        root.put("detectorId", "");
-        root.put("shmName", "");
-        root.put("updatedAtMs", 0);
-        root.putNull("overall_pass");
-        root.putNull("action");
-        root.putNull("anomaly_score");
-        root.putNull("python_status");
-        root.putNull("geometry_status");
-        root.put("hasCurrent", false);
-        root.put("hasHeatmap", false);
-        ObjectNode cap = root.putObject("capture");
-        cap.put("width", 0);
-        cap.put("height", 0);
-        ObjectNode cur = root.putObject("currentJpeg");
-        cur.put("width", 0);
-        cur.put("height", 0);
-        cur.put("path", "/api/camera/" + cameraId + "/current.jpg");
-        ObjectNode hm = root.putObject("heatmapU8");
-        hm.put("width", 0);
-        hm.put("height", 0);
-        hm.put("path", "/api/camera/" + cameraId + "/heatmap.u8");
-        return root;
     }
 
     private String configuredAnalysisProfile(int cameraId) {

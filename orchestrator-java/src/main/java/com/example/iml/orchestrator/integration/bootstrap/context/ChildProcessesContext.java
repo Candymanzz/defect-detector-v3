@@ -17,206 +17,82 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Результат старта child-процессов и ранних collaborator'ов (capture/API/gate).
- * Mutable: watchdog может перезапускать OS-процессы.
- */
+/** Facade over process registry / early collaborators / config slices. */
 public final class ChildProcessesContext {
 
     private final PreflightContext preflight;
-
-    private List<BinaryRpcSupervisor> pythonPool = List.of();
-    private List<ServiceProcessSupervisor> geometryPool = List.of();
-    private List<ServiceProcessSupervisor> positioningPool = List.of();
-    private List<ExternalServiceProcess> analisSurfaceProcesses = List.of();
-    private ExternalServiceProcess lightServerProcess;
-    private ExternalServiceProcess ioInputMonitorProcess;
-    private ExternalServiceProcess frontendProcess;
-
-    private GeometrySnapshotCache geometrySnapshotCache;
-    private GeometryRuntimeConfig geometryRuntimeConfig;
-    private PerCameraInspectionGate inspectionGate;
-    private ManualLineDirectionService manualLineDirection;
-    private PlcFinsServiceHolder plcFinsHolder;
-    private ClientWsServiceHolder clientWsHolder;
-    private ClientApiMount clientApiMount;
-    private WorkerCaptureCoordinator captureCoordinator;
-    private UiArtifactsSidecar uiSidecar;
-
-    private Map<String, Object> pythonCfg;
-    private Map<String, Object> geometryCfg;
-    private Map<String, Object> positioningCfg;
-    private Map<String, Object> uiCfg;
+    private final ChildProcessRegistry processRegistry = new ChildProcessRegistry();
+    private final EarlyCollaboratorRegistry collaborators = new EarlyCollaboratorRegistry();
+    private final IntegrationConfigSlices configSlices = new IntegrationConfigSlices();
 
     public ChildProcessesContext(PreflightContext preflight) {
         this.preflight = Objects.requireNonNull(preflight, "preflight");
     }
 
-    public PreflightContext preflight() {
-        return preflight;
-    }
+    public PreflightContext preflight() { return preflight; }
+    public BootstrapEnvironment env() { return preflight.env(); }
+    public ChildProcessRegistry processRegistry() { return processRegistry; }
+    public EarlyCollaboratorRegistry collaborators() { return collaborators; }
+    public IntegrationConfigSlices configSlices() { return configSlices; }
 
-    public BootstrapEnvironment env() {
-        return preflight.env();
-    }
-
-    public List<BinaryRpcSupervisor> pythonPool() {
-        return pythonPool;
-    }
-
-    public void setPythonPool(List<BinaryRpcSupervisor> pythonPool) {
-        this.pythonPool = pythonPool == null ? List.of() : pythonPool;
-    }
-
-    public List<ServiceProcessSupervisor> geometryPool() {
-        return geometryPool;
-    }
-
-    public void setGeometryPool(List<ServiceProcessSupervisor> geometryPool) {
-        this.geometryPool = geometryPool == null ? List.of() : geometryPool;
-    }
-
-    public List<ServiceProcessSupervisor> positioningPool() {
-        return positioningPool;
-    }
-
-    public void setPositioningPool(List<ServiceProcessSupervisor> positioningPool) {
-        this.positioningPool = positioningPool == null ? List.of() : positioningPool;
-    }
-
-    public List<ExternalServiceProcess> analisSurfaceProcesses() {
-        return analisSurfaceProcesses;
-    }
-
+    public List<BinaryRpcSupervisor> pythonPool() { return processRegistry.pythonPool(); }
+    public void setPythonPool(List<BinaryRpcSupervisor> pythonPool) { processRegistry.setPythonPool(pythonPool); }
+    public List<ServiceProcessSupervisor> geometryPool() { return processRegistry.geometryPool(); }
+    public void setGeometryPool(List<ServiceProcessSupervisor> geometryPool) { processRegistry.setGeometryPool(geometryPool); }
+    public List<ServiceProcessSupervisor> positioningPool() { return processRegistry.positioningPool(); }
+    public void setPositioningPool(List<ServiceProcessSupervisor> positioningPool) { processRegistry.setPositioningPool(positioningPool); }
+    public List<ExternalServiceProcess> analisSurfaceProcesses() { return processRegistry.analisSurfaceProcesses(); }
     public void setAnalisSurfaceProcesses(List<ExternalServiceProcess> analisSurfaceProcesses) {
-        this.analisSurfaceProcesses = analisSurfaceProcesses == null ? List.of() : analisSurfaceProcesses;
+        processRegistry.setAnalisSurfaceProcesses(analisSurfaceProcesses);
     }
-
-    public ExternalServiceProcess lightServerProcess() {
-        return lightServerProcess;
-    }
-
+    public ExternalServiceProcess lightServerProcess() { return processRegistry.lightServerProcess(); }
     public void setLightServerProcess(ExternalServiceProcess lightServerProcess) {
-        this.lightServerProcess = lightServerProcess;
+        processRegistry.setLightServerProcess(lightServerProcess);
     }
-
-    public ExternalServiceProcess ioInputMonitorProcess() {
-        return ioInputMonitorProcess;
-    }
-
+    public ExternalServiceProcess ioInputMonitorProcess() { return processRegistry.ioInputMonitorProcess(); }
     public void setIoInputMonitorProcess(ExternalServiceProcess ioInputMonitorProcess) {
-        this.ioInputMonitorProcess = ioInputMonitorProcess;
+        processRegistry.setIoInputMonitorProcess(ioInputMonitorProcess);
     }
-
-    public ExternalServiceProcess frontendProcess() {
-        return frontendProcess;
-    }
-
+    public ExternalServiceProcess frontendProcess() { return processRegistry.frontendProcess(); }
     public void setFrontendProcess(ExternalServiceProcess frontendProcess) {
-        this.frontendProcess = frontendProcess;
+        processRegistry.setFrontendProcess(frontendProcess);
     }
 
-    public GeometrySnapshotCache geometrySnapshotCache() {
-        return geometrySnapshotCache;
-    }
-
+    public GeometrySnapshotCache geometrySnapshotCache() { return collaborators.geometrySnapshotCache(); }
     public void setGeometrySnapshotCache(GeometrySnapshotCache geometrySnapshotCache) {
-        this.geometrySnapshotCache = geometrySnapshotCache;
+        collaborators.setGeometrySnapshotCache(geometrySnapshotCache);
     }
-
-    public GeometryRuntimeConfig geometryRuntimeConfig() {
-        return geometryRuntimeConfig;
-    }
-
+    public GeometryRuntimeConfig geometryRuntimeConfig() { return collaborators.geometryRuntimeConfig(); }
     public void setGeometryRuntimeConfig(GeometryRuntimeConfig geometryRuntimeConfig) {
-        this.geometryRuntimeConfig = geometryRuntimeConfig;
+        collaborators.setGeometryRuntimeConfig(geometryRuntimeConfig);
     }
-
-    public PerCameraInspectionGate inspectionGate() {
-        return inspectionGate;
-    }
-
+    public PerCameraInspectionGate inspectionGate() { return collaborators.inspectionGate(); }
     public void setInspectionGate(PerCameraInspectionGate inspectionGate) {
-        this.inspectionGate = inspectionGate;
+        collaborators.setInspectionGate(inspectionGate);
     }
-
-    public ManualLineDirectionService manualLineDirection() {
-        return manualLineDirection;
-    }
-
+    public ManualLineDirectionService manualLineDirection() { return collaborators.manualLineDirection(); }
     public void setManualLineDirection(ManualLineDirectionService manualLineDirection) {
-        this.manualLineDirection = manualLineDirection;
+        collaborators.setManualLineDirection(manualLineDirection);
     }
-
-    public PlcFinsServiceHolder plcFinsHolder() {
-        return plcFinsHolder;
-    }
-
-    public void setPlcFinsHolder(PlcFinsServiceHolder plcFinsHolder) {
-        this.plcFinsHolder = plcFinsHolder;
-    }
-
-    public ClientWsServiceHolder clientWsHolder() {
-        return clientWsHolder;
-    }
-
-    public void setClientWsHolder(ClientWsServiceHolder clientWsHolder) {
-        this.clientWsHolder = clientWsHolder;
-    }
-
-    public ClientApiMount clientApiMount() {
-        return clientApiMount;
-    }
-
-    public void setClientApiMount(ClientApiMount clientApiMount) {
-        this.clientApiMount = clientApiMount;
-    }
-
-    public WorkerCaptureCoordinator captureCoordinator() {
-        return captureCoordinator;
-    }
-
+    public PlcFinsServiceHolder plcFinsHolder() { return collaborators.plcFinsHolder(); }
+    public void setPlcFinsHolder(PlcFinsServiceHolder plcFinsHolder) { collaborators.setPlcFinsHolder(plcFinsHolder); }
+    public ClientWsServiceHolder clientWsHolder() { return collaborators.clientWsHolder(); }
+    public void setClientWsHolder(ClientWsServiceHolder clientWsHolder) { collaborators.setClientWsHolder(clientWsHolder); }
+    public ClientApiMount clientApiMount() { return collaborators.clientApiMount(); }
+    public void setClientApiMount(ClientApiMount clientApiMount) { collaborators.setClientApiMount(clientApiMount); }
+    public WorkerCaptureCoordinator captureCoordinator() { return collaborators.captureCoordinator(); }
     public void setCaptureCoordinator(WorkerCaptureCoordinator captureCoordinator) {
-        this.captureCoordinator = captureCoordinator;
+        collaborators.setCaptureCoordinator(captureCoordinator);
     }
+    public UiArtifactsSidecar uiSidecar() { return collaborators.uiSidecar(); }
+    public void setUiSidecar(UiArtifactsSidecar uiSidecar) { collaborators.setUiSidecar(uiSidecar); }
 
-    public UiArtifactsSidecar uiSidecar() {
-        return uiSidecar;
-    }
-
-    public void setUiSidecar(UiArtifactsSidecar uiSidecar) {
-        this.uiSidecar = uiSidecar;
-    }
-
-    public Map<String, Object> pythonCfg() {
-        return pythonCfg;
-    }
-
-    public void setPythonCfg(Map<String, Object> pythonCfg) {
-        this.pythonCfg = pythonCfg;
-    }
-
-    public Map<String, Object> geometryCfg() {
-        return geometryCfg;
-    }
-
-    public void setGeometryCfg(Map<String, Object> geometryCfg) {
-        this.geometryCfg = geometryCfg;
-    }
-
-    public Map<String, Object> positioningCfg() {
-        return positioningCfg;
-    }
-
-    public void setPositioningCfg(Map<String, Object> positioningCfg) {
-        this.positioningCfg = positioningCfg;
-    }
-
-    public Map<String, Object> uiCfg() {
-        return uiCfg;
-    }
-
-    public void setUiCfg(Map<String, Object> uiCfg) {
-        this.uiCfg = uiCfg;
-    }
+    public Map<String, Object> pythonCfg() { return configSlices.pythonCfg(); }
+    public void setPythonCfg(Map<String, Object> pythonCfg) { configSlices.setPythonCfg(pythonCfg); }
+    public Map<String, Object> geometryCfg() { return configSlices.geometryCfg(); }
+    public void setGeometryCfg(Map<String, Object> geometryCfg) { configSlices.setGeometryCfg(geometryCfg); }
+    public Map<String, Object> positioningCfg() { return configSlices.positioningCfg(); }
+    public void setPositioningCfg(Map<String, Object> positioningCfg) { configSlices.setPositioningCfg(positioningCfg); }
+    public Map<String, Object> uiCfg() { return configSlices.uiCfg(); }
+    public void setUiCfg(Map<String, Object> uiCfg) { configSlices.setUiCfg(uiCfg); }
 }

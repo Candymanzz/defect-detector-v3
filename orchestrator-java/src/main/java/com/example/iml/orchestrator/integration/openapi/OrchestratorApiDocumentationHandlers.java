@@ -1,11 +1,11 @@
 package com.example.iml.orchestrator.integration.openapi;
 
+import com.example.iml.orchestrator.integration.http.HttpResponses;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -31,7 +31,7 @@ public final class OrchestratorApiDocumentationHandlers {
     private static void handleOpenApi(HttpExchange ex) throws IOException {
         String method = ex.getRequestMethod();
         if ("OPTIONS".equalsIgnoreCase(method)) {
-            cors(ex);
+            HttpResponses.corsJson(ex);
             ex.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
             ex.sendResponseHeaders(204, -1);
             ex.close();
@@ -43,17 +43,17 @@ public final class OrchestratorApiDocumentationHandlers {
         }
         byte[] body = openApiJson();
         if (body == null) {
-            send(ex, 404, "application/json", "{\"error\":\"openapi resource missing\"}".getBytes(StandardCharsets.UTF_8));
+            HttpResponses.send(ex, 404, "application/json", "{\"error\":\"openapi resource missing\"}".getBytes(StandardCharsets.UTF_8));
             return;
         }
-        cors(ex);
-        send(ex, 200, "application/json; charset=utf-8", body);
+        HttpResponses.corsJson(ex);
+        HttpResponses.send(ex, 200, "application/json; charset=utf-8", body);
     }
 
     private static void handleSwaggerUi(HttpExchange ex) throws IOException {
         String method = ex.getRequestMethod();
         if ("OPTIONS".equalsIgnoreCase(method)) {
-            cors(ex);
+            HttpResponses.corsJson(ex);
             ex.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
             ex.sendResponseHeaders(204, -1);
             ex.close();
@@ -65,33 +65,21 @@ public final class OrchestratorApiDocumentationHandlers {
         }
         String path = ex.getRequestURI().getPath();
         if (!path.equals("/swagger") && !path.equals("/swagger/")) {
-            send(ex, 404, "text/plain", "not found\n".getBytes(StandardCharsets.UTF_8));
+            HttpResponses.send(ex, 404, "text/plain", "not found\n".getBytes(StandardCharsets.UTF_8));
             return;
         }
         byte[] body = swaggerHtml();
         if (body == null) {
-            send(ex, 404, "text/plain", "swagger ui resource missing\n".getBytes(StandardCharsets.UTF_8));
+            HttpResponses.send(ex, 404, "text/plain", "swagger ui resource missing\n".getBytes(StandardCharsets.UTF_8));
             return;
         }
-        cors(ex);
-        send(ex, 200, "text/html; charset=utf-8", body);
-    }
-
-    private static void cors(HttpExchange ex) {
-        ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        HttpResponses.corsJson(ex);
+        HttpResponses.send(ex, 200, "text/html; charset=utf-8", body);
     }
 
     private static void sendMethodNotAllowed(HttpExchange ex) throws IOException {
         ex.getResponseHeaders().set("Allow", "GET, OPTIONS");
-        send(ex, 405, "text/plain", "method not allowed\n".getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static void send(HttpExchange ex, int code, String contentType, byte[] body) throws IOException {
-        ex.getResponseHeaders().set("Content-Type", contentType);
-        ex.sendResponseHeaders(code, body.length);
-        try (OutputStream os = ex.getResponseBody()) {
-            os.write(body);
-        }
+        HttpResponses.send(ex, 405, "text/plain", "method not allowed\n".getBytes(StandardCharsets.UTF_8));
     }
 
     private static byte[] openApiJson() {
@@ -124,8 +112,8 @@ public final class OrchestratorApiDocumentationHandlers {
         }
     }
 
-    private static byte[] readResourceBytes(String classpath) {
-        try (InputStream in = OrchestratorApiDocumentationHandlers.class.getResourceAsStream(classpath)) {
+    private static byte[] readResourceBytes(String resource) {
+        try (InputStream in = OrchestratorApiDocumentationHandlers.class.getResourceAsStream(resource)) {
             if (in == null) {
                 return null;
             }

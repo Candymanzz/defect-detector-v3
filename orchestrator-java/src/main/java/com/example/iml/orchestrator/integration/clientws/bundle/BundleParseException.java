@@ -1,9 +1,14 @@
 package com.example.iml.orchestrator.integration.clientws.bundle;
 
+import java.io.Serial;
+
 /**
  * Ошибка разбора пакета эталонов / FP (код для {@code server.error}).
  */
 public final class BundleParseException extends Exception {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     private final String code;
 

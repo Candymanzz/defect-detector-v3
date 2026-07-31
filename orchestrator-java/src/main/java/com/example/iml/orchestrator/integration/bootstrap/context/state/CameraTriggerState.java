@@ -1,18 +1,16 @@
 package com.example.iml.orchestrator.integration.bootstrap.context.state;
 
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
-import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadcaster;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.api.InspectionTriggerStrategy;
 
-/** Triggers, line-sync capture, bucket aggregation, interval flash. */
+/** Triggers, line-sync capture, bucket aggregation. */
 public final class CameraTriggerState {
 
     private LineSynchronizedCaptureCoordinator lineCaptureCoordinator;
     private InspectionTriggerRuntime triggerRuntime;
-    private IntervalFlashController intervalFlashController;
     private BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster;
     private BucketInspectionAggregator bucketInspectionAggregator;
     private InspectionTriggerStrategy sharedTriggerStrategy;
@@ -33,20 +31,12 @@ public final class CameraTriggerState {
         this.triggerRuntime = triggerRuntime;
     }
 
-    public IntervalFlashController intervalFlashController() {
-        return intervalFlashController;
-    }
-
-    public void setIntervalFlashController(IntervalFlashController intervalFlashController) {
-        this.intervalFlashController = intervalFlashController;
+    public void setBucketLineTriggerBroadcaster(BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster) {
+        this.bucketLineTriggerBroadcaster = bucketLineTriggerBroadcaster;
     }
 
     public BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster() {
         return bucketLineTriggerBroadcaster;
-    }
-
-    public void setBucketLineTriggerBroadcaster(BucketLineTriggerBroadcaster bucketLineTriggerBroadcaster) {
-        this.bucketLineTriggerBroadcaster = bucketLineTriggerBroadcaster;
     }
 
     public BucketInspectionAggregator bucketInspectionAggregator() {

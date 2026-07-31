@@ -6,7 +6,7 @@ import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 import java.util.Map;
 
 /**
- * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа/БП, DI2=направление, DI3=триггер.
+ * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа, DI2=направление, DI3=триггер, DI4=БП.
  */
 public record IoInputDiscreteConfig(
         int workPort,
@@ -27,7 +27,8 @@ public record IoInputDiscreteConfig(
         int directionPollMs,
         int captureDelayMs,
         boolean externalHardwareCapture,
-        boolean shutdownPrepOnWorkHigh
+        boolean shutdownPrepOnWorkHigh,
+        int shutdownPrepPort
     ) {
 
     public static IoInputDiscreteConfig defaults() {
@@ -35,7 +36,7 @@ public record IoInputDiscreteConfig(
         return new IoInputDiscreteConfig(
                 1, 2, 3, 0, "json", false, TriggerEdgeMode.RISING,
                 true, false, false, false, false, false, true,
-                5000, 1, 0, true, true
+                5000, 1, 0, true, true, 4
         );
     }
 
@@ -87,6 +88,10 @@ public record IoInputDiscreteConfig(
                 io.get("shutdown_prep_on_work_high"),
                 defaults.shutdownPrepOnWorkHigh()
         );
+        int shutdownPrepPort = clampDiPort(YamlScalars.toInt(
+                io.get("shutdown_prep_port"),
+                defaults.shutdownPrepPort()
+        ));
         return new IoInputDiscreteConfig(
                 workPort,
                 directionPort,
@@ -106,7 +111,8 @@ public record IoInputDiscreteConfig(
                 directionPollMs,
                 captureDelayMs,
                 externalHardwareCapture,
-                shutdownPrepOnWorkHigh
+                shutdownPrepOnWorkHigh,
+                shutdownPrepPort
         );
     }
 
@@ -131,7 +137,8 @@ public record IoInputDiscreteConfig(
                 defaults.directionPollMs(),
                 defaults.captureDelayMs(),
                 defaults.externalHardwareCapture(),
-                defaults.shutdownPrepOnWorkHigh()
+                defaults.shutdownPrepOnWorkHigh(),
+                defaults.shutdownPrepPort()
         );
     }
 

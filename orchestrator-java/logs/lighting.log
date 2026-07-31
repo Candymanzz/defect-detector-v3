@@ -557,3 +557,1570 @@
 2026-07-30 11:44:20.433 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
 2026-07-30 11:44:20.440 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit5160482414676854584/light_brightness_settings.json default=42 endpoints=2
 2026-07-30 11:44:20.446 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit16072390642127752364/bom.json default=67 endpoints=1
+2026-07-30 13:44:12.724 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-30 13:44:12.730 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-30 13:44:12.738 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 08:45:19.018 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 08:45:19.019 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 08:45:19.021 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 08:45:19.029 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.033 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:19.034 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:19.034 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.036 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:45:19.036 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:19.117 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:19.137 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.140 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:45:19.140 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:19.140 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 08:45:19.220 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:19.221 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:45:19.291 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.300 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:45:19.300 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:19.300 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:19.301 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.302 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:45:19.303 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.304 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:45:19.304 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:19.305 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:45:19.305 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:19.506 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.515 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:45:19.517 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.520 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.523 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:19.524 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:19.524 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 08:45:19.605 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 08:45:19.625 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.627 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:45:19.627 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:19.628 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:45:19.628 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:19.628 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:19.632 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 08:45:19.632 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 08:45:19.633 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 08:45:19.636 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit12560243871275790162/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 08:45:19.639 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit14859874677712649204/bom.json default=67 endpoints=1
+2026-07-31 08:45:50.640 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 08:45:50.641 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 08:45:50.642 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 08:45:50.651 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:50.654 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:50.655 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:50.655 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:50.657 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:45:50.657 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:50.738 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:50.758 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:50.762 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:45:50.762 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:50.763 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 08:45:50.843 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:50.843 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:45:50.914 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:50.917 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:45:50.918 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:50.918 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:50.919 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:50.920 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:45:50.921 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:50.923 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:45:50.923 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:50.923 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:45:50.923 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:51.124 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:51.127 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:45:51.128 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:51.133 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:51.136 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:51.137 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:51.137 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 08:45:51.219 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 08:45:51.240 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:51.249 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:45:51.249 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:45:51.250 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:45:51.250 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:45:51.250 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:45:51.253 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 08:45:51.254 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 08:45:51.254 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 08:45:51.260 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit5353272914392571493/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 08:45:51.267 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit14620400822280630451/bom.json default=67 endpoints=1
+2026-07-31 08:51:35.317 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 08:51:35.317 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 08:51:35.319 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 08:51:35.327 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.330 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:35.330 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:35.330 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.333 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:51:35.333 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:35.414 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:35.434 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.436 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:51:35.436 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:35.437 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 08:51:35.517 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:35.517 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:51:35.587 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.596 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:51:35.597 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:35.597 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:35.597 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.598 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:51:35.599 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.601 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:51:35.601 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:35.601 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:51:35.601 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:35.802 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.812 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:51:35.813 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.817 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.821 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:35.822 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:35.822 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 08:51:35.903 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 08:51:35.923 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.933 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:51:35.933 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:35.933 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:51:35.933 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:35.934 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:35.936 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 08:51:35.937 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 08:51:35.937 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 08:51:35.940 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit8504939395305057590/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 08:51:35.943 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17144757067505833944/bom.json default=67 endpoints=1
+2026-07-31 08:51:47.540 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 08:51:47.540 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 08:51:47.542 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 08:51:47.553 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:47.558 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:47.559 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:47.559 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:47.562 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:51:47.562 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:47.643 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:47.663 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:47.666 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:51:47.666 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:47.666 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 08:51:47.746 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:47.746 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:51:47.817 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:47.819 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:51:47.820 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:47.820 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:47.820 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:47.821 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:51:47.822 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:47.823 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:51:47.823 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:47.823 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:51:47.823 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:48.024 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:48.026 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:51:48.026 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:48.028 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:48.029 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:48.029 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:48.029 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 08:51:48.110 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 08:51:48.130 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:48.133 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:51:48.133 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:51:48.135 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:51:48.135 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:51:48.136 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:51:48.140 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 08:51:48.141 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 08:51:48.141 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 08:51:48.144 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit16186755803014340324/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 08:51:48.147 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3934349258128132051/bom.json default=67 endpoints=1
+2026-07-31 08:52:15.854 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 08:52:15.854 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 08:52:15.855 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 08:52:15.863 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:15.873 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:52:15.874 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:52:15.874 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:15.876 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:52:15.876 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:52:15.957 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:52:15.977 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:15.978 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 08:52:15.978 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:52:15.979 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 08:52:16.059 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:52:16.059 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:52:16.129 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.132 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 08:52:16.133 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:52:16.133 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:52:16.133 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.135 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:52:16.136 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.137 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:52:16.137 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:52:16.137 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:52:16.138 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:52:16.338 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.341 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 08:52:16.343 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.347 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.351 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:52:16.352 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:52:16.353 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 08:52:16.434 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 08:52:16.454 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.456 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 08:52:16.456 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 08:52:16.456 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 08:52:16.457 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 08:52:16.457 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 08:52:16.459 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 08:52:16.459 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 08:52:16.459 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 08:52:16.462 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit16856388189962952778/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 08:52:16.465 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit10331821835124145999/bom.json default=67 endpoints=1
+2026-07-31 09:08:14.752 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:08:14.753 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:08:14.754 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:08:14.762 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:14.766 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:14.766 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:14.766 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:14.769 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:08:14.769 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:14.850 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:14.870 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:14.872 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:08:14.872 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:14.872 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:08:14.952 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:14.953 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:08:15.023 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.025 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:08:15.026 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:15.026 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:15.026 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.028 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:08:15.028 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.030 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:08:15.030 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:15.031 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:08:15.031 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:15.232 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.235 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:08:15.236 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.240 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.242 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:15.243 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:15.243 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:08:15.325 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:08:15.345 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.350 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:08:15.350 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:15.351 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:08:15.351 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:15.352 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:15.355 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:08:15.355 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:08:15.355 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:08:15.358 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit5993439110274816115/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:08:15.361 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17942046293181182196/bom.json default=67 endpoints=1
+2026-07-31 09:08:40.915 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:08:40.915 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:08:40.916 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:08:40.924 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:40.928 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:40.928 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:40.928 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:40.930 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:08:40.930 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:41.011 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:41.031 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.032 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:08:41.032 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:41.033 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:08:41.113 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:41.113 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:08:41.183 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.185 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:08:41.186 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:41.186 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:41.186 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.188 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:08:41.188 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.189 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:08:41.189 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:41.190 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:08:41.190 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:41.390 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.392 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:08:41.392 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.395 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.397 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:41.397 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:41.397 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:08:41.478 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:08:41.498 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.500 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:08:41.500 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:08:41.501 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:08:41.501 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:08:41.501 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:08:41.503 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:08:41.503 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:08:41.503 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:08:41.506 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit8624949689718541673/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:08:41.508 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit50589030670958628/bom.json default=67 endpoints=1
+2026-07-31 09:19:35.688 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:19:35.689 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:19:35.690 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:19:35.699 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:35.704 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:19:35.705 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:19:35.705 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:35.711 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:19:35.714 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:19:35.792 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:19:35.815 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:35.817 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:19:35.817 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:19:35.818 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:19:35.898 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:19:35.898 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:19:35.968 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:35.970 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:19:35.971 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:19:35.971 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:19:35.971 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:35.973 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:19:35.973 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:35.974 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:19:35.974 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:19:35.975 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:19:35.975 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:19:36.176 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:36.179 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:19:36.180 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:36.182 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:36.184 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:19:36.184 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:19:36.184 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:19:36.265 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:19:36.286 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:36.290 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:19:36.290 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:19:36.291 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:19:36.292 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:19:36.292 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:19:36.297 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:19:36.297 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:19:36.297 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:19:36.300 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit4552753130777466335/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:19:36.303 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit11007576441745421892/bom.json default=67 endpoints=1
+2026-07-31 09:24:02.243 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:24:02.243 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:24:02.245 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:24:02.254 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.258 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:24:02.258 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:24:02.259 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.262 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:24:02.262 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:24:02.342 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:24:02.363 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.365 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:24:02.365 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:24:02.365 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:24:02.445 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:24:02.446 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:24:02.516 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.518 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:24:02.519 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:24:02.519 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:24:02.519 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.521 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:24:02.521 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.522 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:24:02.522 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:24:02.523 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:24:02.523 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:24:02.723 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.725 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:24:02.726 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.728 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.729 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:24:02.730 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:24:02.730 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:24:02.811 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:24:02.831 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.833 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:24:02.833 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:24:02.834 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:24:02.834 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:24:02.834 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:24:02.837 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:24:02.837 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:24:02.837 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:24:02.841 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit8384009737519007076/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:24:02.843 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3594267776093534850/bom.json default=67 endpoints=1
+2026-07-31 09:25:35.195 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:25:35.195 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:25:35.197 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:25:35.205 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.209 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:25:35.210 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:25:35.210 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.212 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:25:35.212 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:25:35.293 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:25:35.313 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.315 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:25:35.315 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:25:35.315 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:25:35.395 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:25:35.396 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:25:35.466 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.468 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:25:35.469 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:25:35.469 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:25:35.469 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.470 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:25:35.471 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.472 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:25:35.472 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:25:35.473 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:25:35.473 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:25:35.673 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.675 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:25:35.675 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.677 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.678 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:25:35.678 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:25:35.678 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:25:35.759 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:25:35.779 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.783 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:25:35.783 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:25:35.783 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:25:35.783 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:25:35.783 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:25:35.786 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:25:35.787 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:25:35.787 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:25:35.790 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17129706658176233727/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:25:35.792 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit1906555519821046055/bom.json default=67 endpoints=1
+2026-07-31 09:28:06.296 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:28:06.297 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:28:06.298 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:28:06.306 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.309 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:28:06.309 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:28:06.309 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.312 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:28:06.312 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:28:06.393 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:28:06.413 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.415 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:28:06.415 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:28:06.415 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:28:06.495 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:28:06.496 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:28:06.565 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.567 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:28:06.568 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:28:06.568 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:28:06.568 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.569 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:28:06.570 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.571 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:28:06.571 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:28:06.572 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:28:06.572 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:28:06.772 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.774 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:28:06.774 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.776 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.777 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:28:06.778 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:28:06.778 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:28:06.859 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:28:06.879 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.884 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:28:06.884 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:28:06.885 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:28:06.886 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:28:06.886 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:28:06.892 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:28:06.892 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:28:06.892 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:28:06.896 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17533530285989590464/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:28:06.898 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit203523288997496731/bom.json default=67 endpoints=1
+2026-07-31 09:38:44.871 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:38:44.871 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:38:44.873 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:38:44.882 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:44.886 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:38:44.887 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:38:44.887 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:44.890 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:38:44.890 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:38:44.970 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:38:44.991 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:44.992 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:38:44.992 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:38:44.993 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:38:45.073 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:38:45.073 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:38:45.143 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.147 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:38:45.149 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:38:45.149 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:38:45.149 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.160 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:38:45.162 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.167 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:38:45.169 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:38:45.170 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:38:45.170 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:38:45.371 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.372 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:38:45.373 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.375 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.376 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:38:45.377 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:38:45.377 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:38:45.458 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:38:45.479 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.483 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:38:45.484 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:38:45.487 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:38:45.487 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:38:45.487 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:38:45.493 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:38:45.494 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:38:45.494 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:38:45.504 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit13486229650511913571/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:38:45.518 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit9723007895735509149/bom.json default=67 endpoints=1
+2026-07-31 09:39:21.500 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:39:21.501 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:39:21.502 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:39:21.511 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.515 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:39:21.515 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:39:21.515 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.518 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:39:21.518 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:39:21.599 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:39:21.619 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.621 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:39:21.621 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:39:21.621 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:39:21.701 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:39:21.701 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:39:21.771 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.773 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:39:21.774 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:39:21.774 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:39:21.774 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.775 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:39:21.776 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.777 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:39:21.777 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:39:21.777 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:39:21.777 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:39:21.978 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.979 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:39:21.980 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.981 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:21.982 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:39:21.983 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:39:21.983 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:39:22.063 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:39:22.083 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:22.086 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:39:22.086 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:39:22.086 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:39:22.086 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:39:22.087 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:39:22.089 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:39:22.089 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:39:22.090 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:39:22.092 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit18367419595365861328/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:39:22.094 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit4487847504658013270/bom.json default=67 endpoints=1
+2026-07-31 09:40:14.896 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:40:14.896 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:40:14.897 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:40:14.906 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:14.909 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:40:14.910 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:40:14.910 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:14.912 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:40:14.912 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:40:14.993 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:40:15.013 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.015 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:40:15.015 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:40:15.015 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:40:15.095 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:40:15.095 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:40:15.166 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.169 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:40:15.170 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:40:15.170 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:40:15.170 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.172 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:40:15.173 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.176 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:40:15.177 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:40:15.177 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:40:15.178 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:40:15.379 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.381 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:40:15.382 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.385 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.387 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:40:15.387 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:40:15.388 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:40:15.468 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:40:15.489 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.491 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:40:15.491 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:40:15.492 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:40:15.492 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:40:15.492 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:40:15.494 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:40:15.495 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:40:15.495 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:40:15.499 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3685195517037681072/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:40:15.503 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3851986245780975581/bom.json default=67 endpoints=1
+2026-07-31 09:42:14.353 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:42:14.354 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:42:14.355 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:42:14.363 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.367 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:14.368 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:14.368 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.370 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:42:14.370 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:14.451 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:14.471 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.473 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:42:14.473 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:14.473 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:42:14.553 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:14.554 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:42:14.624 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.625 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:42:14.626 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:14.626 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:14.626 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.628 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:42:14.629 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.630 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:42:14.630 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:14.631 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:42:14.631 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:14.831 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.833 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:42:14.833 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.835 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.836 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:14.837 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:14.837 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:42:14.917 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:42:14.938 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.940 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:42:14.940 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:14.940 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:42:14.940 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:14.940 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:14.942 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:42:14.942 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:42:14.942 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:42:14.946 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit11483055886263660739/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:42:14.948 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit6871816095990037071/bom.json default=67 endpoints=1
+2026-07-31 09:42:53.579 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:42:53.580 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:42:53.582 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:42:53.593 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:53.596 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:53.596 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:53.596 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:53.599 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:42:53.599 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:53.679 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:53.699 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:53.701 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:42:53.701 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:53.702 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:42:53.781 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:53.782 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:42:53.852 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:53.854 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:42:53.854 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:53.854 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:53.854 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:53.856 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:42:53.856 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:53.857 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:42:53.857 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:53.858 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:42:53.858 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:54.058 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:54.061 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:42:54.061 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:54.063 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:54.064 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:54.064 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:54.065 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:42:54.146 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:42:54.166 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:54.168 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:42:54.168 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:42:54.168 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:42:54.168 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:42:54.168 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:42:54.171 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:42:54.172 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:42:54.172 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:42:54.174 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit9193183731656230264/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:42:54.177 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3704624509376699645/bom.json default=67 endpoints=1
+2026-07-31 09:43:03.762 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:43:03.762 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:43:03.763 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:43:03.769 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:03.772 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:43:03.773 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:43:03.773 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:03.775 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:43:03.775 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:43:03.856 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:43:03.876 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:03.879 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:43:03.879 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:43:03.880 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:43:03.960 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:43:03.960 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:43:04.031 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.035 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:43:04.036 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:43:04.037 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:43:04.037 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.041 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:43:04.042 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.045 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:43:04.045 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:43:04.046 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:43:04.047 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:43:04.247 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.251 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:43:04.252 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.256 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.258 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:43:04.259 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:43:04.259 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:43:04.341 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:43:04.361 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.363 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:43:04.363 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:43:04.363 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:43:04.364 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:43:04.364 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:43:04.366 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:43:04.366 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:43:04.366 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:43:04.368 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit7952786202267806521/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:43:04.370 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit13857430832334406270/bom.json default=67 endpoints=1
+2026-07-31 09:44:34.824 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:44:34.824 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:44:34.825 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:44:34.832 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:34.835 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:44:34.836 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:44:34.836 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:34.838 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:44:34.838 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:44:34.919 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:44:34.939 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:34.941 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:44:34.941 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:44:34.941 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:44:35.021 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:44:35.021 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:44:35.091 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.093 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:44:35.094 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:44:35.094 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:44:35.094 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.096 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:44:35.096 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.097 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:44:35.097 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:44:35.098 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:44:35.098 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:44:35.298 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.300 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:44:35.301 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.302 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.303 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:44:35.304 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:44:35.304 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:44:35.385 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:44:35.405 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.407 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:44:35.407 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:44:35.408 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:44:35.408 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:44:35.409 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:44:35.411 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:44:35.411 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:44:35.412 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:44:35.415 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3263264848426954684/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:44:35.418 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit15637048031363848722/bom.json default=67 endpoints=1
+2026-07-31 09:45:22.207 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:45:22.208 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:45:22.209 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:45:22.221 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.227 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:22.228 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:22.229 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.234 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:45:22.234 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:22.316 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:22.336 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.338 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:45:22.338 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:22.338 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:45:22.418 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:22.418 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:45:22.488 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.490 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:45:22.491 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:22.491 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:22.491 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.492 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:45:22.493 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.494 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:45:22.494 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:22.494 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:45:22.494 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:22.695 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.696 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:45:22.697 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.698 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.699 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:22.699 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:22.699 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:45:22.780 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:45:22.800 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.802 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:45:22.802 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:22.803 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:45:22.803 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:22.803 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:22.806 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:45:22.806 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:45:22.807 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:45:22.809 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit8816138500234523466/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:45:22.811 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit12435360956264079132/bom.json default=67 endpoints=1
+2026-07-31 09:45:56.149 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 09:45:56.149 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 09:45:56.150 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 09:45:56.157 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.161 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:56.161 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:56.161 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.165 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:45:56.165 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:56.245 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:56.266 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.267 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 09:45:56.267 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:56.268 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 09:45:56.348 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:56.348 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:45:56.418 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.420 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 09:45:56.421 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:56.421 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:56.422 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.423 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:45:56.423 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.425 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:45:56.425 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:56.425 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:45:56.425 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:56.626 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.628 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 09:45:56.628 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.630 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.631 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:56.631 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:56.631 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 09:45:56.712 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 09:45:56.733 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.739 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 09:45:56.740 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 09:45:56.740 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 09:45:56.741 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 09:45:56.741 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 09:45:56.745 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 09:45:56.745 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 09:45:56.745 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 09:45:56.748 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17069455904501236677/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 09:45:56.752 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17231746186332676626/bom.json default=67 endpoints=1
+2026-07-31 10:04:17.593 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:04:17.594 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:04:17.596 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:04:17.606 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:17.610 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:17.611 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:17.611 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:17.614 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:04:17.614 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:17.695 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:17.715 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:17.717 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:04:17.717 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:17.717 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:04:17.797 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:17.798 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:04:17.868 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:17.869 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:04:17.870 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:17.870 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:17.870 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:17.871 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:04:17.872 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:17.873 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:04:17.873 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:17.873 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:04:17.874 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:18.074 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:18.076 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:04:18.077 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:18.078 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:18.080 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:18.080 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:18.080 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:04:18.161 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:04:18.181 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:18.183 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:04:18.183 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:18.183 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:04:18.184 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:18.184 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:18.186 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:04:18.186 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:04:18.186 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:04:18.195 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit10396861624906938803/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:04:18.197 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit11443431884899732075/bom.json default=67 endpoints=1
+2026-07-31 10:04:29.080 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:04:29.080 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:04:29.082 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:04:29.089 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.094 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:29.095 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:29.095 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.098 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:04:29.098 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:29.178 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:29.199 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.200 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:04:29.200 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:29.200 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:04:29.280 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:29.281 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:04:29.351 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.354 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:04:29.354 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:29.355 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:29.355 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.357 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:04:29.357 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.359 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:04:29.360 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:29.360 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:04:29.361 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:29.561 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.565 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:04:29.566 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.568 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.570 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:29.571 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:29.571 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:04:29.652 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:04:29.672 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.675 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:04:29.675 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:04:29.675 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:04:29.675 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:04:29.675 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:04:29.678 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:04:29.679 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:04:29.679 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:04:29.682 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit7324143059532514067/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:04:29.685 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit393798784806993445/bom.json default=67 endpoints=1
+2026-07-31 10:05:28.912 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:05:28.913 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:05:28.914 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:05:28.920 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:28.923 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:28.924 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:28.924 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:28.927 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:05:28.927 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:29.008 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:29.028 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.029 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:05:29.029 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:29.029 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:05:29.109 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:29.110 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:05:29.180 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.182 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:05:29.183 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:29.183 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:29.183 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.184 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:05:29.185 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.186 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:05:29.186 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:29.186 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:05:29.186 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:29.387 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.389 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:05:29.390 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.393 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.394 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:29.395 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:29.395 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:05:29.476 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:05:29.496 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.500 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:29.500 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:05:29.501 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:05:29.501 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:29.501 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:29.506 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:05:29.506 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:05:29.506 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:05:29.513 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit11691691966622644001/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:05:29.519 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit15509545383727711409/bom.json default=67 endpoints=1
+2026-07-31 10:05:42.081 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:05:42.081 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:05:42.082 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:05:42.091 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.094 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:42.095 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:42.095 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.098 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:05:42.098 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:42.179 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:42.199 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.201 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:05:42.201 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:42.201 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:05:42.281 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:42.281 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:05:42.351 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.353 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:05:42.354 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:42.354 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:42.354 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.356 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:05:42.357 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.359 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:05:42.359 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:42.360 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:05:42.360 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:42.560 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.562 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:05:42.563 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.565 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.567 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:42.568 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:42.568 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:05:42.649 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:05:42.669 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.671 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:05:42.671 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:05:42.672 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:05:42.672 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:05:42.672 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:05:42.674 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:05:42.674 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:05:42.674 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:05:42.677 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit11163348044502924196/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:05:42.680 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit4875370702927960260/bom.json default=67 endpoints=1
+2026-07-31 10:06:03.561 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:06:03.562 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:06:03.563 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:06:03.570 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:03.574 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:06:03.574 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:06:03.574 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:03.577 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:06:03.577 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:06:03.658 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:06:03.678 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:03.681 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:06:03.681 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:06:03.681 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:06:03.761 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:06:03.762 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:06:03.832 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:03.836 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:06:03.838 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:06:03.838 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:06:03.838 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:03.842 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:06:03.842 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:03.845 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:06:03.845 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:06:03.845 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:06:03.846 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:06:04.046 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:04.049 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:06:04.050 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:04.053 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:04.055 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:06:04.055 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:06:04.055 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:06:04.136 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:06:04.156 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:04.161 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:06:04.161 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:06:04.162 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:06:04.163 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:06:04.163 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:06:04.166 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:06:04.166 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:06:04.166 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:06:04.169 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17701810207857486759/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:06:04.172 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3920002535181684663/bom.json default=67 endpoints=1
+2026-07-31 10:07:42.800 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:07:42.800 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:07:42.801 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:07:42.810 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:42.814 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:07:42.814 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:07:42.814 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:42.818 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:07:42.818 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:07:42.898 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:07:42.919 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:42.920 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:07:42.920 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:07:42.921 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:07:43.001 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:07:43.001 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:07:43.071 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.074 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:07:43.074 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:07:43.075 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:07:43.075 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.076 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:07:43.077 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.078 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:07:43.078 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:07:43.078 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:07:43.079 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:07:43.279 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.281 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:07:43.281 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.284 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.286 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:07:43.286 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:07:43.286 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:07:43.367 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:07:43.387 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.391 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:07:43.391 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:07:43.391 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:07:43.392 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:07:43.392 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:07:43.395 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:07:43.395 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:07:43.395 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:07:43.399 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit9460032153968194642/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:07:43.402 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit6347565374150485733/bom.json default=67 endpoints=1
+2026-07-31 10:08:08.818 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:08:08.819 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:08:08.820 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:08:08.829 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:08.831 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:08:08.832 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:08:08.832 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:08.835 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:08:08.835 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:08:08.916 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:08:08.936 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:08.937 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:08:08.937 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:08:08.938 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:08:09.018 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:08:09.018 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:08:09.088 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.090 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:08:09.091 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:08:09.091 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:08:09.091 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.092 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:08:09.093 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.094 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:08:09.094 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:08:09.094 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:08:09.095 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:08:09.295 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.297 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:08:09.297 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.299 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.300 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:08:09.301 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:08:09.301 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:08:09.382 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:08:09.402 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.404 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:08:09.404 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:08:09.404 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:08:09.405 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:08:09.405 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:08:09.407 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:08:09.407 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:08:09.407 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:08:09.410 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit12410435521344431577/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:08:09.412 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit2404408413467183619/bom.json default=67 endpoints=1
+2026-07-31 10:10:19.295 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:10:19.296 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:10:19.297 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:10:19.305 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.308 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:19.308 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:19.308 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.311 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:10:19.311 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:19.392 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:19.412 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.413 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:10:19.414 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:19.414 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:10:19.494 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:19.494 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:10:19.564 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.566 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:10:19.567 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:19.567 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:19.567 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.568 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:10:19.569 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.570 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:10:19.570 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:19.570 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:10:19.570 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:19.771 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.773 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:10:19.774 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.777 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.780 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:19.781 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:19.781 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:10:19.863 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:10:19.883 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.886 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:10:19.886 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:19.888 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:10:19.888 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:19.889 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:19.893 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:10:19.893 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:10:19.894 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:10:19.902 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit12099296693629349808/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:10:19.905 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit13421741522681468308/bom.json default=67 endpoints=1
+2026-07-31 10:10:29.155 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:10:29.155 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:10:29.159 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:10:29.176 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.188 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:29.189 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:29.190 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.194 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:10:29.194 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:29.275 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:29.316 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.318 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:10:29.318 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:29.318 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:10:29.398 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:29.399 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:10:29.469 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.471 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:10:29.472 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:29.472 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:29.472 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.474 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:10:29.474 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.476 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:10:29.476 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:29.476 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:10:29.476 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:29.677 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.679 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:10:29.680 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.683 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.684 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:29.685 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:29.685 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:10:29.766 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:10:29.786 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.788 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:10:29.788 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:10:29.789 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:10:29.789 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:10:29.789 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:10:29.791 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:10:29.792 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:10:29.792 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:10:29.796 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit15552720138783154053/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:10:29.799 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit10269053702067468029/bom.json default=67 endpoints=1
+2026-07-31 10:11:27.613 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:11:27.614 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:11:27.615 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:11:27.623 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:27.627 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:27.628 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:27.628 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:27.631 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:11:27.631 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:27.711 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:27.731 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:27.733 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:11:27.733 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:27.734 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:11:27.814 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:27.814 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:11:27.884 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:27.886 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:11:27.887 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:27.887 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:27.887 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:27.889 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:11:27.889 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:27.891 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:11:27.891 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:27.891 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:11:27.892 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:28.092 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:28.094 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:11:28.094 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:28.096 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:28.097 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:28.097 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:28.097 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:11:28.178 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:11:28.198 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:28.200 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:11:28.200 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:28.201 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:11:28.201 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:28.201 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:28.203 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:11:28.203 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:11:28.203 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:11:28.205 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit13578711009060503358/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:11:28.208 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit3110276017445026951/bom.json default=67 endpoints=1
+2026-07-31 10:11:30.754 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:11:30.755 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:11:30.756 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:11:30.765 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:30.768 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:30.769 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:30.769 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:30.771 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:11:30.771 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:30.852 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:30.872 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:30.873 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:11:30.873 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:30.874 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:11:30.954 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:30.954 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:11:31.024 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.029 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:11:31.030 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:31.030 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:31.030 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.034 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:11:31.035 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.037 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:11:31.037 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:31.038 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:11:31.039 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:31.239 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.243 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:11:31.244 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.248 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.250 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:31.251 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:31.251 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:11:31.333 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:11:31.353 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.357 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:11:31.357 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:11:31.359 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:11:31.360 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:11:31.360 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:11:31.365 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:11:31.366 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:11:31.366 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:11:31.371 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit15483695189806116006/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:11:31.374 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit4663532102512945750/bom.json default=67 endpoints=1
+2026-07-31 10:12:53.884 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:12:53.884 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:12:53.885 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:12:53.894 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:53.898 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:12:53.899 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:12:53.899 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:53.902 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:12:53.902 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:12:53.982 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:12:54.002 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.004 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:12:54.004 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:12:54.005 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:12:54.085 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:12:54.085 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:12:54.155 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.157 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:12:54.158 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:12:54.158 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:12:54.158 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.160 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:12:54.160 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.161 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:12:54.161 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:12:54.162 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:12:54.162 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:12:54.363 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.364 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:12:54.365 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.367 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.368 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:12:54.368 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:12:54.369 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:12:54.449 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:12:54.469 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.473 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:12:54.473 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:12:54.473 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:12:54.473 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:12:54.474 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:12:54.477 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:12:54.477 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:12:54.477 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:12:54.480 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit9920268314313239584/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:12:54.484 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit16511488183197380945/bom.json default=67 endpoints=1
+2026-07-31 10:13:22.399 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 10:13:22.399 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 10:13:22.400 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 10:13:22.410 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.414 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:13:22.414 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:13:22.414 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.417 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:13:22.417 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:13:22.497 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:13:22.518 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.520 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 10:13:22.520 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:13:22.520 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 10:13:22.600 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:13:22.600 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:13:22.670 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.673 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 10:13:22.673 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:13:22.673 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:13:22.673 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.675 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:13:22.675 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.677 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:13:22.677 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:13:22.677 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:13:22.678 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:13:22.878 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.880 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 10:13:22.880 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.882 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.883 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:13:22.884 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:13:22.884 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 10:13:22.965 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 10:13:22.985 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.988 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 10:13:22.988 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 10:13:22.988 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 10:13:22.989 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 10:13:22.989 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 10:13:22.991 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 10:13:22.991 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 10:13:22.991 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 10:13:22.994 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit13686477273801964661/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 10:13:22.997 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit13866968111564041597/bom.json default=67 endpoints=1
+2026-07-31 11:44:12.592 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-1 brightness 80% -> 33%
+2026-07-31 11:44:12.593 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-07-31 11:44:12.595 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 55%
+2026-07-31 11:44:12.607 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:12.613 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 11:44:12.614 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 11:44:12.614 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:12.618 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 11:44:12.618 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 11:44:12.699 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 11:44:12.719 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:12.722 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 80 ms (DI3 rising, off_on_first_frame=false)
+2026-07-31 11:44:12.722 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 11:44:12.723 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash idle On deferred until Off (холостой DI2 falling)
+2026-07-31 11:44:12.803 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 11:44:12.804 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 11:44:12.874 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:12.879 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 falling)
+2026-07-31 11:44:12.880 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 11:44:12.880 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 11:44:12.880 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:12.883 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 11:44:12.884 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:12.887 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 500 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 11:44:12.887 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 11:44:12.889 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 11:44:12.890 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 11:44:13.091 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:13.095 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (холостой DI2 level)
+2026-07-31 11:44:13.096 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:13.100 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:13.103 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 11:44:13.105 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 11:44:13.105 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On scheduled in 80 ms (after off)
+2026-07-31 11:44:13.187 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (auto re-engage after 80 ms)
+2026-07-31 11:44:13.207 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:13.211 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off scheduled in 5000 ms (DI3 rising, off_on_first_frame=true)
+2026-07-31 11:44:13.211 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI3 rising)
+2026-07-31 11:44:13.212 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off on first frame cam=0
+2026-07-31 11:44:13.213 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI3 rising)
+2026-07-31 11:44:13.213 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-07-31 11:44:13.218 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-0 brightness 80% -> 42%
+2026-07-31 11:44:13.219 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 80% -> 42%
+2026-07-31 11:44:13.219 INFO  [main] c.e.i.o.i.l.c.LightBrightnessMemory - light camera-3 brightness 42% -> 55%
+2026-07-31 11:44:13.227 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit17496542864903031111/light_brightness_settings.json default=42 endpoints=2
+2026-07-31 11:44:13.232 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=/tmp/junit12145445569985733441/bom.json default=67 endpoints=1

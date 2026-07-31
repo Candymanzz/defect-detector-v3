@@ -8,6 +8,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,7 +44,8 @@ class InspectionArtifactRegistryTest {
         Files.write(orphan.resolve("frame.jpg"), new byte[]{1});
         Files.write(orphan.resolve("heatmap.u8"), new byte[]{2});
 
-        new InspectionArtifactRegistry(root);
+        InspectionArtifactRegistry registry = new InspectionArtifactRegistry(root);
+        assertNotNull(registry);
 
         assertFalse(Files.exists(orphan));
         assertTrue(Files.isDirectory(root));

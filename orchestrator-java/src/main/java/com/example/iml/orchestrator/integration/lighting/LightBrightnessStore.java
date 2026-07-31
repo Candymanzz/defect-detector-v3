@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
@@ -8,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -35,10 +35,6 @@ public final class LightBrightnessStore {
         LightBrightnessStore store = new LightBrightnessStore(storagePath);
         store.load();
         return store;
-    }
-
-    public Path storagePath() {
-        return storagePath;
     }
 
     public LightBrightnessUpdate toUpdate() {
@@ -129,13 +125,7 @@ public final class LightBrightnessStore {
             root.put("constant_flash_mode", constantFlashMode);
         }
         root.put("endpoints", Map.copyOf(endpoints));
-        Path tempPath = storagePath.resolveSibling(storagePath.getFileName() + ".tmp");
-        JSON.writerWithDefaultPrettyPrinter().writeValue(tempPath.toFile(), root);
-        try {
-            Files.move(tempPath, storagePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException atomicMoveFailed) {
-            Files.move(tempPath, storagePath, StandardCopyOption.REPLACE_EXISTING);
-        }
+        CameraSettingsStore.kashPath(root, storagePath, JSON);
         LOG.debug(
                 "light brightness store saved path={} default={} endpoints={}",
                 storagePath.toAbsolutePath(),

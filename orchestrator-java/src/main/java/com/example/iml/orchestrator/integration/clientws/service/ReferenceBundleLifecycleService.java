@@ -34,27 +34,6 @@ public final class ReferenceBundleLifecycleService {
         );
     }
 
-    public static void applyFromDraft(ClientWsApplicationContext ctx, WebSocket conn, ReferenceBundleSnapshot snap)
-            throws ClientWsKopcheniSyncException {
-        ctx.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
-        ctx.referenceContext().applyBundle(snap);
-        applyBundleToPipeline(ctx, snap);
-        ctx.setSessionState(ClientWsSessionState.READY);
-        if (conn != null && conn.isOpen()) {
-            ctx.outbound().sendSessionState(conn, ClientWsSessionState.READY);
-        }
-        ctx.setSessionState(ClientWsSessionState.OPERATIONAL);
-        if (conn != null && conn.isOpen()) {
-            ctx.outbound().sendSessionState(conn, ClientWsSessionState.OPERATIONAL);
-        }
-        ctx.log().info(
-                "client_ws reference bundle applied from draft product_type={} joint_view_index={} fp_zones={}",
-                snap.productType(),
-                snap.jointViewIndex(),
-                snap.fpZones().size()
-        );
-    }
-
     private static void applyBundleToPipeline(ClientWsApplicationContext ctx, ReferenceBundleSnapshot snap) {
         if (ctx.pipelineReferences() == null || snap.views().isEmpty()) {
             return;

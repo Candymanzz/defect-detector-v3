@@ -28,12 +28,14 @@ class BootstrapPipelineTest {
         };
         BootstrapStage<Integer, String> stop = new AbstractBootstrapStage<>(log, "stop") {
             @Override
+            @SuppressWarnings("unused")
             protected BootstrapStageResult<String> execute(Integer input) {
                 return BootstrapStageResult.stop();
             }
         };
         BootstrapStage<String, Integer> unreachable = new AbstractBootstrapStage<>(log, "unreachable") {
             @Override
+            @SuppressWarnings("unused")
             protected BootstrapStageResult<Integer> execute(String input) {
                 return BootstrapStageResult.proceed(99);
             }

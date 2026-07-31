@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unused")
 class InspectGeometryExecutorTest {
 
     private final InspectGeometryExecutor executor = new InspectGeometryExecutor(LogManager.getLogger(getClass()));

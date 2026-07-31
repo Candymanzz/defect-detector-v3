@@ -3,7 +3,6 @@ package com.example.iml.orchestrator.integration.bootstrap.context;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.CloseableIntegrationComponent;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationComponent;
 import com.example.iml.orchestrator.integration.health.CriticalServiceWatchdog;
-import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.preview.LivePreviewPublisher;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;

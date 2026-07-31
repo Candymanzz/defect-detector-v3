@@ -103,7 +103,7 @@ class FanOutCoordinatorHealthGateTest {
         fanOut.onSessionState(ClientWsSessionState.READY);
         assertFalse(fanOut.isShutdownPrepActive());
 
-        fanOut.enterShutdownPrep("di1_power_supply");
+        fanOut.enterShutdownPrep("di4_power_supply");
         assertTrue(fanOut.isShutdownPrepActive());
 
         // Health recovery must not clear shutdown-prep latch.

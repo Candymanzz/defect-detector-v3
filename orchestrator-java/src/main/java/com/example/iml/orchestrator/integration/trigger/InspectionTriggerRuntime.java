@@ -1,10 +1,8 @@
 package com.example.iml.orchestrator.integration.trigger;
 
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
-import com.example.iml.orchestrator.integration.pipeline.bucket.BucketGroup;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
-import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.trigger.parse.IoInputDiChange;
 import com.example.iml.orchestrator.integration.trigger.impl.IoInputMonitorUdpTriggerTransportImpl;
 import com.example.iml.orchestrator.integration.trigger.api.TriggerTransport;
@@ -82,7 +80,7 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             Runnable onLineWorkChanged,
             InspectionTriggerRuntime[] holder
     ) {
-        return start(log, integration, cameraIds, mode, captureTriggerStaggerMs, onLineWorkChanged, holder, List.of(), null);
+        return start(log, integration, cameraIds, mode, captureTriggerStaggerMs, onLineWorkChanged, holder, null);
     }
 
     public static InspectionTriggerRuntime start(
@@ -93,30 +91,6 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             int captureTriggerStaggerMs,
             Runnable onLineWorkChanged,
             InspectionTriggerRuntime[] holder,
-            List<BucketGroup> bucketGroups
-    ) {
-        return start(
-                log,
-                integration,
-                cameraIds,
-                mode,
-                captureTriggerStaggerMs,
-                onLineWorkChanged,
-                holder,
-                bucketGroups,
-                null
-        );
-    }
-
-    public static InspectionTriggerRuntime start(
-            Logger log,
-            Map<String, Object> integration,
-            Collection<Integer> cameraIds,
-            IntegrationFeatureConfig.InspectionTriggerMode mode,
-            int captureTriggerStaggerMs,
-            Runnable onLineWorkChanged,
-            InspectionTriggerRuntime[] holder,
-            List<BucketGroup> bucketGroups,
             ManualLineDirectionService manualLineDirection
     ) {
         InspectionTriggerBus bus = new InspectionTriggerBus(cameraIds, captureTriggerStaggerMs);
@@ -135,7 +109,6 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
                         cfg.ioInput(),
                         bus,
                         onLineWorkChanged,
-                        bucketGroups,
                         manualLineDirection
                 );
                 transports.add(ioInputTransport);

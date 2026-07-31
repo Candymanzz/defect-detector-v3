@@ -27,12 +27,12 @@ public final class LivePreviewHostImpl extends AbstractCameraRuntimeHost impleme
 
     @Override
     public Map<String, Object> root() {
-        return env().root();
+        return rootMap();
     }
 
     @Override
     public Map<String, Object> integration() {
-        return preflight().integration();
+        return integrationMap();
     }
 
     @Override
@@ -72,7 +72,7 @@ public final class LivePreviewHostImpl extends AbstractCameraRuntimeHost impleme
 
     @Override
     public IntegrationBootConfig bootConfig() {
-        return preflight().bootConfig();
+        return bootCfg();
     }
 
     @Override

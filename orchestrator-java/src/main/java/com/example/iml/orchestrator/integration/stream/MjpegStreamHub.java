@@ -1,7 +1,5 @@
 package com.example.iml.orchestrator.integration.stream;
 
-import org.apache.logging.log4j.Logger;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -19,12 +17,7 @@ public final class MjpegStreamHub {
     private static final byte[] PART_HEADER_SUFFIX = "\r\n\r\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] PART_TRAILER = "\r\n".getBytes(StandardCharsets.US_ASCII);
 
-    private final Logger log;
     private final CopyOnWriteArrayList<Subscriber> subscribers = new CopyOnWriteArrayList<>();
-
-    public MjpegStreamHub(Logger log) {
-        this.log = log;
-    }
 
     public static String mjpegPath(int cameraId) {
         return "/api/camera/" + cameraId + "/stream.mjpeg";

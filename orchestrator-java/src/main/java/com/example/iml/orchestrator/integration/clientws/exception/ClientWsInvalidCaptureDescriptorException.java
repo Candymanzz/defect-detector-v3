@@ -5,6 +5,8 @@ package com.example.iml.orchestrator.integration.clientws.exception;
  */
 public final class ClientWsInvalidCaptureDescriptorException extends ClientWsException {
 
+    private static final long serialVersionUID = 1L;
+
     public ClientWsInvalidCaptureDescriptorException(String field) {
         super("invalid capture descriptor: " + field);
     }

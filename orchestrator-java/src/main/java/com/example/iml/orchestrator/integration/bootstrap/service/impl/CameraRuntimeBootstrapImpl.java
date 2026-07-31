@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.service.impl;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import com.example.iml.orchestrator.integration.bootstrap.service.api.CameraRuntimeBootstrap;
 
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
@@ -18,8 +20,11 @@ import com.example.iml.orchestrator.integration.bootstrap.factory.IntegrationSer
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationLifecycleComposite;
 import org.apache.logging.log4j.Logger;
 
+import java.util.Objects;
+
 /**
  * Координатор camera-runtime: сервисы получают узкие адаптеры, не весь context.
+ * Composition root for camera-runtime collaborators; injectable for tests/overrides.
  */
 public final class CameraRuntimeBootstrapImpl extends AbstractBootstrapService implements CameraRuntimeBootstrap {
 
@@ -33,15 +38,39 @@ public final class CameraRuntimeBootstrapImpl extends AbstractBootstrapService i
     private final CameraInspectionLoopRunner inspectionLoops;
 
     public CameraRuntimeBootstrapImpl(Logger log) {
+        this(
+                log,
+                new RuntimeMaintenanceBootstrapImpl(log),
+                new FanOutHealthBootstrapImpl(log),
+                new CameraWorkerBootstrapImpl(log),
+                new CriticalWatchdogBootstrapImpl(log),
+                new LivePreviewBootstrapImpl(log),
+                new StageExecutorBootstrapImpl(log),
+                new TriggerRuntimeBootstrapImpl(log),
+                new CameraInspectionLoopRunnerImpl(log)
+        );
+    }
+
+    public CameraRuntimeBootstrapImpl(
+            Logger log,
+            RuntimeMaintenanceBootstrap maintenance,
+            FanOutHealthBootstrap fanOutHealth,
+            CameraWorkerBootstrap workers,
+            CriticalWatchdogBootstrap watchdog,
+            LivePreviewBootstrap livePreview,
+            StageExecutorBootstrap stageExecutors,
+            TriggerRuntimeBootstrap triggers,
+            CameraInspectionLoopRunner inspectionLoops
+    ) {
         super(log);
-        this.maintenance = new RuntimeMaintenanceBootstrapImpl(log);
-        this.fanOutHealth = new FanOutHealthBootstrapImpl(log);
-        this.workers = new CameraWorkerBootstrapImpl(log);
-        this.watchdog = new CriticalWatchdogBootstrapImpl(log);
-        this.livePreview = new LivePreviewBootstrapImpl(log);
-        this.stageExecutors = new StageExecutorBootstrapImpl(log);
-        this.triggers = new TriggerRuntimeBootstrapImpl(log);
-        this.inspectionLoops = new CameraInspectionLoopRunnerImpl(log);
+        this.maintenance = Objects.requireNonNull(maintenance, "maintenance");
+        this.fanOutHealth = Objects.requireNonNull(fanOutHealth, "fanOutHealth");
+        this.workers = Objects.requireNonNull(workers, "workers");
+        this.watchdog = Objects.requireNonNull(watchdog, "watchdog");
+        this.livePreview = Objects.requireNonNull(livePreview, "livePreview");
+        this.stageExecutors = Objects.requireNonNull(stageExecutors, "stageExecutors");
+        this.triggers = Objects.requireNonNull(triggers, "triggers");
+        this.inspectionLoops = Objects.requireNonNull(inspectionLoops, "inspectionLoops");
     }
 
     @Override
@@ -49,7 +78,7 @@ public final class CameraRuntimeBootstrapImpl extends AbstractBootstrapService i
             CameraRuntimeContext runtime,
             IntegrationServicePoolFactory poolFactory,
             IntegrationLifecycleComposite lifecycle
-    ) throws Exception {
+    ) throws BootstrapException {
         CameraRuntimePorts ports = CameraRuntimePorts.of(runtime);
 
         maintenance.start(ports.maintenance());

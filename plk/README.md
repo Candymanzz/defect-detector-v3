@@ -26,7 +26,7 @@
 | `reject_line_1` | **W0.06** | `pc_to_plc` |
 | `reject_line_2` | **W0.07** | `pc_to_plc` |
 
-При `shutdown_prep_on_work_high: true` (DI1↑ блок питания): `vision_ready` → 0, `vision_fault` → 1 (sticky до остановки оркестратора).
+При `shutdown_prep_on_work_high: true` (DI4↑ блок питания, `shutdown_prep_port: 4`): `vision_ready` → 0, `vision_fault` → 1 (sticky до остановки оркестратора).
 
 ## Лист «Состояния / Неисправности / Управление» → FINS (чтение / управление)
 

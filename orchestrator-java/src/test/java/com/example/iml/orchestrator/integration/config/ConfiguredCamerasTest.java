@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfiguredCamerasTest {
 
@@ -60,6 +59,5 @@ class ConfiguredCamerasTest {
 
         assertEquals(1, profiles.size());
         assertEquals("p1", profiles.get(1));
-        assertTrue(ConfiguredCameras.productTypeByCameraId(root).containsKey(1));
     }
 }

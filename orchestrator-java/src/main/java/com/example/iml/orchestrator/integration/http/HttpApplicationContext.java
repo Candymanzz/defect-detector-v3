@@ -51,10 +51,6 @@ public record HttpApplicationContext(
         return frameArchiveService != null && frameArchiveService.enabled();
     }
 
-    public LightServersConfig lightServersConfig() {
-        return lightServersConfig;
-    }
-
     public static HttpApplicationContext of(
             CameraPreviewStore previewStore,
             GeometrySnapshotCache geometryCache,

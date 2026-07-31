@@ -64,13 +64,11 @@ public final class IoInputUdpSmokeMain {
   private static String resolvePublishHost(Map<String, Object> root) {
     Object ioObj = root.get("io_input");
     if (ioObj instanceof Map<?, ?> ioMap) {
-      @SuppressWarnings("unchecked")
       Map<String, Object> io = (Map<String, Object>) ioMap;
       Object publishObj = io.get("publish");
       if (publishObj instanceof Map<?, ?> publish) {
         Object udpObj = publish.get("udp");
         if (udpObj instanceof Map<?, ?> udpMap) {
-          @SuppressWarnings("unchecked")
           Map<String, Object> udp = (Map<String, Object>) udpMap;
           String host = String.valueOf(udp.getOrDefault("host", "127.0.0.1")).trim();
           if (!host.isEmpty()) {
@@ -86,13 +84,11 @@ public final class IoInputUdpSmokeMain {
   private static String resolvePublishFormat(Map<String, Object> root, InspectionTriggerConfig triggerCfg) {
     Object ioObj = root.get("io_input");
     if (ioObj instanceof Map<?, ?> ioMap) {
-      @SuppressWarnings("unchecked")
       Map<String, Object> io = (Map<String, Object>) ioMap;
       Object publishObj = io.get("publish");
       if (publishObj instanceof Map<?, ?> publish) {
         Object udpObj = publish.get("udp");
         if (udpObj instanceof Map<?, ?> udpMap) {
-          @SuppressWarnings("unchecked")
           Map<String, Object> udp = (Map<String, Object>) udpMap;
           if (udp.get("format") != null) {
             return String.valueOf(udp.get("format")).trim().toLowerCase();

@@ -2,12 +2,10 @@ package com.example.iml.orchestrator.integration.trigger.impl;
 
 import com.example.iml.orchestrator.integration.trigger.api.TriggerTransport;
 
+import com.example.iml.orchestrator.integration.trigger.DatagramSockets;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerBus;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
-import com.example.iml.orchestrator.integration.trigger.impl.DiscreteUdpTriggerMessageParserImpl;
-import com.example.iml.orchestrator.integration.trigger.impl.JsonUdpTriggerMessageParserImpl;
-import com.example.iml.orchestrator.integration.trigger.impl.PlainUdpTriggerMessageParserImpl;
 import com.example.iml.orchestrator.integration.trigger.api.UdpTriggerMessageParser;
 import org.apache.logging.log4j.Logger;
 
@@ -160,9 +158,6 @@ public final class UdpTriggerTransportImpl implements TriggerTransport {
     }
 
     private void closeSocket() {
-        DatagramSocket s = socket;
-        if (s != null && !s.isClosed()) {
-            s.close();
-        }
+        DatagramSockets.closeQuietly(socket);
     }
 }

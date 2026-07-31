@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.service.impl;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import com.example.iml.orchestrator.integration.bootstrap.service.api.BootstrapInspectionFeatures;
 import com.example.iml.orchestrator.integration.bootstrap.service.api.CameraInspectionLoopRunner;
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
@@ -8,6 +10,7 @@ import com.example.iml.orchestrator.integration.bootstrap.context.port.CameraIns
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.pipeline.CameraInspectionDeps;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import org.apache.logging.log4j.Logger;
@@ -37,7 +40,7 @@ public final class CameraInspectionLoopRunnerImpl extends AbstractBootstrapServi
             CameraInspectionLoopHost ctx,
             TriggerRuntimeBootstrap.TriggerWireResult triggerWire,
             OrchestratorStopSignal stopSignal
-    ) throws Exception {
+    ) throws BootstrapException {
         IntegrationFeatureConfig.SaveCapturesConfig saveCaptures =
                 BootstrapInspectionFeatures.saveCaptures(ctx.integration());
         boolean captureWithoutReference = IntegrationFeatureConfig.parseCaptureWithoutReference(ctx.integration());
@@ -58,7 +61,7 @@ public final class CameraInspectionLoopRunnerImpl extends AbstractBootstrapServi
 
         List<Callable<Void>> tasks = new ArrayList<>();
         for (Map<String, Object> camera : ctx.activeCameras()) {
-            int cameraId = ((Number) camera.get("id")).intValue();
+            int cameraId = ConfiguredCameras.requireId(camera);
             if (bucketInspectionConfig.enabled() && !activeInspectionCameraIds.contains(cameraId)) {
                 log.info(
                         "integration cam={}: inspection pipeline skipped (bucket cameras={})",
@@ -96,7 +99,7 @@ public final class CameraInspectionLoopRunnerImpl extends AbstractBootstrapServi
     }
 
     private void awaitCameraTasksOrStop(List<Future<Void>> futures, OrchestratorStopSignal stopSignal)
-            throws Exception {
+            throws BootstrapException {
         while (true) {
             if (stopSignal != null && stopSignal.isRequested()) {
                 log.warn("orchestrator stop requested reason={} — cancelling camera tasks", stopSignal.reason());
@@ -113,36 +116,40 @@ public final class CameraInspectionLoopRunnerImpl extends AbstractBootstrapServi
                 }
             }
             if (allDone) {
-                for (Future<Void> future : futures) {
-                    try {
-                        future.get();
-                    } catch (CancellationException ignored) {
-                    } catch (ExecutionException e) {
-                        Throwable cause = e.getCause();
-                        if (cause instanceof Exception ex) {
-                            throw ex;
-                        }
-                        throw e;
-                    }
-                }
+                waitForAllFutures(futures);
                 return;
             }
             if (stopSignal == null) {
-                for (Future<Void> future : futures) {
-                    try {
-                        future.get();
-                    } catch (CancellationException ignored) {
-                    } catch (ExecutionException e) {
-                        Throwable cause = e.getCause();
-                        if (cause instanceof Exception ex) {
-                            throw ex;
-                        }
-                        throw e;
-                    }
-                }
+                waitForAllFutures(futures);
                 return;
             }
-            stopSignal.await(250, TimeUnit.MILLISECONDS);
+            try {
+                stopSignal.await(250, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new BootstrapException(e);
+            }
+        }
+    }
+
+    private void waitForAllFutures(List<Future<Void>> futures) throws BootstrapException {
+        for (Future<Void> future : futures) {
+            try {
+                future.get();
+            } catch (CancellationException ignored) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new BootstrapException(e);
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof RuntimeException re) {
+                    throw re;
+                }
+                if (cause instanceof Exception ex) {
+                    throw new BootstrapException(ex);
+                }
+                throw new BootstrapException(e);
+            }
         }
     }
 }

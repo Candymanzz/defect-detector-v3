@@ -33,8 +33,8 @@ public final class InspectionPipeline {
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
             boolean captureWithoutReference
-    ) throws Exception {
-        int cameraId = ((Number) camera.get("id")).intValue();
+    ) throws PipelineException {
+        int cameraId = ConfiguredCameras.requireId(camera);
         String productType = ConfiguredCameras.analysisProfileForCamera(camera, cameraId);
         String detectorId = String.valueOf(camera.getOrDefault("detector", "v1"));
         boolean reloadReferenceLocal = YamlScalars.toBool(camera.get("reload_reference"), false);

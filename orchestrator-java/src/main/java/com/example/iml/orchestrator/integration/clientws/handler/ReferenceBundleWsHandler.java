@@ -13,7 +13,7 @@ import com.example.iml.orchestrator.integration.clientws.service.ReferenceBundle
 public final class ReferenceBundleWsHandler implements WsMessageHandler {
 
     @Override
-    public void handle(WsMessageContext ctx) throws ClientWsKopcheniSyncException {
+    public void handle(WsMessageContext ctx) {
         ReferenceBundleParser.Result r = ReferenceBundleParser.parseBundle(
                 ctx.envelope(),
                 ctx.application().cfg().protocolVersion(),

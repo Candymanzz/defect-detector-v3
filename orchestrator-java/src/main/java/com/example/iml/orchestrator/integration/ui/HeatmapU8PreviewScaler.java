@@ -8,15 +8,15 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
-final class HeatmapU8PreviewScaler {
+public final class HeatmapU8PreviewScaler {
 
-    record ScaledHeatmap(Path path, int width, int height) {
+    public record ScaledHeatmap(Path path, int width, int height) {
     }
 
     private HeatmapU8PreviewScaler() {
     }
 
-    static ScaledHeatmap scale(Path source, int width, int height, int maxWidth) throws IOException {
+    public static ScaledHeatmap scale(Path source, int width, int height, int maxWidth) throws IOException {
         validateSource(source, width, height);
         if (maxWidth <= 0 || width <= maxWidth) {
             return new ScaledHeatmap(source, width, height);

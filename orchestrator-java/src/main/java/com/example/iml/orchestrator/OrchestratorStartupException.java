@@ -5,6 +5,8 @@ package com.example.iml.orchestrator;
  */
 public final class OrchestratorStartupException extends Exception {
 
+    private static final long serialVersionUID = 1L;
+
     public OrchestratorStartupException(String message) {
         super(message);
     }

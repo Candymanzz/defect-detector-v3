@@ -7,8 +7,6 @@ import com.example.iml.orchestrator.integration.clientws.handler.LightBrightness
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesDisableWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesEnableWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewPauseWsHandler;
-import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesDisableWsHandler;
-import com.example.iml.orchestrator.integration.clientws.handler.PreviewImagesEnableWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.PreviewResumeWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.ReferenceBundleWsHandler;
 import com.example.iml.orchestrator.integration.clientws.handler.SetActiveReferenceViewWsHandler;
@@ -51,7 +49,7 @@ public final class WsFrontController {
             application.outbound().sendError(connection, "unknown_type", "unsupported message type: " + messageType);
             return;
         }
-        WsMessageContext ctx = new WsMessageContext(connection, envelope, normalizedType, application);
+        WsMessageContext ctx = new WsMessageContext(connection, envelope, application);
         try {
             handler.get().handle(ctx);
         } catch (ClientWsException e) {

@@ -80,7 +80,7 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
             }
         }
         reportUnhealthy();
-        throw lastError == null ? new IOException("worker command failed") : lastError;
+        throw lastError;
     }
 
     @Override

@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.pipeline.api;
 
+import com.example.iml.orchestrator.integration.bootstrap.BootstrapException;
+
 import org.apache.logging.log4j.Logger;
 
 import java.util.Objects;
@@ -24,7 +26,7 @@ public final class BootstrapPipeline<T> {
         return new BootstrapPipeline<>(Objects.requireNonNull(log, "log"), seed, true);
     }
 
-    public <O> BootstrapPipeline<O> then(BootstrapStage<? super T, O> stage) throws Exception {
+    public <O> BootstrapPipeline<O> then(BootstrapStage<? super T, O> stage) throws BootstrapException {
         Objects.requireNonNull(stage, "stage");
         if (!active) {
             return new BootstrapPipeline<>(log, null, false);

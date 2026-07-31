@@ -1,5 +1,8 @@
 package com.example.iml.orchestrator.integration.pipeline.spi;
 
+import com.example.iml.orchestrator.integration.capture.CaptureException;
+import com.example.iml.orchestrator.integration.lighting.LightingException;
+
 /**
  * Подсветка вокруг capture — без привязки к concrete LightTriggerClient.
  */
@@ -7,7 +10,7 @@ public interface CaptureLightingPort {
 
     @FunctionalInterface
     interface CaptureStep {
-        void run() throws Exception;
+        void run() throws CaptureException;
     }
 
     void runCaptureWithLighting(
@@ -16,5 +19,5 @@ public interface CaptureLightingPort {
             String phase,
             int flashLeadMs,
             CaptureStep captureStep
-    ) throws Exception;
+    ) throws LightingException;
 }

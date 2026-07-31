@@ -4,7 +4,10 @@ import com.example.iml.orchestrator.integration.bootstrap.service.api.FanOutHeal
 
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
 
+import com.example.iml.orchestrator.integration.bootstrap.context.port.FanOutHealthCollaboratorView;
+import com.example.iml.orchestrator.integration.bootstrap.context.port.FanOutHealthConfigView;
 import com.example.iml.orchestrator.integration.bootstrap.context.port.FanOutHealthHost;
+import com.example.iml.orchestrator.integration.bootstrap.context.port.FanOutHealthSink;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
@@ -21,36 +24,44 @@ public final class FanOutHealthBootstrapImpl extends AbstractBootstrapService im
 
     @Override
     public void wire(FanOutHealthHost session) {
+        wire(session, session, session);
+    }
+
+    void wire(
+            FanOutHealthConfigView config,
+            FanOutHealthCollaboratorView collaborators,
+            FanOutHealthSink sink
+    ) {
         FanOutCoordinator fanOut = FanOutCoordinator.fromConfig(
-                session.root(),
-                session.projectRoot(),
-                session.clientWsServer(),
-                session.inspectionGate()
+                config.root(),
+                config.projectRoot(),
+                collaborators.clientWsServer(),
+                collaborators.inspectionGate()
         );
-        session.setFanOut(fanOut);
-        session.plcFinsHolder().set(fanOut);
+        sink.setFanOut(fanOut);
+        collaborators.plcFinsHolder().set(fanOut);
 
         ServiceHealthGate healthGate = new ServiceHealthGate();
-        session.setServiceHealthGate(healthGate);
+        sink.setServiceHealthGate(healthGate);
         fanOut.setHealthGate(healthGate);
 
         OrchestratorStopSignal stopSignal = new OrchestratorStopSignal();
-        session.setStopSignal(stopSignal);
-        if (session.frontendProcess() != null) {
-            session.frontendProcess().onUnexpectedExit(() -> {
+        sink.setStopSignal(stopSignal);
+        if (collaborators.frontendProcess() != null) {
+            collaborators.frontendProcess().onUnexpectedExit(() -> {
                 log.warn("frontend process exited — requesting orchestrator shutdown (vision_ready=0)");
                 stopSignal.request("frontend_exited");
             });
         }
 
-        if (session.clientWsServer() != null) {
-            session.clientWsServer().setSessionStateListener(fanOut::onSessionState);
-            fanOut.onSessionState(session.clientWsServer().sessionState());
+        if (collaborators.clientWsServer() != null) {
+            collaborators.clientWsServer().setSessionStateListener(fanOut::onSessionState);
+            fanOut.onSessionState(collaborators.clientWsServer().sessionState());
         }
         log.info(
                 "integration parallel settings: camera_parallelism={} geometry_pool_size={}",
-                session.bootConfig().cameraParallelism(),
-                session.geometryPool().size()
+                config.bootConfig().cameraParallelism(),
+                collaborators.geometryPool().size()
         );
     }
 }

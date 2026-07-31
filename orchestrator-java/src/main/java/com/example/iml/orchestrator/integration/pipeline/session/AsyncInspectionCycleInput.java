@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
+import com.example.iml.orchestrator.integration.pipeline.CameraInspectionDeps;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
@@ -57,105 +58,16 @@ public record AsyncInspectionCycleInput(
             ReferenceSnapshot activeReference,
             long referenceMsFinal
     ) {
-        return new AsyncInspectionCycleInput(
-                projectRoot,
-                saveCaptures,
-                cameraId,
-                productType,
-                detectorId,
-                activeReference,
-                referenceMsFinal,
-                tCameraStartNanos,
-                worker,
-                lighting,
-                pythonPool,
-                geometryPool,
-                pythonCfg,
-                geometryCfg,
-                fanOut,
-                geometrySlots,
-                pythonSlots,
-                geometryRoundRobin,
-                pythonRoundRobin,
-                captureStageExecutor,
-                pythonStageExecutor,
-                geometryStageExecutor,
-                decisionStageExecutor,
-                uiVisualsPython,
-                flashLeadMs,
-                pipelineStagesLog,
-                inspectionId,
-                triggerSequence,
-                bucketAggregator
-        );
+        return AsyncInspectionCycleInputFactory.withPerCycleIdentity(
+                this, productType, activeReference, referenceMsFinal);
     }
 
     public AsyncInspectionCycleInput withTriggerSequence(long triggerSequence) {
-        return new AsyncInspectionCycleInput(
-                projectRoot,
-                saveCaptures,
-                cameraId,
-                productType,
-                detectorId,
-                activeReference,
-                referenceMsFinal,
-                tCameraStartNanos,
-                worker,
-                lighting,
-                pythonPool,
-                geometryPool,
-                pythonCfg,
-                geometryCfg,
-                fanOut,
-                geometrySlots,
-                pythonSlots,
-                geometryRoundRobin,
-                pythonRoundRobin,
-                captureStageExecutor,
-                pythonStageExecutor,
-                geometryStageExecutor,
-                decisionStageExecutor,
-                uiVisualsPython,
-                flashLeadMs,
-                pipelineStagesLog,
-                inspectionId,
-                triggerSequence,
-                bucketAggregator
-        );
+        return AsyncInspectionCycleInputFactory.withTriggerSequence(this, triggerSequence);
     }
 
     public AsyncInspectionCycleInput withInspectionId(long inspectionId) {
-        return new AsyncInspectionCycleInput(
-                projectRoot,
-                saveCaptures,
-                cameraId,
-                productType,
-                detectorId,
-                activeReference,
-                referenceMsFinal,
-                tCameraStartNanos,
-                worker,
-                lighting,
-                pythonPool,
-                geometryPool,
-                pythonCfg,
-                geometryCfg,
-                fanOut,
-                geometrySlots,
-                pythonSlots,
-                geometryRoundRobin,
-                pythonRoundRobin,
-                captureStageExecutor,
-                pythonStageExecutor,
-                geometryStageExecutor,
-                decisionStageExecutor,
-                uiVisualsPython,
-                flashLeadMs,
-                pipelineStagesLog,
-                inspectionId,
-                triggerSequence,
-                bucketAggregator
-        );
+        return AsyncInspectionCycleInputFactory.withInspectionId(this, inspectionId);
     }
 
     public static AsyncInspectionCycleInput of(
@@ -189,7 +101,7 @@ public record AsyncInspectionCycleInput(
             long triggerSequence,
             BucketInspectionAggregator bucketAggregator
     ) {
-        return new AsyncInspectionCycleInput(
+        return AsyncInspectionCycleInputFactory.of(
                 projectRoot,
                 saveCaptures,
                 cameraId,
@@ -233,9 +145,9 @@ public record AsyncInspectionCycleInput(
             long referenceMsFinal,
             long tCameraStartNanos,
             WorkerProcessSupervisor worker,
-            com.example.iml.orchestrator.integration.pipeline.CameraInspectionDeps deps
+            CameraInspectionDeps deps
     ) {
-        return of(
+        return AsyncInspectionCycleInputFactory.fromDeps(
                 projectRoot,
                 saveCaptures,
                 cameraId,
@@ -245,26 +157,7 @@ public record AsyncInspectionCycleInput(
                 referenceMsFinal,
                 tCameraStartNanos,
                 worker,
-                deps.lighting(),
-                deps.pythonPool(),
-                deps.geometryPool(),
-                deps.pythonCfg(),
-                deps.geometryCfg(),
-                deps.fanOut(),
-                deps.geometrySlots(),
-                deps.pythonSlots(),
-                deps.geometryRoundRobin(),
-                deps.pythonRoundRobin(),
-                deps.captureStageExecutor(),
-                deps.pythonStageExecutor(),
-                deps.geometryStageExecutor(),
-                deps.decisionStageExecutor(),
-                deps.uiVisualsPython(),
-                deps.flashLeadMs(),
-                deps.pipelineStagesLog(),
-                0L,
-                0L,
-                deps.bucketAggregator()
+                deps
         );
     }
 }

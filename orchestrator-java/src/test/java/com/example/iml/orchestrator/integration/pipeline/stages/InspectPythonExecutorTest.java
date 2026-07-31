@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@SuppressWarnings("unused")
 class InspectPythonExecutorTest {
 
     private final InspectPythonExecutor executor = new InspectPythonExecutor(LogManager.getLogger(getClass()));

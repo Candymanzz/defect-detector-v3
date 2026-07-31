@@ -18,12 +18,12 @@ public final class RuntimeMaintenanceHostImpl extends AbstractCameraRuntimeHost 
 
     @Override
     public Map<String, Object> integration() {
-        return preflight().integration();
+        return integrationMap();
     }
 
     @Override
     public Path projectRoot() {
-        return env().projectRoot();
+        return projectRootPath();
     }
 
     @Override

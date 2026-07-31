@@ -1,11 +1,13 @@
 package com.example.iml.orchestrator.integration.bootstrap.service.impl;
 
+import com.example.iml.orchestrator.integration.bootstrap.context.ChildProcessesContext;
 import com.example.iml.orchestrator.integration.bootstrap.service.api.InspectionPipelineGraphBootstrap;
 
 import com.example.iml.orchestrator.integration.bootstrap.service.api.AbstractBootstrapService;
 
 import com.example.iml.orchestrator.integration.bootstrap.context.PipelineAssemblyContext;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipeline;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.decision.DefaultInspectionDecisionAggregator;
@@ -38,6 +40,22 @@ public final class InspectionPipelineGraphBootstrapImpl extends AbstractBootstra
         var preflight = assembly.preflight();
 
         Semaphore positioningSlots = new Semaphore(Math.max(1, processes.positioningPool().size()));
+        InspectionPipelineServices pipelineServices = getInspectionPipelineServices(processes, positioningSlots);
+        assembly.setInspectionPipeline(new InspectionPipeline(pipelineServices));
+
+        assembly.setPipelineReferenceRegistry(new PipelineReferenceRegistry());
+        Map<Integer, String> detectorByCamera = new LinkedHashMap<>();
+        for (Map<String, Object> camera : preflight.cameras()) {
+            int cameraId = ConfiguredCameras.requireId(camera);
+            detectorByCamera.put(cameraId, String.valueOf(camera.getOrDefault("detector", "v1")));
+        }
+        assembly.setDetectorByCamera(detectorByCamera);
+        if (preflight.bootConfig().referenceSource() == ReferenceSource.CLIENT) {
+            log.info("integration.reference_source=client — эталон только через client.reference_bundle (WebSocket)");
+        }
+    }
+
+    private InspectionPipelineServices getInspectionPipelineServices(ChildProcessesContext processes, Semaphore positioningSlots) {
         AtomicInteger positioningRoundRobin = new AtomicInteger();
         InspectPositioningExecutor positioningExecutor = new InspectPositioningExecutor(
                 log,
@@ -49,7 +67,7 @@ public final class InspectionPipelineGraphBootstrapImpl extends AbstractBootstra
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
         ReferenceSnapshotBootstrap referenceBootstrap =
                 new ReferenceSnapshotBootstrap(log, processes.captureCoordinator(), pipelineTelemetry);
-        InspectionPipelineServices pipelineServices = new InspectionPipelineServices(
+        return new InspectionPipelineServices(
                 log,
                 new DefaultInspectionDecisionAggregator(log),
                 pipelineTelemetry,
@@ -60,17 +78,5 @@ public final class InspectionPipelineGraphBootstrapImpl extends AbstractBootstra
                 referenceBootstrap,
                 processes.uiSidecar()
         );
-        assembly.setInspectionPipeline(new InspectionPipeline(pipelineServices));
-
-        assembly.setPipelineReferenceRegistry(new PipelineReferenceRegistry());
-        Map<Integer, String> detectorByCamera = new LinkedHashMap<>();
-        for (Map<String, Object> camera : preflight.cameras()) {
-            int cameraId = ((Number) camera.get("id")).intValue();
-            detectorByCamera.put(cameraId, String.valueOf(camera.getOrDefault("detector", "v1")));
-        }
-        assembly.setDetectorByCamera(detectorByCamera);
-        if (preflight.bootConfig().referenceSource() == ReferenceSource.CLIENT) {
-            log.info("integration.reference_source=client — эталон только через client.reference_bundle (WebSocket)");
-        }
     }
 }

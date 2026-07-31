@@ -11,18 +11,15 @@ public final class WsMessageContext {
 
     private final WebSocket connection;
     private final JsonNode envelope;
-    private final String messageType;
     private final ClientWsApplicationContext application;
 
     public WsMessageContext(
             WebSocket connection,
             JsonNode envelope,
-            String messageType,
             ClientWsApplicationContext application
     ) {
         this.connection = connection;
         this.envelope = envelope;
-        this.messageType = messageType;
         this.application = application;
     }
 
@@ -32,10 +29,6 @@ public final class WsMessageContext {
 
     public JsonNode envelope() {
         return envelope;
-    }
-
-    public String messageType() {
-        return messageType;
     }
 
     public ClientWsApplicationContext application() {

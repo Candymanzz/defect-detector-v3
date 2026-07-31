@@ -21,14 +21,35 @@ public final class ConfiguredCameras {
             if (!YamlScalars.toBool(cam.get("enabled"), true)) {
                 continue;
             }
-            Object idObj = cam.get("id");
-            if (!(idObj instanceof Number n)) {
+            Integer id = idOrNull(cam);
+            if (id == null) {
                 continue;
             }
-            ids.add(n.intValue());
+            ids.add(id);
         }
         Collections.sort(ids);
         return List.copyOf(ids);
+    }
+
+    /** Camera {@code id} from a YAML camera map; throws if missing/invalid. */
+    public static int requireId(Map<String, Object> camera) {
+        Integer id = idOrNull(camera);
+        if (id == null) {
+            throw new IllegalArgumentException("camera id missing or not a number");
+        }
+        return id;
+    }
+
+    /** Camera {@code id} from a YAML camera map, or {@code null} if missing/invalid. */
+    public static Integer idOrNull(Map<String, Object> camera) {
+        if (camera == null) {
+            return null;
+        }
+        Object idObj = camera.get("id");
+        if (!(idObj instanceof Number n)) {
+            return null;
+        }
+        return n.intValue();
     }
 
     /**
@@ -59,20 +80,13 @@ public final class ConfiguredCameras {
             if (!YamlScalars.toBool(cam.get("enabled"), true)) {
                 continue;
             }
-            Object idObj = cam.get("id");
-            if (!(idObj instanceof Number n)) {
+            Integer cameraId = idOrNull(cam);
+            if (cameraId == null) {
                 continue;
             }
-            int cameraId = n.intValue();
             byCamera.put(cameraId, analysisProfileForCamera(cam, cameraId));
         }
         return Map.copyOf(byCamera);
-    }
-
-    /** @deprecated use {@link #analysisProfileByCameraId} */
-    @Deprecated
-    public static Map<Integer, String> productTypeByCameraId(Map<String, Object> root) {
-        return analysisProfileByCameraId(root);
     }
 
     private static String readNonBlankString(Object raw) {
