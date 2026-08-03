@@ -9,12 +9,17 @@ export type SettingForm = {
   brightnessPercent: number;
   constantFlashMode: boolean;
   maxShiftMm: number;
+  jointSeamSegmentationEnabled: boolean;
   lineDirection: LineDirection;
   savedFramesCount: number;
   analysisSettings: AnalysisSettings;
 };
 
-export type SettingFieldName = "brightnessPercent" | "maxShiftMm" | "savedFramesCount";
+export type SettingFieldName =
+  | "brightnessPercent"
+  | "maxShiftMm"
+  | "savedFramesCount"
+  | "jointSeamSegmentationEnabled";
 export type AnalysisSettingFieldName = keyof AnalysisSettings;
 
 export type SettingData = {

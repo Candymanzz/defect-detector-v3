@@ -30,6 +30,9 @@ public final class InspectionResponsePayloadBuilder {
         payload.put("jointDefectMm", response.jointDefectMm());
         payload.put("jointParallelismDeg", response.jointParallelismDeg());
         payload.put("jointWidthMm", response.jointWidthMm());
+        payload.put("jointWidthTopMm", response.jointWidthTopMm());
+        payload.put("jointWidthBottomMm", response.jointWidthBottomMm());
+        payload.put("jointTaperMm", response.jointTaperMm());
         payload.put("jointVisibility", response.jointVisibility());
         payload.put("wrinklesScore", response.wrinklesScore());
         payload.put("alignmentPass", response.alignmentPass());

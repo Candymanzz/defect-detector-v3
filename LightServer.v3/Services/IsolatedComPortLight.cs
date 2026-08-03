@@ -252,8 +252,9 @@ public sealed class IsolatedComPortLight : IDisposable
     /// <summary>
     /// Обновить яркость отдельных каналов на уже открытой COM-сессии банка.
     /// Не открывает вторую сессию (в отличие от legacy ApplyComPort).
+    /// turnOn=false (по умолчанию) — только регистры, как Ethernet WriteBrightness.
     /// </summary>
-    public (bool ok, string? message) ApplyChannelBrightness(int[] updateChannels, int[] powers, bool turnOn = true)
+    public (bool ok, string? message) ApplyChannelBrightness(int[] updateChannels, int[] powers, bool turnOn = false)
     {
         if (updateChannels.Length == 0 || powers.Length != updateChannels.Length)
             return (false, $"{ComPort}: channels/brightness length mismatch.");

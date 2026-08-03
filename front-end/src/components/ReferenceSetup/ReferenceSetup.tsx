@@ -205,6 +205,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   imageUrl={selectedSlot.imageUrl}
                   points={selectedEditorPoints}
                   exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
+                  shapeMode={selectedRoiMode === "joint" ? "oriented-rect" : "polygon"}
                   allowRadiusMode={selectedRoiMode !== "joint"}
                   onChange={(points) => {
                     if (selectedRoiMode === "joint") {

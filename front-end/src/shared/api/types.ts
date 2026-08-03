@@ -123,6 +123,9 @@ export type GeometryInspectResponse = {
   jointDefectMm?: number;
   jointParallelismDeg?: number;
   jointWidthMm?: number;
+  jointWidthTopMm?: number;
+  jointWidthBottomMm?: number;
+  jointTaperMm?: number;
   jointVisibility?: number;
   wrinklesScore?: number;
   homographyRefToCurrent?: number[] | number[][];
@@ -144,6 +147,8 @@ export type GeometryRuntimeOverrides = Partial<{
   max_rotation_deg: number;
   maxWrinklesScore: number;
   max_wrinkles_score: number;
+  jointSeamSegmentationEnabled: boolean;
+  joint_seam_segmentation_enabled: boolean;
 }> &
   JsonObject;
 

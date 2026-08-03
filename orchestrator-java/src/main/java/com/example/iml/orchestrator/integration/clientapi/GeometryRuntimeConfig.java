@@ -18,6 +18,7 @@ public final class GeometryRuntimeConfig {
             "mainRoi",
             "mainRoiPolygonNorm",
             "jointRoi",
+            "jointRoiPolygonNorm",
             "jointMode",
             "wrinklesRoi",
             "pixelsToMm",
@@ -28,6 +29,8 @@ public final class GeometryRuntimeConfig {
             "jointMinWidthMm",
             "jointMaxWidthMm",
             "maxJointParallelismDeg",
+            "maxJointTaperMm",
+            "jointSeamSegmentationEnabled",
             "maxWrinklesScore",
             "threshold",
             "jointThreshold"
@@ -121,6 +124,7 @@ public final class GeometryRuntimeConfig {
         putIfPresent(overrides, algorithmParams, "mainRoi", "main_roi");
         putIfPresent(overrides, algorithmParams, "mainRoiPolygonNorm", "main_roi_polygon_norm");
         putIfPresent(overrides, algorithmParams, "jointRoi", "joint_roi");
+        putIfPresent(overrides, algorithmParams, "jointRoiPolygonNorm", "joint_roi_polygon_norm");
         putIfPresent(overrides, algorithmParams, "jointMode", "joint_mode");
         putIfPresent(overrides, algorithmParams, "wrinklesRoi", "wrinkles_roi");
         putIfPresent(overrides, algorithmParams, "pixelsToMm", "pixels_to_mm");
@@ -131,6 +135,8 @@ public final class GeometryRuntimeConfig {
         putIfPresent(overrides, algorithmParams, "jointMinWidthMm", "joint_min_width_mm");
         putIfPresent(overrides, algorithmParams, "jointMaxWidthMm", "joint_max_width_mm");
         putIfPresent(overrides, algorithmParams, "maxJointParallelismDeg", "max_joint_parallelism_deg");
+        putIfPresent(overrides, algorithmParams, "maxJointTaperMm", "max_joint_taper_mm");
+        putIfPresent(overrides, algorithmParams, "jointSeamSegmentationEnabled", "joint_seam_segmentation_enabled");
         putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
         putIfPresent(overrides, algorithmParams, "jointThreshold", "joint_threshold");
         putIfPresent(overrides, algorithmParams, "threshold", "threshold");
@@ -172,12 +178,23 @@ public final class GeometryRuntimeConfig {
         m.put("pixelsToMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("pixels_to_mm"), 0.02));
         m.put("maxShiftMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_shift_mm"), 0.5));
         m.put("maxRotationDeg", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_rotation_deg"), 1.0));
-        m.put("maxJointDefectMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_defect_mm"), 0.3));
-        m.put("jointMinWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_min_width_mm"), 0.5));
+        m.put("maxJointDefectMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_defect_mm"), 0.5));
+        m.put("jointMinWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_min_width_mm"), 0.25));
         m.put("jointMaxWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_max_width_mm"), 3.0));
         m.put(
                 "maxJointParallelismDeg",
-                YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_parallelism_deg"), 3.0)
+                YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_parallelism_deg"), 5.0)
+        );
+        m.put(
+                "maxJointTaperMm",
+                YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_taper_mm"), 0.8)
+        );
+        m.put(
+                "jointSeamSegmentationEnabled",
+                YamlScalars.toBool(
+                        yamlGeometry == null ? null : yamlGeometry.get("joint_seam_segmentation_enabled"),
+                        false
+                )
         );
         double thresholdDefault = defaultPythonThreshold(pythonYaml);
         m.put("threshold", thresholdDefault);
@@ -233,6 +250,7 @@ public final class GeometryRuntimeConfig {
             case "roi_polygon_norm" -> "mainRoiPolygonNorm";
             case "interest_polygon_norm" -> "mainRoiPolygonNorm";
             case "joint_roi" -> "jointRoi";
+            case "joint_roi_polygon_norm" -> "jointRoiPolygonNorm";
             case "joint_mode" -> "jointMode";
             case "wrinkles_roi" -> "wrinklesRoi";
             case "pixels_to_mm" -> "pixelsToMm";
@@ -243,6 +261,8 @@ public final class GeometryRuntimeConfig {
             case "joint_min_width_mm" -> "jointMinWidthMm";
             case "joint_max_width_mm" -> "jointMaxWidthMm";
             case "max_joint_parallelism_deg" -> "maxJointParallelismDeg";
+            case "max_joint_taper_mm" -> "maxJointTaperMm";
+            case "joint_seam_segmentation_enabled" -> "jointSeamSegmentationEnabled";
             case "joint_threshold", "jointThreshold" -> "jointThreshold";
             case "max_wrinkles_score" -> "maxWrinklesScore";
             case "fallback_threshold", "inspection_threshold", "sensitivity" -> "threshold";

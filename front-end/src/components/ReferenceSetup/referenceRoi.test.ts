@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   createFullRoiPolygonNorm,
   createRoiFromPolygon,
+  isValidJointRoiPolygon,
   isValidRoiPolygon,
 } from "../../components/ReferenceSetup/referenceRoi";
+import { createOrientedRectFromAxis } from "../../components/RoiContourEditor/orientedRectRoi";
 
 describe("referenceRoi", () => {
   it("creates full-frame normalized polygon", () => {
@@ -42,5 +44,19 @@ describe("referenceRoi", () => {
         { x: 0.5, y: 1 },
       ]),
     ).toBe(true);
+  });
+
+  it("accepts oriented joint rectangle and rejects freeform joint", () => {
+    const joint = createOrientedRectFromAxis({ x: 0.2, y: 0.4 }, { x: 0.8, y: 0.6 }, 0.03);
+    expect(isValidJointRoiPolygon(joint)).toBe(true);
+    expect(
+      isValidJointRoiPolygon([
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0.8, y: 0.4 },
+        { x: 0.1, y: 0.9 },
+        { x: 0.2, y: 0.5 },
+      ]),
+    ).toBe(false);
   });
 });

@@ -20,6 +20,7 @@ public final class InspectionHeaderMapper {
                 roi(h.get("mainRoi")),
                 polygonNormOrNull(h),
                 roiOrNull(h.get("jointRoi")),
+                jointPolygonNormOrNull(h),
                 roiOrNull(h.get("wrinklesRoi")),
                 num(h.get("pixelsToMm"), 0.01),
                 num(h.get("maxShiftMm"), 0.5),
@@ -30,7 +31,12 @@ public final class InspectionHeaderMapper {
                 jointMode(h),
                 num(h.get("jointMinWidthMm"), 0.5),
                 num(h.get("jointMaxWidthMm"), 3.0),
-                num(h.get("maxJointParallelismDeg"), 3.0)
+                num(h.get("maxJointParallelismDeg"), 5.0),
+                num(h.get("maxJointTaperMm"), 0.8),
+                bool(h.get("jointSeamSegmentationEnabled") != null
+                                ? h.get("jointSeamSegmentationEnabled")
+                                : h.get("joint_seam_segmentation_enabled"),
+                        false)
         );
     }
 
@@ -41,6 +47,7 @@ public final class InspectionHeaderMapper {
                 roiOrDefault(h.get("mainRoi")),
                 polygonNormOrNull(h),
                 roiOrNull(h.get("jointRoi")),
+                jointPolygonNormOrNull(h),
                 roiOrNull(h.get("wrinklesRoi")),
                 num(h.get("pixelsToMm"), 0.01),
                 num(h.get("maxShiftMm"), 0.5),
@@ -51,7 +58,12 @@ public final class InspectionHeaderMapper {
                 jointMode(h),
                 num(h.get("jointMinWidthMm"), 0.5),
                 num(h.get("jointMaxWidthMm"), 3.0),
-                num(h.get("maxJointParallelismDeg"), 3.0)
+                num(h.get("maxJointParallelismDeg"), 5.0),
+                num(h.get("maxJointTaperMm"), 0.8),
+                bool(h.get("jointSeamSegmentationEnabled") != null
+                                ? h.get("jointSeamSegmentationEnabled")
+                                : h.get("joint_seam_segmentation_enabled"),
+                        false)
         );
     }
 
@@ -109,6 +121,14 @@ public final class InspectionHeaderMapper {
         }
         if (raw == null) {
             raw = h.get("interest_polygon_norm");
+        }
+        return polygonNormOrNull(raw);
+    }
+
+    public static List<NormPoint> jointPolygonNormOrNull(Map<String, Object> h) {
+        Object raw = h.get("jointRoiPolygonNorm");
+        if (raw == null) {
+            raw = h.get("joint_roi_polygon_norm");
         }
         return polygonNormOrNull(raw);
     }

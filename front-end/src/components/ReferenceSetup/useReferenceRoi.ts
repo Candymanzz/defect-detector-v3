@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getReferenceImage } from "../../shared/referenceImages";
 import type { InterestPointNorm } from "../../shared/ws";
-import { isValidRoiPolygon } from "./referenceRoi";
+import { isValidJointRoiPolygon, isValidRoiPolygon } from "./referenceRoi";
 
 export type ReferenceRoiEditMode = "interest" | "joint";
 
@@ -40,7 +40,7 @@ export function useReferenceRoi(
   const hasSelectedCameraRoi = isValidRoiPolygon(roiPolygonsByCameraId[selectedCameraId]);
   const hasRequiredCameraRois =
     activeCameraIds.length > 0 && activeCameraIds.every((cameraId) => isValidRoiPolygon(roiPolygonsByCameraId[cameraId]));
-  const hasJointRoi = isValidRoiPolygon(jointRoiPolygon);
+  const hasJointRoi = isValidJointRoiPolygon(jointRoiPolygon);
   const jointViewIndex = activeCameraIds.indexOf(jointCameraId);
 
   const getJointCameraIdForCameraIds = (targetCameraIds: number[]) => {
@@ -206,7 +206,7 @@ function mergeStoredJointRois(
 }
 
 function findStoredJointCameraId(cameraIds: number[]) {
-  return cameraIds.find((cameraId) => isValidRoiPolygon(getReferenceImage(cameraId)?.jointRoiPoints)) ?? null;
+  return cameraIds.find((cameraId) => isValidJointRoiPolygon(getReferenceImage(cameraId)?.jointRoiPoints)) ?? null;
 }
 
 function createGroupKey(cameraIds: number[]) {

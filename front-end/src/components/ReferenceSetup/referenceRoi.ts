@@ -1,4 +1,5 @@
 import type { InterestPointNorm, PixelRoi, PreviewFramePayload } from "../../shared/ws";
+import { isOrientedRectPolygon } from "../RoiContourEditor/orientedRectRoi";
 
 export function createFullRoi(frame: PreviewFramePayload): PixelRoi {
   return {
@@ -45,6 +46,11 @@ export function createRoiFromPolygon(
 
 export function isValidRoiPolygon(points?: InterestPointNorm[]) {
   return Boolean(points && points.length >= 3);
+}
+
+/** Joint ROI: ровно 4 угла ориентированного прямоугольника (полоса вдоль шва). */
+export function isValidJointRoiPolygon(points?: InterestPointNorm[]) {
+  return Boolean(points && isOrientedRectPolygon(points));
 }
 
 function normalizeRoiCoordinate(value: number, size: number) {

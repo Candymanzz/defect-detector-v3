@@ -50,13 +50,28 @@ public final class BinaryInspectHeaders {
         gHeader.put("pixelsToMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.02));
         gHeader.put("maxShiftMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_shift_mm"), 0.5));
         gHeader.put("maxRotationDeg", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_rotation_deg"), 1.0));
-        gHeader.put("maxJointDefectMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_defect_mm"), 0.3));
-        gHeader.put("jointMinWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_min_width_mm"), 0.5));
+        gHeader.put("maxJointDefectMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_defect_mm"), 0.5));
+        gHeader.put("jointMinWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_min_width_mm"), 0.25));
         gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 3.0));
         gHeader.put(
                 "maxJointParallelismDeg",
-                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_parallelism_deg"), 3.0)
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_parallelism_deg"), 5.0)
         );
+        gHeader.put(
+                "maxJointTaperMm",
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_taper_mm"), 0.8)
+        );
+        gHeader.put(
+                "jointSeamSegmentationEnabled",
+                YamlScalars.toBool(
+                        geometryCfg == null ? null : geometryCfg.get("joint_seam_segmentation_enabled"),
+                        false
+                )
+        );
+        Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
+        if (jointPolygon instanceof List<?> poly && poly.size() >= 3) {
+            gHeader.put("jointRoiPolygonNorm", poly);
+        }
         double defaultThreshold = YamlScalars.toDouble(pythonCfg == null ? null : pythonCfg.get("fallback_threshold"), 0.25);
         double maxWrinkles = YamlScalars.toDouble(
                 geometryCfg == null ? null : geometryCfg.get("max_wrinkles_score"),
@@ -174,6 +189,17 @@ public final class BinaryInspectHeaders {
             }
         }
         return geometryCfg == null ? null : geometryCfg.get("joint_roi");
+    }
+
+    private static Object resolveJointRoiPolygonNorm(ReferenceSnapshot activeReference) {
+        if (activeReference == null || activeReference.header() == null) {
+            return null;
+        }
+        Object raw = activeReference.header().get("joint_roi_polygon_norm");
+        if (raw instanceof List<?> poly && poly.size() >= 3) {
+            return poly;
+        }
+        return null;
     }
 
     private static String resolveJointMode(int cameraId, ReferenceSnapshot activeReference, Object jointRoi) {

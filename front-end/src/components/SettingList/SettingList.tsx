@@ -433,7 +433,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
           )}
           <details className="setting-list__collapsible-setting">
             <summary className="setting-list__section-header">
-              <h3>Максимальное смещение</h3>
+              <h3>Геометрия / стык</h3>
             </summary>
             <div className="setting-list__vertical-setting">
               <label>
@@ -446,6 +446,24 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
                   value={settingData.form.maxShiftMm}
                   disabled={!canEditSettings}
                   onChange={handleFieldChange("maxShiftMm")}
+                />
+              </label>
+              <label className="setting-list__field setting-list__field--checkbox">
+                <span>Сегментация стыка (параллельность по полосе)</span>
+                <input
+                  type="checkbox"
+                  checked={settingData.form.jointSeamSegmentationEnabled}
+                  disabled={!canEditSettings}
+                  onChange={(event) => {
+                    setSaveFeedback(null);
+                    setSettingData((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        jointSeamSegmentationEnabled: event.target.checked,
+                      },
+                    }));
+                  }}
                 />
               </label>
               <Button

@@ -8,6 +8,7 @@ public record InspectionRequest(
         RoiRect mainRoi,
         List<NormPoint> mainRoiPolygonNorm,
         RoiRect jointRoi,
+        List<NormPoint> jointRoiPolygonNorm,
         RoiRect wrinklesRoi,
         double pixelsToMm,
         double maxShiftMm,
@@ -18,7 +19,9 @@ public record InspectionRequest(
         String jointMode,
         double jointMinWidthMm,
         double jointMaxWidthMm,
-        double maxJointParallelismDeg
+        double maxJointParallelismDeg,
+        double maxJointTaperMm,
+        boolean jointSeamSegmentationEnabled
 ) {
     public boolean jointVisibilityOnly() {
         return jointMode != null && "visibility".equalsIgnoreCase(jointMode.trim());

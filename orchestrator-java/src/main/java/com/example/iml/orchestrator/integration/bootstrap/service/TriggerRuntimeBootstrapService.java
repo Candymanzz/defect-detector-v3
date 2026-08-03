@@ -223,15 +223,9 @@ public final class TriggerRuntimeBootstrapService {
             }
             intervalFlashController.armStartDark();
             log.info(
-                    "interval_flash enabled — idle_on={} (DI{} {}); DI{} {} → On + Off (off_delay_ms={}, off_on_first_frame={}); авто-On через {} ms; hold_mode={}",
-                    intervalFlashCfg.idleOnEnabled(),
+                    "interval_flash enabled — DI{}↑ → On, DI{}↓ → Off (импульс направления); hold_mode={}",
                     intervalFlashCfg.idlePort(),
-                    intervalFlashCfg.idleEdge().name().toLowerCase(),
-                    intervalFlashCfg.triggerPort(),
-                    intervalFlashCfg.triggerEdge().name().toLowerCase(),
-                    intervalFlashCfg.offDelayMs(),
-                    intervalFlashCfg.offOnFirstFrame(),
-                    intervalFlashCfg.onReengageDelayMs(),
+                    intervalFlashCfg.idlePort(),
                     ctx.lightClient().isHoldMode()
             );
         } else if (intervalFlashCfg.enabled()) {

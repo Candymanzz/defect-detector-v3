@@ -68,16 +68,17 @@ integration:
   stage_queue_size: 20
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000
-  # Пауза между последовательным запуском воркеров камер (смягчает пик инициализации SDK/MVS).
-  worker_startup_stagger_ms: 1200
+  # Пауза между последовательным запуском воркеров камер (смягчает пик SDK/MVS).
+  # Цель: сервисы+камеры ≈1.5 с искусственных пауз (health wait — отдельно).
+  worker_startup_stagger_ms: 100
   # Таймаут health/check для внешних сервисов (geometry/python bridge).
   service_command_timeout_ms: 15000
   worker_ipc_mode: "stdio"
   worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
   worker_named_pipe_connect_timeout_ms: 3000
-  # Дать dotnet/LightServer подняться до первого trigger (особенно при dotnet run + build).
-  light_server_startup_delay_ms: 8000
+  # Дать LightServer (dotnet exec, уже собранный) подняться до первого trigger.
+  light_server_startup_delay_ms: 300
   # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).
   inspection_cycle_timeout_ms: 3500
   # Агрегация: mode=ten_cameras → группы 0–4 и 5–9, все 10 камер в инспекции.
@@ -201,7 +202,7 @@ integration:
   # IoInputMonitor — DI1/DI2/DI3 → UDP :9100 (см. blocks/52-io-input.yaml).
   io_input_monitor_autostart:
     enabled: true
-    startup_delay_ms: 500
+    startup_delay_ms: 0
     working_dir: "."
   io_input_monitor_command_windows:
     - "dotnet"
@@ -214,7 +215,7 @@ integration:
   # Front-end (Vite + Electron) — npm run dev в front-end/.
   frontend_autostart:
     enabled: true
-    startup_delay_ms: 3000
+    startup_delay_ms: 0
     working_dir: "front-end"
   frontend_command_windows:
     - "npm.cmd"

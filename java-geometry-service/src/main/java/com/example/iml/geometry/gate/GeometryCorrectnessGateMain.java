@@ -54,6 +54,7 @@ public final class GeometryCorrectnessGateMain {
                 null,
                 null,
                 null,
+                null,
                 0.01,
                 0.5,
                 1.0,
@@ -63,7 +64,9 @@ public final class GeometryCorrectnessGateMain {
                 "full",
                 0.5,
                 3.0,
-                3.0
+                8.0,
+                0.6,
+                false
         );
 
         OpenCvGeometryAnalysisService baseline = new OpenCvGeometryAnalysisService(

@@ -70,6 +70,9 @@ public final class PipelineReferenceRegistry {
         Map<String, Object> bucketJointRoiNorm = jointSlot.jointRoi() == null
                 ? null
                 : normalizedRoi(jointSlot.jointRoi(), jointFrame.width(), jointFrame.height());
+        List<Map<String, Object>> bucketJointPolygonNorm = jointSlot.hasJointPolygonNorm()
+                ? InterestPolygonNormCodec.fromNormPoints(jointSlot.jointPolygonNorm())
+                : List.of();
 
         for (ReferenceViewSlot slot : snap.views()) {
             ShmFrameRefData frame = slot.frame();
@@ -78,7 +81,8 @@ public final class PipelineReferenceRegistry {
                     slot,
                     jointCameraId,
                     bucketGroupId,
-                    bucketJointRoiNorm
+                    bucketJointRoiNorm,
+                    bucketJointPolygonNorm
             );
             Map<String, Object> effectiveHeader = captureStage == null
                     ? header
@@ -188,7 +192,8 @@ public final class PipelineReferenceRegistry {
             ReferenceViewSlot slot,
             int jointCameraId,
             int bucketGroupId,
-            Map<String, Object> bucketJointRoiNorm
+            Map<String, Object> bucketJointRoiNorm,
+            List<Map<String, Object>> bucketJointPolygonNorm
     ) {
         Map<String, Object> header = new LinkedHashMap<>();
         header.put("camera_id", frame.cameraId());
@@ -212,6 +217,9 @@ public final class PipelineReferenceRegistry {
         }
         if (bucketJointRoiNorm != null) {
             header.put("joint_roi_norm", bucketJointRoiNorm);
+        }
+        if (bucketJointPolygonNorm != null && bucketJointPolygonNorm.size() >= 3) {
+            header.put("joint_roi_polygon_norm", bucketJointPolygonNorm);
         }
         return header;
     }

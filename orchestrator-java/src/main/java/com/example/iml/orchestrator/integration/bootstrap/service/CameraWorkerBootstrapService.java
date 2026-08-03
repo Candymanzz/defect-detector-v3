@@ -38,7 +38,9 @@ public final class CameraWorkerBootstrapService {
         List<Map<String, Object>> activeCameras = new ArrayList<>();
         var cfg = ctx.bootConfig();
 
-        for (Map<String, Object> camera : ctx.cameras()) {
+        List<Map<String, Object>> cameras = ctx.cameras();
+        for (int i = 0; i < cameras.size(); i++) {
+            Map<String, Object> camera = cameras.get(i);
             int cameraId = ((Number) camera.get("id")).intValue();
             List<String> cmd = new ArrayList<>();
             cmd.add(ctx.workerBin().toString());
@@ -66,7 +68,10 @@ public final class CameraWorkerBootstrapService {
                 log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
                 workersByCamera.put(cameraId, worker);
                 activeCameras.add(camera);
-                sleepWorkerStartupStagger(cfg.workerStartupStaggerMs());
+                // Не ждать после последнего воркера — экономия одного stagger на старте.
+                if (i + 1 < cameras.size()) {
+                    sleepWorkerStartupStagger(cfg.workerStartupStaggerMs());
+                }
             } catch (Exception e) {
                 log.error(
                         "worker cam={} failed to start/health; skipping this camera and continuing with others: {}",

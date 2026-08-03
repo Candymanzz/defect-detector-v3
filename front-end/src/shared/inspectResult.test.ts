@@ -10,7 +10,51 @@ describe("resolveInspectionResultState", () => {
     expect(resolveInspectionResultState({ action: "CAPTURE" })).toBe("capture");
   });
 
-  it("returns pass for python PASS and ГОДЕН", () => {
+  it("prefers overall_pass over python_status alone", () => {
+    expect(
+      resolveInspectionResultState({
+        python_status: "PASS",
+        geometry_status: "FAIL",
+        overall_pass: false,
+        action: "REJECT",
+      }),
+    ).toBe("fail");
+    expect(
+      resolveInspectionResultState({
+        python_status: "FAIL",
+        geometry_status: "PASS",
+        overall_pass: false,
+      }),
+    ).toBe("fail");
+    expect(
+      resolveInspectionResultState({
+        python_status: "PASS",
+        geometry_status: "PASS",
+        overall_pass: true,
+        action: "ACCEPT",
+      }),
+    ).toBe("pass");
+  });
+
+  it("fails when geometry fails even if python passes (no overall)", () => {
+    expect(
+      resolveInspectionResultState({
+        python_status: "PASS",
+        geometry_status: "FAIL",
+      }),
+    ).toBe("fail");
+  });
+
+  it("passes only when both stage statuses pass without overall", () => {
+    expect(
+      resolveInspectionResultState({
+        python_status: "PASS",
+        geometry_status: "PASS",
+      }),
+    ).toBe("pass");
+  });
+
+  it("returns pass for legacy python PASS without geometry fields", () => {
     expect(resolveInspectionResultState({ python_status: "PASS" })).toBe("pass");
     expect(resolveInspectionResultState({ python_status: "годен" })).toBe("pass");
   });

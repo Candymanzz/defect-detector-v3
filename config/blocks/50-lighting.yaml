@@ -21,22 +21,12 @@ light_servers:
   flash_lead_ms: 0
   settle_delay_ms: 0
   # Интервальный режим (отдельный контур от съёмки):
-  # DI3↑ → On; Off по первому wait_frame (или timeout off_delay_ms);
-  # после Off → авто-On через on_reengage_delay_ms.
+  # DI2↑ (начало импульса направления) → bank On;
+  # DI2↓ (конец импульса) → bank Off.
   # On/Off — POST /api/camera-flash/bank (не трогает capture pipeline).
   interval_flash:
     enabled: true
     idle_port: 2
-    idle_edge: falling
-    idle_on: false
-    trigger_port: 3
-    trigger_edge: rising
-    # Гасить на первом usable кадре после DI3↑.
-    off_on_first_frame: true
-    # Аварийный timeout, если wait_frame не пришёл.
-    off_delay_ms: 1000
-    # Зажечь снова через 5 с после гашения.
-    on_reengage_delay_ms: 5000
     start_dark: true
   # cameras опционально; по умолчанию — все enabled cameras из корневого конфига.
   # mode: pair (Ethernet) | single (COM, camera id 2 и 7) — см. 51-light-hardware.yaml.

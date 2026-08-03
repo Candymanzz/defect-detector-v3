@@ -45,6 +45,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             "mainRoi",
             "mainRoiPolygonNorm",
             "jointRoi",
+            "jointRoiPolygonNorm",
             "jointMode",
             "wrinklesRoi",
             "pixelsToMm",
@@ -55,12 +56,15 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             "jointMinWidthMm",
             "jointMaxWidthMm",
             "maxJointParallelismDeg",
+            "maxJointTaperMm",
+            "jointSeamSegmentationEnabled",
             "maxWrinklesScore",
             "jointThreshold",
             "threshold",
             "main_roi",
             "main_roi_polygon_norm",
             "joint_roi",
+            "joint_roi_polygon_norm",
             "joint_mode",
             "wrinkles_roi",
             "pixels_to_mm",
@@ -71,6 +75,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             "joint_min_width_mm",
             "joint_max_width_mm",
             "max_joint_parallelism_deg",
+            "max_joint_taper_mm",
+            "joint_seam_segmentation_enabled",
             "max_wrinkles_score"
     );
 

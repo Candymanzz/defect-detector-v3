@@ -48,6 +48,7 @@ export const INITIAL_SETTING_FORM: SettingForm = {
   brightnessPercent: 0,
   constantFlashMode: false,
   maxShiftMm: DEFAULT_MAX_SHIFT_MM,
+  jointSeamSegmentationEnabled: false,
   lineDirection: "reverse",
   savedFramesCount: DEFAULT_SAVED_FRAMES_COUNT,
   analysisSettings: DEFAULT_ANALYSIS_SETTINGS,
@@ -139,6 +140,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       brightnessPercent: readBrightnessPercent(lightBrightness, selectedCameraId),
       constantFlashMode: lightMode.constant,
       maxShiftMm: readMaxShiftMm(geometryRuntime),
+      jointSeamSegmentationEnabled: readJointSeamSegmentationEnabled(geometryRuntime),
       lineDirection: "reverse",
       savedFramesCount,
       analysisSettings,
@@ -218,17 +220,23 @@ export async function saveMaxShiftData(
 
   await saveWithContext(
     "Geometry settings",
-    saveMaxShiftMm(normalizedForm.maxShiftMm, selectedCameraId, cameraList?.cameras ?? []),
+    saveGeometryRuntimeSettings(
+      normalizedForm.maxShiftMm,
+      normalizedForm.jointSeamSegmentationEnabled,
+      selectedCameraId,
+      cameraList?.cameras ?? [],
+    ),
   );
 
   return {
     status: {
       state: "ready",
-      text: "max shift saved",
+      text: "настройки геометрии сохранены",
     },
     form: {
       ...form,
       maxShiftMm: normalizedForm.maxShiftMm,
+      jointSeamSegmentationEnabled: normalizedForm.jointSeamSegmentationEnabled,
     },
     analysisProductTypes,
   };
@@ -267,8 +275,15 @@ export function createSettingErrorData(error: unknown, form: SettingForm = INITI
 }
 
 export function updateSettingField(form: SettingForm, fieldName: SettingFieldName, rawValue: string): SettingForm {
+  if (fieldName === "jointSeamSegmentationEnabled") {
+    return normalizeSettingForm({
+      ...form,
+      jointSeamSegmentationEnabled: rawValue === "true" || rawValue === "1",
+    });
+  }
+
   const currentValue = form[fieldName];
-  const parsedValue = parseInputNumber(rawValue, currentValue);
+  const parsedValue = parseInputNumber(rawValue, typeof currentValue === "number" ? currentValue : 0);
 
   return normalizeSettingForm({
     ...form,
@@ -299,6 +314,7 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
     brightnessPercent: clampBrightness(form.brightnessPercent),
     constantFlashMode: Boolean(form.constantFlashMode),
     maxShiftMm: clampMaxShiftMm(form.maxShiftMm),
+    jointSeamSegmentationEnabled: Boolean(form.jointSeamSegmentationEnabled),
     lineDirection: form.lineDirection === "reverse" ? "reverse" : "forward",
     savedFramesCount: clampSavedFramesCount(form.savedFramesCount),
     analysisSettings: normalizeAnalysisSettings(form.analysisSettings),
@@ -462,6 +478,18 @@ function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {
   );
 }
 
+function readJointSeamSegmentationEnabled(geometryRuntime: GeometryRuntimeConfig) {
+  return toBoolean(
+    firstDefined([
+      geometryRuntime.runtimeOverrides.joint_seam_segmentation_enabled,
+      geometryRuntime.runtimeOverrides.jointSeamSegmentationEnabled,
+      geometryRuntime.effectiveForNextGeometryInspect.joint_seam_segmentation_enabled,
+      geometryRuntime.effectiveForNextGeometryInspect.jointSeamSegmentationEnabled,
+    ]),
+    false,
+  );
+}
+
 function readSavedFramesCount(frameArchiveSettings: { max_frames_per_camera?: number; max_allowed_frames_per_camera?: number } | null) {
   return clampSavedFramesCount(
     frameArchiveSettings?.max_frames_per_camera ?? DEFAULT_SAVED_FRAMES_COUNT,
@@ -469,8 +497,16 @@ function readSavedFramesCount(frameArchiveSettings: { max_frames_per_camera?: nu
   );
 }
 
-async function saveMaxShiftMm(maxShiftMm: number, selectedCameraId: number | null, cameraIds: number[]) {
-  const update = { max_shift_mm: maxShiftMm };
+async function saveGeometryRuntimeSettings(
+  maxShiftMm: number,
+  jointSeamSegmentationEnabled: boolean,
+  selectedCameraId: number | null,
+  cameraIds: number[],
+) {
+  const update = {
+    max_shift_mm: maxShiftMm,
+    joint_seam_segmentation_enabled: jointSeamSegmentationEnabled,
+  };
 
   if (selectedCameraId !== null) {
     await orchestratorApi.patchGeometryRuntime(update, selectedCameraId);
@@ -539,6 +575,16 @@ function firstFiniteNumber(values: unknown[], fallback: number) {
   }
 
   return fallback;
+}
+
+function firstDefined(values: unknown[]) {
+  for (const value of values) {
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+
+  return undefined;
 }
 
 function toFiniteNumber(value: unknown, fallback: number) {

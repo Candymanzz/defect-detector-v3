@@ -370,6 +370,8 @@ export type ReferenceViewSlot = {
   interest_roi: PixelRoi;
   interest_polygon_norm: InterestPointNorm[];
   joint_roi?: PixelRoi | null;
+  /** Полигон шва [0,1]; только на joint_view_index. */
+  joint_roi_polygon_norm?: InterestPointNorm[];
 };
 
 export type ClientReferenceBundlePayload = {

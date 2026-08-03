@@ -51,7 +51,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "LightServer API",
         Version = "v1",
-        Description = "Ethernet MV-LE bank: POST /api/camera-flash/bank { state: on|off }. COM: POST /api/com/light."
+        Description = "Flash bank: POST /api/camera-flash/bank { state: on|off } (Ethernet + COM)."
     });
 
     string xmlPath = Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");

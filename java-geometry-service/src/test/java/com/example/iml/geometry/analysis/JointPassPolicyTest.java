@@ -17,10 +17,12 @@ class JointPassPolicyTest {
                 180.0,
                 0.0,
                 0.0,
+                0.0,
                 0.8,
                 0.05,
                 4.0,
-                5.0
+                5.0,
+                0.6
         ));
     }
 
@@ -33,28 +35,73 @@ class JointPassPolicyTest {
                 9999.0,
                 180.0,
                 0.0,
+                0.0,
                 0.45,
                 0.8,
                 0.05,
                 4.0,
-                5.0
+                5.0,
+                0.6
         ));
     }
 
     @Test
-    void microWidthWithLowVisibilityIsInconclusivePass() {
+    void narrowWidthBelowMinFails() {
+        // width 0.15 with min 0.25 — real narrow defect (above noise floor)
+        assertFalse(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
+                true,
+                false,
+                true,
+                0.1,
+                1.0,
+                0.15,
+                0.0,
+                0.5,
+                0.5,
+                0.25,
+                3.0,
+                3.0,
+                0.6
+        ));
+    }
+
+    @Test
+    void workingWidthAroundPointFourPassesWithSoftMin() {
+        // Typical bench seam ~0.35–0.42 mm should PASS with min=0.25
         assertTrue(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
                 true,
                 false,
                 true,
-                0.45,
+                0.0,
                 1.0,
-                0.08,
+                0.36,
                 0.1,
-                0.8,
                 0.5,
+                0.5,
+                0.25,
                 3.0,
-                3.0
+                3.0,
+                0.6
+        ));
+    }
+
+    @Test
+    void microWidthNoiseIsInconclusivePassEvenWithHighVisibility() {
+        // Production FP: seam_w≈0.04–0.07, seam_vis=1.0 (Canny double-edge)
+        assertTrue(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
+                true,
+                false,
+                true,
+                0.20,
+                0.12,
+                0.046,
+                0.0,
+                1.0,
+                0.5,
+                0.25,
+                3.0,
+                3.0,
+                0.6
         ));
     }
 
@@ -67,11 +114,32 @@ class JointPassPolicyTest {
                 0.0,
                 1.0,
                 1.2,
+                0.2,
                 0.4,
                 0.8,
                 0.5,
                 3.0,
-                3.0
+                3.0,
+                0.6
+        ));
+    }
+
+    @Test
+    void excessiveTaperFails() {
+        assertFalse(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
+                true,
+                false,
+                true,
+                0.0,
+                1.0,
+                1.2,
+                0.9,
+                0.4,
+                0.8,
+                0.5,
+                3.0,
+                8.0,
+                0.6
         ));
     }
 
@@ -84,11 +152,13 @@ class JointPassPolicyTest {
                 9999.0,
                 180.0,
                 0.0,
+                0.0,
                 0.9,
                 0.8,
                 0.5,
                 3.0,
-                3.0
+                3.0,
+                0.6
         ));
     }
 }

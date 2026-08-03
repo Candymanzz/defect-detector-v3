@@ -15,6 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IntervalFlashControllerTest {
 
+    private static IntervalFlashConfig di2PulseConfig() {
+        return new IntervalFlashConfig(
+                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, false, false
+        );
+    }
+
     @Test
     void parsesIntervalFlashFromRoot() {
         Map<String, Object> root = new LinkedHashMap<>();
@@ -22,12 +28,29 @@ class IntervalFlashControllerTest {
         ls.put("interval_flash", Map.of(
                 "enabled", true,
                 "idle_port", 2,
+                "start_dark", true
+        ));
+        root.put("light_servers", ls);
+
+        IntervalFlashConfig cfg = IntervalFlashConfig.fromRootYaml(root);
+
+        assertTrue(cfg.enabled());
+        assertEquals(2, cfg.idlePort());
+        assertTrue(cfg.startDark());
+    }
+
+    @Test
+    void parsesLegacyKeysWithoutBreaking() {
+        Map<String, Object> root = new LinkedHashMap<>();
+        Map<String, Object> ls = new LinkedHashMap<>();
+        ls.put("interval_flash", Map.of(
+                "enabled", true,
+                "idle_port", 2,
                 "trigger_port", 3,
-                "off_delay_ms", 40,
+                "off_delay_ms", 1000,
                 "on_reengage_delay_ms", 5000,
-                "idle_edge", "falling",
-                "trigger_edge", "rising",
-                "idle_on", true
+                "idle_on", true,
+                "off_on_first_frame", true
         ));
         root.put("light_servers", ls);
 
@@ -36,69 +59,9 @@ class IntervalFlashControllerTest {
         assertTrue(cfg.enabled());
         assertEquals(2, cfg.idlePort());
         assertEquals(3, cfg.triggerPort());
-        assertEquals(40, cfg.offDelayMs());
-        assertEquals(5000, cfg.onReengageDelayMs());
-        assertEquals(TriggerEdgeMode.FALLING, cfg.idleEdge());
-        assertEquals(TriggerEdgeMode.RISING, cfg.triggerEdge());
+        assertEquals(1000, cfg.offDelayMs());
         assertTrue(cfg.idleOnEnabled());
         assertTrue(cfg.offOnFirstFrame());
-    }
-
-    @Test
-    void idleOnDefaultsToFalse() {
-        Map<String, Object> root = new LinkedHashMap<>();
-        Map<String, Object> ls = new LinkedHashMap<>();
-        ls.put("interval_flash", Map.of("enabled", true));
-        root.put("light_servers", ls);
-
-        IntervalFlashConfig cfg = IntervalFlashConfig.fromRootYaml(root);
-
-        assertFalse(cfg.idleOnEnabled());
-        assertEquals(TriggerEdgeMode.FALLING, cfg.idleEdge());
-        assertEquals(1000, cfg.offDelayMs());
-        assertEquals(5000, cfg.onReengageDelayMs());
-        assertTrue(cfg.offOnFirstFrame());
-    }
-
-    @Test
-    void parsesOffOnFirstFrame() {
-        Map<String, Object> root = new LinkedHashMap<>();
-        Map<String, Object> ls = new LinkedHashMap<>();
-        ls.put("interval_flash", Map.of(
-                "enabled", true,
-                "off_on_first_frame", true,
-                "off_delay_ms", 1000
-        ));
-        root.put("light_servers", ls);
-
-        IntervalFlashConfig cfg = IntervalFlashConfig.fromRootYaml(root);
-
-        assertTrue(cfg.offOnFirstFrame());
-        assertEquals(1000, cfg.offDelayMs());
-    }
-
-    @Test
-    void parsesLegacyOnOffKeys() {
-        Map<String, Object> root = new LinkedHashMap<>();
-        Map<String, Object> ls = new LinkedHashMap<>();
-        ls.put("interval_flash", Map.of(
-                "enabled", true,
-                "on_port", 2,
-                "off_port", 3,
-                "on_edge", "rising",
-                "off_edge", "rising",
-                "off_delay_ms", 300
-        ));
-        root.put("light_servers", ls);
-
-        IntervalFlashConfig cfg = IntervalFlashConfig.fromRootYaml(root);
-
-        assertEquals(2, cfg.idlePort());
-        assertEquals(3, cfg.triggerPort());
-        assertEquals(TriggerEdgeMode.RISING, cfg.idleEdge());
-        assertEquals(TriggerEdgeMode.RISING, cfg.triggerEdge());
-        assertEquals(300, cfg.offDelayMs());
-        assertFalse(cfg.idleOnEnabled());
     }
 
     @Test
@@ -109,7 +72,7 @@ class IntervalFlashControllerTest {
     }
 
     @Test
-    void idleThenDi3OnWithDelayedOff() throws Exception {
+    void di2RisingTurnsOnFallingTurnsOff() throws Exception {
         AtomicInteger onCount = new AtomicInteger();
         AtomicInteger offCount = new AtomicInteger();
         IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
@@ -124,41 +87,126 @@ class IntervalFlashControllerTest {
                 offCount.incrementAndGet();
             }
         };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, true, false
-        );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
                 lights,
-                cfg
+                di2PulseConfig()
+        )) {
+            controller.onDiChange(new IoInputDiChange(2, false));
+            controller.awaitLightTasks(500);
+            assertEquals(0, onCount.get());
+            assertEquals(1, offCount.get(), "initial low → Off");
+
+            controller.onDiChange(new IoInputDiChange(2, true));
+            controller.awaitLightTasks(500);
+            assertEquals(1, onCount.get());
+            assertTrue(controller.lightsOn());
+            assertTrue(controller.captureLightingActive());
+
+            controller.onDiChange(new IoInputDiChange(2, false));
+            controller.awaitLightTasks(500);
+            assertEquals(2, offCount.get());
+            assertFalse(controller.lightsOn());
+            assertFalse(controller.captureLightingActive());
+        }
+    }
+
+    @Test
+    void di2AlreadyHighOnFirstSampleTurnsOn() throws Exception {
+        AtomicInteger onCount = new AtomicInteger();
+        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
+            @Override
+            public boolean lightAllOn(String phase) {
+                onCount.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public void forceAllOff() {
+            }
+        };
+        try (IntervalFlashController controller = new IntervalFlashController(
+                LogManager.getLogger(IntervalFlashControllerTest.class),
+                lights,
+                di2PulseConfig()
         )) {
             controller.onDiChange(new IoInputDiChange(2, true));
+            controller.awaitLightTasks(500);
+            assertEquals(1, onCount.get());
+            assertTrue(controller.lightsOn());
+        }
+    }
+
+    @Test
+    void di3Ignored() throws Exception {
+        AtomicInteger onCount = new AtomicInteger();
+        AtomicInteger offCount = new AtomicInteger();
+        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
+            @Override
+            public boolean lightAllOn(String phase) {
+                onCount.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public void forceAllOff() {
+                offCount.incrementAndGet();
+            }
+        };
+        try (IntervalFlashController controller = new IntervalFlashController(
+                LogManager.getLogger(IntervalFlashControllerTest.class),
+                lights,
+                di2PulseConfig()
+        )) {
+            controller.onDiChange(new IoInputDiChange(3, true));
             controller.onDiChange(new IoInputDiChange(3, false));
             controller.awaitLightTasks(500);
             assertEquals(0, onCount.get());
             assertEquals(0, offCount.get());
+        }
+    }
 
+    @Test
+    void consecutiveDi2PulsesToggleEachTime() throws Exception {
+        AtomicInteger onCount = new AtomicInteger();
+        AtomicInteger offCount = new AtomicInteger();
+        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
+            @Override
+            public boolean lightAllOn(String phase) {
+                onCount.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public void forceAllOff() {
+                offCount.incrementAndGet();
+            }
+        };
+        try (IntervalFlashController controller = new IntervalFlashController(
+                LogManager.getLogger(IntervalFlashControllerTest.class),
+                lights,
+                di2PulseConfig()
+        )) {
             controller.onDiChange(new IoInputDiChange(2, false));
             controller.awaitLightTasks(500);
-            assertEquals(1, onCount.get());
-            assertTrue(controller.lightsOn());
 
-            controller.onDiChange(new IoInputDiChange(3, true));
+            controller.onDiChange(new IoInputDiChange(2, true));
+            controller.onDiChange(new IoInputDiChange(2, false));
+            controller.onDiChange(new IoInputDiChange(2, true));
+            controller.onDiChange(new IoInputDiChange(2, false));
             controller.awaitLightTasks(500);
+
             assertEquals(2, onCount.get());
-            assertEquals(1, offCount.get());
-            assertFalse(controller.lightsOn());
+            assertEquals(3, offCount.get(), "init Off + 2 pulse ends");
         }
     }
 
     @Test
-    void di3AloneTurnsOnEvenWithoutIdle() throws Exception {
-        AtomicInteger onCount = new AtomicInteger();
+    void firstFrameDoesNotExtinguish() throws Exception {
         AtomicInteger offCount = new AtomicInteger();
         IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
             @Override
             public boolean lightAllOn(String phase) {
-                onCount.incrementAndGet();
                 return true;
             }
 
@@ -167,60 +215,19 @@ class IntervalFlashControllerTest {
                 offCount.incrementAndGet();
             }
         };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, false, false
-        );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
                 lights,
-                cfg
+                di2PulseConfig()
         )) {
             controller.onDiChange(new IoInputDiChange(2, true));
-            controller.onDiChange(new IoInputDiChange(3, false));
             controller.awaitLightTasks(500);
+            int offBefore = offCount.get();
 
-            controller.onDiChange(new IoInputDiChange(3, true));
+            controller.onFirstFrameCaptured(0);
             controller.awaitLightTasks(500);
-            assertEquals(1, onCount.get());
-            assertEquals(1, offCount.get());
-        }
-    }
-
-    @Test
-    void idleDoesNotCancelPendingOff() throws Exception {
-        AtomicInteger onCount = new AtomicInteger();
-        AtomicInteger offCount = new AtomicInteger();
-        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
-            @Override
-            public boolean lightAllOn(String phase) {
-                onCount.incrementAndGet();
-                return true;
-            }
-
-            @Override
-            public void forceAllOff() {
-                offCount.incrementAndGet();
-            }
-        };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 80, 0, true, true, false
-        );
-        try (IntervalFlashController controller = new IntervalFlashController(
-                LogManager.getLogger(IntervalFlashControllerTest.class),
-                lights,
-                cfg
-        )) {
-            controller.onDiChange(new IoInputDiChange(2, true));
-            controller.onDiChange(new IoInputDiChange(3, false));
-            controller.awaitLightTasks(500);
-
-            controller.onDiChange(new IoInputDiChange(3, true));
-            controller.onDiChange(new IoInputDiChange(2, false));
-            Thread.sleep(150);
-            controller.awaitLightTasks(500);
-
-            assertTrue(offCount.get() >= 1, "Off must run even if DI2 idle arrives early");
-            assertTrue(onCount.get() >= 2, "DI3 On + idle On after Off");
+            assertEquals(offBefore, offCount.get());
+            assertTrue(controller.lightsOn());
         }
     }
 
@@ -240,13 +247,10 @@ class IntervalFlashControllerTest {
                 offCount.incrementAndGet();
             }
         };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, false, false
-        );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
                 lights,
-                cfg
+                di2PulseConfig()
         )) {
             controller.onBrightnessUpdated();
             controller.awaitLightTasks(500);
@@ -256,152 +260,31 @@ class IntervalFlashControllerTest {
     }
 
     @Test
-    void brightnessDuringCaptureDoesNotExtinguishUntilOff() throws Exception {
-        AtomicInteger onCount = new AtomicInteger();
-        AtomicInteger offCount = new AtomicInteger();
+    void flushAfterDi2Falling() throws Exception {
         AtomicInteger flushCount = new AtomicInteger();
         IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
             @Override
             public boolean lightAllOn(String phase) {
-                onCount.incrementAndGet();
                 return true;
             }
 
             @Override
             public void forceAllOff() {
-                offCount.incrementAndGet();
             }
         };
-        // off_delay large: Off only via first frame; idle_on off
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 5_000, 0, true, false, true
-        );
         try (IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
                 lights,
-                cfg
+                di2PulseConfig()
         )) {
             controller.setFlushDeferredBrightness(flushCount::incrementAndGet);
-
-            controller.onDiChange(new IoInputDiChange(3, false));
-            controller.awaitLightTasks(500);
-            controller.onDiChange(new IoInputDiChange(3, true));
-            controller.awaitLightTasks(500);
-            assertTrue(controller.captureLightingActive());
-            assertEquals(1, onCount.get());
-            int offBeforeBrightness = offCount.get();
-
-            controller.onBrightnessUpdated();
-            controller.awaitLightTasks(500);
-            assertEquals(offBeforeBrightness, offCount.get(), "brightness must not Off during capture");
-            assertEquals(1, onCount.get(), "brightness must not On during capture");
-            assertTrue(controller.lightsOn());
-
-            controller.onFirstFrameCaptured(0);
-            controller.awaitLightTasks(500);
-            assertFalse(controller.captureLightingActive());
-            assertEquals(1, flushCount.get(), "flush after capture Off");
-            assertTrue(offCount.get() > offBeforeBrightness);
-        }
-    }
-
-    @Test
-    void idleOnDisabledIgnoresDi2() throws Exception {
-        AtomicInteger onCount = new AtomicInteger();
-        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
-            @Override
-            public boolean lightAllOn(String phase) {
-                onCount.incrementAndGet();
-                return true;
-            }
-
-            @Override
-            public void forceAllOff() {
-            }
-        };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, false, false
-        );
-        try (IntervalFlashController controller = new IntervalFlashController(
-                LogManager.getLogger(IntervalFlashControllerTest.class),
-                lights,
-                cfg
-        )) {
-            controller.onDiChange(new IoInputDiChange(2, false));
-            controller.awaitLightTasks(500);
-            assertEquals(0, onCount.get());
-        }
-    }
-
-    @Test
-    void alreadyIdleOnFirstSampleTurnsOn() throws Exception {
-        AtomicInteger onCount = new AtomicInteger();
-        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
-            @Override
-            public boolean lightAllOn(String phase) {
-                onCount.incrementAndGet();
-                return true;
-            }
-
-            @Override
-            public void forceAllOff() {
-            }
-        };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, true, false
-        );
-        try (IntervalFlashController controller = new IntervalFlashController(
-                LogManager.getLogger(IntervalFlashControllerTest.class),
-                lights,
-                cfg
-        )) {
-            controller.onDiChange(new IoInputDiChange(2, false));
-            controller.awaitLightTasks(500);
-            assertEquals(1, onCount.get());
-        }
-    }
-
-    @Test
-    void di3OffThenAutoReengageAfterDelay() throws Exception {
-        AtomicInteger onCount = new AtomicInteger();
-        AtomicInteger offCount = new AtomicInteger();
-        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
-            @Override
-            public boolean lightAllOn(String phase) {
-                onCount.incrementAndGet();
-                return true;
-            }
-
-            @Override
-            public void forceAllOff() {
-                offCount.incrementAndGet();
-            }
-        };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 80, true, false, false
-        );
-        try (IntervalFlashController controller = new IntervalFlashController(
-                LogManager.getLogger(IntervalFlashControllerTest.class),
-                lights,
-                cfg
-        )) {
             controller.onDiChange(new IoInputDiChange(2, true));
-            controller.onDiChange(new IoInputDiChange(3, false));
             controller.awaitLightTasks(500);
+            assertEquals(0, flushCount.get());
 
-            controller.onDiChange(new IoInputDiChange(3, true));
+            controller.onDiChange(new IoInputDiChange(2, false));
             controller.awaitLightTasks(500);
-            assertEquals(1, onCount.get());
-            assertEquals(1, offCount.get());
-            assertFalse(controller.lightsOn());
-
-            Thread.sleep(50);
-            assertEquals(1, onCount.get());
-
-            Thread.sleep(50);
-            controller.awaitLightTasks(500);
-            assertEquals(2, onCount.get());
-            assertTrue(controller.lightsOn());
+            assertEquals(1, flushCount.get());
         }
     }
 
@@ -419,107 +302,17 @@ class IntervalFlashControllerTest {
                 offCount.incrementAndGet();
             }
         };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 0, 0, true, true, false
-        );
         IntervalFlashController controller = new IntervalFlashController(
                 LogManager.getLogger(IntervalFlashControllerTest.class),
                 lights,
-                cfg
+                di2PulseConfig()
         );
-        controller.onDiChange(new IoInputDiChange(2, false));
+        controller.onDiChange(new IoInputDiChange(2, true));
         controller.awaitLightTasks(500);
         assertTrue(controller.lightsOn());
 
         controller.close();
         assertEquals(1, offCount.get());
         assertFalse(controller.lightsOn());
-    }
-
-    @Test
-    void firstFrameExtinguishesBeforeTimeout() throws Exception {
-        AtomicInteger onCount = new AtomicInteger();
-        AtomicInteger offCount = new AtomicInteger();
-        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
-            @Override
-            public boolean lightAllOn(String phase) {
-                onCount.incrementAndGet();
-                return true;
-            }
-
-            @Override
-            public void forceAllOff() {
-                offCount.incrementAndGet();
-            }
-        };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 500, 0, true, false, true
-        );
-        try (IntervalFlashController controller = new IntervalFlashController(
-                LogManager.getLogger(IntervalFlashControllerTest.class),
-                lights,
-                cfg
-        )) {
-            controller.onDiChange(new IoInputDiChange(3, false));
-            controller.awaitLightTasks(500);
-
-            controller.onDiChange(new IoInputDiChange(3, true));
-            controller.awaitLightTasks(500);
-            assertEquals(1, onCount.get());
-            assertEquals(0, offCount.get());
-            assertTrue(controller.lightsOn());
-
-            controller.onFirstFrameCaptured(0);
-            controller.awaitLightTasks(500);
-            assertEquals(1, offCount.get());
-            assertFalse(controller.lightsOn());
-
-            controller.onFirstFrameCaptured(1);
-            controller.awaitLightTasks(500);
-            assertEquals(1, offCount.get(), "second first-frame is no-op");
-
-            Thread.sleep(200);
-            controller.awaitLightTasks(500);
-            assertEquals(1, offCount.get(), "cancelled timeout must not Off again");
-        }
-    }
-
-    @Test
-    void firstFrameIgnoredWhenFlagDisabled() throws Exception {
-        AtomicInteger offCount = new AtomicInteger();
-        IntervalFlashController.Lights lights = new IntervalFlashController.Lights() {
-            @Override
-            public boolean lightAllOn(String phase) {
-                return true;
-            }
-
-            @Override
-            public void forceAllOff() {
-                offCount.incrementAndGet();
-            }
-        };
-        IntervalFlashConfig cfg = new IntervalFlashConfig(
-                true, 2, 3, TriggerEdgeMode.FALLING, TriggerEdgeMode.RISING, 80, 0, true, false, false
-        );
-        try (IntervalFlashController controller = new IntervalFlashController(
-                LogManager.getLogger(IntervalFlashControllerTest.class),
-                lights,
-                cfg
-        )) {
-            controller.onDiChange(new IoInputDiChange(3, false));
-            controller.awaitLightTasks(500);
-
-            controller.onDiChange(new IoInputDiChange(3, true));
-            controller.awaitLightTasks(500);
-            assertEquals(0, offCount.get());
-
-            controller.onFirstFrameCaptured(0);
-            controller.awaitLightTasks(500);
-            assertEquals(0, offCount.get());
-
-            Thread.sleep(100);
-            controller.awaitLightTasks(500);
-            assertEquals(1, offCount.get());
-        }
     }
 }

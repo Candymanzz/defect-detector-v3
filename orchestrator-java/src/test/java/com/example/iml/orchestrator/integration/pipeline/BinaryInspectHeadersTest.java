@@ -70,10 +70,11 @@ class BinaryInspectHeadersTest {
         assertEquals("visibility", otherHeader.get("jointMode"));
         assertNotNull(otherHeader.get("wrinklesRoi"));
         assertEquals(otherHeader.get("mainRoi"), otherHeader.get("wrinklesRoi"));
-        assertEquals(0.3, jointHeader.get("maxJointDefectMm"));
-        assertEquals(0.5, jointHeader.get("jointMinWidthMm"));
+        assertEquals(0.5, jointHeader.get("maxJointDefectMm"));
+        assertEquals(0.25, jointHeader.get("jointMinWidthMm"));
         assertEquals(3.0, jointHeader.get("jointMaxWidthMm"));
-        assertEquals(3.0, jointHeader.get("maxJointParallelismDeg"));
+        assertEquals(5.0, jointHeader.get("maxJointParallelismDeg"));
+        assertEquals(0.8, jointHeader.get("maxJointTaperMm"));
     }
 
     @Test

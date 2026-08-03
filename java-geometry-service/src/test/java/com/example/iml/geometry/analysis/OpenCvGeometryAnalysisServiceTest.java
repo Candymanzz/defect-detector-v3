@@ -67,6 +67,7 @@ class OpenCvGeometryAnalysisServiceTest {
                 polygon,
                 null,
                 null,
+                null,
                 0.01,
                 0.5,
                 1.0,
@@ -76,7 +77,9 @@ class OpenCvGeometryAnalysisServiceTest {
                 "full",
                 0.5,
                 3.0,
-                3.0
+                8.0,
+                0.6,
+                false
         );
     }
 

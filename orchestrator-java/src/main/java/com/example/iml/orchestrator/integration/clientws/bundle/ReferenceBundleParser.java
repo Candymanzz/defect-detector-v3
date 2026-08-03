@@ -121,6 +121,7 @@ public final class ReferenceBundleParser {
         boolean expectJoint = index == jointViewIndex;
         JsonNode jointNode = viewNode.get("joint_roi");
         PixelRoi joint = null;
+        List<FpZoneNorm.PointNorm> jointPolygon = List.of();
         if (jointNode != null && !jointNode.isNull()) {
             if (!expectJoint) {
                 throw new BundleParseException("invalid_joint_roi", "joint_roi only allowed on views[" + jointViewIndex + "]");
@@ -130,7 +131,22 @@ public final class ReferenceBundleParser {
                 throw new BundleParseException("invalid_joint_roi", ctx + ".joint_roi invalid or out of frame");
             }
         }
-        return new ReferenceViewSlot(frame, interest, joint, List.copyOf(interestPolygon));
+        if (expectJoint) {
+            JsonNode jointPolyNode = viewNode.get("joint_roi_polygon_norm");
+            if (jointPolyNode != null && !jointPolyNode.isNull()) {
+                jointPolygon = parseNormPolygonPoints(
+                        jointPolyNode,
+                        ctx + ".joint_roi_polygon_norm",
+                        false
+                );
+            }
+        } else if (viewNode.has("joint_roi_polygon_norm") && !viewNode.get("joint_roi_polygon_norm").isNull()) {
+            throw new BundleParseException(
+                    "invalid_joint_roi",
+                    "joint_roi_polygon_norm only allowed on views[" + jointViewIndex + "]"
+            );
+        }
+        return new ReferenceViewSlot(frame, interest, joint, List.copyOf(interestPolygon), List.copyOf(jointPolygon));
     }
 
     private static ShmFrameRefData parseFrame(JsonNode n, String ctx, Set<Integer> allowedCameraIds) throws BundleParseException {

@@ -262,13 +262,14 @@ public sealed class ComLightIsolatedBank : IDisposable
     }
 
     /// <summary>
-    /// Яркость + On на уже открытом COM из банка (для /camera-flash/single|pair).
+    /// Яркость на уже открытом COM из банка (для /camera-flash/single|pair).
+    /// По умолчанию без On — иначе свет остаётся гореть вне bank/DI цикла.
     /// </summary>
     public (bool ok, string? error) ApplyChannelBrightness(
         string comPort,
         int[] updateChannels,
         int[] powers,
-        bool turnOn = true)
+        bool turnOn = false)
     {
         string com = MvsComPortEnumerator.NormalizeComPort(comPort);
         if (!_initialized)

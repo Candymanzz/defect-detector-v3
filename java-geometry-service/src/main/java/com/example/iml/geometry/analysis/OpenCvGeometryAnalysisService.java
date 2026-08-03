@@ -215,6 +215,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     joint.defectMm,
                     joint.parallelismDeg,
                     joint.widthMm,
+                    joint.widthTopMm,
+                    joint.widthBottomMm,
+                    joint.taperMm,
                     joint.visibility,
                     wrinkles.score,
                     alignmentPass,
@@ -719,22 +722,35 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
 
         Rect roi = toSafeRect(jointRoi, current.cols(), current.rows());
         Mat jointMat = new Mat(current, roi);
+        Mat jointMask = null;
         try {
+            List<NormPoint> jointPoly = request.jointRoiPolygonNorm();
+            if (jointPoly != null && jointPoly.size() >= 3) {
+                jointMask = RoiPolygonMask.maskForRect(jointPoly, roi, current.cols(), current.rows());
+            }
+            double expectedAxisDeg = LabelSeamAnalyzer.estimateAxisDegFromPolygon(
+                    jointPoly, roi, current.cols(), current.rows());
             LabelSeamAnalyzer.Result seam = LabelSeamAnalyzer.analyze(
                     jointMat,
+                    jointMask,
                     request.pixelsToMm(),
                     request.jointMinWidthMm(),
-                    request.jointMaxWidthMm()
+                    request.jointMaxWidthMm(),
+                    expectedAxisDeg,
+                    request.jointSeamSegmentationEnabled()
             );
             return new JointResult(
                     seam.found(),
                     seam.defectMm(),
                     seam.parallelismDeg(),
                     seam.widthMm(),
+                    seam.widthTopMm(),
+                    seam.widthBottomMm(),
+                    seam.taperMm(),
                     seam.visibility()
             );
         } finally {
-            release(jointMat);
+            release(jointMat, jointMask);
         }
     }
 
@@ -756,16 +772,19 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             // Inconclusive when the ROI has no clear seam signal (vis≈0 in production FPs).
             return joint.visibility < JOINT_INCONCLUSIVE_VISIBILITY;
         }
-        double measurementFloorMm = Math.max(0.02, request.jointMinWidthMm() * 0.5);
-        if (joint.widthMm < measurementFloorMm) {
-            // Micro-width is an invalid measure (double-edge), not a real defect.
-            return joint.visibility < JOINT_INCONCLUSIVE_VISIBILITY;
+        // Canny double-edge (~2–4 px ≈ 0.04–0.08 mm @ 0.02 mm/px) often has vis≈1.0 —
+        // still not a real seam gap; treat as inconclusive PASS regardless of visibility.
+        double noiseFloorMm = Math.max(0.10, request.jointMinWidthMm() * 0.4);
+        if (joint.widthMm < noiseFloorMm) {
+            return true;
         }
+        // Width below min / above max is a real defect (including visibly narrow seam).
         boolean parallelismOk = joint.parallelismDeg <= request.maxJointParallelismDeg();
         boolean widthOk = joint.widthMm >= request.jointMinWidthMm()
                 && joint.widthMm <= request.jointMaxWidthMm();
         boolean defectOk = joint.defectMm <= request.maxJointDefectMm();
-        return parallelismOk && widthOk && defectOk;
+        boolean taperOk = joint.taperMm <= request.maxJointTaperMm();
+        return parallelismOk && widthOk && defectOk && taperOk;
     }
 
     /** Package-visible for unit tests of joint gating. */
@@ -776,11 +795,13 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             double defectMm,
             double parallelismDeg,
             double widthMm,
+            double taperMm,
             double visibility,
             double maxJointDefectMm,
             double jointMinWidthMm,
             double jointMaxWidthMm,
-            double maxJointParallelismDeg
+            double maxJointParallelismDeg,
+            double maxJointTaperMm
     ) {
         if (!hasJointRoi) {
             return true;
@@ -788,13 +809,23 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         if (visibilityOnly) {
             return true;
         }
-        JointResult joint = new JointResult(found, defectMm, parallelismDeg, widthMm, visibility);
+        JointResult joint = new JointResult(
+                found,
+                defectMm,
+                parallelismDeg,
+                widthMm,
+                widthMm,
+                widthMm,
+                taperMm,
+                visibility
+        );
         InspectionRequest request = new InspectionRequest(
                 "",
                 "",
                 null,
                 null,
                 hasJointRoi ? new RoiRect(0, 0, 1, 1) : null,
+                null,
                 null,
                 0.02,
                 0.5,
@@ -805,7 +836,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 visibilityOnly ? "visibility" : "full",
                 jointMinWidthMm,
                 jointMaxWidthMm,
-                maxJointParallelismDeg
+                maxJointParallelismDeg,
+                maxJointTaperMm,
+                false
         );
         return evaluateJointPass(request, joint);
     }
@@ -890,7 +923,11 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
 
         if (request.jointRoi() != null) {
             Rect r = toSafeRect(request.jointRoi(), debugFrame.cols(), debugFrame.rows());
-            Imgproc.rectangle(debugFrame, r, new Scalar(0, 165, 255), 2);
+            if (request.jointRoiPolygonNorm() != null && request.jointRoiPolygonNorm().size() >= 3) {
+                drawPolygonOutline(debugFrame, request.jointRoiPolygonNorm(), debugFrame.cols(), debugFrame.rows());
+            } else {
+                Imgproc.rectangle(debugFrame, r, new Scalar(0, 165, 255), 2);
+            }
         }
 
         if (request.wrinklesRoi() != null) {
@@ -1017,10 +1054,13 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             double defectMm,
             double parallelismDeg,
             double widthMm,
+            double widthTopMm,
+            double widthBottomMm,
+            double taperMm,
             double visibility
     ) {
         static JointResult skipped() {
-            return new JointResult(true, 0.0, 0.0, 0.0, 0.0);
+            return new JointResult(true, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         }
     }
 

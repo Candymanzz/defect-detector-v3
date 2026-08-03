@@ -106,7 +106,7 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
-    void lowSiblingVisibilityForcesStrictSeamReject() {
+    void jointPassIgnoresLowSiblingVisibilityStrictGate() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),
@@ -121,17 +121,52 @@ class BucketInspectionAggregatorTest {
         AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
         BucketFanOutSink fanOut = fanOutSink(published);
 
-        // Joint camera passes normal thresholds but fails strict (parallelism 2.0 > 1.5).
+        // Joint прошёл обычные пороги (jointPass=true) — sibling strict не валит ведро,
+        // даже если parallelism выше strict-лимита и sibling_vis низкая.
         aggregator.recordFrameResult(
                 30L,
                 0,
-                seamDecision(0, 400L, true, true, 2.0, 1.2, 0.9),
+                seamDecision(0, 400L, true, true, true, 2.0, 1.2, 0.9),
                 fanOut
         );
         aggregator.recordFrameResult(
                 30L,
                 1,
-                seamDecision(1, 401L, true, false, 0.0, 0.0, 0.05),
+                seamDecision(1, 401L, true, false, true, 0.0, 0.0, 0.05),
+                fanOut
+        );
+
+        BucketFanOutResult result = published.get();
+        assertTrue(result.overallPass());
+    }
+
+    @Test
+    void jointFailPlusLowSiblingVisibilityAppliesStrictAsExtraReject() {
+        JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0, 1))),
+                        1000L,
+                        1000L
+                ),
+                policy
+        );
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = fanOutSink(published);
+
+        // overallPass=true, но jointPass=false — доп. sibling-strict добивает ведро.
+        aggregator.recordFrameResult(
+                32L,
+                0,
+                seamDecision(0, 600L, true, true, false, 2.0, 0.3, 0.9),
+                fanOut
+        );
+        aggregator.recordFrameResult(
+                32L,
+                1,
+                seamDecision(1, 601L, true, false, true, 0.0, 0.0, 0.05),
                 fanOut
         );
 
@@ -158,13 +193,13 @@ class BucketInspectionAggregatorTest {
         aggregator.recordFrameResult(
                 31L,
                 0,
-                seamDecision(0, 500L, true, true, 2.0, 1.2, 0.9),
+                seamDecision(0, 500L, true, true, true, 2.0, 1.2, 0.9),
                 fanOut
         );
         aggregator.recordFrameResult(
                 31L,
                 1,
-                seamDecision(1, 501L, true, false, 0.0, 0.0, 0.8),
+                seamDecision(1, 501L, true, false, true, 0.0, 0.0, 0.8),
                 fanOut
         );
 
@@ -193,6 +228,7 @@ class BucketInspectionAggregatorTest {
             long frameId,
             boolean pass,
             boolean jointCamera,
+            boolean jointPass,
             double parallelismDeg,
             double widthMm,
             double visibility
@@ -209,7 +245,7 @@ class BucketInspectionAggregatorTest {
                 parallelismDeg,
                 widthMm,
                 visibility,
-                true
+                jointPass
         );
     }
 }

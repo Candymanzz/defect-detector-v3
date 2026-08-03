@@ -1,4 +1,5 @@
 import { orchestratorApi } from "./api";
+import { isValidJointRoiPolygon } from "../components/ReferenceSetup/referenceRoi";
 import type {
   ClientReferenceBundlePayload,
   FpZoneNorm,
@@ -269,7 +270,8 @@ function createArchivedReferenceGroup(
   images: Array<StoredReferenceImage & { cameraId: number }>,
 ): ArchivedReferenceGroup {
   const sortedImages = [...images].sort((left, right) => left.cameraId - right.cameraId);
-  const jointCameraId = sortedImages.find((image) => isValidPolygon(image.jointRoiPoints))?.cameraId ?? sortedImages[0].cameraId;
+  const jointCameraId =
+    sortedImages.find((image) => isValidJointRoiPolygon(image.jointRoiPoints))?.cameraId ?? sortedImages[0].cameraId;
   const jointViewIndex = Math.max(0, sortedImages.findIndex((image) => image.cameraId === jointCameraId));
   const jointFrame = sortedImages[jointViewIndex]?.frame ?? sortedImages[0].frame;
   const bundle: ClientReferenceBundlePayload = {
@@ -282,9 +284,12 @@ function createArchivedReferenceGroup(
       interest_roi: createPixelRoiFromPolygon(image.roiPoints, image.frame.width, image.frame.height),
       interest_polygon_norm: copyRoiPoints(image.roiPoints),
       joint_roi:
-        viewIndex === jointViewIndex && isValidPolygon(image.jointRoiPoints)
+        viewIndex === jointViewIndex && isValidJointRoiPolygon(image.jointRoiPoints)
           ? createPixelRoiFromPolygon(image.jointRoiPoints ?? [], image.frame.width, image.frame.height)
           : null,
+      ...(viewIndex === jointViewIndex && isValidJointRoiPolygon(image.jointRoiPoints)
+        ? { joint_roi_polygon_norm: copyRoiPoints(image.jointRoiPoints ?? []) }
+        : {}),
     })),
     fp_zones: sortedImages.flatMap((image) => copyFpZonesForCamera(image.fpZones ?? [], image.cameraId)),
   };
@@ -313,6 +318,9 @@ function copyArchivedReferenceGroup(archive: ArchivedReferenceGroup): ArchivedRe
         interest_roi: { ...view.interest_roi },
         interest_polygon_norm: copyRoiPoints(view.interest_polygon_norm),
         joint_roi: view.joint_roi ? { ...view.joint_roi } : view.joint_roi,
+        ...(view.joint_roi_polygon_norm && view.joint_roi_polygon_norm.length >= 3
+          ? { joint_roi_polygon_norm: copyRoiPoints(view.joint_roi_polygon_norm) }
+          : {}),
       })),
       fp_zones: copyFpZones(archive.bundle.fp_zones),
     },
@@ -356,10 +364,6 @@ function createPixelRoiFromPolygon(points: InterestPointNorm[], frameWidth: numb
     width: Math.max(1, Math.round((right - left) * frameWidth)),
     height: Math.max(1, Math.round((bottom - top) * frameHeight)),
   };
-}
-
-function isValidPolygon(points: InterestPointNorm[] | undefined) {
-  return Boolean(points && points.length >= 3);
 }
 
 function isDuplicateArchive(archive: ArchivedReferenceGroup) {

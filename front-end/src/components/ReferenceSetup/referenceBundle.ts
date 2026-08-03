@@ -6,7 +6,7 @@ import type {
   PreviewFramePayload,
   ReferenceViewSlot,
 } from "../../shared/ws";
-import { createRoiFromPolygon, isValidRoiPolygon } from "./referenceRoi";
+import { createRoiFromPolygon, isValidJointRoiPolygon, isValidRoiPolygon } from "./referenceRoi";
 
 export function createReferenceBundleFromCameraFrames(
   cameraIds: number[],
@@ -41,6 +41,12 @@ export function createReferenceBundleFromCameraFrames(
         `FP zone "${zone.note || zone.id || "unnamed"}" requires at least 3 points`,
       );
     }
+  }
+
+  if (!isValidJointRoiPolygon(jointRoiPolygon)) {
+    throw new Error(
+      "Joint ROI должен быть ориентированным прямоугольником: протяните ось вдоль шва и задайте ширину",
+    );
   }
 
   const frames = cameraIds.map((cameraId) => {
@@ -111,11 +117,13 @@ function createReferenceViewForFrame(
   const interestPolygonNorm = roiPolygon;
   const roi = createRoiFromPolygon(roiPolygon, previewFrame.current.width, previewFrame.current.height);
   const jointRoi =
-    viewIndex === jointViewIndex && isValidRoiPolygon(jointRoiPolygon)
+    viewIndex === jointViewIndex && isValidJointRoiPolygon(jointRoiPolygon)
       ? createRoiFromPolygon(jointRoiPolygon, previewFrame.current.width, previewFrame.current.height)
       : null;
+  const jointRoiPolygonNorm =
+    viewIndex === jointViewIndex && isValidJointRoiPolygon(jointRoiPolygon) ? jointRoiPolygon : null;
 
-  return createReferenceView(previewFrame, roi, interestPolygonNorm, jointRoi);
+  return createReferenceView(previewFrame, roi, interestPolygonNorm, jointRoi, jointRoiPolygonNorm);
 }
 
 function createReferenceView(
@@ -123,11 +131,15 @@ function createReferenceView(
   interestRoi: PixelRoi,
   interestPolygonNorm: InterestPointNorm[],
   jointRoi: PixelRoi | null,
+  jointRoiPolygonNorm: InterestPointNorm[] | null,
 ): ReferenceViewSlot {
   return {
     frame: previewFrame.current,
     interest_roi: interestRoi,
     interest_polygon_norm: interestPolygonNorm,
     joint_roi: jointRoi,
+    ...(jointRoiPolygonNorm && isValidJointRoiPolygon(jointRoiPolygonNorm)
+      ? { joint_roi_polygon_norm: jointRoiPolygonNorm }
+      : {}),
   };
 }

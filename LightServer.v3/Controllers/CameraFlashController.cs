@@ -214,9 +214,9 @@ public sealed class CameraFlashController : ControllerBase
             });
     }
 
-    /// <summary>COM через IsolatedBank (уже открытая сессия), без второго Open в ApplyComPort.</summary>
+    /// <summary>COM через IsolatedBank: только яркость в регистрах (без On), как Ethernet /pair.</summary>
     private (bool ok, string? error) ApplyComViaIsolatedBank(string comPort, int[] channels, int[] brightness) =>
-        _comBank.ApplyChannelBrightness(comPort, channels, brightness, turnOn: true);
+        _comBank.ApplyChannelBrightness(comPort, channels, brightness, turnOn: false);
 
     /// <summary>Загруженные camera_routes (для отладки, без перезапуска сервера).</summary>
     [HttpGet("routes")]

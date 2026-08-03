@@ -176,30 +176,28 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         boolean bucketPass = !anyReject;
         Map<Integer, InspectionDecision> snapshot = Map.copyOf(state.frameDecisions);
         boolean seamStrict = false;
-        if (bucketPass) {
-            SeamStrictGate seamGate = evaluateSeamStrictGate(snapshot);
-            seamStrict = seamGate.strictActive();
-            // TEMP: geometry stub (PASS_FORCED) — не валить ведро seam_gate по joint-метрикам.
-            boolean geometryForced = snapshot.values().stream()
-                    .anyMatch(d -> d != null && "PASS_FORCED".equals(d.geometryStatus()));
-            if (seamGate.forceReject() && !geometryForced) {
-                bucketPass = false;
-            }
-            if (log != null && (seamGate.jointDecision() != null || seamStrict)) {
-                log.info(
-                        "inspection bucket seam_gate seq={} group={} seam_strict={} sibling_vis={} "
-                                + "joint_cam={} par={} width={} strict_pass={} geometry_forced={}",
-                        state.triggerSequence,
-                        state.groupId,
-                        seamStrict,
-                        seamGate.siblingVisibility(),
-                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().cameraId(),
-                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointParallelismDeg(),
-                        seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointWidthMm(),
-                        !seamGate.forceReject(),
-                        geometryForced
-                );
-            }
+        SeamStrictGate seamGate = evaluateSeamStrictGate(snapshot);
+        seamStrict = seamGate.strictActive();
+        // Доп. проверка только когда joint уже брак: sibling-strict может добить ведро.
+        // Если jointPass=true — условие sibling_vis игнорируется (не forceReject).
+        if (bucketPass && seamGate.forceReject()) {
+            bucketPass = false;
+        }
+        if (log != null && (seamGate.jointDecision() != null || seamStrict)) {
+            log.info(
+                    "inspection bucket seam_gate seq={} group={} seam_strict={} sibling_vis={} "
+                            + "joint_cam={} joint_pass={} par={} width={} strict_pass={} force_reject={}",
+                    state.triggerSequence,
+                    state.groupId,
+                    seamStrict,
+                    seamGate.siblingVisibility(),
+                    seamGate.jointDecision() == null ? null : seamGate.jointDecision().cameraId(),
+                    seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointPass(),
+                    seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointParallelismDeg(),
+                    seamGate.jointDecision() == null ? null : seamGate.jointDecision().jointWidthMm(),
+                    seamGate.strictActive() && !seamGate.forceReject(),
+                    seamGate.forceReject()
+            );
         }
 
         log.info(
@@ -349,6 +347,11 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             return SeamStrictGate.inactive();
         }
         double siblingVisibility = siblingCount == 0 ? 1.0 : siblingSum / siblingCount;
+        // Шов на joint-камере прошёл обычные пороги — sibling strict не валит ведро.
+        if (joint.jointPass()) {
+            return new SeamStrictGate(false, false, siblingVisibility, joint);
+        }
+        // Шов дал брак — доп. проверка: при низкой видимости у соседей ужесточённые пороги.
         boolean strictActive = siblingVisibility < jointSeamPolicy.siblingMinVisibility();
         if (!strictActive) {
             return new SeamStrictGate(false, false, siblingVisibility, joint);

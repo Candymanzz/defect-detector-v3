@@ -24,7 +24,7 @@ public record JointSeamPolicy(
         return new JointSeamPolicy(
                 YamlScalars.toDouble(geometryCfg.get("joint_sibling_min_visibility"), 0.25),
                 YamlScalars.toDouble(geometryCfg.get("max_joint_parallelism_deg_strict"), 1.5),
-                YamlScalars.toDouble(geometryCfg.get("joint_min_width_mm_strict"), 0.8),
+                YamlScalars.toDouble(geometryCfg.get("joint_min_width_mm_strict"), 0.4),
                 YamlScalars.toDouble(geometryCfg.get("joint_max_width_mm_strict"), 2.5)
         );
     }

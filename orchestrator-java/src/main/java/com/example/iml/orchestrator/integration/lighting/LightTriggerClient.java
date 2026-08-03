@@ -165,9 +165,22 @@ public final class LightTriggerClient {
                 constantFlashMode = true;
                 constantLightingEngaged = true;
             } else {
-                postOffWithRetriesLocked();
+                // Гасим Ethernet+COM банком (не legacy COM-only Off).
+                try {
+                    postJson(flashBankUrl, Map.of("state", "off"), "interval-mode bank-Off");
+                } catch (RuntimeException e) {
+                    LOG.warn("interval-mode bank-Off failed: {}", e.getMessage());
+                    postOffWithRetriesLocked();
+                }
                 constantFlashMode = false;
-                constantLightingEngaged = false;
+                // Сразу зажечь снова для hold/interval idle — иначе capture идёт в темноте.
+                try {
+                    postJson(flashBankUrl, Map.of("state", "on"), "interval-mode re-engage bank-On");
+                    constantLightingEngaged = holdMode;
+                } catch (RuntimeException e) {
+                    constantLightingEngaged = false;
+                    LOG.warn("interval-mode re-engage bank-On failed: {}", e.getMessage());
+                }
             }
             LOG.info("light flash mode changed to {}", constant ? "constant" : "interval");
         }
@@ -459,6 +472,9 @@ public final class LightTriggerClient {
         synchronized (lightCommandLock) {
             try {
                 postJson(flashBankUrl, Map.of("state", "on"), "bank-On");
+                if (holdMode) {
+                    constantLightingEngaged = true;
+                }
                 return true;
             } catch (RuntimeException e) {
                 if (failOnError) {
@@ -481,6 +497,7 @@ public final class LightTriggerClient {
         synchronized (lightCommandLock) {
             try {
                 postJson(flashBankUrl, Map.of("state", "off"), "bank-Off");
+                constantLightingEngaged = false;
             } catch (RuntimeException e) {
                 if (failOnError) {
                     throw e;

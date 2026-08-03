@@ -112,7 +112,15 @@ class PipelineReferenceRegistryTest {
                             new FpZoneNorm.PointNorm(0.1, 0.1),
                             new FpZoneNorm.PointNorm(0.9, 0.1),
                             new FpZoneNorm.PointNorm(0.9, 0.9)
+                    ),
+                    isJointView
+                            ? List.of(
+                            new FpZoneNorm.PointNorm(0.2, 0.2),
+                            new FpZoneNorm.PointNorm(0.4, 0.2),
+                            new FpZoneNorm.PointNorm(0.4, 0.8),
+                            new FpZoneNorm.PointNorm(0.2, 0.8)
                     )
+                            : List.of()
             ));
         }
         return new ReferenceBundleSnapshot(
