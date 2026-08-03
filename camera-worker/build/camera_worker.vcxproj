@@ -86,7 +86,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -112,10 +112,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;HAVE_HIK_MVS=1;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -142,7 +142,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -169,10 +169,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;HAVE_HIK_MVS=1;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -199,7 +199,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -226,10 +226,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;HAVE_HIK_MVS=1;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -256,7 +256,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -282,10 +282,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;HAVE_HIK_MVS=1;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\visionGay\defect-detector-v3\camera-worker\deps;D:\visionGay\defect-detector-v3\camera-worker\include;C:\Program Files (x86)\MVS\Development\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -369,6 +369,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D:\visionGay\defect-detector-v3\camera-worker\src\main.c" />
+    <ClCompile Include="D:\visionGay\defect-detector-v3\camera-worker\src\cw_config.c" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
