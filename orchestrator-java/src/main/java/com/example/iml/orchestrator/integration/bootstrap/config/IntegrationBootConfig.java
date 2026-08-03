@@ -43,7 +43,7 @@ public record IntegrationBootConfig(
         int workerStartupStaggerMs = Math.max(0, YamlScalars.toInt(integration == null ? null : integration.get("worker_startup_stagger_ms"), 0));
         int captureTriggerStaggerMs = Math.max(0, YamlScalars.toInt(integration == null ? null : integration.get("capture_trigger_stagger_ms"), 0));
         int serviceCommandTimeoutMs = YamlScalars.toInt(integration == null ? null : integration.get("service_command_timeout_ms"), 7000);
-        int lightStartupDelayMs = YamlScalars.toInt(integration == null ? null : integration.get("light_server_startup_delay_ms"), 300);
+        int lightStartupDelayMs = YamlScalars.toInt(integration == null ? null : integration.get("light_server_startup_delay_ms"), 0);
         int cameraParallelism = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("camera_parallelism"), Math.min(5, cameraCount)));
         int geometryPoolSize = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("geometry_pool_size"), 2));
         boolean reloadReference = YamlScalars.toBool(integration == null ? null : integration.get("reload_reference"), false);

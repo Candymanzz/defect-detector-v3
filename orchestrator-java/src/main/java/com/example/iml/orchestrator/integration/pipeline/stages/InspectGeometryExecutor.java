@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -25,13 +26,14 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
     private final GeometrySnapshotCache geometrySnapshotCache;
     private final GeometryRuntimeConfig geometryRuntimeConfig;
     private final InspectPositioningExecutor positioningExecutor;
+    private final Set<Integer> geometryDisabledCameras;
 
     public InspectGeometryExecutor(Logger log) {
-        this(log, null, null, null);
+        this(log, null, null, null, Set.of());
     }
 
     public InspectGeometryExecutor(Logger log, GeometrySnapshotCache geometrySnapshotCache) {
-        this(log, geometrySnapshotCache, null, null);
+        this(log, geometrySnapshotCache, null, null, Set.of());
     }
 
     public InspectGeometryExecutor(
@@ -39,7 +41,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             GeometrySnapshotCache geometrySnapshotCache,
             GeometryRuntimeConfig geometryRuntimeConfig
     ) {
-        this(log, geometrySnapshotCache, geometryRuntimeConfig, null);
+        this(log, geometrySnapshotCache, geometryRuntimeConfig, null, Set.of());
     }
 
     public InspectGeometryExecutor(
@@ -48,10 +50,23 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             GeometryRuntimeConfig geometryRuntimeConfig,
             InspectPositioningExecutor positioningExecutor
     ) {
+        this(log, geometrySnapshotCache, geometryRuntimeConfig, positioningExecutor, Set.of());
+    }
+
+    public InspectGeometryExecutor(
+            Logger log,
+            GeometrySnapshotCache geometrySnapshotCache,
+            GeometryRuntimeConfig geometryRuntimeConfig,
+            InspectPositioningExecutor positioningExecutor,
+            Set<Integer> geometryDisabledCameras
+    ) {
         this.log = log;
         this.geometrySnapshotCache = geometrySnapshotCache;
         this.geometryRuntimeConfig = geometryRuntimeConfig;
         this.positioningExecutor = positioningExecutor;
+        this.geometryDisabledCameras = geometryDisabledCameras == null
+                ? Set.of()
+                : Set.copyOf(geometryDisabledCameras);
     }
 
     @Override
@@ -66,6 +81,10 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             Semaphore geometrySlots,
             AtomicInteger geometryRoundRobin
     ) {
+        if (geometryDisabledCameras.contains(cameraId)) {
+            log.info("integration cam={}: geometry skipped (geometry_enabled=false)", cameraId);
+            return withSkippedGeometryPass(state, cameraId, "geometry disabled for camera");
+        }
         if (positioningExecutor != null) {
             state = positioningExecutor.apply(state, cameraId, productType, activeReference, geometryCfg, pythonCfg);
         }
@@ -84,23 +103,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             return state;
         }
         if (activeReference == null || activeReference.header() == null) {
-            BinaryProtocol.Message geomSkipped = new BinaryProtocol.Message(
-                    BinaryProtocol.MSG_ERROR,
-                    Map.of(
-                            "status", "SKIPPED",
-                            "error", "geometry skipped: no reference snapshot",
-                            "camera_id", cameraId
-                    ),
-                    new byte[0]
-            );
-            return new PipelineState(
-                    state.capture(),
-                    state.py(),
-                    geomSkipped,
-                    state.captureMs(),
-                    state.pythonMs(),
-                    0L
-            );
+            return withSkippedGeometryPass(state, cameraId, "geometry skipped: no reference snapshot");
         }
         if (!hasValidCaptureFrame(state)) {
             BinaryProtocol.Message geomError = new BinaryProtocol.Message(
@@ -155,6 +158,31 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static PipelineState withSkippedGeometryPass(PipelineState state, int cameraId, String reason) {
+        Map<String, Object> header = new java.util.LinkedHashMap<>();
+        header.put("status", "SKIPPED");
+        header.put("overallPass", true);
+        header.put("alignmentPass", true);
+        header.put("jointPass", true);
+        header.put("wrinklesPass", true);
+        header.put("jointCamera", false);
+        header.put("camera_id", cameraId);
+        header.put("error", reason);
+        BinaryProtocol.Message geomSkipped = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                header,
+                new byte[0]
+        );
+        return new PipelineState(
+                state.capture(),
+                state.py(),
+                geomSkipped,
+                state.captureMs(),
+                state.pythonMs(),
+                0L
+        );
     }
 
     private static boolean hasValidCaptureFrame(PipelineState state) {

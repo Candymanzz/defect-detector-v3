@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,8 +56,38 @@ class InspectGeometryExecutorTest {
                 new AtomicInteger(0)
         );
 
-        assertEquals(BinaryProtocol.MSG_ERROR, result.geom().type());
+        assertEquals(BinaryProtocol.MSG_RESPONSE, result.geom().type());
         assertEquals("SKIPPED", result.geom().header().get("status"));
+        assertEquals(true, result.geom().header().get("overallPass"));
+    }
+
+    @Test
+    void skipsDisabledCameraWithoutCallingPool() {
+        AtomicInteger calls = new AtomicInteger();
+        InspectGeometryExecutor disabledExecutor = new InspectGeometryExecutor(
+                LogManager.getLogger(getClass()),
+                null,
+                null,
+                null,
+                Set.of(2, 7)
+        );
+
+        PipelineState result = disabledExecutor.apply(
+                stateWithCapture(),
+                2,
+                "bench",
+                reference(),
+                Map.of(),
+                Map.of(),
+                List.of(countingSupervisor(calls)),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(0, calls.get());
+        assertEquals("SKIPPED", result.geom().header().get("status"));
+        assertEquals(true, result.geom().header().get("overallPass"));
+        assertEquals(false, result.geom().header().get("jointCamera"));
     }
 
     @Test
@@ -206,6 +237,48 @@ class InspectGeometryExecutorTest {
             @Override
             public String supervisorLabel() {
                 return label;
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+    }
+
+    private static BinaryRpcSupervisor countingSupervisor(AtomicInteger calls) {
+        return new BinaryRpcSupervisor() {
+            @Override
+            public BinaryProtocol.Message command(Map<String, Object> header) {
+                calls.incrementAndGet();
+                return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, Map.of("overallPass", true), new byte[0]);
+            }
+
+            @Override
+            public BinaryProtocol.Message commandNoRetry(Map<String, Object> header) {
+                return command(header);
+            }
+
+            @Override
+            public BinaryProtocol.Message health() {
+                return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, Map.of(), new byte[0]);
+            }
+
+            @Override
+            public void start() {
+            }
+
+            @Override
+            public void restart() {
+            }
+
+            @Override
+            public int restartCount() {
+                return 0;
+            }
+
+            @Override
+            public String supervisorLabel() {
+                return "counting";
             }
 
             @Override

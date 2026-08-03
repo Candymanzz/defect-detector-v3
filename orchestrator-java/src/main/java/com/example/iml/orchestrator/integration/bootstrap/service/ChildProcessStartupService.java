@@ -16,6 +16,7 @@ import com.example.iml.orchestrator.integration.pipeline.stages.CaptureFrameDown
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
 import com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
+import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
@@ -26,9 +27,14 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Запуск дочерних процессов и пулов RPC/HTTP; сборка ранних collaborator'ов capture/API.
+ * Тяжёлые внешние сервисы стартуют параллельно.
  */
 public final class ChildProcessStartupService {
 
@@ -52,88 +58,126 @@ public final class ChildProcessStartupService {
         assembleCoreCollaborators(ctx);
 
         PythonDetectorConfig pythonDetectorCfg = PythonDetectorConfig.fromRootYaml(ctx.root());
-        AnalisSurfaceLauncher.PoolStartResult analisSurfacePool = analisSurfaceLauncher.startPoolIfConfigured(
-                ctx.integration(),
-                ctx.projectRoot(),
-                ctx.windows(),
-                pythonDetectorCfg.baseUrl(),
-                ctx.bootConfig().pythonServerPoolSize(),
-                ctx.bootConfig().workerStartupStaggerMs()
-        );
-        ctx.setAnalisSurfaceProcesses(analisSurfacePool.processes());
-
-        ctx.setPythonPool(poolFactory.createPythonHttpPool(
-                analisSurfacePool.baseUrls(),
-                ctx.bootConfig()
-        ));
-        if (ctx.pythonPool().isEmpty()) {
-            log.error(
-                    "analisSurface FastAPI pool is empty (urls={}). "
-                            + "Проверьте venv в analisSurface/backend, integration.analis_surface_autostart и python_detector.base_url.",
-                    analisSurfacePool.baseUrls()
-            );
-            for (ExternalServiceProcess process : ctx.analisSurfaceProcesses()) {
-                process.close();
-            }
-            return false;
-        }
-        log.info(
-                "python detector transport=http servers={} clients={} autostart={} urls={}",
-                analisSurfacePool.baseUrls().size(),
-                ctx.pythonPool().size(),
-                analisSurfacePool.autostartEnabled(),
-                analisSurfacePool.baseUrls()
-        );
-
         List<String> geometryCommand = ctx.bootConfig().geometryCommand();
-        ctx.setGeometryPool(poolFactory.createGeometryPool(
-                geometryCommand,
-                ctx.projectRoot(),
-                ctx.bootConfig()
-        ));
-
         List<String> positioningCommand = CameraWorkerPaths.pickIntegrationCommandList(
                 ctx.integration(), ctx.windows(), "positioning_command_windows", "positioning_command_linux");
-        ctx.setPositioningPool(poolFactory.createPositioningPool(
-                ctx.root(),
-                ctx.integration(),
-                positioningCommand,
-                ctx.projectRoot(),
-                ctx.bootConfig()
-        ));
-
         LightServersConfig lightServersCfg = LightServersConfig.fromRootYaml(ctx.root());
-        if (lightServersCfg.enabled()) {
-            ctx.setLightServerProcess(lightServerLauncher.startIfConfigured(
-                    ctx.integration(), ctx.projectRoot(), ctx.windows(), ctx.bootConfig().lightStartupDelayMs()));
-        } else {
-            log.info("light_servers.enabled=false — LightServer не запускается, COM-вспышки отключены");
-        }
-
         InspectionTriggerConfig inspectionTriggerConfig = InspectionTriggerConfig.parse(ctx.integration());
-        if (inspectionTriggerConfig.usesIoInputMonitor()) {
-            ctx.setIoInputMonitorProcess(externalProcessLauncher.startIfConfigured(
-                    ctx.integration(),
-                    ctx.projectRoot(),
-                    ctx.windows(),
-                    "io_input_monitor_autostart",
-                    "io_input_monitor_command_windows",
-                    "io_input_monitor_command_linux",
-                    "io-input-monitor",
-                    "."
+        boolean startFrontend = shouldAutostartFrontend();
+
+        ExecutorService boot = Executors.newFixedThreadPool(6, r -> {
+            Thread t = new Thread(r, "svc-boot");
+            t.setDaemon(true);
+            return t;
+        });
+        long t0 = System.nanoTime();
+        try {
+            CompletableFuture<AnalisSurfaceLauncher.PoolStartResult> analisFuture = CompletableFuture.supplyAsync(
+                    () -> analisSurfaceLauncher.startPoolIfConfigured(
+                            ctx.integration(),
+                            ctx.projectRoot(),
+                            ctx.windows(),
+                            pythonDetectorCfg.baseUrl(),
+                            ctx.bootConfig().pythonServerPoolSize(),
+                            ctx.bootConfig().workerStartupStaggerMs()
+                    ),
+                    boot
+            );
+            CompletableFuture<List<ServiceProcessSupervisor>> geometryFuture = CompletableFuture.supplyAsync(
+                    () -> poolFactory.createGeometryPool(geometryCommand, ctx.projectRoot(), ctx.bootConfig()),
+                    boot
+            );
+            CompletableFuture<List<ServiceProcessSupervisor>> positioningFuture = CompletableFuture.supplyAsync(
+                    () -> poolFactory.createPositioningPool(
+                            ctx.root(),
+                            ctx.integration(),
+                            positioningCommand,
+                            ctx.projectRoot(),
+                            ctx.bootConfig()
+                    ),
+                    boot
+            );
+            CompletableFuture<ExternalServiceProcess> lightFuture = CompletableFuture.supplyAsync(() -> {
+                if (!lightServersCfg.enabled()) {
+                    log.info("light_servers.enabled=false — LightServer не запускается, COM-вспышки отключены");
+                    return null;
+                }
+                return lightServerLauncher.startIfConfigured(
+                        ctx.integration(), ctx.projectRoot(), ctx.windows(), ctx.bootConfig().lightStartupDelayMs());
+            }, boot);
+            CompletableFuture<ExternalServiceProcess> ioFuture = CompletableFuture.supplyAsync(() -> {
+                if (!inspectionTriggerConfig.usesIoInputMonitor()) {
+                    return null;
+                }
+                return externalProcessLauncher.startIfConfigured(
+                        ctx.integration(),
+                        ctx.projectRoot(),
+                        ctx.windows(),
+                        "io_input_monitor_autostart",
+                        "io_input_monitor_command_windows",
+                        "io_input_monitor_command_linux",
+                        "io-input-monitor",
+                        "."
+                );
+            }, boot);
+            CompletableFuture<ExternalServiceProcess> frontendFuture = CompletableFuture.supplyAsync(() -> {
+                if (!startFrontend) {
+                    return null;
+                }
+                return externalProcessLauncher.startIfConfigured(
+                        ctx.integration(),
+                        ctx.projectRoot(),
+                        ctx.windows(),
+                        "frontend_autostart",
+                        "frontend_command_windows",
+                        "frontend_command_linux",
+                        "frontend",
+                        "front-end"
+                );
+            }, boot);
+
+            CompletableFuture.allOf(
+                    analisFuture, geometryFuture, positioningFuture, lightFuture, ioFuture, frontendFuture
+            ).join();
+
+            AnalisSurfaceLauncher.PoolStartResult analisSurfacePool = analisFuture.join();
+            ctx.setAnalisSurfaceProcesses(analisSurfacePool.processes());
+            ctx.setGeometryPool(geometryFuture.join());
+            ctx.setPositioningPool(positioningFuture.join());
+            ctx.setLightServerProcess(lightFuture.join());
+            ctx.setIoInputMonitorProcess(ioFuture.join());
+            ctx.setFrontendProcess(frontendFuture.join());
+
+            ctx.setPythonPool(poolFactory.createPythonHttpPool(
+                    analisSurfacePool.baseUrls(),
+                    ctx.bootConfig()
             ));
-        }
-        if (shouldAutostartFrontend()) {
-            ctx.setFrontendProcess(externalProcessLauncher.startIfConfigured(
-                    ctx.integration(),
-                    ctx.projectRoot(),
-                    ctx.windows(),
-                    "frontend_autostart",
-                    "frontend_command_windows",
-                    "frontend_command_linux",
-                    "frontend",
-                    "front-end"
-            ));
+            if (ctx.pythonPool().isEmpty()) {
+                log.error(
+                        "analisSurface FastAPI pool is empty (urls={}). "
+                                + "Проверьте venv в analisSurface/backend, integration.analis_surface_autostart и python_detector.base_url.",
+                        analisSurfacePool.baseUrls()
+                );
+                for (ExternalServiceProcess process : ctx.analisSurfaceProcesses()) {
+                    process.close();
+                }
+                return false;
+            }
+            log.info(
+                    "python detector transport=http servers={} clients={} autostart={} urls={}",
+                    analisSurfacePool.baseUrls().size(),
+                    ctx.pythonPool().size(),
+                    analisSurfacePool.autostartEnabled(),
+                    analisSurfacePool.baseUrls()
+            );
+            log.info(
+                    "child services boot parallel done in {} ms (geometry={} positioning={})",
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t0),
+                    ctx.geometryPool().size(),
+                    ctx.positioningPool().size()
+            );
+        } finally {
+            boot.shutdownNow();
         }
 
         ctx.setPythonCfg((Map<String, Object>) ctx.root().get("python_detector"));

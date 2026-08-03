@@ -68,17 +68,16 @@ integration:
   stage_queue_size: 20
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000
-  # Пауза между последовательным запуском воркеров камер (смягчает пик SDK/MVS).
-  # Цель: сервисы+камеры ≈1.5 с искусственных пауз (health wait — отдельно).
-  worker_startup_stagger_ms: 100
+  # Пауза только между запуском процессов камер (health идёт параллельно). 0 = почти одновременно.
+  worker_startup_stagger_ms: 20
   # Таймаут health/check для внешних сервисов (geometry/python bridge).
   service_command_timeout_ms: 15000
   worker_ipc_mode: "stdio"
   worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
   worker_named_pipe_connect_timeout_ms: 3000
-  # Дать LightServer (dotnet exec, уже собранный) подняться до первого trigger.
-  light_server_startup_delay_ms: 300
+  # Готовность LightServer ждём через awaitEndpointsReady — искусственная пауза не нужна.
+  light_server_startup_delay_ms: 0
   # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).
   inspection_cycle_timeout_ms: 3500
   # Агрегация: mode=ten_cameras → группы 0–4 и 5–9, все 10 камер в инспекции.

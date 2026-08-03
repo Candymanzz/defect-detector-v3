@@ -10,7 +10,7 @@
         "projectUniqueName": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.csproj",
         "projectName": "LightServer",
         "projectPath": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.csproj",
-        "packagesPath": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget",
+        "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
         "outputPath": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
@@ -502,7 +502,7 @@
         "projectUniqueName": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.Tests\\LightServer.Tests.csproj",
         "projectName": "LightServer.Tests",
         "projectPath": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.Tests\\LightServer.Tests.csproj",
-        "packagesPath": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\3af2c62c765823f5669dd4730a2fd8fc\\nuget",
+        "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
         "outputPath": "D:\\visionGay\\defect-detector-v3\\LightServer.v3\\LightServer.Tests\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [

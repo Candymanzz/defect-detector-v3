@@ -3,8 +3,10 @@ package com.example.iml.orchestrator.integration.config;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** ID камер из {@code cameras} в YAML/JSON (только {@code enabled: true}). */
 public final class ConfiguredCameras {
@@ -92,6 +94,39 @@ public final class ConfiguredCameras {
     @Deprecated
     public static Map<Integer, String> productTypeByCameraId(Map<String, Object> root) {
         return analysisProfileByCameraId(root);
+    }
+
+    /**
+     * Камеры с {@code geometry_enabled: false} — geometry/positioning не вызываются
+     * (торцевые ракурсы без видимого стыка).
+     */
+    @SuppressWarnings("unchecked")
+    public static Set<Integer> geometryDisabledCameraIds(Map<String, Object> root) {
+        if (root == null) {
+            return Set.of();
+        }
+        Object raw = root.get("cameras");
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return Set.of();
+        }
+        Set<Integer> disabled = new LinkedHashSet<>();
+        for (Object o : list) {
+            if (!(o instanceof Map<?, ?> em)) {
+                continue;
+            }
+            Map<String, Object> cam = (Map<String, Object>) em;
+            if (!YamlScalars.toBool(cam.get("enabled"), true)) {
+                continue;
+            }
+            if (YamlScalars.toBool(cam.get("geometry_enabled"), true)) {
+                continue;
+            }
+            Object idObj = cam.get("id");
+            if (idObj instanceof Number n) {
+                disabled.add(n.intValue());
+            }
+        }
+        return Set.copyOf(disabled);
     }
 
     private static String readNonBlankString(Object raw) {

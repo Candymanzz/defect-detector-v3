@@ -11,6 +11,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -33,23 +35,71 @@ public final class ServicePoolLifecycle {
             int poolSize
     ) {
         List<ServiceProcessSupervisor> pool = new ArrayList<>();
-        if (command == null || command.isEmpty()) {
+        if (command == null || command.isEmpty() || poolSize <= 0) {
             return pool;
         }
-        List<String> cmd = new ArrayList<>(command);
-        for (int i = 0; i < poolSize; i++) {
-            String serviceName = poolSize == 1 ? label : (label + "-" + i);
-            try {
-                ServiceProcessSupervisor supervisor = new ServiceProcessSupervisor(serviceName, cmd, projectRoot, commandTimeoutMs);
-                supervisor.start();
-                BinaryProtocol.Message health = supervisor.health();
-                log.info("{} health => {}", serviceName, health.header());
-                pool.add(supervisor);
-            } catch (Exception e) {
-                log.warn("failed to start optional {} service command={}: {}", serviceName, command, e.getMessage());
+        List<String> cmd = List.copyOf(command);
+        if (poolSize == 1) {
+            tryStartMember(pool, label, cmd, projectRoot, commandTimeoutMs);
+            return pool;
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(poolSize, 8), r -> {
+            Thread t = new Thread(r, label + "-boot");
+            t.setDaemon(true);
+            return t;
+        });
+        try {
+            List<Future<ServiceProcessSupervisor>> futures = new ArrayList<>(poolSize);
+            for (int i = 0; i < poolSize; i++) {
+                String serviceName = label + "-" + i;
+                futures.add(executor.submit(() -> tryCreateMember(serviceName, cmd, projectRoot, commandTimeoutMs)));
             }
+            for (Future<ServiceProcessSupervisor> future : futures) {
+                try {
+                    ServiceProcessSupervisor started = future.get();
+                    if (started != null) {
+                        pool.add(started);
+                    }
+                } catch (Exception e) {
+                    log.warn("failed to join optional {} start: {}", label, e.getMessage());
+                }
+            }
+        } finally {
+            executor.shutdownNow();
         }
         return pool;
+    }
+
+    private void tryStartMember(
+            List<ServiceProcessSupervisor> pool,
+            String serviceName,
+            List<String> cmd,
+            Path projectRoot,
+            int commandTimeoutMs
+    ) {
+        ServiceProcessSupervisor started = tryCreateMember(serviceName, cmd, projectRoot, commandTimeoutMs);
+        if (started != null) {
+            pool.add(started);
+        }
+    }
+
+    private ServiceProcessSupervisor tryCreateMember(
+            String serviceName,
+            List<String> cmd,
+            Path projectRoot,
+            int commandTimeoutMs
+    ) {
+        try {
+            ServiceProcessSupervisor supervisor = new ServiceProcessSupervisor(serviceName, cmd, projectRoot, commandTimeoutMs);
+            supervisor.start();
+            BinaryProtocol.Message health = supervisor.health();
+            log.info("{} health => {}", serviceName, health.header());
+            return supervisor;
+        } catch (Exception e) {
+            log.warn("failed to start optional {} service command={}: {}", serviceName, cmd, e.getMessage());
+            return null;
+        }
     }
 
     /**

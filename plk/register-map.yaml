@@ -170,11 +170,12 @@ timeouts:
     unit: 100ms
     source_csv: "25_247_MAP - Настройки.csv"
 
-  - name: conveyor_cycle_watch_timeout
-    description: Переключение или ручки или метал
+  # 0 = стальная ручка, 1 = пластиковая (PC → PLC, DM слово).
+  - name: handle_material_mode
+    description: Режим ручки (0=сталь, 1=пластик)
     area: DM
     address: 4405
     display_address: D4405
-    encoding: bcd
-    unit: 100ms
+    encoding: raw
+    unit: mode
     source_csv: "25_247_MAP - Настройки.csv"

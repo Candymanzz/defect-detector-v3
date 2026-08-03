@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MainOverview } from "../components/MainOverview";
 import { PlcPanel } from "../components/PlcPanel";
 import { SettingList } from "../components/SettingList";
+import { orchestratorApi } from "../shared/api/orchestratorApi";
 import logo from "../shared/assets/images/savt_logo_white.png";
 import { Button } from "../shared/ui/Button";
 import type { InspectionStats } from "../components/MainOverview/type";
@@ -19,10 +20,26 @@ const EMPTY_INSPECTION_STATS: InspectionStats = {
   inspectionStoppedAtMs: undefined,
 };
 
+/** PLC DM D4405: 0 = сталь, 1 = пластик. */
+const HANDLE_MATERIAL_MODE_KEY = "handle_material_mode";
+
+function isPlasticFromTimeoutUnits(units: number | undefined): boolean {
+  return (units ?? 0) !== 0;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  return "Не удалось записать режим ручки в ПЛК";
+}
+
 export function App() {
   const [selectedSettingsCameraId, setSelectedSettingsCameraId] = useState<number | null>(null);
   const [isPlcPanelOpen, setIsPlcPanelOpen] = useState(false);
   const [isPlasticHandleMode, setIsPlasticHandleMode] = useState(false);
+  const [handleModeBusy, setHandleModeBusy] = useState(false);
+  const [handleModeError, setHandleModeError] = useState<string | null>(null);
   const [inspectionStats, setInspectionStats] = useState<InspectionStats>(EMPTY_INSPECTION_STATS);
   const [inspectionResetVersion, setInspectionResetVersion] = useState(0);
   const [settingsMaxHeightPx, setSettingsMaxHeightPx] = useState<number | undefined>(undefined);
@@ -31,6 +48,62 @@ export function App() {
 
   const handleSettingsCameraToggle = (cameraId: number) => {
     setSelectedSettingsCameraId((currentCameraId) => (currentCameraId === cameraId ? null : cameraId));
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await orchestratorApi.getPlcTimeouts();
+        if (cancelled) {
+          return;
+        }
+        const entry = (response.timeouts ?? []).find(
+          (item) =>
+            item.name === HANDLE_MATERIAL_MODE_KEY ||
+            item.address === "D4405",
+        );
+        if (entry) {
+          setIsPlasticHandleMode(isPlasticFromTimeoutUnits(entry.valueUnits));
+        }
+        setHandleModeError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setHandleModeError(errorMessage(error));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleHandleModeChange = async (nextPlastic: boolean) => {
+    if (handleModeBusy) {
+      return;
+    }
+    const previous = isPlasticHandleMode;
+    setIsPlasticHandleMode(nextPlastic);
+    setHandleModeBusy(true);
+    setHandleModeError(null);
+    try {
+      const response = await orchestratorApi.putPlcTimeouts({
+        [HANDLE_MATERIAL_MODE_KEY]: nextPlastic ? 1 : 0,
+      });
+      const entry = (response.timeouts ?? []).find(
+        (item) =>
+          item.name === HANDLE_MATERIAL_MODE_KEY ||
+          item.address === "D4405",
+      );
+      if (entry) {
+        setIsPlasticHandleMode(isPlasticFromTimeoutUnits(entry.valueUnits));
+      }
+    } catch (error) {
+      setIsPlasticHandleMode(previous);
+      setHandleModeError(errorMessage(error));
+    } finally {
+      setHandleModeBusy(false);
+    }
   };
 
   useLayoutEffect(() => {
@@ -68,7 +141,11 @@ export function App() {
           <h1 style={{ fontSize: "24px", fontWeight: "bold" }}>Автоматизация контроля качества</h1>
         </div>
         <div className="app-header-right">
-          <div className="app-header-handle-mode">
+          <div
+            className="app-header-handle-mode"
+            title={handleModeError ?? "Режим ручки → PLC D4405 (0=сталь, 1=пластик)"}
+            data-error={handleModeError ? "true" : undefined}
+          >
             <span data-active={!isPlasticHandleMode}>Стальная ручка</span>
             <label className="app-header-handle-switch">
               <input
@@ -76,7 +153,10 @@ export function App() {
                 role="switch"
                 aria-label="Режим типа ручки"
                 checked={isPlasticHandleMode}
-                onChange={(event) => setIsPlasticHandleMode(event.target.checked)}
+                disabled={handleModeBusy}
+                onChange={(event) => {
+                  void handleHandleModeChange(event.target.checked);
+                }}
               />
               <span aria-hidden="true" />
             </label>

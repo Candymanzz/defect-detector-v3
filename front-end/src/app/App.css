@@ -53,6 +53,15 @@
   color: #72f2a8;
 }
 
+.app-header-handle-mode[data-error="true"] {
+  border-color: #8a3a3a;
+}
+
+.app-header-handle-switch input:disabled + span {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .app-header-handle-switch {
   position: relative;
   flex: 0 0 48px;

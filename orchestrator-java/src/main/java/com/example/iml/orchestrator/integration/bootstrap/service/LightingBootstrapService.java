@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.bootstrap.service;
 
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
+import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.lighting.LightBrightnessUpdate;
@@ -23,6 +24,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -50,12 +52,20 @@ public final class LightingBootstrapService {
         PipelineInspectionTelemetry pipelineTelemetry = new PipelineInspectionTelemetry();
         ReferenceSnapshotBootstrap referenceBootstrap =
                 new ReferenceSnapshotBootstrap(log, ctx.captureCoordinator(), pipelineTelemetry);
+        Set<Integer> geometryDisabled = ConfiguredCameras.geometryDisabledCameraIds(ctx.root());
+        if (!geometryDisabled.isEmpty()) {
+            log.info("geometry disabled for cameras={}", geometryDisabled);
+        }
         InspectionPipelineServices pipelineServices = new InspectionPipelineServices(
                 log,
                 new DefaultInspectionDecisionAggregator(log),
                 pipelineTelemetry,
                 new InspectGeometryExecutor(
-                        log, ctx.geometrySnapshotCache(), ctx.geometryRuntimeConfig(), positioningExecutor),
+                        log,
+                        ctx.geometrySnapshotCache(),
+                        ctx.geometryRuntimeConfig(),
+                        positioningExecutor,
+                        geometryDisabled),
                 new InspectPythonExecutor(log, ctx.geometryRuntimeConfig()),
                 ctx.captureCoordinator(),
                 referenceBootstrap,

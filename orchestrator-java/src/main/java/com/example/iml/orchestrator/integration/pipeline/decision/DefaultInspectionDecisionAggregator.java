@@ -32,9 +32,7 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
         boolean pythonPass = pyResp != null
                 && pyResp.type() == BinaryProtocol.MSG_RESPONSE
                 && Boolean.TRUE.equals(pyResp.header().get("ok"));
-        boolean geometryPass = geomResp == null
-                || (geomResp.type() == BinaryProtocol.MSG_RESPONSE
-                && Boolean.TRUE.equals(geomResp.header().get("overallPass")));
+        boolean geometryPass = isGeometryPass(geomResp);
         String geometryStatus = geomResp == null ? "UNKNOWN" : String.valueOf(
                 geomResp.header().getOrDefault("status", geometryPass ? "PASS" : "FAIL")
         );
@@ -91,6 +89,18 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
             );
         }
         return decision;
+    }
+
+    private static boolean isGeometryPass(BinaryProtocol.Message geomResp) {
+        if (geomResp == null) {
+            return true;
+        }
+        if (geomResp.header() != null
+                && "SKIPPED".equals(String.valueOf(geomResp.header().getOrDefault("status", "")))) {
+            return true;
+        }
+        return geomResp.type() == BinaryProtocol.MSG_RESPONSE
+                && Boolean.TRUE.equals(geomResp.header().get("overallPass"));
     }
 
     private static double geomDouble(BinaryProtocol.Message geomResp, String key) {
