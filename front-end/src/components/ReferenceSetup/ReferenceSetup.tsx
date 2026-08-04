@@ -22,6 +22,7 @@ type ReferenceSetupProps = {
 export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps) {
   const {
     status,
+    message,
     cameraSlots,
     cameraGroups,
     activeGroupIndex,
@@ -70,6 +71,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   );
   const fpZoneSlot = selectedSlot ?? cameraSlots[0];
   const selectedFpZones = fpZoneSlot ? (fpZonesByCameraId[fpZoneSlot.cameraId] ?? []) : [];
+  const readyCameraCount = cameraSlots.filter(
+    (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
+  ).length;
 
   return (
     <div
@@ -95,9 +99,25 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
           </button>
         </header>
 
+        <nav
+          className="reference-setup__steps"
+          aria-label="Этапы создания эталона"
+        >
+          <span className="reference-setup__step reference-setup__step--complete">
+            <b>1</b>Выбор группы и камер
+          </span>
+          <span className="reference-setup__step reference-setup__step--active">
+            <b>2</b>Настройка камеры
+          </span>
+          <span className="reference-setup__step">
+            <b>3</b>Проверка и сохранение
+          </span>
+        </nav>
+
         <div className="reference-setup__body">
-          <div className="reference-setup__toolbar">
-            {cameraGroups.length > 1 && (
+          <div className="reference-setup__layout">
+            <aside className="reference-setup__sidebar reference-setup__sidebar--cameras">
+              <h3>Группа камер</h3>
               <div
                 className="reference-setup__group-switch"
                 role="tablist"
@@ -121,139 +141,208 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   </button>
                 ))}
               </div>
-            )}
-            <button
-              className={
-                isFpZoneMode
-                  ? "reference-setup__button reference-setup__button--fp reference-setup__button--active"
-                  : "reference-setup__button reference-setup__button--fp"
-              }
-              type="button"
-              aria-pressed={isFpZoneMode}
-              disabled={!fpZoneSlot?.imageUrl}
-              title={isFpZoneMode ? "Вернуться к редактированию ROI" : "Редактировать исключающие зоны"}
-              onClick={() => setIsFpZoneMode((current) => !current)}
-            >
-              Исключающие зоны ({selectedFpZones.length})
-            </button>
 
-            {isFpZoneMode && (
-              <button
-                className="reference-setup__button"
-                type="button"
-                onClick={() => setIsFpZoneMode(false)}
-              >
-                Редактировать ROI
-              </button>
-            )}
+              <h3>Камеры группы {activeGroupIndex + 1}</h3>
+              <div className="reference-setup__camera-list">
+                {cameraSlots.map((slot) => {
+                  const hasFrame = Boolean(slot.frame);
+                  const hasRoi = (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3;
+                  return (
+                    <button
+                      key={slot.cameraId}
+                      className={
+                        slot.cameraId === selectedCameraId && selectedRoiMode === "interest"
+                          ? "reference-setup__slot reference-setup__slot--active"
+                          : "reference-setup__slot"
+                      }
+                      data-ready={hasFrame && hasRoi}
+                      type="button"
+                      onClick={() => {
+                        setIsFpZoneMode(false);
+                        handleSelectCamera(slot.cameraId);
+                      }}
+                    >
+                      <span
+                        className="reference-setup__camera-icon"
+                        aria-hidden="true"
+                      >
+                        ▣
+                      </span>
+                      <span className="reference-setup__camera-copy">
+                        <strong>Камера {slot.cameraId}</strong>
+                        <small>{hasFrame ? "Кадр получен" : "Кадр не получен"}</small>
+                        <small data-state={hasRoi ? "ready" : "missing"}>{hasRoi ? "ROI задан" : "ROI не задан"}</small>
+                        <small>Исключающих зон: {fpZonesByCameraId[slot.cameraId]?.length ?? 0}</small>
+                      </span>
+                      <span
+                        className="reference-setup__camera-state"
+                        aria-hidden="true"
+                      >
+                        {hasFrame && hasRoi ? "✓" : "!"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            {hasStoredReferenceForActiveGroup && (
               <Button
-                className="reference-setup__button"
+                className="reference-setup__button reference-setup__refresh"
                 onClick={handleCaptureNewReferenceFrames}
               >
-                Задать новый эталон
+                ↻ Обновить кадры
               </Button>
-            )}
+              <div className="reference-setup__legend">
+                <span>
+                  <i data-state="missing" /> Кадр не получен
+                </span>
+                <span>
+                  <i data-state="pending" /> Не настроено
+                </span>
+                <span>
+                  <i data-state="ready" /> Готово
+                </span>
+              </div>
+            </aside>
 
-            <Button
-              className="reference-setup__button"
-              disabled={!canSendAllReferences}
-              onClick={handleSendAllReferences}
-            >
-              {isNewReferenceMode ? "Сохранить новый эталон" : "Задать эталон"}
-            </Button>
-          </div>
-
-          {(activeReferenceKey || isNewReferenceMode) && (
-            <div
-              className="reference-setup__active-reference"
-              data-source={isNewReferenceMode ? "new" : activeArchive ? "archive" : "current"}
-            >
-              <strong>{isNewReferenceMode ? "Новый эталон" : "В работе"}</strong>
-              <span>
-                {isNewReferenceMode
-                  ? `свежие кадры / камеры ${activeCameraIds.join(", ")} / контуры нужно задать заново`
-                  : activeArchive
-                    ? `старый эталон от ${formatArchiveTime(activeArchive.createdAtMs)} / камеры ${activeArchive.cameraIds.join(", ")}`
-                    : `текущий эталон / камеры ${activeCameraIds.join(", ")}`}
-              </span>
-            </div>
-          )}
-
-          <div className="reference-setup__workspace">
-            <div className="reference-setup__editor">
-              {isFpZoneMode && fpZoneSlot?.imageUrl ? (
-                <FpZoneEditor
-                  imageUrl={fpZoneSlot.imageUrl}
-                  roiPoints={roiPolygonsByCameraId[fpZoneSlot.cameraId] ?? []}
-                  zones={selectedFpZones}
-                  disabled={status.state !== "open"}
-                  onChange={(zones) => setFpZonesForCameraId(fpZoneSlot.cameraId, zones)}
-                />
-              ) : selectedSlot?.imageUrl ? (
-                <RoiContourEditor
-                  key={editorKey}
-                  imageUrl={selectedSlot.imageUrl}
-                  points={selectedEditorPoints}
-                  exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
-                  shapeMode={selectedRoiMode === "joint" ? "oriented-rect" : "polygon"}
-                  allowRadiusMode={selectedRoiMode !== "joint"}
-                  onChange={(points) => {
-                    if (selectedRoiMode === "joint") {
-                      setJointRoiPolygon(points);
-                      return;
-                    }
-
-                    setRoiPolygonForCamera(selectedSlot.cameraId, points);
-                  }}
-                />
-              ) : null}
-            </div>
-
-            <div className="reference-setup__camera-list">
-              {cameraSlots.map((slot) => (
-                <div
-                  key={slot.cameraId}
-                  className="reference-setup__camera-row"
-                >
+            <main className="reference-setup__workspace">
+              <header className="reference-setup__workspace-header">
+                <div>
+                  <h3>Камера {selectedSlot?.cameraId ?? "—"}</h3>
+                  <span data-ready={Boolean(selectedSlot?.frame)}>
+                    {selectedSlot?.frame ? "Кадр получен" : "Ожидание кадра"}
+                  </span>
+                </div>
+                {selectedSlot && (
                   <button
                     className={
-                      slot.cameraId === selectedCameraId && selectedRoiMode === "interest"
-                        ? "reference-setup__slot reference-setup__slot--active"
-                        : "reference-setup__slot"
-                    }
-                    type="button"
-                    onClick={() => {
-                      handleSelectCamera(slot.cameraId);
-                    }}
-                  >
-                    <strong>Камера {slot.cameraId}</strong>
-                    <span>{slot.frame ? "Кадр получен" : "Ожидание кадра"}</span>
-                    <span>{roiPolygonsByCameraId[slot.cameraId]?.length >= 3 ? "ROI задан" : "ROI не задан"}</span>
-                    <span>Искл. зон: {fpZonesByCameraId[slot.cameraId]?.length ?? 0}</span>
-                  </button>
-
-                  <button
-                    className={
-                      slot.cameraId === jointCameraId && selectedRoiMode === "joint"
+                      selectedSlot.cameraId === jointCameraId && selectedRoiMode === "joint"
                         ? "reference-setup__joint-trigger reference-setup__joint-trigger--active"
                         : "reference-setup__joint-trigger"
                     }
                     type="button"
                     onClick={() => {
                       setIsFpZoneMode(false);
-                      handleSelectJointRoi(slot.cameraId);
+                      handleSelectJointRoi(selectedSlot.cameraId);
                     }}
                   >
-                    Шов
-                    <span>
-                      {slot.cameraId === jointCameraId ? (hasJointRoi ? "ROI задан" : "Выбрана камера") : "Выбрать"}
-                    </span>
+                    ☆ Назначить камерой шва
                   </button>
+                )}
+              </header>
+
+              <div className="reference-setup__editor">
+                {isFpZoneMode && fpZoneSlot?.imageUrl ? (
+                  <FpZoneEditor
+                    imageUrl={fpZoneSlot.imageUrl}
+                    roiPoints={roiPolygonsByCameraId[fpZoneSlot.cameraId] ?? []}
+                    zones={selectedFpZones}
+                    disabled={status.state !== "open"}
+                    onChange={(zones) => setFpZonesForCameraId(fpZoneSlot.cameraId, zones)}
+                  />
+                ) : selectedSlot?.imageUrl ? (
+                  <RoiContourEditor
+                    key={editorKey}
+                    imageUrl={selectedSlot.imageUrl}
+                    points={selectedEditorPoints}
+                    exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
+                    shapeMode={selectedRoiMode === "joint" ? "oriented-rect" : "polygon"}
+                    allowRadiusMode={selectedRoiMode !== "joint"}
+                    onChange={(points) => {
+                      if (selectedRoiMode === "joint") {
+                        setJointRoiPolygon(points);
+                        return;
+                      }
+
+                      setRoiPolygonForCamera(selectedSlot.cameraId, points);
+                    }}
+                  />
+                ) : (
+                  <div className="reference-setup__editor-empty">Кадр камеры ещё не получен</div>
+                )}
+              </div>
+
+              {(activeReferenceKey || isNewReferenceMode) && (
+                <div
+                  className="reference-setup__active-reference"
+                  data-source={isNewReferenceMode ? "new" : activeArchive ? "archive" : "current"}
+                >
+                  <strong>{isNewReferenceMode ? "Новый эталон" : "В работе"}</strong>
+                  <span>
+                    {isNewReferenceMode
+                      ? "Свежие кадры — контуры нужно задать заново"
+                      : activeArchive
+                        ? `Архив от ${formatArchiveTime(activeArchive.createdAtMs)}`
+                        : "Текущий эталон"}
+                  </span>
                 </div>
-              ))}
-            </div>
+              )}
+            </main>
+
+            <aside className="reference-setup__sidebar reference-setup__sidebar--objects">
+              <h3>Объекты на изображении</h3>
+              <section className="reference-setup__object-section">
+                <header>
+                  <span>ROI контроля</span>
+                  <i data-kind="roi" />
+                </header>
+                <button
+                  className={
+                    !isFpZoneMode && selectedRoiMode === "interest"
+                      ? "reference-setup__object-row reference-setup__object-row--active"
+                      : "reference-setup__object-row"
+                  }
+                  type="button"
+                  onClick={() => {
+                    setIsFpZoneMode(false);
+                    if (selectedSlot) handleSelectCamera(selectedSlot.cameraId);
+                  }}
+                >
+                  <i data-kind="roi" /> ROI {selectedSlot?.cameraId ?? ""}
+                  <span>{selectedEditorPoints.length >= 3 ? "задан" : "не задан"}</span>
+                </button>
+              </section>
+              <section className="reference-setup__object-section">
+                <header>
+                  <span>Исключающие зоны</span>
+                  <i data-kind="fp" />
+                </header>
+                {selectedFpZones.map((zone, index) => (
+                  <div
+                    className="reference-setup__object-row"
+                    key={zone.id ?? index}
+                  >
+                    <i data-kind="fp" /> {zone.note || `Зона ${index + 1}`}
+                  </div>
+                ))}
+                <button
+                  className={
+                    isFpZoneMode
+                      ? "reference-setup__button reference-setup__button--fp reference-setup__button--active"
+                      : "reference-setup__button reference-setup__button--fp"
+                  }
+                  type="button"
+                  aria-pressed={isFpZoneMode}
+                  disabled={!fpZoneSlot?.imageUrl}
+                  onClick={() => setIsFpZoneMode(true)}
+                >
+                  ＋ Добавить / изменить зоны
+                </button>
+              </section>
+              <section className="reference-setup__object-section">
+                <header>
+                  <span>Шов этикетки</span>
+                  <i data-kind="joint" />
+                </header>
+                <div className="reference-setup__object-row">
+                  <i data-kind="joint" /> Камера {jointCameraId}
+                  <span>{hasJointRoi ? "ROI задан" : "не настроен"}</span>
+                </div>
+              </section>
+              <p className="reference-setup__hint">
+                <strong>Что такое ROI?</strong> Область изображения, в которой выполняется контроль. Всё за её пределами
+                не учитывается при проверке.
+              </p>
+            </aside>
           </div>
 
           <ReferenceArchive
@@ -269,6 +358,49 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             onSelect={setSelectedArchiveId}
             onUse={handleUseArchivedReference}
           />
+
+          <footer className="reference-setup__footer">
+            <div className="reference-setup__readiness">
+              <strong>Готовность группы {activeGroupIndex + 1}</strong>
+              <span>
+                {readyCameraCount} из {cameraSlots.length} камер готовы
+              </span>
+              <progress
+                max={Math.max(cameraSlots.length, 1)}
+                value={readyCameraCount}
+              />
+            </div>
+            <p
+              className="reference-setup__status"
+              title={message}
+            >
+              {message}
+            </p>
+            <div className="reference-setup__footer-actions">
+              {hasStoredReferenceForActiveGroup && (
+                <Button
+                  className="reference-setup__button"
+                  onClick={handleCaptureNewReferenceFrames}
+                >
+                  Задать новый эталон
+                </Button>
+              )}
+              <button
+                className="reference-setup__cancel"
+                type="button"
+                onClick={onClose}
+              >
+                Отмена
+              </button>
+              <Button
+                className="reference-setup__button reference-setup__save"
+                disabled={!canSendAllReferences}
+                onClick={handleSendAllReferences}
+              >
+                {isNewReferenceMode ? "Сохранить новый эталон →" : "Задать эталон →"}
+              </Button>
+            </div>
+          </footer>
         </div>
       </section>
     </div>
