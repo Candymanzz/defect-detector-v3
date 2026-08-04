@@ -90,6 +90,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [resetFeedback, setResetFeedback] = useState<ResetFeedback | null>(null);
+  const [inspectionIsRunning, setInspectionIsRunning] = useState<boolean | null>(null);
   const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
@@ -100,6 +101,23 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все изделия камер" : `Изделие камеры ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
+  const hasActiveReference = Boolean(inspectionStats.referenceFrameId);
+
+  useEffect(() => {
+    let cancelled = false;
+    void orchestratorApi
+      .getInspectionStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setInspectionIsRunning(status.enabledCameraIds.length > 0);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useLayoutEffect(() => {
     requestIdRef.current += 1;
@@ -289,20 +307,36 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       return;
     }
 
-    setResetFeedback({ state: "resetting", text: "Остановка инспекции..." });
+    setResetFeedback({
+      state: "resetting",
+      text: inspectionIsRunning === false ? "Запуск инспекции..." : "Остановка инспекции...",
+    });
     orchestratorApi
       .getInspectionStatus()
       .then(async (status) => {
+        const shouldStart = status.enabledCameraIds.length === 0;
+        if (shouldStart && !hasActiveReference) {
+          setInspectionIsRunning(false);
+          setResetFeedback({
+            state: "error",
+            text: "Нельзя запустить инспекцию: сначала задайте эталон",
+          });
+          return;
+        }
+        let targetCameraIds = shouldStart ? status.disabledCameraIds : status.enabledCameraIds;
+        if (shouldStart && targetCameraIds.length === 0) {
+          targetCameraIds = (await orchestratorApi.listCameras()).cameras;
+        }
         await Promise.all(
-          status.enabledCameraIds.map((cameraId) => orchestratorApi.setInspectionEnabled(cameraId, false)),
+          targetCameraIds.map((cameraId) => orchestratorApi.setInspectionEnabled(cameraId, shouldStart)),
         );
+        setInspectionIsRunning(shouldStart);
         onInspectionReset?.();
         setResetFeedback({
           state: "success",
-          text:
-            status.enabledCameraIds.length > 0
-              ? `Инспекция остановлена для камер: ${status.enabledCameraIds.join(", ")}`
-              : "Инспекция уже остановлена",
+          text: shouldStart
+            ? `Инспекция запущена с текущим эталоном для камер: ${targetCameraIds.join(", ")}`
+            : `Инспекция остановлена для камер: ${targetCameraIds.join(", ")}`,
         });
       })
       .catch((error: unknown) => {
@@ -352,11 +386,18 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
             </Button>
             <Button
               className="setting-list__quick-action setting-list__quick-action--reset"
-              disabled={resetFeedback?.state === "resetting"}
+              disabled={resetFeedback?.state === "resetting" || (inspectionIsRunning !== true && !hasActiveReference)}
+              title={inspectionIsRunning !== true && !hasActiveReference ? "Сначала задайте эталон" : undefined}
               onClick={handleInspectionReset}
             >
               <SettingActionIcon name="reset" />
-              {resetFeedback?.state === "resetting" ? "Остановка..." : "Стоп инспекции"}
+              {resetFeedback?.state === "resetting"
+                ? inspectionIsRunning === false
+                  ? "Запуск..."
+                  : "Остановка..."
+                : inspectionIsRunning === false
+                  ? "Пуск инспекции"
+                  : "Стоп инспекции"}
             </Button>
           </div>
           {resetFeedback && (

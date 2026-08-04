@@ -232,12 +232,27 @@ export function useMainOverview(inspectionResetVersion = 0) {
       if (cancelled) {
         return;
       }
-      inspectionEnabledByCameraIdRef.current = Object.fromEntries([
-        ...inspectionStatus.enabledCameraIds.map((cameraId) => [cameraId, true] as const),
-        ...inspectionStatus.disabledCameraIds.map((cameraId) => [cameraId, false] as const),
-      ]);
+      const changedAtMs = Date.now();
+      for (const cameraId of inspectionStatus.enabledCameraIds) {
+        if (inspectionEnabledByCameraIdRef.current[cameraId] !== true) {
+          inspectionAcceptedAfterMsByCameraIdRef.current[cameraId] = changedAtMs;
+          const resumeFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
+          if (resumeFrameId !== undefined) {
+            inspectionAcceptedFromFrameIdByCameraIdRef.current[cameraId] = resumeFrameId;
+          }
+        }
+        inspectionEnabledByCameraIdRef.current[cameraId] = true;
+      }
+      for (const cameraId of inspectionStatus.disabledCameraIds) {
+        inspectionEnabledByCameraIdRef.current[cameraId] = false;
+      }
       setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
-      setInspectionStoppedAtMs(Date.now());
+      if (inspectionStatus.enabledCameraIds.length > 0) {
+        setInspectionStartedAtMs(changedAtMs);
+        setInspectionStoppedAtMs(undefined);
+      } else {
+        setInspectionStoppedAtMs(changedAtMs);
+      }
     });
 
     return () => {

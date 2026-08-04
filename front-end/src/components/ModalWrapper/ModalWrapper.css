@@ -627,8 +627,7 @@
   border-radius: 9px;
   background:
     linear-gradient(45deg, rgba(255, 255, 255, 0.025) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(255, 255, 255, 0.025) 25%, transparent 25%),
-    rgba(0, 0, 0, 0.26);
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.025) 25%, transparent 25%), rgba(0, 0, 0, 0.26);
   background-size: 18px 18px;
 }
 
@@ -706,6 +705,7 @@
 }
 
 .modal-fp-zones {
+  display: none;
   border-radius: 10px;
   background: rgba(245, 158, 11, 0.06);
 }

@@ -10,6 +10,7 @@
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+  max-height: calc(94vh - 58px);
   overflow-x: hidden;
   overflow-y: auto;
   padding-right: 4px;
@@ -491,7 +492,8 @@
 /* Reference creation workspace */
 .reference-setup.modal {
   width: min(96vw, 1540px);
-  height: min(94vh, 980px);
+  height: auto;
+  max-height: min(94vh, 980px);
   max-width: none;
   padding: 0;
   border: 1px solid #263648;
@@ -560,8 +562,9 @@
 
 .reference-setup__body {
   gap: 14px;
-  flex: 1 1 0;
-  height: 0;
+  flex: 0 1 auto;
+  height: auto;
+  min-height: 0;
   padding: 0 18px 16px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -575,6 +578,12 @@
   flex: 1 1 auto;
   gap: 12px;
   min-height: 520px;
+  align-items: start;
+}
+
+.reference-setup__layout > *,
+.reference-setup__archive-layout > * {
+  min-width: 0;
 }
 
 .reference-setup__sidebar,
@@ -583,6 +592,7 @@
   border: 1px solid #2b3a4b;
   border-radius: 8px;
   background: rgba(17, 27, 40, 0.82);
+  overflow: hidden;
 }
 
 .reference-setup__sidebar {
@@ -913,6 +923,7 @@
   font: inherit;
   font-size: 12px;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 button.reference-setup__object-row {
@@ -952,6 +963,7 @@ button.reference-setup__object-row {
 
 .reference-setup__archive {
   background: rgba(14, 23, 35, 0.88);
+  overflow: hidden;
 }
 
 .reference-setup__submission {
