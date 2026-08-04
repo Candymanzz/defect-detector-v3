@@ -20,6 +20,8 @@ export type InspectionStateResponse = {
   enabledCameraIds: CameraId[];
   disabledCameraIds: CameraId[];
   unknownCameraIds: CameraId[];
+  /** Текущее WS-состояние сессии (эталон не сбрасывается на stop-all). */
+  session_state?: string;
 };
 
 export type InspectionResetResponse = {

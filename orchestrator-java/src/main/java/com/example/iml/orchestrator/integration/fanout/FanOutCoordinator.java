@@ -64,7 +64,6 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         return fromConfig(root, projectRoot, clientWsServer, null);
     }
 
-    @SuppressWarnings("unchecked")
     public static FanOutCoordinator fromConfig(
             Map<String, Object> root,
             Path projectRoot,
@@ -190,7 +189,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public boolean inspectionEnabled() {
-        // Для ПЛК «инспекция включена» = задан эталон (READY/OPERATIONAL), не Start/Stop gate камер.
+        // Для ПЛК «инспекция включена» = задан эталон (READY/OPERATIONAL/INSPECTION_STOPPED),
+        // не Start/Stop gate камер. Пауза stop-all эталон не снимает.
         if (clientWsServer != null) {
             return clientWsServer.sessionState() != ClientWsSessionState.NO_REFERENCE;
         }

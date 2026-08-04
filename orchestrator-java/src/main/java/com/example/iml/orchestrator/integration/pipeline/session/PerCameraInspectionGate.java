@@ -3,12 +3,14 @@ package com.example.iml.orchestrator.integration.pipeline.session;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.IntConsumer;
 
 /**
  * Per-camera inspection gate: at most one in-flight cycle per camera, optional disable without stopping capture.
@@ -25,6 +27,10 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicBoolean> inFlight = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> cancelRequested = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
+    /** Уведомление bucket-агрегатора: камера вышла из expected set открытых вёдер. */
+    private volatile IntConsumer onCameraDisabled;
+    /** Камеры, которые были включены до {@link #disableAllAndRequestCancel()} — для start-all. */
+    private volatile Set<Integer> resumeCameraIds;
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
@@ -38,7 +44,6 @@ public final class PerCameraInspectionGate {
         this.inspectionSequence.putAll(inspectionSequence);
     }
 
-    @SuppressWarnings("unchecked")
     public static PerCameraInspectionGate fromCameras(List<Map<String, Object>> cameras) {
         ConcurrentHashMap<Integer, AtomicBoolean> enabled = new ConcurrentHashMap<>();
         ConcurrentHashMap<Integer, AtomicBoolean> flight = new ConcurrentHashMap<>();
@@ -98,16 +103,77 @@ public final class PerCameraInspectionGate {
         return false;
     }
 
+    public void setOnCameraDisabled(IntConsumer onCameraDisabled) {
+        this.onCameraDisabled = onCameraDisabled;
+    }
+
+    /** Останавливает инспекцию на всех известных камерах; эталон не трогает. */
+    public Set<Integer> disableAllAndRequestCancel() {
+        Set<Integer> previouslyEnabled = new LinkedHashSet<>();
+        for (Integer cameraId : cameraIds()) {
+            if (isInspectionEnabled(cameraId)) {
+                previouslyEnabled.add(cameraId);
+            }
+        }
+        resumeCameraIds = Set.copyOf(previouslyEnabled);
+
+        Set<Integer> cancelled = new LinkedHashSet<>();
+        for (Integer cameraId : previouslyEnabled) {
+            if (disableInspectionAndRequestCancel(cameraId)) {
+                cancelled.add(cameraId);
+            }
+        }
+        return cancelled;
+    }
+
+    /**
+     * Включает инспекцию после stop-all: восстанавливает набор камер, активных до паузы.
+     * Если снимка нет — включает все известные камеры.
+     */
+    public Set<Integer> enableAll() {
+        Set<Integer> toEnable = resumeCameraIds != null ? resumeCameraIds : Set.copyOf(cameraIds());
+        resumeCameraIds = null;
+        Set<Integer> changed = new LinkedHashSet<>();
+        for (Integer cameraId : toEnable) {
+            if (!isKnownCamera(cameraId)) {
+                continue;
+            }
+            if (!isInspectionEnabled(cameraId)) {
+                setInspectionEnabled(cameraId, true);
+                changed.add(cameraId);
+            }
+        }
+        return changed;
+    }
+
     public void setInspectionEnabled(int cameraId, boolean enabled) {
         AtomicBoolean flag = inspectionEnabled.get(cameraId);
         AtomicBoolean flight = inFlight.get(cameraId);
+        boolean becameDisabled = false;
         if (flag != null && flight != null) {
             synchronized (flight) {
+                becameDisabled = flag.get() && !enabled;
                 flag.set(enabled);
             }
         } else if (flag != null) {
+            becameDisabled = flag.get() && !enabled;
             flag.set(enabled);
         }
+        if (enabled) {
+            alignToGlobalMax(cameraId);
+        }
+        if (becameDisabled) {
+            notifyCameraDisabled(cameraId);
+        }
+    }
+
+    /** Подтянуть счётчик камеры к max по всем камерам (resume не с хвоста stop). */
+    private void alignToGlobalMax(int cameraId) {
+        long max = 0L;
+        for (AtomicLong sequence : inspectionSequence.values()) {
+            max = Math.max(max, sequence.get());
+        }
+        catchUpSequence(cameraId, max);
     }
 
     /** Оставляет инспекцию включённой только на указанных камерах (режим 5/10). */
@@ -128,13 +194,28 @@ public final class PerCameraInspectionGate {
         if (flag == null || flight == null || cancelFlag == null) {
             return false;
         }
+        boolean cancelled;
+        boolean becameDisabled;
         synchronized (flight) {
+            becameDisabled = flag.get();
             flag.set(false);
             if (!flight.get()) {
-                return false;
+                cancelled = false;
+            } else {
+                cancelFlag.set(true);
+                cancelled = true;
             }
-            cancelFlag.set(true);
-            return true;
+        }
+        if (becameDisabled) {
+            notifyCameraDisabled(cameraId);
+        }
+        return cancelled;
+    }
+
+    private void notifyCameraDisabled(int cameraId) {
+        IntConsumer listener = onCameraDisabled;
+        if (listener != null) {
+            listener.accept(cameraId);
         }
     }
 
@@ -164,6 +245,44 @@ public final class PerCameraInspectionGate {
             throw new IllegalArgumentException("unknown camera_id=" + cameraId);
         }
         return sequence.incrementAndGet();
+    }
+
+    /**
+     * Выдать inspection_id, совпадающий с текущим line trigger sequence.
+     * Resume после stop вклинивается в уже прошедший счёт кадров линии, а не продолжает
+     * локальный хвост камеры с момента остановки.
+     */
+    public long allocateInspectionId(int cameraId, long triggerSequence) {
+        AtomicLong sequence = inspectionSequence.get(cameraId);
+        if (sequence == null) {
+            throw new IllegalArgumentException("unknown camera_id=" + cameraId);
+        }
+        if (triggerSequence > 0L) {
+            sequence.updateAndGet(current -> Math.max(current, triggerSequence));
+            return triggerSequence;
+        }
+        return sequence.incrementAndGet();
+    }
+
+    /**
+     * Пока камера на Stop, триггеры линии всё равно идут — подтягиваем счётчик,
+     * чтобы при Start сразу быть на актуальном seq.
+     */
+    public void catchUpSequence(int cameraId, long triggerSequence) {
+        if (triggerSequence <= 0L) {
+            return;
+        }
+        AtomicLong sequence = inspectionSequence.get(cameraId);
+        if (sequence == null) {
+            return;
+        }
+        sequence.updateAndGet(current -> Math.max(current, triggerSequence));
+    }
+
+    /** Текущий счётчик камеры (после catch-up / allocate). */
+    public long currentSequence(int cameraId) {
+        AtomicLong sequence = inspectionSequence.get(cameraId);
+        return sequence == null ? 0L : sequence.get();
     }
 
     public void endInspection(int cameraId) {

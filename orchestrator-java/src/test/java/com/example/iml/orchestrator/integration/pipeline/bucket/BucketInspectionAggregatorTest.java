@@ -3,12 +3,14 @@ package com.example.iml.orchestrator.integration.pipeline.bucket;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutSink;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -205,6 +207,74 @@ class BucketInspectionAggregatorTest {
 
         BucketFanOutResult result = published.get();
         assertTrue(result.overallPass());
+    }
+
+    @Test
+    void stopRemovesCameraFromOpenBucketAndPublishesWhenRemainingComplete() {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0, 1, 2))),
+                        1000L,
+                        1000L
+                )
+        );
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = fanOutSink(published);
+        aggregator.bind(null, fanOut);
+
+        aggregator.recordFrameResult(40L, 0, decision(0, 700L, true), fanOut);
+        aggregator.recordFrameResult(40L, 1, decision(1, 701L, true), fanOut);
+        assertNull(published.get(), "still waiting for camera 2");
+
+        aggregator.onCameraDisabled(2);
+
+        BucketFanOutResult result = published.get();
+        assertEquals(40L, result.triggerSequence());
+        assertTrue(result.overallPass());
+        assertEquals(List.of(0, 1), result.bucketCameraIds());
+        assertEquals(2, result.frameDecisions().size());
+    }
+
+    @Test
+    void resumeRejoinsOnlyNextTriggerSequence() {
+        PerCameraInspectionGate gate = PerCameraInspectionGate.fromCameras(List.of(
+                Map.of("id", 0, "inspection_enabled", true),
+                Map.of("id", 1, "inspection_enabled", true)
+        ));
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0, 1))),
+                        1000L,
+                        1000L
+                )
+        );
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = fanOutSink(published);
+        aggregator.bind(gate, fanOut);
+
+        aggregator.recordFrameResult(41L, 0, decision(0, 800L, true), fanOut);
+        assertNull(published.get());
+        gate.disableInspectionAndRequestCancel(1);
+
+        BucketFanOutResult whileStopped = published.get();
+        assertTrue(whileStopped.overallPass());
+        assertEquals(List.of(0), whileStopped.bucketCameraIds());
+
+        published.set(null);
+        gate.setInspectionEnabled(1, true);
+
+        aggregator.recordFrameResult(42L, 0, decision(0, 802L, true), fanOut);
+        assertNull(published.get(), "resumed camera must join the new sequence");
+        aggregator.recordFrameResult(42L, 1, decision(1, 803L, true), fanOut);
+
+        BucketFanOutResult resumed = published.get();
+        assertEquals(42L, resumed.triggerSequence());
+        assertTrue(resumed.overallPass());
+        assertEquals(List.of(0, 1), resumed.bucketCameraIds());
     }
 
     private static BucketFanOutSink fanOutSink(AtomicReference<BucketFanOutResult> published) {

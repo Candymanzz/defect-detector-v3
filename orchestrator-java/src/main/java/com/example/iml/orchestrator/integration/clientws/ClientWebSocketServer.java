@@ -121,7 +121,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     }
 
     /**
-     * Колбэк на смену эталона (READY/OPERATIONAL / NO_REFERENCE) — для FINS vision_ready.
+     * Колбэк на смену эталона/паузы (READY/OPERATIONAL/INSPECTION_STOPPED / NO_REFERENCE) — для FINS vision_ready.
      */
     public void setSessionStateListener(Consumer<ClientWsSessionState> listener) {
         this.sessionStateListener = listener;
@@ -186,6 +186,40 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         setSessionState(ClientWsSessionState.NO_REFERENCE);
         broadcastOpenClients(conn -> outbound.sendSessionState(conn, ClientWsSessionState.NO_REFERENCE));
         log.info("client_ws reference cleared — session_state=NO_REFERENCE inspection stopped");
+    }
+
+    /**
+     * Пауза инспекции на всех камерах без сброса эталона/ROI/настроек.
+     * Сессия → , если эталон был задан.
+     *
+     * @return {@code true}, если состояние сменилось на {@code INSPECTION_STOPPED}
+     */
+    public boolean pauseInspectionKeepReference() {
+        ClientWsSessionState current = sessionState();
+        if (current == ClientWsSessionState.NO_REFERENCE
+                || current == ClientWsSessionState.INSPECTION_STOPPED) {
+            return false;
+        }
+        setSessionState(ClientWsSessionState.INSPECTION_STOPPED);
+        broadcastOpenClients(conn -> outbound.sendSessionState(conn, ClientWsSessionState.INSPECTION_STOPPED));
+        log.info("client_ws inspection paused — session_state=INSPECTION_STOPPED (reference kept)");
+        return true;
+    }
+
+    /**
+     * Снятие паузы {@link ClientWsSessionState#INSPECTION_STOPPED} → {@link ClientWsSessionState#OPERATIONAL}.
+     * Эталон не трогает.
+     *
+     * @return {@code true}, если состояние сменилось на {@code OPERATIONAL}
+     */
+    public boolean resumeInspectionAfterPause() {
+        if (sessionState() != ClientWsSessionState.INSPECTION_STOPPED) {
+            return false;
+        }
+        setSessionState(ClientWsSessionState.OPERATIONAL);
+        broadcastOpenClients(conn -> outbound.sendSessionState(conn, ClientWsSessionState.OPERATIONAL));
+        log.info("client_ws inspection resumed — session_state=OPERATIONAL (reference kept)");
+        return true;
     }
 
     public void applyReferenceSnapshotFromDraft(ReferenceBundleSnapshot snap) throws ClientWsKopcheniSyncException {
@@ -335,13 +369,17 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     @Override
     public void onWebsocketPong(WebSocket conn, Framedata f) {
+        if (conn == null || f == null) {
+            return;
+        }
         lastClientActivityEpochMs = System.currentTimeMillis();
     }
 
     @Override
     public void onError(WebSocket conn, Exception ex) {
+        String where = conn == null ? "n/a" : String.valueOf(conn.getRemoteSocketAddress());
         if (ex != null) {
-            log.warn("client_ws error: {}", ex.toString());
+            log.warn("client_ws error remote={}: {}", where, ex.toString());
         }
     }
 

@@ -144,6 +144,22 @@ export const orchestratorApi = {
     });
   },
 
+  /** Остановить инспекцию на всех камерах без сброса эталона/ROI/настроек. */
+  async stopAllInspection() {
+    return http.json<InspectionStateResponse>("/api/client/inspection/stop-all", {
+      method: "POST",
+      body: {},
+    });
+  },
+
+  /** Возобновить инспекцию на всех камерах после stop-all (эталон сохраняется). */
+  async startAllInspection() {
+    return http.json<InspectionStateResponse>("/api/client/inspection/start-all", {
+      method: "POST",
+      body: {},
+    });
+  },
+
   async resetInspection() {
     return http.json<InspectionResetResponse>("/api/client/inspection/clear-reference", {
       method: "POST",

@@ -124,24 +124,39 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
         const isEnabled = response.enabledCameraIds.includes(cameraId);
         const changedAtMs = Date.now();
+        const otherCamerasStillRunning = response.enabledCameraIds.some((id) => id !== cameraId);
         if (isEnabled) {
-          setInspectionStartedAtMs(changedAtMs);
-          inspectionEnabledByCameraIdRef.current[cameraId] = true;
-          inspectionAcceptedAfterMsByCameraIdRef.current[cameraId] = changedAtMs;
-          const resumeFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
-          if (resumeFrameId !== undefined) {
-            inspectionAcceptedFromFrameIdByCameraIdRef.current[cameraId] = resumeFrameId;
+          // Resume вклинивается в идущую инспекцию — не начинаем новую глобальную сессию.
+          if (!otherCamerasStillRunning) {
+            setInspectionStartedAtMs(changedAtMs);
           }
+          setInspectionStoppedAtMs(undefined);
+          inspectionEnabledByCameraIdRef.current[cameraId] = true;
+          // Принимаем только кадры «с сейчас»; не якоримся на frame_id момента stop.
+          inspectionAcceptedAfterMsByCameraIdRef.current[cameraId] = changedAtMs;
+          delete inspectionAcceptedFromFrameIdByCameraIdRef.current[cameraId];
+          // Сбрасываем локальный трекер id — следующий результат будет с актуальным line seq.
+          delete latestInspectionIdByCameraIdRef.current[cameraId];
+          resetCameraInspectionOrdering(cameraId);
         } else {
-          setInspectionStoppedAtMs(changedAtMs);
           inspectionEnabledByCameraIdRef.current[cameraId] = false;
+          delete inspectionAcceptedAfterMsByCameraIdRef.current[cameraId];
+          delete inspectionAcceptedFromFrameIdByCameraIdRef.current[cameraId];
+          // Глобальный stop только когда не осталось включённых камер.
+          if (!otherCamerasStillRunning) {
+            setInspectionStoppedAtMs(changedAtMs);
+          }
         }
         setInspectionControlByCameraId((currentStates) => ({
           ...currentStates,
           [cameraId]: {
             isEnabled,
             state: "idle",
-            message: isEnabled ? "Инспекция включена" : "Инспекция остановлена",
+            message: isEnabled
+              ? otherCamerasStillRunning
+                ? "Камера снова в общей инспекции"
+                : "Инспекция включена"
+              : "Инспекция остановлена",
           },
         }));
       } catch (error) {
@@ -155,7 +170,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
         }));
       }
     },
-    [hasReference, inspectionControlByCameraId],
+    [hasReference, inspectionControlByCameraId, resetCameraInspectionOrdering],
   );
 
   const openInspectionModal = useCallback(

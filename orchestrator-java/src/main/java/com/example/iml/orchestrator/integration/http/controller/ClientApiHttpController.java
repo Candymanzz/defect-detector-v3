@@ -58,6 +58,14 @@ public final class ClientApiHttpController implements HttpController {
             handleClearReference(ctx);
             return;
         }
+        if (path.equals("/api/client/inspection/stop-all")) {
+            handleInspectionToggleAll(ctx, false);
+            return;
+        }
+        if (path.equals("/api/client/inspection/start-all")) {
+            handleInspectionToggleAll(ctx, true);
+            return;
+        }
         if (path.equals("/api/client/inspection/stop")) {
             handleInspectionToggle(ctx, false);
             return;
@@ -269,7 +277,6 @@ public final class ClientApiHttpController implements HttpController {
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Integer> parseTimeoutUnits(Map<String, Object> body) {
         Object raw = body.get("timeouts");
         if (raw == null) {
@@ -500,6 +507,51 @@ public final class ClientApiHttpController implements HttpController {
         sendInspectionState(ctx, requestedCameraIds, changed, cancelled, unknown);
     }
 
+    /**
+     * Stop/start инспекции на всех камерах без сброса эталона/ROI/настроек.
+     * Stop-all → {@code INSPECTION_STOPPED}; start-all снимает паузу → {@code OPERATIONAL}.
+     * Съёмка preview/кадров продолжается (gate только блокирует циклы инспекции).
+     */
+    private void handleInspectionToggleAll(HttpRequestContext ctx, boolean enabled) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (clientApi.inspectionGate() == null) {
+            HttpResponses.sendJsonError(ctx, 503, "inspection gate not configured");
+            return;
+        }
+
+        List<Integer> allCameraIds = new ArrayList<>(clientApi.inspectionGate().cameraIds());
+        allCameraIds.sort(Integer::compareTo);
+        Set<Integer> changed = new LinkedHashSet<>();
+        Set<Integer> cancelled = new LinkedHashSet<>();
+
+        if (enabled) {
+            changed.addAll(clientApi.inspectionGate().enableAll());
+            var holder = clientApi.clientWsHolder();
+            var ws = holder == null ? null : holder.get();
+            if (ws != null) {
+                ws.resumeInspectionAfterPause();
+            }
+        } else {
+            for (Integer cameraId : allCameraIds) {
+                if (clientApi.inspectionGate().isInspectionEnabled(cameraId)) {
+                    changed.add(cameraId);
+                }
+            }
+            cancelled.addAll(clientApi.inspectionGate().disableAllAndRequestCancel());
+            var holder = clientApi.clientWsHolder();
+            var ws = holder == null ? null : holder.get();
+            if (ws != null) {
+                ws.pauseInspectionKeepReference();
+            }
+        }
+
+        sendInspectionState(ctx, allCameraIds, changed, cancelled, Set.of());
+    }
+
     private void sendInspectionState(
             HttpRequestContext ctx,
             List<Integer> requestedCameraIds,
@@ -536,6 +588,11 @@ public final class ClientApiHttpController implements HttpController {
         response.set("enabledCameraIds", toArray(enabledCameraIds));
         response.set("disabledCameraIds", toArray(disabledCameraIds));
         response.set("unknownCameraIds", toArray(unknownCameraIds));
+        var holder = clientApi.clientWsHolder();
+        var ws = holder == null ? null : holder.get();
+        if (ws != null) {
+            response.put("session_state", ws.sessionState().name());
+        }
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(response));
     }
 

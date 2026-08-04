@@ -81,7 +81,9 @@ public final class TriggerRuntimeBootstrapService {
                     JointSeamPolicy.fromGeometryYaml(ctx.geometryCfg())
             );
             ctx.setBucketInspectionAggregator(bucketInspectionAggregator);
+            // Сначала ужимаем гейт (без listener), потом bind — Stop будет ужимать открытые вёдра.
             ctx.inspectionGate().setInspectionEnabledOnlyFor(inspectionCameraIds);
+            bucketInspectionAggregator.bind(ctx.inspectionGate(), ctx.fanOut());
             log.info(
                     "inspection bucket enabled groups={} cameras={} timeout_ms={} line_broadcast_interval_ms={}",
                     bucketInspectionConfig.groups(),

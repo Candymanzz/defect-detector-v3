@@ -3,12 +3,16 @@ package com.example.iml.orchestrator.integration.pipeline.bucket;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutSink;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,6 +24,10 @@ import java.util.concurrent.TimeUnit;
  * При нескольких вёдрах (две линии) вердикты на ПЛК/UI уходят только когда
  * готовы все вёдра одного {@code triggerSequence} — одним пакетом.
  * При низкой видимости шва на соседних камерах — ужесточённый гейт метрик шва.
+ *
+ * <p>Expected-камеры снимкаются на создание ведра из текущего Start/Stop гейта.
+ * Stop ужимает expected открытых вёдер (камера выпадает); Start не расширяет
+ * уже открытые — камера вклинивается только в следующие trigger sequence.
  */
 public final class BucketInspectionAggregator implements AutoCloseable {
 
@@ -36,6 +44,8 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     private final ConcurrentHashMap<BucketKey, BucketState> buckets = new ConcurrentHashMap<>();
     /** Барьер: ждать все groupId одного triggerSequence перед fanOut. */
     private final ConcurrentHashMap<Long, SequenceBarrier> sequenceBarriers = new ConcurrentHashMap<>();
+    private volatile PerCameraInspectionGate inspectionGate;
+    private volatile BucketFanOutSink defaultFanOut;
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config) {
         this(log, config, JointSeamPolicy.defaults());
@@ -59,6 +69,15 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             t.setDaemon(true);
             return t;
         });
+    }
+
+    /** Привязка Start/Stop гейта и fan-out для пересборки открытых вёдер при Stop. */
+    public void bind(PerCameraInspectionGate inspectionGate, BucketFanOutSink fanOut) {
+        this.inspectionGate = inspectionGate;
+        this.defaultFanOut = fanOut;
+        if (inspectionGate != null) {
+            inspectionGate.setOnCameraDisabled(this::onCameraDisabled);
+        }
     }
 
     public List<BucketGroup> groups() {
@@ -100,18 +119,90 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         if (group == null) {
             return;
         }
+        if (fanOut != null) {
+            defaultFanOut = fanOut;
+        }
         BucketKey key = new BucketKey(triggerSequence, groupId);
-        BucketState state = buckets.computeIfAbsent(key, ignored -> new BucketState(triggerSequence, groupId, group));
+        BucketState state = buckets.computeIfAbsent(
+                key,
+                ignored -> new BucketState(triggerSequence, groupId, enabledCameraIds(group))
+        );
         synchronized (state) {
-            if (state.published) {
+            if (state.published || state.discarded) {
+                return;
+            }
+            if (state.expectedCameraIds.isEmpty()) {
+                discardBucket(state, "no enabled cameras in group");
+                return;
+            }
+            if (!state.expectedCameraIds.contains(cameraId)) {
+                log.debug(
+                        "bucket frame ignored cam={} seq={} group={}: camera not in expected set {}",
+                        cameraId,
+                        triggerSequence,
+                        groupId,
+                        state.expectedCameraIds
+                );
                 return;
             }
             state.frameDecisions.put(cameraId, decision);
             scheduleTimeoutIfNeeded(state, fanOut);
-            if (state.frameDecisions.size() >= group.cameraIds().size()) {
+            if (isComplete(state)) {
                 publishBucket(state, fanOut, false);
             }
         }
+    }
+
+    /**
+     * Stop камеры: убрать её из expected открытых вёдер и опубликовать, если набор уже полный.
+     * Resume (Start) сюда не входит — камера попадает только в новые trigger sequence.
+     */
+    public void onCameraDisabled(int cameraId) {
+        BucketFanOutSink fanOut = defaultFanOut;
+        for (BucketState state : List.copyOf(buckets.values())) {
+            synchronized (state) {
+                if (state.published || state.discarded) {
+                    continue;
+                }
+                if (!state.expectedCameraIds.remove(cameraId)) {
+                    continue;
+                }
+                log.info(
+                        "inspection bucket cam={} disabled seq={} group={} expected_left={}",
+                        cameraId,
+                        state.triggerSequence,
+                        state.groupId,
+                        state.expectedCameraIds
+                );
+                if (state.expectedCameraIds.isEmpty()) {
+                    discardBucket(state, "all expected cameras disabled");
+                    continue;
+                }
+                if (fanOut != null && isComplete(state)) {
+                    publishBucket(state, fanOut, false);
+                }
+            }
+        }
+    }
+
+    private List<Integer> enabledCameraIds(BucketGroup group) {
+        PerCameraInspectionGate gate = inspectionGate;
+        List<Integer> enabled = new ArrayList<>();
+        for (Integer cameraId : group.cameraIds()) {
+            if (gate == null || gate.isInspectionEnabled(cameraId)) {
+                enabled.add(cameraId);
+            }
+        }
+        return enabled;
+    }
+
+    private static boolean isComplete(BucketState state) {
+        for (Integer cameraId : state.expectedCameraIds) {
+            if (!state.frameDecisions.containsKey(cameraId)) {
+                return false;
+            }
+        }
+        return !state.expectedCameraIds.isEmpty();
     }
 
     private void scheduleTimeoutIfNeeded(BucketState state, BucketFanOutSink fanOut) {
@@ -119,7 +210,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             return;
         }
         state.timeoutFuture = timeoutExecutor.schedule(
-                () -> onTimeout(state.key(), fanOut),
+                () -> onTimeout(state.key(), fanOut != null ? fanOut : defaultFanOut),
                 timeoutMs,
                 TimeUnit.MILLISECONDS
         );
@@ -131,23 +222,51 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             return;
         }
         synchronized (state) {
-            if (state.published) {
+            if (state.published || state.discarded) {
                 return;
             }
             log.warn(
                     "inspection bucket timeout seq={} group={} received={}/{} cameras={}",
                     key.triggerSequence(),
                     key.groupId(),
-                    state.frameDecisions.size(),
-                    state.group.cameraIds().size(),
+                    matchingExpectedCount(state),
+                    state.expectedCameraIds.size(),
                     state.frameDecisions.keySet()
             );
             publishBucket(state, fanOut, true);
         }
     }
 
+    private static int matchingExpectedCount(BucketState state) {
+        int count = 0;
+        for (Integer cameraId : state.expectedCameraIds) {
+            if (state.frameDecisions.containsKey(cameraId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void discardBucket(BucketState state, String reason) {
+        if (state.published || state.discarded) {
+            return;
+        }
+        state.discarded = true;
+        if (state.timeoutFuture != null) {
+            state.timeoutFuture.cancel(false);
+        }
+        buckets.remove(state.key(), state);
+        log.info(
+                "inspection bucket discarded seq={} group={} reason={} frames={}",
+                state.triggerSequence,
+                state.groupId,
+                reason,
+                state.frameDecisions.size()
+        );
+    }
+
     private void publishBucket(BucketState state, BucketFanOutSink fanOut, boolean timedOut) {
-        if (state.published) {
+        if (state.published || state.discarded) {
             return;
         }
         state.published = true;
@@ -156,10 +275,11 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         }
         buckets.remove(state.key(), state);
 
-        List<Integer> expectedCameraIds = state.group.cameraIds();
-        boolean anyReject = timedOut || state.frameDecisions.size() < expectedCameraIds.size();
+        List<Integer> expectedCameraIds = List.copyOf(state.expectedCameraIds);
+        boolean anyReject = timedOut || !isCompleteFor(expectedCameraIds, state.frameDecisions);
         if (!anyReject) {
-            boolean captureOnly = state.frameDecisions.values().stream()
+            boolean captureOnly = expectedCameraIds.stream()
+                    .map(state.frameDecisions::get)
                     .allMatch(decision -> decision != null && "CAPTURE".equals(decision.action()));
             if (captureOnly) {
                 anyReject = false;
@@ -174,7 +294,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             }
         }
         boolean bucketPass = !anyReject;
-        Map<Integer, InspectionDecision> snapshot = Map.copyOf(state.frameDecisions);
+        Map<Integer, InspectionDecision> snapshot = filterExpected(state.frameDecisions, expectedCameraIds);
         boolean seamStrict = false;
         SeamStrictGate seamGate = evaluateSeamStrictGate(snapshot);
         seamStrict = seamGate.strictActive();
@@ -221,6 +341,29 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 ),
                 fanOut
         );
+    }
+
+    private static boolean isCompleteFor(List<Integer> expected, Map<Integer, InspectionDecision> decisions) {
+        for (Integer cameraId : expected) {
+            if (!decisions.containsKey(cameraId)) {
+                return false;
+            }
+        }
+        return !expected.isEmpty();
+    }
+
+    private static Map<Integer, InspectionDecision> filterExpected(
+            Map<Integer, InspectionDecision> decisions,
+            List<Integer> expected
+    ) {
+        Map<Integer, InspectionDecision> filtered = new LinkedHashMap<>();
+        for (Integer cameraId : expected) {
+            InspectionDecision decision = decisions.get(cameraId);
+            if (decision != null) {
+                filtered.put(cameraId, decision);
+            }
+        }
+        return Map.copyOf(filtered);
     }
 
     /**
@@ -291,7 +434,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                                 group.id(),
                                 triggerSequence,
                                 false,
-                                group.cameraIds(),
+                                enabledCameraIds(group),
                                 Map.of()
                         )
                 );
@@ -387,15 +530,21 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     private static final class BucketState {
         private final long triggerSequence;
         private final int groupId;
-        private final BucketGroup group;
+        /** Snapshot + ужимается при Stop; Start не расширяет. */
+        private final Set<Integer> expectedCameraIds;
         private final Map<Integer, InspectionDecision> frameDecisions = new LinkedHashMap<>();
         private volatile boolean published;
+        private volatile boolean discarded;
         private volatile ScheduledFuture<?> timeoutFuture;
 
-        private BucketState(long triggerSequence, int groupId, BucketGroup group) {
+        private BucketState(
+                long triggerSequence,
+                int groupId,
+                List<Integer> expectedCameraIds
+        ) {
             this.triggerSequence = triggerSequence;
             this.groupId = groupId;
-            this.group = group;
+            this.expectedCameraIds = new LinkedHashSet<>(expectedCameraIds);
         }
 
         private BucketKey key() {

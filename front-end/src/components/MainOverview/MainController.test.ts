@@ -10,7 +10,7 @@ function inspectResult(frameId: string, serverTs: number): InspectResultPayload 
   return {
     camera_id: 0,
     frame_id: frameId,
-    session_state: "ready",
+    session_state: "READY",
     current: {
       camera_id: 0,
       frame_id: frameId,

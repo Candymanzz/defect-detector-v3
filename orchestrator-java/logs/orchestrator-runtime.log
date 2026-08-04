@@ -47511,3 +47511,100 @@ java.io.IOException: EOF
 2026-07-24 09:02:26.901 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
 2026-07-24 09:02:26.903 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 par=2.0 width=1.2 strict_pass=false
 2026-07-24 09:02:26.903 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-08-04 13:03:18.528 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=2 disabled seq=40 group=0 expected_left=[0, 1]
+2026-08-04 13:03:18.533 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=40 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:03:18.546 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:03:18.549 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:03:18.550 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:03:18.552 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection sequence fanout seq=20 groups=[0, 1] passes=[false, true]
+2026-08-04 13:03:18.555 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=1 disabled seq=41 group=0 expected_left=[0]
+2026-08-04 13:03:18.556 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=41 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-08-04 13:03:18.556 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=42 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:03:18.558 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:03:18.561 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:03:18.561 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:03:18.563 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=false sibling_vis=0.05 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:03:18.564 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:03:18.566 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=32 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 joint_pass=false par=2.0 width=0.3 strict_pass=false force_reject=true
+2026-08-04 13:03:18.566 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=32 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-08-04 13:13:38.270 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-08-04 13:13:38.289 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_decision cam=0 frame=7 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.05 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-08-04 13:13:38.291 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 positioning_ms=0 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=6
+2026-08-04 13:13:38.292 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=6 pipeline_ms=8 reference_ms=0 capture_ms=1 positioning_ms=0 python_ms=3 geometry_ms=2 decision_ms=1 fanout_ms=1 pos_orb_ms=0.0 pos_warp_ms=0.0 pos_ecc_ms=0.0 pos_write_ms=0.0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-08-04 13:13:38.296 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-08-04 13:13:38.300 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-08-04 13:13:38.337 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=2 disabled seq=40 group=0 expected_left=[0, 1]
+2026-08-04 13:13:38.339 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=40 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:13:38.341 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:13:38.343 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:13:38.345 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:13:38.346 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection sequence fanout seq=20 groups=[0, 1] passes=[false, true]
+2026-08-04 13:13:38.349 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=1 disabled seq=41 group=0 expected_left=[0]
+2026-08-04 13:13:38.349 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=41 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-08-04 13:13:38.350 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=42 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:13:38.352 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:13:38.355 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:13:38.355 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:13:38.356 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=false sibling_vis=0.05 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:13:38.357 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:13:38.359 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=32 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 joint_pass=false par=2.0 width=0.3 strict_pass=false force_reject=true
+2026-08-04 13:13:38.359 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=32 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-08-04 13:19:14.598 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-08-04 13:19:14.634 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-04 13:19:14.634 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-08-04 13:19:14.641 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-04 13:19:14.645 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-08-04 13:19:14.646 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-08-04 13:19:14.647 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-08-04 13:19:14.672 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-08-04 13:19:14.686 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_decision cam=0 frame=7 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.05 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-08-04 13:19:14.689 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 positioning_ms=0 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=12
+2026-08-04 13:19:14.692 INFO  [pool-11-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=12 pipeline_ms=9 reference_ms=0 capture_ms=1 positioning_ms=0 python_ms=3 geometry_ms=2 decision_ms=1 fanout_ms=2 pos_orb_ms=0.0 pos_warp_ms=0.0 pos_ecc_ms=0.0 pos_write_ms=0.0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-08-04 13:19:14.698 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-08-04 13:19:14.703 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-08-04 13:19:16.746 INFO  [pool-38-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:16.744 INFO  [pool-38-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:16.751 INFO  [pool-38-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=100 groups=[0, 1] passes=[true, true]
+2026-08-04 13:19:17.724 INFO  [pool-39-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:20.377 INFO  [pool-39-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:20.378 INFO  [pool-39-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=150 groups=[0, 1] passes=[true, true]
+2026-08-04 13:19:20.384 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:24.384 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence sync timeout seq=300 missing_group=1 — synthetic reject for line
+2026-08-04 13:19:24.385 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection sequence fanout seq=300 groups=[0, 1] passes=[true, false]
+2026-08-04 13:19:24.385 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket timeout seq=300 group=1 received=3/5 cameras=[5, 6, 7]
+2026-08-04 13:19:24.385 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=1 pass=false frames=3/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.568 INFO  [pool-40-thread-5] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.578 INFO  [pool-40-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=1 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.579 INFO  [pool-40-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection sequence fanout seq=1 groups=[0, 1] passes=[true, true]
+2026-08-04 13:19:26.596 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=2 disabled seq=40 group=0 expected_left=[0, 1]
+2026-08-04 13:19:26.597 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=40 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.599 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.602 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:19:26.603 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.603 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection sequence fanout seq=20 groups=[0, 1] passes=[false, true]
+2026-08-04 13:19:26.606 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=1 disabled seq=41 group=0 expected_left=[0]
+2026-08-04 13:19:26.606 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=41 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.607 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=42 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.609 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:19:26.611 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:19:26.611 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.613 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=false sibling_vis=0.05 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:19:26.613 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:19:26.616 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=32 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 joint_pass=false par=2.0 width=0.3 strict_pass=false force_reject=true
+2026-08-04 13:19:26.616 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=32 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-08-04 13:20:11.777 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=2 disabled seq=40 group=0 expected_left=[0, 1]
+2026-08-04 13:20:11.783 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=40 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:20:11.797 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:20:11.801 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:20:11.803 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:20:11.804 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection sequence fanout seq=20 groups=[0, 1] passes=[false, true]
+2026-08-04 13:20:11.809 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket cam=1 disabled seq=41 group=0 expected_left=[0]
+2026-08-04 13:20:11.809 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=41 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-08-04 13:20:11.810 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=42 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:20:11.813 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-04 13:20:11.816 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:20:11.816 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:20:11.819 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=false sibling_vis=0.05 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-04 13:20:11.820 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-04 13:20:11.822 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=32 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 joint_pass=false par=2.0 width=0.3 strict_pass=false force_reject=true
+2026-08-04 13:20:11.822 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=32 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true

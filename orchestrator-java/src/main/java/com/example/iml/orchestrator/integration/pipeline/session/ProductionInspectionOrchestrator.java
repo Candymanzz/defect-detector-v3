@@ -135,10 +135,13 @@ public final class ProductionInspectionOrchestrator {
     ) {
         PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId());
         if (begin == PerCameraInspectionGate.BeginResult.DISABLED) {
+            // Линия продолжает считать кадры — догоняем счётчик, чтобы resume вклинился в текущий seq.
+            inspectionGate.catchUpSequence(in.cameraId(), event.sequence());
             svc.log().debug(
-                    "integration cam={}: trigger skipped — inspection disabled (source={})",
+                    "integration cam={}: trigger skipped — inspection disabled (source={}) caught_up_seq={}",
                     in.cameraId(),
-                    event.source()
+                    event.source(),
+                    event.sequence()
             );
             return;
         }
@@ -150,6 +153,7 @@ public final class ProductionInspectionOrchestrator {
             );
             begin = inspectionGate.tryBeginInspection(in.cameraId());
             if (begin != PerCameraInspectionGate.BeginResult.STARTED) {
+                inspectionGate.catchUpSequence(in.cameraId(), event.sequence());
                 return;
             }
         }
@@ -164,10 +168,12 @@ public final class ProductionInspectionOrchestrator {
                             in.cameraId()
                     );
                 }
+                inspectionGate.catchUpSequence(in.cameraId(), event.sequence());
                 return;
             }
             cycleIn = cycleIn.withTriggerSequence(event.sequence());
-            inspectionId = inspectionGate.nextInspectionId(in.cameraId());
+            // inspection_id = текущий line trigger (не локальный хвост с момента stop).
+            inspectionId = inspectionGate.allocateInspectionId(in.cameraId(), event.sequence());
             cycleIn = cycleIn.withInspectionId(inspectionId);
             boolean captureOnly = cycleIn.activeReference() == null || !cycleIn.activeReference().isUsable();
             if (captureOnly) {

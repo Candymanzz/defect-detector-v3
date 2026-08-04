@@ -41,7 +41,7 @@ export type WsConnectionStatus = {
   lastMessageAtMs?: number;
 };
 
-export type WsSessionState = "NO_REFERENCE" | "READY" | "OPERATIONAL";
+export type WsSessionState = "NO_REFERENCE" | "READY" | "OPERATIONAL" | "INSPECTION_STOPPED";
 export type ServerErrorCode =
   | "parse_error"
   | "no_reference"
