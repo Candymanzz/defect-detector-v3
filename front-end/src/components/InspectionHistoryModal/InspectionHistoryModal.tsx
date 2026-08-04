@@ -10,10 +10,24 @@ import "./InspectionHistoryModal.css";
 type InspectionHistoryModalProps = {
   inspectionId: string;
   results: InspectionHistoryItem[];
+  historyItems?: Array<{
+    groupKey: string;
+    inspectionId: string;
+    result: "pass" | "fail" | "capture";
+  }>;
+  selectedGroupKey?: string;
+  onHistorySelect?: (groupKey: string) => void;
   onClose: () => void;
 };
 
-export function InspectionHistoryModal({ inspectionId, results, onClose }: InspectionHistoryModalProps) {
+export function InspectionHistoryModal({
+  inspectionId,
+  results,
+  historyItems = [],
+  selectedGroupKey,
+  onHistorySelect,
+  onClose,
+}: InspectionHistoryModalProps) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -48,6 +62,30 @@ export function InspectionHistoryModal({ inspectionId, results, onClose }: Inspe
             x
           </button>
         </header>
+
+        {historyItems.length > 0 && (
+          <section
+            className="inspection-history-modal__navigation"
+            aria-label="Общие результаты инспекций"
+          >
+            <header>Общие результаты инспекций</header>
+            <div className="inspection-history-modal__navigation-tiles">
+              {historyItems.map((item) => (
+                <button
+                  className="inspection-history-modal__navigation-tile"
+                  data-active={item.groupKey === selectedGroupKey}
+                  data-result={item.result}
+                  key={item.groupKey}
+                  type="button"
+                  aria-pressed={item.groupKey === selectedGroupKey}
+                  onClick={() => onHistorySelect?.(item.groupKey)}
+                >
+                  {item.inspectionId}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="inspection-history-modal__grid">
           {results.map((item) => (
@@ -158,9 +196,7 @@ function resolveInspectionImageUrl(result: InspectResultPayload) {
   }
 
   if (result.artifact_bundle_id) {
-    return orchestratorApi.url(
-      `/api/inspection-artifacts/${encodeURIComponent(result.artifact_bundle_id)}/frame.jpg`,
-    );
+    return orchestratorApi.url(`/api/inspection-artifacts/${encodeURIComponent(result.artifact_bundle_id)}/frame.jpg`);
   }
 
   return httpPath ? orchestratorApi.imageUrl(httpPath, result.frame_id) : undefined;

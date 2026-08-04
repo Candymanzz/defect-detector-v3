@@ -2,6 +2,55 @@
   width: min(96%, 1800px);
 }
 
+.inspection-history-modal__navigation {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #4b5563;
+  border-radius: 10px;
+  background: #202938;
+}
+
+.inspection-history-modal__navigation > header {
+  margin-bottom: 9px;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.inspection-history-modal__navigation-tiles {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+}
+
+.inspection-history-modal__navigation-tile {
+  flex: 0 0 auto;
+  min-width: 72px;
+  padding: 8px 10px;
+  border: 2px solid #64748b;
+  border-radius: 8px;
+  background: #334155;
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+.inspection-history-modal__navigation-tile[data-result="pass"] {
+  border-color: #22c55e;
+}
+
+.inspection-history-modal__navigation-tile[data-result="fail"] {
+  border-color: #ef4444;
+}
+
+.inspection-history-modal__navigation-tile[data-result="capture"] {
+  border-color: #38bdf8;
+}
+
+.inspection-history-modal__navigation-tile[data-active="true"] {
+  box-shadow: 0 0 0 2px #f8fafc;
+}
+
 .inspection-history-modal__grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

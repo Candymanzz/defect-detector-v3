@@ -39,7 +39,6 @@ const ANALYSIS_SETTING_FIELDS: Array<{
   step?: string;
 }> = [
   { name: "default_threshold", label: "Порог по умолчанию", type: "number", min: 0.01, max: 1, step: "0.01" },
-  { name: "use_patchcore", label: "Использовать PatchCore", type: "checkbox" },
   { name: "min_defect_area", label: "Мин. площадь дефекта", type: "number", min: 1, step: "1" },
   { name: "min_scratch_aspect", label: "Мин. пропорция царапины", type: "number", min: 1, step: "0.1" },
   { name: "min_diff_signal", label: "Мин. diff-сигнал", type: "number", min: 0, step: "0.1" },
@@ -50,8 +49,20 @@ const ANALYSIS_SETTING_FIELDS: Array<{
   { name: "text_min_contrast", label: "Мин. контраст текста", type: "number", min: 0, max: 255, step: "1" },
   { name: "text_structure_threshold", label: "Порог структуры текста", type: "number", min: 0, max: 255, step: "1" },
   { name: "contrast_loss_boost", label: "Усиление потери контраста", type: "number", min: 1, step: "0.1" },
-  { name: "contrast_loss_ref_grad", label: "Градиент эталона при потере контраста", type: "number", min: 0, step: "0.1" },
-  { name: "contrast_loss_cur_grad", label: "Градиент текущего кадра при потере контраста", type: "number", min: 0, step: "0.1" },
+  {
+    name: "contrast_loss_ref_grad",
+    label: "Градиент эталона при потере контраста",
+    type: "number",
+    min: 0,
+    step: "0.1",
+  },
+  {
+    name: "contrast_loss_cur_grad",
+    label: "Градиент текущего кадра при потере контраста",
+    type: "number",
+    min: 0,
+    step: "0.1",
+  },
   { name: "enable_clahe", label: "Включить CLAHE", type: "checkbox" },
   { name: "clahe_clip_limit", label: "Предел отсечения CLAHE", type: "number", min: 0.01, step: "0.1" },
   { name: "fp_recheck_enabled", label: "Включить повторную проверку FP", type: "checkbox" },
@@ -364,7 +375,10 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
             </div>
             <label className="setting-list__control-row">
               <span className="setting-list__visually-hidden">Уровень яркости</span>
-              <SettingActionIcon name="light" className="setting-list__brightness-icon" />
+              <SettingActionIcon
+                name="light"
+                className="setting-list__brightness-icon"
+              />
               <input
                 type="range"
                 min="0"
@@ -600,7 +614,10 @@ function SettingActionIcon({
 
   if (assetIconUrl) {
     return (
-      <span className={iconClassName} aria-hidden="true">
+      <span
+        className={iconClassName}
+        aria-hidden="true"
+      >
         <img
           alt=""
           src={assetIconUrl}
@@ -610,27 +627,50 @@ function SettingActionIcon({
   }
 
   return (
-    <span className={iconClassName} aria-hidden="true">
+    <span
+      className={iconClassName}
+      aria-hidden="true"
+    >
       <svg
         viewBox="0 0 24 24"
         fill="none"
       >
         {name === "stream" && (
           <>
-            <rect x="4" y="5" width="16" height="14" rx="3" />
+            <rect
+              x="4"
+              y="5"
+              width="16"
+              height="14"
+              rx="3"
+            />
             <path d="M10 9.5v5l4-2.5-4-2.5Z" />
           </>
         )}
         {name === "reference" && (
           <>
-            <circle cx="12" cy="12" r="5.5" />
-            <circle cx="12" cy="12" r="1.8" />
+            <circle
+              cx="12"
+              cy="12"
+              r="5.5"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="1.8"
+            />
             <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
           </>
         )}
         {name === "camera" && (
           <>
-            <rect x="4" y="7" width="12" height="10" rx="2" />
+            <rect
+              x="4"
+              y="7"
+              width="12"
+              height="10"
+              rx="2"
+            />
             <path d="M16 10l4-2.2v8.4L16 14v-4Z" />
             <path d="M8 7l1-2h3l1 2" />
           </>
@@ -645,7 +685,11 @@ function SettingActionIcon({
         )}
         {name === "light" && (
           <>
-            <circle cx="12" cy="12" r="3.5" />
+            <circle
+              cx="12"
+              cy="12"
+              r="3.5"
+            />
             <path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
           </>
         )}

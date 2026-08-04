@@ -26,7 +26,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     cameraGroups,
     activeGroupIndex,
     setActiveGroupIndex,
-    jointViewIndex,
     jointCameraId,
     hasJointRoi,
     canSendAllReferences,
@@ -52,11 +51,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
     selectedRoiMode === "joint" ? jointRoiPolygon : (roiPolygonsByCameraId[selectedCameraId] ?? []);
-  const archivedReferences = useSyncExternalStore(
-    subscribeReferenceImages,
-    getArchivedReferenceGroups,
-    () => [],
-  );
+  const archivedReferences = useSyncExternalStore(subscribeReferenceImages, getArchivedReferenceGroups, () => []);
   const activeCameraIds = cameraSlots.map((slot) => slot.cameraId);
   const activeGroupKey = createCameraGroupKey(activeCameraIds);
   const activeGroupArchivedReferences = archivedReferences.filter(
@@ -103,7 +98,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
         <div className="reference-setup__body">
           <div className="reference-setup__toolbar">
             {cameraGroups.length > 1 && (
-              <div className="reference-setup__group-switch" role="tablist" aria-label="Группы камер">
+              <div
+                className="reference-setup__group-switch"
+                role="tablist"
+                aria-label="Группы камер"
+              >
                 {cameraGroups.map((groupCameraIds, groupIndex) => (
                   <button
                     key={groupCameraIds.join("-")}
@@ -123,13 +122,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 ))}
               </div>
             )}
-            <label className="reference-setup__field">
-                <span>Камера шва этикетки (необязательно)</span>
-              <span className="reference-setup__readonly">
-                Камера {jointCameraId} / вид {jointViewIndex}
-              </span>
-            </label>
-
             <button
               className={
                 isFpZoneMode
@@ -256,11 +248,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   >
                     Шов
                     <span>
-                      {slot.cameraId === jointCameraId
-                        ? hasJointRoi
-                          ? "ROI задан"
-                          : "Выбрана камера"
-                        : "Выбрать"}
+                      {slot.cameraId === jointCameraId ? (hasJointRoi ? "ROI задан" : "Выбрана камера") : "Выбрать"}
                     </span>
                   </button>
                 </div>
@@ -307,7 +295,10 @@ function ReferenceArchive({
   }
 
   return (
-    <section className="reference-setup__archive" aria-label="Старые эталоны">
+    <section
+      className="reference-setup__archive"
+      aria-label="Старые эталоны"
+    >
       <header className="reference-setup__archive-header">
         <h3>Старые эталоны</h3>
         {selectedArchive && (

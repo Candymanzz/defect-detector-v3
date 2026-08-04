@@ -31,10 +31,8 @@ export function InspectionHistory({
   onLoadArchivedHistory,
 }: InspectionHistoryProps) {
   const items = createInspectionHistoryTiles(cameraIds, historyByCameraId);
-  const [selectedInspection, setSelectedInspection] = useState<{
-    inspectionId: string;
-    results: InspectionHistoryItem[];
-  } | null>(null);
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+  const selectedInspection = items.find((item) => item.groupKey === selectedGroupKey) ?? null;
   const isLoadingArchive = archiveHistoryState === "loading";
 
   return (
@@ -77,12 +75,7 @@ export function InspectionHistory({
               title={`Инспекция ${item.inspectionId}: ${
                 item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "Съёмка"
               }`}
-              onClick={() =>
-                setSelectedInspection({
-                  inspectionId: item.inspectionId,
-                  results: item.results,
-                })
-              }
+              onClick={() => setSelectedGroupKey(item.groupKey)}
             >
               {item.inspectionId}
             </button>
@@ -95,7 +88,10 @@ export function InspectionHistory({
         <InspectionHistoryModal
           inspectionId={selectedInspection.inspectionId}
           results={selectedInspection.results}
-          onClose={() => setSelectedInspection(null)}
+          historyItems={items}
+          selectedGroupKey={selectedInspection.groupKey}
+          onHistorySelect={setSelectedGroupKey}
+          onClose={() => setSelectedGroupKey(null)}
         />
       )}
     </>

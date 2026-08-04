@@ -76,7 +76,12 @@ export function ModalWrapper({
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
-  const geometrySnapshot = useGeometrySnapshot(isOpen, cameraId, inspectResult?.frame_id, inspectResult?.geometry_status);
+  const geometrySnapshot = useGeometrySnapshot(
+    isOpen,
+    cameraId,
+    inspectResult?.frame_id,
+    inspectResult?.geometry_status,
+  );
   const [editedFpZones, setEditedFpZones] = useState<FpZoneNorm[]>(() => copyFpZones(referenceFpZones ?? []));
   const [fpZonesStatus, setFpZonesStatus] = useState<FpZonesStatus>({ state: "idle", text: "" });
 
@@ -132,11 +137,7 @@ export function ModalWrapper({
             className="modal__inspection-indicator"
             data-result={inspectionResultState}
           >
-            {inspectionResultState === "pass"
-              ? "Годен"
-              : inspectionResultState === "fail"
-                ? "Брак"
-                : "Съёмка"}
+            {inspectionResultState === "pass" ? "Годен" : inspectionResultState === "fail" ? "Брак" : "Съёмка"}
           </div>
         )}
 
@@ -184,20 +185,11 @@ export function ModalWrapper({
         )}
 
         {inspectionItems.length > 0 && (
-          <>
-            <InspectionNavigation
-              items={inspectionItems}
-              selectedFrameId={selectedInspectionFrameId}
-              onSelect={onInspectionSelect}
-            />
-            <InspectionNavigation
-              title="Общие результаты инспекций"
-              className="modal-inspection-navigation--summary"
-              items={inspectionItems}
-              selectedFrameId={selectedInspectionFrameId}
-              onSelect={onInspectionSelect}
-            />
-          </>
+          <InspectionNavigation
+            items={inspectionItems}
+            selectedFrameId={selectedInspectionFrameId}
+            onSelect={onInspectionSelect}
+          />
         )}
 
         {inspectResultSyncState && (
@@ -483,9 +475,7 @@ function ImagePanel({
   fetchPriority?: "high" | "low" | "auto";
 }) {
   const [imageSize, setImageSize] = useState({ width: 4, height: 3 });
-  const svgPoints = roiPoints
-    ?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`)
-    .join(" ");
+  const svgPoints = roiPoints?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`).join(" ");
   const jointSvgPoints = jointRoiPoints
     ?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`)
     .join(" ");
@@ -701,14 +691,8 @@ function InspectResultField({ label, value }: { label: string; value?: string | 
   );
 }
 
-function formatInspectDecisionLine(
-  inspectResult: InspectResultPayload,
-  geometry?: GeometryInspectResponse | null,
-) {
-  const deviation =
-    geometry?.deviationRadiusMm !== undefined
-      ? Number(geometry.deviationRadiusMm).toFixed(3)
-      : "-";
+function formatInspectDecisionLine(inspectResult: InspectResultPayload, geometry?: GeometryInspectResponse | null) {
+  const deviation = geometry?.deviationRadiusMm !== undefined ? Number(geometry.deviationRadiusMm).toFixed(3) : "-";
   return [
     `общий результат: ${formatOptionalValue(inspectResult.overall_pass)}`,
     `действие: ${formatOptionalValue(inspectResult.action)}`,

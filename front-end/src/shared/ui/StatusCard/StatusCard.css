@@ -1,4 +1,16 @@
 .camera-card {
+  --camera-card-green-border: #65d994;
+  --camera-card-green-border-hover: #8bf0b4;
+  --camera-card-green-bg: rgba(0, 217, 107, 0.12);
+  --camera-card-green-bg-hover: rgba(0, 217, 107, 0.2);
+  --camera-card-green-text: #8bf0b4;
+  --camera-card-green-text-hover: #b8f8d1;
+  --camera-card-red-border: #ef4444;
+  --camera-card-red-border-hover: #fca5a5;
+  --camera-card-red-bg: rgba(239, 68, 68, 0.12);
+  --camera-card-red-bg-hover: rgba(239, 68, 68, 0.2);
+  --camera-card-red-text: #fca5a5;
+  --camera-card-red-text-hover: #fecaca;
   overflow: hidden;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -111,41 +123,72 @@
 .camera-card__stop,
 .camera-card__open {
   min-height: 32px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  padding: 6px;
+  border-radius: 6px;
   cursor: pointer;
   font: inherit;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 700;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 120ms ease;
 }
 
 .camera-card__stop {
-  border: 1px solid #ff7373;
-  color: #ff9b9b;
+  border: 1px solid var(--camera-card-red-border);
+  background-color: var(--camera-card-red-bg);
+  color: var(--camera-card-red-text);
 }
 
 .camera-card__stop:hover,
 .camera-card__stop:focus-visible {
-  border-color: #ffabab;
-  color: #ffd0d0;
+  border-color: var(--camera-card-red-border-hover);
+  background-color: var(--camera-card-red-bg-hover);
+  color: var(--camera-card-red-text-hover);
   outline: none;
 }
 
-.camera-card__start {
-  border: 1px solid #00ff00;
-  color: #9becbd;
+.camera-card__start,
+.camera-card__open {
+  border: 1px solid var(--camera-card-green-border);
+  background-color: var(--camera-card-green-bg);
+  color: var(--camera-card-green-text);
 }
 
 .camera-card__start:hover,
-.camera-card__start:focus-visible {
-  border-color: #9becbd;
-  color: #d1fae5;
+.camera-card__start:focus-visible,
+.camera-card__open:hover,
+.camera-card__open:focus-visible {
+  border-color: var(--camera-card-green-border-hover);
+  background-color: var(--camera-card-green-bg-hover);
+  color: var(--camera-card-green-text-hover);
   outline: none;
 }
 
+.camera-card .button.camera-card__open {
+  border-color: var(--camera-card-green-border);
+  background-color: var(--camera-card-green-bg);
+  color: var(--camera-card-green-text);
+}
+
+.camera-card .button.camera-card__open:not(:disabled):hover,
+.camera-card .button.camera-card__open:not(:disabled):focus-visible {
+  border-color: var(--camera-card-green-border-hover);
+  background-color: var(--camera-card-green-bg-hover);
+  color: var(--camera-card-green-text-hover);
+}
+
+.camera-card__start:active:not(:disabled),
+.camera-card__stop:active:not(:disabled),
+.camera-card__open:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .camera-card__start:disabled,
-.camera-card__stop:disabled {
+.camera-card__stop:disabled,
+.camera-card__open:disabled {
   cursor: wait;
   opacity: 0.58;
 }
