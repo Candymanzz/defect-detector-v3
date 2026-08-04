@@ -226,8 +226,8 @@ public final class ProductionInspectionOrchestrator {
         if (!captureWithoutReference) {
             return null;
         }
-        // Эталон ещё не задан: снимаем кадр по триггеру, geometry/python — после reference_bundle.
-        return in.withPerCycleIdentity(in.productType(), null, 0L);
+        // Live preview continues acquiring frames; inspection produces nothing until a reference exists.
+        return null;
     }
 
     private static void sleepInterruptibly(int delayMs) throws InterruptedException {

@@ -120,6 +120,32 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
         </header>
 
         <div className="reference-setup__body">
+          {referenceSubmission && (
+            <section
+              className="reference-setup__submission"
+              data-state={referenceSubmission.state}
+              aria-live="polite"
+            >
+              <div className="reference-setup__submission-heading">
+                <strong>
+                  {referenceSubmission.state === "pending"
+                    ? "Эталон отправлен — ожидается подтверждение"
+                    : referenceSubmission.state === "confirmed"
+                      ? "Эталон подтверждён сервером"
+                      : "Сервер отклонил эталон. Проверьте кадры, ROI контроля и шов этикетки"}
+                </strong>
+                <time>{new Date(referenceSubmission.submittedAtMs).toLocaleTimeString()}</time>
+              </div>
+              <div className="reference-setup__submission-frames">
+                {referenceSubmission.cameraIds.map((cameraId) => (
+                  <span key={cameraId}>
+                    Камера {cameraId}: кадр {referenceSubmission.frameIdsByCameraId[cameraId] ?? "—"}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div className="reference-setup__layout">
             <aside className="reference-setup__sidebar reference-setup__sidebar--cameras">
               <h3>Группа камер</h3>
@@ -284,7 +310,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               )}
             </main>
 
-            <aside className="reference-setup__sidebar reference-setup__sidebar--objects">
+            <div className="reference-setup__objects-column">
+              <aside className="reference-setup__sidebar reference-setup__sidebar--objects">
               <h3>Объекты на изображении</h3>
               <section className="reference-setup__object-section">
                 <header>
@@ -368,7 +395,46 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 <strong>Что такое ROI?</strong> Область изображения, в которой выполняется контроль. Всё за её пределами
                 не учитывается при проверке.
               </p>
-            </aside>
+              </aside>
+              <div className="reference-setup__footer">
+                <div className="reference-setup__readiness">
+                  <strong>Готовность группы {activeGroupIndex + 1}</strong>
+                  <span>
+                    {readyCameraCount} из {cameraSlots.length} камер готовы
+                  </span>
+                  <progress
+                    max={Math.max(cameraSlots.length, 1)}
+                    value={readyCameraCount}
+                  />
+                </div>
+                <p
+                  className="reference-setup__status"
+                  data-error={hasSetupError}
+                  title={message}
+                  role={hasSetupError ? "alert" : undefined}
+                >
+                  {shouldStartNewReference
+                    ? "После подтверждения нового эталона текущий будет автоматически сохранён в архиве ниже."
+                    : message}
+                </p>
+                <div className="reference-setup__footer-actions">
+                  <button
+                    className="reference-setup__cancel"
+                    type="button"
+                    onClick={onClose}
+                  >
+                    Отмена
+                  </button>
+                  <Button
+                    className="reference-setup__button reference-setup__save"
+                    aria-disabled={!shouldStartNewReference && !canSendAllReferences}
+                    onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
+                  >
+                    {primaryReferenceLabel}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <ReferenceArchive
@@ -385,70 +451,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             onUse={handleUseArchivedReference}
           />
 
-          {referenceSubmission && (
-            <section
-              className="reference-setup__submission"
-              data-state={referenceSubmission.state}
-              aria-live="polite"
-            >
-              <div className="reference-setup__submission-heading">
-                <strong>
-                  {referenceSubmission.state === "pending"
-                    ? "Эталон отправлен — ожидается подтверждение"
-                    : referenceSubmission.state === "confirmed"
-                      ? "Эталон подтверждён сервером"
-                      : "Сервер отклонил эталон. Проверьте кадры, ROI контроля и шов этикетки"}
-                </strong>
-                <time>{new Date(referenceSubmission.submittedAtMs).toLocaleTimeString()}</time>
-              </div>
-              <div className="reference-setup__submission-frames">
-                {referenceSubmission.cameraIds.map((cameraId) => (
-                  <span key={cameraId}>
-                    Камера {cameraId}: кадр {referenceSubmission.frameIdsByCameraId[cameraId] ?? "—"}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <footer className="reference-setup__footer">
-            <div className="reference-setup__readiness">
-              <strong>Готовность группы {activeGroupIndex + 1}</strong>
-              <span>
-                {readyCameraCount} из {cameraSlots.length} камер готовы
-              </span>
-              <progress
-                max={Math.max(cameraSlots.length, 1)}
-                value={readyCameraCount}
-              />
-            </div>
-            <p
-              className="reference-setup__status"
-              data-error={hasSetupError}
-              title={message}
-              role={hasSetupError ? "alert" : undefined}
-            >
-              {shouldStartNewReference
-                ? "После подтверждения нового эталона текущий будет автоматически сохранён в архиве ниже."
-                : message}
-            </p>
-            <div className="reference-setup__footer-actions">
-              <button
-                className="reference-setup__cancel"
-                type="button"
-                onClick={onClose}
-              >
-                Отмена
-              </button>
-              <Button
-                className="reference-setup__button reference-setup__save"
-                aria-disabled={!shouldStartNewReference && !canSendAllReferences}
-                onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
-              >
-                {primaryReferenceLabel}
-              </Button>
-            </div>
-          </footer>
         </div>
       </section>
     </div>

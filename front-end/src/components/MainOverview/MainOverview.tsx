@@ -52,13 +52,14 @@ export function MainOverview({
               const inspectionControlState = controller.inspectionControlByCameraId[camera.cameraId];
               const inspectResult = controller.inspectResultsByCameraId[camera.cameraId];
               const artifactInspectResult = controller.inspectArtifactResultsByCameraId[camera.cameraId];
+              const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
+              const showsInspectionResult = controller.hasReference && isInspectionEnabled;
               const inspectImageUrl = resolveCardInspectImageUrl(
-                inspectResult,
-                artifactInspectResult,
+                showsInspectionResult ? inspectResult : undefined,
+                showsInspectionResult ? artifactInspectResult : undefined,
                 controller.previewFrameIdsByCameraId[camera.cameraId],
                 controller.previewImageUrlsByCameraId[camera.cameraId],
               );
-              const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
 
@@ -72,7 +73,7 @@ export function MainOverview({
                   inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
                   isInspectionEnabled={isInspectionEnabled}
-                  isInspectionActionDisabled={isInspectionActionPending}
+                  isInspectionActionDisabled={!controller.hasReference || isInspectionActionPending}
                   inspectionActionLabel={getInspectionActionLabel(inspectionControlState?.state, isInspectionEnabled)}
                   inspectionStatus={inspectionControlState?.message}
                   inspectionResult={resolveInspectionResultState(inspectResult)}
@@ -128,7 +129,9 @@ export function MainOverview({
               }
               type="button"
               disabled={
-                modalInspectionControlState?.state === "starting" || modalInspectionControlState?.state === "stopping"
+                !controller.hasReference ||
+                modalInspectionControlState?.state === "starting" ||
+                modalInspectionControlState?.state === "stopping"
               }
               title={modalInspectionControlState?.message}
               onClick={() => void controller.toggleInspection(controller.modalSnapshot!.cameraId)}

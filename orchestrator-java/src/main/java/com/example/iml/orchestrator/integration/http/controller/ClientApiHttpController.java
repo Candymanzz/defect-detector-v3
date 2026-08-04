@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.http.controller;
 
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.KopcheniHttpProxy;
+import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.http.HttpController;
 import com.example.iml.orchestrator.integration.http.HttpRequestContext;
@@ -431,8 +432,7 @@ public final class ClientApiHttpController implements HttpController {
             HttpResponses.sendJsonError(ctx, 503, "client_ws not ready");
             return;
         }
-        boolean hadReference = ws.sessionState()
-                != com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState.NO_REFERENCE;
+        boolean hadReference = ws.sessionState() != ClientWsSessionState.NO_REFERENCE;
         if (clientApi.inspectionGate() != null) {
             for (Integer cameraId : clientApi.inspectionGate().cameraIds()) {
                 clientApi.inspectionGate().requestCancel(cameraId);
@@ -460,6 +460,12 @@ public final class ClientApiHttpController implements HttpController {
         }
         if (clientApi.inspectionGate() == null) {
             HttpResponses.sendJsonError(ctx, 503, "inspection gate not configured");
+            return;
+        }
+
+        var ws = clientApi.clientWsHolder() == null ? null : clientApi.clientWsHolder().get();
+        if (enabled && (ws == null || ws.sessionState() == ClientWsSessionState.NO_REFERENCE)) {
+            HttpResponses.sendJsonError(ctx, 409, "reference is not set");
             return;
         }
 

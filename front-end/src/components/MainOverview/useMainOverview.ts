@@ -97,6 +97,9 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
   const toggleInspection = useCallback(
     async (cameraId: number) => {
+      if (!hasReference) {
+        return;
+      }
       const currentControl = inspectionControlByCameraId[cameraId];
       if (currentControl?.state === "starting" || currentControl?.state === "stopping") {
         return;
@@ -152,7 +155,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
         }));
       }
     },
-    [inspectionControlByCameraId],
+    [hasReference, inspectionControlByCameraId],
   );
 
   const openInspectionModal = useCallback(
@@ -607,7 +610,7 @@ function shouldAcceptInspectionResult(
   }
 
   const acceptedFromFrameId = acceptedFromFrameIdByCameraIdRef.current[cameraId];
-  return acceptedFromFrameId === undefined || compareFrameIds(frameId, acceptedFromFrameId) >= 0;
+  return acceptedFromFrameId === undefined || compareFrameIds(frameId, acceptedFromFrameId) > 0;
 }
 
 function applyBucketResult(
