@@ -232,6 +232,59 @@
   color: #f2f5f7;
 }
 
+.setting-list__field-label {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  gap: 6px;
+  align-items: center;
+}
+
+.setting-list__field-help {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 1px solid #526476;
+  border-radius: 50%;
+  background: #172435;
+  color: #a9bacb;
+  cursor: help;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.setting-list__analysis-tooltip {
+  position: fixed;
+  z-index: 10000;
+  width: min(300px, calc(100vw - 24px));
+  padding: 9px 10px;
+  border: 1px solid #526476;
+  border-radius: 7px;
+  background: #0c1724;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  color: #e4edf5;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  pointer-events: none;
+  text-align: left;
+}
+
+.setting-list__analysis-tooltip[data-placement="above"] {
+  transform: translateY(-100%);
+}
+
+.setting-list__field-help:hover,
+.setting-list__field-help:focus-visible {
+  border-color: #7dd3fc;
+  color: #e0f2fe;
+  outline: none;
+}
+
 .setting-list__brightness {
   display: grid;
   gap: 8px;
@@ -884,8 +937,7 @@
   min-height: 58px;
   border: 1px solid rgba(71, 94, 116, 0.82) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
-    var(--setting-button-surface) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)), var(--setting-button-surface) !important;
   color: #dce7f0 !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.075),
@@ -907,8 +959,7 @@
 .setting-list__quick-action:not(:disabled):focus-visible {
   border-color: rgba(106, 137, 164, 0.96) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.008)),
-    var(--setting-button-surface-hover) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.008)), var(--setting-button-surface-hover) !important;
   color: #f4f8fb !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
@@ -922,9 +973,7 @@
   height: 25px;
   border-color: color-mix(in srgb, currentColor 62%, transparent);
   border-radius: 8px;
-  background:
-    radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.16), transparent 38%),
-    rgba(0, 0, 0, 0.18);
+  background: radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.16), transparent 38%), rgba(0, 0, 0, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
