@@ -768,9 +768,9 @@
 
 .reference-setup__editor {
   display: grid;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   width: 100%;
-  min-height: 430px;
+  min-height: 0;
   place-items: stretch;
   overflow: hidden;
   border-radius: 6px;
@@ -780,7 +780,7 @@
 .reference-setup__editor .roi-editor,
 .reference-setup__editor .fp-zone-editor {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto auto;
   gap: 0;
   width: 100%;
   max-width: none;
