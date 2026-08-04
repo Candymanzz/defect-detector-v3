@@ -22,7 +22,6 @@ import camerasIconUrl from "../../shared/assets/images/cameras.svg";
 import resetIconUrl from "../../shared/assets/images/reset.svg";
 import streamIconUrl from "../../shared/assets/images/stream.svg";
 import { errorMessage } from "../../shared/lib/errors";
-import { clearReferenceImages } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
 import type { InspectionStats } from "../MainOverview/type";
 import type { AnalysisSettingFieldName, SettingFieldName } from "./type";
@@ -290,15 +289,20 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       return;
     }
 
-    setResetFeedback({ state: "resetting", text: "Сброс инспекции..." });
+    setResetFeedback({ state: "resetting", text: "Остановка инспекции..." });
     orchestratorApi
-      .resetInspection()
-      .then((response) => {
-        clearReferenceImages();
+      .getInspectionStatus()
+      .then(async (status) => {
+        await Promise.all(
+          status.enabledCameraIds.map((cameraId) => orchestratorApi.setInspectionEnabled(cameraId, false)),
+        );
         onInspectionReset?.();
         setResetFeedback({
           state: "success",
-          text: response.cleared ? "Инспекция сброшена" : "Инспекция уже была сброшена",
+          text:
+            status.enabledCameraIds.length > 0
+              ? `Инспекция остановлена для камер: ${status.enabledCameraIds.join(", ")}`
+              : "Инспекция уже остановлена",
         });
       })
       .catch((error: unknown) => {
@@ -352,7 +356,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               onClick={handleInspectionReset}
             >
               <SettingActionIcon name="reset" />
-              {resetFeedback?.state === "resetting" ? "Сброс..." : "Сброс"}
+              {resetFeedback?.state === "resetting" ? "Остановка..." : "Стоп инспекции"}
             </Button>
           </div>
           {resetFeedback && (

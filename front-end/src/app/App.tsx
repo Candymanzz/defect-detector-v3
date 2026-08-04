@@ -59,9 +59,7 @@ export function App() {
           return;
         }
         const entry = (response.timeouts ?? []).find(
-          (item) =>
-            item.name === HANDLE_MATERIAL_MODE_KEY ||
-            item.address === "D4405",
+          (item) => item.name === HANDLE_MATERIAL_MODE_KEY || item.address === "D4405",
         );
         if (entry) {
           setIsPlasticHandleMode(isPlasticFromTimeoutUnits(entry.valueUnits));
@@ -91,9 +89,7 @@ export function App() {
         [HANDLE_MATERIAL_MODE_KEY]: nextPlastic ? 1 : 0,
       });
       const entry = (response.timeouts ?? []).find(
-        (item) =>
-          item.name === HANDLE_MATERIAL_MODE_KEY ||
-          item.address === "D4405",
+        (item) => item.name === HANDLE_MATERIAL_MODE_KEY || item.address === "D4405",
       );
       if (entry) {
         setIsPlasticHandleMode(isPlasticFromTimeoutUnits(entry.valueUnits));
@@ -188,12 +184,14 @@ export function App() {
           inspectionStats={inspectionStats}
           maxHeightPx={settingsMaxHeightPx}
           onInspectionReset={() => {
-            setInspectionStats(EMPTY_INSPECTION_STATS);
             setInspectionResetVersion((version) => version + 1);
           }}
         />
       </div>
-      <PlcPanel isOpen={isPlcPanelOpen} onClose={() => setIsPlcPanelOpen(false)} />
+      <PlcPanel
+        isOpen={isPlcPanelOpen}
+        onClose={() => setIsPlcPanelOpen(false)}
+      />
     </main>
   );
 }

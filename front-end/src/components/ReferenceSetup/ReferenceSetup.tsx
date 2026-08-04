@@ -76,6 +76,12 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
+  const shouldStartNewReference = hasStoredReferenceForActiveGroup && !isNewReferenceMode;
+  const primaryReferenceLabel = shouldStartNewReference
+    ? "Задать новый эталон"
+    : isNewReferenceMode
+      ? "Подтвердить и использовать новый эталон →"
+      : "Задать и использовать эталон →";
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -422,17 +428,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               title={message}
               role={hasSetupError ? "alert" : undefined}
             >
-              {message}
+              {shouldStartNewReference
+                ? "После подтверждения нового эталона текущий будет автоматически сохранён в архиве ниже."
+                : message}
             </p>
             <div className="reference-setup__footer-actions">
-              {hasStoredReferenceForActiveGroup && (
-                <Button
-                  className="reference-setup__button"
-                  onClick={handleCaptureNewReferenceFrames}
-                >
-                  Задать новый эталон
-                </Button>
-              )}
               <button
                 className="reference-setup__cancel"
                 type="button"
@@ -442,10 +442,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </button>
               <Button
                 className="reference-setup__button reference-setup__save"
-                aria-disabled={!canSendAllReferences}
-                onClick={handleSendAllReferences}
+                aria-disabled={!shouldStartNewReference && !canSendAllReferences}
+                onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
               >
-                {isNewReferenceMode ? "Сохранить новый эталон →" : "Задать эталон →"}
+                {primaryReferenceLabel}
               </Button>
             </div>
           </footer>

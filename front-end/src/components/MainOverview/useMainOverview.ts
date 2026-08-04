@@ -49,14 +49,14 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const [inspectionHistoryByCameraId, setInspectionHistoryByCameraId] = useState<
     Record<number, InspectionHistoryItem[]>
   >({});
-  const [inspectionStatsByCameraId, setInspectionStatsByCameraId] = useState<
-    Record<number, InspectionHistoryItem[]>
-  >({});
+  const [inspectionStatsByCameraId, setInspectionStatsByCameraId] = useState<Record<number, InspectionHistoryItem[]>>(
+    {},
+  );
   const [archiveHistoryState, setArchiveHistoryState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [archiveHistoryMessage, setArchiveHistoryMessage] = useState<string | null>(null);
-  const [archivedHistoryByCameraId, setArchivedHistoryByCameraId] = useState<
-    Record<number, InspectionHistoryItem[]>
-  >({});
+  const [archivedHistoryByCameraId, setArchivedHistoryByCameraId] = useState<Record<number, InspectionHistoryItem[]>>(
+    {},
+  );
   const [isArchiveViewerOpen, setIsArchiveViewerOpen] = useState(false);
   const archiveHistoryLoadingRef = useRef(false);
   const [inspectionControlByCameraId, setInspectionControlByCameraId] = useState<
@@ -76,24 +76,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const inspectionAcceptedFromFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateFrameRef = useRef<number | null>(null);
-
-  const resetLocalInspectionState = useCallback(() => {
-    latestInspectResultByCameraIdRef.current = {};
-    latestArtifactResultByCameraIdRef.current = {};
-    latestInspectionIdByCameraIdRef.current = {};
-    inspectionEnabledByCameraIdRef.current = {};
-    inspectionAcceptedAfterMsByCameraIdRef.current = {};
-    inspectionAcceptedFromFrameIdByCameraIdRef.current = {};
-    setInspectResultsByCameraId({});
-    setInspectArtifactResultsByCameraId({});
-    setInspectionHistoryByCameraId({});
-    setInspectionStatsByCameraId({});
-    setModalSnapshot(null);
-    setHasReference(false);
-    setInspectionStartedAtMs(undefined);
-    setInspectionStoppedAtMs(undefined);
-    setPreviewImagesEnabled(true);
-  }, []);
 
   const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
     delete latestInspectResultByCameraIdRef.current[cameraId];
@@ -202,34 +184,37 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
   const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
 
-  const loadArchivedHistory = useCallback(async (targetCameraIds: number[] = cameraIds) => {
-    if (targetCameraIds.length === 0 || archiveHistoryLoadingRef.current) {
-      return;
-    }
+  const loadArchivedHistory = useCallback(
+    async (targetCameraIds: number[] = cameraIds) => {
+      if (targetCameraIds.length === 0 || archiveHistoryLoadingRef.current) {
+        return;
+      }
 
-    archiveHistoryLoadingRef.current = true;
-    setArchiveHistoryState("loading");
-    setArchiveHistoryMessage(null);
-    try {
-      const { historyByCameraId, failedCameraIds } = await loadArchivedInspectionHistory(targetCameraIds);
-      setArchivedHistoryByCameraId(historyByCameraId);
-      setIsArchiveViewerOpen(true);
-      setArchiveHistoryState("loaded");
-      const frameCount = Object.values(historyByCameraId).reduce((sum, items) => sum + items.length, 0);
-      setArchiveHistoryMessage(
-        failedCameraIds.length > 0
-          ? `Архив открыт частично: недоступны камеры ${failedCameraIds.join(", ")}`
-          : frameCount > 0
-            ? `Архив открыт: ${frameCount} кадров`
-            : "Архив пуст — кадры ещё не сохранены",
-      );
-    } catch (error) {
-      setArchiveHistoryState("error");
-      setArchiveHistoryMessage(errorMessage(error));
-    } finally {
-      archiveHistoryLoadingRef.current = false;
-    }
-  }, [cameraIds]);
+      archiveHistoryLoadingRef.current = true;
+      setArchiveHistoryState("loading");
+      setArchiveHistoryMessage(null);
+      try {
+        const { historyByCameraId, failedCameraIds } = await loadArchivedInspectionHistory(targetCameraIds);
+        setArchivedHistoryByCameraId(historyByCameraId);
+        setIsArchiveViewerOpen(true);
+        setArchiveHistoryState("loaded");
+        const frameCount = Object.values(historyByCameraId).reduce((sum, items) => sum + items.length, 0);
+        setArchiveHistoryMessage(
+          failedCameraIds.length > 0
+            ? `Архив открыт частично: недоступны камеры ${failedCameraIds.join(", ")}`
+            : frameCount > 0
+              ? `Архив открыт: ${frameCount} кадров`
+              : "Архив пуст — кадры ещё не сохранены",
+        );
+      } catch (error) {
+        setArchiveHistoryState("error");
+        setArchiveHistoryMessage(errorMessage(error));
+      } finally {
+        archiveHistoryLoadingRef.current = false;
+      }
+    },
+    [cameraIds],
+  );
 
   const closeArchiveViewer = useCallback(() => {
     setIsArchiveViewerOpen(false);
@@ -242,8 +227,23 @@ export function useMainOverview(inspectionResetVersion = 0) {
       return;
     }
 
-    window.queueMicrotask(resetLocalInspectionState);
-  }, [inspectionResetVersion, resetLocalInspectionState]);
+    let cancelled = false;
+    void orchestratorApi.getInspectionStatus().then((inspectionStatus) => {
+      if (cancelled) {
+        return;
+      }
+      inspectionEnabledByCameraIdRef.current = Object.fromEntries([
+        ...inspectionStatus.enabledCameraIds.map((cameraId) => [cameraId, true] as const),
+        ...inspectionStatus.disabledCameraIds.map((cameraId) => [cameraId, false] as const),
+      ]);
+      setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
+      setInspectionStoppedAtMs(Date.now());
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inspectionResetVersion]);
 
   const inspectionStats = useMemo(
     () =>
@@ -287,12 +287,10 @@ export function useMainOverview(inspectionResetVersion = 0) {
         latestArtifactResultByCameraIdRef,
       });
       if (inspectionStatus) {
-        inspectionEnabledByCameraIdRef.current = Object.fromEntries(
-          [
-            ...inspectionStatus.enabledCameraIds.map((cameraId) => [cameraId, true] as const),
-            ...inspectionStatus.disabledCameraIds.map((cameraId) => [cameraId, false] as const),
-          ],
-        );
+        inspectionEnabledByCameraIdRef.current = Object.fromEntries([
+          ...inspectionStatus.enabledCameraIds.map((cameraId) => [cameraId, true] as const),
+          ...inspectionStatus.disabledCameraIds.map((cameraId) => [cameraId, false] as const),
+        ]);
         setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
       }
     });
@@ -442,7 +440,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
           [cameraId]: inspectResult,
         }));
       }
-
     });
 
     orchestratorWs.connect();
@@ -954,22 +951,21 @@ function createInspectionStats(
   };
 }
 
-function createInspectionStatsGroups(
-  historyByCameraId: Record<number, InspectionHistoryItem[]>,
-  cameraIds: number[],
-) {
-  return chunkItems(cameraIds, 5).slice(0, 2).map((groupCameraIds, index) => {
-    const groupHistory = Object.fromEntries(
-      groupCameraIds.map((cameraId) => [cameraId, historyByCameraId[cameraId] ?? []]),
-    );
-    const counts = createInspectionStatsCounts(groupHistory);
-    return {
-      id: `group-${index + 1}`,
-      label: `Группа ${index + 1}`,
-      cameraIds: groupCameraIds,
-      ...counts,
-    };
-  });
+function createInspectionStatsGroups(historyByCameraId: Record<number, InspectionHistoryItem[]>, cameraIds: number[]) {
+  return chunkItems(cameraIds, 5)
+    .slice(0, 2)
+    .map((groupCameraIds, index) => {
+      const groupHistory = Object.fromEntries(
+        groupCameraIds.map((cameraId) => [cameraId, historyByCameraId[cameraId] ?? []]),
+      );
+      const counts = createInspectionStatsCounts(groupHistory);
+      return {
+        id: `group-${index + 1}`,
+        label: `Группа ${index + 1}`,
+        cameraIds: groupCameraIds,
+        ...counts,
+      };
+    });
 }
 
 function mergeInspectionStats(

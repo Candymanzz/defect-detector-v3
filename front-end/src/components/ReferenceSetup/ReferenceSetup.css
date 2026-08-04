@@ -240,14 +240,17 @@
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 12px;
   align-items: start;
+  min-width: 0;
+  min-height: 0;
 }
 
 .reference-setup__archive-tiles {
   display: grid;
   gap: 8px;
   max-height: 360px;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
   scrollbar-gutter: stable;
 }
 
@@ -337,6 +340,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
+  min-width: 0;
+  max-height: 360px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .reference-setup__archive-frame {
