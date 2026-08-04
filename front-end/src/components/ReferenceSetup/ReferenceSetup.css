@@ -247,6 +247,8 @@
   gap: 8px;
   max-height: 360px;
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .reference-setup__archive-tile {
@@ -770,6 +772,91 @@
   background: #05080c;
 }
 
+.reference-setup__editor .roi-editor,
+.reference-setup__editor .fp-zone-editor {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  align-content: stretch;
+  justify-items: stretch;
+}
+
+.reference-setup__editor .roi-editor__canvas,
+.reference-setup__editor .fp-zone-editor__canvas {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  border: 1px solid #253345;
+  border-radius: 6px 6px 0 0;
+}
+
+.reference-setup__editor .roi-editor__canvas img,
+.reference-setup__editor .fp-zone-editor__canvas img {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  object-fit: fill;
+}
+
+.reference-setup__editor .roi-editor__actions,
+.reference-setup__editor .fp-zone-editor__actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 8px;
+  order: 2;
+  padding: 12px;
+  border-top: 1px solid #29384a;
+  background: linear-gradient(180deg, #131e2c, #101925);
+}
+
+.reference-setup__editor .roi-editor__actions button,
+.reference-setup__editor .fp-zone-editor__actions > button {
+  min-height: 52px;
+  height: auto;
+  padding: 8px 10px;
+  border-color: #35465a;
+  border-radius: 7px;
+  background: #192536;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.reference-setup__editor .roi-editor__actions button:nth-last-child(2),
+.reference-setup__editor .fp-zone-editor__actions > button:nth-last-of-type(2) {
+  border-color: #6d4b35;
+  color: #ffc078;
+}
+
+.reference-setup__editor .roi-editor__hint,
+.reference-setup__editor .fp-zone-editor__hint {
+  order: 3;
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid #263546;
+  background: #0e1722;
+  color: #8997a8;
+}
+
+.reference-setup__editor .roi-editor__width-row {
+  order: 1;
+  padding: 9px 12px;
+  border-top: 1px solid #263546;
+  background: #111c29;
+}
+
+.reference-setup__editor .fp-zone-editor__zone-tabs {
+  grid-column: 1 / -1;
+  margin-left: 0;
+}
+
 .reference-setup__editor-empty {
   display: grid;
   place-items: center;
@@ -850,6 +937,55 @@ button.reference-setup__object-row {
 
 .reference-setup__archive {
   background: rgba(14, 23, 35, 0.88);
+}
+
+.reference-setup__submission {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid #b97827;
+  border-radius: 8px;
+  background: rgba(185, 120, 39, 0.13);
+  color: #ffd69b;
+}
+
+.reference-setup__submission[data-state="confirmed"] {
+  border-color: #38b65a;
+  background: rgba(56, 182, 90, 0.14);
+  color: #baf7c9;
+}
+
+.reference-setup__submission[data-state="rejected"] {
+  border-color: #e04f5c;
+  background: rgba(224, 79, 92, 0.13);
+  color: #ffc1c7;
+}
+
+.reference-setup__submission-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.reference-setup__submission-heading time {
+  color: currentColor;
+  font-size: 11px;
+  opacity: 0.72;
+}
+
+.reference-setup__submission-frames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.reference-setup__submission-frames span {
+  padding: 5px 8px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  font-size: 11px;
+  opacity: 0.88;
 }
 
 .reference-setup__footer {

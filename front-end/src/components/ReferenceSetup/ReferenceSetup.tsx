@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, MouseEvent } from "react";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
@@ -32,6 +32,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     canSendAllReferences,
     hasStoredReferenceForActiveGroup,
     isNewReferenceMode,
+    referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
     handleSelectCamera,
@@ -74,6 +75,18 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
 
   return (
     <div
@@ -358,6 +371,32 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             onSelect={setSelectedArchiveId}
             onUse={handleUseArchivedReference}
           />
+
+          {referenceSubmission && (
+            <section
+              className="reference-setup__submission"
+              data-state={referenceSubmission.state}
+              aria-live="polite"
+            >
+              <div className="reference-setup__submission-heading">
+                <strong>
+                  {referenceSubmission.state === "pending"
+                    ? "Эталон отправлен — ожидается подтверждение"
+                    : referenceSubmission.state === "confirmed"
+                      ? "Эталон подтверждён сервером"
+                      : "Сервер отклонил эталон"}
+                </strong>
+                <time>{new Date(referenceSubmission.submittedAtMs).toLocaleTimeString()}</time>
+              </div>
+              <div className="reference-setup__submission-frames">
+                {referenceSubmission.cameraIds.map((cameraId) => (
+                  <span key={cameraId}>
+                    Камера {cameraId}: кадр {referenceSubmission.frameIdsByCameraId[cameraId] ?? "—"}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
 
           <footer className="reference-setup__footer">
             <div className="reference-setup__readiness">

@@ -16,6 +16,13 @@ import { useReferenceRoi } from "./useReferenceRoi";
 const CAMERAS_PER_REFERENCE_GROUP = 5;
 const REFERENCE_PREVIEW_PAUSE_TIMEOUT_MS = 15000;
 
+export type ReferenceSubmissionState = {
+  state: "pending" | "confirmed" | "rejected";
+  cameraIds: number[];
+  frameIdsByCameraId: Record<number, string>;
+  submittedAtMs: number;
+};
+
 export function useReferenceSetupController(onClose: () => void, initialCameraId: number | null = null) {
   const status = useSyncExternalStore(
     (onStoreChange) => orchestratorWs.onStatus(onStoreChange),
@@ -26,6 +33,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [cameraIds, setCameraIds] = useState<number[]>([]);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [isNewReferenceMode, setIsNewReferenceMode] = useState(false);
+  const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
   const hasReferenceRef = useRef(false);
@@ -53,10 +61,10 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
   const hasStoredReferenceForActiveGroup = activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
   const canSendAllReferences = Boolean(
-      activeCameraIds.length > 0 &&
-      activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
-      referenceRoi.hasRequiredRoisForCameraIds(activeCameraIds) &&
-      status.state === "open",
+    activeCameraIds.length > 0 &&
+    activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
+    referenceRoi.hasRequiredRoisForCameraIds(activeCameraIds) &&
+    status.state === "open",
   );
   useEffect(() => {
     referenceCommitSyncRef.current = {
@@ -132,6 +140,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
             resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
           }
           if (message.payload.ok) {
+            setReferenceSubmission((current) =>
+              current
+                ? {
+                    ...current,
+                    state: "confirmed",
+                  }
+                : current,
+            );
             hasReferenceRef.current = true;
             setIsNewReferenceMode(false);
             const referenceCommitSync = referenceCommitSyncRef.current;
@@ -150,6 +166,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
             }
             disableReferencePreviewImages();
           }
+          if (!message.payload.ok) {
+            setReferenceSubmission((current) => (current ? { ...current, state: "rejected" } : current));
+          }
           setMessage(message.payload.ok ? "Reference bundle accepted" : "Reference bundle rejected");
           break;
         }
@@ -157,6 +176,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           pendingReferenceMessageIdsRef.current.clear();
           resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
           setMessage(`${message.payload.code}: ${message.payload.message}`);
+          setReferenceSubmission((current) => (current ? { ...current, state: "rejected" } : current));
           break;
         default:
           break;
@@ -202,7 +222,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       }
 
       if (snapshotCameraIds.length > 0) {
-        setMessage(`Latest snapshots loaded for cameras: ${snapshotCameraIds.join(", ")}. Waiting for live frames to send reference.`);
+        setMessage(
+          `Latest snapshots loaded for cameras: ${snapshotCameraIds.join(", ")}. Waiting for live frames to send reference.`,
+        );
       }
     });
 
@@ -256,7 +278,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     const capturedCameraIds = [...loadedCameraIds, ...snapshotCameraIds].sort((left, right) => left - right);
 
     if (capturedCameraIds.length === activeCameraIds.length) {
-      setMessage(`New reference mode: fresh frames captured for cameras ${capturedCameraIds.join(", ")}. Draw ROI contours.`);
+      setMessage(
+        `New reference mode: fresh frames captured for cameras ${capturedCameraIds.join(", ")}. Draw ROI contours.`,
+      );
       return;
     }
 
@@ -295,6 +319,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         archive.images.find((image) => image.cameraId === archive.jointCameraId)?.jointRoiPoints ?? [],
       );
       pendingReferenceMessageIdsRef.current.add(messageId);
+      setReferenceSubmission({
+        state: "pending",
+        cameraIds: [...archive.cameraIds],
+        frameIdsByCameraId: Object.fromEntries(
+          archive.images.map((image) => [image.cameraId, String(image.frame.frame_id)]),
+        ),
+        submittedAtMs: Date.now(),
+      });
       setMessage(`Archived reference sent for cameras ${archive.cameraIds.join(", ")}`);
     } catch (error) {
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
@@ -319,10 +351,19 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         setMessage(`ROI contours for cameras ${groupCameraIds.join(", ")} are required`);
         return;
       }
-
     }
 
     try {
+      setReferenceSubmission({
+        state: "pending",
+        cameraIds: groupsToSend.flatMap((groupCameraIds) => groupCameraIds),
+        frameIdsByCameraId: Object.fromEntries(
+          groupsToSend.flatMap((groupCameraIds) =>
+            groupCameraIds.map((cameraId) => [cameraId, String(referenceFrames.framesByCameraId[cameraId]!.frame_id)]),
+          ),
+        ),
+        submittedAtMs: Date.now(),
+      });
       startReferenceResumeTimeout(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
       pendingReferenceMessageIdsRef.current.clear();
       pendingReferenceCameraIdsByMessageIdRef.current = {};
@@ -340,10 +381,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         stageReferenceBundleContours(
           messageId,
           Object.fromEntries(
-            groupCameraIds.map((cameraId) => [
-              cameraId,
-              referenceRoi.roiPolygonsByCameraId[cameraId] ?? [],
-            ]),
+            groupCameraIds.map((cameraId) => [cameraId, referenceRoi.roiPolygonsByCameraId[cameraId] ?? []]),
           ),
           referenceRoi.getJointCameraIdForCameraIds(groupCameraIds),
           referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
@@ -359,6 +397,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     } catch (error) {
       pendingReferenceMessageIdsRef.current.clear();
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
+      setReferenceSubmission((current) => (current ? { ...current, state: "rejected" } : current));
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
@@ -395,6 +434,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     canSendAllReferences,
     hasStoredReferenceForActiveGroup,
     isNewReferenceMode,
+    referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
     handleSelectCamera,
