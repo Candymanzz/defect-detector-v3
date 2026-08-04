@@ -19,17 +19,11 @@ type DragState = {
   points: InterestPointNorm[];
 };
 
-export function FpZoneEditor({
-  imageUrl,
-  roiPoints = [],
-  zones,
-  disabled = false,
-  onChange,
-}: FpZoneEditorProps) {
+export function FpZoneEditor({ imageUrl, roiPoints = [], zones, disabled = false, onChange }: FpZoneEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const ignoreNextClickRef = useRef(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(() => Math.max(0, zones.length - 1));
   const [drawMode, setDrawMode] = useState<DrawMode>("polygon");
   const [cursorPoint, setCursorPoint] = useState<InterestPointNorm | null>(null);
   const safeSelectedIndex = zones.length === 0 ? -1 : Math.min(selectedIndex, zones.length - 1);
@@ -79,9 +73,7 @@ export function FpZoneEditor({
     const drag = dragRef.current;
     if (!drag || !point) return;
 
-    const nextPoints = drag.points.map((currentPoint, index) =>
-      index === drag.pointIndex ? point : currentPoint,
-    );
+    const nextPoints = drag.points.map((currentPoint, index) => (index === drag.pointIndex ? point : currentPoint));
     dragRef.current = { ...drag, points: nextPoints };
     updateZone(drag.zoneIndex, { points_norm_heatmap: nextPoints });
   };
@@ -192,8 +184,18 @@ export function FpZoneEditor({
 
           {!disabled && cursorPoint && (
             <g className="fp-zone-editor__cursor">
-              <line x1={cursorPoint.x - 0.02} y1={cursorPoint.y} x2={cursorPoint.x + 0.02} y2={cursorPoint.y} />
-              <line x1={cursorPoint.x} y1={cursorPoint.y - 0.02} x2={cursorPoint.x} y2={cursorPoint.y + 0.02} />
+              <line
+                x1={cursorPoint.x - 0.02}
+                y1={cursorPoint.y}
+                x2={cursorPoint.x + 0.02}
+                y2={cursorPoint.y}
+              />
+              <line
+                x1={cursorPoint.x}
+                y1={cursorPoint.y - 0.02}
+                x2={cursorPoint.x}
+                y2={cursorPoint.y + 0.02}
+              />
             </g>
           )}
 
@@ -271,7 +273,9 @@ export function FpZoneEditor({
             {zones.map((zone, index) => (
               <button
                 key={zone.id ?? index}
-                className={index === safeSelectedIndex ? "fp-zone-editor__zone-tab is-active" : "fp-zone-editor__zone-tab"}
+                className={
+                  index === safeSelectedIndex ? "fp-zone-editor__zone-tab is-active" : "fp-zone-editor__zone-tab"
+                }
                 type="button"
                 onClick={() => setSelectedIndex(index)}
               >

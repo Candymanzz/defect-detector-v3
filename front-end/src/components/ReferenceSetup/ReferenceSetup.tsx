@@ -112,21 +112,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
           </button>
         </header>
 
-        <nav
-          className="reference-setup__steps"
-          aria-label="Этапы создания эталона"
-        >
-          <span className="reference-setup__step reference-setup__step--complete">
-            <b>1</b>Выбор группы и камер
-          </span>
-          <span className="reference-setup__step reference-setup__step--active">
-            <b>2</b>Настройка камеры
-          </span>
-          <span className="reference-setup__step">
-            <b>3</b>Проверка и сохранение
-          </span>
-        </nav>
-
         <div className="reference-setup__body">
           <div className="reference-setup__layout">
             <aside className="reference-setup__sidebar reference-setup__sidebar--cameras">
@@ -246,6 +231,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               <div className="reference-setup__editor">
                 {isFpZoneMode && fpZoneSlot?.imageUrl ? (
                   <FpZoneEditor
+                    key={`${fpZoneSlot.cameraId}-${selectedFpZones.length}`}
                     imageUrl={fpZoneSlot.imageUrl}
                     roiPoints={roiPolygonsByCameraId[fpZoneSlot.cameraId] ?? []}
                     zones={selectedFpZones}
@@ -338,7 +324,27 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   disabled={!fpZoneSlot?.imageUrl}
                   onClick={() => setIsFpZoneMode(true)}
                 >
-                  ＋ Добавить / изменить зоны
+                  Редактировать зоны
+                </button>
+                <button
+                  className="reference-setup__button reference-setup__button--fp"
+                  type="button"
+                  disabled={!fpZoneSlot?.imageUrl}
+                  onClick={() => {
+                    if (!fpZoneSlot) return;
+                    const nextIndex = selectedFpZones.length + 1;
+                    setFpZonesForCameraId(fpZoneSlot.cameraId, [
+                      ...selectedFpZones,
+                      {
+                        id: createFpZoneId(),
+                        note: `Зона ${nextIndex}`,
+                        points_norm_heatmap: [],
+                      },
+                    ]);
+                    setIsFpZoneMode(true);
+                  }}
+                >
+                  ＋ Добавить ещё зону
                 </button>
               </section>
               <section className="reference-setup__object-section">
@@ -589,6 +595,13 @@ function ArchiveImage({ image }: { image: ArchivedReferenceGroup["images"][numbe
 
 function formatArchiveTime(createdAtMs: number) {
   return new Date(createdAtMs).toLocaleTimeString();
+}
+
+function createFpZoneId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `fp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function createActiveReferenceKey(cameraIds: number[]) {

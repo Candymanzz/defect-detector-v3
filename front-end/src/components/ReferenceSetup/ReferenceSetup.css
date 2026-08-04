@@ -552,8 +552,13 @@
 
 .reference-setup__body {
   gap: 14px;
+  flex: 1 1 0;
+  height: 0;
   padding: 0 18px 16px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .reference-setup__layout {
@@ -779,7 +784,7 @@
   gap: 0;
   width: 100%;
   max-width: none;
-  height: 100%;
+  height: auto;
   min-height: 0;
   align-content: stretch;
   justify-items: stretch;
@@ -790,9 +795,9 @@
   display: block;
   width: 100%;
   max-width: none;
-  height: 100%;
+  height: auto;
   min-height: 0;
-  align-self: stretch;
+  align-self: start;
   border: 1px solid #253345;
   border-radius: 6px 6px 0 0;
 }
@@ -801,9 +806,9 @@
 .reference-setup__editor .fp-zone-editor__canvas img {
   width: 100%;
   max-width: none;
-  height: 100%;
+  height: auto;
   max-height: none;
-  object-fit: fill;
+  object-fit: contain;
 }
 
 .reference-setup__editor .roi-editor__actions,
@@ -989,9 +994,7 @@ button.reference-setup__object-row {
 }
 
 .reference-setup__footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 4;
+  position: static;
   display: grid;
   grid-template-columns: minmax(210px, 320px) minmax(180px, 1fr) auto;
   gap: 16px;
@@ -1067,6 +1070,16 @@ button.reference-setup__object-row {
   }
   .reference-setup__hint {
     margin: 0;
+  }
+
+  .reference-setup__footer {
+    grid-template-columns: minmax(200px, 1fr) minmax(0, 1fr);
+  }
+
+  .reference-setup__footer-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 }
 
