@@ -75,6 +75,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
+  const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -390,7 +391,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     ? "Эталон отправлен — ожидается подтверждение"
                     : referenceSubmission.state === "confirmed"
                       ? "Эталон подтверждён сервером"
-                      : "Сервер отклонил эталон"}
+                      : "Сервер отклонил эталон. Проверьте кадры, ROI контроля и шов этикетки"}
                 </strong>
                 <time>{new Date(referenceSubmission.submittedAtMs).toLocaleTimeString()}</time>
               </div>
@@ -417,7 +418,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             </div>
             <p
               className="reference-setup__status"
+              data-error={hasSetupError}
               title={message}
+              role={hasSetupError ? "alert" : undefined}
             >
               {message}
             </p>
@@ -439,7 +442,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </button>
               <Button
                 className="reference-setup__button reference-setup__save"
-                disabled={!canSendAllReferences}
+                aria-disabled={!canSendAllReferences}
                 onClick={handleSendAllReferences}
               >
                 {isNewReferenceMode ? "Сохранить новый эталон →" : "Задать эталон →"}

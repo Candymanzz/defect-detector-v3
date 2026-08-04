@@ -792,22 +792,24 @@
 
 .reference-setup__editor .roi-editor__canvas,
 .reference-setup__editor .fp-zone-editor__canvas {
-  display: block;
-  width: 100%;
-  max-width: none;
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
   height: auto;
   min-height: 0;
   align-self: start;
+  justify-self: center;
   border: 1px solid #253345;
   border-radius: 6px 6px 0 0;
 }
 
 .reference-setup__editor .roi-editor__canvas img,
 .reference-setup__editor .fp-zone-editor__canvas img {
-  width: 100%;
-  max-width: none;
+  display: block;
+  width: auto;
+  max-width: 100%;
   height: auto;
-  max-height: none;
+  max-height: min(58vh, 560px);
   object-fit: contain;
 }
 
@@ -950,19 +952,19 @@ button.reference-setup__object-row {
   padding: 12px 14px;
   border: 1px solid #b97827;
   border-radius: 8px;
-  background: rgba(185, 120, 39, 0.13);
+  background: #3b2a18;
   color: #ffd69b;
 }
 
 .reference-setup__submission[data-state="confirmed"] {
   border-color: #38b65a;
-  background: rgba(56, 182, 90, 0.14);
+  background: #173b25;
   color: #baf7c9;
 }
 
 .reference-setup__submission[data-state="rejected"] {
   border-color: #e04f5c;
-  background: rgba(224, 79, 92, 0.13);
+  background: #421f27;
   color: #ffc1c7;
 }
 
@@ -1030,6 +1032,16 @@ button.reference-setup__object-row {
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.reference-setup__status[data-error="true"] {
+  padding: 8px 10px;
+  border: 1px solid #d4545f;
+  border-radius: 6px;
+  background: #421f27;
+  color: #ffd0d4;
+  font-weight: 800;
+  white-space: normal;
 }
 
 .reference-setup__footer-actions {
