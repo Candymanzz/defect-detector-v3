@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProductionInspectionOrchestratorTest {
 
     @Test
-    void resolveCycleInputDoesNotCreateInspectionWithoutReference() {
+    void resolveCycleInputAllowsCaptureWithoutReference() {
         AsyncInspectionCycleInput in = minimalInput(0, new ReferenceSnapshot("bench", Map.of("shm_name", "stale")));
         Map<Integer, ReferenceSnapshot> refs = new HashMap<>();
 
@@ -27,7 +27,8 @@ class ProductionInspectionOrchestratorTest {
                 true
         );
 
-        assertNull(resolved);
+        assertNotNull(resolved);
+        assertNull(resolved.activeReference());
     }
 
     @Test

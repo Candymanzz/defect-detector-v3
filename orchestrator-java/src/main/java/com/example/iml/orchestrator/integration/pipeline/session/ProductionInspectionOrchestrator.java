@@ -133,7 +133,7 @@ public final class ProductionInspectionOrchestrator {
             boolean captureWithoutReference,
             InspectionTriggerEvent event
     ) {
-        PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId());
+        PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId(), event.sequence());
         if (begin == PerCameraInspectionGate.BeginResult.DISABLED) {
             svc.log().debug(
                     "integration cam={}: trigger skipped — inspection disabled (source={})",
@@ -148,7 +148,7 @@ public final class ProductionInspectionOrchestrator {
                     in.cameraId(),
                     event.source()
             );
-            begin = inspectionGate.tryBeginInspection(in.cameraId());
+            begin = inspectionGate.tryBeginInspection(in.cameraId(), event.sequence());
             if (begin != PerCameraInspectionGate.BeginResult.STARTED) {
                 return;
             }
@@ -167,7 +167,11 @@ public final class ProductionInspectionOrchestrator {
                 return;
             }
             cycleIn = cycleIn.withTriggerSequence(event.sequence());
-            inspectionId = inspectionGate.nextInspectionId(in.cameraId());
+            // Один DI3/line seq = один inspection_id на всех камерах (и на bucket UI).
+            // Иначе Stop→Start rejoin получает свой счётчик и на фронте «идёт параллельно».
+            inspectionId = event.sequence() > 0L
+                    ? event.sequence()
+                    : inspectionGate.nextInspectionId(in.cameraId());
             cycleIn = cycleIn.withInspectionId(inspectionId);
             boolean captureOnly = cycleIn.activeReference() == null || !cycleIn.activeReference().isUsable();
             if (captureOnly) {
@@ -226,8 +230,8 @@ public final class ProductionInspectionOrchestrator {
         if (!captureWithoutReference) {
             return null;
         }
-        // Live preview continues acquiring frames; inspection produces nothing until a reference exists.
-        return null;
+        // Эталон ещё не задан: снимаем кадр по триггеру, geometry/python — после reference_bundle.
+        return in.withPerCycleIdentity(in.productType(), null, 0L);
     }
 
     private static void sleepInterruptibly(int delayMs) throws InterruptedException {

@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.pipeline.session.InspectionCycleResumeHolder;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
@@ -21,12 +22,13 @@ public record ClientApiMount(
         PerCameraInspectionGate inspectionGate,
         ManualLineDirectionService manualLineDirection,
         PlcFinsServiceHolder plcFinsHolder,
-        ClientWsServiceHolder clientWsHolder
+        ClientWsServiceHolder clientWsHolder,
+        InspectionCycleResumeHolder inspectionResumeHolder
 ) {
     public static ClientApiMount disabled() {
         return new ClientApiMount(
                 false, null, "", null, null, Map.of(), null, null,
-                new PlcFinsServiceHolder(), new ClientWsServiceHolder()
+                new PlcFinsServiceHolder(), new ClientWsServiceHolder(), new InspectionCycleResumeHolder()
         );
     }
 
@@ -42,7 +44,8 @@ public record ClientApiMount(
                 inspectionGate,
                 manualLineDirection,
                 new PlcFinsServiceHolder(),
-                new ClientWsServiceHolder()
+                new ClientWsServiceHolder(),
+                new InspectionCycleResumeHolder()
         );
     }
 
@@ -59,7 +62,27 @@ public record ClientApiMount(
                 inspectionGate,
                 manualLineDirection,
                 plcFinsHolder,
-                new ClientWsServiceHolder()
+                new ClientWsServiceHolder(),
+                new InspectionCycleResumeHolder()
+        );
+    }
+
+    public static ClientApiMount fromRootYaml(
+            Map<String, Object> root,
+            GeometryRuntimeConfig geometryRuntime,
+            PerCameraInspectionGate inspectionGate,
+            ManualLineDirectionService manualLineDirection,
+            PlcFinsServiceHolder plcFinsHolder,
+            ClientWsServiceHolder clientWsHolder
+    ) {
+        return fromRootYaml(
+                root,
+                geometryRuntime,
+                inspectionGate,
+                manualLineDirection,
+                plcFinsHolder,
+                clientWsHolder,
+                new InspectionCycleResumeHolder()
         );
     }
 
@@ -70,20 +93,23 @@ public record ClientApiMount(
             PerCameraInspectionGate inspectionGate,
             ManualLineDirectionService manualLineDirection,
             PlcFinsServiceHolder plcFinsHolder,
-            ClientWsServiceHolder clientWsHolder
+            ClientWsServiceHolder clientWsHolder,
+            InspectionCycleResumeHolder inspectionResumeHolder
     ) {
         PlcFinsServiceHolder holder = plcFinsHolder == null ? new PlcFinsServiceHolder() : plcFinsHolder;
         ClientWsServiceHolder wsHolder = clientWsHolder == null ? new ClientWsServiceHolder() : clientWsHolder;
+        InspectionCycleResumeHolder resumeHolder =
+                inspectionResumeHolder == null ? new InspectionCycleResumeHolder() : inspectionResumeHolder;
         if (root == null || geometryRuntime == null) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder);
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder);
         }
         Object raw = root.get("client_api");
         if (!(raw instanceof Map<?, ?> m)) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder);
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder);
         }
         boolean en = YamlScalars.toBool(m.get("enabled"), false);
         if (!en) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder);
+            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder);
         }
         String url = "";
         Object urlObj = m.get("kopcheni_base_url");
@@ -113,7 +139,8 @@ public record ClientApiMount(
                 inspectionGate,
                 manualLineDirection,
                 holder,
-                wsHolder
+                wsHolder,
+                resumeHolder
         );
     }
 

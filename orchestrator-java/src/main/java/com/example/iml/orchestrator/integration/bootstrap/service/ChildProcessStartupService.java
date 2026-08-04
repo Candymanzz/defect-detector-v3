@@ -204,13 +204,15 @@ public final class ChildProcessStartupService {
         ctx.setPlcFinsHolder(new PlcFinsServiceHolder());
         var clientWsHolder = new com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder();
         ctx.setClientWsHolder(clientWsHolder);
+        var inspectionResumeHolder = new com.example.iml.orchestrator.integration.pipeline.session.InspectionCycleResumeHolder();
         ctx.setClientApiMount(ClientApiMount.fromRootYaml(
                 ctx.root(),
                 ctx.geometryRuntimeConfig(),
                 ctx.inspectionGate(),
                 ctx.manualLineDirection(),
                 ctx.plcFinsHolder(),
-                clientWsHolder
+                clientWsHolder,
+                inspectionResumeHolder
         ));
 
         FrameJpegWriter jpegWriter = new FrameJpegWriter(log);

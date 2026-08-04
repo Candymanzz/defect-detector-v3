@@ -77,6 +77,44 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         return groupIdByCamera.containsKey(cameraId);
     }
 
+    /** Пиры той же bucket-группы (включая саму камеру). */
+    public List<Integer> peerCameraIds(int cameraId) {
+        Integer groupId = groupIdByCamera.get(cameraId);
+        if (groupId == null) {
+            return List.of();
+        }
+        BucketGroup group = groupById.get(groupId);
+        return group == null ? List.of() : List.copyOf(group.cameraIds());
+    }
+
+    /**
+     * Неопубликованное ведро группы, которому ещё не хватает кадра этой камеры.
+     * Берём максимальный triggerSequence (самый свежий открытый цикл).
+     */
+    public Long findOpenSequenceMissingCamera(int cameraId) {
+        Integer groupId = groupIdByCamera.get(cameraId);
+        if (groupId == null) {
+            return null;
+        }
+        Long best = null;
+        for (Map.Entry<BucketKey, BucketState> entry : buckets.entrySet()) {
+            if (entry.getKey().groupId() != groupId) {
+                continue;
+            }
+            BucketState state = entry.getValue();
+            synchronized (state) {
+                if (state.published || state.frameDecisions.containsKey(cameraId)) {
+                    continue;
+                }
+                long seq = entry.getKey().triggerSequence();
+                if (best == null || seq > best) {
+                    best = seq;
+                }
+            }
+        }
+        return best;
+    }
+
     public void recordFrameResult(
             long triggerSequence,
             int cameraId,

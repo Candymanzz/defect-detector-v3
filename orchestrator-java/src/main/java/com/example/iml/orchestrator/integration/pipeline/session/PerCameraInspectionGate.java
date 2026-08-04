@@ -25,17 +25,20 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicBoolean> inFlight = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> cancelRequested = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, AtomicLong> activeTriggerSequence = new ConcurrentHashMap<>();
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
             Map<Integer, AtomicBoolean> inFlight,
             Map<Integer, AtomicBoolean> cancelRequested,
-            Map<Integer, AtomicLong> inspectionSequence
+            Map<Integer, AtomicLong> inspectionSequence,
+            Map<Integer, AtomicLong> activeTriggerSequence
     ) {
         this.inspectionEnabled.putAll(enabled);
         this.inFlight.putAll(inFlight);
         this.cancelRequested.putAll(cancelRequested);
         this.inspectionSequence.putAll(inspectionSequence);
+        this.activeTriggerSequence.putAll(activeTriggerSequence);
     }
 
     @SuppressWarnings("unchecked")
@@ -44,6 +47,7 @@ public final class PerCameraInspectionGate {
         ConcurrentHashMap<Integer, AtomicBoolean> flight = new ConcurrentHashMap<>();
         ConcurrentHashMap<Integer, AtomicBoolean> cancelled = new ConcurrentHashMap<>();
         ConcurrentHashMap<Integer, AtomicLong> sequences = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Integer, AtomicLong> activeSequences = new ConcurrentHashMap<>();
         if (cameras != null) {
             for (Map<String, Object> camera : cameras) {
                 Object idObj = camera.get("id");
@@ -55,9 +59,10 @@ public final class PerCameraInspectionGate {
                 flight.put(cameraId, new AtomicBoolean(false));
                 cancelled.put(cameraId, new AtomicBoolean(false));
                 sequences.put(cameraId, new AtomicLong(0L));
+                activeSequences.put(cameraId, new AtomicLong(0L));
             }
         }
-        return new PerCameraInspectionGate(enabled, flight, cancelled, sequences);
+        return new PerCameraInspectionGate(enabled, flight, cancelled, sequences, activeSequences);
     }
 
     public boolean isKnownCamera(int cameraId) {
@@ -139,6 +144,10 @@ public final class PerCameraInspectionGate {
     }
 
     public BeginResult tryBeginInspection(int cameraId) {
+        return tryBeginInspection(cameraId, 0L);
+    }
+
+    public BeginResult tryBeginInspection(int cameraId, long triggerSequence) {
         AtomicBoolean flight = inFlight.get(cameraId);
         if (flight == null) {
             return BeginResult.DISABLED;
@@ -154,8 +163,34 @@ public final class PerCameraInspectionGate {
             if (cancelFlag != null) {
                 cancelFlag.set(false);
             }
+            AtomicLong activeSeq = activeTriggerSequence.get(cameraId);
+            if (activeSeq != null) {
+                activeSeq.set(Math.max(0L, triggerSequence));
+            }
             return BeginResult.STARTED;
         }
+    }
+
+    /** Активный triggerSequence пиров той же группы — для Stop→Start rejoin в текущий цикл. */
+    public Long findActivePeerTriggerSequence(int cameraId, Collection<Integer> peerCameraIds) {
+        if (peerCameraIds == null || peerCameraIds.isEmpty()) {
+            return null;
+        }
+        long best = 0L;
+        for (Integer peerId : peerCameraIds) {
+            if (peerId == null || peerId == cameraId) {
+                continue;
+            }
+            if (!isInspectionInFlight(peerId)) {
+                continue;
+            }
+            AtomicLong activeSeq = activeTriggerSequence.get(peerId);
+            long seq = activeSeq == null ? 0L : activeSeq.get();
+            if (seq > best) {
+                best = seq;
+            }
+        }
+        return best > 0L ? best : null;
     }
 
     public long nextInspectionId(int cameraId) {
@@ -169,6 +204,7 @@ public final class PerCameraInspectionGate {
     public void endInspection(int cameraId) {
         AtomicBoolean flight = inFlight.get(cameraId);
         AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
+        AtomicLong activeSeq = activeTriggerSequence.get(cameraId);
         if (flight == null) {
             return;
         }
@@ -176,6 +212,9 @@ public final class PerCameraInspectionGate {
             flight.set(false);
             if (cancelFlag != null) {
                 cancelFlag.set(false);
+            }
+            if (activeSeq != null) {
+                activeSeq.set(0L);
             }
         }
     }

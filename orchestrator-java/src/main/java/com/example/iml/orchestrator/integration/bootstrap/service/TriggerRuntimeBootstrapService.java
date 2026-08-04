@@ -10,6 +10,7 @@ import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import com.example.iml.orchestrator.integration.pipeline.bucket.JointSeamPolicy;
+import com.example.iml.orchestrator.integration.pipeline.session.InspectionCycleResumeService;
 import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadcaster;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
@@ -150,6 +151,16 @@ public final class TriggerRuntimeBootstrapService {
             );
         }
         ctx.setSharedTriggerStrategy(sharedTriggerStrategy);
+
+        if (ctx.clientApiMount() != null && ctx.clientApiMount().inspectionResumeHolder() != null) {
+            ctx.clientApiMount().inspectionResumeHolder().set(new InspectionCycleResumeService(
+                    log,
+                    triggerRuntime.bus(),
+                    ctx.inspectionGate(),
+                    ctx.bucketInspectionAggregator(),
+                    ctx.lineCaptureCoordinator()
+            ));
+        }
 
         logSaveAndTriggerInfo(ctx, continuousInspection, triggerMode, inspectionTriggerConfig, devAutoTriggerStub);
 

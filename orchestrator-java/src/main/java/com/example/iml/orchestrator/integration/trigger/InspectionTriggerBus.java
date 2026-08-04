@@ -26,6 +26,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
 
     private final Map<Integer, BlockingQueue<InspectionTriggerEvent>> perCamera = new ConcurrentHashMap<>();
     private final AtomicLong sequence = new AtomicLong(0);
+    private final AtomicLong lastDispatchedSequence = new AtomicLong(0);
     private final int captureTriggerStaggerMs;
     private final ScheduledExecutorService staggerScheduler;
     private volatile LineTriggerListener lineTriggerListener;
@@ -124,8 +125,34 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return dispatchLineBroadcast(raw.source(), seq, receivedAt, cameraIds);
     }
 
+    public long lastDispatchedSequence() {
+        return lastDispatchedSequence.get();
+    }
+
+    /**
+     * Вклинить камеру в уже идущий цикл (Stop→Start): очищает очередь и кладёт событие с нужным seq.
+     */
+    public boolean injectSequence(int cameraId, long seq, String source) {
+        if (seq <= 0L || !perCamera.containsKey(cameraId)) {
+            return false;
+        }
+        BlockingQueue<InspectionTriggerEvent> queue = perCamera.get(cameraId);
+        if (queue == null) {
+            return false;
+        }
+        queue.clear();
+        return queue.offer(new InspectionTriggerEvent(
+                cameraId,
+                seq,
+                Instant.now(),
+                source == null || source.isBlank() ? "rejoin" : source,
+                false
+        ));
+    }
+
     private int dispatchLineBroadcast(String source, long seq, Instant receivedAt, List<Integer> cameraIds) {
         List<Integer> targets = resolveTargetCameras(cameraIds);
+        lastDispatchedSequence.set(seq);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
             LOG.info(
                     "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms=0 mode=simultaneous",

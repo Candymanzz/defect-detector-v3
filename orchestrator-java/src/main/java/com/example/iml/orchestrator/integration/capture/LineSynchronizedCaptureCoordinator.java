@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -50,6 +51,8 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private final ExecutorService lineCaptureExecutor;
     private final LineFramePinService framePinService = new LineFramePinService();
     private final ConcurrentHashMap<Long, Round> rounds = new ConcurrentHashMap<>();
+    /** Stop→Start: Line0 уже был — для этих cam/seq берём sync capture, не wait_frame. */
+    private final ConcurrentHashMap<Long, Set<Integer>> lateJoinBySequence = new ConcurrentHashMap<>();
     private final Object lineCaptureSerialLock = new Object();
     private final Object triggerOnlyLock = new Object();
     private volatile Map<Integer, WorkerProcessSupervisor> lineWorkers = Map.of();
@@ -201,6 +204,28 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     /** Callback на первый usable wait_frame в раунде (камера id). */
     public void setOnFirstFrameCaptured(IntConsumer onFirstFrameCaptured) {
         this.onFirstFrameCaptured = onFirstFrameCaptured;
+    }
+
+    /** Пометить камеру как late-join в текущий seq (после Stop→Start). */
+    public void markLateJoin(long triggerSequence, int cameraId) {
+        if (triggerSequence <= 0L) {
+            return;
+        }
+        lateJoinBySequence
+                .computeIfAbsent(triggerSequence, ignored -> ConcurrentHashMap.newKeySet())
+                .add(cameraId);
+    }
+
+    private boolean consumeLateJoin(long triggerSequence, int cameraId) {
+        Set<Integer> cams = lateJoinBySequence.get(triggerSequence);
+        if (cams == null) {
+            return false;
+        }
+        boolean removed = cams.remove(cameraId);
+        if (cams.isEmpty()) {
+            lateJoinBySequence.remove(triggerSequence, cams);
+        }
+        return removed;
     }
 
     /**
@@ -432,6 +457,24 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         round.arrive(cameraId, worker);
 
         if (hardwareLineTrigger) {
+            if (consumeLateJoin(triggerSequence, cameraId)) {
+                BinaryProtocol.Message capture = worker.command(Map.of("op", "capture", "sync", true));
+                round.releaseParticipant();
+                if (!isUsableCapture(capture)) {
+                    throw new IllegalStateException(
+                            "line late-join sync unusable cam=" + cameraId + " seq=" + triggerSequence + ": "
+                                    + describeCapture(capture)
+                    );
+                }
+                long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
+                LOG.info(
+                        "sync_diag channel=inspect event=line_frame_from_rejoin cam={} seq={} frame_id={}",
+                        cameraId,
+                        triggerSequence,
+                        frameId
+                );
+                return capture;
+            }
             BinaryProtocol.Message capture = waitFrameForCamera(round, cameraId, worker);
             round.releaseParticipant();
             if (!isUsableCapture(capture)) {
@@ -446,6 +489,24 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                     cameraId,
                     triggerSequence,
                     frameId
+            );
+            return capture;
+        }
+
+        if (consumeLateJoin(triggerSequence, cameraId)) {
+            BinaryProtocol.Message capture = worker.command(Map.of("op", "capture", "sync", true));
+            round.releaseParticipant();
+            if (!isUsableCapture(capture)) {
+                throw new IllegalStateException(
+                        "line late-join sync unusable cam=" + cameraId + " seq=" + triggerSequence + ": "
+                                + describeCapture(capture)
+                );
+            }
+            LOG.info(
+                    "sync_diag channel=inspect event=line_frame_from_rejoin cam={} seq={} frame_id={}",
+                    cameraId,
+                    triggerSequence,
+                    YamlScalars.toLong(capture.header().get("frame_id"), -1L)
             );
             return capture;
         }
