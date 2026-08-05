@@ -13,9 +13,11 @@ io_input:
     - 1                 # DI1 = работа (конвейер); ↓ снимает direction latch
     - 2                 # DI2 = направление
     - 3                 # DI3 = триггер съёмки
+    - 4                 # DI4 = безопасное выключение (оркестратор: shutdown_port)
 
   # Единственный DO: capture DO5 → Line0 камер. Брак/ready/fault — только FINS.
   # DI3↑ → UDP (arm wait_frame) → delay → один DO5↑ (RisingEdge на Line0).
+  # DI4 публикуется в UDP; реакцию (гашение вспышек + stop) делает оркестратор.
   capture:
     enabled: true
     direction_port: 2
@@ -50,7 +52,7 @@ io_input:
       host: 127.0.0.1
       port: 9100          # куда слушает оркестратор (inspection_trigger.udp.bind_port)
       format: json        # json {"di":3,"value":1,"ts_ms":...} | text_di "3:1" | byte_di | byte/text (legacy 0/1)
-      inputs: [1, 2, 3]   # какие DI публиковать; по умолчанию = inputs
+      inputs: [1, 2, 3,4]   # какие DI публиковать; по умолчанию = inputs
       trigger_port: 3     # DI3 — не слать начальное состояние при старте (см. send_initial_trigger_state)
       low_latency_trigger: true   # DI1/DI2/DI3 — синхронный UDP из SDK callback, без очереди
       send_initial_state: true

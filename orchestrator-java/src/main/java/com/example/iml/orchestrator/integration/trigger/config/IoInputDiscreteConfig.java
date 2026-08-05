@@ -6,12 +6,14 @@ import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 import java.util.Map;
 
 /**
- * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа, DI2=направление, DI3=триггер.
+ * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа, DI2=направление, DI3=триггер,
+ * DI4=безопасное выключение ({@code shutdown_port}, 0 = выкл).
  */
 public record IoInputDiscreteConfig(
         int workPort,
         int directionPort,
         int triggerPort,
+        int shutdownPort,
         int debounceMs,
         String payloadFormat,
         boolean stubWorkActive,
@@ -32,7 +34,7 @@ public record IoInputDiscreteConfig(
     public static IoInputDiscreteConfig defaults() {
         // Согласовано с config/blocks/01-core.yaml integration.inspection_trigger.io_input
         return new IoInputDiscreteConfig(
-                1, 2, 3, 0, "json", false, TriggerEdgeMode.RISING,
+                1, 2, 3, 4, 0, "json", false, TriggerEdgeMode.RISING,
                 true, false, false, false, false, false, true,
                 5000, 1, 0, true
         );
@@ -58,6 +60,7 @@ public record IoInputDiscreteConfig(
         int workPort = clampDiPort(YamlScalars.toInt(io.get("work_port"), defaults.workPort()));
         int directionPort = clampDiPort(YamlScalars.toInt(io.get("direction_port"), defaults.directionPort()));
         int triggerPort = clampDiPort(YamlScalars.toInt(io.get("trigger_port"), defaults.triggerPort()));
+        int shutdownPort = clampOptionalDiPort(YamlScalars.toInt(io.get("shutdown_port"), defaults.shutdownPort()));
         int debounceMs = Math.max(0, YamlScalars.toInt(io.get("debounce_ms"), udpDebounceMs));
         String payloadFormat = io.get("payload_format") != null
                 ? String.valueOf(io.get("payload_format")).trim().toLowerCase()
@@ -90,6 +93,7 @@ public record IoInputDiscreteConfig(
                 workPort,
                 directionPort,
                 triggerPort,
+                shutdownPort,
                 debounceMs,
                 payloadFormat,
                 stubWorkActive,
@@ -114,6 +118,7 @@ public record IoInputDiscreteConfig(
                 defaults.workPort(),
                 defaults.directionPort(),
                 defaults.triggerPort(),
+                defaults.shutdownPort(),
                 debounceMs,
                 defaults.payloadFormat(),
                 defaults.stubWorkActive(),
@@ -134,5 +139,13 @@ public record IoInputDiscreteConfig(
 
     private static int clampDiPort(int port) {
         return Math.max(1, Math.min(8, port));
+    }
+
+    /** 0 = shutdown по DI выключен; иначе DI 1–8. */
+    private static int clampOptionalDiPort(int port) {
+        if (port <= 0) {
+            return 0;
+        }
+        return Math.min(8, port);
     }
 }

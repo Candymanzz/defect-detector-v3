@@ -9,20 +9,20 @@ light_hardware:
 
   devices:
     # Центральные вспышки (camera id 2 и 7): один контроллер, 2 канала.
-    - id: com1
+    - id: com2
       enabled: true
       type: com
-      com_port: COM1
+      com_port: COM2
       channels: 2
     - id: mv-le-1
       enabled: true
       type: ethernet
-      ip: "169.254.220.23"
+      ip: "169.254.220.4"
       channels: 4
     - id: mv-le-2
       enabled: true
       type: ethernet
-      ip: "169.254.220.22"
+      ip: "169.254.220.3"
       channels: 4
     - id: mv-le-3
       enabled: true
@@ -45,7 +45,7 @@ light_hardware:
       device_id: mv-le-4
       channels: [2, 4]
     - camera_number: 3
-      device_id: com1
+      device_id: com2
       channels: [1]
     - camera_number: 4
       device_id: mv-le-3
@@ -60,7 +60,7 @@ light_hardware:
       device_id: mv-le-1
       channels: [2, 4]
     - camera_number: 8
-      device_id: com1
+      device_id: com2
       channels: [2]
     - camera_number: 9
       device_id: mv-le-2

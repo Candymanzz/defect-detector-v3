@@ -4,7 +4,7 @@ cameras:
   - id: 0
     enabled: true
     inspection_enabled: true
-    ip: "169.254.222.4"
+    ip: "169.254.95.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -14,7 +14,7 @@ cameras:
   - id: 1
     enabled: true
     inspection_enabled: true
-    ip: "169.254.146.5"
+    ip: "169.254.96.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -26,7 +26,7 @@ cameras:
     inspection_enabled: true
     # Торцевой ракурс: стык/геометрия не видны — только python/поверхность.
     geometry_enabled: false
-    ip: "169.254.220.9"
+    ip: "169.254.89.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -36,7 +36,7 @@ cameras:
   - id: 3
     enabled: true
     inspection_enabled: true
-    ip: "169.254.222.3"
+    ip: "169.254.101.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -46,7 +46,7 @@ cameras:
   - id: 4
     enabled: true
     inspection_enabled: true
-    ip: "169.254.146.6"
+    ip: "169.254.156.1"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -56,7 +56,7 @@ cameras:
   - id: 5
     enabled: true
     inspection_enabled: true
-    ip: "169.254.6.7"
+    ip: "169.254.99.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -66,7 +66,7 @@ cameras:
   - id: 6
     enabled: true
     inspection_enabled: true
-    ip: "169.254.218.1"
+    ip: "169.254.92.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -78,7 +78,7 @@ cameras:
     inspection_enabled: true
     # Торцевой ракурс: стык/геометрия не видны — только python/поверхность.
     geometry_enabled: false
-    ip: "169.254.218.2"
+    ip: "169.254.81.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -88,7 +88,7 @@ cameras:
   - id: 8
     enabled: true
     inspection_enabled: true
-    ip: "169.254.220.10"
+    ip: "169.254.90.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -98,7 +98,7 @@ cameras:
   - id: 9
     enabled: true
     inspection_enabled: true
-    ip: "169.254.6.8"
+    ip: "169.254.93.219"
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
