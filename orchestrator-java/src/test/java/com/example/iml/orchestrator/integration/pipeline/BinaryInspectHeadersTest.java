@@ -75,6 +75,7 @@ class BinaryInspectHeadersTest {
         assertEquals(3.0, jointHeader.get("jointMaxWidthMm"));
         assertEquals(5.0, jointHeader.get("maxJointParallelismDeg"));
         assertEquals(0.8, jointHeader.get("maxJointTaperMm"));
+        assertEquals(0.5, jointHeader.get("jointSeamSegmentationSensitivity"));
     }
 
     @Test

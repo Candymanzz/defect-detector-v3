@@ -23,6 +23,8 @@ java_geometry:
   joint_max_width_mm_strict: 2.5
   # Опционально: сегментация полосы стыка + fitLine кромок (параллельность). Вкл. с UI.
   joint_seam_segmentation_enabled: false
+  # 0..1: выше — легче захватить слабую полосу и жёстче допуск параллельности (вердикт).
+  joint_seam_segmentation_sensitivity: 0.5
   # Порог морщин (геометрия: смещение + стык + морщины в переданном ROI).
   max_wrinkles_score: 0.45
 

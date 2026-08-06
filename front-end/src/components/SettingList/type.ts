@@ -10,6 +10,7 @@ export type SettingForm = {
   constantFlashMode: boolean;
   maxShiftMm: number;
   jointSeamSegmentationEnabled: boolean;
+  jointSeamSegmentationSensitivity: number;
   lineDirection: LineDirection;
   savedFramesCount: number;
   analysisSettings: AnalysisSettings;
@@ -19,7 +20,8 @@ export type SettingFieldName =
   | "brightnessPercent"
   | "maxShiftMm"
   | "savedFramesCount"
-  | "jointSeamSegmentationEnabled";
+  | "jointSeamSegmentationEnabled"
+  | "jointSeamSegmentationSensitivity";
 export type AnalysisSettingFieldName = keyof AnalysisSettings;
 
 export type SettingData = {

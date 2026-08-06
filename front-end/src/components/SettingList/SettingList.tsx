@@ -615,6 +615,18 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
                   }}
                 />
               </label>
+              <label>
+                <span>Чувствительность сегментации</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={settingData.form.jointSeamSegmentationSensitivity}
+                  disabled={!canEditSettings || !settingData.form.jointSeamSegmentationEnabled}
+                  onChange={handleFieldChange("jointSeamSegmentationSensitivity")}
+                />
+              </label>
               <Button
                 className="setting-list__inline-save"
                 disabled={!canEditSettings}

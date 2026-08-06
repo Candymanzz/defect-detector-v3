@@ -17,12 +17,11 @@ import java.util.List;
  * продление) → параллельность / ширина / taper.
  *
  * <p>На типичном joint ROI (десятки–сотни px) занимает единицы миллисекунд.
+ * Чувствительность (0..1) снижает пороги площади/кромок — слабые полосы ловятся чаще.
  */
 public final class LabelSeamBandSegmenter {
 
-    private static final int MIN_BAND_PIXELS = 40;
     private static final int EDGE_SAMPLE_COUNT = 12;
-    private static final int MIN_EDGE_POINTS = 6;
 
     private LabelSeamBandSegmenter() {
     }
@@ -39,11 +38,31 @@ public final class LabelSeamBandSegmenter {
             double maxWidthMm,
             double expectedAxisDeg
     ) {
+        return analyze(bgrRoi, roiMask8u, pixelsToMm, minWidthMm, maxWidthMm, expectedAxisDeg, 0.5);
+    }
+
+    /**
+     * @param sensitivity 0..1 — higher accepts weaker / smaller bands
+     */
+    public static LabelSeamAnalyzer.Result analyze(
+            Mat bgrRoi,
+            Mat roiMask8u,
+            double pixelsToMm,
+            double minWidthMm,
+            double maxWidthMm,
+            double expectedAxisDeg,
+            double sensitivity
+    ) {
         if (bgrRoi == null || bgrRoi.empty() || bgrRoi.cols() < 8 || bgrRoi.rows() < 8) {
             return LabelSeamAnalyzer.Result.empty(0.0);
         }
         double safePixelsToMm = pixelsToMm > 1e-9 ? pixelsToMm : 0.02;
         double axisDeg = Double.isNaN(expectedAxisDeg) ? estimateAxisFromRoiShape(bgrRoi) : expectedAxisDeg;
+        double s = clamp01(sensitivity);
+        // Low sensitivity → picky (large min area); high → lock onto weaker bands.
+        int minBandPixels = (int) Math.round(lerp(90.0, 20.0, s));
+        int minEdgePoints = (int) Math.round(lerp(10.0, 4.0, s));
+        double minGapPx = lerp(3.0, 1.2, s);
 
         Mat gray = new Mat();
         Mat blurred = new Mat();
@@ -85,7 +104,7 @@ public final class LabelSeamBandSegmenter {
                 int n = Imgproc.connectedComponentsWithStats(morph, labels, stats, centroids, 8, CvType.CV_32S);
                 for (int label = 1; label < n; label++) {
                     int area = (int) stats.get(label, Imgproc.CC_STAT_AREA)[0];
-                    if (area < MIN_BAND_PIXELS) {
+                    if (area < minBandPixels) {
                         continue;
                     }
                     int w = (int) stats.get(label, Imgproc.CC_STAT_WIDTH)[0];
@@ -113,13 +132,13 @@ public final class LabelSeamBandSegmenter {
                 return LabelSeamAnalyzer.Result.empty(0.0);
             }
 
-            EdgePair edges = sampleEdgesAlongAxis(bestBand, axisDeg);
+            EdgePair edges = sampleEdgesAlongAxis(bestBand, axisDeg, minGapPx, minEdgePoints);
             if (edges == null) {
                 return LabelSeamAnalyzer.Result.empty(
                         clamp01(bestArea / (double) (bgrRoi.cols() * bgrRoi.rows()) * 4.0));
             }
-            FittedLine lineA = fitEdge(edges.sideA());
-            FittedLine lineB = fitEdge(edges.sideB());
+            FittedLine lineA = fitEdge(edges.sideA(), minEdgePoints);
+            FittedLine lineB = fitEdge(edges.sideB(), minEdgePoints);
             if (lineA == null || lineB == null) {
                 return LabelSeamAnalyzer.Result.empty(0.05);
             }
@@ -163,7 +182,7 @@ public final class LabelSeamBandSegmenter {
     /**
      * Walk along seam axis; for each sample find min/max extent perpendicular → two edge polylines.
      */
-    private static EdgePair sampleEdgesAlongAxis(Mat band, double axisDeg) {
+    private static EdgePair sampleEdgesAlongAxis(Mat band, double axisDeg, double minGapPx, int minEdgePoints) {
         double rad = Math.toRadians(axisDeg);
         double ux = Math.cos(rad);
         double uy = Math.sin(rad);
@@ -206,21 +225,21 @@ public final class LabelSeamBandSegmenter {
                     }
                 }
             }
-            if (sMin == null || sMax == null || Math.abs(sMax - sMin) < 1.5) {
+            if (sMin == null || sMax == null || Math.abs(sMax - sMin) < minGapPx) {
                 continue;
             }
             sideA.add(new Point(ox + px * sMin, oy + py * sMin));
             sideB.add(new Point(ox + px * sMax, oy + py * sMax));
             axisSamples.add(new Point(ox, oy));
         }
-        if (sideA.size() < MIN_EDGE_POINTS || sideB.size() < MIN_EDGE_POINTS) {
+        if (sideA.size() < minEdgePoints || sideB.size() < minEdgePoints) {
             return null;
         }
         return new EdgePair(sideA, sideB, axisSamples);
     }
 
-    private static FittedLine fitEdge(List<Point> points) {
-        if (points.size() < MIN_EDGE_POINTS) {
+    private static FittedLine fitEdge(List<Point> points, int minEdgePoints) {
+        if (points.size() < minEdgePoints) {
             return null;
         }
         Mat pts = new Mat(points.size(), 1, CvType.CV_32FC2);
@@ -288,6 +307,10 @@ public final class LabelSeamBandSegmenter {
 
     private static double estimateAxisFromRoiShape(Mat roi) {
         return roi.cols() >= roi.rows() ? 0.0 : 90.0;
+    }
+
+    private static double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
     }
 
     private static double clamp01(double v) {

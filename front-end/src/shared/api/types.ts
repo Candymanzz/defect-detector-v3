@@ -149,6 +149,8 @@ export type GeometryRuntimeOverrides = Partial<{
   max_wrinkles_score: number;
   jointSeamSegmentationEnabled: boolean;
   joint_seam_segmentation_enabled: boolean;
+  jointSeamSegmentationSensitivity: number;
+  joint_seam_segmentation_sensitivity: number;
 }> &
   JsonObject;
 

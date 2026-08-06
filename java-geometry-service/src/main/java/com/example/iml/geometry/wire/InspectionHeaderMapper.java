@@ -36,7 +36,8 @@ public final class InspectionHeaderMapper {
                 bool(h.get("jointSeamSegmentationEnabled") != null
                                 ? h.get("jointSeamSegmentationEnabled")
                                 : h.get("joint_seam_segmentation_enabled"),
-                        false)
+                        false),
+                segmentationSensitivity(h)
         );
     }
 
@@ -63,8 +64,27 @@ public final class InspectionHeaderMapper {
                 bool(h.get("jointSeamSegmentationEnabled") != null
                                 ? h.get("jointSeamSegmentationEnabled")
                                 : h.get("joint_seam_segmentation_enabled"),
-                        false)
+                        false),
+                segmentationSensitivity(h)
         );
+    }
+
+    private static double segmentationSensitivity(Map<String, Object> h) {
+        Object raw = h.get("jointSeamSegmentationSensitivity");
+        if (raw == null) {
+            raw = h.get("joint_seam_segmentation_sensitivity");
+        }
+        return clamp01(num(raw, 0.5));
+    }
+
+    private static double clamp01(double v) {
+        if (v < 0.0) {
+            return 0.0;
+        }
+        if (v > 1.0) {
+            return 1.0;
+        }
+        return v;
     }
 
     private static String jointMode(Map<String, Object> h) {

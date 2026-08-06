@@ -737,7 +737,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     request.jointMinWidthMm(),
                     request.jointMaxWidthMm(),
                     expectedAxisDeg,
-                    request.jointSeamSegmentationEnabled()
+                    request.jointSeamSegmentationEnabled(),
+                    request.jointSeamSegmentationSensitivity()
             );
             return new JointResult(
                     seam.found(),
@@ -779,12 +780,29 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             return true;
         }
         // Width below min / above max is a real defect (including visibly narrow seam).
-        boolean parallelismOk = joint.parallelismDeg <= request.maxJointParallelismDeg();
+        double maxParallelismDeg = request.maxJointParallelismDeg();
+        if (request.jointSeamSegmentationEnabled()) {
+            // Sensitivity mainly gates parallelism from fitLine edges:
+            // 0 → 2× tolerance, 0.5 → base, 1 → 0.4× (stricter rejects).
+            double s = clamp01(request.jointSeamSegmentationSensitivity());
+            maxParallelismDeg *= 2.0 - 1.6 * s;
+        }
+        boolean parallelismOk = joint.parallelismDeg <= maxParallelismDeg;
         boolean widthOk = joint.widthMm >= request.jointMinWidthMm()
                 && joint.widthMm <= request.jointMaxWidthMm();
         boolean defectOk = joint.defectMm <= request.maxJointDefectMm();
         boolean taperOk = joint.taperMm <= request.maxJointTaperMm();
         return parallelismOk && widthOk && defectOk && taperOk;
+    }
+
+    private static double clamp01(double v) {
+        if (v < 0.0) {
+            return 0.0;
+        }
+        if (v > 1.0) {
+            return 1.0;
+        }
+        return v;
     }
 
     /** Package-visible for unit tests of joint gating. */
@@ -838,7 +856,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 jointMaxWidthMm,
                 maxJointParallelismDeg,
                 maxJointTaperMm,
-                false
+                false,
+                0.5
         );
         return evaluateJointPass(request, joint);
     }

@@ -11,11 +11,14 @@ import { errorMessage } from "../../shared/lib/errors";
 import type { AnalysisSettingFieldName, SettingData, SettingFieldName, SettingForm, SettingStatus } from "./type";
 
 const DEFAULT_MAX_SHIFT_MM = 0.5;
+const DEFAULT_JOINT_SEAM_SEGMENTATION_SENSITIVITY = 0.5;
 const DEFAULT_SAVED_FRAMES_COUNT = 20;
 const MIN_BRIGHTNESS_PERCENT = 0;
 const MAX_BRIGHTNESS_PERCENT = 100;
 const MIN_MAX_SHIFT_MM = 0;
 const MAX_MAX_SHIFT_MM = 100;
+const MIN_SEGMENTATION_SENSITIVITY = 0;
+const MAX_SEGMENTATION_SENSITIVITY = 1;
 const FALLBACK_ANALYSIS_PRODUCT_TYPE = "reference-product";
 
 const DEFAULT_ANALYSIS_SETTINGS: AnalysisSettings = {
@@ -49,6 +52,7 @@ export const INITIAL_SETTING_FORM: SettingForm = {
   constantFlashMode: false,
   maxShiftMm: DEFAULT_MAX_SHIFT_MM,
   jointSeamSegmentationEnabled: false,
+  jointSeamSegmentationSensitivity: DEFAULT_JOINT_SEAM_SEGMENTATION_SENSITIVITY,
   lineDirection: "reverse",
   savedFramesCount: DEFAULT_SAVED_FRAMES_COUNT,
   analysisSettings: DEFAULT_ANALYSIS_SETTINGS,
@@ -141,6 +145,7 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       constantFlashMode: lightMode.constant,
       maxShiftMm: readMaxShiftMm(geometryRuntime),
       jointSeamSegmentationEnabled: readJointSeamSegmentationEnabled(geometryRuntime),
+      jointSeamSegmentationSensitivity: readJointSeamSegmentationSensitivity(geometryRuntime),
       lineDirection: "reverse",
       savedFramesCount,
       analysisSettings,
@@ -223,6 +228,7 @@ export async function saveMaxShiftData(
     saveGeometryRuntimeSettings(
       normalizedForm.maxShiftMm,
       normalizedForm.jointSeamSegmentationEnabled,
+      normalizedForm.jointSeamSegmentationSensitivity,
       selectedCameraId,
       cameraList?.cameras ?? [],
     ),
@@ -237,6 +243,7 @@ export async function saveMaxShiftData(
       ...form,
       maxShiftMm: normalizedForm.maxShiftMm,
       jointSeamSegmentationEnabled: normalizedForm.jointSeamSegmentationEnabled,
+      jointSeamSegmentationSensitivity: normalizedForm.jointSeamSegmentationSensitivity,
     },
     analysisProductTypes,
   };
@@ -315,6 +322,7 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
     constantFlashMode: Boolean(form.constantFlashMode),
     maxShiftMm: clampMaxShiftMm(form.maxShiftMm),
     jointSeamSegmentationEnabled: Boolean(form.jointSeamSegmentationEnabled),
+    jointSeamSegmentationSensitivity: clampSegmentationSensitivity(form.jointSeamSegmentationSensitivity),
     lineDirection: form.lineDirection === "reverse" ? "reverse" : "forward",
     savedFramesCount: clampSavedFramesCount(form.savedFramesCount),
     analysisSettings: normalizeAnalysisSettings(form.analysisSettings),
@@ -490,6 +498,20 @@ function readJointSeamSegmentationEnabled(geometryRuntime: GeometryRuntimeConfig
   );
 }
 
+function readJointSeamSegmentationSensitivity(geometryRuntime: GeometryRuntimeConfig) {
+  return clampSegmentationSensitivity(
+    firstFiniteNumber(
+      [
+        geometryRuntime.runtimeOverrides.joint_seam_segmentation_sensitivity,
+        geometryRuntime.runtimeOverrides.jointSeamSegmentationSensitivity,
+        geometryRuntime.effectiveForNextGeometryInspect.joint_seam_segmentation_sensitivity,
+        geometryRuntime.effectiveForNextGeometryInspect.jointSeamSegmentationSensitivity,
+      ],
+      DEFAULT_JOINT_SEAM_SEGMENTATION_SENSITIVITY,
+    ),
+  );
+}
+
 function readSavedFramesCount(frameArchiveSettings: { max_frames_per_camera?: number; max_allowed_frames_per_camera?: number } | null) {
   return clampSavedFramesCount(
     frameArchiveSettings?.max_frames_per_camera ?? DEFAULT_SAVED_FRAMES_COUNT,
@@ -500,12 +522,14 @@ function readSavedFramesCount(frameArchiveSettings: { max_frames_per_camera?: nu
 async function saveGeometryRuntimeSettings(
   maxShiftMm: number,
   jointSeamSegmentationEnabled: boolean,
+  jointSeamSegmentationSensitivity: number,
   selectedCameraId: number | null,
   cameraIds: number[],
 ) {
   const update = {
     max_shift_mm: maxShiftMm,
     joint_seam_segmentation_enabled: jointSeamSegmentationEnabled,
+    joint_seam_segmentation_sensitivity: jointSeamSegmentationSensitivity,
   };
 
   if (selectedCameraId !== null) {
@@ -628,6 +652,14 @@ function clampBrightness(value: number) {
 
 function clampMaxShiftMm(value: number) {
   return clampNumber(value, MIN_MAX_SHIFT_MM, MAX_MAX_SHIFT_MM);
+}
+
+function clampSegmentationSensitivity(value: number) {
+  return clampNumber(
+    toFiniteNumber(value, DEFAULT_JOINT_SEAM_SEGMENTATION_SENSITIVITY),
+    MIN_SEGMENTATION_SENSITIVITY,
+    MAX_SEGMENTATION_SENSITIVITY,
+  );
 }
 
 function clampSavedFramesCount(value: number, maxAllowed = 100) {

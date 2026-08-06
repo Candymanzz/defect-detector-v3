@@ -92,9 +92,32 @@ public final class LabelSeamAnalyzer {
             double expectedAxisDeg,
             boolean seamSegmentationEnabled
     ) {
+        return analyze(
+                bgrRoi, roiMask8u, pixelsToMm, minWidthMm, maxWidthMm, expectedAxisDeg, seamSegmentationEnabled, 0.5);
+    }
+
+    /**
+     * @param seamSegmentationSensitivity 0..1 — higher locks weaker bands more easily
+     */
+    public static Result analyze(
+            Mat bgrRoi,
+            Mat roiMask8u,
+            double pixelsToMm,
+            double minWidthMm,
+            double maxWidthMm,
+            double expectedAxisDeg,
+            boolean seamSegmentationEnabled,
+            double seamSegmentationSensitivity
+    ) {
         if (seamSegmentationEnabled) {
             Result segmented = LabelSeamBandSegmenter.analyze(
-                    bgrRoi, roiMask8u, pixelsToMm, minWidthMm, maxWidthMm, expectedAxisDeg);
+                    bgrRoi,
+                    roiMask8u,
+                    pixelsToMm,
+                    minWidthMm,
+                    maxWidthMm,
+                    expectedAxisDeg,
+                    seamSegmentationSensitivity);
             if (segmented.found()) {
                 return segmented;
             }

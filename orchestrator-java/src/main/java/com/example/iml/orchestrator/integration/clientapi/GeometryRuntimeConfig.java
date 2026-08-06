@@ -31,6 +31,7 @@ public final class GeometryRuntimeConfig {
             "maxJointParallelismDeg",
             "maxJointTaperMm",
             "jointSeamSegmentationEnabled",
+            "jointSeamSegmentationSensitivity",
             "maxWrinklesScore",
             "threshold",
             "jointThreshold"
@@ -137,6 +138,7 @@ public final class GeometryRuntimeConfig {
         putIfPresent(overrides, algorithmParams, "maxJointParallelismDeg", "max_joint_parallelism_deg");
         putIfPresent(overrides, algorithmParams, "maxJointTaperMm", "max_joint_taper_mm");
         putIfPresent(overrides, algorithmParams, "jointSeamSegmentationEnabled", "joint_seam_segmentation_enabled");
+        putIfPresent(overrides, algorithmParams, "jointSeamSegmentationSensitivity", "joint_seam_segmentation_sensitivity");
         putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
         putIfPresent(overrides, algorithmParams, "jointThreshold", "joint_threshold");
         putIfPresent(overrides, algorithmParams, "threshold", "threshold");
@@ -196,6 +198,21 @@ public final class GeometryRuntimeConfig {
                         false
                 )
         );
+        m.put(
+                "jointSeamSegmentationSensitivity",
+                Math.max(
+                        0.0,
+                        Math.min(
+                                1.0,
+                                YamlScalars.toDouble(
+                                        yamlGeometry == null
+                                                ? null
+                                                : yamlGeometry.get("joint_seam_segmentation_sensitivity"),
+                                        0.5
+                                )
+                        )
+                )
+        );
         double thresholdDefault = defaultPythonThreshold(pythonYaml);
         m.put("threshold", thresholdDefault);
         m.put("maxWrinklesScore", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_wrinkles_score"), thresholdDefault));
@@ -224,6 +241,16 @@ public final class GeometryRuntimeConfig {
             return;
         }
         if ("maxConcentricityMm".equals(key)) {
+            return;
+        }
+        if ("jointSeamSegmentationSensitivity".equals(key)) {
+            double s = YamlScalars.toDouble(value, 0.5);
+            if (s < 0.0) {
+                s = 0.0;
+            } else if (s > 1.0) {
+                s = 1.0;
+            }
+            header.put(key, s);
             return;
         }
         header.put(key, value);
@@ -263,6 +290,7 @@ public final class GeometryRuntimeConfig {
             case "max_joint_parallelism_deg" -> "maxJointParallelismDeg";
             case "max_joint_taper_mm" -> "maxJointTaperMm";
             case "joint_seam_segmentation_enabled" -> "jointSeamSegmentationEnabled";
+            case "joint_seam_segmentation_sensitivity" -> "jointSeamSegmentationSensitivity";
             case "joint_threshold", "jointThreshold" -> "jointThreshold";
             case "max_wrinkles_score" -> "maxWrinklesScore";
             case "fallback_threshold", "inspection_threshold", "sensitivity" -> "threshold";

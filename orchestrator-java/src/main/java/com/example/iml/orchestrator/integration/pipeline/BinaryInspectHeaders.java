@@ -68,6 +68,21 @@ public final class BinaryInspectHeaders {
                         false
                 )
         );
+        gHeader.put(
+                "jointSeamSegmentationSensitivity",
+                Math.max(
+                        0.0,
+                        Math.min(
+                                1.0,
+                                YamlScalars.toDouble(
+                                        geometryCfg == null
+                                                ? null
+                                                : geometryCfg.get("joint_seam_segmentation_sensitivity"),
+                                        0.5
+                                )
+                        )
+                )
+        );
         Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
         if (jointPolygon instanceof List<?> poly && poly.size() >= 3) {
             gHeader.put("jointRoiPolygonNorm", poly);
