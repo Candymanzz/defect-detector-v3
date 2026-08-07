@@ -92,6 +92,7 @@ typedef struct {
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
     int gige_ftd_cameras_per_link;
+    int gige_transfer_slot;
     int gige_switch_buffer_kb;
     size_t gige_payload_bytes;
     int pixel_format_pref;
@@ -277,6 +278,7 @@ typedef struct {
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
     int gige_ftd_cameras_per_link;
+    int gige_transfer_slot;
     int gige_switch_buffer_kb;
     int frame_width;
     int frame_height;
@@ -362,6 +364,7 @@ static int json_copy_token_string(const char *js, const jsmntok_t *tok, char *ou
 
 static void load_camera_config(const char *js, int jslen, int camera_id, worker_camera_config_t *cfg) {
     memset(cfg, 0, sizeof(*cfg));
+    cfg->gige_transfer_slot = -1;
     snprintf(cfg->ip, sizeof(cfg->ip), "127.0.0.1");
 
     char mode[32] = {0};
@@ -405,6 +408,7 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
         char ip_buf[64] = {0};
         char cam_mode[32] = {0};
         int cam_exp = 0;
+        int cam_gige_transfer_slot = -1;
 
         for (int j = cam_obj + 1; j < r && tok[j].start < tok[cam_obj].end; j++) {
             if (tok[j].type != JSMN_STRING) {
@@ -428,6 +432,12 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
                     cam_exp = atoi(buf);
                 }
                 j++;
+            } else if (jsoneq(js, &tok[j], "gige_transfer_slot") == 0 && tok[j + 1].type == JSMN_PRIMITIVE) {
+                char buf[16];
+                if (json_copy_token_string(js, &tok[j + 1], buf, sizeof(buf)) == 0) {
+                    cam_gige_transfer_slot = atoi(buf);
+                }
+                j++;
             }
         }
 
@@ -443,6 +453,7 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
         if (cam_exp > 0) {
             cfg->exposure_us = cam_exp;
         }
+        cfg->gige_transfer_slot = cam_gige_transfer_slot;
         return;
     }
 }
@@ -1013,6 +1024,9 @@ static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t
  */
 static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
+    if (st->gige_transfer_slot >= 0 && st->gige_transfer_slot < per_link) {
+        return (unsigned int)st->gige_transfer_slot;
+    }
     if (st->gige_switch_buffer_kb > 0 && hik_is_small_switch_buffer(st) && per_link > 2) {
         return (unsigned int)st->camera_id;
     }
@@ -1981,6 +1995,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->gige_ftd_cameras_per_link = cam_cfg && cam_cfg->gige_ftd_cameras_per_link > 0
                                             ? cam_cfg->gige_ftd_cameras_per_link
                                             : 2;
+    st->gige_transfer_slot = cam_cfg ? cam_cfg->gige_transfer_slot : -1;
     st->gige_switch_buffer_kb = cam_cfg ? cam_cfg->gige_switch_buffer_kb : 0;
     st->pixel_format_pref = cam_cfg ? cam_cfg->pixel_format_pref : PIXEL_PREF_BGR8;
     st->hik_pixel_format_active = st->pixel_format_pref;
