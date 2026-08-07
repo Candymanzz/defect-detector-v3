@@ -64,7 +64,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     activeCameraIds.length > 0 &&
     activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
     referenceRoi.hasRequiredRoisForCameraIds(activeCameraIds) &&
-    referenceRoi.getJointRoiPolygonForCameraIds(activeCameraIds).length >= 4 &&
     status.state === "open",
   );
   useEffect(() => {
@@ -173,7 +172,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           setMessage(
             message.payload.ok
               ? "Эталон подтверждён сервером"
-              : "Сервер отклонил эталон: проверьте кадры, ROI контроля и шов этикетки",
+              : "Сервер отклонил эталон: проверьте кадры и ROI контроля",
           );
           break;
         }
@@ -358,13 +357,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       );
       if (missingRoiCameraIds.length > 0) {
         setMessage(`Не задан ROI контроля для камер: ${missingRoiCameraIds.join(", ")}`);
-        return;
-      }
-
-      if (referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds).length < 4) {
-        setMessage(
-          `Не задан шов этикетки для группы камер ${groupCameraIds.join(", ")}. Выберите камеру шва и нарисуйте контур.`,
-        );
         return;
       }
     }

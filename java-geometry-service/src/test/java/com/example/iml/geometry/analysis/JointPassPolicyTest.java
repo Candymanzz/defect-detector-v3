@@ -8,8 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JointPassPolicyTest {
 
     @Test
-    void missingSeamWithLowVisibilityIsInconclusivePass() {
-        assertTrue(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
+    void missingSeamFailsWhenJointRoiSet() {
+        // Empty bucket / no label: joint=9999, seam_w=0, vis≈0 → FAIL
+        assertFalse(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
                 true,
                 false,
                 false,

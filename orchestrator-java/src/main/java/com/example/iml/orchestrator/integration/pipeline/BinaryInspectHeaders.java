@@ -182,6 +182,37 @@ public final class BinaryInspectHeaders {
         }
     }
 
+    /**
+     * Client {@code reference_bundle} without joint ROI/polygon — geometry must not run
+     * (YAML {@code joint_roi} fallback is intentionally ignored for client bundles).
+     */
+    public static boolean isClientReferenceWithoutJointRoi(ReferenceSnapshot activeReference) {
+        if (activeReference == null || activeReference.header() == null) {
+            return false;
+        }
+        if (!YamlScalars.toBool(activeReference.header().get("client_reference_bundle"), false)) {
+            return false;
+        }
+        return !hasUsableClientJointRoi(activeReference.header());
+    }
+
+    public static boolean hasUsableClientJointRoi(Map<String, Object> referenceHeader) {
+        if (referenceHeader == null || referenceHeader.isEmpty()) {
+            return false;
+        }
+        Object poly = referenceHeader.get("joint_roi_polygon_norm");
+        if (poly instanceof List<?> list && list.size() >= 3) {
+            return true;
+        }
+        Object raw = referenceHeader.get("joint_roi_norm");
+        if (!(raw instanceof Map<?, ?> normalized)) {
+            return false;
+        }
+        double width = YamlScalars.toDouble(normalized.get("width"), 0d);
+        double height = YamlScalars.toDouble(normalized.get("height"), 0d);
+        return width > 0d && height > 0d;
+    }
+
     private static Object resolveJointRoi(int cameraId, ReferenceSnapshot activeReference, Map<String, Object> geometryCfg) {
         if (activeReference != null && activeReference.header() != null) {
             // joint_roi_norm один на ведро: на joint-камере — full inspect, на остальных — visibility.

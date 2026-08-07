@@ -4,7 +4,7 @@ frame:
   width: 1224
   height: 1024
   # Mono8: ~3x меньше GigE-трафика; camera-worker конвертирует в BGR8 для пайплайна.
-  format: Mono8
+  format: Bayer8
   # Binning 2×2 в MVS; если SDK вернёт 0x80000109 — worker применит ROI 1224×1024 по центру.
   binning_horizontal: 2
   binning_vertical: 2
@@ -36,7 +36,7 @@ orchestrator:
 # camera — эталон снимается с камеры при старте; client — только client.reference_bundle по WebSocket.
 integration:
   reference_source: client
-  # Съёмка по внешнему триггеру даже без client.reference_bundle (geometry/python — после эталона).
+  # false: DI3/триггер не стартует цикл, пока нет client.reference_bundle.
   capture_without_reference: true
   # Автосъёмка для UI отключена — кадры только по внешнему триггеру (IoInputMonitor → inspection_trigger).
   live_preview:

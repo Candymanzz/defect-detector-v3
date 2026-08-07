@@ -3,7 +3,7 @@
   "frame": {
     "width": 1224,
     "height": 1024,
-    "format": "Mono8",
+    "format": "Bayer10",
     "binning_horizontal": 2,
     "binning_vertical": 2,
     "binning_mode": "Sum"
@@ -15,8 +15,8 @@
   "frame_timeout_ms": 15000,
   "gige_switch_count": 5,
   "gige_cameras_per_switch": 2,
-  "gige_switch_buffer_kb": 48,
-  "gige_inter_packet_delay": 120000,
+  "gige_switch_buffer_kb": 448,
+  "gige_inter_packet_delay": 1000,
   "gige_frame_transfer_delay_step": 0,
   "gige_ftd_cameras_per_link": 2,
   "orchestrator": {

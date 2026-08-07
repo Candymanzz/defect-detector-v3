@@ -132,7 +132,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     ? "Эталон отправлен — ожидается подтверждение"
                     : referenceSubmission.state === "confirmed"
                       ? "Эталон подтверждён сервером"
-                      : "Сервер отклонил эталон. Проверьте кадры, ROI контроля и шов этикетки"}
+                      : "Сервер отклонил эталон. Проверьте кадры и ROI контроля"}
                 </strong>
                 <time>{new Date(referenceSubmission.submittedAtMs).toLocaleTimeString()}</time>
               </div>
@@ -427,7 +427,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   </button>
                   <Button
                     className="reference-setup__button reference-setup__save"
-                    aria-disabled={!shouldStartNewReference && !canSendAllReferences}
+                    disabled={!shouldStartNewReference && !canSendAllReferences}
                     onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
                   >
                     {primaryReferenceLabel}
