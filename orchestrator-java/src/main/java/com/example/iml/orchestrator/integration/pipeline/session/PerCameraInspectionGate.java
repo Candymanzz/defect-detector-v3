@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.pipeline.session;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -141,6 +142,17 @@ public final class PerCameraInspectionGate {
             cancelFlag.set(true);
             return true;
         }
+    }
+
+    /** Soft-stop всех камер: disable + cancel in-flight, capture/reference не трогаем. */
+    public Set<Integer> disableAllAndRequestCancel() {
+        Set<Integer> cancelled = new LinkedHashSet<>();
+        for (Integer cameraId : cameraIds()) {
+            if (disableInspectionAndRequestCancel(cameraId)) {
+                cancelled.add(cameraId);
+            }
+        }
+        return Set.copyOf(cancelled);
     }
 
     public BeginResult tryBeginInspection(int cameraId) {

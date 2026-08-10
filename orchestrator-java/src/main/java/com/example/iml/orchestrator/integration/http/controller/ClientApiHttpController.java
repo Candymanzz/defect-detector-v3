@@ -58,6 +58,10 @@ public final class ClientApiHttpController implements HttpController {
             handleClearReference(ctx);
             return;
         }
+        if (path.equals("/api/client/inspection/stop-all")) {
+            handleInspectionStopAll(ctx);
+            return;
+        }
         if (path.equals("/api/client/inspection/stop")) {
             handleInspectionToggle(ctx, false);
             return;
@@ -501,6 +505,30 @@ public final class ClientApiHttpController implements HttpController {
         }
 
         sendInspectionState(ctx, requestedCameraIds, changed, cancelled, unknown);
+    }
+
+    /** Soft-stop всех камер без сброса эталона (как per-camera stop). */
+    private void handleInspectionStopAll(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (clientApi.inspectionGate() == null) {
+            HttpResponses.sendJsonError(ctx, 503, "inspection gate not configured");
+            return;
+        }
+
+        List<Integer> requestedCameraIds = new ArrayList<>(clientApi.inspectionGate().cameraIds());
+        requestedCameraIds.sort(Integer::compareTo);
+        Set<Integer> changed = new LinkedHashSet<>();
+        for (Integer cameraId : requestedCameraIds) {
+            if (clientApi.inspectionGate().isInspectionEnabled(cameraId)) {
+                changed.add(cameraId);
+            }
+        }
+        Set<Integer> cancelled = clientApi.inspectionGate().disableAllAndRequestCancel();
+        sendInspectionState(ctx, requestedCameraIds, changed, cancelled, Set.of());
     }
 
     private void sendInspectionState(
