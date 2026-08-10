@@ -176,7 +176,7 @@
     "max_joint_parallelism_deg_strict": 2.5,
     "joint_min_width_mm_strict": 0.4,
     "joint_max_width_mm_strict": 2.5,
-    "joint_seam_segmentation_enabled": false,
+    "joint_seam_segmentation_enabled": true,
     "max_wrinkles_score": 0.45
   },
   "python_detector": {

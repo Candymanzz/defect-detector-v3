@@ -61,13 +61,7 @@ public final class BinaryInspectHeaders {
                 "maxJointTaperMm",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_taper_mm"), 0.8)
         );
-        gHeader.put(
-                "jointSeamSegmentationEnabled",
-                YamlScalars.toBool(
-                        geometryCfg == null ? null : geometryCfg.get("joint_seam_segmentation_enabled"),
-                        false
-                )
-        );
+        gHeader.put("jointSeamSegmentationEnabled", true);
         gHeader.put(
                 "jointSeamSegmentationSensitivity",
                 Math.max(
