@@ -1,4 +1,20 @@
-"""FP-зоны (false positive): области известного шума на heatmap для fp-recheck."""
+"""FP-зоны (false positive): области известного шума на heatmap для fp-recheck.
+
+Кратко: как создать зону из прошлой инспекции
+---------------------------------------------
+1. Из ответа inspect возьмите `fp_zone_context` (product_type, heatmap_w, heatmap_h)
+   и сохраните вместе с heatmap/архивом кадра.
+2. В UI обведите ложняк на heatmap той инспекции → points в норм. 0..1.
+3. POST /fp-zones с телом:
+   {
+     "product_type": "...",
+     "heatmap_w": <из fp_zone_context>,
+     "heatmap_h": <из fp_zone_context>,
+     "points": [{"x": 0.1, "y": 0.2}, ...],
+     "source_frame_path": "<опционально: путь к кадру/heatmap>",
+     "note": "..."
+   }
+"""
 
 from fastapi import APIRouter, HTTPException
 
@@ -15,7 +31,7 @@ async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
     """POST /fp-zones — добавить зону ложного срабатывания.
 
     points — полигон на heatmap (норм. координаты); heatmap_w/h — размер heatmap при разметке.
-    При создании сохраняется baseline активности diff в зоне.
+    Для архивной инспекции передайте heatmap_* / source_frame_path той инспекции.
     """
     points = [(p.x, p.y) for p in payload.points]
     try:
@@ -25,6 +41,7 @@ async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
             heatmap_w=payload.heatmap_w,
             heatmap_h=payload.heatmap_h,
             note=payload.note,
+            source_frame_path=payload.source_frame_path or "",
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

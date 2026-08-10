@@ -26,6 +26,9 @@ class InspectionResult:
     rechecked_zone_ids: list[str] | None = None
     main_roi_score: float = 0.0
     sub_zone_scores: list[RoiSubZoneScore] = field(default_factory=list)
+    # Размер карты diff/heatmap — сохранить с инспекцией для позднего POST /fp-zones.
+    heatmap_w: int = 0
+    heatmap_h: int = 0
     aligned_image: Optional[np.ndarray] = None
     diff_map: Optional[np.ndarray] = None
     # BGR colormap for API/base64; UI SHM expects gray_u8 (see heatmap_u8).
@@ -61,3 +64,5 @@ class FPZone:
     baseline_active_ratio: float = 0.0
     baseline_score: float = 0.0
     note: str = ""
+    # Опциональный путь к кадру/heatmap, по которому рисовали зону.
+    source_frame_path: str = ""

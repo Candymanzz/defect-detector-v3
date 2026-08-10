@@ -96,3 +96,33 @@ def test_set_and_get_reference(inspection_service: InspectionService, gray_frame
     assert stored is not None
     assert stored.shape == gray_frame.shape
     assert np.array_equal(stored, gray_frame)
+
+
+def test_add_fp_zone_from_past_inspection_keeps_source_path(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("bench", gray_frame)
+    inspection_service.inspect_frame("bench", gray_frame.copy(), threshold=0.5)
+
+    zone = inspection_service.add_fp_zone(
+        product_type="bench",
+        points_norm_heatmap=[(0.1, 0.1), (0.4, 0.1), (0.4, 0.4), (0.1, 0.4)],
+        heatmap_w=gray_frame.shape[1],
+        heatmap_h=gray_frame.shape[0],
+        note="from archive",
+        source_frame_path="/api/frame-archive/0/frames/5/heatmap",
+    )
+
+    assert zone.source_frame_path == "/api/frame-archive/0/frames/5/heatmap"
+
+
+def test_inspect_exposes_fp_zone_context_size(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("bench", gray_frame)
+    result = inspection_service.inspect_frame("bench", gray_frame.copy(), threshold=0.5)
+
+    assert result.heatmap_w == gray_frame.shape[1]
+    assert result.heatmap_h == gray_frame.shape[0]

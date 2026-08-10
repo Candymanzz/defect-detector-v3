@@ -4,6 +4,7 @@ from app.api.schemas import (
     AnalysisSettingsValues,
     FPZonePoint,
     FPZoneResponse,
+    FpZoneCreateContext,
     InspectResponse,
     InspectWithVisualsResponse,
     ProSettingsKnobs,
@@ -92,6 +93,15 @@ def to_inspect_with_visuals_response(result) -> InspectWithVisualsResponse:
 
 
 def to_inspect_response(result) -> InspectResponse:
+    heatmap_w = int(getattr(result, "heatmap_w", 0) or 0)
+    heatmap_h = int(getattr(result, "heatmap_h", 0) or 0)
+    fp_zone_context = None
+    if heatmap_w > 0 and heatmap_h > 0:
+        fp_zone_context = FpZoneCreateContext(
+            product_type=result.product_type,
+            heatmap_w=heatmap_w,
+            heatmap_h=heatmap_h,
+        )
     return InspectResponse(
         product_type=result.product_type,
         status=result.status,
@@ -113,6 +123,7 @@ def to_inspect_response(result) -> InspectResponse:
             )
             for entry in (result.sub_zone_scores or [])
         ],
+        fp_zone_context=fp_zone_context,
     )
 
 
@@ -164,4 +175,5 @@ def to_fp_zone_response(zone) -> FPZoneResponse:
         heatmap_h=zone.heatmap_h,
         created_at=zone.created_at,
         note=zone.note,
+        source_frame_path=str(getattr(zone, "source_frame_path", "") or ""),
     )

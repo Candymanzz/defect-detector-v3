@@ -258,7 +258,14 @@ class InspectionService:
         heatmap_w: int,
         heatmap_h: int,
         note: str = "",
+        *,
+        source_frame_path: str = "",
     ) -> FPZone:
+        """Создать FP-зону.
+
+        Для зоны из прошлой инспекции передайте heatmap_w/h той инспекции и
+        опционально source_frame_path (путь к кадру/heatmap разметки).
+        """
         normalized = validate_polygon_points(points_norm_heatmap, "FP polygon")
         if polygon_area(normalized) < 0.0001:
             raise ValueError("FP polygon area is too small")
@@ -278,6 +285,7 @@ class InspectionService:
             baseline_active_ratio=baseline["active_ratio"],
             baseline_score=baseline["score"],
             note=note.strip(),
+            source_frame_path=source_frame_path.strip(),
         )
         self.fp_zones.setdefault(product_type, []).append(zone)
         self._save_fp_zones()
@@ -427,6 +435,8 @@ class InspectionService:
             rechecked_zone_ids=fp_recheck["rechecked_zone_ids"],
             main_roi_score=main_roi_score,
             sub_zone_scores=sub_zone_scores,
+            heatmap_w=int(w),
+            heatmap_h=int(h),
             aligned_image=aligned if include_visuals else None,
             diff_map=diff_map if include_visuals else None,
             heatmap=heatmap if include_visuals else None,
@@ -563,6 +573,7 @@ class InspectionService:
                     baseline_active_ratio=float(entry.get("baseline_active_ratio", 0.0)),
                     baseline_score=float(entry.get("baseline_score", 0.0)),
                     note=str(entry.get("note", "")),
+                    source_frame_path=str(entry.get("source_frame_path", "")),
                 )
                 if len(zone.points_norm_ref) >= 3:
                     self.fp_zones.setdefault(product_type, []).append(zone)
@@ -588,6 +599,7 @@ class InspectionService:
                         "baseline_active_ratio": zone.baseline_active_ratio,
                         "baseline_score": zone.baseline_score,
                         "note": zone.note,
+                        "source_frame_path": zone.source_frame_path,
                     }
                 )
         self._fp_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")

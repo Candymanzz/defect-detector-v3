@@ -29,6 +29,8 @@ def test_to_inspect_response_maps_sub_zone_scores() -> None:
         recheck_adjustment=0.02,
         rechecked_zone_ids=["z1"],
         main_roi_score=0.09,
+        heatmap_w=120,
+        heatmap_h=80,
         sub_zone_scores=[
             SimpleNamespace(
                 zone_id="z1",
@@ -45,6 +47,9 @@ def test_to_inspect_response_maps_sub_zone_scores() -> None:
     assert response.product_type == "bench"
     assert response.sub_zone_scores[0].zone_id == "z1"
     assert response.rechecked_zone_ids == ["z1"]
+    assert response.fp_zone_context is not None
+    assert response.fp_zone_context.heatmap_w == 120
+    assert response.fp_zone_context.heatmap_h == 80
 
 
 def test_to_roi_sub_zone_response_maps_points() -> None:
@@ -74,6 +79,7 @@ def test_to_fp_zone_response_maps_norm_points() -> None:
         heatmap_h=48,
         created_at="2026-01-01",
         note="test",
+        source_frame_path="/api/frame-archive/0/frames/9/heatmap",
     )
 
     response = to_fp_zone_response(zone)
@@ -81,3 +87,4 @@ def test_to_fp_zone_response_maps_norm_points() -> None:
     assert response.heatmap_w == 64
     assert response.points_norm_ref[0].x == 0.1
     assert response.note == "test"
+    assert response.source_frame_path == "/api/frame-archive/0/frames/9/heatmap"

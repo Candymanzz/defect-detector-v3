@@ -24,6 +24,14 @@ class RoiSubZoneScoreResponse(BaseModel):
     status: str
 
 
+class FpZoneCreateContext(BaseModel):
+    """Что сохранить с инспекцией, чтобы потом создать FP-зону по её heatmap."""
+
+    product_type: str
+    heatmap_w: int
+    heatmap_h: int
+
+
 class InspectResponse(BaseModel):
     """Результат инспекции без тяжёлых картинок (/inspect-shm, база для /inspect-shm-visuals)."""
 
@@ -38,6 +46,8 @@ class InspectResponse(BaseModel):
     rechecked_zone_ids: list[str] = Field(default_factory=list)
     main_roi_score: float = 0.0
     sub_zone_scores: list[RoiSubZoneScoreResponse] = Field(default_factory=list)
+    # Контекст для позднего создания FP-зоны по этой инспекции.
+    fp_zone_context: Optional[FpZoneCreateContext] = None
 
 
 class InspectWithVisualsResponse(InspectResponse):
@@ -201,11 +211,15 @@ class FPZonePoint(BaseModel):
 
 
 class FPZoneCreateRequest(BaseModel):
+    """Создание FP-зоны. Для архивной инспекции: heatmap_* той инспекции + points по её heatmap."""
+
     product_type: str
     points: list[FPZonePoint]
     heatmap_w: int
     heatmap_h: int
     note: str = ""
+    # Путь к кадру/heatmap архивной инспекции (http_path или archive path), по которому рисовали.
+    source_frame_path: Optional[str] = None
 
 
 class FPZoneResponse(BaseModel):
@@ -217,6 +231,7 @@ class FPZoneResponse(BaseModel):
     heatmap_h: int
     created_at: str
     note: str
+    source_frame_path: str = ""
 
 
 class FPZoneListResponse(BaseModel):
