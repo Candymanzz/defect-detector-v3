@@ -786,12 +786,13 @@ function applyCaptureOnlyInspectResult(
     [cameraId]: merged,
   }));
 
+  setPreviewFrameIdsByCameraId((previousFrameIds) => ({
+    ...previousFrameIds,
+    [cameraId]: merged.frame_id,
+  }));
+
   const imageUrl = createWsFrameImageUrl(merged);
   if (imageUrl) {
-    setPreviewFrameIdsByCameraId((previousFrameIds) => ({
-      ...previousFrameIds,
-      [cameraId]: merged.frame_id,
-    }));
     setPreviewImageUrlsByCameraId((previousImageUrls) => ({
       ...previousImageUrls,
       [cameraId]: imageUrl,
