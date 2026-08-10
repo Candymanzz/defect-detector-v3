@@ -7484,3 +7484,14 @@
 2026-08-06 15:34:42.317 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger skip DI3?: ??????????? ??? ?? ????????????? (??? DI2=1), source=di2
 2026-08-06 15:34:43.085 INFO  [WebSocketSelector-76] c.e.i.o.i.b.IntegrationBootstrap - client_ws closed code=1006 reason=Connection reset remote=false
 2026-08-06 15:34:43.090 INFO  [lights-shutdown] c.e.i.o.i.b.IntegrationBootstrap - lights shutdown (jvm-shutdown-hook)
+2026-08-10 12:39:30.715 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-10 12:39:30.730 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-10 12:39:30.732 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-10 12:39:30.734 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection sequence fanout seq=20 groups=[0, 1] passes=[false, true]
+2026-08-10 12:39:30.736 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-08-10 12:39:30.738 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-10 12:39:30.739 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-10 12:39:30.742 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=false sibling_vis=0.05 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-08-10 12:39:30.743 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-08-10 12:39:30.745 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=32 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 joint_pass=false par=2.0 width=0.3 strict_pass=false force_reject=true
+2026-08-10 12:39:30.745 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=32 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
