@@ -16,8 +16,9 @@ import java.util.regex.Pattern;
  * {@code /api/orchestrator/analysis-settings} -> proxy to FastAPI analisSurface
  * ({@code /analysis-settings}).
  * <p>
- * {@code /api/orchestrator/analysis-settings/camera/{cameraId}} resolves {@code cameraId}
- * to configured {@code analysis_profile} before proxying.
+ * {@code /api/orchestrator/analysis-settings/camera/{cameraId}[/simple|/pro]} resolves
+ * {@code cameraId} to configured {@code analysis_profile} before proxying, preserving
+ * optional mode suffix ({@code /simple}, {@code /pro}).
  */
 public final class OrchestratorAnalysisSettingsHttpController implements HttpController {
 
@@ -69,7 +70,11 @@ public final class OrchestratorAnalysisSettingsHttpController implements HttpCon
             HttpResponses.sendJsonError(ctx, 404, "camera " + cameraId + " is not configured");
             return null;
         }
-        return "/analysis-settings/" + encodePathSegment(analysisProfile);
+        String modeSuffix = matcher.group(2);
+        if (modeSuffix == null) {
+            modeSuffix = "";
+        }
+        return "/analysis-settings/" + encodePathSegment(analysisProfile) + modeSuffix;
     }
 
     private static String encodePathSegment(String value) {
