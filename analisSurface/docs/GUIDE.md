@@ -65,8 +65,9 @@ analisSurface/
 │   ├── models/                     # ML-модель PatchCore (OpenVINO), опционально
 │   └── requirements.txt
 └── docs/
-    ├── GUIDE.md                    # Этот файл
-    └── ANALYSIS_SETTINGS.md        # Подробно про каждый параметр алгоритма
+    ├── GUIDE.md                         # Этот файл
+    ├── ANALYSIS_SETTINGS.md             # Подробно про каждый параметр алгоритма
+    └── ANALYSIS_SETTINGS_SIMPLE_PRO.md  # Simple/Pro эндпоинты для инженеров
 ```
 
 **Важно:** эталоны (`references`) хранятся **в памяти процесса** и теряются при перезапуске. JSON в `data/` — на диске.
@@ -236,6 +237,8 @@ analisSurface/
 | `GET` | `/analysis-settings/{product_type}` | Эффективные + список overrides |
 | `PUT` | `/analysis-settings/{product_type}` | Частичное обновление |
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс к defaults |
+| `GET/PUT` | `/analysis-settings/{product_type}/simple` | 2 ручки: threshold + sensitivity |
+| `GET/PUT` | `/analysis-settings/{product_type}/pro` | 6 ручек: threshold + 5 групп |
 
 Ключевые параметры (кратко):
 
@@ -248,7 +251,8 @@ analisSurface/
 | `fp_recheck_enabled` | Включить перепроверку FP-зон |
 | `enable_clahe` | Выравнивание освещения перед diff |
 
-**Подробности по каждому полю:** [ANALYSIS_SETTINGS.md](./ANALYSIS_SETTINGS.md)
+**Подробности по каждому полю:** [ANALYSIS_SETTINGS.md](./ANALYSIS_SETTINGS.md)  
+**Simple / Pro для инженеров:** [ANALYSIS_SETTINGS_SIMPLE_PRO.md](./ANALYSIS_SETTINGS_SIMPLE_PRO.md)
 
 ---
 
@@ -325,4 +329,6 @@ POST /upload-ref  →  POST /inspect
 ## Связанные документы
 
 - [ANALYSIS_SETTINGS.md](./ANALYSIS_SETTINGS.md) — все параметры алгоритма
+- [ANALYSIS_SETTINGS_SIMPLE_PRO.md](./ANALYSIS_SETTINGS_SIMPLE_PRO.md) — упрощённые эндпоинты simple/pro
+- [ANALYSIS_SETTINGS_UI.md](./ANALYSIS_SETTINGS_UI.md) — названия и подсказки для фронта
 - [README.md](../README.md) — запуск, камера, оркестратор

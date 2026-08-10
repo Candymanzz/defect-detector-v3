@@ -109,6 +109,36 @@ class AnalysisSettingsResponse(BaseModel):
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
 
 
+class SimpleSettingsKnobs(BaseModel):
+    threshold: float = Field(..., gt=0.0, le=1.0)
+    sensitivity: float = Field(..., ge=0.0, le=1.0)
+
+
+class ProSettingsKnobs(BaseModel):
+    threshold: float = Field(..., gt=0.0, le=1.0)
+    noise_tolerance: float = Field(..., ge=0.0, le=1.0)
+    scratch_sensitivity: float = Field(..., ge=0.0, le=1.0)
+    edge_suppression: float = Field(..., ge=0.0, le=1.0)
+    text_handling: float = Field(..., ge=0.0, le=1.0)
+    preprocess_strength: float = Field(..., ge=0.0, le=1.0)
+
+
+class SimpleSettingsResponse(BaseModel):
+    analysis_profile: str
+    knobs: Optional[SimpleSettingsKnobs] = None
+    settings: AnalysisSettingsValues
+    defaults: AnalysisSettingsValues
+    overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
+class ProSettingsResponse(BaseModel):
+    analysis_profile: str
+    knobs: Optional[ProSettingsKnobs] = None
+    settings: AnalysisSettingsValues
+    defaults: AnalysisSettingsValues
+    overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
 class DetectorHealthResponse(BaseModel):
     status: str
     service: str
