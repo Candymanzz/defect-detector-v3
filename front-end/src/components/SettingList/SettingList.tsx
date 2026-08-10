@@ -651,33 +651,15 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
                   onChange={handleFieldChange("maxShiftMm")}
                 />
               </label>
-              <label className="setting-list__field setting-list__field--checkbox">
-                <span>Сегментация стыка (параллельность по полосе)</span>
-                <input
-                  type="checkbox"
-                  checked={settingData.form.jointSeamSegmentationEnabled}
-                  disabled={!canEditSettings}
-                  onChange={(event) => {
-                    setSaveFeedback(null);
-                    setSettingData((current) => ({
-                      ...current,
-                      form: {
-                        ...current.form,
-                        jointSeamSegmentationEnabled: event.target.checked,
-                      },
-                    }));
-                  }}
-                />
-              </label>
               <label>
-                <span>Чувствительность сегментации</span>
+                <span>Чувствительность сегментации стыка</span>
                 <input
                   type="number"
                   min="0"
                   max="1"
                   step="0.05"
                   value={settingData.form.jointSeamSegmentationSensitivity}
-                  disabled={!canEditSettings || !settingData.form.jointSeamSegmentationEnabled}
+                  disabled={!canEditSettings}
                   onChange={handleFieldChange("jointSeamSegmentationSensitivity")}
                 />
               </label>

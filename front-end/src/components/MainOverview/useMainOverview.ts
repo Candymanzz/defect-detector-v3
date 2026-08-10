@@ -137,6 +137,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           setInspectionStoppedAtMs(changedAtMs);
           inspectionEnabledByCameraIdRef.current[cameraId] = false;
         }
+        setPreviewImagesEnabled(Object.values(inspectionEnabledByCameraIdRef.current).some((enabled) => !enabled));
         setInspectionControlByCameraId((currentStates) => ({
           ...currentStates,
           [cameraId]: {
@@ -251,6 +252,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
         inspectionEnabledByCameraIdRef.current[cameraId] = false;
       }
       setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
+      setPreviewImagesEnabled(inspectionStatus.disabledCameraIds.length > 0);
       if (inspectionStatus.enabledCameraIds.length > 0) {
         setInspectionStartedAtMs(changedAtMs);
         setInspectionStoppedAtMs(undefined);
@@ -311,6 +313,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           ...inspectionStatus.disabledCameraIds.map((cameraId) => [cameraId, false] as const),
         ]);
         setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
+        setPreviewImagesEnabled(inspectionStatus.disabledCameraIds.length > 0);
       }
     });
 
@@ -337,6 +340,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
         }
       }
       setInspectionControlByCameraId(createInspectionControlStates(response));
+      setPreviewImagesEnabled(response.disabledCameraIds.length > 0);
       if (response.enabledCameraIds.length > 0) {
         setInspectionStartedAtMs(changedAtMs);
       } else {
@@ -352,13 +356,16 @@ export function useMainOverview(inspectionResetVersion = 0) {
       if (message.type === "server.hello" || message.type === "server.state") {
         const nextHasReference = message.payload.session_state !== "NO_REFERENCE";
         setHasReference(nextHasReference);
-        setPreviewImagesEnabled(!nextHasReference);
+        const hasDisabledInspection = Object.values(inspectionEnabledByCameraIdRef.current).some(
+          (enabled) => !enabled,
+        );
+        setPreviewImagesEnabled(!nextHasReference || hasDisabledInspection);
         return;
       }
 
       if (message.type === "server.reference_bundle_ack" && message.payload.ok) {
         setHasReference(true);
-        setPreviewImagesEnabled(false);
+        setPreviewImagesEnabled(Object.values(inspectionEnabledByCameraIdRef.current).some((enabled) => !enabled));
         return;
       }
 

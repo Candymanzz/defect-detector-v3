@@ -123,7 +123,7 @@ public final class AsyncInspectionCycleRunner {
             InspectionDecision decision = svc.decisionPolicy().decide(
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
-            boolean resultPublished = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
+            boolean resultPublished = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
                 if (in.bucketAggregator() != null) {
                     in.bucketAggregator().recordFrameResult(
                             in.triggerSequence(),
@@ -333,7 +333,8 @@ public final class AsyncInspectionCycleRunner {
         }
         long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
         InspectionDecision decision = InspectionDecision.captureOnly(in.cameraId(), frameId);
-        boolean published = inspectionGate == null || inspectionGate.runIfInspectionActive(in.cameraId(), () -> {
+        // Soft-stop passes a null gate: must still publish (do not short-circuit the publish runnable).
+        boolean published = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
             if (inspectionGate != null && in.bucketAggregator() != null) {
                 in.bucketAggregator().recordFrameResult(
                         in.triggerSequence(),
@@ -394,6 +395,23 @@ public final class AsyncInspectionCycleRunner {
                 in.cameraId(),
                 frameId
         );
+    }
+
+    /**
+     * Publishes UI/bucket results when allowed.
+     * {@code inspectionGate == null} means soft-stop preview-only: always publish.
+     * Do not write {@code gate == null || gate.runIf...} — Java short-circuits and skips the runnable.
+     */
+    private static boolean publishIfAllowed(
+            PerCameraInspectionGate inspectionGate,
+            int cameraId,
+            Runnable publishAction
+    ) {
+        if (inspectionGate == null) {
+            publishAction.run();
+            return true;
+        }
+        return inspectionGate.runIfInspectionActive(cameraId, publishAction);
     }
 
     private static void releaseCycleShm(BinaryProtocol.Message capture) {

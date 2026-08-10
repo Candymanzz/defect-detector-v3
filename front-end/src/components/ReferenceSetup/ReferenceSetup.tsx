@@ -30,9 +30,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     jointCameraId,
     hasJointRoi,
     canSendAllReferences,
-    hasStoredReferenceForActiveGroup,
+    hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
-    replacementCameraIds,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
@@ -77,13 +76,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
-  const shouldStartNewReference = hasStoredReferenceForActiveGroup && !isNewReferenceMode;
+  const shouldStartNewReference = hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode;
   const primaryReferenceLabel = shouldStartNewReference
-    ? `Обновить эталон камеры ${selectedCameraId}`
+    ? "Задать новый эталон"
     : isNewReferenceMode
-      ? replacementCameraIds.length === 1
-        ? `Подтвердить эталон камеры ${replacementCameraIds[0]} →`
-        : "Подтвердить и использовать новый эталон →"
+      ? "Подтвердить новые эталоны →"
       : "Задать и использовать эталон →";
 
   useEffect(() => {
@@ -223,9 +220,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 className="reference-setup__button reference-setup__refresh"
                 onClick={handleCaptureNewReferenceFrames}
               >
-                {hasStoredReferenceForActiveGroup
-                  ? `↻ Обновить кадр камеры ${selectedCameraId}`
-                  : "↻ Обновить кадры"}
+                {hasAnyStoredReferenceForActiveGroup ? "＋ Добавить новый кадр" : "↻ Обновить кадры"}
               </Button>
               <div className="reference-setup__legend">
                 <span>
@@ -419,7 +414,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   role={hasSetupError ? "alert" : undefined}
                 >
                   {shouldStartNewReference
-                    ? `Будет обновлён только эталон камеры ${selectedCameraId}; остальные камеры останутся без изменений.`
+                    ? "Можно задать новые эталоны для любого количества камер. Остальные камеры сохранят старые эталоны."
                     : message}
                 </p>
                 <div className="reference-setup__footer-actions">
