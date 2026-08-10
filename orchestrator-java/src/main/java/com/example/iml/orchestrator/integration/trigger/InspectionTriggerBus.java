@@ -129,6 +129,11 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return lastDispatchedSequence.get();
     }
 
+    /** Последовательность включает уже зарезервированный prefire, даже если dispatch ещё не завершён. */
+    public long currentSequence() {
+        return sequence.get();
+    }
+
     /**
      * Вклинить камеру в уже идущий цикл (Stop→Start): очищает очередь и кладёт событие с нужным seq.
      */

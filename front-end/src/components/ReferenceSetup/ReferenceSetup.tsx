@@ -32,6 +32,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     canSendAllReferences,
     hasStoredReferenceForActiveGroup,
     isNewReferenceMode,
+    replacementCameraIds,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
@@ -78,9 +79,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
   const shouldStartNewReference = hasStoredReferenceForActiveGroup && !isNewReferenceMode;
   const primaryReferenceLabel = shouldStartNewReference
-    ? "Задать новый эталон"
+    ? `Обновить эталон камеры ${selectedCameraId}`
     : isNewReferenceMode
-      ? "Подтвердить и использовать новый эталон →"
+      ? replacementCameraIds.length === 1
+        ? `Подтвердить эталон камеры ${replacementCameraIds[0]} →`
+        : "Подтвердить и использовать новый эталон →"
       : "Задать и использовать эталон →";
 
   useEffect(() => {
@@ -220,7 +223,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 className="reference-setup__button reference-setup__refresh"
                 onClick={handleCaptureNewReferenceFrames}
               >
-                ↻ Обновить кадры
+                {hasStoredReferenceForActiveGroup
+                  ? `↻ Обновить кадр камеры ${selectedCameraId}`
+                  : "↻ Обновить кадры"}
               </Button>
               <div className="reference-setup__legend">
                 <span>
@@ -414,7 +419,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   role={hasSetupError ? "alert" : undefined}
                 >
                   {shouldStartNewReference
-                    ? "После подтверждения нового эталона текущий будет автоматически сохранён в архиве ниже."
+                    ? `Будет обновлён только эталон камеры ${selectedCameraId}; остальные камеры останутся без изменений.`
                     : message}
                 </p>
                 <div className="reference-setup__footer-actions">

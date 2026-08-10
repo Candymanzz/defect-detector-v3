@@ -135,11 +135,24 @@ public final class ProductionInspectionOrchestrator {
     ) {
         PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId(), event.sequence());
         if (begin == PerCameraInspectionGate.BeginResult.DISABLED) {
-            svc.log().debug(
-                    "integration cam={}: trigger skipped — inspection disabled (source={})",
+            if (!inspectionGate.tryBeginPreviewCapture(in.cameraId())) {
+                svc.log().debug(
+                        "integration cam={}: stopped preview skipped — capture already in flight or inspection re-enabled",
+                        in.cameraId()
+                );
+                return;
+            }
+            svc.log().info(
+                    "integration cam={}: preview-only capture while inspection disabled seq={} source={}",
                     in.cameraId(),
+                    event.sequence(),
                     event.source()
             );
+            try {
+                runDisabledPreviewCapture(svc, in, inspectionCycleTimeoutMs, event);
+            } finally {
+                inspectionGate.endPreviewCapture(in.cameraId());
+            }
             return;
         }
         if (begin == PerCameraInspectionGate.BeginResult.IN_FLIGHT) {
@@ -208,6 +221,30 @@ public final class ProductionInspectionOrchestrator {
             svc.log().debug("inspection cycle error", e);
         } finally {
             inspectionGate.endInspection(in.cameraId());
+        }
+    }
+
+    private static void runDisabledPreviewCapture(
+            InspectionPipelineServices svc,
+            AsyncInspectionCycleInput in,
+            long inspectionCycleTimeoutMs,
+            InspectionTriggerEvent event
+    ) {
+        long frameSequence = Math.max(0L, event.sequence());
+        AsyncInspectionCycleInput previewIn = in
+                .withPerCycleIdentity(in.productType(), null, 0L)
+                .withTriggerSequence(frameSequence)
+                .withInspectionId(frameSequence);
+        try {
+            // null gate marks this as preview-only: publish the frame, but do not add a bucket result.
+            AsyncInspectionCycleRunner.run(svc, previewIn, null, inspectionCycleTimeoutMs, null);
+        } catch (TimeoutException e) {
+            svc.log().warn(
+                    "integration cam={}: stopped preview capture timeout seq={} after {} ms",
+                    in.cameraId(),
+                    frameSequence,
+                    inspectionCycleTimeoutMs
+            );
         }
     }
 

@@ -546,6 +546,27 @@
   color: #fca5a5;
 }
 
+.setting-list__inspection-reset-block {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.setting-list .button.setting-list__inspection-reset {
+  width: 100%;
+  min-height: 32px;
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+}
+
+.setting-list .button.setting-list__inspection-reset:not(:disabled):hover,
+.setting-list .button.setting-list__inspection-reset:not(:disabled):focus-visible {
+  border-color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fecaca !important;
+}
+
 .setting-list__direction-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -669,10 +690,10 @@
 .setting-list__quick-action {
   display: grid !important;
   place-items: center;
-  gap: 6px;
+  gap: 4px;
   height: auto;
-  min-height: 56px;
-  padding: 7px 4px !important;
+  min-height: 48px;
+  padding: 5px 4px !important;
   border-radius: 9px !important;
   font-size: 11px;
   font-weight: 800 !important;
@@ -1351,6 +1372,19 @@
   border-color: #fca5a5 !important;
   background: rgba(239, 68, 68, 0.2) !important;
   color: #fecaca !important;
+}
+
+.setting-list .button.setting-list__quick-action--start {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.14) !important;
+  color: #86efac !important;
+}
+
+.setting-list .button.setting-list__quick-action--start:not(:disabled):hover,
+.setting-list .button.setting-list__quick-action--start:not(:disabled):focus-visible {
+  border-color: #86efac !important;
+  background: rgba(34, 197, 94, 0.24) !important;
+  color: #dcfce7 !important;
 }
 
 .setting-list {

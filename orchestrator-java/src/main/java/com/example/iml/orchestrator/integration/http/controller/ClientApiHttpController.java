@@ -62,6 +62,10 @@ public final class ClientApiHttpController implements HttpController {
             handleInspectionStopAll(ctx);
             return;
         }
+        if (path.equals("/api/client/inspection/start-all")) {
+            handleInspectionStartAll(ctx);
+            return;
+        }
         if (path.equals("/api/client/inspection/stop")) {
             handleInspectionToggle(ctx, false);
             return;
@@ -529,6 +533,48 @@ public final class ClientApiHttpController implements HttpController {
         }
         Set<Integer> cancelled = clientApi.inspectionGate().disableAllAndRequestCancel();
         sendInspectionState(ctx, requestedCameraIds, changed, cancelled, Set.of());
+    }
+
+    /** Включает все камеры со следующего нового триггера, без rejoin в уже открытую группу. */
+    private void handleInspectionStartAll(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (clientApi.inspectionGate() == null) {
+            HttpResponses.sendJsonError(ctx, 503, "inspection gate not configured");
+            return;
+        }
+        var ws = clientApi.clientWsHolder() == null ? null : clientApi.clientWsHolder().get();
+        if (ws == null || ws.sessionState() == ClientWsSessionState.NO_REFERENCE) {
+            HttpResponses.sendJsonError(ctx, 409, "reference is not set");
+            return;
+        }
+
+        // Не включаем gate, пока остановочный preview/отменяемый цикл ещё держит камеру.
+        // Иначе первая новая группа могла бы быть пропущена как IN_FLIGHT.
+        if (!clientApi.inspectionGate().awaitAllIdle(5_000L)) {
+            HttpResponses.sendJsonError(ctx, 409, "camera capture is still stopping; retry start");
+            return;
+        }
+
+        List<Integer> requestedCameraIds = new ArrayList<>(clientApi.inspectionGate().cameraIds());
+        requestedCameraIds.sort(Integer::compareTo);
+        long resumeAfterSequence = clientApi.inspectionResumeHolder() == null
+                ? 0L
+                : clientApi.inspectionResumeHolder().currentTriggerSequence();
+        Set<Integer> changed = new LinkedHashSet<>();
+        for (Integer cameraId : requestedCameraIds) {
+            if (!clientApi.inspectionGate().isInspectionEnabled(cameraId)) {
+                changed.add(cameraId);
+            }
+        }
+        if (!clientApi.inspectionGate().armAllInspectionAfter(resumeAfterSequence)) {
+            HttpResponses.sendJsonError(ctx, 409, "camera capture restarted while starting inspection; retry start");
+            return;
+        }
+        sendInspectionState(ctx, requestedCameraIds, changed, Set.of(), Set.of());
     }
 
     private void sendInspectionState(

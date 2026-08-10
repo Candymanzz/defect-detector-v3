@@ -209,6 +209,8 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [resetFeedback, setResetFeedback] = useState<ResetFeedback | null>(null);
+  const [stopFeedback, setStopFeedback] = useState<ResetFeedback | null>(null);
+  const [inspectionRunning, setInspectionRunning] = useState<boolean | null>(null);
   const [analysisTooltip, setAnalysisTooltip] = useState<AnalysisTooltip | null>(null);
   const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
@@ -220,6 +222,24 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все изделия камер" : `Изделие камеры ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
+
+  useEffect(() => {
+    let active = true;
+    const refreshInspectionState = () => {
+      void orchestratorApi
+        .getInspectionStatus()
+        .then((response) => {
+          if (active) setInspectionRunning(response.enabledCameraIds.length > 0);
+        })
+        .catch(() => undefined);
+    };
+    refreshInspectionState();
+    const timer = window.setInterval(refreshInspectionState, 1500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const showAnalysisTooltip = (event: MouseEvent<HTMLSpanElement> | FocusEvent<HTMLSpanElement>, text: string) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -440,6 +460,34 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       });
   };
 
+  const handleInspectionStop = () => {
+    if (stopFeedback?.state === "resetting") {
+      return;
+    }
+
+    const shouldStart = inspectionRunning === false;
+    setStopFeedback({
+      state: "resetting",
+      text: shouldStart ? "Запуск инспекции со следующей группы..." : "Остановка инспекции...",
+    });
+    const request = shouldStart ? orchestratorApi.startAllInspections() : orchestratorApi.stopAllInspections();
+    request
+      .then((response) => {
+        const isRunning = response.enabledCameraIds.length > 0;
+        setInspectionRunning(isRunning);
+        window.dispatchEvent(new CustomEvent("inspection-control-changed", { detail: response }));
+        setStopFeedback({
+          state: "success",
+          text: isRunning
+            ? "Инспекция запущена — ожидание следующей группы кадров"
+            : "Инспекция остановлена; отображается только поток кадров",
+        });
+      })
+      .catch((error: unknown) => {
+        setStopFeedback({ state: "error", text: errorMessage(error) });
+      });
+  };
+
   return (
     <aside
       className="setting-list"
@@ -482,21 +530,27 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               Камеры
             </Button>
             <Button
-              className="setting-list__quick-action setting-list__quick-action--reset"
-              disabled={resetFeedback?.state === "resetting"}
-              onClick={handleInspectionReset}
+              className={`setting-list__quick-action ${inspectionRunning === false ? "setting-list__quick-action--start" : "setting-list__quick-action--reset"}`}
+              disabled={inspectionRunning === null || stopFeedback?.state === "resetting"}
+              onClick={handleInspectionStop}
             >
-              <SettingActionIcon name="reset" />
-              {resetFeedback?.state === "resetting" ? "Сброс..." : "Сброс"}
+              <SettingActionIcon name={inspectionRunning === false ? "start" : "stop"} />
+              {stopFeedback?.state === "resetting"
+                ? inspectionRunning === false
+                  ? "Пуск..."
+                  : "Стоп..."
+                : inspectionRunning === false
+                  ? "Пуск инспекции"
+                  : "Стоп инспекции"}
             </Button>
           </div>
-          {resetFeedback && (
+          {stopFeedback && (
             <span
               className="setting-list__inspection-reset-status"
-              data-status={resetFeedback.state}
+              data-status={stopFeedback.state}
               aria-live="polite"
             >
-              {resetFeedback.text}
+              {stopFeedback.text}
             </span>
           )}
         </section>
@@ -719,6 +773,25 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
             </Button>
           </details>
         </section>
+
+        <div className="setting-list__inspection-reset-block">
+          <Button
+            className="setting-list__inspection-reset"
+            disabled={resetFeedback?.state === "resetting"}
+            onClick={handleInspectionReset}
+          >
+            {resetFeedback?.state === "resetting" ? "Сброс инспекции..." : "Сброс инспекции"}
+          </Button>
+          {resetFeedback && (
+            <span
+              className="setting-list__inspection-reset-status"
+              data-status={resetFeedback.state}
+              aria-live="polite"
+            >
+              {resetFeedback.text}
+            </span>
+          )}
+        </div>
       </form>
 
       {isCameraSettingsOpen && (
@@ -780,7 +853,7 @@ function SettingActionIcon({
   name,
   className,
 }: {
-  name: "stream" | "reference" | "camera" | "reset" | "light";
+  name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light";
   className?: string;
 }) {
   const iconClassName = ["setting-list__action-icon", className].filter(Boolean).join(" ");
@@ -857,6 +930,8 @@ function SettingActionIcon({
             <path d="M6 7l1 13h10l1-13" />
           </>
         )}
+        {name === "stop" && <rect x="6" y="6" width="12" height="12" rx="2" />}
+        {name === "start" && <path d="M8 5.5v13l10-6.5L8 5.5Z" />}
         {name === "light" && (
           <>
             <circle
@@ -872,7 +947,7 @@ function SettingActionIcon({
   );
 }
 
-function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "reset" | "light") {
+function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light") {
   if (name === "stream") {
     return streamIconUrl;
   }
@@ -933,14 +1008,6 @@ function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
         <div>
           <span>Старт</span>
           <strong>{formatStatsTime(stats.inspectionStartedAtMs)}</strong>
-        </div>
-        <div>
-          <span>Эталон</span>
-          <strong>
-            {stats.referenceFrameId
-              ? `кадр ${stats.referenceFrameId}, ${formatStatsTime(stats.referenceSetAtMs)}`
-              : "не задан"}
-          </strong>
         </div>
         <div>
           <span>Стоп</span>

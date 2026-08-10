@@ -27,6 +27,7 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicBoolean> cancelRequested = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> activeTriggerSequence = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, AtomicLong> resumeAfterTriggerSequence = new ConcurrentHashMap<>();
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
@@ -40,6 +41,8 @@ public final class PerCameraInspectionGate {
         this.cancelRequested.putAll(cancelRequested);
         this.inspectionSequence.putAll(inspectionSequence);
         this.activeTriggerSequence.putAll(activeTriggerSequence);
+        activeTriggerSequence.forEach((cameraId, ignored) ->
+                this.resumeAfterTriggerSequence.put(cameraId, new AtomicLong(0L)));
     }
 
     @SuppressWarnings("unchecked")
@@ -110,9 +113,27 @@ public final class PerCameraInspectionGate {
         if (flag != null && flight != null) {
             synchronized (flight) {
                 flag.set(enabled);
+                AtomicLong boundary = resumeAfterTriggerSequence.get(cameraId);
+                if (boundary != null) {
+                    boundary.set(0L);
+                }
             }
         } else if (flag != null) {
             flag.set(enabled);
+        }
+    }
+
+    /** Включает инспекцию только для событий, которые новее уже принятого на момент пуска триггера. */
+    public void armInspectionAfter(int cameraId, long triggerSequence) {
+        AtomicBoolean flag = inspectionEnabled.get(cameraId);
+        AtomicBoolean flight = inFlight.get(cameraId);
+        AtomicLong boundary = resumeAfterTriggerSequence.get(cameraId);
+        if (flag == null || flight == null || boundary == null) {
+            return;
+        }
+        synchronized (flight) {
+            boundary.set(Math.max(0L, triggerSequence));
+            flag.set(true);
         }
     }
 
@@ -168,8 +189,15 @@ public final class PerCameraInspectionGate {
             if (!isInspectionEnabled(cameraId)) {
                 return BeginResult.DISABLED;
             }
+            AtomicLong boundary = resumeAfterTriggerSequence.get(cameraId);
+            if (boundary != null && triggerSequence > 0L && triggerSequence <= boundary.get()) {
+                return BeginResult.DISABLED;
+            }
             if (!flight.compareAndSet(false, true)) {
                 return BeginResult.IN_FLIGHT;
+            }
+            if (boundary != null) {
+                boundary.set(0L);
             }
             AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
             if (cancelFlag != null) {
@@ -180,6 +208,77 @@ public final class PerCameraInspectionGate {
                 activeSeq.set(Math.max(0L, triggerSequence));
             }
             return BeginResult.STARTED;
+        }
+    }
+
+    /** Сериализует preview-only capture с обычной инспекцией той же камеры. */
+    public boolean tryBeginPreviewCapture(int cameraId) {
+        AtomicBoolean flag = inspectionEnabled.get(cameraId);
+        AtomicBoolean flight = inFlight.get(cameraId);
+        if (flag == null || flight == null) {
+            return false;
+        }
+        synchronized (flight) {
+            if (flag.get()) {
+                return false;
+            }
+            return flight.compareAndSet(false, true);
+        }
+    }
+
+    public void endPreviewCapture(int cameraId) {
+        endInspection(cameraId);
+    }
+
+    public boolean awaitAllIdle(long timeoutMs) {
+        long deadline = System.nanoTime() + Math.max(0L, timeoutMs) * 1_000_000L;
+        for (Integer cameraId : cameraIds()) {
+            AtomicBoolean flight = inFlight.get(cameraId);
+            if (flight == null) {
+                continue;
+            }
+            synchronized (flight) {
+                while (flight.get()) {
+                    long remainingNanos = deadline - System.nanoTime();
+                    if (remainingNanos <= 0L) {
+                        return false;
+                    }
+                    try {
+                        long waitMs = Math.max(1L, remainingNanos / 1_000_000L);
+                        flight.wait(waitMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Атомарно относительно preview-start включает все камеры на границе новой группы. */
+    public boolean armAllInspectionAfter(long triggerSequence) {
+        List<Integer> ids = cameraIds().stream().sorted().toList();
+        return armAllInspectionAfter(ids, 0, Math.max(0L, triggerSequence));
+    }
+
+    private boolean armAllInspectionAfter(List<Integer> ids, int index, long triggerSequence) {
+        if (index >= ids.size()) {
+            for (Integer cameraId : ids) {
+                resumeAfterTriggerSequence.get(cameraId).set(triggerSequence);
+                inspectionEnabled.get(cameraId).set(true);
+            }
+            return true;
+        }
+        AtomicBoolean flight = inFlight.get(ids.get(index));
+        if (flight == null) {
+            return false;
+        }
+        synchronized (flight) {
+            if (flight.get()) {
+                return false;
+            }
+            return armAllInspectionAfter(ids, index + 1, triggerSequence);
         }
     }
 
@@ -228,6 +327,7 @@ public final class PerCameraInspectionGate {
             if (activeSeq != null) {
                 activeSeq.set(0L);
             }
+            flight.notifyAll();
         }
     }
 

@@ -157,7 +157,7 @@
 }
 
 .roi-editor__canvas--radius {
-  cursor: none;
+  cursor: crosshair;
 }
 
 .roi-editor__canvas--disabled {

@@ -151,6 +151,20 @@ export const orchestratorApi = {
     });
   },
 
+  async stopAllInspections() {
+    return http.json<InspectionStateResponse>("/api/client/inspection/stop-all", {
+      method: "POST",
+      body: {},
+    });
+  },
+
+  async startAllInspections() {
+    return http.json<InspectionStateResponse>("/api/client/inspection/start-all", {
+      method: "POST",
+      body: {},
+    });
+  },
+
   async getLightBrightness() {
     return http.json<LightBrightnessSettings>(LIGHT_BRIGHTNESS_PATH);
   },

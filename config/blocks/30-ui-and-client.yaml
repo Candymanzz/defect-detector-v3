@@ -4,7 +4,7 @@ ui_http:
   port: 8099
   visuals_async_enabled: true
   # Parallel UI artifact preparation across cameras. Keep this below the detector worker capacity.
-  visuals_parallelism: 2
+  visuals_parallelism: 4
   visuals_queue_size: 8
   store_current_jpeg: true
   store_heatmap_u8: true

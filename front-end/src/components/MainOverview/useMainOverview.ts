@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api";
+import type { InspectionStateResponse } from "../../shared/api/types";
 import { isCaptureOnlyInspectResult, resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
 import { compareFrameIds } from "../../shared/lib/frameIds";
@@ -319,6 +320,34 @@ export function useMainOverview(inspectionResetVersion = 0) {
   }, []);
 
   useEffect(() => {
+    const handleGlobalInspectionControl = (event: Event) => {
+      const response = (event as CustomEvent<InspectionStateResponse>).detail;
+      if (!response) return;
+      const changedAtMs = Date.now();
+      const enabled = new Set(response.enabledCameraIds);
+      for (const cameraId of response.requestedCameraIds) {
+        const isEnabled = enabled.has(cameraId);
+        inspectionEnabledByCameraIdRef.current[cameraId] = isEnabled;
+        if (isEnabled) {
+          inspectionAcceptedAfterMsByCameraIdRef.current[cameraId] = changedAtMs;
+          const latestPreviewFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
+          if (latestPreviewFrameId !== undefined) {
+            inspectionAcceptedFromFrameIdByCameraIdRef.current[cameraId] = latestPreviewFrameId;
+          }
+        }
+      }
+      setInspectionControlByCameraId(createInspectionControlStates(response));
+      if (response.enabledCameraIds.length > 0) {
+        setInspectionStartedAtMs(changedAtMs);
+      } else {
+        setInspectionStoppedAtMs(changedAtMs);
+      }
+    };
+    window.addEventListener("inspection-control-changed", handleGlobalInspectionControl);
+    return () => window.removeEventListener("inspection-control-changed", handleGlobalInspectionControl);
+  }, []);
+
+  useEffect(() => {
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
       if (message.type === "server.hello" || message.type === "server.state") {
         const nextHasReference = message.payload.session_state !== "NO_REFERENCE";
@@ -386,6 +415,36 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+
+      // Preview-only captures remain visible while inspection is globally stopped.
+      if (isCaptureOnlyInspectResult(inspectResult)) {
+        // После повторного пуска не даём запоздавшему preview-only результату
+        // из остановленного интервала перезаписать первый новый результат инспекции.
+        if (
+          inspectionEnabledByCameraIdRef.current[cameraId] === true &&
+          !shouldAcceptInspectionResult(
+            cameraId,
+            inspectResult.server_ts_ms,
+            inspectResult.frame_id,
+            inspectionEnabledByCameraIdRef,
+            inspectionAcceptedAfterMsByCameraIdRef,
+            inspectionAcceptedFromFrameIdByCameraIdRef,
+          )
+        ) {
+          return;
+        }
+        applyCaptureOnlyInspectResult(
+          inspectResult,
+          latestInspectResultByCameraIdRef,
+          setInspectResultsByCameraId,
+          setPreviewFrameIdsByCameraId,
+          setPreviewImageUrlsByCameraId,
+          setInspectionHistoryByCameraId,
+          setInspectionStatsByCameraId,
+        );
+        return;
+      }
+
       if (
         !shouldAcceptInspectionResult(
           cameraId,
@@ -396,19 +455,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
           inspectionAcceptedFromFrameIdByCameraIdRef,
         )
       ) {
-        return;
-      }
-
-      if (isCaptureOnlyInspectResult(inspectResult)) {
-        applyCaptureOnlyInspectResult(
-          inspectResult,
-          latestInspectResultByCameraIdRef,
-          setInspectResultsByCameraId,
-          setPreviewFrameIdsByCameraId,
-          setPreviewImageUrlsByCameraId,
-          setInspectionHistoryByCameraId,
-          setInspectionStatsByCameraId,
-        );
         return;
       }
 

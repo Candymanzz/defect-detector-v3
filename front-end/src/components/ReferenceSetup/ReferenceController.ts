@@ -33,6 +33,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [cameraIds, setCameraIds] = useState<number[]>([]);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [isNewReferenceMode, setIsNewReferenceMode] = useState(false);
+  const [replacementCameraIds, setReplacementCameraIds] = useState<number[]>([]);
   const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
@@ -59,7 +60,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     refreshLatestImages,
   } = referenceFrames;
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
-  const hasStoredReferenceForActiveGroup = activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
+  const hasStoredReferenceForActiveGroup =
+    activeCameraIds.length > 0 && activeCameraIds.every((cameraId) => Boolean(getReferenceImage(cameraId)));
   const canSendAllReferences = Boolean(
     activeCameraIds.length > 0 &&
     activeCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
@@ -150,6 +152,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
             );
             hasReferenceRef.current = true;
             setIsNewReferenceMode(false);
+            setReplacementCameraIds([]);
             const referenceCommitSync = referenceCommitSyncRef.current;
             if (referenceCommitSync) {
               const targetCameraIds = committedCameraIds ?? referenceCommitSync.cameraIds;
@@ -274,16 +277,22 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       return;
     }
 
+    const targetCameraIds = hasStoredReferenceForActiveGroup
+      ? [referenceRoi.selectedCameraId]
+      : activeCameraIds;
     setIsNewReferenceMode(true);
-    referenceRoi.resetEditedRoisForCameraIds(activeCameraIds);
-    referenceFpZones.resetEditedFpZonesForCameraIds(activeCameraIds);
-    setMessage(`Capturing latest frames for cameras: ${activeCameraIds.join(", ")}`);
-    const { loadedCameraIds, snapshotCameraIds, missingCameraIds } = await captureLatestImages(activeCameraIds);
+    setReplacementCameraIds(targetCameraIds);
+    referenceRoi.resetEditedRoisForCameraIds(targetCameraIds);
+    referenceFpZones.resetEditedFpZonesForCameraIds(targetCameraIds);
+    setMessage(`Capturing latest frames for cameras: ${targetCameraIds.join(", ")}`);
+    const { loadedCameraIds, snapshotCameraIds, missingCameraIds } = await captureLatestImages(targetCameraIds);
     const capturedCameraIds = [...loadedCameraIds, ...snapshotCameraIds].sort((left, right) => left - right);
 
-    if (capturedCameraIds.length === activeCameraIds.length) {
+    if (capturedCameraIds.length === targetCameraIds.length) {
       setMessage(
-        `New reference mode: fresh frames captured for cameras ${capturedCameraIds.join(", ")}. Draw ROI contours.`,
+        targetCameraIds.length === 1
+          ? `New reference frame captured for camera ${targetCameraIds[0]}. Other cameras will keep their current references.`
+          : `New reference mode: fresh frames captured for cameras ${capturedCameraIds.join(", ")}. Draw ROI contours.`,
       );
       return;
     }
@@ -296,6 +305,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     }
 
     setIsNewReferenceMode(false);
+    setReplacementCameraIds([]);
     setMessage(`Could not capture latest frames for cameras: ${missingCameraIds.join(", ")}`);
   };
 
@@ -447,6 +457,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     canSendAllReferences,
     hasStoredReferenceForActiveGroup,
     isNewReferenceMode,
+    replacementCameraIds,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleSendAllReferences,
