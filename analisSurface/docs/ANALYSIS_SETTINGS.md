@@ -14,10 +14,17 @@
 | `GET` | `/analysis-settings/{product_type}` | Эффективные настройки + список переопределённых полей |
 | `PUT` | `/analysis-settings/{product_type}` | Частичное обновление (можно передать только нужные поля) |
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс overrides для продукта |
+| `GET` | `/analysis-settings/{product_type}/simple` | Последние simple-knobs + эффективные settings |
+| `PUT` | `/analysis-settings/{product_type}/simple` | Быстрая настройка: `threshold` + `sensitivity` |
+| `GET` | `/analysis-settings/{product_type}/pro` | Последние pro-knobs + эффективные settings |
+| `PUT` | `/analysis-settings/{product_type}/pro` | Pro-настройка: `threshold` + 5 абстрактных ручек |
 
 После `PUT` / `DELETE` настройки сохраняются в файл:
 
 `backend/app/data/analysis_settings.json`
+
+Документация для инженеров по `/simple` и `/pro`: **[ANALYSIS_SETTINGS_SIMPLE_PRO.md](ANALYSIS_SETTINGS_SIMPLE_PRO.md)**.  
+Подписи и пояснения для UI: **[ANALYSIS_SETTINGS_UI.md](ANALYSIS_SETTINGS_UI.md)**.
 
 ---
 

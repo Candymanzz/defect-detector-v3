@@ -41,6 +41,8 @@ class InspectionService:
         self._roi_sub_zones_file = Path(__file__).resolve().parent.parent / "data" / "roi_sub_zones.json"
         self._analysis_settings_file = Path(__file__).resolve().parent.parent / "data" / "analysis_settings.json"
         self._analysis_settings_overrides: Dict[str, dict[str, object]] = {}
+        self._analysis_settings_simple_knobs: Dict[str, dict[str, object]] = {}
+        self._analysis_settings_pro_knobs: Dict[str, dict[str, object]] = {}
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
@@ -200,13 +202,54 @@ class InspectionService:
             current[key] = value
         AnalysisSettings.from_overrides(current)
         self._analysis_settings_overrides[analysis_profile] = current
+        # Полный API сбивает abstract-режим: knobs больше не соответствуют overrides.
+        self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
         return dict(current)
 
     def reset_analysis_settings(self, analysis_profile: str) -> dict[str, object]:
         self._analysis_settings_overrides.pop(analysis_profile, None)
+        self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
         return {}
+
+    def get_simple_knobs(self, analysis_profile: str) -> dict[str, object] | None:
+        knobs = self._analysis_settings_simple_knobs.get(analysis_profile)
+        return dict(knobs) if knobs is not None else None
+
+    def get_pro_knobs(self, analysis_profile: str) -> dict[str, object] | None:
+        knobs = self._analysis_settings_pro_knobs.get(analysis_profile)
+        return dict(knobs) if knobs is not None else None
+
+    def apply_simple_settings(
+        self,
+        analysis_profile: str,
+        overrides: dict[str, object],
+        knobs: dict[str, object],
+    ) -> dict[str, object]:
+        """Полная замена overrides из simple-пресета + сохранение knobs."""
+        AnalysisSettings.from_overrides(overrides)
+        self._analysis_settings_overrides[analysis_profile] = dict(overrides)
+        self._analysis_settings_simple_knobs[analysis_profile] = dict(knobs)
+        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
+        self._save_analysis_settings()
+        return dict(overrides)
+
+    def apply_pro_settings(
+        self,
+        analysis_profile: str,
+        overrides: dict[str, object],
+        knobs: dict[str, object],
+    ) -> dict[str, object]:
+        """Полная замена overrides из pro-пресета + сохранение knobs."""
+        AnalysisSettings.from_overrides(overrides)
+        self._analysis_settings_overrides[analysis_profile] = dict(overrides)
+        self._analysis_settings_pro_knobs[analysis_profile] = dict(knobs)
+        self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+        self._save_analysis_settings()
+        return dict(overrides)
 
     def add_fp_zone(
         self,
@@ -393,6 +436,8 @@ class InspectionService:
 
     def _load_analysis_settings(self) -> None:
         self._analysis_settings_overrides = {}
+        self._analysis_settings_simple_knobs = {}
+        self._analysis_settings_pro_knobs = {}
         if not self._analysis_settings_file.exists():
             return
         try:
@@ -414,15 +459,35 @@ class InspectionService:
                 }
                 if filtered:
                     self._analysis_settings_overrides[analysis_profile] = filtered
+                simple_knobs = entry.get("simple_knobs")
+                if isinstance(simple_knobs, dict) and simple_knobs:
+                    self._analysis_settings_simple_knobs[analysis_profile] = dict(simple_knobs)
+                pro_knobs = entry.get("pro_knobs")
+                if isinstance(pro_knobs, dict) and pro_knobs:
+                    self._analysis_settings_pro_knobs[analysis_profile] = dict(pro_knobs)
         except Exception:
             self._analysis_settings_overrides = {}
+            self._analysis_settings_simple_knobs = {}
+            self._analysis_settings_pro_knobs = {}
 
     def _save_analysis_settings(self) -> None:
         self._analysis_settings_file.parent.mkdir(parents=True, exist_ok=True)
-        entries = [
-            {"analysis_profile": analysis_profile, "overrides": overrides}
-            for analysis_profile, overrides in self._analysis_settings_overrides.items()
-        ]
+        profiles = set(self._analysis_settings_overrides) | set(self._analysis_settings_simple_knobs) | set(
+            self._analysis_settings_pro_knobs
+        )
+        entries = []
+        for analysis_profile in sorted(profiles):
+            entry: dict[str, object] = {
+                "analysis_profile": analysis_profile,
+                "overrides": self._analysis_settings_overrides.get(analysis_profile, {}),
+            }
+            simple_knobs = self._analysis_settings_simple_knobs.get(analysis_profile)
+            if simple_knobs is not None:
+                entry["simple_knobs"] = simple_knobs
+            pro_knobs = self._analysis_settings_pro_knobs.get(analysis_profile)
+            if pro_knobs is not None:
+                entry["pro_knobs"] = pro_knobs
+            entries.append(entry)
         self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
 
     def _load_roi_sub_zones(self) -> None:
