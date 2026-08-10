@@ -3,7 +3,7 @@
   "frame": {
     "width": 1224,
     "height": 1024,
-    "format": "Mono8",
+    "format": "Mono8", 
     "binning_horizontal": 2,
     "binning_vertical": 2,
     "binning_mode": "Sum"

@@ -33,7 +33,7 @@
 #include <MvCameraControl.h>
 #endif
 
-#define TOK_POOL 512
+#define TOK_POOL 2048 /* was 512: config.json ~516 tokens after gige_transfer_slot */
 #define MAGIC0 'I'
 #define MAGIC1 'M'
 #define MAGIC2 'L'
