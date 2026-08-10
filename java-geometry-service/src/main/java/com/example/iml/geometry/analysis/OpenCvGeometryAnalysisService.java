@@ -773,7 +773,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         if (joint.widthMm < noiseFloorMm) {
             return true;
         }
-        // Width below min / above max is a real defect (including visibly narrow seam).
+        // Width above max is always a defect. Below min — only when edges are NOT parallel:
+        // if parallelism already confirms a real seam pair, skip the min-width gate
+        // (narrow real seams / Canny thin pairs with good parity).
         double maxParallelismDeg = request.maxJointParallelismDeg();
         if (request.jointSeamSegmentationEnabled()) {
             // Sensitivity mainly gates parallelism from fitLine edges:
@@ -782,9 +784,17 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             maxParallelismDeg *= 2.0 - 1.6 * s;
         }
         boolean parallelismOk = joint.parallelismDeg <= maxParallelismDeg;
-        boolean widthOk = joint.widthMm >= request.jointMinWidthMm()
-                && joint.widthMm <= request.jointMaxWidthMm();
-        boolean defectOk = joint.defectMm <= request.maxJointDefectMm();
+        boolean maxWidthOk = joint.widthMm <= request.jointMaxWidthMm();
+        boolean minWidthOk = parallelismOk || joint.widthMm >= request.jointMinWidthMm();
+        boolean widthOk = minWidthOk && maxWidthOk;
+        double effectiveDefectMm = joint.defectMm;
+        if (parallelismOk
+                && joint.widthMm < request.jointMinWidthMm()
+                && maxWidthOk) {
+            // under-min defectMm is derived from jointMinWidthMm — ignore when min gate is waived
+            effectiveDefectMm = 0.0;
+        }
+        boolean defectOk = effectiveDefectMm <= request.maxJointDefectMm();
         boolean taperOk = joint.taperMm <= request.maxJointTaperMm();
         return parallelismOk && widthOk && defectOk && taperOk;
     }
