@@ -27,6 +27,7 @@ namespace ImlLauncher
         private volatile bool _browserOpened;
         private volatile bool _running;
         private string _fatalError = "";
+        private string _frontendUrl = "http://localhost:5173/";
         private bool _workersHintFromLog;
         private bool _bootDoneFromLog;
 
@@ -281,10 +282,23 @@ namespace ImlLauncher
 
             if (!_options.NoFrontend)
             {
-                if (HealthProbe.HttpOk("http://127.0.0.1:5173/", 800, out detail)
-                    || HealthProbe.TcpOpen("127.0.0.1", 5173, 600, out detail))
+                ServiceItem fe = _model.Get(ServiceIds.Frontend);
+                if (fe == null || fe.State != ServiceState.Ready)
                 {
-                    changed |= Promote(ServiceIds.Frontend, ServiceState.Ready, detail);
+                    // Vite: host=localhost (often ::1 only), port may shift 5173..5192 (see front-end/scripts/dev.mjs).
+                    if (HealthProbe.FrontendReady(5173, 20, out detail))
+                    {
+                        if (detail != null && detail.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        {
+                            int space = detail.IndexOf(' ');
+                            _frontendUrl = space > 0 ? detail.Substring(0, space) : detail;
+                            if (!_frontendUrl.EndsWith("/"))
+                            {
+                                _frontendUrl = _frontendUrl + "/";
+                            }
+                        }
+                        changed |= Promote(ServiceIds.Frontend, ServiceState.Ready, detail);
+                    }
                 }
             }
 
@@ -346,7 +360,7 @@ namespace ImlLauncher
             _browserOpened = true;
             try
             {
-                Process.Start("http://localhost:5173/");
+                Process.Start(_frontendUrl);
             }
             catch
             {
@@ -354,7 +368,7 @@ namespace ImlLauncher
                 {
                     ProcessStartInfo psi = new ProcessStartInfo();
                     psi.FileName = "cmd.exe";
-                    psi.Arguments = "/c start http://localhost:5173/";
+                    psi.Arguments = "/c start " + _frontendUrl;
                     psi.CreateNoWindow = true;
                     psi.UseShellExecute = false;
                     Process.Start(psi);
@@ -394,11 +408,25 @@ namespace ImlLauncher
                     _model.Set(ServiceIds.AnalisSurface, ServiceState.Starting, Truncate(line, 70));
                 }
             }
-            if (lower.IndexOf("frontend") >= 0 || lower.IndexOf("vite") >= 0)
+            if (!_options.NoFrontend)
             {
-                if (!_options.NoFrontend && lower.IndexOf("error") < 0)
+                // Electron/Vite often only bind on localhost; treat clear ready signals as Ready.
+                if (lower.IndexOf("electron_renderer_url") >= 0
+                    || lower.IndexOf("vite ready") >= 0
+                    || (lower.IndexOf("local:") >= 0 && lower.IndexOf("517") >= 0)
+                    || (lower.IndexOf("http://localhost:517") >= 0))
                 {
-                    _model.Set(ServiceIds.Frontend, ServiceState.Starting, Truncate(line, 70));
+                    _model.Set(ServiceIds.Frontend, ServiceState.Ready, Truncate(line, 70));
+                    Notify();
+                }
+                else if ((lower.IndexOf("frontend") >= 0 || lower.IndexOf("vite") >= 0)
+                         && lower.IndexOf("error") < 0)
+                {
+                    ServiceItem fe = _model.Get(ServiceIds.Frontend);
+                    if (fe != null && fe.State != ServiceState.Ready)
+                    {
+                        _model.Set(ServiceIds.Frontend, ServiceState.Starting, Truncate(line, 70));
+                    }
                 }
             }
             if (lower.IndexOf("camera") >= 0 || lower.IndexOf("geometry") >= 0 || lower.IndexOf("positioning") >= 0)
