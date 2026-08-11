@@ -149,12 +149,7 @@ function createInspectionHistoryTiles(cameraIds: number[], historyByCameraId: Re
     );
     if (matchingCycleGroup) {
       matchingCycleGroup.results.push(item);
-      matchingCycleGroup.result =
-        matchingCycleGroup.result === "fail" || item.result === "fail"
-          ? "fail"
-          : matchingCycleGroup.result === "capture" || item.result === "capture"
-            ? "capture"
-            : "pass";
+      matchingCycleGroup.result = resolveGroupResult(matchingCycleGroup.results);
       matchingCycleGroup.serverTsMs = Math.max(matchingCycleGroup.serverTsMs, item.inspectResult.server_ts_ms);
       continue;
     }
@@ -190,12 +185,18 @@ function replaceCameraResult(group: InspectionHistoryTile, item: InspectionHisto
   if (!current.inspectResult.artifact_bundle_id && item.inspectResult.artifact_bundle_id) {
     group.results[resultIndex] = item;
   }
-  group.result = group.results.some((result) => result.result === "fail")
-    ? "fail"
-    : group.results.some((result) => result.result === "capture")
-      ? "capture"
-      : "pass";
+  group.result = resolveGroupResult(group.results);
   group.serverTsMs = Math.max(group.serverTsMs, item.inspectResult.server_ts_ms);
+}
+
+function resolveGroupResult(results: InspectionHistoryItem[]): "pass" | "fail" | "capture" {
+  if (results.some((result) => result.result === "fail")) {
+    return "fail";
+  }
+  if (results.some((result) => result.result === "pass")) {
+    return "pass";
+  }
+  return "capture";
 }
 
 function createInspectionGroupKey(source: "inspection" | "frame", inspectionId: string, item: InspectionHistoryItem) {
