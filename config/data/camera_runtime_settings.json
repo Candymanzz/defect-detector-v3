@@ -1,85 +1,105 @@
 {
-  "version" : 1,
-  "cameras" : {
-    "1" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+  "version": 1,
+  "cameras": {
+    "1": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "0" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "0": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "2" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 500,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "2": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "3" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "3": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "4" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "4": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "5" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "5": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "6" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "6": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "7" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 500,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "7": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "8" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "8": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     },
-    "9" : {
-      "gain_db" : 0.0,
-      "exposure_us" : 250,
-      "black_level" : 240,
-      "capture_trigger_mode" : "line0",
-      "frame_timeout_ms" : 15000,
-      "gamma" : 0.7
+    "9": {
+      "capture_trigger_mode": "line0",
+      "black_level": 200,
+      "exposure_us": 250,
+      "gain_db": 0.0,
+      "gamma": 2.48,
+      "frame_timeout_ms": 15000,
+      "balance_ratio_red": 1.65,
+      "balance_ratio_blue": 1.7
     }
   }
 }

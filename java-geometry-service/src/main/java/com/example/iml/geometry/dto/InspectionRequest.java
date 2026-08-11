@@ -21,7 +21,9 @@ public record InspectionRequest(
         double jointMaxWidthMm,
         double maxJointParallelismDeg,
         double maxJointTaperMm,
-        boolean jointSeamSegmentationEnabled
+        boolean jointSeamSegmentationEnabled,
+        /** 0..1: higher = easier band lock + stricter parallelism gate when segmentation is on. */
+        double jointSeamSegmentationSensitivity
 ) {
     public boolean jointVisibilityOnly() {
         return jointMode != null && "visibility".equalsIgnoreCase(jointMode.trim());

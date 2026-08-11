@@ -43,7 +43,7 @@ export function createReferenceBundleFromCameraFrames(
     }
   }
 
-  if (!isValidJointRoiPolygon(jointRoiPolygon)) {
+  if (jointRoiPolygon.length > 0 && !isValidJointRoiPolygon(jointRoiPolygon)) {
     throw new Error(
       "Joint ROI должен быть ориентированным прямоугольником: протяните ось вдоль шва и задайте ширину",
     );

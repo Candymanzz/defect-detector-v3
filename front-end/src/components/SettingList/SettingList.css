@@ -232,6 +232,59 @@
   color: #f2f5f7;
 }
 
+.setting-list__field-label {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  gap: 6px;
+  align-items: center;
+}
+
+.setting-list__field-help {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 1px solid #526476;
+  border-radius: 50%;
+  background: #172435;
+  color: #a9bacb;
+  cursor: help;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.setting-list__analysis-tooltip {
+  position: fixed;
+  z-index: 10000;
+  width: min(300px, calc(100vw - 24px));
+  padding: 9px 10px;
+  border: 1px solid #526476;
+  border-radius: 7px;
+  background: #0c1724;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  color: #e4edf5;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  pointer-events: none;
+  text-align: left;
+}
+
+.setting-list__analysis-tooltip[data-placement="above"] {
+  transform: translateY(-100%);
+}
+
+.setting-list__field-help:hover,
+.setting-list__field-help:focus-visible {
+  border-color: #7dd3fc;
+  color: #e0f2fe;
+  outline: none;
+}
+
 .setting-list__brightness {
   display: grid;
   gap: 8px;
@@ -438,6 +491,180 @@
   margin-top: 8px;
 }
 
+.analysis-presets {
+  padding: 10px;
+}
+
+.analysis-presets__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid rgba(117, 143, 164, 0.25);
+  border-radius: 10px;
+  background: rgba(5, 16, 25, 0.62);
+}
+
+.analysis-presets__tabs button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 7px;
+  color: #aebdca;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.analysis-presets__tabs button.is-active {
+  color: #fff;
+  background: rgba(51, 209, 122, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(51, 209, 122, 0.38);
+}
+
+.analysis-presets__intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 2px;
+  color: #9eafbc;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.analysis-presets__lock-button {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid rgba(246, 199, 68, 0.32);
+  border-radius: 6px;
+  color: #f6d66b;
+  background: rgba(246, 199, 68, 0.08);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.analysis-presets__lock-button:hover {
+  border-color: rgba(246, 199, 68, 0.58);
+  background: rgba(246, 199, 68, 0.14);
+}
+
+.analysis-presets__fields {
+  display: grid;
+  gap: 6px;
+  max-height: 310px;
+  overflow-y: auto;
+}
+
+.analysis-presets__field {
+  display: grid;
+  gap: 6px;
+  padding: 9px;
+  border: 1px solid rgba(117, 143, 164, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.analysis-presets__field > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #edf4f7;
+  font-size: 12px;
+}
+
+.analysis-presets__field output {
+  min-width: 38px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  color: #72f2a8;
+  background: rgba(51, 209, 122, 0.1);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.analysis-presets__field input[type="range"] {
+  width: 100%;
+  accent-color: #33d17a;
+}
+
+.analysis-presets__field small {
+  color: #8193a1;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.analysis-presets__footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.analysis-presets__footer > span {
+  color: #aebdca;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.analysis-presets__footer > span[data-kind="error"],
+.analysis-presets__password-error { color: #ff8585; }
+.analysis-presets__footer > span[data-kind="success"] { color: #72f2a8; }
+
+.analysis-presets__unlock {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(1, 7, 12, 0.76);
+  backdrop-filter: blur(5px);
+}
+
+.analysis-presets__unlock-card {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  width: min(340px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(114, 242, 168, 0.28);
+  border-radius: 14px;
+  background: #10212d;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55);
+}
+
+.analysis-presets__unlock-card h4,
+.analysis-presets__unlock-card p { margin: 0; text-align: center; }
+.analysis-presets__unlock-card p { color: #9eafbc; font-size: 12px; line-height: 1.45; }
+.analysis-presets__unlock-card > input {
+  min-height: 40px;
+  border: 1px solid rgba(117, 143, 164, 0.45);
+  border-radius: 8px;
+  color: #fff;
+  background: #091721;
+  text-align: center;
+  letter-spacing: 0.18em;
+}
+.analysis-presets__unlock-card > input[aria-invalid="true"] { border-color: #ff5b5b; }
+.analysis-presets__password-error { font-size: 11px; text-align: center; }
+.analysis-presets__lock { font-size: 26px; text-align: center; }
+.analysis-presets__unlock-close {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  border: 0;
+  color: #9eafbc;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+}
+
 .setting-list__analysis .setting-list__field {
   min-height: 30px;
   padding: 2px 5px;
@@ -491,6 +718,27 @@
 
 .setting-list__inspection-reset-status[data-status="error"] {
   color: #fca5a5;
+}
+
+.setting-list__inspection-reset-block {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.setting-list .button.setting-list__inspection-reset {
+  width: 100%;
+  min-height: 32px;
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+}
+
+.setting-list .button.setting-list__inspection-reset:not(:disabled):hover,
+.setting-list .button.setting-list__inspection-reset:not(:disabled):focus-visible {
+  border-color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fecaca !important;
 }
 
 .setting-list__direction-row {
@@ -616,10 +864,10 @@
 .setting-list__quick-action {
   display: grid !important;
   place-items: center;
-  gap: 6px;
+  gap: 4px;
   height: auto;
-  min-height: 56px;
-  padding: 7px 4px !important;
+  min-height: 48px;
+  padding: 5px 4px !important;
   border-radius: 9px !important;
   font-size: 11px;
   font-weight: 800 !important;
@@ -884,8 +1132,7 @@
   min-height: 58px;
   border: 1px solid rgba(71, 94, 116, 0.82) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
-    var(--setting-button-surface) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)), var(--setting-button-surface) !important;
   color: #dce7f0 !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.075),
@@ -907,8 +1154,7 @@
 .setting-list__quick-action:not(:disabled):focus-visible {
   border-color: rgba(106, 137, 164, 0.96) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.008)),
-    var(--setting-button-surface-hover) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.008)), var(--setting-button-surface-hover) !important;
   color: #f4f8fb !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
@@ -922,9 +1168,7 @@
   height: 25px;
   border-color: color-mix(in srgb, currentColor 62%, transparent);
   border-radius: 8px;
-  background:
-    radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.16), transparent 38%),
-    rgba(0, 0, 0, 0.18);
+  background: radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.16), transparent 38%), rgba(0, 0, 0, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
@@ -1302,6 +1546,19 @@
   border-color: #fca5a5 !important;
   background: rgba(239, 68, 68, 0.2) !important;
   color: #fecaca !important;
+}
+
+.setting-list .button.setting-list__quick-action--start {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.14) !important;
+  color: #86efac !important;
+}
+
+.setting-list .button.setting-list__quick-action--start:not(:disabled):hover,
+.setting-list .button.setting-list__quick-action--start:not(:disabled):focus-visible {
+  border-color: #86efac !important;
+  background: rgba(34, 197, 94, 0.24) !important;
+  color: #dcfce7 !important;
 }
 
 .setting-list {

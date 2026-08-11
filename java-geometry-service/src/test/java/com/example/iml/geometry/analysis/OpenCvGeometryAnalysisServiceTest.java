@@ -79,7 +79,8 @@ class OpenCvGeometryAnalysisServiceTest {
                 3.0,
                 8.0,
                 0.6,
-                false
+                false,
+                0.5
         );
     }
 

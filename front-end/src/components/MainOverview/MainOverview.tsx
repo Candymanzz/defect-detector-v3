@@ -3,7 +3,7 @@ import type { Ref } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
-import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
@@ -53,15 +53,23 @@ export function MainOverview({
               const inspectResult = controller.inspectResultsByCameraId[camera.cameraId];
               const artifactInspectResult = controller.inspectArtifactResultsByCameraId[camera.cameraId];
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
-              const showsInspectionResult = controller.hasReference && isInspectionEnabled;
+              // Soft-stop: inspection is off, but capture-only frames must still render on the card.
+              const isCaptureOnlyFrame = isCaptureOnlyInspectResult(inspectResult);
+              const showLiveInspectFrame =
+                Boolean(inspectResult) &&
+                (!controller.hasReference || isInspectionEnabled || isCaptureOnlyFrame);
+              const showInspectionArtifacts = controller.hasReference && isInspectionEnabled;
               const inspectImageUrl = resolveCardInspectImageUrl(
-                showsInspectionResult ? inspectResult : undefined,
-                showsInspectionResult ? artifactInspectResult : undefined,
+                showLiveInspectFrame ? inspectResult : undefined,
+                showInspectionArtifacts ? artifactInspectResult : undefined,
                 controller.previewFrameIdsByCameraId[camera.cameraId],
                 controller.previewImageUrlsByCameraId[camera.cameraId],
               );
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
+              const inspectionResultState = resolveInspectionResultState(
+                isInspectionEnabled || isCaptureOnlyFrame ? inspectResult : undefined,
+              );
 
               return (
                 <StatusCard
@@ -76,12 +84,12 @@ export function MainOverview({
                   isInspectionActionDisabled={!controller.hasReference || isInspectionActionPending}
                   inspectionActionLabel={getInspectionActionLabel(inspectionControlState?.state, isInspectionEnabled)}
                   inspectionStatus={inspectionControlState?.message}
-                  inspectionResult={resolveInspectionResultState(inspectResult)}
+                  inspectionResult={inspectionResultState}
                   onOpen={() =>
                     controller.openInspectionModal(
                       createSelectedCamera(camera),
                       inspectResult,
-                      artifactInspectResult,
+                      showInspectionArtifacts ? artifactInspectResult : undefined,
                       controller.previewFrameIdsByCameraId[camera.cameraId],
                       controller.previewImageUrlsByCameraId[camera.cameraId],
                       controller.inspectionHistoryByCameraId[camera.cameraId] ?? [],

@@ -61,11 +61,20 @@ public final class BinaryInspectHeaders {
                 "maxJointTaperMm",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_taper_mm"), 0.8)
         );
+        gHeader.put("jointSeamSegmentationEnabled", true);
         gHeader.put(
-                "jointSeamSegmentationEnabled",
-                YamlScalars.toBool(
-                        geometryCfg == null ? null : geometryCfg.get("joint_seam_segmentation_enabled"),
-                        false
+                "jointSeamSegmentationSensitivity",
+                Math.max(
+                        0.0,
+                        Math.min(
+                                1.0,
+                                YamlScalars.toDouble(
+                                        geometryCfg == null
+                                                ? null
+                                                : geometryCfg.get("joint_seam_segmentation_sensitivity"),
+                                        0.5
+                                )
+                        )
                 )
         );
         Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
@@ -165,6 +174,37 @@ public final class BinaryInspectHeaders {
         if (mainRoi != null) {
             gHeader.put("wrinklesRoi", mainRoi);
         }
+    }
+
+    /**
+     * Client {@code reference_bundle} without joint ROI/polygon — geometry must not run
+     * (YAML {@code joint_roi} fallback is intentionally ignored for client bundles).
+     */
+    public static boolean isClientReferenceWithoutJointRoi(ReferenceSnapshot activeReference) {
+        if (activeReference == null || activeReference.header() == null) {
+            return false;
+        }
+        if (!YamlScalars.toBool(activeReference.header().get("client_reference_bundle"), false)) {
+            return false;
+        }
+        return !hasUsableClientJointRoi(activeReference.header());
+    }
+
+    public static boolean hasUsableClientJointRoi(Map<String, Object> referenceHeader) {
+        if (referenceHeader == null || referenceHeader.isEmpty()) {
+            return false;
+        }
+        Object poly = referenceHeader.get("joint_roi_polygon_norm");
+        if (poly instanceof List<?> list && list.size() >= 3) {
+            return true;
+        }
+        Object raw = referenceHeader.get("joint_roi_norm");
+        if (!(raw instanceof Map<?, ?> normalized)) {
+            return false;
+        }
+        double width = YamlScalars.toDouble(normalized.get("width"), 0d);
+        double height = YamlScalars.toDouble(normalized.get("height"), 0d);
+        return width > 0d && height > 0d;
     }
 
     private static Object resolveJointRoi(int cameraId, ReferenceSnapshot activeReference, Map<String, Object> geometryCfg) {

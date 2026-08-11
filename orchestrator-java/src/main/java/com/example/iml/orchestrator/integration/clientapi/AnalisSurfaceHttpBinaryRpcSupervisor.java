@@ -58,6 +58,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             "maxJointParallelismDeg",
             "maxJointTaperMm",
             "jointSeamSegmentationEnabled",
+            "jointSeamSegmentationSensitivity",
             "maxWrinklesScore",
             "jointThreshold",
             "threshold",
@@ -77,6 +78,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             "max_joint_parallelism_deg",
             "max_joint_taper_mm",
             "joint_seam_segmentation_enabled",
+            "joint_seam_segmentation_sensitivity",
             "max_wrinkles_score"
     );
 

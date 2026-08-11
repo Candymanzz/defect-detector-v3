@@ -1,0 +1,55 @@
+2026-08-03 09:57:16.297 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=14264 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-03 09:57:22.254 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-03 09:57:23.179 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-03 09:57:24.090 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-03 09:57:25.017 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-03 09:57:25.940 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-03 09:57:26.914 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-03 09:57:27.841 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-03 09:57:28.784 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-03 09:57:29.733 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-03 09:57:30.649 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-03 09:57:31.593 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-03 09:57:32.571 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-03 09:57:33.507 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-03 09:57:34.450 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-03 09:57:35.374 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-03 09:57:36.286 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-03 09:57:37.240 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-03 09:57:38.171 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-03 09:57:39.094 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-03 09:57:40.004 INFO  [main] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-03 09:57:40.917 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=14104 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-03 09:57:48.931 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=13840 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-03 09:57:49.436 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=13512 command=[npm.cmd, run, dev]
+2026-08-03 09:57:55.137 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-03 09:57:55.212 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-03 09:57:58.866 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-03 09:58:02.504 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-03 09:58:06.163 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-03 09:58:09.804 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-03 09:58:13.463 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-03 09:58:17.098 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-03 09:58:20.712 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-03 09:58:24.330 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-03 09:58:27.898 INFO  [main] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-03 09:58:31.505 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.505 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.526 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.526 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.557 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.558 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.573 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.573 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.593 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.593 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.623 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.623 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.640 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.640 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.659 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.659 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.691 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.691 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-03 09:58:31.706 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-03 09:58:31.706 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]

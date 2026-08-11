@@ -1,7 +1,10 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,8 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Runtime ROI и пороги: {@code inspect_shm} java-geometry и {@code threshold} python-детектора.
+ * При наличии {@link GeometryRuntimeStore} overrides пишутся в JSON и поднимаются после рестарта.
  */
 public final class GeometryRuntimeConfig {
+    private static final Logger LOG = LogManager.getLogger(GeometryRuntimeConfig.class);
     private static final String DEFAULT_PROFILE = "__default__";
 
     private static final Set<String> HEADER_KEYS = Set.of(
@@ -31,19 +36,33 @@ public final class GeometryRuntimeConfig {
             "maxJointParallelismDeg",
             "maxJointTaperMm",
             "jointSeamSegmentationEnabled",
+            "jointSeamSegmentationSensitivity",
             "maxWrinklesScore",
             "threshold",
             "jointThreshold"
     );
 
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, Object>> overridesByProfile = new ConcurrentHashMap<>();
+    private final GeometryRuntimeStore store;
+
+    public GeometryRuntimeConfig() {
+        this(null);
+    }
+
+    public GeometryRuntimeConfig(GeometryRuntimeStore store) {
+        this.store = store;
+        hydrateFromStore();
+    }
 
     public void clear() {
         overridesByProfile.clear();
+        persistClearAll();
     }
 
     public void clear(String analysisProfile) {
-        overridesByProfile.remove(normalizeProfile(analysisProfile));
+        String profileKey = normalizeProfile(analysisProfile);
+        overridesByProfile.remove(profileKey);
+        persistRemove(profileKey);
     }
 
     /**
@@ -57,17 +76,16 @@ public final class GeometryRuntimeConfig {
     public void replaceAllFromClient(String analysisProfile, Map<String, Object> body) {
         String profileKey = normalizeProfile(analysisProfile);
         ConcurrentHashMap<String, Object> profileOverrides = new ConcurrentHashMap<>();
-        if (body == null) {
-            overridesByProfile.put(profileKey, profileOverrides);
-            return;
-        }
-        for (Map.Entry<String, Object> e : body.entrySet()) {
-            String key = normalizeKey(e.getKey());
-            if (key != null && e.getValue() != null) {
-                profileOverrides.put(key, e.getValue());
+        if (body != null) {
+            for (Map.Entry<String, Object> e : body.entrySet()) {
+                String key = normalizeKey(e.getKey());
+                if (key != null && e.getValue() != null) {
+                    profileOverrides.put(key, e.getValue());
+                }
             }
         }
         overridesByProfile.put(profileKey, profileOverrides);
+        persistReplace(profileKey, profileOverrides);
     }
 
     public void mergeFromClient(String analysisProfile, Map<String, Object> body) {
@@ -82,6 +100,7 @@ public final class GeometryRuntimeConfig {
                 profileOverrides.put(key, entry.getValue());
             }
         }
+        persistReplace(normalizeProfile(analysisProfile), profileOverrides);
     }
 
     public Map<String, Object> overridesCopy() {
@@ -105,6 +124,7 @@ public final class GeometryRuntimeConfig {
             }
             applyGeometryEntry(header, key, value);
         });
+        header.put("jointSeamSegmentationEnabled", true);
     }
 
     /** Порог чувствительности для python {@code inspect_shm} (поверх {@code python_detector.fallback_threshold}). */
@@ -136,10 +156,11 @@ public final class GeometryRuntimeConfig {
         putIfPresent(overrides, algorithmParams, "jointMaxWidthMm", "joint_max_width_mm");
         putIfPresent(overrides, algorithmParams, "maxJointParallelismDeg", "max_joint_parallelism_deg");
         putIfPresent(overrides, algorithmParams, "maxJointTaperMm", "max_joint_taper_mm");
-        putIfPresent(overrides, algorithmParams, "jointSeamSegmentationEnabled", "joint_seam_segmentation_enabled");
+        putIfPresent(overrides, algorithmParams, "jointSeamSegmentationSensitivity", "joint_seam_segmentation_sensitivity");
         putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
         putIfPresent(overrides, algorithmParams, "jointThreshold", "joint_threshold");
         putIfPresent(overrides, algorithmParams, "threshold", "threshold");
+        algorithmParams.put("joint_seam_segmentation_enabled", true);
         if (!algorithmParams.isEmpty()) {
             header.put("algorithm_params", algorithmParams);
         }
@@ -189,11 +210,20 @@ public final class GeometryRuntimeConfig {
                 "maxJointTaperMm",
                 YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_taper_mm"), 0.8)
         );
+        m.put("jointSeamSegmentationEnabled", true);
         m.put(
-                "jointSeamSegmentationEnabled",
-                YamlScalars.toBool(
-                        yamlGeometry == null ? null : yamlGeometry.get("joint_seam_segmentation_enabled"),
-                        false
+                "jointSeamSegmentationSensitivity",
+                Math.max(
+                        0.0,
+                        Math.min(
+                                1.0,
+                                YamlScalars.toDouble(
+                                        yamlGeometry == null
+                                                ? null
+                                                : yamlGeometry.get("joint_seam_segmentation_sensitivity"),
+                                        0.5
+                                )
+                        )
                 )
         );
         double thresholdDefault = defaultPythonThreshold(pythonYaml);
@@ -224,6 +254,20 @@ public final class GeometryRuntimeConfig {
             return;
         }
         if ("maxConcentricityMm".equals(key)) {
+            return;
+        }
+        if ("jointSeamSegmentationEnabled".equals(key)) {
+            header.put(key, true);
+            return;
+        }
+        if ("jointSeamSegmentationSensitivity".equals(key)) {
+            double s = YamlScalars.toDouble(value, 0.5);
+            if (s < 0.0) {
+                s = 0.0;
+            } else if (s > 1.0) {
+                s = 1.0;
+            }
+            header.put(key, s);
             return;
         }
         header.put(key, value);
@@ -263,6 +307,7 @@ public final class GeometryRuntimeConfig {
             case "max_joint_parallelism_deg" -> "maxJointParallelismDeg";
             case "max_joint_taper_mm" -> "maxJointTaperMm";
             case "joint_seam_segmentation_enabled" -> "jointSeamSegmentationEnabled";
+            case "joint_seam_segmentation_sensitivity" -> "jointSeamSegmentationSensitivity";
             case "joint_threshold", "jointThreshold" -> "jointThreshold";
             case "max_wrinkles_score" -> "maxWrinklesScore";
             case "fallback_threshold", "inspection_threshold", "sensitivity" -> "threshold";
@@ -272,6 +317,60 @@ public final class GeometryRuntimeConfig {
 
     private Map<String, Object> profileOverrides(String analysisProfile) {
         return overridesByProfile.getOrDefault(normalizeProfile(analysisProfile), new ConcurrentHashMap<>());
+    }
+
+    private void hydrateFromStore() {
+        if (store == null) {
+            return;
+        }
+        for (Map.Entry<String, Map<String, Object>> entry : store.allProfiles().entrySet()) {
+            ConcurrentHashMap<String, Object> profileOverrides = new ConcurrentHashMap<>();
+            for (Map.Entry<String, Object> override : entry.getValue().entrySet()) {
+                String key = normalizeKey(override.getKey());
+                if (key != null && override.getValue() != null) {
+                    profileOverrides.put(key, override.getValue());
+                }
+            }
+            if (!profileOverrides.isEmpty()) {
+                overridesByProfile.put(normalizeProfile(entry.getKey()), profileOverrides);
+            }
+        }
+        if (!overridesByProfile.isEmpty()) {
+            LOG.info("geometry runtime overrides restored from store profiles={}", overridesByProfile.size());
+        }
+    }
+
+    private void persistReplace(String profileKey, Map<String, Object> overrides) {
+        if (store == null) {
+            return;
+        }
+        try {
+            store.replaceProfileAndSave(profileKey, overrides);
+        } catch (IOException e) {
+            LOG.warn("geometry runtime store save failed profile={}: {}", profileKey, e.getMessage());
+        }
+    }
+
+    private void persistRemove(String profileKey) {
+        if (store == null) {
+            return;
+        }
+        try {
+            store.removeProfileAndSave(profileKey);
+        } catch (IOException e) {
+            LOG.warn("geometry runtime store remove failed profile={}: {}", profileKey, e.getMessage());
+        }
+    }
+
+    private void persistClearAll() {
+        if (store == null) {
+            return;
+        }
+        try {
+            store.clearAllAndSave();
+        } catch (IOException e) {
+            LOG.warn("geometry runtime store clear failed: {}", e.getMessage());
+        }
     }
 
     private static String normalizeProfile(String analysisProfile) {

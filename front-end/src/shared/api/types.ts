@@ -149,6 +149,8 @@ export type GeometryRuntimeOverrides = Partial<{
   max_wrinkles_score: number;
   jointSeamSegmentationEnabled: boolean;
   joint_seam_segmentation_enabled: boolean;
+  jointSeamSegmentationSensitivity: number;
+  joint_seam_segmentation_sensitivity: number;
 }> &
   JsonObject;
 
@@ -335,6 +337,25 @@ export type AnalysisSettingsResponse = {
 };
 
 export type AnalysisSettingsUpdateRequest = Partial<AnalysisSettings>;
+
+export type SimpleAnalysisKnobs = {
+  threshold: number;
+  sensitivity: number;
+};
+
+export type ProAnalysisKnobs = {
+  threshold: number;
+  noise_tolerance: number;
+  scratch_sensitivity: number;
+  edge_suppression: number;
+  text_handling: number;
+  preprocess_strength: number;
+};
+
+export type AnalysisPresetResponse<TKnobs> = AnalysisSettingsResponse & {
+  knobs: TKnobs | null;
+  detector_id?: string;
+};
 
 export type PlcSignalState = {
   name: string;

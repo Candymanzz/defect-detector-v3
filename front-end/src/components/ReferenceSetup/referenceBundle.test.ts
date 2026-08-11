@@ -77,6 +77,21 @@ describe("createReferenceBundleFromCameraFrames", () => {
     expect(bundle.views[0].interest_roi.height).toBeGreaterThan(1);
   });
 
+  it("allows empty joint ROI (geometry skipped server-side)", () => {
+    const bundle = createReferenceBundleFromCameraFrames(
+      [0, 1],
+      1,
+      { 0: previewFrame(0), 1: previewFrame(1) },
+      { 0: roi, 1: roi },
+      [],
+      [],
+    );
+
+    expect(bundle.joint_view_index).toBe(1);
+    expect(bundle.views[1].joint_roi).toBeNull();
+    expect(bundle.views[1].joint_roi_polygon_norm ?? null).toBeNull();
+  });
+
   it("rejects crooked joint polygon", () => {
     expect(() =>
       createReferenceBundleFromCameraFrames(

@@ -1,0 +1,230 @@
+2026-08-04 14:12:57.451 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-08-04 14:12:57.451 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:13:06.711 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-08-04 14:13:06.712 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:13:16.031 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-08-04 14:13:16.031 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:13:25.327 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=4 source=io_input cameras=all
+2026-08-04 14:13:25.328 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=4 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:13:34.630 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=5 source=io_input cameras=all
+2026-08-04 14:13:34.631 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=5 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:13:43.910 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=6 source=io_input cameras=all
+2026-08-04 14:13:43.911 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=6 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:13:53.193 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=7 source=io_input cameras=all
+2026-08-04 14:13:53.193 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=7 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:14:02.500 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=8 source=io_input cameras=all
+2026-08-04 14:14:02.500 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=8 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:14:11.783 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=9 source=io_input cameras=all
+2026-08-04 14:14:11.784 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=9 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:14:21.061 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=10 source=io_input cameras=all
+2026-08-04 14:14:21.061 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=10 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:14:30.348 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=11 source=io_input cameras=all
+2026-08-04 14:14:30.349 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=11 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:14:39.651 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=12 source=io_input cameras=all
+2026-08-04 14:14:39.652 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=12 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-04 14:14:48.936 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=13 source=io_input cameras=all
+2026-08-04 14:14:48.937 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=13 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:36:34.755 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-08-06 14:36:34.755 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:36:44.081 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-08-06 14:36:44.081 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:53:27.225 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-08-06 14:53:27.225 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:53:36.504 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-08-06 14:53:36.505 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:53:45.804 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-08-06 14:53:45.805 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:53:55.121 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=4 source=io_input cameras=all
+2026-08-06 14:53:55.122 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=4 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:54:04.375 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=5 source=io_input cameras=all
+2026-08-06 14:54:04.376 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=5 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:54:13.690 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=6 source=io_input cameras=all
+2026-08-06 14:54:13.691 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=6 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:54:23.011 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=7 source=io_input cameras=all
+2026-08-06 14:54:23.012 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=7 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:54:32.281 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=8 source=io_input cameras=all
+2026-08-06 14:54:32.281 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=8 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:54:41.581 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=9 source=io_input cameras=all
+2026-08-06 14:54:41.581 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=9 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:56:51.668 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-08-06 14:56:51.669 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:57:00.956 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-08-06 14:57:00.956 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:57:10.256 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-08-06 14:57:10.256 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:57:19.552 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=4 source=io_input cameras=all
+2026-08-06 14:57:19.553 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=4 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:57:28.842 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=5 source=io_input cameras=all
+2026-08-06 14:57:28.843 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=5 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:57:38.129 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=6 source=io_input cameras=all
+2026-08-06 14:57:38.130 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=6 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:57:47.445 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=7 source=io_input cameras=all
+2026-08-06 14:57:47.446 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=7 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:57:56.754 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=8 source=io_input cameras=all
+2026-08-06 14:57:56.754 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=8 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:58:06.039 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=9 source=io_input cameras=all
+2026-08-06 14:58:06.039 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=9 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:58:15.318 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=10 source=io_input cameras=all
+2026-08-06 14:58:15.318 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=10 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:58:24.595 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=11 source=io_input cameras=all
+2026-08-06 14:58:24.595 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=11 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 14:58:33.898 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=12 source=io_input cameras=all
+2026-08-06 14:58:33.899 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=12 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:14:03.247 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-08-06 15:14:03.247 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:14:12.532 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-08-06 15:14:12.533 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:14:21.815 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-08-06 15:14:21.815 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:14:31.105 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=4 source=io_input cameras=all
+2026-08-06 15:14:31.106 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=4 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:14:40.381 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=5 source=io_input cameras=all
+2026-08-06 15:14:40.382 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=5 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:14:49.663 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=6 source=io_input cameras=all
+2026-08-06 15:14:49.664 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=6 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:14:58.960 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=7 source=io_input cameras=all
+2026-08-06 15:14:58.960 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=7 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:15:08.276 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=8 source=io_input cameras=all
+2026-08-06 15:15:08.276 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=8 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:15:17.579 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=9 source=io_input cameras=all
+2026-08-06 15:15:17.580 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=9 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:15:26.852 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=10 source=io_input cameras=all
+2026-08-06 15:15:26.853 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=10 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:15:36.176 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=11 source=io_input cameras=all
+2026-08-06 15:15:36.176 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=11 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:15:45.429 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=12 source=io_input cameras=all
+2026-08-06 15:15:45.429 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=12 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:15:54.711 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=13 source=io_input cameras=all
+2026-08-06 15:15:54.711 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=13 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:16:04.015 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=14 source=io_input cameras=all
+2026-08-06 15:16:04.015 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=14 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:24:44.478 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-08-06 15:24:44.479 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:24:53.768 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-08-06 15:24:53.768 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:25:03.057 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-08-06 15:25:03.057 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:25:12.368 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=4 source=io_input cameras=all
+2026-08-06 15:25:12.369 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=4 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:25:21.656 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=5 source=io_input cameras=all
+2026-08-06 15:25:21.656 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=5 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:25:30.958 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=6 source=io_input cameras=all
+2026-08-06 15:25:30.959 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=6 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:25:40.239 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=7 source=io_input cameras=all
+2026-08-06 15:25:40.240 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=7 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:25:49.541 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=8 source=io_input cameras=all
+2026-08-06 15:25:49.541 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=8 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:25:58.876 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=9 source=io_input cameras=all
+2026-08-06 15:25:58.877 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=9 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:26:08.142 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=10 source=io_input cameras=all
+2026-08-06 15:26:08.143 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=10 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:26:17.444 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=11 source=io_input cameras=all
+2026-08-06 15:26:17.445 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=11 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:26:26.756 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=12 source=io_input cameras=all
+2026-08-06 15:26:26.757 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=12 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:26:36.056 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=13 source=io_input cameras=all
+2026-08-06 15:26:36.057 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=13 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:26:45.367 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=14 source=io_input cameras=all
+2026-08-06 15:26:45.367 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=14 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:26:54.649 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=15 source=io_input cameras=all
+2026-08-06 15:26:54.650 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=15 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:27:03.941 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=16 source=io_input cameras=all
+2026-08-06 15:27:03.941 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=16 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:27:13.243 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=17 source=io_input cameras=all
+2026-08-06 15:27:13.243 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=17 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:27:22.541 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=18 source=io_input cameras=all
+2026-08-06 15:27:22.541 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=18 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:27:31.780 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=19 source=io_input cameras=all
+2026-08-06 15:27:31.781 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=19 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:27:41.083 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=20 source=io_input cameras=all
+2026-08-06 15:27:41.083 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=20 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:27:50.374 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=21 source=io_input cameras=all
+2026-08-06 15:27:50.374 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=21 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:27:59.685 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=22 source=io_input cameras=all
+2026-08-06 15:27:59.685 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=22 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:28:08.986 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=23 source=io_input cameras=all
+2026-08-06 15:28:08.986 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=23 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:28:18.298 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=24 source=io_input cameras=all
+2026-08-06 15:28:18.299 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=24 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:28:27.577 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=25 source=io_input cameras=all
+2026-08-06 15:28:27.578 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=25 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:28:36.864 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=26 source=io_input cameras=all
+2026-08-06 15:28:36.864 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=26 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:28:46.179 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=27 source=io_input cameras=all
+2026-08-06 15:28:46.179 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=27 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:28:55.470 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=28 source=io_input cameras=all
+2026-08-06 15:28:55.470 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=28 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:29:04.757 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=29 source=io_input cameras=all
+2026-08-06 15:29:04.758 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=29 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:29:14.063 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=30 source=io_input cameras=all
+2026-08-06 15:29:14.063 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=30 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:29:23.342 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=31 source=io_input cameras=all
+2026-08-06 15:29:23.342 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=31 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:29:32.640 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=32 source=io_input cameras=all
+2026-08-06 15:29:32.640 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=32 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:29:41.963 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=33 source=io_input cameras=all
+2026-08-06 15:29:41.965 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=33 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:29:51.282 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=34 source=io_input cameras=all
+2026-08-06 15:29:51.282 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=34 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:30:00.568 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=35 source=io_input cameras=all
+2026-08-06 15:30:00.568 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=35 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:30:09.832 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=36 source=io_input cameras=all
+2026-08-06 15:30:09.832 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=36 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:30:19.154 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=37 source=io_input cameras=all
+2026-08-06 15:30:19.155 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=37 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:30:28.438 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=38 source=io_input cameras=all
+2026-08-06 15:30:28.438 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=38 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:30:37.767 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=39 source=io_input cameras=all
+2026-08-06 15:30:37.767 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=39 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:30:47.047 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=40 source=io_input cameras=all
+2026-08-06 15:30:47.047 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=40 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:30:56.304 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=41 source=io_input cameras=all
+2026-08-06 15:30:56.304 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=41 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:31:05.592 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=42 source=io_input cameras=all
+2026-08-06 15:31:05.592 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=42 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:31:14.921 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=43 source=io_input cameras=all
+2026-08-06 15:31:14.921 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=43 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:31:24.196 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=44 source=io_input cameras=all
+2026-08-06 15:31:24.196 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=44 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:31:33.488 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=45 source=io_input cameras=all
+2026-08-06 15:31:33.488 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=45 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:31:42.768 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=46 source=io_input cameras=all
+2026-08-06 15:31:42.769 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=46 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:31:52.028 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=47 source=io_input cameras=all
+2026-08-06 15:31:52.028 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=47 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:32:01.362 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=48 source=io_input cameras=all
+2026-08-06 15:32:01.362 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=48 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:32:10.681 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=49 source=io_input cameras=all
+2026-08-06 15:32:10.681 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=49 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:32:19.965 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=50 source=io_input cameras=all
+2026-08-06 15:32:19.966 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=50 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:32:29.282 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=51 source=io_input cameras=all
+2026-08-06 15:32:29.283 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=51 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:32:38.571 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=52 source=io_input cameras=all
+2026-08-06 15:32:38.571 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=52 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:32:47.890 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=53 source=io_input cameras=all
+2026-08-06 15:32:47.890 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=53 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:32:57.197 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=54 source=io_input cameras=all
+2026-08-06 15:32:57.197 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=54 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:33:06.485 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=55 source=io_input cameras=all
+2026-08-06 15:33:06.486 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=55 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:33:15.809 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=56 source=io_input cameras=all
+2026-08-06 15:33:15.809 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=56 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:33:25.102 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=57 source=io_input cameras=all
+2026-08-06 15:33:25.102 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=57 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:33:34.412 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=58 source=io_input cameras=all
+2026-08-06 15:33:34.412 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=58 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:33:43.699 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=59 source=io_input cameras=all
+2026-08-06 15:33:43.700 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=59 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:33:53.001 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=60 source=io_input cameras=all
+2026-08-06 15:33:53.002 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=60 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:34:02.303 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=61 source=io_input cameras=all
+2026-08-06 15:34:02.303 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=61 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:34:11.625 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=62 source=io_input cameras=all
+2026-08-06 15:34:11.625 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=62 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:34:20.895 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=63 source=io_input cameras=all
+2026-08-06 15:34:20.895 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=63 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:34:30.203 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=64 source=io_input cameras=all
+2026-08-06 15:34:30.203 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=64 cameras=10 stagger_ms=0 mode=simultaneous
+2026-08-06 15:34:39.479 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=65 source=io_input cameras=all
+2026-08-06 15:34:39.479 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=65 cameras=10 stagger_ms=0 mode=simultaneous

@@ -1,0 +1,117 @@
+2026-08-04 14:12:51.121 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-04 14:12:51.121 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-04 14:12:51.123 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-04 14:12:51.124 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-04 14:12:51.127 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-04 14:12:51.135 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-04 14:12:51.137 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-04 14:12:51.139 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-04 14:12:54.177 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
+2026-08-04 14:12:54.178 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)
+2026-08-04 14:14:49.342 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:34:38.134 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-06 14:34:38.135 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-06 14:34:38.137 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:34:38.138 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:34:38.142 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:34:38.144 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:34:38.148 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:34:38.150 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:34:41.276 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=true (reference_active=false healthy=false unhealthy=[analis_surface])
+2026-08-06 14:34:41.278 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=true
+2026-08-06 14:36:24.036 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
+2026-08-06 14:36:24.036 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)
+2026-08-06 14:36:45.348 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:39:42.911 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-06 14:39:42.911 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-06 14:39:42.913 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:39:42.914 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:39:42.916 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:39:42.919 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:39:42.922 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:39:42.924 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:39:45.935 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=true (reference_active=false healthy=false unhealthy=[analis_surface])
+2026-08-06 14:39:45.938 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=true
+2026-08-06 14:53:17.130 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-06 14:53:17.131 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-06 14:53:17.133 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:53:17.134 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:53:17.138 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:53:17.141 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:53:17.144 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:53:17.146 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:53:20.138 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
+2026-08-06 14:53:20.138 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)
+2026-08-06 14:56:39.628 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-06 14:56:39.628 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-06 14:56:39.630 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:56:39.631 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 14:56:39.634 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:56:39.637 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:56:39.640 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 14:56:39.643 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 14:56:43.297 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
+2026-08-06 14:56:43.297 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)
+2026-08-06 14:57:19.463 INFO  [WebSocketWorker-82] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-08-06 14:57:19.464 INFO  [WebSocketWorker-82] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=OPERATIONAL vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-08-06 14:57:19.465 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-08-06 14:57:19.467 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-08-06 14:57:21.285 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:57:21.288 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:57:30.297 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:57:30.299 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:57:39.623 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:57:39.627 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:57:48.897 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:57:48.900 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:57:58.177 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:57:58.185 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:58:07.570 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:58:07.572 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:58:16.868 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:58:16.872 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:58:26.025 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:58:26.028 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 14:58:35.328 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 14:58:35.331 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 15:12:41.772 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-06 15:12:41.773 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-06 15:12:41.774 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 15:12:41.775 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 15:12:41.778 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:12:41.781 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 15:12:41.783 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:12:41.786 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 15:12:43.400 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:13:52.105 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-06 15:13:52.105 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-06 15:13:52.108 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 15:13:52.109 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 15:13:52.112 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:13:52.114 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 15:13:52.117 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:13:52.120 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 15:13:55.203 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
+2026-08-06 15:13:55.204 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)
+2026-08-06 15:14:40.876 INFO  [WebSocketWorker-80] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-08-06 15:14:40.876 INFO  [WebSocketWorker-80] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=OPERATIONAL vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-08-06 15:14:40.878 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-08-06 15:14:40.880 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-08-06 15:14:41.279 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 15:14:41.281 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 15:14:51.512 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 15:14:51.515 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 15:15:00.636 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_1 area=W address=0.6 value=false
+2026-08-06 15:15:00.639 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=reject_line_2 area=W address=0.7 value=false
+2026-08-06 15:15:04.899 INFO  [HTTP-Dispatcher] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 15:15:04.901 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:24:32.836 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\visionGay\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-08-06 15:24:32.837 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-08-06 15:24:32.838 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 15:24:32.839 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-08-06 15:24:32.842 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:24:32.845 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 15:24:32.848 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-08-06 15:24:32.850 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-08-06 15:24:35.861 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
+2026-08-06 15:24:35.862 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)

@@ -48,6 +48,10 @@ public final class InspectionCycleResumeService {
         log.info("inspection resume cam={} seq={} injected={}", cameraId, seq, injected);
     }
 
+    public long currentTriggerSequence() {
+        return bus == null ? 0L : bus.currentSequence();
+    }
+
     private Long resolveOpenSequence(int cameraId) {
         if (bucketAggregator != null && bucketAggregator.isBucketCamera(cameraId)) {
             Long open = bucketAggregator.findOpenSequenceMissingCamera(cameraId);

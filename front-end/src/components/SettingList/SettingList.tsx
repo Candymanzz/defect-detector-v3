@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ChangeEvent, CSSProperties, FormEvent } from "react";
+import type { ChangeEvent, CSSProperties, FocusEvent, FormEvent, MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   createSettingErrorData,
   INITIAL_SETTING_DATA,
@@ -16,6 +17,7 @@ import {
 import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
+import { AnalysisSettingsPanel } from "./AnalysisSettingsPanel";
 import { orchestratorApi } from "../../shared/api";
 import benchmarkIconUrl from "../../shared/assets/images/benchmark.svg";
 import camerasIconUrl from "../../shared/assets/images/cameras.svg";
@@ -33,41 +35,154 @@ const SETTINGS_STREAM_CAMERA_ID = 0;
 const ANALYSIS_SETTING_FIELDS: Array<{
   name: AnalysisSettingFieldName;
   label: string;
+  hint: string;
   type: "number" | "checkbox";
   min?: number;
   max?: number;
   step?: string;
 }> = [
-  { name: "default_threshold", label: "Порог по умолчанию", type: "number", min: 0.01, max: 1, step: "0.01" },
-  { name: "min_defect_area", label: "Мин. площадь дефекта", type: "number", min: 1, step: "1" },
-  { name: "min_scratch_aspect", label: "Мин. пропорция царапины", type: "number", min: 1, step: "0.1" },
-  { name: "min_diff_signal", label: "Мин. diff-сигнал", type: "number", min: 0, step: "0.1" },
-  { name: "diff_percentile", label: "Перцентиль diff", type: "number", min: 50, max: 100, step: "0.1" },
-  { name: "scratch_score_floor", label: "Нижний порог оценки царапины", type: "number", min: 0, max: 1, step: "0.01" },
-  { name: "scratch_aspect_floor", label: "Нижний порог пропорции царапины", type: "number", min: 1, step: "0.1" },
-  { name: "edge_suppress_factor", label: "Коэффициент подавления краёв", type: "number", min: 0, max: 1, step: "0.01" },
-  { name: "text_min_contrast", label: "Мин. контраст текста", type: "number", min: 0, max: 255, step: "1" },
-  { name: "text_structure_threshold", label: "Порог структуры текста", type: "number", min: 0, max: 255, step: "1" },
-  { name: "contrast_loss_boost", label: "Усиление потери контраста", type: "number", min: 1, step: "0.1" },
+  {
+    name: "default_threshold",
+    label: "Порог брака",
+    hint: "Граница между «Годен» и «Брак». Выше — меньше ложного брака, но слабый дефект легче пропустить. Ниже — выше чувствительность.",
+    type: "number",
+    min: 0.01,
+    max: 1,
+    step: "0.01",
+  },
+  {
+    name: "min_defect_area",
+    label: "Минимальный размер дефекта",
+    hint: "Пятна меньше указанной площади в пикселях игнорируются. Увеличьте при шуме и пыли; уменьшите для поиска мелких точечных дефектов.",
+    type: "number",
+    min: 1,
+    step: "1",
+  },
+  {
+    name: "min_scratch_aspect",
+    label: "Минимальная вытянутость царапины",
+    hint: "Требуемое отношение длины пятна к ширине. Выше — учитываются только длинные тонкие линии; ниже — больше объектов считается царапинами.",
+    type: "number",
+    min: 1,
+    step: "0.1",
+  },
+  {
+    name: "min_diff_signal",
+    label: "Минимальная сила отличия",
+    hint: "Слабые отличия кадра от эталона ниже этого значения игнорируются. Увеличьте при шуме освещения; уменьшите, если не видны слабые дефекты.",
+    type: "number",
+    min: 0,
+    step: "0.1",
+  },
+  {
+    name: "diff_percentile",
+    label: "Отсечение слабых отличий",
+    hint: "Определяет, какая часть самых сильных отличий попадёт в маску. Выше — маска чище и меньше; ниже — шире и чувствительнее, но шумнее.",
+    type: "number",
+    min: 50,
+    max: 100,
+    step: "0.1",
+  },
+  {
+    name: "scratch_score_floor",
+    label: "Минимальная оценка царапины",
+    hint: "Нижняя граница оценки для найденной вытянутой царапины. Увеличьте, если видимая царапина остаётся «Годен»; уменьшите при ложных полосках.",
+    type: "number",
+    min: 0,
+    max: 1,
+    step: "0.01",
+  },
+  {
+    name: "scratch_aspect_floor",
+    label: "Вытянутость для усиления царапины",
+    hint: "Начиная с какой вытянутости применяется минимальная оценка царапины. Выше — только для очень длинных линий; ниже — срабатывает чаще.",
+    type: "number",
+    min: 1,
+    step: "0.1",
+  },
+  {
+    name: "edge_suppress_factor",
+    label: "Чувствительность к краям детали",
+    hint: "0 почти полностью подавляет отличия на кромках, 1 учитывает их полностью. Уменьшите при ложном браке из-за дрожания контура.",
+    type: "number",
+    min: 0,
+    max: 1,
+    step: "0.01",
+  },
+  {
+    name: "text_min_contrast",
+    label: "Порог изменений на тексте",
+    hint: "Слабые отличия в областях текста ниже порога игнорируются. Увеличьте при ложных срабатываниях на буквах и логотипах.",
+    type: "number",
+    min: 0,
+    max: 255,
+    step: "1",
+  },
+  {
+    name: "text_structure_threshold",
+    label: "Распознавание текстовых областей",
+    hint: "Определяет, какие области считаются текстом. Ниже — текстовыми считается больше областей; выше — текстовые правила применяются реже.",
+    type: "number",
+    min: 0,
+    max: 255,
+    step: "1",
+  },
+  {
+    name: "contrast_loss_boost",
+    label: "Чувствительность к стёртому тексту",
+    hint: "Усиливает отличие там, где контраст эталона ослаб на текущем кадре. Увеличьте для поиска стёртой печати; уменьшите при реакции на лёгкое выцветание.",
+    type: "number",
+    min: 1,
+    step: "0.1",
+  },
   {
     name: "contrast_loss_ref_grad",
-    label: "Градиент эталона при потере контраста",
+    label: "Минимальная резкость текста на эталоне",
+    hint: "Порог заметного края или текста на эталоне. Выше — потеря контраста ищется только в изначально резких местах; ниже — также в слабых текстурах.",
     type: "number",
     min: 0,
     step: "0.1",
   },
   {
     name: "contrast_loss_cur_grad",
-    label: "Градиент текущего кадра при потере контраста",
+    label: "Порог ослабления текста на кадре",
+    hint: "Определяет, насколько слабым должен стать край на текущем кадре. Выше — меньше ложных срабатываний; ниже — чувствительнее к стиранию.",
     type: "number",
     min: 0,
     step: "0.1",
   },
-  { name: "enable_clahe", label: "Включить CLAHE", type: "checkbox" },
-  { name: "clahe_clip_limit", label: "Предел отсечения CLAHE", type: "number", min: 0.01, step: "0.1" },
-  { name: "fp_recheck_enabled", label: "Включить повторную проверку FP", type: "checkbox" },
-  { name: "fp_trigger_diff_q90", label: "FP триггер diff q90", type: "number", min: 0, step: "0.1" },
+  {
+    name: "enable_clahe",
+    label: "Выравнивать локальный контраст",
+    hint: "Помогает при неравномерном освещении. На гладких или блестящих поверхностях может усилить текстуру и шум.",
+    type: "checkbox",
+  },
+  {
+    name: "clahe_clip_limit",
+    label: "Сила выравнивания контраста",
+    hint: "Работает только при включённом выравнивании. Выше — сильнее проявляются слабые отличия и шум; ниже — обработка мягче.",
+    type: "number",
+    min: 0.01,
+    step: "0.1",
+  },
+  {
+    name: "fp_recheck_enabled",
+    label: "Учитывать исключающие зоны",
+    hint: "Включает повторный расчёт с подавлением заранее размеченных зон ложных срабатываний. Обычно рекомендуется оставить включённым.",
+    type: "checkbox",
+  },
+  {
+    name: "fp_trigger_diff_q90",
+    label: "Порог активации исключающей зоны",
+    hint: "Насколько сильным должно быть отличие внутри зоны, чтобы применилось подавление. Ниже — зона срабатывает чаще; выше — реже.",
+    type: "number",
+    min: 0,
+    step: "0.1",
+  },
 ];
+
+// Legacy full-field metadata is kept for compatibility while the UI uses Simple/Pro presets.
+void ANALYSIS_SETTING_FIELDS;
 
 type SettingListProps = {
   selectedCameraId: number | null;
@@ -87,10 +202,20 @@ type ResetFeedback = {
   text: string;
 };
 
+type AnalysisTooltip = {
+  text: string;
+  left: number;
+  top: number;
+  placement: "above" | "below";
+};
+
 export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, onInspectionReset }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [resetFeedback, setResetFeedback] = useState<ResetFeedback | null>(null);
+  const [stopFeedback, setStopFeedback] = useState<ResetFeedback | null>(null);
+  const [inspectionRunning, setInspectionRunning] = useState<boolean | null>(null);
+  const [analysisTooltip, setAnalysisTooltip] = useState<AnalysisTooltip | null>(null);
   const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
@@ -101,6 +226,40 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все изделия камер" : `Изделие камеры ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
+
+  useEffect(() => {
+    let active = true;
+    const refreshInspectionState = () => {
+      void orchestratorApi
+        .getInspectionStatus()
+        .then((response) => {
+          if (active) setInspectionRunning(response.enabledCameraIds.length > 0);
+        })
+        .catch(() => undefined);
+    };
+    refreshInspectionState();
+    const timer = window.setInterval(refreshInspectionState, 1500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const showAnalysisTooltip = (event: MouseEvent<HTMLSpanElement> | FocusEvent<HTMLSpanElement>, text: string) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const tooltipWidth = Math.min(300, window.innerWidth - 24);
+    const placement = rect.top > window.innerHeight / 2 ? "above" : "below";
+    setAnalysisTooltip({
+      text,
+      left: Math.min(
+        window.innerWidth - tooltipWidth - 12,
+        Math.max(12, rect.left + rect.width / 2 - tooltipWidth / 2),
+      ),
+      top: placement === "above" ? rect.top - 8 : rect.bottom + 8,
+      placement,
+    });
+  };
+  void showAnalysisTooltip;
 
   useLayoutEffect(() => {
     requestIdRef.current += 1;
@@ -148,6 +307,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       ),
     }));
   };
+  void handleAnalysisFieldChange;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -306,11 +466,40 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       });
   };
 
+  const handleInspectionStop = () => {
+    if (stopFeedback?.state === "resetting") {
+      return;
+    }
+
+    const shouldStart = inspectionRunning === false;
+    setStopFeedback({
+      state: "resetting",
+      text: shouldStart ? "Запуск инспекции со следующей группы..." : "Остановка инспекции...",
+    });
+    const request = shouldStart ? orchestratorApi.startAllInspections() : orchestratorApi.stopAllInspections();
+    request
+      .then((response) => {
+        const isRunning = response.enabledCameraIds.length > 0;
+        setInspectionRunning(isRunning);
+        window.dispatchEvent(new CustomEvent("inspection-control-changed", { detail: response }));
+        setStopFeedback({
+          state: "success",
+          text: isRunning
+            ? "Инспекция запущена — ожидание следующей группы кадров"
+            : "Инспекция остановлена; отображается только поток кадров",
+        });
+      })
+      .catch((error: unknown) => {
+        setStopFeedback({ state: "error", text: errorMessage(error) });
+      });
+  };
+
   return (
     <aside
       className="setting-list"
       aria-label="Настройки"
       style={createSettingListStyle(maxHeightPx)}
+      onScrollCapture={() => setAnalysisTooltip(null)}
     >
       <InspectionStatsPanel stats={inspectionStats} />
 
@@ -347,17 +536,27 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               Камеры
             </Button>
             <Button
-              className="setting-list__quick-action setting-list__quick-action--reset"
-              disabled={resetFeedback?.state === "resetting"}
-              onClick={handleInspectionReset}
+              className={`setting-list__quick-action ${inspectionRunning === false ? "setting-list__quick-action--start" : "setting-list__quick-action--reset"}`}
+              disabled={inspectionRunning === null || stopFeedback?.state === "resetting"}
+              onClick={handleInspectionStop}
             >
-              <SettingActionIcon name="reset" />
-              {resetFeedback?.state === "resetting" ? "Сброс..." : "Сброс"}
+              <SettingActionIcon name={inspectionRunning === false ? "start" : "stop"} />
+              {stopFeedback?.state === "resetting"
+                ? inspectionRunning === false
+                  ? "Пуск..."
+                  : "Стоп..."
+                : inspectionRunning === false
+                  ? "Пуск инспекции"
+                  : "Стоп инспекции"}
             </Button>
           </div>
-          {resetFeedback && (
-            <span className="setting-list__inspection-reset-status" data-status={resetFeedback.state} aria-live="polite">
-              {resetFeedback.text}
+          {stopFeedback && (
+            <span
+              className="setting-list__inspection-reset-status"
+              data-status={stopFeedback.state}
+              aria-live="polite"
+            >
+              {stopFeedback.text}
             </span>
           )}
         </section>
@@ -458,22 +657,16 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
                   onChange={handleFieldChange("maxShiftMm")}
                 />
               </label>
-              <label className="setting-list__field setting-list__field--checkbox">
-                <span>Сегментация стыка (параллельность по полосе)</span>
+              <label>
+                <span>Чувствительность сегментации стыка</span>
                 <input
-                  type="checkbox"
-                  checked={settingData.form.jointSeamSegmentationEnabled}
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={settingData.form.jointSeamSegmentationSensitivity}
                   disabled={!canEditSettings}
-                  onChange={(event) => {
-                    setSaveFeedback(null);
-                    setSettingData((current) => ({
-                      ...current,
-                      form: {
-                        ...current.form,
-                        jointSeamSegmentationEnabled: event.target.checked,
-                      },
-                    }));
-                  }}
+                  onChange={handleFieldChange("jointSeamSegmentationSensitivity")}
                 />
               </label>
               <Button
@@ -518,41 +711,31 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               <h3>Настройки анализа</h3>
               <strong>{analysisScopeText}</strong>
             </summary>
-            <div className="setting-list__analysis-grid">
-              {ANALYSIS_SETTING_FIELDS.map((field) => (
-                <label
-                  key={field.name}
-                  className={
-                    field.type === "checkbox"
-                      ? "setting-list__field setting-list__field--checkbox"
-                      : "setting-list__field"
-                  }
-                >
-                  <span>{field.label}</span>
-                  <input
-                    type={field.type}
-                    min={field.min}
-                    max={field.max}
-                    step={field.step}
-                    checked={
-                      field.type === "checkbox" ? Boolean(settingData.form.analysisSettings[field.name]) : undefined
-                    }
-                    value={field.type === "number" ? Number(settingData.form.analysisSettings[field.name]) : undefined}
-                    disabled={!canEditSettings}
-                    onChange={handleAnalysisFieldChange(field.name)}
-                  />
-                </label>
-              ))}
-            </div>
-            <Button
-              className="setting-list__inline-save setting-list__analysis-save"
-              type="submit"
-              disabled={!canEditSettings}
-            >
-              Сохранить
-            </Button>
+            <AnalysisSettingsPanel
+              selectedCameraId={selectedCameraId}
+              profile={settingData.analysisProductTypes[0]}
+            />
           </details>
         </section>
+
+        <div className="setting-list__inspection-reset-block">
+          <Button
+            className="setting-list__inspection-reset"
+            disabled={resetFeedback?.state === "resetting"}
+            onClick={handleInspectionReset}
+          >
+            {resetFeedback?.state === "resetting" ? "Сброс инспекции..." : "Сброс инспекции"}
+          </Button>
+          {resetFeedback && (
+            <span
+              className="setting-list__inspection-reset-status"
+              data-status={resetFeedback.state}
+              aria-live="polite"
+            >
+              {resetFeedback.text}
+            </span>
+          )}
+        </div>
       </form>
 
       {isCameraSettingsOpen && (
@@ -575,6 +758,18 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
           onClose={() => setIsServerStreamOpen(false)}
         />
       )}
+      {analysisTooltip &&
+        createPortal(
+          <div
+            className="setting-list__analysis-tooltip"
+            data-placement={analysisTooltip.placement}
+            role="tooltip"
+            style={{ left: analysisTooltip.left, top: analysisTooltip.top }}
+          >
+            {analysisTooltip.text}
+          </div>,
+          document.body,
+        )}
     </aside>
   );
 }
@@ -602,7 +797,7 @@ function SettingActionIcon({
   name,
   className,
 }: {
-  name: "stream" | "reference" | "camera" | "reset" | "light";
+  name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light";
   className?: string;
 }) {
   const iconClassName = ["setting-list__action-icon", className].filter(Boolean).join(" ");
@@ -679,6 +874,8 @@ function SettingActionIcon({
             <path d="M6 7l1 13h10l1-13" />
           </>
         )}
+        {name === "stop" && <rect x="6" y="6" width="12" height="12" rx="2" />}
+        {name === "start" && <path d="M8 5.5v13l10-6.5L8 5.5Z" />}
         {name === "light" && (
           <>
             <circle
@@ -694,7 +891,7 @@ function SettingActionIcon({
   );
 }
 
-function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "reset" | "light") {
+function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light") {
   if (name === "stream") {
     return streamIconUrl;
   }
@@ -755,14 +952,6 @@ function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
         <div>
           <span>Старт</span>
           <strong>{formatStatsTime(stats.inspectionStartedAtMs)}</strong>
-        </div>
-        <div>
-          <span>Эталон</span>
-          <strong>
-            {stats.referenceFrameId
-              ? `кадр ${stats.referenceFrameId}, ${formatStatsTime(stats.referenceSetAtMs)}`
-              : "не задан"}
-          </strong>
         </div>
         <div>
           <span>Стоп</span>

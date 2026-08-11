@@ -8,6 +8,8 @@ java_geometry:
   # Шов этикетки (joint ROI): сегментация полосы, средняя ширина + клин сверху/снизу.
   # min смягчён: рабочие швы на стенде часто ~0.35–0.45 mm при pixels_to_mm=0.02.
   max_joint_defect_mm: 0.5
+  # Min width применяется только если параллельность кромок НЕ ок;
+  # при хорошей параллельности min-порог не валит шов (остаётся только max).
   joint_min_width_mm: 0.25
   joint_max_width_mm: 3.0
   # Ракурс снизу даёт сходимость кромок в кадре — допуск шире, чем для фронтального вида.
@@ -21,8 +23,10 @@ java_geometry:
   max_joint_parallelism_deg_strict: 2.5
   joint_min_width_mm_strict: 0.4
   joint_max_width_mm_strict: 2.5
-  # Опционально: сегментация полосы стыка + fitLine кромок (параллельность). Вкл. с UI.
-  joint_seam_segmentation_enabled: false
+  # Сегментация полосы стыка + fitLine кромок (параллельность). Всегда включена.
+  joint_seam_segmentation_enabled: true
+  # 0..1: выше — легче захватить слабую полосу и жёстче допуск параллельности (вердикт).
+  joint_seam_segmentation_sensitivity: 0.5
   # Порог морщин (геометрия: смещение + стык + морщины в переданном ROI).
   max_wrinkles_score: 0.45
 

@@ -33,7 +33,7 @@
 #include <MvCameraControl.h>
 #endif
 
-#define TOK_POOL 512
+#define TOK_POOL 2048 /* was 512: config.json ~516 tokens after gige_transfer_slot */
 #define MAGIC0 'I'
 #define MAGIC1 'M'
 #define MAGIC2 'L'
@@ -86,12 +86,15 @@ typedef struct {
     float gain_db;
     float gamma;
     int black_level;
+    float balance_ratio_red;
+    float balance_ratio_blue;
     int trigger_mode;
     char trigger_activation[32];
     int line_inverter;
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
     int gige_ftd_cameras_per_link;
+    int gige_transfer_slot;
     int gige_switch_buffer_kb;
     size_t gige_payload_bytes;
     int pixel_format_pref;
@@ -277,6 +280,7 @@ typedef struct {
     int gige_inter_packet_delay;
     int gige_frame_transfer_delay_step;
     int gige_ftd_cameras_per_link;
+    int gige_transfer_slot;
     int gige_switch_buffer_kb;
     int frame_width;
     int frame_height;
@@ -284,6 +288,8 @@ typedef struct {
     int binning_horizontal;
     int binning_vertical;
     char binning_mode[16];
+    float balance_ratio_red;
+    float balance_ratio_blue;
 } worker_camera_config_t;
 
 /** Читает frame.width / frame.height / frame.format из корня config.json. */
@@ -362,6 +368,7 @@ static int json_copy_token_string(const char *js, const jsmntok_t *tok, char *ou
 
 static void load_camera_config(const char *js, int jslen, int camera_id, worker_camera_config_t *cfg) {
     memset(cfg, 0, sizeof(*cfg));
+    cfg->gige_transfer_slot = -1;
     snprintf(cfg->ip, sizeof(cfg->ip), "127.0.0.1");
 
     char mode[32] = {0};
@@ -405,6 +412,7 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
         char ip_buf[64] = {0};
         char cam_mode[32] = {0};
         int cam_exp = 0;
+        int cam_gige_transfer_slot = -1;
 
         for (int j = cam_obj + 1; j < r && tok[j].start < tok[cam_obj].end; j++) {
             if (tok[j].type != JSMN_STRING) {
@@ -428,6 +436,12 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
                     cam_exp = atoi(buf);
                 }
                 j++;
+            } else if (jsoneq(js, &tok[j], "gige_transfer_slot") == 0 && tok[j + 1].type == JSMN_PRIMITIVE) {
+                char buf[16];
+                if (json_copy_token_string(js, &tok[j + 1], buf, sizeof(buf)) == 0) {
+                    cam_gige_transfer_slot = atoi(buf);
+                }
+                j++;
             }
         }
 
@@ -443,7 +457,121 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
         if (cam_exp > 0) {
             cfg->exposure_us = cam_exp;
         }
+        cfg->gige_transfer_slot = cam_gige_transfer_slot;
         return;
+    }
+}
+
+/** WB ratios from config/data/camera_runtime_settings.json (next to config.json). */
+static void load_runtime_wb_settings(const char *config_path, int camera_id, worker_camera_config_t *cfg) {
+    if (!config_path || !cfg) {
+        return;
+    }
+    char settings_path[1024];
+    snprintf(settings_path, sizeof(settings_path), "%s", config_path);
+    char *slash = strrchr(settings_path, '/');
+    char *bslash = strrchr(settings_path, '\\');
+    char *sep = slash;
+    if (bslash && (!sep || bslash > sep)) {
+        sep = bslash;
+    }
+    if (sep) {
+        sep[1] = '\0';
+        size_t used = strlen(settings_path);
+        snprintf(settings_path + used, sizeof(settings_path) - used, "data/camera_runtime_settings.json");
+    } else {
+        snprintf(settings_path, sizeof(settings_path), "config/data/camera_runtime_settings.json");
+    }
+
+    char *js = NULL;
+    long jslen = 0;
+    if (read_file(settings_path, &js, &jslen) != 0) {
+        return;
+    }
+
+    char id_key[32];
+    snprintf(id_key, sizeof(id_key), "%d", camera_id);
+
+    jsmn_parser p;
+    jsmntok_t tok[TOK_POOL];
+    jsmn_init(&p);
+    int r = jsmn_parse(&p, js, (size_t)jslen, tok, TOK_POOL);
+    if (r < 1 || tok[0].type != JSMN_OBJECT) {
+        free(js);
+        return;
+    }
+
+    int cameras_idx = -1;
+    for (int i = 1; i < r - 1; i++) {
+        if (jsoneq(js, &tok[i], "cameras") == 0 && tok[i + 1].type == JSMN_OBJECT) {
+            cameras_idx = i + 1;
+            break;
+        }
+    }
+    if (cameras_idx < 0) {
+        free(js);
+        return;
+    }
+
+    int cam_obj = -1;
+    int cameras_end = tok[cameras_idx].end;
+    for (int i = cameras_idx + 1; i < r - 1; i++) {
+        if (tok[i].start >= cameras_end) {
+            break;
+        }
+        if (tok[i].type == JSMN_STRING && jsoneq(js, &tok[i], id_key) == 0 && tok[i + 1].type == JSMN_OBJECT) {
+            cam_obj = i + 1;
+            break;
+        }
+    }
+    if (cam_obj < 0) {
+        free(js);
+        return;
+    }
+
+    int cam_end = tok[cam_obj].end;
+    float red = 0.0f;
+    float blue = 0.0f;
+    int has_red = 0;
+    int has_blue = 0;
+    for (int i = cam_obj + 1; i < r - 1; i++) {
+        if (tok[i].start >= cam_end) {
+            break;
+        }
+        if (tok[i].type != JSMN_STRING) {
+            continue;
+        }
+        if (jsoneq(js, &tok[i], "balance_ratio_red") == 0 && tok[i + 1].type == JSMN_PRIMITIVE) {
+            int n = tok[i + 1].end - tok[i + 1].start;
+            if (n > 0 && n < 63) {
+                char buf[64];
+                memcpy(buf, js + tok[i + 1].start, (size_t)n);
+                buf[n] = '\0';
+                red = (float)atof(buf);
+                has_red = 1;
+            }
+        } else if (jsoneq(js, &tok[i], "balance_ratio_blue") == 0 && tok[i + 1].type == JSMN_PRIMITIVE) {
+            int n = tok[i + 1].end - tok[i + 1].start;
+            if (n > 0 && n < 63) {
+                char buf[64];
+                memcpy(buf, js + tok[i + 1].start, (size_t)n);
+                buf[n] = '\0';
+                blue = (float)atof(buf);
+                has_blue = 1;
+            }
+        }
+    }
+    free(js);
+
+    if (has_red && red > 0.0f) {
+        cfg->balance_ratio_red = red;
+    }
+    if (has_blue && blue > 0.0f) {
+        cfg->balance_ratio_blue = blue;
+    }
+    if (cfg->balance_ratio_red > 0.0f || cfg->balance_ratio_blue > 0.0f) {
+        fprintf(stderr, "runtime WB cam=%d red=%.3f blue=%.3f (%s)\n",
+                camera_id, cfg->balance_ratio_red, cfg->balance_ratio_blue, settings_path);
     }
 }
 
@@ -650,6 +778,76 @@ static int hik_apply_black_level(void *handle, int black_level) {
     return MV_OK;
 }
 
+static int hik_set_balance_ratio_value(void *handle, const char *node, float value) {
+    int r = MV_CC_SetFloatValue(handle, node, value);
+    if (r == MV_OK) {
+        return MV_OK;
+    }
+    unsigned int as_int = value >= 16.0f
+                                  ? (unsigned int)(value + 0.5f)
+                                  : (unsigned int)(value * 1024.0f + 0.5f);
+    return MV_CC_SetIntValue(handle, node, as_int);
+}
+
+static int hik_set_balance_ratio_channel(void *handle, const char *selector, const char *direct_node, float value) {
+    int r = MV_CC_SetEnumValueByString(handle, "BalanceRatioSelector", selector);
+    if (r == MV_OK) {
+        r = hik_set_balance_ratio_value(handle, "BalanceRatio", value);
+        if (r == MV_OK) {
+            return MV_OK;
+        }
+    }
+    if (direct_node && direct_node[0] != '\0') {
+        return hik_set_balance_ratio_value(handle, direct_node, value);
+    }
+    return r;
+}
+
+static int hik_read_balance_ratio_channel(void *handle, const char *selector, const char *direct_node, float *out) {
+    float value = 0.0f;
+    int r = MV_CC_SetEnumValueByString(handle, "BalanceRatioSelector", selector);
+    if (r == MV_OK) {
+        if (hik_read_float(handle, "BalanceRatio", &value) == MV_OK) {
+            *out = value;
+            return MV_OK;
+        }
+        MVCC_INTVALUE iv;
+        memset(&iv, 0, sizeof(iv));
+        if (MV_CC_GetIntValue(handle, "BalanceRatio", &iv) == MV_OK) {
+            *out = (float)iv.nCurValue;
+            return MV_OK;
+        }
+    }
+    if (direct_node && direct_node[0] != '\0') {
+        if (hik_read_float(handle, direct_node, &value) == MV_OK) {
+            *out = value;
+            return MV_OK;
+        }
+        MVCC_INTVALUE iv;
+        memset(&iv, 0, sizeof(iv));
+        if (MV_CC_GetIntValue(handle, direct_node, &iv) == MV_OK) {
+            *out = (float)iv.nCurValue;
+            return MV_OK;
+        }
+    }
+    return -1;
+}
+
+static int hik_apply_balance_ratios(void *handle, float red, float blue) {
+    if (!handle || red <= 0.0f || blue <= 0.0f) {
+        return -1;
+    }
+    int rr = hik_set_balance_ratio_channel(handle, "Red", "BalanceRatioRed", red);
+    int rb = hik_set_balance_ratio_channel(handle, "Blue", "BalanceRatioBlue", blue);
+    if (rr != MV_OK || rb != MV_OK) {
+        fprintf(stderr, "hik: BalanceRatio Red=%.3f Blue=%.3f not fully applied (red=0x%x blue=0x%x)\n",
+                red, blue, rr, rb);
+        return -1;
+    }
+    fprintf(stderr, "hik: BalanceRatio Red=%.3f Blue=%.3f\n", red, blue);
+    return MV_OK;
+}
+
 static void hik_read_runtime_tuning(worker_state_t *st) {
     if (!st->hik_handle) {
         return;
@@ -666,6 +864,14 @@ static void hik_read_runtime_tuning(worker_state_t *st) {
     if (MV_CC_GetIntValue(st->hik_handle, "BlackLevel", &black) == MV_OK) {
         st->black_level = (int)black.nCurValue;
     }
+    float red = 0.0f;
+    float blue = 0.0f;
+    if (hik_read_balance_ratio_channel(st->hik_handle, "Red", "BalanceRatioRed", &red) == MV_OK) {
+        st->balance_ratio_red = red;
+    }
+    if (hik_read_balance_ratio_channel(st->hik_handle, "Blue", "BalanceRatioBlue", &blue) == MV_OK) {
+        st->balance_ratio_blue = blue;
+    }
 }
 
 static void format_settings_json(const worker_state_t *st, char *out, size_t out_len) {
@@ -673,6 +879,8 @@ static void format_settings_json(const worker_state_t *st, char *out, size_t out
     float gain_db = st->gain_db;
     float gamma = st->gamma;
     int black_level = st->black_level;
+    float balance_ratio_red = st->balance_ratio_red;
+    float balance_ratio_blue = st->balance_ratio_blue;
     int mvs_available = 0;
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
     mvs_available = st->hik_handle != NULL;
@@ -692,6 +900,12 @@ static void format_settings_json(const worker_state_t *st, char *out, size_t out
         if (MV_CC_GetIntValue(st->hik_handle, "BlackLevel", &black) == MV_OK) {
             black_level = (int)black.nCurValue;
         }
+        if (hik_read_balance_ratio_channel(st->hik_handle, "Red", "BalanceRatioRed", &value) == MV_OK) {
+            balance_ratio_red = value;
+        }
+        if (hik_read_balance_ratio_channel(st->hik_handle, "Blue", "BalanceRatioBlue", &value) == MV_OK) {
+            balance_ratio_blue = value;
+        }
     }
 #endif
     const char *configured_trigger = trigger_mode_name(
@@ -700,7 +914,8 @@ static void format_settings_json(const worker_state_t *st, char *out, size_t out
             st->stream_active ? TRIGGER_MODE_CONTINUOUS : st->trigger_mode);
     snprintf(out, out_len,
              "{\"status\":\"ok\",\"camera_id\":%d,\"exposure_us\":%d,\"gain_db\":%.3f,\"gamma\":%.3f,"
-             "\"black_level\":%d,\"capture_trigger_mode\":\"%s\",\"effective_trigger_mode\":\"%s\","
+             "\"black_level\":%d,\"balance_ratio_red\":%.3f,\"balance_ratio_blue\":%.3f,"
+             "\"capture_trigger_mode\":\"%s\",\"effective_trigger_mode\":\"%s\","
              "\"pixel_format\":\"%s\",\"width\":%d,\"height\":%d,\"frame_timeout_ms\":%d,"
              "\"streaming\":%s,\"mvs_available\":%s}",
              st->camera_id,
@@ -708,6 +923,8 @@ static void format_settings_json(const worker_state_t *st, char *out, size_t out
              gain_db,
              gamma,
              black_level,
+             balance_ratio_red,
+             balance_ratio_blue,
              configured_trigger,
              effective_trigger,
              pixel_format_pref_name(st->hik_pixel_format_active),
@@ -727,6 +944,10 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     float gamma = 0.0f;
     int has_black = 0;
     int black_level = 0;
+    int has_wb_red = 0;
+    float balance_ratio_red = 0.0f;
+    int has_wb_blue = 0;
+    float balance_ratio_blue = 0.0f;
     int has_timeout = 0;
     int frame_timeout_ms = 0;
     char mode[32] = {0};
@@ -744,6 +965,12 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     if (json_find_int(header_json, (int)strlen(header_json), "black_level", &black_level) == 0) {
         has_black = 1;
     }
+    if (json_find_float(header_json, (int)strlen(header_json), "balance_ratio_red", &balance_ratio_red) == 0) {
+        has_wb_red = 1;
+    }
+    if (json_find_float(header_json, (int)strlen(header_json), "balance_ratio_blue", &balance_ratio_blue) == 0) {
+        has_wb_blue = 1;
+    }
     if (json_find_int(header_json, (int)strlen(header_json), "frame_timeout_ms", &frame_timeout_ms) == 0) {
         has_timeout = 1;
     }
@@ -751,7 +978,8 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
         has_mode = 1;
     }
 
-    if (!has_exposure && !has_gain && !has_gamma && !has_black && !has_timeout && !has_mode) {
+    if (!has_exposure && !has_gain && !has_gamma && !has_black && !has_wb_red && !has_wb_blue
+        && !has_timeout && !has_mode) {
         snprintf(err, err_len, "no_supported_settings_in_request");
         return -1;
     }
@@ -765,6 +993,14 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     }
     if (has_timeout && frame_timeout_ms <= 0) {
         snprintf(err, err_len, "frame_timeout_ms_must_be_positive");
+        return -1;
+    }
+    if (has_wb_red && balance_ratio_red <= 0.0f) {
+        snprintf(err, err_len, "balance_ratio_red_must_be_positive");
+        return -1;
+    }
+    if (has_wb_blue && balance_ratio_blue <= 0.0f) {
+        snprintf(err, err_len, "balance_ratio_blue_must_be_positive");
         return -1;
     }
 
@@ -790,6 +1026,21 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
                 st->black_level = black_level;
             }
         }
+        if (has_wb_red || has_wb_blue) {
+            float red = has_wb_red ? balance_ratio_red : st->balance_ratio_red;
+            float blue = has_wb_blue ? balance_ratio_blue : st->balance_ratio_blue;
+            if (red > 0.0f && blue > 0.0f && hik_apply_balance_ratios(st->hik_handle, red, blue) == MV_OK) {
+                st->balance_ratio_red = red;
+                st->balance_ratio_blue = blue;
+            } else {
+                if (has_wb_red) {
+                    st->balance_ratio_red = balance_ratio_red;
+                }
+                if (has_wb_blue) {
+                    st->balance_ratio_blue = balance_ratio_blue;
+                }
+            }
+        }
     } else
 #endif
     {
@@ -804,6 +1055,12 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
         }
         if (has_black) {
             st->black_level = black_level;
+        }
+        if (has_wb_red) {
+            st->balance_ratio_red = balance_ratio_red;
+        }
+        if (has_wb_blue) {
+            st->balance_ratio_blue = balance_ratio_blue;
         }
     }
     if (has_timeout) {
@@ -1013,6 +1270,9 @@ static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t
  */
 static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
+    if (st->gige_transfer_slot >= 0 && st->gige_transfer_slot < per_link) {
+        return (unsigned int)st->gige_transfer_slot;
+    }
     if (st->gige_switch_buffer_kb > 0 && hik_is_small_switch_buffer(st) && per_link > 2) {
         return (unsigned int)st->camera_id;
     }
@@ -1490,7 +1750,15 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     }
     hik_disable_auto_white_balance(st->hik_handle);
     hik_apply_exposure(st->hik_handle, st->exposure_us);
+    float configured_wb_red = st->balance_ratio_red;
+    float configured_wb_blue = st->balance_ratio_blue;
     hik_read_runtime_tuning(st);
+    if (configured_wb_red > 0.0f && configured_wb_blue > 0.0f) {
+        if (hik_apply_balance_ratios(st->hik_handle, configured_wb_red, configured_wb_blue) == MV_OK) {
+            st->balance_ratio_red = configured_wb_red;
+            st->balance_ratio_blue = configured_wb_blue;
+        }
+    }
     hik_configure_trigger_mode(st);
 
     MVCC_INTVALUE payload;
@@ -1968,6 +2236,8 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->gain_db = 0.0f;
     st->gamma = 1.0f;
     st->black_level = 0;
+    st->balance_ratio_red = cam_cfg ? cam_cfg->balance_ratio_red : 0.0f;
+    st->balance_ratio_blue = cam_cfg ? cam_cfg->balance_ratio_blue : 0.0f;
     st->trigger_mode = cam_cfg ? cam_cfg->trigger_mode : TRIGGER_MODE_CONTINUOUS;
     st->trigger_activation[0] = '\0';
     if (cam_cfg && cam_cfg->trigger_activation[0] != '\0') {
@@ -1981,6 +2251,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->gige_ftd_cameras_per_link = cam_cfg && cam_cfg->gige_ftd_cameras_per_link > 0
                                             ? cam_cfg->gige_ftd_cameras_per_link
                                             : 2;
+    st->gige_transfer_slot = cam_cfg ? cam_cfg->gige_transfer_slot : -1;
     st->gige_switch_buffer_kb = cam_cfg ? cam_cfg->gige_switch_buffer_kb : 0;
     st->pixel_format_pref = cam_cfg ? cam_cfg->pixel_format_pref : PIXEL_PREF_BGR8;
     st->hik_pixel_format_active = st->pixel_format_pref;
@@ -2520,6 +2791,7 @@ int main(int argc, char **argv) {
     (void)json_find_string(js, (int)jslen, "capture_source", capture_source, sizeof(capture_source));
     (void)json_find_int(js, (int)jslen, "frame_timeout_ms", &frame_timeout_ms);
     load_camera_config(js, (int)jslen, camera_id, &cam_cfg);
+    load_runtime_wb_settings(path, camera_id, &cam_cfg);
     (void)json_find_int(js, (int)jslen, "gige_inter_packet_delay", &cam_cfg.gige_inter_packet_delay);
     (void)json_find_int(js, (int)jslen, "gige_frame_transfer_delay_step", &cam_cfg.gige_frame_transfer_delay_step);
     (void)json_find_int(js, (int)jslen, "gige_ftd_cameras_per_link", &cam_cfg.gige_ftd_cameras_per_link);

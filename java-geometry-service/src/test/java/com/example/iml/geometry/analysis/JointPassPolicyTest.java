@@ -8,8 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JointPassPolicyTest {
 
     @Test
-    void missingSeamWithLowVisibilityIsInconclusivePass() {
-        assertTrue(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
+    void missingSeamFailsWhenJointRoiSet() {
+        // Empty bucket / no label: joint=9999, seam_w=0, vis≈0 → FAIL
+        assertFalse(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
                 true,
                 false,
                 false,
@@ -46,14 +47,14 @@ class JointPassPolicyTest {
     }
 
     @Test
-    void narrowWidthBelowMinFails() {
-        // width 0.15 with min 0.25 — real narrow defect (above noise floor)
+    void narrowWidthBelowMinFailsWhenParallelismBad() {
+        // width 0.15 with min 0.25, parallelism worse than limit → still FAIL on min width
         assertFalse(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
                 true,
                 false,
                 true,
                 0.1,
-                1.0,
+                4.0,
                 0.15,
                 0.0,
                 0.5,
@@ -61,6 +62,26 @@ class JointPassPolicyTest {
                 0.25,
                 3.0,
                 3.0,
+                0.6
+        ));
+    }
+
+    @Test
+    void narrowWidthBelowMinPassesWhenParallelismOk() {
+        // Production FP on line-2 joint cam: seam_w≈0.10, seam_par≈0.12 — waive min when parallel
+        assertTrue(OpenCvGeometryAnalysisService.evaluateJointPassForTest(
+                true,
+                false,
+                true,
+                0.145,
+                0.12,
+                0.105,
+                0.0,
+                1.0,
+                0.5,
+                0.25,
+                3.0,
+                5.0,
                 0.6
         ));
     }

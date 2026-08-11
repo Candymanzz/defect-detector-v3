@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api";
+import type { InspectionStateResponse } from "../../shared/api/types";
 import { isCaptureOnlyInspectResult, resolveInspectionResultState } from "../../shared/inspectResult";
 import { errorMessage } from "../../shared/lib/errors";
 import { compareFrameIds } from "../../shared/lib/frameIds";
@@ -136,6 +137,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           setInspectionStoppedAtMs(changedAtMs);
           inspectionEnabledByCameraIdRef.current[cameraId] = false;
         }
+        setPreviewImagesEnabled(Object.values(inspectionEnabledByCameraIdRef.current).some((enabled) => !enabled));
         setInspectionControlByCameraId((currentStates) => ({
           ...currentStates,
           [cameraId]: {
@@ -250,6 +252,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
         inspectionEnabledByCameraIdRef.current[cameraId] = false;
       }
       setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
+      setPreviewImagesEnabled(inspectionStatus.disabledCameraIds.length > 0);
       if (inspectionStatus.enabledCameraIds.length > 0) {
         setInspectionStartedAtMs(changedAtMs);
         setInspectionStoppedAtMs(undefined);
@@ -310,6 +313,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           ...inspectionStatus.disabledCameraIds.map((cameraId) => [cameraId, false] as const),
         ]);
         setInspectionControlByCameraId(createInspectionControlStates(inspectionStatus));
+        setPreviewImagesEnabled(inspectionStatus.disabledCameraIds.length > 0);
       }
     });
 
@@ -319,17 +323,49 @@ export function useMainOverview(inspectionResetVersion = 0) {
   }, []);
 
   useEffect(() => {
+    const handleGlobalInspectionControl = (event: Event) => {
+      const response = (event as CustomEvent<InspectionStateResponse>).detail;
+      if (!response) return;
+      const changedAtMs = Date.now();
+      const enabled = new Set(response.enabledCameraIds);
+      for (const cameraId of response.requestedCameraIds) {
+        const isEnabled = enabled.has(cameraId);
+        inspectionEnabledByCameraIdRef.current[cameraId] = isEnabled;
+        if (isEnabled) {
+          inspectionAcceptedAfterMsByCameraIdRef.current[cameraId] = changedAtMs;
+          const latestPreviewFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
+          if (latestPreviewFrameId !== undefined) {
+            inspectionAcceptedFromFrameIdByCameraIdRef.current[cameraId] = latestPreviewFrameId;
+          }
+        }
+      }
+      setInspectionControlByCameraId(createInspectionControlStates(response));
+      setPreviewImagesEnabled(response.disabledCameraIds.length > 0);
+      if (response.enabledCameraIds.length > 0) {
+        setInspectionStartedAtMs(changedAtMs);
+      } else {
+        setInspectionStoppedAtMs(changedAtMs);
+      }
+    };
+    window.addEventListener("inspection-control-changed", handleGlobalInspectionControl);
+    return () => window.removeEventListener("inspection-control-changed", handleGlobalInspectionControl);
+  }, []);
+
+  useEffect(() => {
     const unsubscribeMessage = orchestratorWs.onMessage((message) => {
       if (message.type === "server.hello" || message.type === "server.state") {
         const nextHasReference = message.payload.session_state !== "NO_REFERENCE";
         setHasReference(nextHasReference);
-        setPreviewImagesEnabled(!nextHasReference);
+        const hasDisabledInspection = Object.values(inspectionEnabledByCameraIdRef.current).some(
+          (enabled) => !enabled,
+        );
+        setPreviewImagesEnabled(!nextHasReference || hasDisabledInspection);
         return;
       }
 
       if (message.type === "server.reference_bundle_ack" && message.payload.ok) {
         setHasReference(true);
-        setPreviewImagesEnabled(false);
+        setPreviewImagesEnabled(Object.values(inspectionEnabledByCameraIdRef.current).some((enabled) => !enabled));
         return;
       }
 
@@ -386,6 +422,44 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+
+      // Preview-only captures remain visible while inspection is globally stopped.
+      if (isCaptureOnlyInspectResult(inspectResult)) {
+        const isNoReferenceFrame = inspectResult.python_status?.trim().toUpperCase() === "NO_REFERENCE";
+        // Preview image delivery is enabled globally when at least one camera is stopped.
+        // Do not let a CAPTURE event from that stream replace PASS/FAIL on cameras
+        // whose inspection is still running. NO_REFERENCE remains blue for every camera.
+        if (inspectionEnabledByCameraIdRef.current[cameraId] === true && !isNoReferenceFrame) {
+          return;
+        }
+
+        // После повторного пуска не даём запоздавшему preview-only результату
+        // из остановленного интервала перезаписать первый новый результат инспекции.
+        if (
+          inspectionEnabledByCameraIdRef.current[cameraId] === true &&
+          !shouldAcceptInspectionResult(
+            cameraId,
+            inspectResult.server_ts_ms,
+            inspectResult.frame_id,
+            inspectionEnabledByCameraIdRef,
+            inspectionAcceptedAfterMsByCameraIdRef,
+            inspectionAcceptedFromFrameIdByCameraIdRef,
+          )
+        ) {
+          return;
+        }
+        applyCaptureOnlyInspectResult(
+          inspectResult,
+          latestInspectResultByCameraIdRef,
+          setInspectResultsByCameraId,
+          setPreviewFrameIdsByCameraId,
+          setPreviewImageUrlsByCameraId,
+          setInspectionHistoryByCameraId,
+          setInspectionStatsByCameraId,
+        );
+        return;
+      }
+
       if (
         !shouldAcceptInspectionResult(
           cameraId,
@@ -396,19 +470,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
           inspectionAcceptedFromFrameIdByCameraIdRef,
         )
       ) {
-        return;
-      }
-
-      if (isCaptureOnlyInspectResult(inspectResult)) {
-        applyCaptureOnlyInspectResult(
-          inspectResult,
-          latestInspectResultByCameraIdRef,
-          setInspectResultsByCameraId,
-          setPreviewFrameIdsByCameraId,
-          setPreviewImageUrlsByCameraId,
-          setInspectionHistoryByCameraId,
-          setInspectionStatsByCameraId,
-        );
         return;
       }
 
@@ -740,12 +801,13 @@ function applyCaptureOnlyInspectResult(
     [cameraId]: merged,
   }));
 
+  setPreviewFrameIdsByCameraId((previousFrameIds) => ({
+    ...previousFrameIds,
+    [cameraId]: merged.frame_id,
+  }));
+
   const imageUrl = createWsFrameImageUrl(merged);
   if (imageUrl) {
-    setPreviewFrameIdsByCameraId((previousFrameIds) => ({
-      ...previousFrameIds,
-      [cameraId]: merged.frame_id,
-    }));
     setPreviewImageUrlsByCameraId((previousImageUrls) => ({
       ...previousImageUrls,
       [cameraId]: imageUrl,

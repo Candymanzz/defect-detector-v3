@@ -1,0 +1,2 @@
+worker start config version=1 path=D:\visionGay\defect-detector-v3\config\config.json camera=0 mode=binary-stdio
+capture source=fake frame=1224x1024 format_pref=BGR8 binning=1x1 mode=off frame_timeout_ms=1000 ip=127.0.0.1 exposure_us=0 trigger=continuous activation=RisingEdge inverter=0

@@ -180,6 +180,63 @@ class InspectGeometryExecutorTest {
         assertTrue(result.geometryMs() >= 0);
     }
 
+    @Test
+    void skipsClientReferenceWithoutJointRoiWithoutCallingPool() {
+        AtomicInteger calls = new AtomicInteger();
+        ReferenceSnapshot noJoint = new ReferenceSnapshot("bench", Map.of(
+                "shm_name", "ref_shm",
+                "width", 120,
+                "height", 90,
+                "stride", 360,
+                "client_reference_bundle", true
+        ));
+
+        PipelineState result = executor.apply(
+                stateWithCapture(),
+                0,
+                "bench",
+                noJoint,
+                Map.of("joint_roi", Map.of("x", 0, "y", 0, "width", 10, "height", 10)),
+                Map.of(),
+                List.of(countingSupervisor(calls)),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(0, calls.get());
+        assertEquals("SKIPPED", result.geom().header().get("status"));
+        assertEquals(true, result.geom().header().get("overallPass"));
+        assertTrue(String.valueOf(result.geom().header().get("error")).contains("no joint ROI"));
+    }
+
+    @Test
+    void callsGeometryWhenClientReferenceHasJointRoi() {
+        AtomicInteger calls = new AtomicInteger();
+        ReferenceSnapshot withJoint = new ReferenceSnapshot("bench", Map.of(
+                "shm_name", "ref_shm",
+                "width", 120,
+                "height", 90,
+                "stride", 360,
+                "client_reference_bundle", true,
+                "joint_roi_norm", Map.of("x", 0.1, "y", 0.1, "width", 0.2, "height", 0.2)
+        ));
+
+        PipelineState result = executor.apply(
+                stateWithCapture(),
+                0,
+                "bench",
+                withJoint,
+                Map.of(),
+                Map.of(),
+                List.of(countingSupervisor(calls)),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(1, calls.get());
+        assertEquals(true, result.geom().header().get("overallPass"));
+    }
+
     private static PipelineState stateWithCapture() {
         BinaryProtocol.Message capture = new BinaryProtocol.Message(
                 BinaryProtocol.MSG_RESPONSE,

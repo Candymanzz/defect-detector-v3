@@ -1,0 +1,60 @@
+{
+  "version" : 1,
+  "profiles" : {
+    "bench-lan1" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "__default__" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan2" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan3" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan4" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan5" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan6" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan7" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan9" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan10" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    },
+    "bench-lan8" : {
+      "maxShiftMm" : 0.48,
+      "jointSeamSegmentationSensitivity" : 0.5,
+      "jointSeamSegmentationEnabled" : true
+    }
+  }
+}
