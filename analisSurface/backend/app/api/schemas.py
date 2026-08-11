@@ -79,6 +79,7 @@ class AnalysisSettingsValues(BaseModel):
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    enable_internal_alignment: bool = False
 
 
 class AnalysisSettingsUpdateRequest(BaseModel):
@@ -100,6 +101,7 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     clahe_clip_limit: Optional[float] = None
     fp_recheck_enabled: Optional[bool] = None
     fp_trigger_diff_q90: Optional[float] = None
+    enable_internal_alignment: Optional[bool] = None
 
 
 class AnalysisSettingsResponse(BaseModel):

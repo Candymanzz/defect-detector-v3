@@ -339,12 +339,13 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography).
+        # 1. Совместить текущий кадр с эталоном (выкл. по умолчанию — кадр уже отцентрирован upstream).
         aligned = self._align_to_reference(
             frame,
             reference,
             product_type,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
+            enable_internal_alignment=settings.enable_internal_alignment,
         )
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
@@ -829,14 +830,20 @@ class InspectionService:
         reference: np.ndarray,
         product_type: str,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
+        enable_internal_alignment: bool = False,
     ) -> np.ndarray:
         """Привести current к системе координат reference.
 
-        Приоритет: гомография от java-geometry/positioning → ORB-матчи + findHomography → resize.
-        Если кадр уже выровнен upstream (identity H от positioning) — не трогаем:
-        повторный warp+ECC на фоне разницы яркости ломает совмещение и раздувает diff до 1.0.
-        Иначе после нетривиального warp — ECC-подстройка микросдвига.
+        По умолчанию выключено: центрирование уже сделано в positioning/geometry,
+        повторный warp/ORB/ECC может растянуть кадр и раздуть diff.
+        При enable_internal_alignment=True:
+        приоритет geometry H → ORB+homography → resize; identity H не трогаем.
         """
+        if not enable_internal_alignment:
+            if current.shape[:2] != reference.shape[:2]:
+                return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            return current
+
         if self._is_identity_homography(alignment_h_ref_to_cur):
             if current.shape[:2] != reference.shape[:2]:
                 return cv2.resize(current, (reference.shape[1], reference.shape[0]))
