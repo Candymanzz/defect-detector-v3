@@ -24,6 +24,8 @@ class AnalysisSettings:
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    # False: кадр уже отцентрирован upstream (positioning/geometry) — ORB/H/ECC не трогаем.
+    enable_internal_alignment: bool = False
 
     @classmethod
     def defaults(cls) -> "AnalysisSettings":
