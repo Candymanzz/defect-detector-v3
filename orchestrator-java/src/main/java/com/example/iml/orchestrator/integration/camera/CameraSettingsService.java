@@ -24,6 +24,8 @@ public final class CameraSettingsService {
             "gain_db",
             "gamma",
             "black_level",
+            "balance_ratio_red",
+            "balance_ratio_blue",
             "capture_trigger_mode",
             "frame_timeout_ms"
     );
@@ -67,7 +69,7 @@ public final class CameraSettingsService {
         }
         for (Map.Entry<Integer, Map<String, Object>> entry : settingsStore.allSettings().entrySet()) {
             int cameraId = entry.getKey();
-            Map<String, Object> settings = filterSettings(entry.getValue(), excludeKeys);
+            Map<String, Object> settings = keepSupportedSettings(filterSettings(entry.getValue(), excludeKeys));
             if (settings.isEmpty()) {
                 continue;
             }
@@ -90,6 +92,19 @@ public final class CameraSettingsService {
         Map<String, Object> filtered = new LinkedHashMap<>(settings);
         excludeKeys.forEach(filtered::remove);
         return filtered;
+    }
+
+    static Map<String, Object> keepSupportedSettings(Map<String, Object> settings) {
+        if (settings == null || settings.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> supported = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : settings.entrySet()) {
+            if (PATCH_KEYS.contains(entry.getKey()) && entry.getValue() != null) {
+                supported.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return supported;
     }
 
     private Map<String, Object> applySettings(int cameraId, Map<String, Object> update, boolean persist) throws IOException {
@@ -172,6 +187,8 @@ public final class CameraSettingsService {
         copyIfPresent(raw, patch, "gain_db");
         copyIfPresent(raw, patch, "gamma");
         copyIfPresent(raw, patch, "black_level");
+        copyIfPresent(raw, patch, "balance_ratio_red");
+        copyIfPresent(raw, patch, "balance_ratio_blue");
         copyIfPresent(raw, patch, "capture_trigger_mode");
         copyIfPresent(raw, patch, "frame_timeout_ms");
         return Map.copyOf(patch);
@@ -187,7 +204,8 @@ public final class CameraSettingsService {
         }
         switch (key) {
             case "exposure_us", "black_level", "frame_timeout_ms" -> patch.put(key, YamlScalars.toInt(value, 0));
-            case "gain_db", "gamma" -> patch.put(key, YamlScalars.toDouble(value, 0.0));
+            case "gain_db", "gamma", "balance_ratio_red", "balance_ratio_blue" ->
+                    patch.put(key, YamlScalars.toDouble(value, 0.0));
             case "capture_trigger_mode" -> {
                 String mode = String.valueOf(value).trim();
                 if (!mode.isEmpty()) {

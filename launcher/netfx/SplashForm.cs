@@ -1,6 +1,8 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -20,6 +22,7 @@ namespace ImlLauncher
 
         private readonly ServiceStatusModel _model;
         private StartupController _controller;
+        private readonly PictureBox _logo;
         private readonly Label _brand;
         private readonly Label _subtitle;
         private readonly Label _step;
@@ -30,6 +33,7 @@ namespace ImlLauncher
         private readonly System.Windows.Forms.Timer _pulseTimer;
         private int _pulsePhase;
         private bool _stopping;
+        private Image _logoImage;
 
         public SplashForm(ServiceStatusModel model)
         {
@@ -46,15 +50,33 @@ namespace ImlLauncher
             ForeColor = TextPrimary;
             Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             ShowInTaskbar = true;
+            try
+            {
+                Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            }
+            catch
+            {
+            }
+
+            _logo = new PictureBox();
+            _logo.Location = new Point(28, 22);
+            _logo.Size = new Size(64, 64);
+            _logo.SizeMode = PictureBoxSizeMode.Zoom;
+            _logo.BackColor = Color.Transparent;
+            _logoImage = TryLoadEmbeddedLogo();
+            if (_logoImage != null)
+            {
+                _logo.Image = _logoImage;
+            }
 
             _brand = new Label();
             _brand.Text = "Defect Detector";
-            _brand.Font = new Font("Segoe UI Semibold", 28f, FontStyle.Bold);
+            _brand.Font = new Font("Segoe UI Semibold", 26f, FontStyle.Bold);
             _brand.ForeColor = TextPrimary;
             _brand.AutoSize = false;
             _brand.TextAlign = ContentAlignment.MiddleLeft;
-            _brand.Location = new Point(36, 28);
-            _brand.Size = new Size(480, 48);
+            _brand.Location = new Point(104, 24);
+            _brand.Size = new Size(420, 40);
             _brand.BackColor = Color.Transparent;
 
             _subtitle = new Label();
@@ -62,8 +84,8 @@ namespace ImlLauncher
             _subtitle.Font = new Font("Segoe UI", 11f, FontStyle.Regular);
             _subtitle.ForeColor = TextMuted;
             _subtitle.AutoSize = false;
-            _subtitle.Location = new Point(38, 76);
-            _subtitle.Size = new Size(480, 24);
+            _subtitle.Location = new Point(106, 66);
+            _subtitle.Size = new Size(420, 24);
             _subtitle.BackColor = Color.Transparent;
 
             _progressTrack = new Panel();
@@ -104,6 +126,7 @@ namespace ImlLauncher
             _stopButton.Location = new Point(344, 576);
             _stopButton.Click += OnStopClick;
 
+            Controls.Add(_logo);
             Controls.Add(_brand);
             Controls.Add(_subtitle);
             Controls.Add(_progressTrack);
@@ -126,6 +149,29 @@ namespace ImlLauncher
         public void AttachController(StartupController controller)
         {
             _controller = controller;
+        }
+
+        private static Image TryLoadEmbeddedLogo()
+        {
+            try
+            {
+                Assembly asm = typeof(SplashForm).Assembly;
+                using (Stream stream = asm.GetManifestResourceStream("ImlLauncher.Assets.logo.png"))
+                {
+                    if (stream == null)
+                    {
+                        return null;
+                    }
+                    using (Image raw = Image.FromStream(stream))
+                    {
+                        return new Bitmap(raw);
+                    }
+                }
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public void RefreshFromModel()
@@ -268,6 +314,15 @@ namespace ImlLauncher
                         {
                             _pulseTimer.Stop();
                             FormClosing -= OnFormClosing;
+                            if (_logo != null)
+                            {
+                                _logo.Image = null;
+                            }
+                            if (_logoImage != null)
+                            {
+                                _logoImage.Dispose();
+                                _logoImage = null;
+                            }
                             Close();
                         }));
                     }
