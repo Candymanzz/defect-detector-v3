@@ -74,6 +74,14 @@ public final class ClientApiHttpController implements HttpController {
             handleInspectionToggle(ctx, true);
             return;
         }
+        if (path.equals("/api/client/inspection/test-analyze")) {
+            handleTestAnalyze(ctx);
+            return;
+        }
+        if (path.equals("/api/client/mode") || path.equals("/api/client/mode/test")) {
+            handleProgramMode(ctx, path);
+            return;
+        }
         if (path.equals("/api/client/plc/timeouts")
                 || path.equals("/api/client/plc/status")
                 || path.equals("/api/client/plc/signals")) {
@@ -414,6 +422,146 @@ public final class ClientApiHttpController implements HttpController {
         HttpResponses.methodNotAllowed(ctx);
     }
 
+    private void handleProgramMode(HttpRequestContext ctx, String path) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        var holder = clientApi.clientWsHolder();
+        var ws = holder == null ? null : holder.get();
+        if (ws == null) {
+            HttpResponses.sendJsonError(ctx, 503, "client_ws not ready");
+            return;
+        }
+        if ("GET".equalsIgnoreCase(ctx.method()) && path.equals("/api/client/mode")) {
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("session_state", ws.sessionState().name());
+            root.put("test_mode", ws.isTestMode());
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+            return;
+        }
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        if (!path.equals("/api/client/mode/test")) {
+            HttpResponses.sendJsonError(ctx, 404, "unknown mode endpoint");
+            return;
+        }
+        Map<String, Object> body;
+        try {
+            byte[] raw = ctx.readBody();
+            body = raw.length == 0 ? Map.of() : JSON.readValue(raw, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid json body");
+            return;
+        }
+        Object enabledRaw = body.get("enabled");
+        if (enabledRaw == null) {
+            enabledRaw = body.get("test_mode");
+        }
+        if (enabledRaw == null) {
+            HttpResponses.sendJsonError(ctx, 400, "enabled required");
+            return;
+        }
+        boolean enabled = enabledRaw instanceof Boolean b
+                ? b
+                : Boolean.parseBoolean(String.valueOf(enabledRaw));
+        if (enabled) {
+            if (ws.sessionState() == ClientWsSessionState.NO_REFERENCE) {
+                HttpResponses.sendJsonError(ctx, 409, "reference required to enter TEST mode");
+                return;
+            }
+            if (!ws.enterTestMode()) {
+                HttpResponses.sendJsonError(ctx, 409, "cannot enter TEST mode");
+                return;
+            }
+            // Stop production DI3 cycles; operator uses test-analyze in this mode.
+            if (clientApi.inspectionGate() != null) {
+                clientApi.inspectionGate().disableAllAndRequestCancel();
+            }
+        } else {
+            if (ws.isTestMode()) {
+                ws.exitTestMode();
+            }
+        }
+        ObjectNode root = JSON.createObjectNode();
+        root.put("ok", true);
+        root.put("session_state", ws.sessionState().name());
+        root.put("test_mode", ws.isTestMode());
+        root.put(
+                "message",
+                ws.isTestMode()
+                        ? "Режим теста: прод-триггер остановлен, используйте «Проверить на кадре»"
+                        : "Прод-режим: Пуск инспекции для ожидания DI3"
+        );
+        HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+    }
+
+    private void handleTestAnalyze(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        var holder = clientApi.uiTestAnalyzeHolder();
+        var service = holder == null ? null : holder.get();
+        if (service == null) {
+            HttpResponses.sendJsonError(ctx, 503, "test-analyze not ready");
+            return;
+        }
+        var wsHolder = clientApi.clientWsHolder();
+        var ws = wsHolder == null ? null : wsHolder.get();
+        if (ws != null && !ws.isTestMode()) {
+            HttpResponses.sendJsonError(ctx, 409, "enter TEST mode first (POST /api/client/mode/test)");
+            return;
+        }
+        Map<String, Object> body;
+        try {
+            body = JSON.readValue(ctx.readBody(), new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid json body");
+            return;
+        }
+        if (body == null) {
+            body = Map.of();
+        }
+        try {
+            int cameraId = body.containsKey("cameraId")
+                    ? ((Number) body.get("cameraId")).intValue()
+                    : (body.containsKey("camera_id") ? ((Number) body.get("camera_id")).intValue() : -1);
+            String sourceRaw = body.containsKey("source") ? String.valueOf(body.get("source")) : null;
+            Long frameId = null;
+            if (body.get("frameId") instanceof Number n) {
+                frameId = n.longValue();
+            } else if (body.get("frame_id") instanceof Number n) {
+                frameId = n.longValue();
+            } else if (body.get("frameId") != null) {
+                frameId = Long.parseLong(String.valueOf(body.get("frameId")).trim());
+            } else if (body.get("frame_id") != null) {
+                frameId = Long.parseLong(String.valueOf(body.get("frame_id")).trim());
+            }
+            String httpPath = null;
+            if (body.get("httpPath") != null) {
+                httpPath = String.valueOf(body.get("httpPath")).trim();
+            } else if (body.get("http_path") != null) {
+                httpPath = String.valueOf(body.get("http_path")).trim();
+            }
+            var source = com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.parseSource(sourceRaw);
+            var accepted = service.submit(new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request(
+                    cameraId, source, frameId, httpPath
+            ));
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("jobId", accepted.jobId());
+            root.put("cameraId", accepted.cameraId());
+            root.put("frameId", accepted.frameId());
+            HttpResponses.send(ctx, 202, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+        } catch (com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.AnalyzeException e) {
+            HttpResponses.sendJsonError(ctx, e.status(), e.getMessage());
+        } catch (ClassCastException | NumberFormatException e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid cameraId/frameId: " + e.getMessage());
+        }
+    }
+
     private void handleInspectionStatus(HttpRequestContext ctx) throws IOException {
         HttpResponses.corsJson(ctx.exchange());
         if (!"GET".equalsIgnoreCase(ctx.method())) {
@@ -474,6 +622,10 @@ public final class ClientApiHttpController implements HttpController {
         var ws = clientApi.clientWsHolder() == null ? null : clientApi.clientWsHolder().get();
         if (enabled && (ws == null || ws.sessionState() == ClientWsSessionState.NO_REFERENCE)) {
             HttpResponses.sendJsonError(ctx, 409, "reference is not set");
+            return;
+        }
+        if (enabled && ws != null && ws.isTestMode()) {
+            HttpResponses.sendJsonError(ctx, 409, "exit TEST mode before starting production inspection");
             return;
         }
 
@@ -549,6 +701,10 @@ public final class ClientApiHttpController implements HttpController {
         var ws = clientApi.clientWsHolder() == null ? null : clientApi.clientWsHolder().get();
         if (ws == null || ws.sessionState() == ClientWsSessionState.NO_REFERENCE) {
             HttpResponses.sendJsonError(ctx, 409, "reference is not set");
+            return;
+        }
+        if (ws.isTestMode()) {
+            HttpResponses.sendJsonError(ctx, 409, "exit TEST mode before starting production inspection");
             return;
         }
 

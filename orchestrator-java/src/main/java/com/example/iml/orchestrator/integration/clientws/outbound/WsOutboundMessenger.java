@@ -611,6 +611,9 @@ public final class WsOutboundMessenger {
             payload.put("geometry_status", "UNKNOWN");
         }
         payload.set("fp_zones", fpZonesJsonArray(cameraId));
+        if (YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false)) {
+            payload.put("test_analyze", true);
+        }
         int hmw = referenceContext.effectiveHeatmapWidth();
         int hmh = referenceContext.effectiveHeatmapHeight();
         if (hmw > 0 && hmh > 0) {

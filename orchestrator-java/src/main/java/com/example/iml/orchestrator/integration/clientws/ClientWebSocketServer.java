@@ -69,6 +69,8 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
     private volatile long lastClientActivityEpochMs = System.currentTimeMillis();
     private volatile CameraStreamService cameraStreamService;
     private volatile Consumer<ClientWsSessionState> sessionStateListener;
+    /** Состояние до входа в {@link ClientWsSessionState#TEST} (для выхода из режима). */
+    private final AtomicReference<ClientWsSessionState> stateBeforeTest = new AtomicReference<>();
 
     public ClientWebSocketServer(Logger log, ClientWsConfig cfg) {
         super(new InetSocketAddress(cfg.host(), cfg.port()));
@@ -107,9 +109,54 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         return sessionState.get();
     }
 
+    public boolean isTestMode() {
+        return sessionState.get() == ClientWsSessionState.TEST;
+    }
+
+    /**
+     * Вход в режим теста настроек (geometry/python/FP). Требует эталон.
+     * @return true если уже TEST или успешно вошли
+     */
+    public boolean enterTestMode() {
+        ClientWsSessionState cur = sessionState.get();
+        if (cur == ClientWsSessionState.NO_REFERENCE) {
+            return false;
+        }
+        if (cur == ClientWsSessionState.TEST) {
+            return true;
+        }
+        stateBeforeTest.set(cur);
+        setSessionState(ClientWsSessionState.TEST);
+        broadcastOpenClients(conn -> outbound.sendSessionState(conn, ClientWsSessionState.TEST));
+        log.info("client_ws enter TEST mode (was {})", cur);
+        return true;
+    }
+
+    /**
+     * Выход из режима теста → предыдущее READY/OPERATIONAL (или OPERATIONAL по умолчанию).
+     */
+    public boolean exitTestMode() {
+        if (sessionState.get() != ClientWsSessionState.TEST) {
+            return false;
+        }
+        ClientWsSessionState restore = stateBeforeTest.getAndSet(null);
+        if (restore == null || restore == ClientWsSessionState.TEST || restore == ClientWsSessionState.NO_REFERENCE) {
+            restore = ClientWsSessionState.OPERATIONAL;
+        }
+        setSessionState(restore);
+        ClientWsSessionState finalRestore = restore;
+        broadcastOpenClients(conn -> outbound.sendSessionState(conn, finalRestore));
+        log.info("client_ws exit TEST mode → {}", restore);
+        return true;
+    }
+
     public void setSessionState(ClientWsSessionState state) {
         ClientWsSessionState next = state == null ? ClientWsSessionState.NO_REFERENCE : state;
+        if (next == ClientWsSessionState.NO_REFERENCE) {
+            stateBeforeTest.set(null);
+        }
         sessionState.set(next);
+        // Keep application AtomicReference in sync (same ref already shared).
         Consumer<ClientWsSessionState> listener = sessionStateListener;
         if (listener != null) {
             try {

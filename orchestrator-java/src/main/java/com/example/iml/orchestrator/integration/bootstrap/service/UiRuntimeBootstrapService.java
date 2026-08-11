@@ -81,6 +81,47 @@ public final class UiRuntimeBootstrapService {
                 ctx.pythonPool().isEmpty() ? null : ctx.pythonPool().get(0)
         ));
         ctx.setUiArtifactsExecutor(ctx.uiSidecar().startUiPublishExecutorIfEnabled(ctx.uiCfg()));
+        wireUiTestAnalyze(ctx);
+    }
+
+    private void wireUiTestAnalyze(IntegrationRuntimeContext ctx) {
+        if (ctx.clientApiMount() == null || !ctx.clientApiMount().enabled()) {
+            return;
+        }
+        var holder = ctx.clientApiMount().uiTestAnalyzeHolder();
+        if (holder == null) {
+            return;
+        }
+        if (ctx.inspectionPipeline() == null || ctx.pipelineReferenceRegistry() == null) {
+            log.warn("ui test-analyze not wired: pipeline/reference missing");
+            return;
+        }
+        var svc = ctx.inspectionPipeline().services();
+        java.util.concurrent.ExecutorService worker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "ui-test-analyze");
+            t.setDaemon(true);
+            return t;
+        });
+        holder.set(new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService(
+                log,
+                ctx.pipelineReferenceRegistry(),
+                ctx.detectorByCamera(),
+                ctx.geometryCfg(),
+                ctx.pythonCfg(),
+                ctx.geometryPool(),
+                ctx.pythonPool(),
+                svc.geometryStage(),
+                svc.pythonStage(),
+                svc.decisionPolicy(),
+                svc.afterInspectionSidecar(),
+                ctx.frameArchiveService(),
+                ctx::uiServer,
+                ctx::uiCfg,
+                ctx::uiVisualsPython,
+                ctx::uiArtifactsExecutor,
+                worker
+        ));
+        log.info("ui test-analyze endpoint ready: POST /api/client/inspection/test-analyze");
     }
 
     private CameraSettingsStore openCameraSettingsStore(Path projectRoot) {

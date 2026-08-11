@@ -23,12 +23,14 @@ public record ClientApiMount(
         ManualLineDirectionService manualLineDirection,
         PlcFinsServiceHolder plcFinsHolder,
         ClientWsServiceHolder clientWsHolder,
-        InspectionCycleResumeHolder inspectionResumeHolder
+        InspectionCycleResumeHolder inspectionResumeHolder,
+        UiTestAnalyzeServiceHolder uiTestAnalyzeHolder
 ) {
     public static ClientApiMount disabled() {
         return new ClientApiMount(
                 false, null, "", null, null, Map.of(), null, null,
-                new PlcFinsServiceHolder(), new ClientWsServiceHolder(), new InspectionCycleResumeHolder()
+                new PlcFinsServiceHolder(), new ClientWsServiceHolder(), new InspectionCycleResumeHolder(),
+                new UiTestAnalyzeServiceHolder()
         );
     }
 
@@ -45,7 +47,8 @@ public record ClientApiMount(
                 manualLineDirection,
                 new PlcFinsServiceHolder(),
                 new ClientWsServiceHolder(),
-                new InspectionCycleResumeHolder()
+                new InspectionCycleResumeHolder(),
+                new UiTestAnalyzeServiceHolder()
         );
     }
 
@@ -63,7 +66,8 @@ public record ClientApiMount(
                 manualLineDirection,
                 plcFinsHolder,
                 new ClientWsServiceHolder(),
-                new InspectionCycleResumeHolder()
+                new InspectionCycleResumeHolder(),
+                new UiTestAnalyzeServiceHolder()
         );
     }
 
@@ -82,7 +86,29 @@ public record ClientApiMount(
                 manualLineDirection,
                 plcFinsHolder,
                 clientWsHolder,
-                new InspectionCycleResumeHolder()
+                new InspectionCycleResumeHolder(),
+                new UiTestAnalyzeServiceHolder()
+        );
+    }
+
+    public static ClientApiMount fromRootYaml(
+            Map<String, Object> root,
+            GeometryRuntimeConfig geometryRuntime,
+            PerCameraInspectionGate inspectionGate,
+            ManualLineDirectionService manualLineDirection,
+            PlcFinsServiceHolder plcFinsHolder,
+            ClientWsServiceHolder clientWsHolder,
+            InspectionCycleResumeHolder inspectionResumeHolder
+    ) {
+        return fromRootYaml(
+                root,
+                geometryRuntime,
+                inspectionGate,
+                manualLineDirection,
+                plcFinsHolder,
+                clientWsHolder,
+                inspectionResumeHolder,
+                new UiTestAnalyzeServiceHolder()
         );
     }
 
@@ -94,22 +120,28 @@ public record ClientApiMount(
             ManualLineDirectionService manualLineDirection,
             PlcFinsServiceHolder plcFinsHolder,
             ClientWsServiceHolder clientWsHolder,
-            InspectionCycleResumeHolder inspectionResumeHolder
+            InspectionCycleResumeHolder inspectionResumeHolder,
+            UiTestAnalyzeServiceHolder uiTestAnalyzeHolder
     ) {
         PlcFinsServiceHolder holder = plcFinsHolder == null ? new PlcFinsServiceHolder() : plcFinsHolder;
         ClientWsServiceHolder wsHolder = clientWsHolder == null ? new ClientWsServiceHolder() : clientWsHolder;
         InspectionCycleResumeHolder resumeHolder =
                 inspectionResumeHolder == null ? new InspectionCycleResumeHolder() : inspectionResumeHolder;
+        UiTestAnalyzeServiceHolder testHolder =
+                uiTestAnalyzeHolder == null ? new UiTestAnalyzeServiceHolder() : uiTestAnalyzeHolder;
         if (root == null || geometryRuntime == null) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder);
+            return new ClientApiMount(
+                    false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder, testHolder);
         }
         Object raw = root.get("client_api");
         if (!(raw instanceof Map<?, ?> m)) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder);
+            return new ClientApiMount(
+                    false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder, testHolder);
         }
         boolean en = YamlScalars.toBool(m.get("enabled"), false);
         if (!en) {
-            return new ClientApiMount(false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder);
+            return new ClientApiMount(
+                    false, null, "", null, null, Map.of(), null, null, holder, wsHolder, resumeHolder, testHolder);
         }
         String url = "";
         Object urlObj = m.get("kopcheni_base_url");
@@ -140,7 +172,8 @@ public record ClientApiMount(
                 manualLineDirection,
                 holder,
                 wsHolder,
-                resumeHolder
+                resumeHolder,
+                testHolder
         );
     }
 

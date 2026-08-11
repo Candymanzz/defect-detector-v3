@@ -39,13 +39,19 @@ public final class ReferenceBundleLifecycleService {
         ctx.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
         ctx.referenceContext().applyBundle(snap);
         applyBundleToPipeline(ctx, snap);
-        ctx.setSessionState(ClientWsSessionState.READY);
-        if (conn != null && conn.isOpen()) {
-            ctx.outbound().sendSessionState(conn, ClientWsSessionState.READY);
-        }
-        ctx.setSessionState(ClientWsSessionState.OPERATIONAL);
-        if (conn != null && conn.isOpen()) {
-            ctx.outbound().sendSessionState(conn, ClientWsSessionState.OPERATIONAL);
+        if (ctx.sessionState() == ClientWsSessionState.TEST) {
+            if (conn != null && conn.isOpen()) {
+                ctx.outbound().sendSessionState(conn, ClientWsSessionState.TEST);
+            }
+        } else {
+            ctx.setSessionState(ClientWsSessionState.READY);
+            if (conn != null && conn.isOpen()) {
+                ctx.outbound().sendSessionState(conn, ClientWsSessionState.READY);
+            }
+            ctx.setSessionState(ClientWsSessionState.OPERATIONAL);
+            if (conn != null && conn.isOpen()) {
+                ctx.outbound().sendSessionState(conn, ClientWsSessionState.OPERATIONAL);
+            }
         }
         ctx.log().info(
                 "client_ws reference bundle applied from draft product_type={} joint_view_index={} fp_zones={}",
@@ -73,6 +79,12 @@ public final class ReferenceBundleLifecycleService {
     }
 
     private static void transitionToOperational(ClientWsApplicationContext ctx, WebSocket conn, JsonNode requestRoot) {
+        if (ctx.sessionState() == ClientWsSessionState.TEST) {
+            // Stay in TEST: operator is tuning settings/FP; only refresh ack.
+            ctx.outbound().sendReferenceBundleAck(conn, requestRoot);
+            ctx.outbound().sendSessionState(conn, ClientWsSessionState.TEST);
+            return;
+        }
         ctx.setSessionState(ClientWsSessionState.READY);
         ctx.outbound().sendReferenceBundleAck(conn, requestRoot);
         ctx.outbound().sendSessionState(conn, ClientWsSessionState.READY);
