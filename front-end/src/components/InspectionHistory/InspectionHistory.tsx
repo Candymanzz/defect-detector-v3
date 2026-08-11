@@ -32,8 +32,26 @@ export function InspectionHistory({
 }: InspectionHistoryProps) {
   const items = createInspectionHistoryTiles(cameraIds, historyByCameraId);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
-  const selectedInspection = items.find((item) => item.groupKey === selectedGroupKey) ?? null;
+  const [selectedInspectionSnapshot, setSelectedInspectionSnapshot] = useState<InspectionHistoryTile | null>(null);
+  // Keep the opened result mounted even if a newer result changes/rebuilds the
+  // visible history list. Use fresh data when the selected group still exists.
+  const selectedInspection =
+    items.find((item) => item.groupKey === selectedGroupKey) ?? selectedInspectionSnapshot;
   const isLoadingArchive = archiveHistoryState === "loading";
+
+  const selectInspection = (groupKey: string) => {
+    const item = items.find((candidate) => candidate.groupKey === groupKey);
+    if (!item) {
+      return;
+    }
+    setSelectedGroupKey(groupKey);
+    setSelectedInspectionSnapshot(item);
+  };
+
+  const closeInspection = () => {
+    setSelectedGroupKey(null);
+    setSelectedInspectionSnapshot(null);
+  };
 
   return (
     <>
@@ -75,7 +93,7 @@ export function InspectionHistory({
               title={`Инспекция ${item.inspectionId}: ${
                 item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "Съёмка"
               }`}
-              onClick={() => setSelectedGroupKey(item.groupKey)}
+              onClick={() => selectInspection(item.groupKey)}
             >
               {item.inspectionId}
             </button>
@@ -90,8 +108,8 @@ export function InspectionHistory({
           results={selectedInspection.results}
           historyItems={items}
           selectedGroupKey={selectedInspection.groupKey}
-          onHistorySelect={setSelectedGroupKey}
-          onClose={() => setSelectedGroupKey(null)}
+          onHistorySelect={selectInspection}
+          onClose={closeInspection}
         />
       )}
     </>
