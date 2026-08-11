@@ -1,6 +1,13 @@
 import numpy as np
+import pytest
 
-from app.services.learned_normals import DefectCandidate, filter_review_candidates
+from app.services.learned_normals import (
+    DefectCandidate,
+    _convert_legacy_template,
+    _fit_template,
+    _mask_geometry,
+    filter_review_candidates,
+)
 
 
 def _candidate(
@@ -157,3 +164,28 @@ def test_review_filter_keeps_strongest_candidate_for_zero_diff_input() -> None:
     ]
 
     assert [item.id for item in filter_review_candidates(candidates)] == ["first"]
+
+
+def test_shape_template_preserves_wide_and_tall_aspect_ratios() -> None:
+    wide = _fit_template(np.full((10, 50), 255, dtype=np.uint8), binary=True)
+    tall = _fit_template(np.full((50, 10), 255, dtype=np.uint8), binary=True)
+
+    wide_geometry = _mask_geometry(wide)
+    tall_geometry = _mask_geometry(tall)
+    assert wide_geometry is not None
+    assert tall_geometry is not None
+    assert wide_geometry.aspect == pytest.approx(5.0, rel=0.1)
+    assert tall_geometry.aspect == pytest.approx(0.2, rel=0.1)
+
+
+def test_legacy_stretched_template_recovers_saved_bbox_aspect() -> None:
+    old_stretched = np.full((64, 64), 255, dtype=np.uint8)
+    restored = _convert_legacy_template(
+        old_stretched,
+        (0.1, 0.2, 0.5, 0.1),
+        binary=True,
+    )
+
+    geometry = _mask_geometry(restored)
+    assert geometry is not None
+    assert geometry.aspect == pytest.approx(5.0, rel=0.1)

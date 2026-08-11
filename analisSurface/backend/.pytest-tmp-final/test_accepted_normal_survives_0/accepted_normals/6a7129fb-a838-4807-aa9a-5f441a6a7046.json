@@ -1,0 +1,21 @@
+{
+  "id": "6a7129fb-a838-4807-aa9a-5f441a6a7046",
+  "product_type": "bench",
+  "reference_hash": "c8776d13ec227a8aa9a31d43",
+  "bbox_norm": {
+    "x": 0.175,
+    "y": 0.171875,
+    "width": 0.4125,
+    "height": 0.28125
+  },
+  "area": 578,
+  "diff_mean": 68.91176470588235,
+  "diff_q90": 101.30000000000007,
+  "diff_max": 107.0,
+  "created_at": "2026-08-11T12:13:31.100702+00:00",
+  "source_inspection_id": "e675debc-d0cd-4e5f-8a16-25e454087f65",
+  "source_defect_id": "defect-1",
+  "note": "",
+  "enabled": true,
+  "template_version": 2
+}

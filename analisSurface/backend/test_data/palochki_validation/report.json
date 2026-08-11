@@ -1,0 +1,781 @@
+{
+  "input_dir": "C:\\Users\\ShablinskiyM\\Desktop\\palochki",
+  "threshold": 0.25,
+  "image_dimensions": {
+    "bad1.jpg": {
+      "width": 2448,
+      "height": 2048
+    },
+    "bad2.jpg": {
+      "width": 2448,
+      "height": 2048
+    },
+    "bad21.jpg": {
+      "width": 2448,
+      "height": 2048
+    },
+    "good1.jpg": {
+      "width": 2448,
+      "height": 2048
+    },
+    "good2.jpg": {
+      "width": 2448,
+      "height": 2048
+    },
+    "light_def.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "light_def1.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "light_def12.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "light_def123.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled1.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled12.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled123.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled1234.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled12345.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled123456.jpg": {
+      "width": 609,
+      "height": 285
+    },
+    "Untitled_pomenshe.jpg": {
+      "width": 609,
+      "height": 285
+    }
+  },
+  "bucket_scenarios": [
+    {
+      "reference": "good1.jpg",
+      "alignment": "identity",
+      "learning_requested": false,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 244.25,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 256.44,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 15,
+          "elapsed_ms": 583.29,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 5,
+          "elapsed_ms": 581.27,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 7,
+          "elapsed_ms": 574.02,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "reference": "good1.jpg",
+      "alignment": "identity",
+      "learning_requested": true,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 235.73,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 250.07,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 15,
+          "elapsed_ms": 559.81,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 5,
+          "elapsed_ms": 578.98,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 7,
+          "elapsed_ms": 579.45,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "reference": "good2.jpg",
+      "alignment": "identity",
+      "learning_requested": false,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 252.51,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 232.07,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 15,
+          "elapsed_ms": 580.04,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 6,
+          "elapsed_ms": 580.53,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 7,
+          "elapsed_ms": 563.9,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "reference": "good2.jpg",
+      "alignment": "identity",
+      "learning_requested": true,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 253.87,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 239.06,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 15,
+          "elapsed_ms": 576.08,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 6,
+          "elapsed_ms": 583.66,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 7,
+          "elapsed_ms": 580.67,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "reference": "good1.jpg",
+      "alignment": "auto",
+      "learning_requested": false,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 912.88,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 941.77,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 5,
+          "elapsed_ms": 1543.52,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 5,
+          "elapsed_ms": 1484.34,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 6,
+          "elapsed_ms": 1301.5,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "reference": "good1.jpg",
+      "alignment": "auto",
+      "learning_requested": true,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 908.72,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 917.82,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 5,
+          "elapsed_ms": 1512.79,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 5,
+          "elapsed_ms": 1499.45,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 6,
+          "elapsed_ms": 1293.9,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "reference": "good2.jpg",
+      "alignment": "auto",
+      "learning_requested": false,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 922.82,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 909.81,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 4,
+          "elapsed_ms": 1621.8,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 4,
+          "elapsed_ms": 1459.48,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 2,
+          "elapsed_ms": 1322.96,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "reference": "good2.jpg",
+      "alignment": "auto",
+      "learning_requested": true,
+      "learned_from": null,
+      "learned_cases": 0,
+      "correct": 5,
+      "total": 5,
+      "rows": [
+        {
+          "filename": "good1.jpg",
+          "status": "ГОДЕН",
+          "score": 0.002353,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 944.48,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "good2.jpg",
+          "status": "ГОДЕН",
+          "score": 0.0,
+          "raw_score": 0.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 0,
+          "elapsed_ms": 929.88,
+          "expected": "ГОДЕН",
+          "correct": true
+        },
+        {
+          "filename": "bad1.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 4,
+          "elapsed_ms": 1821.95,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad2.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 4,
+          "elapsed_ms": 1532.22,
+          "expected": "БРАК",
+          "correct": true
+        },
+        {
+          "filename": "bad21.jpg",
+          "status": "БРАК",
+          "score": 1.0,
+          "raw_score": 1.0,
+          "matches": 0,
+          "adjustment": 0.0,
+          "review_defects": 2,
+          "elapsed_ms": 1367.14,
+          "expected": "БРАК",
+          "correct": true
+        }
+      ]
+    }
+  ],
+  "legacy": {
+    "reference": "Untitled.jpg",
+    "learned_from": "Untitled1.jpg",
+    "seed_before_learning": {
+      "filename": "Untitled1.jpg",
+      "status": "БРАК",
+      "score": 1.0,
+      "raw_score": 1.0,
+      "matches": 0,
+      "adjustment": 0.0,
+      "review_defects": 1,
+      "elapsed_ms": 20.86
+    },
+    "learned_cases": 1,
+    "rows": [
+      {
+        "filename": "Untitled.jpg",
+        "status": "ГОДЕН",
+        "score": 0.0,
+        "raw_score": 0.0,
+        "matches": 0,
+        "adjustment": 0.0,
+        "review_defects": 0,
+        "elapsed_ms": 9.85
+      },
+      {
+        "filename": "Untitled1.jpg",
+        "status": "ГОДЕН",
+        "score": 0.001569,
+        "raw_score": 1.0,
+        "matches": 1,
+        "adjustment": 1.0,
+        "review_defects": 0,
+        "elapsed_ms": 17.37
+      },
+      {
+        "filename": "Untitled12.jpg",
+        "status": "БРАК",
+        "score": 1.0,
+        "raw_score": 1.0,
+        "matches": 1,
+        "adjustment": 0.0,
+        "review_defects": 2,
+        "elapsed_ms": 24.74
+      },
+      {
+        "filename": "Untitled123.jpg",
+        "status": "ГОДЕН",
+        "score": 0.000784,
+        "raw_score": 1.0,
+        "matches": 1,
+        "adjustment": 1.0,
+        "review_defects": 0,
+        "elapsed_ms": 17.46
+      },
+      {
+        "filename": "Untitled1234.jpg",
+        "status": "ГОДЕН",
+        "score": 0.000784,
+        "raw_score": 0.79128,
+        "matches": 1,
+        "adjustment": 0.79128,
+        "review_defects": 0,
+        "elapsed_ms": 18.37
+      },
+      {
+        "filename": "Untitled12345.jpg",
+        "status": "ГОДЕН",
+        "score": 0.000784,
+        "raw_score": 1.0,
+        "matches": 2,
+        "adjustment": 1.0,
+        "review_defects": 0,
+        "elapsed_ms": 16.38
+      },
+      {
+        "filename": "Untitled123456.jpg",
+        "status": "ГОДЕН",
+        "score": 0.001569,
+        "raw_score": 1.0,
+        "matches": 2,
+        "adjustment": 1.0,
+        "review_defects": 0,
+        "elapsed_ms": 16.19
+      },
+      {
+        "filename": "Untitled_pomenshe.jpg",
+        "status": "ГОДЕН",
+        "score": 0.000784,
+        "raw_score": 0.725468,
+        "matches": 1,
+        "adjustment": 0.725468,
+        "review_defects": 0,
+        "elapsed_ms": 14.86
+      },
+      {
+        "filename": "light_def.jpg",
+        "status": "ГОДЕН",
+        "score": 0.010196,
+        "raw_score": 0.0,
+        "matches": 0,
+        "adjustment": 0.0,
+        "review_defects": 0,
+        "elapsed_ms": 10.02
+      },
+      {
+        "filename": "light_def1.jpg",
+        "status": "ГОДЕН",
+        "score": 0.219477,
+        "raw_score": 0.219477,
+        "matches": 0,
+        "adjustment": 0.0,
+        "review_defects": 0,
+        "elapsed_ms": 20.53
+      },
+      {
+        "filename": "light_def12.jpg",
+        "status": "ГОДЕН",
+        "score": 0.219477,
+        "raw_score": 0.924289,
+        "matches": 1,
+        "adjustment": 0.704812,
+        "review_defects": 0,
+        "elapsed_ms": 23.53
+      },
+      {
+        "filename": "light_def123.jpg",
+        "status": "БРАК",
+        "score": 1.0,
+        "raw_score": 1.0,
+        "matches": 1,
+        "adjustment": 0.0,
+        "review_defects": 2,
+        "elapsed_ms": 28.47
+      }
+    ]
+  }
+}

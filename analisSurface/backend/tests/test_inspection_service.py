@@ -1,3 +1,6 @@
+import json
+
+import cv2
 import numpy as np
 import pytest
 
@@ -172,13 +175,14 @@ def test_new_defect_still_fails_next_to_learned_normal(
     )
 
     with_new_defect = acceptable.copy()
-    # Новый дефект в другом месте имеет сопоставимый bbox, но другую форму
-    # (крест вместо прямоугольного пятна) и не должен подавляться.
+    # Новый дефект в другом месте содержит небольшой горизонтальный фрагмент,
+    # похожий на уменьшенную норму, но остальная часть креста обязана оставить БРАК.
     with_new_defect[40:58, 62:65] = 255
     with_new_defect[47:51, 50:76] = 255
     future = inspection_service.inspect_frame("bench", with_new_defect, threshold=0.1, include_visuals=False)
 
-    assert future.learned_normal_matches_count == 1
+    assert future.learned_normal_matches_count >= 1
+    assert len(future.matched_accepted_case_ids) == 1
     assert future.status == "БРАК"
     assert future.anomaly_score >= future.threshold
 
@@ -454,6 +458,128 @@ def test_review_filter_does_not_change_score_or_pipeline_verdict(
     assert without_review.inspection_id is None
 
 
+def test_learned_rectangle_does_not_suppress_round_defect(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((180, 260, 3), 80, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("shape-rectangle-circle", reference)
+    accepted = reference.copy()
+    accepted[35:55, 35:78] = 145
+    first = inspection_service.inspect_frame(
+        "shape-rectangle-circle",
+        accepted,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(first.inspection_id)
+    inspection_service.accept_review_defect_as_normal(first.inspection_id, review["defects"][0]["id"])
+
+    current = reference.copy()
+    cv2.circle(current, (175, 110), 16, (145, 145, 145), -1, cv2.LINE_AA)
+    result = inspection_service.inspect_frame(
+        "shape-rectangle-circle",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 0
+    assert result.status == "БРАК"
+
+
+def test_learned_horizontal_scratch_does_not_suppress_vertical_scratch(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((180, 260, 3), 80, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("shape-scratch-direction", reference)
+    accepted = reference.copy()
+    cv2.line(accepted, (30, 65), (115, 65), (145, 145, 145), 5, cv2.LINE_AA)
+    first = inspection_service.inspect_frame(
+        "shape-scratch-direction",
+        accepted,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(first.inspection_id)
+    inspection_service.accept_review_defect_as_normal(first.inspection_id, review["defects"][0]["id"])
+
+    current = reference.copy()
+    cv2.line(current, (185, 45), (185, 140), (145, 145, 145), 5, cv2.LINE_AA)
+    result = inspection_service.inspect_frame(
+        "shape-scratch-direction",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 0
+    assert result.status == "БРАК"
+
+
+def test_learned_bent_trace_matches_smaller_rotated_copies(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((240, 320, 3), 80, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("shape-bent-scaled", reference)
+
+    accepted = reference.copy()
+    cv2.polylines(
+        accepted,
+        [np.asarray([(50, 35), (50, 100), (125, 100)], dtype=np.int32)],
+        False,
+        (145, 145, 145),
+        6,
+        cv2.LINE_AA,
+    )
+    first = inspection_service.inspect_frame(
+        "shape-bent-scaled",
+        accepted,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(first.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        first.inspection_id,
+        review["defects"][0]["id"],
+    )
+
+    current = reference.copy()
+    cv2.polylines(
+        current,
+        [np.asarray([(200, 45), (200, 83), (243, 83)], dtype=np.int32)],
+        False,
+        (145, 145, 145),
+        5,
+        cv2.LINE_AA,
+    )
+    cv2.polylines(
+        current,
+        [np.asarray([(135, 195), (88, 195), (88, 153)], dtype=np.int32)],
+        False,
+        (145, 145, 145),
+        5,
+        cv2.LINE_AA,
+    )
+    result = inspection_service.inspect_frame(
+        "shape-bent-scaled",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 2
+    assert result.anomaly_score < result.threshold
+
+
 def test_accepted_normal_survives_service_restart(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,
@@ -475,6 +601,67 @@ def test_accepted_normal_survives_service_restart(
     restarted._anomaly_engine = None
     restarted.set_reference_frame("bench", gray_frame)
     result = restarted.inspect_frame("bench", acceptable, threshold=0.1, include_visuals=False)
+
+    assert result.learned_normal_matches_count == 1
+    assert result.status == "ГОДЕН"
+
+
+def test_legacy_stretched_normal_is_loaded_with_recovered_aspect(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((120, 200, 3), 80, dtype=np.uint8)
+    acceptable = reference.copy()
+    acceptable[25:33, 30:115] = 145
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("legacy-template", reference)
+    original = inspection_service.inspect_frame(
+        "legacy-template",
+        acceptable,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    accepted = inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+    )
+    case_id = accepted["accepted_case"]["id"]
+    storage_dir = inspection_service._accepted_normals.storage_dir
+    metadata_path = storage_dir / f"{case_id}.json"
+    arrays_path = storage_dir / f"{case_id}.npz"
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata.pop("template_version", None)
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    with np.load(arrays_path, allow_pickle=False) as arrays:
+        mask = arrays["mask_template"].copy()
+        diff = arrays["diff_template"].copy()
+        appearance = arrays["appearance_template"].copy()
+    y_points, x_points = np.where(mask > 0)
+    y0, y1 = int(np.min(y_points)), int(np.max(y_points)) + 1
+    x0, x1 = int(np.min(x_points)), int(np.max(x_points)) + 1
+    legacy_arrays = {
+        "mask_template": cv2.resize(mask[y0:y1, x0:x1], (64, 64), interpolation=cv2.INTER_NEAREST),
+        "diff_template": cv2.resize(diff[y0:y1, x0:x1], (64, 64), interpolation=cv2.INTER_AREA),
+        "appearance_template": cv2.resize(
+            appearance[y0:y1, x0:x1],
+            (64, 64),
+            interpolation=cv2.INTER_AREA,
+        ),
+    }
+    np.savez_compressed(arrays_path, **legacy_arrays)
+
+    restarted = InspectionService(learned_normals_dir=storage_dir, review_limit=5)
+    restarted._anomaly_engine = None
+    restarted.set_reference_frame("legacy-template", reference)
+    result = restarted.inspect_frame(
+        "legacy-template",
+        acceptable,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
 
     assert result.learned_normal_matches_count == 1
     assert result.status == "ГОДЕН"

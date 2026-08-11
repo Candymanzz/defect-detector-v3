@@ -1278,6 +1278,8 @@ class InspectionService:
         ref_grad_mag = cv2.GaussianBlur(cur_grad_mag, (9, 9), 0)
         for label_idx in range(1, num_labels):
             area = int(stats[label_idx, cv2.CC_STAT_AREA])
+            x = int(stats[label_idx, cv2.CC_STAT_LEFT])
+            y = int(stats[label_idx, cv2.CC_STAT_TOP])
             w = max(1, int(stats[label_idx, cv2.CC_STAT_WIDTH]))
             h = max(1, int(stats[label_idx, cv2.CC_STAT_HEIGHT]))
             aspect = max(w / h, h / w)
@@ -1285,15 +1287,18 @@ class InspectionService:
 
             # Keep tiny but clearly elongated components (scratch-like traces).
             if area >= object_min_area or (area > 3 and aspect > settings.min_scratch_aspect):
-                component_mask = labels == label_idx
-                text_overlap = 0.0
-                if np.any(component_mask):
-                    text_overlap = float(np.mean(text_like_zone[component_mask]))
+                # Ограничиваем операции bbox компонента. Результат идентичен сравнению
+                # labels по всему кадру, но не сканирует 5-Мп изображение сотни раз.
+                local_labels = labels[y : y + h, x : x + w]
+                component_mask = local_labels == label_idx
+                local_text_zone = text_like_zone[y : y + h, x : x + w]
+                text_overlap = float(np.mean(local_text_zone[component_mask]))
                 is_text_critical = aspect > 8.0 and text_overlap > 0.2
                 if is_text_critical or area >= object_min_area or (
                     area > 3 and aspect > settings.min_scratch_aspect
                 ):
-                    filtered[component_mask] = 255
+                    filtered_region = filtered[y : y + h, x : x + w]
+                    filtered_region[component_mask] = 255
                     max_aspect = max(max_aspect, float(aspect))
                     local_score = float((aspect / 15.0) + (area / 500.0))
                     if text_overlap > 0.2:
@@ -1301,8 +1306,10 @@ class InspectionService:
 
                     # Penalty for structural "emptiness": if inside anomaly region
                     # current gradient is much weaker than text gradient in reference.
-                    ref_object_grad = float(np.mean(ref_grad_mag[component_mask])) if np.any(component_mask) else 0.0
-                    cur_object_grad = float(np.mean(cur_grad_mag[component_mask])) if np.any(component_mask) else 0.0
+                    ref_region = ref_grad_mag[y : y + h, x : x + w]
+                    cur_region = cur_grad_mag[y : y + h, x : x + w]
+                    ref_object_grad = float(np.mean(ref_region[component_mask]))
+                    cur_object_grad = float(np.mean(cur_region[component_mask]))
                     if ref_object_grad > (cur_object_grad + 12.0):
                         local_score += 0.4
 

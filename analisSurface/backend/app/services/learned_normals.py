@@ -26,6 +26,8 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 TEMPLATE_SIZE = 64
+TEMPLATE_INNER_SIZE = 56
+TEMPLATE_VERSION = 2
 
 
 def _utc_now() -> str:
@@ -63,12 +65,50 @@ def _decode(data: bytes, flags: int = cv2.IMREAD_UNCHANGED) -> np.ndarray:
     return image
 
 
-def _resize_template(image: np.ndarray, *, binary: bool = False) -> np.ndarray:
+def _fit_template(image: np.ndarray, *, binary: bool = False) -> np.ndarray:
+    """Вписать локальный фрагмент в квадрат, не искажая его пропорции."""
+    height, width = image.shape[:2]
+    if height <= 0 or width <= 0:
+        return np.zeros((TEMPLATE_SIZE, TEMPLATE_SIZE), dtype=np.uint8)
     interpolation = cv2.INTER_NEAREST if binary else cv2.INTER_AREA
-    resized = cv2.resize(image, (TEMPLATE_SIZE, TEMPLATE_SIZE), interpolation=interpolation)
+    scale = min(TEMPLATE_INNER_SIZE / width, TEMPLATE_INNER_SIZE / height)
+    resized_width = max(1, round(width * scale))
+    resized_height = max(1, round(height * scale))
+    resized = cv2.resize(image, (resized_width, resized_height), interpolation=interpolation)
+    canvas = np.zeros((TEMPLATE_SIZE, TEMPLATE_SIZE), dtype=np.uint8)
+    x = (TEMPLATE_SIZE - resized_width) // 2
+    y = (TEMPLATE_SIZE - resized_height) // 2
+    canvas[y : y + resized_height, x : x + resized_width] = resized
     if binary:
-        return np.where(resized > 0, 255, 0).astype(np.uint8)
-    return resized.astype(np.uint8)
+        return np.where(canvas > 0, 255, 0).astype(np.uint8)
+    return canvas.astype(np.uint8)
+
+
+def _convert_legacy_template(
+    template: np.ndarray,
+    bbox_norm: tuple[float, float, float, float],
+    *,
+    binary: bool = False,
+) -> np.ndarray:
+    """Приблизительно восстановить пропорции старого растянутого шаблона."""
+    _, _, width_norm, height_norm = bbox_norm
+    if width_norm <= 0.0 or height_norm <= 0.0:
+        return _fit_template(template, binary=binary)
+    if width_norm >= height_norm:
+        restored_width = TEMPLATE_INNER_SIZE
+        restored_height = max(1, round(TEMPLATE_INNER_SIZE * height_norm / width_norm))
+    else:
+        restored_height = TEMPLATE_INNER_SIZE
+        restored_width = max(1, round(TEMPLATE_INNER_SIZE * width_norm / height_norm))
+    interpolation = cv2.INTER_NEAREST if binary else cv2.INTER_AREA
+    restored = cv2.resize(template, (restored_width, restored_height), interpolation=interpolation)
+    canvas = np.zeros((TEMPLATE_SIZE, TEMPLATE_SIZE), dtype=np.uint8)
+    x = (TEMPLATE_SIZE - restored_width) // 2
+    y = (TEMPLATE_SIZE - restored_height) // 2
+    canvas[y : y + restored_height, x : x + restored_width] = restored
+    if binary:
+        return np.where(canvas > 0, 255, 0).astype(np.uint8)
+    return canvas.astype(np.uint8)
 
 
 @dataclass
@@ -88,6 +128,7 @@ class DefectCandidate:
     appearance_template: np.ndarray = field(repr=False)
     matched_case_id: Optional[str] = None
     similarity: Optional[float] = None
+    _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
 
     def to_public_dict(self) -> dict:
         x, y, width, height = self.bbox
@@ -128,9 +169,16 @@ class AcceptedNormalCase:
     source_defect_id: str
     note: str
     enabled: bool
+    template_version: int
     mask_template: np.ndarray = field(repr=False)
     diff_template: np.ndarray = field(repr=False)
     appearance_template: np.ndarray = field(repr=False)
+    _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
+    _template_cache: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]] = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
 
     def to_public_dict(self) -> dict:
         return {
@@ -152,6 +200,7 @@ class AcceptedNormalCase:
             "source_defect_id": self.source_defect_id,
             "note": self.note,
             "enabled": self.enabled,
+            "template_version": self.template_version,
         }
 
 
@@ -392,6 +441,7 @@ class AcceptedNormalMemory:
             source_defect_id=candidate.id,
             note=note.strip(),
             enabled=True,
+            template_version=TEMPLATE_VERSION,
             mask_template=candidate.mask_template.copy(),
             diff_template=candidate.diff_template.copy(),
             appearance_template=candidate.appearance_template.copy(),
@@ -454,13 +504,36 @@ class AcceptedNormalMemory:
             # Убираем также узкий ореол морфологии вокруг совпавшей компоненты,
             # иначе остаточный diff продолжает повышать score уже «разрешённого»
             # фрагмента. Радиус мал и применяется только после строгого match.
-            suppress_mask = cv2.dilate(
+            # Candidate хранит только локальную маску своего bbox. Это не создаёт по одной
+            # полноразмерной копии маски на каждый компонент (особенно дорого на 5-Мп кадрах).
+            # Padding сохраняет прежний двухпиксельный ореол подавления и за пределами bbox.
+            x, y, box_width, box_height = candidate.bbox
+            radius = 2
+            padded = cv2.copyMakeBorder(
                 candidate.mask.astype(np.uint8) * 255,
+                radius,
+                radius,
+                radius,
+                radius,
+                cv2.BORDER_CONSTANT,
+                value=0,
+            )
+            suppress_local = cv2.dilate(
+                padded,
                 np.ones((5, 5), dtype=np.uint8),
                 iterations=1,
             ) > 0
-            filtered_diff[suppress_mask] = 0
-            filtered_mask[suppress_mask] = 0
+            x0 = max(0, x - radius)
+            y0 = max(0, y - radius)
+            x1 = min(filtered_diff.shape[1], x + box_width + radius)
+            y1 = min(filtered_diff.shape[0], y + box_height + radius)
+            crop_x0 = x0 - (x - radius)
+            crop_y0 = y0 - (y - radius)
+            crop_x1 = crop_x0 + (x1 - x0)
+            crop_y1 = crop_y0 + (y1 - y0)
+            suppress_crop = suppress_local[crop_y0:crop_y1, crop_x0:crop_x1]
+            filtered_diff[y0:y1, x0:x1][suppress_crop] = 0
+            filtered_mask[y0:y1, x0:x1][suppress_crop] = 0
             matched_case_ids.append(best_case.id)
 
         return LearnedFilterResult(
@@ -518,6 +591,7 @@ class AcceptedNormalMemory:
                         source_defect_id=str(payload.get("source_defect_id", "")),
                         note=str(payload.get("note", "")),
                         enabled=bool(payload.get("enabled", True)),
+                        template_version=int(payload.get("template_version", 1)),
                         mask_template=arrays["mask_template"].copy(),
                         diff_template=arrays["diff_template"].copy(),
                         appearance_template=arrays["appearance_template"].copy(),
@@ -542,31 +616,39 @@ def extract_defect_candidates(
     grouping_radius = max(1, min(7, round(min(height, width) * 0.025)))
     grouping_kernel = np.ones((grouping_radius * 2 + 1, grouping_radius * 2 + 1), dtype=np.uint8)
     grouping_binary = cv2.dilate(binary, grouping_kernel, iterations=1)
-    count, labels = cv2.connectedComponents(grouping_binary, connectivity=8)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(grouping_binary, connectivity=8)
     diff_gray = _gray(diff_map)
     aligned_gray = _gray(aligned)
     candidates: list[DefectCandidate] = []
 
     raw_candidates: list[tuple[int, int, int, int, int, int]] = []
     for label_idx in range(1, count):
-        component_mask = (labels == label_idx) & (binary > 0)
-        y_points, x_points = np.where(component_mask)
+        group_x = int(stats[label_idx, cv2.CC_STAT_LEFT])
+        group_y = int(stats[label_idx, cv2.CC_STAT_TOP])
+        group_width = int(stats[label_idx, cv2.CC_STAT_WIDTH])
+        group_height = int(stats[label_idx, cv2.CC_STAT_HEIGHT])
+        group_labels = labels[group_y : group_y + group_height, group_x : group_x + group_width]
+        group_binary = binary[group_y : group_y + group_height, group_x : group_x + group_width]
+        component_local = (group_labels == label_idx) & (group_binary > 0)
+        y_points, x_points = np.where(component_local)
         area = int(x_points.size)
         if area <= 0:
             continue
-        x = int(np.min(x_points))
-        y = int(np.min(y_points))
-        box_width = int(np.max(x_points) - x + 1)
-        box_height = int(np.max(y_points) - y + 1)
+        x = group_x + int(np.min(x_points))
+        y = group_y + int(np.min(y_points))
+        # x_points/y_points локальны относительно group bbox.
+        box_width = int(np.max(x_points) - np.min(x_points) + 1)
+        box_height = int(np.max(y_points) - np.min(y_points) + 1)
         raw_candidates.append((y, x, label_idx, area, box_width, box_height))
 
     raw_candidates.sort(key=lambda entry: (entry[0], entry[1]))
     for ordinal, (y, x, label_idx, area, box_width, box_height) in enumerate(raw_candidates, start=1):
-        component_mask = (labels == label_idx) & (binary > 0)
-        local_mask = component_mask[y : y + box_height, x : x + box_width]
+        local_labels = labels[y : y + box_height, x : x + box_width]
+        local_binary = binary[y : y + box_height, x : x + box_width]
+        local_mask = (local_labels == label_idx) & (local_binary > 0)
         local_diff = diff_gray[y : y + box_height, x : x + box_width]
         local_aligned = aligned_gray[y : y + box_height, x : x + box_width]
-        values = diff_gray[component_mask]
+        values = local_diff[local_mask]
         diff_mean = float(np.mean(values)) if values.size else 0.0
         diff_q90 = float(np.percentile(values, 90)) if values.size else 0.0
         diff_max = float(np.max(values)) if values.size else 0.0
@@ -619,10 +701,10 @@ def extract_defect_candidates(
                 diff_q90=diff_q90,
                 diff_max=diff_max,
                 score=score,
-                mask=component_mask,
-                mask_template=_resize_template(local_mask.astype(np.uint8) * 255, binary=True),
-                diff_template=_resize_template(local_diff),
-                appearance_template=_resize_template(local_aligned),
+                mask=local_mask.copy(),
+                mask_template=_fit_template(local_mask.astype(np.uint8) * 255, binary=True),
+                diff_template=_fit_template(local_diff),
+                appearance_template=_fit_template(local_aligned),
             )
         )
     return candidates
@@ -677,6 +759,123 @@ def filter_review_candidates(
     ]
 
 
+@dataclass(frozen=True)
+class _MaskGeometry:
+    aspect: float
+    fill_ratio: float
+    elongation: float
+    angle_degrees: float
+    compactness: float
+    solidity: float
+    component_count: int
+    contour_vertices: int
+    largest_contour: np.ndarray = field(repr=False, compare=False)
+
+
+def _mask_geometry(mask: np.ndarray) -> Optional[_MaskGeometry]:
+    binary = np.where(mask > 0, 255, 0).astype(np.uint8)
+    y_points, x_points = np.where(binary > 0)
+    if x_points.size < 3:
+        return None
+
+    width = int(np.max(x_points) - np.min(x_points) + 1)
+    height = int(np.max(y_points) - np.min(y_points) + 1)
+    area = float(x_points.size)
+    aspect = width / max(1.0, float(height))
+    fill_ratio = area / max(1.0, float(width * height))
+
+    coordinates = np.column_stack((x_points.astype(np.float32), y_points.astype(np.float32)))
+    centered = coordinates - np.mean(coordinates, axis=0, keepdims=True)
+    covariance = centered.T @ centered / max(1, coordinates.shape[0] - 1)
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    major_index = int(np.argmax(eigenvalues))
+    major_value = max(1e-6, float(eigenvalues[major_index]))
+    minor_value = max(1e-6, float(eigenvalues[1 - major_index]))
+    elongation = math.sqrt(major_value / minor_value)
+    major_vector = eigenvectors[:, major_index]
+    angle_degrees = math.degrees(math.atan2(float(major_vector[1]), float(major_vector[0]))) % 180.0
+
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    component_count, _ = cv2.connectedComponents(binary, connectivity=8)
+    perimeter = sum(float(cv2.arcLength(contour, True)) for contour in contours)
+    compactness = float(np.clip((4.0 * math.pi * area) / max(1e-6, perimeter * perimeter), 0.0, 1.0))
+    hull = cv2.convexHull(np.column_stack((x_points, y_points)).astype(np.int32))
+    hull_area = max(1.0, float(cv2.contourArea(hull)))
+    solidity = float(np.clip(area / hull_area, 0.0, 1.0))
+    largest_contour = max(contours, key=cv2.contourArea)
+    contour_perimeter = float(cv2.arcLength(largest_contour, True))
+    approximated = cv2.approxPolyDP(largest_contour, max(1.0, contour_perimeter * 0.04), True)
+    return _MaskGeometry(
+        aspect=aspect,
+        fill_ratio=fill_ratio,
+        elongation=elongation,
+        angle_degrees=angle_degrees,
+        compactness=compactness,
+        solidity=solidity,
+        component_count=max(0, int(component_count) - 1),
+        contour_vertices=int(len(approximated)),
+        largest_contour=largest_contour,
+    )
+
+
+def _ratio_similarity(first: float, second: float) -> float:
+    high = max(abs(first), abs(second), 1e-6)
+    return float(np.clip(min(abs(first), abs(second)) / high, 0.0, 1.0))
+
+
+def _angle_distance(first: float, second: float) -> float:
+    difference = abs(first - second) % 180.0
+    return min(difference, 180.0 - difference)
+
+
+def _case_templates(case: AcceptedNormalCase) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if case._template_cache is not None:
+        return case._template_cache
+    if case.template_version >= TEMPLATE_VERSION:
+        templates = (case.mask_template, case.diff_template, case.appearance_template)
+    else:
+        templates = (
+            _convert_legacy_template(case.mask_template, case.bbox_norm, binary=True),
+            _convert_legacy_template(case.diff_template, case.bbox_norm),
+            _convert_legacy_template(case.appearance_template, case.bbox_norm),
+        )
+    case._template_cache = templates
+    return templates
+
+
+def _contour_match_distance(first: _MaskGeometry, second: _MaskGeometry) -> float:
+    return float(
+        cv2.matchShapes(
+            first.largest_contour,
+            second.largest_contour,
+            cv2.CONTOURS_MATCH_I1,
+            0.0,
+        )
+    )
+
+
+def _mask_overlap_metrics(first_mask: np.ndarray, second_mask: np.ndarray) -> tuple[float, float]:
+    """Вернуть устойчивую близость формы и Dice для двух нормализованных масок."""
+    first = np.asarray(first_mask, dtype=bool)
+    second = np.asarray(second_mask, dtype=bool)
+    first_u8 = first.astype(np.uint8) * 255
+    second_u8 = second.astype(np.uint8) * 255
+    distance_to_first = cv2.distanceTransform(255 - first_u8, cv2.DIST_L2, 3)
+    distance_to_second = cv2.distanceTransform(255 - second_u8, cv2.DIST_L2, 3)
+    symmetric_distance = (
+        float(np.mean(distance_to_first[second]))
+        + float(np.mean(distance_to_second[first]))
+    ) * 0.5
+    distance_scale = TEMPLATE_SIZE * math.sqrt(2.0) * 0.20
+    tolerant_similarity = max(0.0, 1.0 - symmetric_distance / distance_scale)
+    intersection = float(np.count_nonzero(first & second))
+    dice_similarity = (2.0 * intersection) / max(
+        1.0,
+        float(np.count_nonzero(first) + np.count_nonzero(second)),
+    )
+    return tolerant_similarity, dice_similarity
+
+
 def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -> Optional[float]:
     """Сопоставление дефекта независимо от положения и уменьшения по кадру."""
     _, _, cw, ch = candidate.bbox_norm
@@ -688,7 +887,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     # Нижней границы нет: любая уменьшенная версия подтверждённого следа может
     # совпасть. Увеличение ограничено, чтобы большая аномалия не наследовала
     # исключение от маленького примера.
-    if bbox_area_ratio > 1.60:
+    if bbox_area_ratio >= 1.55:
         return None
 
     if candidate.diff_q90 > max(case.diff_q90 * 1.60, case.diff_q90 + 12.0):
@@ -696,51 +895,194 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if candidate.diff_max > max(case.diff_max * 1.50, case.diff_max + 20.0):
         return None
 
+    case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
     candidate_mask = candidate.mask_template > 0
-    sample_mask = case.mask_template > 0
+    candidate_diff_template = candidate.diff_template
+    candidate_appearance_template = candidate.appearance_template
+    sample_mask = case_mask_template > 0
+    candidate_geometry = candidate._geometry_cache
+    if candidate_geometry is None:
+        candidate_geometry = _mask_geometry(candidate_mask)
+        candidate._geometry_cache = candidate_geometry
+    sample_geometry = case._geometry_cache
+    if sample_geometry is None:
+        sample_geometry = _mask_geometry(sample_mask)
+        case._geometry_cache = sample_geometry
+    if candidate_geometry is None or sample_geometry is None:
+        return None
+
+    sample_is_thin_trace = (
+        sample_geometry.fill_ratio <= 0.35
+        and sample_geometry.compactness <= 0.25
+    )
+    # Для изогнутого тонкого следа PCA-направление определяется длиной его плеч и скачет
+    # при уменьшении/разрыве маски. Сравниваем четыре поворота шаблона и выбираем тот,
+    # который лучше совмещает именно форму. Прямые царапины сюда не попадают благодаря
+    # высокой solidity, поэтому горизонтальная линия не становится вертикальной нормой.
+    sample_is_bent_trace = (
+        sample_is_thin_trace
+        and sample_geometry.solidity <= 0.58
+        and sample_geometry.contour_vertices >= 4
+    )
+    if sample_is_bent_trace:
+        best_rotation = 0
+        best_rotation_quality = -1.0
+        for rotation in range(4):
+            rotated_mask = np.rot90(candidate_mask, rotation)
+            tolerant, dice = _mask_overlap_metrics(rotated_mask, sample_mask)
+            quality = tolerant * 0.65 + dice * 0.35
+            if quality > best_rotation_quality:
+                best_rotation_quality = quality
+                best_rotation = rotation
+        if best_rotation:
+            candidate_mask = np.rot90(candidate_mask, best_rotation)
+            candidate_diff_template = np.rot90(candidate_diff_template, best_rotation)
+            candidate_appearance_template = np.rot90(candidate_appearance_template, best_rotation)
+            rotated_geometry = _mask_geometry(candidate_mask)
+            if rotated_geometry is not None:
+                candidate_geometry = rotated_geometry
+
+    aspect_similarity = _ratio_similarity(candidate_geometry.aspect, sample_geometry.aspect)
+    fill_similarity = _ratio_similarity(candidate_geometry.fill_ratio, sample_geometry.fill_ratio)
+    compactness_similarity = _ratio_similarity(candidate_geometry.compactness, sample_geometry.compactness)
+    solidity_similarity = _ratio_similarity(candidate_geometry.solidity, sample_geometry.solidity)
+    elongation_similarity = _ratio_similarity(candidate_geometry.elongation, sample_geometry.elongation)
+
+    # Направление важно только для явно вытянутых следов. Для почти круглых пятен
+    # PCA-угол нестабилен и не должен мешать совпадению.
+    if min(candidate_geometry.elongation, sample_geometry.elongation) >= 1.8:
+        maximum_angle_distance = 45.0 if sample_is_bent_trace else 30.0
+        if _angle_distance(candidate_geometry.angle_degrees, sample_geometry.angle_degrees) > maximum_angle_distance:
+            return None
+    one_is_elongated = max(candidate_geometry.elongation, sample_geometry.elongation) >= 2.5
+    other_is_compact = min(candidate_geometry.elongation, sample_geometry.elongation) <= 1.45
+    if one_is_elongated and other_is_compact:
+        return None
+
+    # Эти проверки масштабонезависимы: абсолютная площадь и положение не участвуют.
+    if aspect_similarity < 0.40:
+        return None
+    minimum_fill_similarity = 0.30 if sample_is_thin_trace else 0.38
+    if fill_similarity < minimum_fill_similarity:
+        return None
+    minimum_compactness_similarity = 0.28 if sample_is_thin_trace else 0.33
+    if compactness_similarity < minimum_compactness_similarity or solidity_similarity < 0.42:
+        return None
+
+    comparison_region = cv2.dilate(
+        np.where(candidate_mask | sample_mask, 255, 0).astype(np.uint8),
+        np.ones((3, 3), dtype=np.uint8),
+        iterations=1,
+    ) > 0
+    if not np.any(comparison_region):
+        return None
     diff_similarity = 1.0 - float(
-        np.mean(np.abs(candidate.diff_template.astype(np.float32) - case.diff_template.astype(np.float32)))
+        np.mean(
+            np.abs(
+                candidate_diff_template.astype(np.float32)
+                - case_diff_template.astype(np.float32)
+            )[comparison_region]
+        )
         / 255.0
     )
     appearance_similarity = 1.0 - float(
         np.mean(
             np.abs(
-                candidate.appearance_template.astype(np.float32)
-                - case.appearance_template.astype(np.float32)
-            )
+                candidate_appearance_template.astype(np.float32)
+                - case_appearance_template.astype(np.float32)
+            )[comparison_region]
         )
         / 255.0
+    )
+
+    # Узкий режим для уменьшенной разорванной версии сохранённой тонкой трассы.
+    # Он не применяется к пятнам/сколам и не разрешает увеличение. Такой след
+    # может распасться порогом на 2–3 островка на тёмной печатной этикетке.
+    partial_trace_candidate = (
+        sample_geometry.fill_ratio <= 0.25
+        and sample_geometry.compactness <= 0.18
+        and sample_geometry.elongation >= 2.2
+        and 2 <= candidate_geometry.component_count <= 3
+        and bbox_area_ratio <= 0.50
+        and aspect_similarity >= 0.35
+        and diff_similarity >= 0.82
+        and appearance_similarity >= 0.55
     )
 
     # IoU слишком чувствителен к длине отдельных плеч царапины/следа. Среднее
     # расстояние между обеими масками терпит такую деформацию, но остаётся
     # симметричным: и текущая, и сохранённая форма должны объяснять друг друга.
-    candidate_u8 = candidate_mask.astype(np.uint8) * 255
-    sample_u8 = sample_mask.astype(np.uint8) * 255
-    distance_to_candidate = cv2.distanceTransform(255 - candidate_u8, cv2.DIST_L2, 3)
-    distance_to_sample = cv2.distanceTransform(255 - sample_u8, cv2.DIST_L2, 3)
-    symmetric_distance = (
-        float(np.mean(distance_to_candidate[sample_mask]))
-        + float(np.mean(distance_to_sample[candidate_mask]))
-    ) * 0.5
-    distance_scale = TEMPLATE_SIZE * math.sqrt(2.0) * 0.20
-    tolerant_shape_similarity = max(0.0, 1.0 - symmetric_distance / distance_scale)
+    tolerant_shape_similarity, dice_similarity = _mask_overlap_metrics(candidate_mask, sample_mask)
 
-    if tolerant_shape_similarity < 0.68:
+    if partial_trace_candidate:
+        partial_similarity = (
+            tolerant_shape_similarity * 0.40
+            + aspect_similarity * 0.15
+            + fill_similarity * 0.10
+            + diff_similarity * 0.25
+            + appearance_similarity * 0.10
+        )
+        return float(partial_similarity) if partial_similarity >= 0.66 else None
+
+    stable_thin_trace_candidate = (
+        sample_is_thin_trace
+        and candidate_geometry.component_count == 1
+        and _angle_distance(candidate_geometry.angle_degrees, sample_geometry.angle_degrees)
+        <= (45.0 if sample_is_bent_trace else 25.0)
+        and tolerant_shape_similarity >= (0.70 if sample_is_bent_trace else 0.84)
+        and dice_similarity >= (0.28 if sample_is_bent_trace else 0.30)
+        and aspect_similarity >= (0.38 if sample_is_bent_trace else 0.55)
+        and elongation_similarity >= 0.55
+        and diff_similarity >= 0.75
+        and appearance_similarity >= 0.50
+    )
+
+    if (
+        not stable_thin_trace_candidate
+        and (tolerant_shape_similarity < 0.72 or dice_similarity < 0.32)
+    ):
         return None
-    if diff_similarity < 0.78 or appearance_similarity < 0.75:
+    if diff_similarity < 0.70 or appearance_similarity < 0.45:
+        return None
+
+    geometry_similarity = (
+        tolerant_shape_similarity * 0.35
+        + dice_similarity * 0.25
+        + aspect_similarity * 0.10
+        + fill_similarity * 0.08
+        + compactness_similarity * 0.07
+        + solidity_similarity * 0.08
+        + elongation_similarity * 0.07
+    )
+    both_filled_compact = (
+        max(candidate_geometry.elongation, sample_geometry.elongation) < 2.2
+        and min(candidate_geometry.fill_ratio, sample_geometry.fill_ratio) >= 0.55
+    )
+    if both_filled_compact:
+        if dice_similarity < 0.83:
+            return None
+        contour_distance = _contour_match_distance(candidate_geometry, sample_geometry)
+        if contour_distance > 0.25:
+            return None
+        vertex_difference = abs(
+            candidate_geometry.contour_vertices - sample_geometry.contour_vertices
+        )
+        if vertex_difference > 2 or (vertex_difference >= 2 and contour_distance > 0.20):
+            return None
+    if geometry_similarity < 0.72 and not stable_thin_trace_candidate:
         return None
 
     # Уменьшение не штрафуется. Для допустимого увеличения остаётся небольшой
     # штраф, а основной вес имеют форма, diff и внешний вид фрагмента.
     scale_similarity = 1.0 if bbox_area_ratio <= 1.0 else 1.0 / bbox_area_ratio
     similarity = (
-        tolerant_shape_similarity * 0.45
-        + diff_similarity * 0.30
-        + appearance_similarity * 0.20
+        geometry_similarity * 0.70
+        + diff_similarity * 0.18
+        + appearance_similarity * 0.07
         + scale_similarity * 0.05
     )
-    if similarity < 0.78:
+    minimum_similarity = 0.68 if stable_thin_trace_candidate else 0.80
+    if similarity < minimum_similarity:
         return None
     return float(similarity)
 

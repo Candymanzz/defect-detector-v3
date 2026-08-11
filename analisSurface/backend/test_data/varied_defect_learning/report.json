@@ -119,7 +119,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9680361847125047,
+      "max_similarity": 0.9493350835482102,
       "passed": true
     },
     {
@@ -131,7 +131,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9725866387132869,
+      "max_similarity": 0.9563648565944916,
       "passed": true
     },
     {
@@ -143,7 +143,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9661578327734122,
+      "max_similarity": 0.9544693626986305,
       "passed": true
     },
     {
@@ -155,7 +155,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9541101801927825,
+      "max_similarity": 0.943046409782945,
       "passed": true
     },
     {
@@ -167,7 +167,7 @@
       "raw_score": 1.0,
       "final_score": 0.00392156862745098,
       "matches": 2,
-      "max_similarity": 0.9641640287716441,
+      "max_similarity": 0.9539565286885553,
       "passed": true
     },
     {
@@ -187,24 +187,24 @@
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9316112464566412,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "circle",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.943256364181325,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "circle",
@@ -235,24 +235,24 @@
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9359006038491915,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "circle",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9358367581928104,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "circle",
@@ -307,12 +307,12 @@
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8813249032863709,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
@@ -335,7 +335,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9682015618798998,
+      "max_similarity": 0.9573402832031291,
       "passed": true
     },
     {
@@ -347,7 +347,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9696537013215212,
+      "max_similarity": 0.9616341562600197,
       "passed": true
     },
     {
@@ -359,7 +359,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9638275194285885,
+      "max_similarity": 0.9328731225860992,
       "passed": true
     },
     {
@@ -371,7 +371,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9548121780169738,
+      "max_similarity": 0.9432683590646643,
       "passed": true
     },
     {
@@ -383,7 +383,7 @@
       "raw_score": 1.0,
       "final_score": 0.00392156862745098,
       "matches": 2,
-      "max_similarity": 0.9645738979915934,
+      "max_similarity": 0.9526556527671419,
       "passed": true
     },
     {
@@ -403,36 +403,36 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9493509421325066,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9290036022730045,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
       "probe_family": "triangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9026826822687153,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
@@ -451,24 +451,24 @@
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9284272031870923,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9143783194478736,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
@@ -523,12 +523,12 @@
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8750775821173115,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "rectangle_chip",
@@ -551,7 +551,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9691093111882993,
+      "max_similarity": 0.9509065967994853,
       "passed": true
     },
     {
@@ -563,7 +563,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9711994209969865,
+      "max_similarity": 0.9404581484385724,
       "passed": true
     },
     {
@@ -575,7 +575,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9647597620361373,
+      "max_similarity": 0.9219053116817234,
       "passed": true
     },
     {
@@ -587,7 +587,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9539699761575774,
+      "max_similarity": 0.9320417529703605,
       "passed": true
     },
     {
@@ -599,7 +599,7 @@
       "raw_score": 1.0,
       "final_score": 0.0023529411764705885,
       "matches": 2,
-      "max_similarity": 0.9649839314064703,
+      "max_similarity": 0.9435304696135624,
       "passed": true
     },
     {
@@ -619,36 +619,36 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9547246008594873,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "rectangle_chip",
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9182968577977884,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "rectangle_chip",
       "probe_family": "triangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9037314943274853,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "rectangle_chip",
@@ -667,24 +667,24 @@
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9463269417970952,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "rectangle_chip",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9178708042848257,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "rectangle_chip",
@@ -739,12 +739,12 @@
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8877127218841568,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
@@ -767,7 +767,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9649824374316308,
+      "max_similarity": 0.9144260171326756,
       "passed": true
     },
     {
@@ -779,7 +779,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9731209033891768,
+      "max_similarity": 0.9254571460107514,
       "passed": true
     },
     {
@@ -791,7 +791,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9720268677070696,
+      "max_similarity": 0.9186913046987253,
       "passed": true
     },
     {
@@ -803,7 +803,7 @@
       "raw_score": 1.0,
       "final_score": 0.0023529411764705885,
       "matches": 1,
-      "max_similarity": 0.9558882821339187,
+      "max_similarity": 0.9085753614462042,
       "passed": true
     },
     {
@@ -815,7 +815,7 @@
       "raw_score": 1.0,
       "final_score": 0.0015686274509803923,
       "matches": 2,
-      "max_similarity": 0.973260176304552,
+      "max_similarity": 0.9366156149130436,
       "passed": true
     },
     {
@@ -835,72 +835,72 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9316229095361432,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9264088958684632,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9230108015366394,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
       "probe_family": "irregular_blob",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9040333644663628,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.91002778653255,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9208079288322325,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
@@ -931,12 +931,12 @@
       "probe_family": "arc",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8383860418996418,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "triangle_chip",
@@ -955,12 +955,12 @@
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8658990361004214,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
@@ -983,7 +983,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.961913384924636,
+      "max_similarity": 0.9400603015761558,
       "passed": true
     },
     {
@@ -995,7 +995,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9713224323293903,
+      "max_similarity": 0.9509781860321286,
       "passed": true
     },
     {
@@ -1007,7 +1007,7 @@
       "raw_score": 1.0,
       "final_score": 0.0,
       "matches": 1,
-      "max_similarity": 0.9680275724917655,
+      "max_similarity": 0.9463011365583999,
       "passed": true
     },
     {
@@ -1019,7 +1019,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.954846545596785,
+      "max_similarity": 0.9330243351182403,
       "passed": true
     },
     {
@@ -1031,7 +1031,7 @@
       "raw_score": 1.0,
       "final_score": 0.00392156862745098,
       "matches": 2,
-      "max_similarity": 0.9692996681906655,
+      "max_similarity": 0.9510629343033394,
       "passed": true
     },
     {
@@ -1055,7 +1055,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9650889173694265,
+      "max_similarity": 0.9037949167531738,
       "passed": false
     },
     {
@@ -1063,60 +1063,60 @@
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9493547641111559,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9496169102460068,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
       "probe_family": "triangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9072362288218258,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9312741845630416,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9327016670099338,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
@@ -1147,36 +1147,36 @@
       "probe_family": "arc",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.861562619496387,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
       "probe_family": "x_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.854579021921756,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9048910635512804,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "horizontal_scratch",
@@ -1199,7 +1199,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9818068398020264,
+      "max_similarity": 0.9445639175525273,
       "passed": true
     },
     {
@@ -1211,7 +1211,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9770183152787866,
+      "max_similarity": 0.9279538616958126,
       "passed": true
     },
     {
@@ -1223,7 +1223,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9736776866960621,
+      "max_similarity": 0.8392685958090591,
       "passed": true
     },
     {
@@ -1235,7 +1235,7 @@
       "raw_score": 1.0,
       "final_score": 0.005490196078431373,
       "matches": 1,
-      "max_similarity": 0.9634621666959532,
+      "max_similarity": 0.9265707872668573,
       "passed": true
     },
     {
@@ -1247,7 +1247,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 2,
-      "max_similarity": 0.9748928953116758,
+      "max_similarity": 0.9034143511133654,
       "passed": true
     },
     {
@@ -1267,36 +1267,36 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9363676838221436,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "horizontal_scratch",
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9107106046896667,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "horizontal_scratch",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9427117627378109,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "horizontal_scratch",
@@ -1327,12 +1327,12 @@
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9074097226901411,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "horizontal_scratch",
@@ -1415,7 +1415,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9634690814772533,
+      "max_similarity": 0.9374269083640432,
       "passed": true
     },
     {
@@ -1427,7 +1427,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9660742328437708,
+      "max_similarity": 0.8976510246491024,
       "passed": true
     },
     {
@@ -1439,7 +1439,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9616543484102805,
+      "max_similarity": 0.8158927392273785,
       "passed": true
     },
     {
@@ -1451,7 +1451,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9544527864636355,
+      "max_similarity": 0.9419897742822549,
       "passed": true
     },
     {
@@ -1463,7 +1463,7 @@
       "raw_score": 1.0,
       "final_score": 0.0023529411764705885,
       "matches": 2,
-      "max_similarity": 0.9604286292663673,
+      "max_similarity": 0.9175938680904632,
       "passed": true
     },
     {
@@ -1483,36 +1483,36 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.9176798051059236,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "vertical_scratch",
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8904293487125433,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "vertical_scratch",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8948492222206443,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "vertical_scratch",
@@ -1543,12 +1543,12 @@
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8962122975675155,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "vertical_scratch",
@@ -1603,12 +1603,12 @@
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8774911156515798,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "diagonal_scratch",
@@ -1631,7 +1631,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9717122878370443,
+      "max_similarity": 0.9208513442744739,
       "passed": true
     },
     {
@@ -1643,7 +1643,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9692731222928783,
+      "max_similarity": 0.8798083821088502,
       "passed": true
     },
     {
@@ -1655,7 +1655,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9529450596894546,
+      "max_similarity": 0.8171035345092869,
       "passed": true
     },
     {
@@ -1667,7 +1667,7 @@
       "raw_score": 1.0,
       "final_score": 0.007058823529411765,
       "matches": 1,
-      "max_similarity": 0.9686609743005931,
+      "max_similarity": 0.8876719410581225,
       "passed": true
     },
     {
@@ -1679,7 +1679,7 @@
       "raw_score": 1.0,
       "final_score": 0.007058823529411765,
       "matches": 2,
-      "max_similarity": 0.9638839515135877,
+      "max_similarity": 0.8911302397281582,
       "passed": true
     },
     {
@@ -1687,12 +1687,12 @@
       "probe_family": "diagonal_scratch",
       "variant": "large_145",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.006274509803921569,
-      "matches": 1,
-      "max_similarity": 0.9499173461459045,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "diagonal_scratch",
@@ -1723,12 +1723,12 @@
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8120096856713617,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "diagonal_scratch",
@@ -1759,36 +1759,36 @@
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.7993828852070656,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "diagonal_scratch",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.7985915917878993,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "diagonal_scratch",
       "probe_family": "zigzag_crack",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.882373903710464,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "diagonal_scratch",
@@ -1807,24 +1807,24 @@
       "probe_family": "x_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8473708330847953,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "diagonal_scratch",
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8257515028727553,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
@@ -1847,7 +1847,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9673261642301434,
+      "max_similarity": 0.9299476734642427,
       "passed": true
     },
     {
@@ -1859,7 +1859,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9692273683809203,
+      "max_similarity": 0.9173632666166717,
       "passed": true
     },
     {
@@ -1871,7 +1871,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9500179431180464,
+      "max_similarity": 0.8516148570528007,
       "passed": true
     },
     {
@@ -1883,7 +1883,7 @@
       "raw_score": 1.0,
       "final_score": 0.00392156862745098,
       "matches": 1,
-      "max_similarity": 0.9535555848647101,
+      "max_similarity": 0.873565196976738,
       "passed": true
     },
     {
@@ -1895,7 +1895,7 @@
       "raw_score": 1.0,
       "final_score": 0.0015686274509803923,
       "matches": 2,
-      "max_similarity": 0.9682308721955739,
+      "max_similarity": 0.9286108499787212,
       "passed": true
     },
     {
@@ -1915,12 +1915,12 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8080166036901002,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
@@ -1939,108 +1939,108 @@
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8357741737837774,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "triangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8271255366663475,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "irregular_blob",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.7937630074672188,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8258712991041882,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8241821292231495,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "diagonal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8735277827446385,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "arc",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8272816244756209,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "x_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8130456728895616,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "zigzag_crack",
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8352307046547336,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "arc",
@@ -2063,7 +2063,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9559601526562702,
+      "max_similarity": 0.8899924472245779,
       "passed": true
     },
     {
@@ -2075,7 +2075,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9480573775858189,
+      "max_similarity": 0.868888131227169,
       "passed": true
     },
     {
@@ -2083,12 +2083,12 @@
       "probe_family": "arc",
       "variant": "small_45",
       "expected_status": "ГОДЕН",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8968222211405561,
-      "passed": true
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": false
     },
     {
       "learned_family": "arc",
@@ -2099,7 +2099,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9508637387746979,
+      "max_similarity": 0.8711603542643717,
       "passed": true
     },
     {
@@ -2111,7 +2111,7 @@
       "raw_score": 1.0,
       "final_score": 0.00392156862745098,
       "matches": 2,
-      "max_similarity": 0.9508663265434015,
+      "max_similarity": 0.9058954072339277,
       "passed": true
     },
     {
@@ -2131,12 +2131,12 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8490708822560609,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "arc",
@@ -2155,24 +2155,24 @@
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8446981584838762,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "arc",
       "probe_family": "triangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8334910750659685,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "arc",
@@ -2203,12 +2203,12 @@
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8480358146867821,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "arc",
@@ -2239,24 +2239,24 @@
       "probe_family": "x_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.7861833865559883,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "arc",
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.815658685258792,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
@@ -2279,7 +2279,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9683269243598045,
+      "max_similarity": 0.9081583927322959,
       "passed": true
     },
     {
@@ -2291,7 +2291,7 @@
       "raw_score": 1.0,
       "final_score": 0.0015686274509803923,
       "matches": 1,
-      "max_similarity": 0.9608448106255625,
+      "max_similarity": 0.8680416652109453,
       "passed": true
     },
     {
@@ -2299,12 +2299,12 @@
       "probe_family": "x_scratch",
       "variant": "small_45",
       "expected_status": "ГОДЕН",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0015686274509803923,
-      "matches": 1,
-      "max_similarity": 0.9315377337946803,
-      "passed": true
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": false
     },
     {
       "learned_family": "x_scratch",
@@ -2315,7 +2315,7 @@
       "raw_score": 1.0,
       "final_score": 0.0015686274509803923,
       "matches": 1,
-      "max_similarity": 0.9603228955003379,
+      "max_similarity": 0.8931571373474793,
       "passed": true
     },
     {
@@ -2327,7 +2327,7 @@
       "raw_score": 1.0,
       "final_score": 0.006274509803921569,
       "matches": 2,
-      "max_similarity": 0.955510442310075,
+      "max_similarity": 0.8807979297803784,
       "passed": true
     },
     {
@@ -2347,132 +2347,132 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.852448604638711,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8568145282882392,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8716801955679316,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "triangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8795936728611481,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "irregular_blob",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8581424258604294,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8741537080988778,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8701558355364818,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "diagonal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8390270042781245,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "zigzag_crack",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8163268668453643,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "arc",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8111212054939948,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
       "probe_family": "dot_cluster",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8645100241076351,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "dot_cluster",
@@ -2495,7 +2495,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9304521797166511,
+      "max_similarity": 0.8537041711584815,
       "passed": true
     },
     {
@@ -2507,7 +2507,7 @@
       "raw_score": 1.0,
       "final_score": 0.0,
       "matches": 1,
-      "max_similarity": 0.9367147505572306,
+      "max_similarity": 0.8425204286873244,
       "passed": true
     },
     {
@@ -2519,7 +2519,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.9222280387833242,
+      "max_similarity": 0.8262418347126387,
       "passed": true
     },
     {
@@ -2531,7 +2531,7 @@
       "raw_score": 1.0,
       "final_score": 0.0007843137254901962,
       "matches": 1,
-      "max_similarity": 0.933841457937298,
+      "max_similarity": 0.8610867529223332,
       "passed": true
     },
     {
@@ -2543,7 +2543,7 @@
       "raw_score": 1.0,
       "final_score": 0.0015686274509803923,
       "matches": 2,
-      "max_similarity": 0.9265146818224939,
+      "max_similarity": 0.8410387094688381,
       "passed": true
     },
     {
@@ -2563,48 +2563,48 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8861138466518445,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "dot_cluster",
       "probe_family": "ellipse",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8777808141309515,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "dot_cluster",
       "probe_family": "rectangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8795149555264301,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "dot_cluster",
       "probe_family": "triangle_chip",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8654398202071597,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "dot_cluster",
@@ -2623,24 +2623,24 @@
       "probe_family": "horizontal_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8845267848606022,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "dot_cluster",
       "probe_family": "vertical_scratch",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.8829364685818681,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "dot_cluster",

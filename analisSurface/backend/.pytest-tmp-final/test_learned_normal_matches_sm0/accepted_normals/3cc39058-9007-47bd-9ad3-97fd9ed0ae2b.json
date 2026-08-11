@@ -1,0 +1,21 @@
+{
+  "id": "3cc39058-9007-47bd-9ad3-97fd9ed0ae2b",
+  "product_type": "fragmented-normal",
+  "reference_hash": "587bdced65ad2b86d06209cf",
+  "bbox_norm": {
+    "x": 0.22,
+    "y": 0.175,
+    "width": 0.425,
+    "height": 0.35833333333333334
+  },
+  "area": 620,
+  "diff_mean": 27.809677419354838,
+  "diff_q90": 31.0,
+  "diff_max": 35.0,
+  "created_at": "2026-08-11T12:13:30.786990+00:00",
+  "source_inspection_id": "a05688c8-2db3-4486-8096-ead39bec84e2",
+  "source_defect_id": "defect-1",
+  "note": "",
+  "enabled": true,
+  "template_version": 2
+}

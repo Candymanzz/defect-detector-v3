@@ -1,0 +1,21 @@
+{
+  "id": "3be7e12a-c7c7-4546-aa6d-622dc63f0964",
+  "product_type": "shape-bent-scaled",
+  "reference_hash": "0dca02394c35001cab5f0aff",
+  "bbox_norm": {
+    "x": 0.14375,
+    "y": 0.125,
+    "width": 0.26875,
+    "height": 0.32083333333333336
+  },
+  "area": 1781,
+  "diff_mean": 33.41661987647389,
+  "diff_q90": 54.0,
+  "diff_max": 57.0,
+  "created_at": "2026-08-11T12:13:31.072329+00:00",
+  "source_inspection_id": "008d2f56-b767-45da-a51a-c4baaffb972d",
+  "source_defect_id": "defect-1",
+  "note": "",
+  "enabled": true,
+  "template_version": 2
+}
