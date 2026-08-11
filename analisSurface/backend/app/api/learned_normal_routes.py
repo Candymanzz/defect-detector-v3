@@ -66,6 +66,15 @@ async def list_accepted_cases(product_type: Optional[str] = Query(None)) -> dict
     return {"cases": inspection_service.list_accepted_normal_cases(product_type=product_type)}
 
 
+@router.get("/learning/accepted-cases/{case_id}/image")
+async def get_accepted_case_image(case_id: str) -> Response:
+    image = inspection_service.get_accepted_normal_case_image(case_id)
+    if image is None:
+        raise HTTPException(status_code=404, detail="Accepted-normal case not found")
+    content, media_type = image
+    return Response(content=content, media_type=media_type, headers={"Cache-Control": "no-store"})
+
+
 @router.delete("/learning/accepted-cases/{case_id}")
 async def delete_accepted_case(case_id: str) -> dict:
     if not inspection_service.delete_accepted_normal_case(case_id):
@@ -120,15 +129,33 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
     input { width:100%; border:1px solid #34465e; border-radius:8px; background:#0e151f; color:#fff; padding:9px; }
     .notice { border-radius:8px; background:#202c3c; padding:10px; font-size:13px; }
     .counterfactual { color:#ffd16a; }
+    .section { margin-top:26px; }
+    .section-head { display:flex; align-items:end; justify-content:space-between; gap:14px; margin-bottom:12px; }
+    .normal-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px; }
+    .normal-card { display:grid; grid-template-columns:96px minmax(0,1fr); gap:12px; align-items:center; background:#17202c; border:1px solid #31513f; border-radius:12px; padding:10px; }
+    .normal-card img { width:96px; height:96px; object-fit:cover; image-rendering:auto; border-radius:8px; background:#090d12; }
+    .normal-info { min-width:0; }
+    .normal-info b, .normal-info span { display:block; overflow-wrap:anywhere; }
+    .normal-note { color:#d6deea; margin:5px 0; }
+    .danger { margin-top:8px; border-color:#7d3d46; background:#562a31; }
+    .danger:hover { background:#71343e; }
     @media(max-width:800px) { .modal-body { grid-template-columns:1fr; overflow:auto; } dialog { height:96vh; } .side { overflow:visible; } }
   </style>
 </head>
 <body>
   <header>
     <div><h1>Обучение допустимым фрагментам</h1><div class="muted">Недавние изделия со статусом БРАК. Решение уже прошедшего изделия не изменяется.</div></div>
-    <button onclick="loadReviews()">Обновить</button>
+    <button onclick="loadAll()">Обновить</button>
   </header>
-  <main id="reviews" class="grid"></main>
+  <section>
+    <div class="section-head"><div><h2>Недавний брак</h2><div class="muted">Выберите изделие, затем конкретный контур.</div></div></div>
+    <main id="reviews" class="grid"></main>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><div><h2>Сохранённые нормы</h2><div class="muted">Эти фрагменты исключаются из оценки будущих инспекций. Удаление применяется сразу.</div></div></div>
+    <div id="acceptedCases" class="normal-grid"></div>
+  </section>
 
   <dialog id="reviewDialog">
     <div class="modal-head"><div><h2 id="reviewTitle">Разбор дефектов</h2><div id="reviewMeta" class="muted"></div></div><button onclick="reviewDialog.close()">Закрыть</button></div>
@@ -166,6 +193,56 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
           <div><span class="bad">БРАК</span> · score ${Number(item.original_score).toFixed(3)}<br><b>${esc(item.product_type)}</b><br><span class="muted">Областей: ${item.defects_count} · ${esc(item.created_at)}</span></div>
         </article>`).join('');
     } catch (error) { root.innerHTML = `<div class="bad">${esc(error)}</div>`; }
+  }
+
+  async function loadAcceptedCases() {
+    const root = document.getElementById('acceptedCases');
+    root.innerHTML = '<div class="muted">Загрузка...</div>';
+    try {
+      const response = await fetch('/learning/accepted-cases', {cache:'no-store'});
+      const payload = await response.json();
+      if(!response.ok) throw new Error(payload.detail || 'Не удалось загрузить сохранённые нормы');
+      if(!payload.cases.length) {
+        root.innerHTML = '<div class="muted">Сохранённых фрагментов пока нет.</div>';
+        return;
+      }
+      root.innerHTML = payload.cases.map(item => `
+        <article class="normal-card">
+          <img src="/learning/accepted-cases/${encodeURIComponent(item.id)}/image?v=${Date.now()}" alt="Сохранённый фрагмент" loading="lazy">
+          <div class="normal-info">
+            <b>${esc(item.product_type)}</b>
+            <span class="muted">${esc(item.created_at)}</span>
+            <span class="muted">Площадь: ${Number(item.area)} · источник: ${esc(item.source_defect_id)}</span>
+            ${item.note ? `<span class="normal-note">${esc(item.note)}</span>` : ''}
+            <button class="danger delete-normal" data-case-id="${esc(item.id)}">Удалить из списка нормы</button>
+          </div>
+        </article>`).join('');
+      root.querySelectorAll('.delete-normal').forEach(button => {
+        button.addEventListener('click', () => deleteAcceptedCase(button.dataset.caseId, button));
+      });
+    } catch(error) {
+      root.innerHTML = `<div class="bad">${esc(error)}</div>`;
+    }
+  }
+
+  async function deleteAcceptedCase(caseId, button) {
+    if(!confirm('Удалить этот фрагмент из списка допустимой нормы? Следующие инспекции больше не будут его исключать.')) return;
+    button.disabled = true;
+    button.textContent = 'Удаление...';
+    try {
+      const response = await fetch(`/learning/accepted-cases/${encodeURIComponent(caseId)}`, {method:'DELETE'});
+      const payload = await response.json();
+      if(!response.ok) throw new Error(payload.detail || 'Не удалось удалить фрагмент');
+      await Promise.all([loadAcceptedCases(), loadReviews()]);
+      if(currentReview && reviewDialog.open) {
+        currentReview = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}).then(r => r.json());
+        renderReview();
+      }
+    } catch(error) {
+      alert(String(error));
+      button.disabled = false;
+      button.textContent = 'Удалить из списка нормы';
+    }
   }
 
   async function openReview(encodedId) {
@@ -214,9 +291,10 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
     document.getElementById('status').textContent = 'Фрагмент запомнен. Будет применяться только к будущим инспекциям.';
     currentReview = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}).then(r => r.json());
     renderReview();
-    loadReviews();
+    loadAll();
   }
-  loadReviews();
-  setInterval(loadReviews, 10000);
+  function loadAll() { return Promise.all([loadReviews(), loadAcceptedCases()]); }
+  loadAll();
+  setInterval(loadAll, 10000);
 </script>
 </body></html>"""

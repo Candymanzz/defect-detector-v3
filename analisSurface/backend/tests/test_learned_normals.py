@@ -1,0 +1,159 @@
+import numpy as np
+
+from app.services.learned_normals import DefectCandidate, filter_review_candidates
+
+
+def _candidate(
+    candidate_id: str,
+    *,
+    area: int,
+    width: int,
+    height: int,
+    diff: float = 60.0,
+    diff_mean: float | None = None,
+    diff_q90: float | None = None,
+    diff_max: float | None = None,
+) -> DefectCandidate:
+    placeholder = np.zeros((2, 2), dtype=np.uint8)
+    return DefectCandidate(
+        id=candidate_id,
+        bbox=(0, 0, width, height),
+        bbox_norm=(0.0, 0.0, 0.1, 0.1),
+        polygon_norm=[],
+        area=area,
+        diff_mean=diff if diff_mean is None else diff_mean,
+        diff_q90=diff if diff_q90 is None else diff_q90,
+        diff_max=diff if diff_max is None else diff_max,
+        score=0.5,
+        mask=placeholder,
+        mask_template=placeholder,
+        diff_template=placeholder,
+        appearance_template=placeholder,
+    )
+
+
+def test_review_filter_is_relative_to_strongest_candidate() -> None:
+    small_frame_candidates = [
+        _candidate("main-small", area=20, width=5, height=5),
+        _candidate("noise-small", area=2, width=2, height=2),
+    ]
+    large_frame_candidates = [
+        _candidate("main-large", area=2000, width=50, height=50),
+        _candidate("noise-large", area=200, width=20, height=20),
+    ]
+
+    assert [item.id for item in filter_review_candidates(small_frame_candidates)] == ["main-small"]
+    assert [item.id for item in filter_review_candidates(large_frame_candidates)] == ["main-large"]
+
+
+def test_review_filter_keeps_multiple_candidates_with_meaningful_relative_impact() -> None:
+    candidates = [
+        _candidate("strongest", area=1000, width=40, height=30),
+        _candidate("meaningful", area=300, width=24, height=15),
+        _candidate("noise", area=40, width=7, height=7),
+    ]
+
+    assert [item.id for item in filter_review_candidates(candidates)] == [
+        "strongest",
+        "meaningful",
+    ]
+
+
+def test_review_filter_is_invariant_to_resolution_scale() -> None:
+    rng = np.random.default_rng(42)
+    original: list[DefectCandidate] = []
+    scaled: list[DefectCandidate] = []
+    scale = 4
+    for index in range(100):
+        width = int(rng.integers(2, 80))
+        height = int(rng.integers(2, 80))
+        area = int(rng.integers(1, width * height + 1))
+        diff_mean = float(rng.uniform(5.0, 140.0))
+        diff_q90 = float(rng.uniform(diff_mean, 200.0))
+        diff_max = float(rng.uniform(diff_q90, 255.0))
+        values = {
+            "candidate_id": f"candidate-{index}",
+            "diff_mean": diff_mean,
+            "diff_q90": diff_q90,
+            "diff_max": diff_max,
+        }
+        original.append(_candidate(area=area, width=width, height=height, **values))
+        scaled.append(
+            _candidate(
+                area=area * scale * scale,
+                width=width * scale,
+                height=height * scale,
+                **values,
+            )
+        )
+
+    original_ids = [item.id for item in filter_review_candidates(original)]
+    scaled_ids = [item.id for item in filter_review_candidates(scaled)]
+    assert scaled_ids == original_ids
+
+
+def test_review_filter_is_invariant_to_common_diff_intensity_change() -> None:
+    candidates = [
+        _candidate("first", area=900, width=35, height=30, diff=100.0),
+        _candidate("second", area=350, width=25, height=18, diff=80.0),
+        _candidate("noise", area=80, width=10, height=9, diff=140.0),
+    ]
+    darker = [
+        _candidate(
+            item.id,
+            area=item.area,
+            width=item.bbox[2],
+            height=item.bbox[3],
+            diff=item.diff_mean * 0.4,
+        )
+        for item in candidates
+    ]
+
+    assert [item.id for item in filter_review_candidates(darker)] == [
+        item.id for item in filter_review_candidates(candidates)
+    ]
+
+
+def test_review_filter_keeps_thin_scratch_but_hides_equal_area_spot() -> None:
+    candidates = [
+        _candidate("main", area=1000, width=36, height=36),
+        _candidate("thin-scratch", area=150, width=100, height=2),
+        _candidate("spot", area=150, width=13, height=13),
+    ]
+
+    assert [item.id for item in filter_review_candidates(candidates)] == [
+        "main",
+        "thin-scratch",
+    ]
+
+
+def test_review_filter_uses_weighted_diff_energy_not_area_only() -> None:
+    candidates = [
+        _candidate("main", area=1000, width=35, height=35, diff=80.0),
+        _candidate("weak-large", area=400, width=22, height=22, diff=15.0),
+        _candidate("strong-medium", area=300, width=20, height=18, diff=90.0),
+    ]
+
+    assert [item.id for item in filter_review_candidates(candidates)] == [
+        "main",
+        "strong-medium",
+    ]
+
+
+def test_review_filter_handles_twenty_noise_components() -> None:
+    candidates = [_candidate("main", area=1200, width=40, height=35, diff=70.0)]
+    candidates.extend(
+        _candidate(f"noise-{index}", area=20 + index, width=7, height=7, diff=35.0)
+        for index in range(20)
+    )
+
+    assert [item.id for item in filter_review_candidates(candidates)] == ["main"]
+
+
+def test_review_filter_keeps_strongest_candidate_for_zero_diff_input() -> None:
+    candidates = [
+        _candidate("first", area=10, width=4, height=3, diff=0.0),
+        _candidate("second", area=100, width=12, height=10, diff=0.0),
+    ]
+
+    assert [item.id for item in filter_review_candidates(candidates)] == ["first"]

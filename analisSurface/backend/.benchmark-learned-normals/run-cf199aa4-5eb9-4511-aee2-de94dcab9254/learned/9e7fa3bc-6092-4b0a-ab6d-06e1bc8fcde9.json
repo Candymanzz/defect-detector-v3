@@ -1,0 +1,20 @@
+{
+  "id": "9e7fa3bc-6092-4b0a-ab6d-06e1bc8fcde9",
+  "product_type": "benchmark-a93ded82-0114-43a9-971d-aed83c0e06e5#cam=0",
+  "reference_hash": "c81cfbcdaddc87e83bdb3444",
+  "bbox_norm": {
+    "x": 0.42320261437908496,
+    "y": 0.6650390625,
+    "width": 0.02696078431372549,
+    "height": 0.02734375
+  },
+  "area": 892,
+  "diff_mean": 52.88565022421525,
+  "diff_q90": 81.0,
+  "diff_max": 81.0,
+  "created_at": "2026-08-11T08:44:53.262264+00:00",
+  "source_inspection_id": "benchmark-18",
+  "source_defect_id": "defect-1",
+  "note": "synthetic benchmark case",
+  "enabled": true
+}

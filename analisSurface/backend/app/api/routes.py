@@ -7,6 +7,7 @@ from app.api.file_routes import router as file_router
 from app.api.fp_zone_routes import router as fp_zone_router
 from app.api.inspection_routes import router as inspection_router
 from app.api.learned_normal_routes import router as learned_normal_router
+from app.api.local_inspection_test_routes import router as local_inspection_test_router
 from app.api.roi_routes import router as roi_router
 from app.api.roi_sub_zone_routes import router as roi_sub_zone_router
 
@@ -19,3 +20,4 @@ router.include_router(roi_router)
 router.include_router(roi_sub_zone_router)
 router.include_router(fp_zone_router)
 router.include_router(learned_normal_router)
+router.include_router(local_inspection_test_router)

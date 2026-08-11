@@ -26,6 +26,7 @@ from app.services.learned_normals import (
     AcceptedNormalMemory,
     InspectionReviewStore,
     decode_review_arrays,
+    filter_review_candidates,
     reference_fingerprint,
 )
 
@@ -130,8 +131,14 @@ class InspectionService:
     def list_accepted_normal_cases(self, product_type: Optional[str] = None) -> list[dict]:
         return self._accepted_normals.list(product_type=product_type)
 
+    def get_accepted_normal_case_image(self, case_id: str) -> Optional[tuple[bytes, str]]:
+        return self._accepted_normals.image(case_id)
+
     def delete_accepted_normal_case(self, case_id: str) -> bool:
-        return self._accepted_normals.delete(case_id)
+        deleted = self._accepted_normals.delete(case_id)
+        if deleted:
+            self._learning_reviews.unmark_case(case_id)
+        return deleted
 
     def accept_review_defect_as_normal(
         self,
@@ -509,7 +516,8 @@ class InspectionService:
         # Review сохраняется только для итогового БРАК. Решение уже считается
         # отправленным и последующее обучение меняет лишь будущие инспекции.
         inspection_id = None
-        if status == "БРАК" and learned_filter.candidates:
+        review_candidates = filter_review_candidates(learned_filter.candidates)
+        if status == "БРАК" and review_candidates:
             try:
                 inspection_id = str(uuid.uuid4())
                 self._learning_reviews.add(
@@ -522,7 +530,7 @@ class InspectionService:
                     aligned=aligned,
                     diff_map=diff_map,
                     raw_mask=raw_segmentation_mask,
-                    candidates=learned_filter.candidates,
+                    candidates=review_candidates,
                 )
             except Exception:
                 inspection_id = None
@@ -541,7 +549,7 @@ class InspectionService:
             main_roi_score=main_roi_score,
             sub_zone_scores=sub_zone_scores,
             inspection_id=inspection_id,
-            learned_normal_matches_count=len(learned_filter.matched_case_ids),
+            learned_normal_matches_count=learned_filter.matched_candidates_count,
             learned_normal_adjustment=max(0.0, raw_score - learned_score),
             matched_accepted_case_ids=learned_filter.matched_case_ids,
             aligned_image=aligned if include_visuals else None,

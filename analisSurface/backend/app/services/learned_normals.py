@@ -161,6 +161,7 @@ class LearnedFilterResult:
     filtered_mask: np.ndarray
     candidates: list[DefectCandidate]
     matched_case_ids: list[str]
+    matched_candidates_count: int = 0
 
 
 @dataclass
@@ -309,6 +310,22 @@ class InspectionReviewStore:
             )
             review.counterfactual_status = counterfactual_status
 
+    def unmark_case(self, case_id: str) -> None:
+        """Убрать удалённый пример из ещё живых операторских review."""
+        with self._lock:
+            for review in self._items.values():
+                changed = False
+                for candidate in review.defects:
+                    if candidate.matched_case_id != case_id:
+                        continue
+                    candidate.matched_case_id = None
+                    candidate.similarity = None
+                    review.accepted_defect_ids.discard(candidate.id)
+                    changed = True
+                if changed:
+                    review.counterfactual_score = None
+                    review.counterfactual_status = None
+
 
 class AcceptedNormalMemory:
     """Персистентная память фрагментов, подтверждённых оператором как норма."""
@@ -330,6 +347,27 @@ class AcceptedNormalMemory:
     def get(self, case_id: str) -> Optional[AcceptedNormalCase]:
         with self._lock:
             return self._cases.get(case_id)
+
+    def image(self, case_id: str) -> Optional[tuple[bytes, str]]:
+        """Наглядный crop сохранённого фрагмента с подсвеченной маской."""
+        with self._lock:
+            case = self._cases.get(case_id)
+            if case is None:
+                return None
+            appearance = case.appearance_template.copy()
+            mask = case.mask_template.copy() > 0
+
+        preview = cv2.cvtColor(appearance, cv2.COLOR_GRAY2BGR)
+        tint = preview.copy()
+        tint[mask] = (55, 210, 95)
+        preview = cv2.addWeighted(preview, 0.62, tint, 0.38, 0.0)
+        contours, _ = cv2.findContours(
+            mask.astype(np.uint8) * 255,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        cv2.drawContours(preview, contours, -1, (70, 255, 125), 1)
+        return _encode(preview, ".png"), "image/png"
 
     def add_from_candidate(
         self,
@@ -430,6 +468,7 @@ class AcceptedNormalMemory:
             filtered_mask=filtered_mask,
             candidates=candidates,
             matched_case_ids=list(dict.fromkeys(matched_case_ids)),
+            matched_candidates_count=len(matched_case_ids),
         )
 
     def _save_case(self, case: AcceptedNormalCase) -> None:
@@ -495,26 +534,35 @@ def extract_defect_candidates(
 ) -> list[DefectCandidate]:
     mask_gray = _gray(segmentation_mask)
     binary = np.where(mask_gray > 0, 255, 0).astype(np.uint8)
-    count, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
     height, width = binary.shape[:2]
+    # Тонкий след может разорваться порогом на несколько близких островков.
+    # Dilation используется только для назначения островков одной группе. Сама
+    # candidate.mask ниже пересекается с исходной binary, поэтому заполненный
+    # промежуток не вычитается из diff и не скрывает соседние реальные данные.
+    grouping_radius = max(1, min(7, round(min(height, width) * 0.025)))
+    grouping_kernel = np.ones((grouping_radius * 2 + 1, grouping_radius * 2 + 1), dtype=np.uint8)
+    grouping_binary = cv2.dilate(binary, grouping_kernel, iterations=1)
+    count, labels = cv2.connectedComponents(grouping_binary, connectivity=8)
     diff_gray = _gray(diff_map)
     aligned_gray = _gray(aligned)
     candidates: list[DefectCandidate] = []
 
     raw_candidates: list[tuple[int, int, int, int, int, int]] = []
     for label_idx in range(1, count):
-        area = int(stats[label_idx, cv2.CC_STAT_AREA])
+        component_mask = (labels == label_idx) & (binary > 0)
+        y_points, x_points = np.where(component_mask)
+        area = int(x_points.size)
         if area <= 0:
             continue
-        x = int(stats[label_idx, cv2.CC_STAT_LEFT])
-        y = int(stats[label_idx, cv2.CC_STAT_TOP])
-        box_width = int(stats[label_idx, cv2.CC_STAT_WIDTH])
-        box_height = int(stats[label_idx, cv2.CC_STAT_HEIGHT])
+        x = int(np.min(x_points))
+        y = int(np.min(y_points))
+        box_width = int(np.max(x_points) - x + 1)
+        box_height = int(np.max(y_points) - y + 1)
         raw_candidates.append((y, x, label_idx, area, box_width, box_height))
 
     raw_candidates.sort(key=lambda entry: (entry[0], entry[1]))
     for ordinal, (y, x, label_idx, area, box_width, box_height) in enumerate(raw_candidates, start=1):
-        component_mask = labels == label_idx
+        component_mask = (labels == label_idx) & (binary > 0)
         local_mask = component_mask[y : y + box_height, x : x + box_width]
         local_diff = diff_gray[y : y + box_height, x : x + box_width]
         local_aligned = aligned_gray[y : y + box_height, x : x + box_width]
@@ -536,7 +584,9 @@ def extract_defect_candidates(
         contours, _ = cv2.findContours(local_mask.astype(np.uint8) * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         polygon_norm: list[tuple[float, float]] = []
         if contours:
-            contour = max(contours, key=cv2.contourArea)
+            # У сгруппированного прерывистого следа может быть несколько
+            # контуров. Общая оболочка делает его целиком кликабельным в UI.
+            contour = cv2.convexHull(np.vstack(contours))
             epsilon = max(1.0, 0.006 * cv2.arcLength(contour, True))
             approximated = cv2.approxPolyDP(contour, epsilon, True).reshape(-1, 2)
             polygon_norm = [
@@ -578,21 +628,67 @@ def extract_defect_candidates(
     return candidates
 
 
+def candidate_review_impact(candidate: DefectCandidate) -> float:
+    """Дешёвая оценка вклада отдельной области в решение инспектора.
+
+    Суммарная diff-энергия делает крупную область важнее одиночного шумового
+    пикселя, а умеренная прибавка за вытянутость не даёт потерять тонкую
+    царапину. Это только ранжирование для UI, не новый производственный score.
+    """
+    _, _, box_width, box_height = candidate.bbox
+    short_side = max(1, min(box_width, box_height))
+    aspect = max(box_width, box_height) / short_side
+    diff_level = (
+        candidate.diff_mean * 0.45
+        + candidate.diff_q90 * 0.35
+        + candidate.diff_max * 0.20
+    )
+    elongation_boost = 1.0 + 0.12 * min(5.0, max(0.0, aspect - 1.0))
+    return max(0.0, float(candidate.area) * diff_level * elongation_boost)
+
+
+def filter_review_candidates(
+    candidates: list[DefectCandidate],
+    min_relative_impact: float = 0.20,
+) -> list[DefectCandidate]:
+    """Оставить области со значимым вкладом относительно текущего кадра.
+
+    Порог не зависит от числа пикселей или разрешения: остаются компоненты,
+    влияние которых составляет не менее ``min_relative_impact`` от максимума
+    среди дефектов этого изделия. Самая влиятельная область всегда остаётся.
+
+    Это исключительно UI/review-фильтр. Основная маска, итоговый score и
+    сопоставление с сохранёнными нормами продолжают использовать все области.
+    """
+    if not candidates:
+        return []
+
+    relative_threshold = float(np.clip(min_relative_impact, 0.0, 1.0))
+    impacts = [candidate_review_impact(candidate) for candidate in candidates]
+    maximum_impact = max(impacts)
+    if maximum_impact <= 0.0:
+        return candidates[:1]
+
+    cutoff = maximum_impact * relative_threshold
+    return [
+        candidate
+        for candidate, impact in zip(candidates, impacts)
+        if impact >= cutoff
+    ]
+
+
 def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -> Optional[float]:
-    """Строгое сопоставление без семантической классификации дефекта."""
-    cx, cy, cw, ch = candidate.bbox_norm
-    sx, sy, sw, sh = case.bbox_norm
-    candidate_center = (cx + cw * 0.5, cy + ch * 0.5)
-    sample_center = (sx + sw * 0.5, sy + sh * 0.5)
-    center_distance = math.dist(candidate_center, sample_center)
-    max_center_distance = max(0.025, math.hypot(sw, sh) * 0.55)
-    if center_distance > max_center_distance:
-        return None
+    """Сопоставление дефекта независимо от положения и уменьшения по кадру."""
+    _, _, cw, ch = candidate.bbox_norm
+    _, _, sw, sh = case.bbox_norm
 
     candidate_area_norm = max(1e-9, cw * ch)
     sample_area_norm = max(1e-9, sw * sh)
     bbox_area_ratio = candidate_area_norm / sample_area_norm
-    if not 0.50 <= bbox_area_ratio <= 1.60:
+    # Нижней границы нет: любая уменьшенная версия подтверждённого следа может
+    # совпасть. Увеличение ограничено, чтобы большая аномалия не наследовала
+    # исключение от маленького примера.
+    if bbox_area_ratio > 1.60:
         return None
 
     if candidate.diff_q90 > max(case.diff_q90 * 1.60, case.diff_q90 + 12.0):
@@ -602,13 +698,6 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
 
     candidate_mask = candidate.mask_template > 0
     sample_mask = case.mask_template > 0
-    union = np.count_nonzero(candidate_mask | sample_mask)
-    shape_iou = float(np.count_nonzero(candidate_mask & sample_mask) / union) if union else 0.0
-    if shape_iou < 0.45:
-        return None
-
-    location_similarity = max(0.0, 1.0 - center_distance / max_center_distance)
-    size_similarity = min(bbox_area_ratio, 1.0 / bbox_area_ratio)
     diff_similarity = 1.0 - float(
         np.mean(np.abs(candidate.diff_template.astype(np.float32) - case.diff_template.astype(np.float32)))
         / 255.0
@@ -622,14 +711,36 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         )
         / 255.0
     )
+
+    # IoU слишком чувствителен к длине отдельных плеч царапины/следа. Среднее
+    # расстояние между обеими масками терпит такую деформацию, но остаётся
+    # симметричным: и текущая, и сохранённая форма должны объяснять друг друга.
+    candidate_u8 = candidate_mask.astype(np.uint8) * 255
+    sample_u8 = sample_mask.astype(np.uint8) * 255
+    distance_to_candidate = cv2.distanceTransform(255 - candidate_u8, cv2.DIST_L2, 3)
+    distance_to_sample = cv2.distanceTransform(255 - sample_u8, cv2.DIST_L2, 3)
+    symmetric_distance = (
+        float(np.mean(distance_to_candidate[sample_mask]))
+        + float(np.mean(distance_to_sample[candidate_mask]))
+    ) * 0.5
+    distance_scale = TEMPLATE_SIZE * math.sqrt(2.0) * 0.20
+    tolerant_shape_similarity = max(0.0, 1.0 - symmetric_distance / distance_scale)
+
+    if tolerant_shape_similarity < 0.68:
+        return None
+    if diff_similarity < 0.78 or appearance_similarity < 0.75:
+        return None
+
+    # Уменьшение не штрафуется. Для допустимого увеличения остаётся небольшой
+    # штраф, а основной вес имеют форма, diff и внешний вид фрагмента.
+    scale_similarity = 1.0 if bbox_area_ratio <= 1.0 else 1.0 / bbox_area_ratio
     similarity = (
-        location_similarity * 0.20
-        + size_similarity * 0.15
-        + shape_iou * 0.30
-        + diff_similarity * 0.25
-        + appearance_similarity * 0.10
+        tolerant_shape_similarity * 0.45
+        + diff_similarity * 0.30
+        + appearance_similarity * 0.20
+        + scale_similarity * 0.05
     )
-    if similarity < 0.80:
+    if similarity < 0.78:
         return None
     return float(similarity)
 
