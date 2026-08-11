@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import type { ProAnalysisKnobs, SimpleAnalysisKnobs } from "../../shared/api";
@@ -31,10 +31,20 @@ const PRO_FIELDS = [
   { name: "preprocess_strength", label: "Предобработка изображения", hint: "Сила выравнивания локального контраста." },
 ] as const;
 
-type Props = { selectedCameraId: number | null; profile?: string };
+type Props = {
+  selectedCameraId: number | null;
+  profile?: string;
+  testFrameId?: string;
+  onSaveComplete?: () => Promise<void> | void;
+};
 type Mode = "simple" | "pro";
 
-export function AnalysisSettingsPanel({ selectedCameraId, profile = FALLBACK_PROFILE }: Props) {
+export function AnalysisSettingsPanel({
+  selectedCameraId,
+  profile = FALLBACK_PROFILE,
+  testFrameId,
+  onSaveComplete,
+}: Props) {
   const [mode, setMode] = useState<Mode>("simple");
   const [simple, setSimple] = useState(DEFAULT_SIMPLE);
   const [pro, setPro] = useState(DEFAULT_PRO);
@@ -46,6 +56,8 @@ export function AnalysisSettingsPanel({ selectedCameraId, profile = FALLBACK_PRO
     kind: "loading",
     text: "Загрузка настроек…",
   });
+  const previewRequestIdRef = useRef(0);
+  const previewTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -58,6 +70,40 @@ export function AnalysisSettingsPanel({ selectedCameraId, profile = FALLBACK_PRO
       .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
     return () => { active = false; };
   }, [selectedCameraId, profile]);
+
+  useEffect(() => {
+    if (selectedCameraId === null || !testFrameId) {
+      return;
+    }
+    if (previewTimerRef.current !== null) {
+      window.clearTimeout(previewTimerRef.current);
+    }
+    const requestId = ++previewRequestIdRef.current;
+    previewTimerRef.current = window.setTimeout(() => {
+      const persistRequest = mode === "simple"
+        ? saveSimple(selectedCameraId, profile, simple)
+        : savePro(selectedCameraId, profile, pro);
+      setStatus({ kind: "saving", text: `Проверка на кадре ${testFrameId}…` });
+      void persistRequest
+        .then(() => orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId))
+        .then(() => {
+          if (requestId === previewRequestIdRef.current) {
+            setStatus({ kind: "success", text: `Кадр ${testFrameId} отправлен на повторный анализ` });
+          }
+        })
+        .catch((error) => {
+          if (requestId === previewRequestIdRef.current) {
+            setStatus({ kind: "error", text: errorMessage(error) });
+          }
+        });
+    }, 450);
+    return () => {
+      if (previewTimerRef.current !== null) {
+        window.clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+    };
+  }, [mode, pro, profile, selectedCameraId, simple, testFrameId]);
 
   const unlock = () => {
     if (password !== ACCESS_CODE) {
@@ -79,12 +125,18 @@ export function AnalysisSettingsPanel({ selectedCameraId, profile = FALLBACK_PRO
   };
 
   const save = () => {
+    if (previewTimerRef.current !== null) {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    previewRequestIdRef.current += 1;
     setStatus({ kind: "saving", text: "Сохранение…" });
     const request = mode === "simple"
       ? saveSimple(selectedCameraId, profile, simple)
       : savePro(selectedCameraId, profile, pro);
     request
-      .then(() => setStatus({ kind: "success", text: "Настройки сохранены" }))
+      .then(() => onSaveComplete?.())
+      .then(() => setStatus({ kind: "success", text: "Настройки сохранены, инспекция запущена" }))
       .catch((error) => setStatus({ kind: "error", text: errorMessage(error) }));
   };
 

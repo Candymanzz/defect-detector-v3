@@ -7,6 +7,8 @@ export type {
   AnalysisPresetResponse,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
+  ClientModeResponse,
+  TestAnalyzeResponse,
   ApiOk,
   ApiErrorResponse,
   CameraId,

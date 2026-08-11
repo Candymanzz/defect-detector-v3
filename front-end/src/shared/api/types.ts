@@ -352,6 +352,20 @@ export type ProAnalysisKnobs = {
   preprocess_strength: number;
 };
 
+export type ClientModeResponse = {
+  ok: boolean;
+  session_state: string;
+  test_mode: boolean;
+  message?: string;
+};
+
+export type TestAnalyzeResponse = {
+  ok: boolean;
+  jobId: string;
+  cameraId: number;
+  frameId: number;
+};
+
 export type AnalysisPresetResponse<TKnobs> = AnalysisSettingsResponse & {
   knobs: TKnobs | null;
   detector_id?: string;

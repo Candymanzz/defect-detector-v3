@@ -27,6 +27,7 @@ type ModalWrapperProps = {
   selectedInspectionFrameId?: string;
   dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
+  analysisSettingsContent?: ReactNode;
   onInspectionSelect?: (frameId: string) => void;
   onClose: () => void;
 };
@@ -69,6 +70,7 @@ export function ModalWrapper({
   selectedInspectionFrameId,
   dangerHeaderAction,
   headerActions,
+  analysisSettingsContent,
   onInspectionSelect,
   onClose,
 }: ModalWrapperProps) {
@@ -159,11 +161,13 @@ export function ModalWrapper({
             heatmapUrl={inspectHeatmapUrl}
             inspectResult={inspectResult}
           />
-          <GeometryDeviationViewer
-            error={geometrySnapshot.error}
-            geometry={geometrySnapshot.geometry}
-            loading={geometrySnapshot.loading}
-          />
+          {analysisSettingsContent ?? (
+            <GeometryDeviationViewer
+              error={geometrySnapshot.error}
+              geometry={geometrySnapshot.geometry}
+              loading={geometrySnapshot.loading}
+            />
+          )}
         </div>
 
         {cameraId !== undefined && referenceImageUrl && (

@@ -6,6 +6,8 @@ import type {
   AnalysisPresetResponse,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
+  ClientModeResponse,
+  TestAnalyzeResponse,
   CameraRuntimeSettings,
   CameraRuntimeSettingsUpdate,
   FpZonesResponse,
@@ -349,6 +351,24 @@ export const orchestratorApi = {
       `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/pro`,
       { method: "PUT", body: knobs },
     );
+  },
+
+  async getClientMode() {
+    return http.json<ClientModeResponse>("/api/client/mode");
+  },
+
+  async setTestMode(enabled: boolean) {
+    return http.json<ClientModeResponse>("/api/client/mode/test", {
+      method: "POST",
+      body: { enabled },
+    });
+  },
+
+  async testAnalyzeArchiveFrame(cameraId: number, frameId: string) {
+    return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
+      method: "POST",
+      body: { cameraId, frameId, source: "archive" },
+    });
   },
 
   async resetAnalysisSettings(productType: string) {
