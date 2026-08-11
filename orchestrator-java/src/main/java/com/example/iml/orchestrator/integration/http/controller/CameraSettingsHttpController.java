@@ -74,7 +74,7 @@ public final class CameraSettingsHttpController implements HttpController {
         Map<String, Object> patch = CameraSettingsService.parsePatchBody(raw);
         if (patch.isEmpty()) {
             HttpResponses.sendJsonError(ctx, 400,
-                    "supported fields: exposure_us, gain_db, gamma, black_level, capture_trigger_mode, frame_timeout_ms");
+                    "supported fields: exposure_us, gain_db, gamma, black_level, balance_ratio_red, balance_ratio_blue, capture_trigger_mode, frame_timeout_ms");
             return;
         }
         try {
