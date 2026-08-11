@@ -3,6 +3,9 @@ import { HttpClient } from "./httpClient";
 import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
+  AnalysisPresetResponse,
+  SimpleAnalysisKnobs,
+  ProAnalysisKnobs,
   CameraRuntimeSettings,
   CameraRuntimeSettingsUpdate,
   FpZonesResponse,
@@ -294,6 +297,58 @@ export const orchestratorApi = {
       method: "PUT",
       body: update,
     });
+  },
+
+  async getSimpleAnalysisSettings(productType: string) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/simple`,
+    );
+  },
+
+  async setSimpleAnalysisSettings(productType: string, knobs: SimpleAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/simple`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getCameraSimpleAnalysisSettings(cameraId: number) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/simple`,
+    );
+  },
+
+  async setCameraSimpleAnalysisSettings(cameraId: number, knobs: SimpleAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/simple`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getProAnalysisSettings(productType: string) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/pro`,
+    );
+  },
+
+  async setProAnalysisSettings(productType: string, knobs: ProAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/pro`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getCameraProAnalysisSettings(cameraId: number) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/pro`,
+    );
+  },
+
+  async setCameraProAnalysisSettings(cameraId: number, knobs: ProAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/pro`,
+      { method: "PUT", body: knobs },
+    );
   },
 
   async resetAnalysisSettings(productType: string) {

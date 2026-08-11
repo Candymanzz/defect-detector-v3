@@ -17,6 +17,7 @@ import {
 import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
+import { AnalysisSettingsPanel } from "./AnalysisSettingsPanel";
 import { orchestratorApi } from "../../shared/api";
 import benchmarkIconUrl from "../../shared/assets/images/benchmark.svg";
 import camerasIconUrl from "../../shared/assets/images/cameras.svg";
@@ -180,6 +181,9 @@ const ANALYSIS_SETTING_FIELDS: Array<{
   },
 ];
 
+// Legacy full-field metadata is kept for compatibility while the UI uses Simple/Pro presets.
+void ANALYSIS_SETTING_FIELDS;
+
 type SettingListProps = {
   selectedCameraId: number | null;
   inspectionStats: InspectionStats;
@@ -255,6 +259,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       placement,
     });
   };
+  void showAnalysisTooltip;
 
   useLayoutEffect(() => {
     requestIdRef.current += 1;
@@ -302,6 +307,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       ),
     }));
   };
+  void handleAnalysisFieldChange;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -705,54 +711,10 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               <h3>Настройки анализа</h3>
               <strong>{analysisScopeText}</strong>
             </summary>
-            <div className="setting-list__analysis-grid">
-              {ANALYSIS_SETTING_FIELDS.map((field) => (
-                <label
-                  key={field.name}
-                  className={
-                    field.type === "checkbox"
-                      ? "setting-list__field setting-list__field--checkbox"
-                      : "setting-list__field"
-                  }
-                >
-                  <span className="setting-list__field-label">
-                    {field.label}
-                    <span
-                      className="setting-list__field-help"
-                      tabIndex={0}
-                      title={field.hint}
-                      aria-label={`${field.label}. ${field.hint}`}
-                      data-tooltip={field.hint}
-                      onMouseEnter={(event) => showAnalysisTooltip(event, field.hint)}
-                      onMouseLeave={() => setAnalysisTooltip(null)}
-                      onFocus={(event) => showAnalysisTooltip(event, field.hint)}
-                      onBlur={() => setAnalysisTooltip(null)}
-                    >
-                      ?
-                    </span>
-                  </span>
-                  <input
-                    type={field.type}
-                    min={field.min}
-                    max={field.max}
-                    step={field.step}
-                    checked={
-                      field.type === "checkbox" ? Boolean(settingData.form.analysisSettings[field.name]) : undefined
-                    }
-                    value={field.type === "number" ? Number(settingData.form.analysisSettings[field.name]) : undefined}
-                    disabled={!canEditSettings}
-                    onChange={handleAnalysisFieldChange(field.name)}
-                  />
-                </label>
-              ))}
-            </div>
-            <Button
-              className="setting-list__inline-save setting-list__analysis-save"
-              type="submit"
-              disabled={!canEditSettings}
-            >
-              Сохранить
-            </Button>
+            <AnalysisSettingsPanel
+              selectedCameraId={selectedCameraId}
+              profile={settingData.analysisProductTypes[0]}
+            />
           </details>
         </section>
 

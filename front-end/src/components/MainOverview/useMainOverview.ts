@@ -425,6 +425,14 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
       // Preview-only captures remain visible while inspection is globally stopped.
       if (isCaptureOnlyInspectResult(inspectResult)) {
+        const isNoReferenceFrame = inspectResult.python_status?.trim().toUpperCase() === "NO_REFERENCE";
+        // Preview image delivery is enabled globally when at least one camera is stopped.
+        // Do not let a CAPTURE event from that stream replace PASS/FAIL on cameras
+        // whose inspection is still running. NO_REFERENCE remains blue for every camera.
+        if (inspectionEnabledByCameraIdRef.current[cameraId] === true && !isNoReferenceFrame) {
+          return;
+        }
+
         // После повторного пуска не даём запоздавшему preview-only результату
         // из остановленного интервала перезаписать первый новый результат инспекции.
         if (
