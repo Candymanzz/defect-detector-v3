@@ -24,10 +24,8 @@ namespace ImlLauncher
         private Thread _worker;
         private Thread _poller;
         private volatile bool _stopRequested;
-        private volatile bool _browserOpened;
         private volatile bool _running;
         private string _fatalError = "";
-        private string _frontendUrl = "http://localhost:5173/";
         private bool _workersHintFromLog;
         private bool _bootDoneFromLog;
 
@@ -234,7 +232,6 @@ namespace ImlLauncher
                 try
                 {
                     ProbeServices();
-                    MaybeOpenBrowser();
                 }
                 catch
                 {
@@ -288,15 +285,6 @@ namespace ImlLauncher
                     // Vite: host=localhost (often ::1 only), port may shift 5173..5192 (see front-end/scripts/dev.mjs).
                     if (HealthProbe.FrontendReady(5173, 20, out detail))
                     {
-                        if (detail != null && detail.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                        {
-                            int space = detail.IndexOf(' ');
-                            _frontendUrl = space > 0 ? detail.Substring(0, space) : detail;
-                            if (!_frontendUrl.EndsWith("/"))
-                            {
-                                _frontendUrl = _frontendUrl + "/";
-                            }
-                        }
                         changed |= Promote(ServiceIds.Frontend, ServiceState.Ready, detail);
                     }
                 }
@@ -349,34 +337,6 @@ namespace ImlLauncher
             }
             _model.Set(id, state, detail);
             return true;
-        }
-
-        private void MaybeOpenBrowser()
-        {
-            if (_browserOpened || _options.NoFrontend || !_model.CriticalReady)
-            {
-                return;
-            }
-            _browserOpened = true;
-            try
-            {
-                Process.Start(_frontendUrl);
-            }
-            catch
-            {
-                try
-                {
-                    ProcessStartInfo psi = new ProcessStartInfo();
-                    psi.FileName = "cmd.exe";
-                    psi.Arguments = "/c start " + _frontendUrl;
-                    psi.CreateNoWindow = true;
-                    psi.UseShellExecute = false;
-                    Process.Start(psi);
-                }
-                catch
-                {
-                }
-            }
         }
 
         private void OnOrchestratorLine(object sender, DataReceivedEventArgs e)

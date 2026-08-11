@@ -10,13 +10,13 @@ namespace ImlLauncher
     {
         private static readonly Color BgTop = Color.FromArgb(18, 20, 24);
         private static readonly Color BgBottom = Color.FromArgb(28, 32, 38);
-        private static readonly Color Accent = Color.FromArgb(212, 160, 72);
+        private static readonly Color Progress = Color.FromArgb(110, 180, 120);
         private static readonly Color TextPrimary = Color.FromArgb(236, 232, 224);
         private static readonly Color TextMuted = Color.FromArgb(150, 148, 140);
         private static readonly Color RowIdle = Color.FromArgb(40, 44, 52);
         private static readonly Color Ready = Color.FromArgb(110, 180, 120);
         private static readonly Color Error = Color.FromArgb(210, 90, 80);
-        private static readonly Color Starting = Color.FromArgb(212, 160, 72);
+        private static readonly Color Starting = Color.FromArgb(160, 170, 120);
 
         private readonly ServiceStatusModel _model;
         private StartupController _controller;
@@ -27,7 +27,6 @@ namespace ImlLauncher
         private readonly Panel _progressFill;
         private readonly Panel _servicesHost;
         private readonly Button _stopButton;
-        private readonly Button _openUiButton;
         private readonly System.Windows.Forms.Timer _pulseTimer;
         private int _pulsePhase;
         private bool _stopping;
@@ -75,13 +74,13 @@ namespace ImlLauncher
             _progressFill = new Panel();
             _progressFill.Location = new Point(0, 0);
             _progressFill.Size = new Size(8, 8);
-            _progressFill.BackColor = Accent;
+            _progressFill.BackColor = Progress;
             _progressTrack.Controls.Add(_progressFill);
 
             _step = new Label();
             _step.Text = model.StepText;
             _step.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
-            _step.ForeColor = Accent;
+            _step.ForeColor = Progress;
             _step.AutoSize = false;
             _step.Location = new Point(36, 134);
             _step.Size = new Size(488, 22);
@@ -92,19 +91,6 @@ namespace ImlLauncher
             _servicesHost.Size = new Size(504, 390);
             _servicesHost.BackColor = Color.Transparent;
             _servicesHost.AutoScroll = false;
-
-            _openUiButton = new Button();
-            _openUiButton.Text = "Открыть UI";
-            _openUiButton.FlatStyle = FlatStyle.Flat;
-            _openUiButton.FlatAppearance.BorderColor = Color.FromArgb(70, 74, 82);
-            _openUiButton.FlatAppearance.BorderSize = 1;
-            _openUiButton.BackColor = Color.FromArgb(36, 40, 48);
-            _openUiButton.ForeColor = TextPrimary;
-            _openUiButton.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
-            _openUiButton.Size = new Size(140, 36);
-            _openUiButton.Location = new Point(36, 576);
-            _openUiButton.Enabled = false;
-            _openUiButton.Click += OnOpenUiClick;
 
             _stopButton = new Button();
             _stopButton.Text = "Остановить систему";
@@ -123,7 +109,6 @@ namespace ImlLauncher
             Controls.Add(_progressTrack);
             Controls.Add(_step);
             Controls.Add(_servicesHost);
-            Controls.Add(_openUiButton);
             Controls.Add(_stopButton);
 
             BuildServiceRows();
@@ -165,7 +150,7 @@ namespace ImlLauncher
             int pct = _model.ProgressPercent;
             int width = Math.Max(8, (int)(_progressTrack.Width * (pct / 100.0)));
             _progressFill.Width = width;
-            _progressFill.BackColor = _model.HasCriticalError ? Error : Accent;
+            _progressFill.BackColor = _model.HasCriticalError ? Error : Progress;
 
             for (int i = 0; i < _servicesHost.Controls.Count; i++)
             {
@@ -177,7 +162,6 @@ namespace ImlLauncher
             }
 
             bool ready = _model.CriticalReady;
-            _openUiButton.Enabled = ready && !_stopping;
             if (ready && !_stopping)
             {
                 _subtitle.Text = "Система запущена";
@@ -235,18 +219,7 @@ namespace ImlLauncher
                 int a = 180 + (int)(40 * Math.Sin(t * Math.PI * 2));
                 if (a < 160) a = 160;
                 if (a > 255) a = 255;
-                _progressFill.BackColor = Color.FromArgb(a, Accent.R, Accent.G, Accent.B);
-            }
-        }
-
-        private void OnOpenUiClick(object sender, EventArgs e)
-        {
-            try
-            {
-                System.Diagnostics.Process.Start("http://localhost:5173/");
-            }
-            catch
-            {
+                _progressFill.BackColor = Color.FromArgb(a, Progress.R, Progress.G, Progress.B);
             }
         }
 
@@ -273,7 +246,6 @@ namespace ImlLauncher
             }
             _stopping = true;
             _stopButton.Enabled = false;
-            _openUiButton.Enabled = false;
             _step.Text = "Остановка системы…";
             _subtitle.Text = "Завершение процессов";
             _subtitle.ForeColor = TextMuted;
@@ -315,7 +287,7 @@ namespace ImlLauncher
             {
                 e.Graphics.FillRectangle(brush, ClientRectangle);
             }
-            using (Pen pen = new Pen(Color.FromArgb(50, Accent), 2f))
+            using (Pen pen = new Pen(Color.FromArgb(50, Progress), 2f))
             {
                 e.Graphics.DrawLine(pen, 36, 108, 524, 108);
             }
