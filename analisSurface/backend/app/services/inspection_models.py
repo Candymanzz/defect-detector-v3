@@ -26,6 +26,12 @@ class InspectionResult:
     rechecked_zone_ids: list[str] | None = None
     main_roi_score: float = 0.0
     sub_zone_scores: list[RoiSubZoneScore] = field(default_factory=list)
+    # ID появляется только для сохранённых в RAM результатов БРАК и используется
+    # операторским review. Он не меняет уже отправленное решение конвейера.
+    inspection_id: Optional[str] = None
+    learned_normal_matches_count: int = 0
+    learned_normal_adjustment: float = 0.0
+    matched_accepted_case_ids: list[str] = field(default_factory=list)
     aligned_image: Optional[np.ndarray] = None
     diff_map: Optional[np.ndarray] = None
     # BGR colormap for API/base64; UI SHM expects gray_u8 (see heatmap_u8).

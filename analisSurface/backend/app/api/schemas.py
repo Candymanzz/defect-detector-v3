@@ -38,6 +38,10 @@ class InspectResponse(BaseModel):
     rechecked_zone_ids: list[str] = Field(default_factory=list)
     main_roi_score: float = 0.0
     sub_zone_scores: list[RoiSubZoneScoreResponse] = Field(default_factory=list)
+    inspection_id: Optional[str] = None
+    learned_normal_matches_count: int = 0
+    learned_normal_adjustment: float = 0.0
+    matched_accepted_case_ids: list[str] = Field(default_factory=list)
 
 
 class InspectWithVisualsResponse(InspectResponse):

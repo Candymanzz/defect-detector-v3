@@ -1,12 +1,13 @@
 import numpy as np
 import pytest
+from pathlib import Path
 
 from app.services.inspection_service import InspectionService
 
 
 @pytest.fixture
-def inspection_service() -> InspectionService:
-    service = InspectionService()
+def inspection_service(tmp_path: Path) -> InspectionService:
+    service = InspectionService(learned_normals_dir=tmp_path / "accepted_normals", review_limit=10)
     service._anomaly_engine = None
     return service
 

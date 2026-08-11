@@ -67,6 +67,10 @@ def to_inspect_response(result) -> InspectResponse:
         recheck_adjustment=result.recheck_adjustment,
         rechecked_zone_ids=result.rechecked_zone_ids or [],
         main_roi_score=result.main_roi_score,
+        inspection_id=getattr(result, "inspection_id", None),
+        learned_normal_matches_count=getattr(result, "learned_normal_matches_count", 0),
+        learned_normal_adjustment=getattr(result, "learned_normal_adjustment", 0.0),
+        matched_accepted_case_ids=getattr(result, "matched_accepted_case_ids", None) or [],
         sub_zone_scores=[
             RoiSubZoneScoreResponse(
                 zone_id=entry.zone_id,

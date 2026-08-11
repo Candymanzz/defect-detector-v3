@@ -96,3 +96,92 @@ def test_set_and_get_reference(inspection_service: InspectionService, gray_frame
     assert stored is not None
     assert stored.shape == gray_frame.shape
     assert np.array_equal(stored, gray_frame)
+
+
+def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("bench", gray_frame)
+    acceptable = gray_frame.copy()
+    acceptable[10:30, 10:50] = 255
+
+    original = inspection_service.inspect_frame(
+        "bench",
+        acceptable,
+        threshold=0.1,
+        include_visuals=False,
+    )
+    assert original.status == "БРАК"
+    assert original.inspection_id
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None
+    assert len(review["defects"]) == 1
+
+    accepted = inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+        note="оператор подтвердил норму",
+    )
+    assert accepted["affects_original_pipeline_decision"] is False
+    assert accepted["original_status"] == "БРАК"
+    assert inspection_service.get_learning_review(original.inspection_id)["original_status"] == "БРАК"
+
+    future = inspection_service.inspect_frame(
+        "bench",
+        acceptable,
+        threshold=0.1,
+        include_visuals=False,
+    )
+    assert future.learned_normal_matches_count == 1
+    assert future.status == "ГОДЕН"
+    assert future.anomaly_score < future.threshold
+
+
+def test_new_defect_still_fails_next_to_learned_normal(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("bench", gray_frame)
+    acceptable = gray_frame.copy()
+    acceptable[8:20, 8:28] = 255
+    original = inspection_service.inspect_frame("bench", acceptable, threshold=0.1, include_visuals=False)
+    review = inspection_service.get_learning_review(original.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+    )
+
+    with_new_defect = acceptable.copy()
+    with_new_defect[40:58, 50:76] = 255
+    future = inspection_service.inspect_frame("bench", with_new_defect, threshold=0.1, include_visuals=False)
+
+    assert future.learned_normal_matches_count == 1
+    assert future.status == "БРАК"
+    assert future.anomaly_score >= future.threshold
+
+
+def test_accepted_normal_survives_service_restart(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("bench", gray_frame)
+    acceptable = gray_frame.copy()
+    acceptable[12:28, 15:45] = 255
+    original = inspection_service.inspect_frame("bench", acceptable, threshold=0.1, include_visuals=False)
+    review = inspection_service.get_learning_review(original.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+    )
+
+    restarted = InspectionService(
+        learned_normals_dir=inspection_service._accepted_normals.storage_dir,
+        review_limit=5,
+    )
+    restarted._anomaly_engine = None
+    restarted.set_reference_frame("bench", gray_frame)
+    result = restarted.inspect_frame("bench", acceptable, threshold=0.1, include_visuals=False)
+
+    assert result.learned_normal_matches_count == 1
+    assert result.status == "ГОДЕН"

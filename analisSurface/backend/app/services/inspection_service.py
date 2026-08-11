@@ -22,6 +22,12 @@ from app.services.inspection_geometry import (
     validate_polygon_points,
 )
 from app.services.inspection_models import FPZone, InspectionResult, RoiSubZone, RoiSubZoneScore
+from app.services.learned_normals import (
+    AcceptedNormalMemory,
+    InspectionReviewStore,
+    decode_review_arrays,
+    reference_fingerprint,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -33,8 +39,9 @@ class InspectionService:
     Публичная точка входа для анализа — inspect_frame().
     CRUD по ROI/зонам и загрузка JSON вынесены в отдельные методы без алгоритмической логики.
     """
-    def __init__(self) -> None:
+    def __init__(self, learned_normals_dir: Optional[Path] = None, review_limit: Optional[int] = None) -> None:
         self.references: Dict[str, np.ndarray] = {}
+        self._reference_hashes: Dict[str, str] = {}
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
         self.roi_sub_zones: Dict[str, list[RoiSubZone]] = {}
@@ -47,6 +54,11 @@ class InspectionService:
         self.fp_zones: Dict[str, list[FPZone]] = {}
         self._last_diff_maps: Dict[str, np.ndarray] = {}
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
+        data_dir = Path(__file__).resolve().parent.parent / "data"
+        self._accepted_normals = AcceptedNormalMemory(
+            learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals"
+        )
+        self._learning_reviews = InspectionReviewStore(max_items=review_limit)
 
         self._anomaly_engine = None
         self._load_anomalib_engine()
@@ -67,11 +79,13 @@ class InspectionService:
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
         self.references[product_type] = image
+        self._reference_hashes[product_type] = reference_fingerprint(image)
         self._update_ref_orb_cache(product_type, image)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
         image = frame.copy()
         self.references[product_type] = image
+        self._reference_hashes[product_type] = reference_fingerprint(image)
         self._update_ref_orb_cache(product_type, image)
 
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
@@ -86,6 +100,7 @@ class InspectionService:
             "fp_zones": sum(len(zones) for zones in self.fp_zones.values()),
         }
         self.references.clear()
+        self._reference_hashes.clear()
         self._ref_orb_cache.clear()
         self.roi_polygons.clear()
         self.roi_sub_zones.clear()
@@ -95,6 +110,122 @@ class InspectionService:
         self._save_fp_zones()
         self._save_roi_sub_zones()
         return cleared
+
+    def list_learning_reviews(self, product_type: Optional[str] = None) -> list[dict]:
+        return self._learning_reviews.list(product_type=product_type)
+
+    def get_learning_review(self, inspection_id: str) -> Optional[dict]:
+        review = self._learning_reviews.get(inspection_id)
+        return review.details() if review is not None else None
+
+    def get_learning_review_image(self, inspection_id: str, kind: str) -> Optional[tuple[bytes, str]]:
+        review = self._learning_reviews.get(inspection_id)
+        if review is None:
+            return None
+        try:
+            return review.image(kind)
+        except KeyError:
+            return None
+
+    def list_accepted_normal_cases(self, product_type: Optional[str] = None) -> list[dict]:
+        return self._accepted_normals.list(product_type=product_type)
+
+    def delete_accepted_normal_case(self, case_id: str) -> bool:
+        return self._accepted_normals.delete(case_id)
+
+    def accept_review_defect_as_normal(
+        self,
+        inspection_id: str,
+        defect_id: str,
+        note: str = "",
+    ) -> dict:
+        """Запомнить фрагмент; прошлое pipeline-решение остаётся неизменным."""
+        review = self._learning_reviews.get(inspection_id)
+        if review is None:
+            raise KeyError("inspection")
+        if defect_id in review.accepted_defect_ids:
+            raise ValueError("Defect is already accepted as normal")
+        candidate = next((item for item in review.defects if item.id == defect_id), None)
+        if candidate is None:
+            raise KeyError("defect")
+        if candidate.matched_case_id is not None:
+            raise ValueError("Defect is already recognized as an accepted normal")
+
+        accepted_case = self._accepted_normals.add_from_candidate(
+            product_type=review.product_type,
+            reference_hash=review.reference_hash,
+            inspection_id=review.inspection_id,
+            candidate=candidate,
+            note=note,
+        )
+        candidate.matched_case_id = accepted_case.id
+        candidate.similarity = 1.0
+        self._learning_reviews.mark_accepted(
+            inspection_id,
+            defect_id,
+            counterfactual_score=None,
+            counterfactual_status=None,
+        )
+
+        # Ознакомительный пересчёт не покидает этот API и не публикуется в
+        # оркестратор/PLC. Он показывает, как новый пример повлиял бы на тот кадр.
+        counterfactual_score: Optional[float] = None
+        counterfactual_status: Optional[str] = None
+        try:
+            aligned, diff_map, raw_mask = decode_review_arrays(review)
+            settings = self.get_analysis_settings(review.product_type)
+            learned_filter = self._accepted_normals.apply(
+                product_type=review.product_type,
+                reference_hash=review.reference_hash,
+                aligned=aligned,
+                diff_map=diff_map,
+                segmentation_mask=raw_mask,
+            )
+            learned_score, learned_mask = self._run_anomaly_model(
+                learned_filter.filtered_diff_map,
+                settings,
+            )
+            fp_recheck = self._recheck_fp_zones(
+                review.product_type,
+                learned_filter.filtered_diff_map,
+                learned_mask,
+                learned_score,
+                settings,
+            )
+            _, _, counterfactual_score, counterfactual_status = self._score_inspection_regions(
+                filtered_diff_map=fp_recheck["filtered_diff_map"],
+                segmentation_mask=fp_recheck["filtered_mask"],
+                inspection_threshold=review.threshold,
+                settings=settings,
+                polygon=self.get_roi_polygon(review.product_type),
+                sub_zones=self.get_roi_sub_zones(review.product_type),
+            )
+            self._learning_reviews.mark_accepted(
+                inspection_id,
+                defect_id,
+                counterfactual_score=counterfactual_score,
+                counterfactual_status=counterfactual_status,
+            )
+        except Exception:
+            # Сбой необязательного preview не отменяет успешно сохранённое
+            # обучение и тем более не инициирует повторное pipeline-решение.
+            logger.exception(
+                "accepted-normal counterfactual preview failed inspection_id=%s defect_id=%s",
+                inspection_id,
+                defect_id,
+            )
+        return {
+            "saved": True,
+            "accepted_case": accepted_case.to_public_dict(),
+            "inspection_id": inspection_id,
+            "defect_id": defect_id,
+            "original_status": review.original_status,
+            "original_score": review.original_score,
+            "counterfactual_status": counterfactual_status,
+            "counterfactual_score": counterfactual_score,
+            "affects_original_pipeline_decision": False,
+            "pipeline_decision_sent": True,
+        }
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
         self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
@@ -317,17 +448,121 @@ class InspectionService:
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
-        # 5. Ослабить ложняки в FP-зонах (известный шум/текст).
-        fp_recheck = self._recheck_fp_zones(product_type, diff_map, segmentation_mask, raw_score, settings)
+        raw_segmentation_mask = segmentation_mask.copy()
+
+        # 5. Обучаемая память нормы: каждый найденный фрагмент сравнивается с
+        # подтверждёнными оператором примерами. Совпавшие фрагменты удаляются до
+        # зонального score; без примеров результат побитово остаётся прежним.
+        ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
+        learned_filter = self._accepted_normals.apply(
+            product_type=product_type,
+            reference_hash=ref_hash,
+            aligned=aligned,
+            diff_map=diff_map,
+            segmentation_mask=segmentation_mask,
+        )
+        learned_score = raw_score
+        learned_diff_map = learned_filter.filtered_diff_map
+        segmentation_mask = learned_filter.filtered_mask
+        if learned_filter.matched_case_ids:
+            learned_score, segmentation_mask = self._run_anomaly_model(learned_diff_map, settings)
+
+        # 6. Ослабить ложняки в явных FP-зонах (известный шум/текст).
+        fp_recheck = self._recheck_fp_zones(
+            product_type,
+            learned_diff_map,
+            segmentation_mask,
+            learned_score,
+            settings,
+        )
         filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
 
-        # 6. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
+        # 7. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
         inspection_threshold = (
             threshold if threshold is not None else settings.default_threshold
         )
         sub_zones = self.get_roi_sub_zones(product_type)
-        h, w = diff_map.shape[:2]
+        main_roi_score, sub_zone_scores, anomaly_score, status = self._score_inspection_regions(
+            filtered_diff_map=filtered_diff_map,
+            segmentation_mask=segmentation_mask,
+            inspection_threshold=inspection_threshold,
+            settings=settings,
+            polygon=polygon,
+            sub_zones=sub_zones,
+        )
+
+        # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
+        heatmap_u8 = None
+        if include_visuals:
+            heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
+        elif include_heatmap_u8:
+            try:
+                heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
+            except Exception:
+                logger.exception("UI heatmap generation failed after inspection completed")
+        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
+        if include_visuals and heatmap is not None:
+            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
+            heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
+
+        # Review сохраняется только для итогового БРАК. Решение уже считается
+        # отправленным и последующее обучение меняет лишь будущие инспекции.
+        inspection_id = None
+        if status == "БРАК" and learned_filter.candidates:
+            try:
+                inspection_id = str(uuid.uuid4())
+                self._learning_reviews.add(
+                    inspection_id=inspection_id,
+                    product_type=product_type,
+                    reference_hash=ref_hash,
+                    status=status,
+                    score=anomaly_score,
+                    threshold=inspection_threshold,
+                    aligned=aligned,
+                    diff_map=diff_map,
+                    raw_mask=raw_segmentation_mask,
+                    candidates=learned_filter.candidates,
+                )
+            except Exception:
+                inspection_id = None
+                logger.exception("failed to save inspection learning review product_type=%s", product_type)
+
+        return InspectionResult(
+            product_type=product_type,
+            status=status,
+            anomaly_score=anomaly_score,
+            threshold=inspection_threshold,
+            detector_id=get_application_id(),
+            raw_anomaly_score=raw_score,
+            rechecked_zones_count=len(fp_recheck["rechecked_zone_ids"]),
+            recheck_adjustment=learned_score - fp_recheck["final_score"],
+            rechecked_zone_ids=fp_recheck["rechecked_zone_ids"],
+            main_roi_score=main_roi_score,
+            sub_zone_scores=sub_zone_scores,
+            inspection_id=inspection_id,
+            learned_normal_matches_count=len(learned_filter.matched_case_ids),
+            learned_normal_adjustment=max(0.0, raw_score - learned_score),
+            matched_accepted_case_ids=learned_filter.matched_case_ids,
+            aligned_image=aligned if include_visuals else None,
+            diff_map=diff_map if include_visuals else None,
+            heatmap=heatmap if include_visuals else None,
+            heatmap_u8=heatmap_u8,
+            segmentation_mask=segmentation_mask if include_visuals else None,
+        )
+
+    def _score_inspection_regions(
+        self,
+        *,
+        filtered_diff_map: np.ndarray,
+        segmentation_mask: np.ndarray,
+        inspection_threshold: float,
+        settings: AnalysisSettings,
+        polygon: Optional[list[Tuple[float, float]]],
+        sub_zones: list[RoiSubZone],
+    ) -> tuple[float, list[RoiSubZoneScore], float, str]:
+        """Единый расчёт вердикта для live-inspect и ознакомительного review."""
+        h, w = filtered_diff_map.shape[:2]
         hole_polygons = [zone.points for zone in sub_zones]
         main_region_mask = combine_region_masks(w, h, polygon, hole_polygons)
         main_roi_score = self._score_region(
@@ -351,45 +586,12 @@ class InspectionService:
                 )
             )
 
-        # Итог = максимум по зонам; брак если хотя бы одна зона превысила свой порог.
         zone_scores = [main_roi_score, *(entry.anomaly_score for entry in sub_zone_scores)]
         anomaly_score = float(max(zone_scores)) if zone_scores else 0.0
         main_failed = main_roi_score >= inspection_threshold
         sub_failed = any(entry.status == "БРАК" for entry in sub_zone_scores)
         status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
-
-        # 7. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
-        heatmap_u8 = None
-        if include_visuals:
-            heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
-        elif include_heatmap_u8:
-            try:
-                heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
-            except Exception:
-                logger.exception("UI heatmap generation failed after inspection completed")
-        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
-        if include_visuals and heatmap is not None:
-            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
-            heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
-
-        return InspectionResult(
-            product_type=product_type,
-            status=status,
-            anomaly_score=anomaly_score,
-            threshold=inspection_threshold,
-            detector_id=get_application_id(),
-            raw_anomaly_score=raw_score,
-            rechecked_zones_count=len(fp_recheck["rechecked_zone_ids"]),
-            recheck_adjustment=raw_score - fp_recheck["final_score"],
-            rechecked_zone_ids=fp_recheck["rechecked_zone_ids"],
-            main_roi_score=main_roi_score,
-            sub_zone_scores=sub_zone_scores,
-            aligned_image=aligned if include_visuals else None,
-            diff_map=diff_map if include_visuals else None,
-            heatmap=heatmap if include_visuals else None,
-            heatmap_u8=heatmap_u8,
-            segmentation_mask=segmentation_mask if include_visuals else None,
-        )
+        return main_roi_score, sub_zone_scores, anomaly_score, status
 
     def _load_analysis_settings(self) -> None:
         self._analysis_settings_overrides = {}
