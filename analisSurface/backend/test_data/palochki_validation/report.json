@@ -97,7 +97,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 244.29,
+          "elapsed_ms": 264.17,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -109,7 +109,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 276.53,
+          "elapsed_ms": 308.63,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -121,7 +121,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 15,
-          "elapsed_ms": 642.49,
+          "elapsed_ms": 643.36,
           "expected": "БРАК",
           "correct": true
         },
@@ -133,7 +133,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 5,
-          "elapsed_ms": 588.15,
+          "elapsed_ms": 582.22,
           "expected": "БРАК",
           "correct": true
         },
@@ -145,7 +145,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 7,
-          "elapsed_ms": 569.32,
+          "elapsed_ms": 574.83,
           "expected": "БРАК",
           "correct": true
         }
@@ -168,7 +168,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 227.18,
+          "elapsed_ms": 225.94,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -180,7 +180,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 245.56,
+          "elapsed_ms": 241.36,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -192,7 +192,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 15,
-          "elapsed_ms": 552.91,
+          "elapsed_ms": 554.94,
           "expected": "БРАК",
           "correct": true
         },
@@ -204,7 +204,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 5,
-          "elapsed_ms": 580.28,
+          "elapsed_ms": 574.46,
           "expected": "БРАК",
           "correct": true
         },
@@ -216,7 +216,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 7,
-          "elapsed_ms": 570.21,
+          "elapsed_ms": 566.68,
           "expected": "БРАК",
           "correct": true
         }
@@ -239,7 +239,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 237.75,
+          "elapsed_ms": 241.43,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -251,7 +251,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 223.92,
+          "elapsed_ms": 226.99,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -263,7 +263,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 15,
-          "elapsed_ms": 551.09,
+          "elapsed_ms": 554.62,
           "expected": "БРАК",
           "correct": true
         },
@@ -275,7 +275,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 6,
-          "elapsed_ms": 561.65,
+          "elapsed_ms": 565.61,
           "expected": "БРАК",
           "correct": true
         },
@@ -287,7 +287,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 7,
-          "elapsed_ms": 554.31,
+          "elapsed_ms": 567.11,
           "expected": "БРАК",
           "correct": true
         }
@@ -310,7 +310,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 249.11,
+          "elapsed_ms": 248.42,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -322,7 +322,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 227.61,
+          "elapsed_ms": 248.1,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -334,7 +334,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 15,
-          "elapsed_ms": 556.44,
+          "elapsed_ms": 561.26,
           "expected": "БРАК",
           "correct": true
         },
@@ -346,7 +346,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 6,
-          "elapsed_ms": 561.82,
+          "elapsed_ms": 582.85,
           "expected": "БРАК",
           "correct": true
         },
@@ -358,7 +358,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 7,
-          "elapsed_ms": 564.05,
+          "elapsed_ms": 556.55,
           "expected": "БРАК",
           "correct": true
         }
@@ -381,7 +381,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 921.57,
+          "elapsed_ms": 886.09,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -393,7 +393,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 940.98,
+          "elapsed_ms": 894.13,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -405,7 +405,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 5,
-          "elapsed_ms": 1548.03,
+          "elapsed_ms": 1505.72,
           "expected": "БРАК",
           "correct": true
         },
@@ -417,7 +417,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 5,
-          "elapsed_ms": 1493.07,
+          "elapsed_ms": 1438.68,
           "expected": "БРАК",
           "correct": true
         },
@@ -429,7 +429,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 6,
-          "elapsed_ms": 1307.81,
+          "elapsed_ms": 1259.43,
           "expected": "БРАК",
           "correct": true
         }
@@ -452,7 +452,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 882.98,
+          "elapsed_ms": 873.69,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -464,7 +464,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 894.62,
+          "elapsed_ms": 894.08,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -476,7 +476,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 5,
-          "elapsed_ms": 1466.31,
+          "elapsed_ms": 1484.61,
           "expected": "БРАК",
           "correct": true
         },
@@ -488,7 +488,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 5,
-          "elapsed_ms": 1434.31,
+          "elapsed_ms": 1446.94,
           "expected": "БРАК",
           "correct": true
         },
@@ -500,7 +500,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 6,
-          "elapsed_ms": 1256.56,
+          "elapsed_ms": 1263.1,
           "expected": "БРАК",
           "correct": true
         }
@@ -523,7 +523,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 894.26,
+          "elapsed_ms": 895.2,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -535,7 +535,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 887.49,
+          "elapsed_ms": 880.86,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -547,7 +547,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 4,
-          "elapsed_ms": 1585.58,
+          "elapsed_ms": 1589.44,
           "expected": "БРАК",
           "correct": true
         },
@@ -559,7 +559,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 4,
-          "elapsed_ms": 1439.31,
+          "elapsed_ms": 1427.99,
           "expected": "БРАК",
           "correct": true
         },
@@ -571,7 +571,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 2,
-          "elapsed_ms": 1267.85,
+          "elapsed_ms": 1276.06,
           "expected": "БРАК",
           "correct": true
         }
@@ -594,7 +594,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 889.14,
+          "elapsed_ms": 891.41,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -606,7 +606,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 0,
-          "elapsed_ms": 869.86,
+          "elapsed_ms": 886.37,
           "expected": "ГОДЕН",
           "correct": true
         },
@@ -618,7 +618,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 4,
-          "elapsed_ms": 1597.63,
+          "elapsed_ms": 1593.74,
           "expected": "БРАК",
           "correct": true
         },
@@ -630,7 +630,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 4,
-          "elapsed_ms": 1452.79,
+          "elapsed_ms": 1437.2,
           "expected": "БРАК",
           "correct": true
         },
@@ -642,7 +642,7 @@
           "matches": 0,
           "adjustment": 0.0,
           "review_defects": 2,
-          "elapsed_ms": 1266.3,
+          "elapsed_ms": 1269.99,
           "expected": "БРАК",
           "correct": true
         }
@@ -660,7 +660,7 @@
       "matches": 0,
       "adjustment": 0.0,
       "review_defects": 1,
-      "elapsed_ms": 17.62
+      "elapsed_ms": 17.84
     },
     "learned_cases": 1,
     "rows": [
@@ -672,7 +672,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 0,
-        "elapsed_ms": 10.5
+        "elapsed_ms": 10.14
       },
       {
         "filename": "Untitled1.jpg",
@@ -682,7 +682,7 @@
         "matches": 1,
         "adjustment": 1.0,
         "review_defects": 0,
-        "elapsed_ms": 14.25
+        "elapsed_ms": 13.93
       },
       {
         "filename": "Untitled12.jpg",
@@ -692,7 +692,7 @@
         "matches": 1,
         "adjustment": 0.0,
         "review_defects": 2,
-        "elapsed_ms": 22.38
+        "elapsed_ms": 21.64
       },
       {
         "filename": "Untitled123.jpg",
@@ -702,7 +702,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 1,
-        "elapsed_ms": 17.48
+        "elapsed_ms": 19.48
       },
       {
         "filename": "Untitled1234.jpg",
@@ -712,7 +712,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 1,
-        "elapsed_ms": 16.26
+        "elapsed_ms": 18.13
       },
       {
         "filename": "Untitled12345.jpg",
@@ -722,7 +722,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 2,
-        "elapsed_ms": 17.89
+        "elapsed_ms": 18.07
       },
       {
         "filename": "Untitled123456.jpg",
@@ -732,7 +732,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 2,
-        "elapsed_ms": 17.51
+        "elapsed_ms": 18.82
       },
       {
         "filename": "Untitled_pomenshe.jpg",
@@ -742,7 +742,7 @@
         "matches": 1,
         "adjustment": 0.725468,
         "review_defects": 0,
-        "elapsed_ms": 14.21
+        "elapsed_ms": 14.12
       },
       {
         "filename": "light_def.jpg",
@@ -752,7 +752,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 0,
-        "elapsed_ms": 9.06
+        "elapsed_ms": 9.71
       },
       {
         "filename": "light_def1.jpg",
@@ -762,7 +762,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 0,
-        "elapsed_ms": 14.12
+        "elapsed_ms": 16.43
       },
       {
         "filename": "light_def11.jpg",
@@ -772,7 +772,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 1,
-        "elapsed_ms": 19.54
+        "elapsed_ms": 21.82
       },
       {
         "filename": "light_def111.jpg",
@@ -782,7 +782,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 1,
-        "elapsed_ms": 19.2
+        "elapsed_ms": 19.46
       },
       {
         "filename": "light_def12.jpg",
@@ -792,7 +792,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 1,
-        "elapsed_ms": 19.63
+        "elapsed_ms": 19.86
       },
       {
         "filename": "light_def123.jpg",
@@ -802,7 +802,7 @@
         "matches": 0,
         "adjustment": 0.0,
         "review_defects": 2,
-        "elapsed_ms": 19.81
+        "elapsed_ms": 19.76
       }
     ]
   }

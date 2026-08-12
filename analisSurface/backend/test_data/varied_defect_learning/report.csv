@@ -19,8 +19,8 @@ circle,x_scratch,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 circle,dot_cluster,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 ellipse,ellipse,seed,ГОДЕН,ГОДЕН,1.0,0.00392156862745098,1,1.0,True
 ellipse,ellipse,shift,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.949838926747973,True
-ellipse,ellipse,small_70,ГОДЕН,БРАК,1.0,1.0,0,,False
-ellipse,ellipse,small_45,ГОДЕН,БРАК,1.0,1.0,0,,False
+ellipse,ellipse,small_70,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.954548687931467,True
+ellipse,ellipse,small_45,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.9213534134135076,True
 ellipse,ellipse,lighter,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.9426163729365438,True
 ellipse,ellipse,two,ГОДЕН,ГОДЕН,1.0,0.004705882352941177,2,0.9466461475576136,True
 ellipse,ellipse,large_145,БРАК,БРАК,1.0,1.0,0,,True
@@ -40,7 +40,7 @@ rectangle_chip,rectangle_chip,shift,ГОДЕН,ГОДЕН,1.0,0.0007843137254901
 rectangle_chip,rectangle_chip,small_70,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.9369148757343186,True
 rectangle_chip,rectangle_chip,small_45,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.9101033704766278,True
 rectangle_chip,rectangle_chip,lighter,ГОДЕН,ГОДЕН,1.0,0.0023529411764705885,1,0.9281656974833566,True
-rectangle_chip,rectangle_chip,two,ГОДЕН,БРАК,1.0,1.0,1,0.9389842089806628,False
+rectangle_chip,rectangle_chip,two,ГОДЕН,ГОДЕН,1.0,0.00784313725490196,2,0.9389842089806628,True
 rectangle_chip,rectangle_chip,large_145,БРАК,БРАК,1.0,1.0,0,,True
 rectangle_chip,circle,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 rectangle_chip,ellipse,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
@@ -78,7 +78,7 @@ irregular_blob,irregular_blob,small_45,ГОДЕН,ГОДЕН,1.0,0.0007843137254
 irregular_blob,irregular_blob,lighter,ГОДЕН,ГОДЕН,1.0,0.00392156862745098,1,0.9268834065640945,True
 irregular_blob,irregular_blob,two,ГОДЕН,ГОДЕН,1.0,0.00392156862745098,2,0.9365527022308664,True
 irregular_blob,irregular_blob,large_145,БРАК,БРАК,1.0,1.0,0,,True
-irregular_blob,circle,foreign_shape,БРАК,ГОДЕН,1.0,0.0007843137254901962,1,0.902646364100077,False
+irregular_blob,circle,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 irregular_blob,ellipse,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 irregular_blob,rectangle_chip,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 irregular_blob,triangle_chip,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
@@ -164,7 +164,7 @@ zigzag_crack,dot_cluster,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 arc,arc,seed,ГОДЕН,ГОДЕН,1.0,0.007058823529411765,1,1.0,True
 arc,arc,shift,ГОДЕН,ГОДЕН,1.0,0.0015686274509803923,1,0.8976214681432678,True
 arc,arc,small_70,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.8741773481582975,True
-arc,arc,small_45,ГОДЕН,БРАК,1.0,1.0,0,,False
+arc,arc,small_45,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.7898818373322806,True
 arc,arc,lighter,ГОДЕН,ГОДЕН,1.0,0.0007843137254901962,1,0.9032003998603712,True
 arc,arc,two,ГОДЕН,ГОДЕН,1.0,0.005490196078431373,2,0.8630554905362482,True
 arc,arc,large_145,БРАК,БРАК,1.0,1.0,0,,True
@@ -182,7 +182,7 @@ arc,dot_cluster,foreign_shape,БРАК,БРАК,1.0,1.0,0,,True
 x_scratch,x_scratch,seed,ГОДЕН,ГОДЕН,1.0,0.004705882352941177,1,1.0,True
 x_scratch,x_scratch,shift,ГОДЕН,ГОДЕН,1.0,0.0023529411764705885,1,0.9022556162577682,True
 x_scratch,x_scratch,small_70,ГОДЕН,ГОДЕН,1.0,0.0015686274509803923,1,0.8673878949387305,True
-x_scratch,x_scratch,small_45,ГОДЕН,БРАК,1.0,1.0,0,,False
+x_scratch,x_scratch,small_45,ГОДЕН,ГОДЕН,1.0,0.0015686274509803923,1,0.800267799953737,True
 x_scratch,x_scratch,lighter,ГОДЕН,ГОДЕН,1.0,0.0023529411764705885,1,0.8918506478303236,True
 x_scratch,x_scratch,two,ГОДЕН,ГОДЕН,1.0,0.007058823529411765,2,0.9054025172558786,True
 x_scratch,x_scratch,large_145,БРАК,БРАК,1.0,1.0,0,,True

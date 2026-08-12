@@ -1,6 +1,6 @@
 {
-  "id": "707c4fad-bb9f-45a0-8ea2-7017a3bc19cd",
-  "product_type": "position-bound-normal",
+  "id": "2d0b675a-c1c5-46b7-80a2-abb54da6f227",
+  "product_type": "portable-normal",
   "reference_hash": "587bdced65ad2b86d06209cf",
   "bbox_norm": {
     "x": 0.21,
@@ -12,8 +12,8 @@
   "diff_mean": 71.34001743679163,
   "diff_q90": 120.0,
   "diff_max": 127.0,
-  "created_at": "2026-08-12T07:53:12.380724+00:00",
-  "source_inspection_id": "3e3766b1-34a5-4ec5-8527-17b328aa95f8",
+  "created_at": "2026-08-12T08:17:34.805474+00:00",
+  "source_inspection_id": "dc1580a9-f945-4a1f-8725-17004de36a5f",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,

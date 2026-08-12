@@ -33,6 +33,10 @@ TEMPLATE_VERSION = 2
 # (например, около 184 px по горизонтали на рабочем кадре шириной 1224 px),
 # но не перенос исключения на другую часть изделия.
 POSITION_TOLERANCE_NORM = 0.15
+THIN_TRACE_MIN_SIMILARITY = 0.68
+SCALED_SHAPE_MIN_SIMILARITY = 0.76
+REDUCED_SHAPE_MIN_SIMILARITY = 0.78
+GENERAL_MIN_SIMILARITY = 0.80
 
 
 def _utc_now() -> str:
@@ -881,6 +885,23 @@ def _mask_overlap_metrics(first_mask: np.ndarray, second_mask: np.ndarray) -> tu
     return tolerant_similarity, dice_similarity
 
 
+def _diff_core_mask(diff_template: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Выделить устойчивое ядро отличия, менее зависимое от морфологии общей маски."""
+    binary_mask = np.asarray(mask, dtype=bool)
+    values = diff_template[binary_mask]
+    if values.size == 0:
+        return binary_mask
+    threshold = max(8.0, float(np.percentile(values, 50)))
+    core = binary_mask & (diff_template.astype(np.float32) >= threshold)
+    if np.count_nonzero(core) < 3:
+        return binary_mask
+    return cv2.dilate(
+        core.astype(np.uint8),
+        np.ones((3, 3), dtype=np.uint8),
+        iterations=1,
+    ) > 0
+
+
 def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -> Optional[float]:
     """Сопоставить форму и размер только рядом с местом сохранённой нормы."""
     cx, cy, cw, ch = candidate.bbox_norm
@@ -908,7 +929,12 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
 
     if candidate.diff_q90 > max(case.diff_q90 * 1.60, case.diff_q90 + 12.0):
         return None
-    if candidate.diff_max > max(case.diff_max * 1.50, case.diff_max + 20.0):
+    maximum_diff_max = (
+        max(case.diff_max * 1.75, case.diff_max + 35.0)
+        if bbox_area_ratio <= 1.0
+        else max(case.diff_max * 1.50, case.diff_max + 20.0)
+    )
+    if candidate.diff_max > maximum_diff_max:
         return None
 
     case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
@@ -963,6 +989,22 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     compactness_similarity = _ratio_similarity(candidate_geometry.compactness, sample_geometry.compactness)
     solidity_similarity = _ratio_similarity(candidate_geometry.solidity, sample_geometry.solidity)
     elongation_similarity = _ratio_similarity(candidate_geometry.elongation, sample_geometry.elongation)
+    tolerant_shape_similarity, dice_similarity = _mask_overlap_metrics(candidate_mask, sample_mask)
+    candidate_core_mask = _diff_core_mask(candidate_diff_template, candidate_mask)
+    sample_core_mask = _diff_core_mask(case_diff_template, sample_mask)
+    core_tolerant_similarity, core_dice_similarity = _mask_overlap_metrics(
+        candidate_core_mask,
+        sample_core_mask,
+    )
+    scaled_core_geometry_candidate = (
+        bbox_area_ratio <= 0.80
+        and tolerant_shape_similarity >= 0.88
+        and dice_similarity >= 0.55
+        and core_tolerant_similarity >= 0.93
+        and core_dice_similarity >= 0.55
+        and aspect_similarity >= 0.78
+        and elongation_similarity >= 0.75
+    )
 
     # Направление важно только для явно вытянутых следов. Для почти круглых пятен
     # PCA-угол нестабилен и не должен мешать совпадению.
@@ -983,7 +1025,10 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if fill_similarity < minimum_fill_similarity:
         return None
     minimum_compactness_similarity = 0.28 if sample_is_thin_trace else 0.33
-    if compactness_similarity < minimum_compactness_similarity or solidity_similarity < 0.42:
+    if (
+        compactness_similarity < minimum_compactness_similarity
+        or solidity_similarity < 0.42
+    ) and not scaled_core_geometry_candidate:
         return None
 
     comparison_region = cv2.dilate(
@@ -1011,6 +1056,11 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         )
         / 255.0
     )
+    stable_scaled_shape_candidate = (
+        scaled_core_geometry_candidate
+        and diff_similarity >= 0.82
+        and appearance_similarity >= 0.70
+    )
 
     # Узкий режим для уменьшенной разорванной версии сохранённой тонкой трассы.
     # Он не применяется к пятнам/сколам и не разрешает увеличение. Такой след
@@ -1029,8 +1079,6 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     # IoU слишком чувствителен к длине отдельных плеч царапины/следа. Среднее
     # расстояние между обеими масками терпит такую деформацию, но остаётся
     # симметричным: и текущая, и сохранённая форма должны объяснять друг друга.
-    tolerant_shape_similarity, dice_similarity = _mask_overlap_metrics(candidate_mask, sample_mask)
-
     if partial_trace_candidate:
         partial_similarity = (
             tolerant_shape_similarity * 0.40
@@ -1056,6 +1104,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
 
     if (
         not stable_thin_trace_candidate
+        and not stable_scaled_shape_candidate
         and (tolerant_shape_similarity < 0.72 or dice_similarity < 0.32)
     ):
         return None
@@ -1075,8 +1124,8 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         max(candidate_geometry.elongation, sample_geometry.elongation) < 2.2
         and min(candidate_geometry.fill_ratio, sample_geometry.fill_ratio) >= 0.55
     )
-    if both_filled_compact:
-        if dice_similarity < 0.83:
+    if both_filled_compact and not stable_scaled_shape_candidate:
+        if dice_similarity < 0.83 or aspect_similarity < 0.78:
             return None
         contour_distance = _contour_match_distance(candidate_geometry, sample_geometry)
         if contour_distance > 0.25:
@@ -1086,7 +1135,11 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         )
         if vertex_difference > 2 or (vertex_difference >= 2 and contour_distance > 0.20):
             return None
-    if geometry_similarity < 0.72 and not stable_thin_trace_candidate:
+    if (
+        geometry_similarity < 0.72
+        and not stable_thin_trace_candidate
+        and not stable_scaled_shape_candidate
+    ):
         return None
 
     # Уменьшенная версия одного и того же следа может немного не добрать общий
@@ -1116,11 +1169,13 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         + scale_similarity * 0.05
     )
     if stable_thin_trace_candidate:
-        minimum_similarity = 0.68
+        minimum_similarity = THIN_TRACE_MIN_SIMILARITY
+    elif stable_scaled_shape_candidate:
+        minimum_similarity = SCALED_SHAPE_MIN_SIMILARITY
     elif stable_reduced_shape_candidate:
-        minimum_similarity = 0.78
+        minimum_similarity = REDUCED_SHAPE_MIN_SIMILARITY
     else:
-        minimum_similarity = 0.80
+        minimum_similarity = GENERAL_MIN_SIMILARITY
     if similarity < minimum_similarity:
         return None
     return float(similarity)

@@ -1,5 +1,5 @@
 {
-  "id": "71e31d3f-41c6-458f-af20-cef6302598c8",
+  "id": "8bee4524-df4f-4a1d-850f-eef7510c9919",
   "product_type": "multiple-matches",
   "reference_hash": "ca0a442919712351c8e7d58f",
   "bbox_norm": {
@@ -12,8 +12,8 @@
   "diff_mean": 30.788,
   "diff_q90": 33.0,
   "diff_max": 33.0,
-  "created_at": "2026-08-12T07:53:12.426011+00:00",
-  "source_inspection_id": "cea4607a-d977-4c00-8ff6-b503e9716345",
+  "created_at": "2026-08-12T08:17:34.869649+00:00",
+  "source_inspection_id": "b6a2c052-7aef-439a-af3c-9fe2abbabba4",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,

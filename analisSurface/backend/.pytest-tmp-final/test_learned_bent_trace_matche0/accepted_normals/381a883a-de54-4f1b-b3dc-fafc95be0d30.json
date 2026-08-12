@@ -1,5 +1,5 @@
 {
-  "id": "91b40974-0b7e-4f29-bd52-27055795393f",
+  "id": "381a883a-de54-4f1b-b3dc-fafc95be0d30",
   "product_type": "shape-bent-scaled",
   "reference_hash": "0dca02394c35001cab5f0aff",
   "bbox_norm": {
@@ -12,8 +12,8 @@
   "diff_mean": 33.41661987647389,
   "diff_q90": 54.0,
   "diff_max": 57.0,
-  "created_at": "2026-08-12T07:53:12.732705+00:00",
-  "source_inspection_id": "5472feeb-25a6-4b2c-b4ee-b2112b2109f2",
+  "created_at": "2026-08-12T08:17:35.139862+00:00",
+  "source_inspection_id": "b5aed856-075a-43f2-a276-9a16d38ea82d",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,

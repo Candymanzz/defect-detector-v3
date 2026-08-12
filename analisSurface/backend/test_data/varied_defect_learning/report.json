@@ -343,24 +343,24 @@
       "probe_family": "ellipse",
       "variant": "small_70",
       "expected_status": "ГОДЕН",
-      "actual_status": "БРАК",
+      "actual_status": "ГОДЕН",
       "raw_score": 1.0,
-      "final_score": 1.0,
-      "matches": 0,
-      "max_similarity": null,
-      "passed": false
+      "final_score": 0.0007843137254901962,
+      "matches": 1,
+      "max_similarity": 0.954548687931467,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
       "probe_family": "ellipse",
       "variant": "small_45",
       "expected_status": "ГОДЕН",
-      "actual_status": "БРАК",
+      "actual_status": "ГОДЕН",
       "raw_score": 1.0,
-      "final_score": 1.0,
-      "matches": 0,
-      "max_similarity": null,
-      "passed": false
+      "final_score": 0.0007843137254901962,
+      "matches": 1,
+      "max_similarity": 0.9213534134135076,
+      "passed": true
     },
     {
       "learned_family": "ellipse",
@@ -595,12 +595,12 @@
       "probe_family": "rectangle_chip",
       "variant": "two",
       "expected_status": "ГОДЕН",
-      "actual_status": "БРАК",
+      "actual_status": "ГОДЕН",
       "raw_score": 1.0,
-      "final_score": 1.0,
-      "matches": 1,
+      "final_score": 0.00784313725490196,
+      "matches": 2,
       "max_similarity": 0.9389842089806628,
-      "passed": false
+      "passed": true
     },
     {
       "learned_family": "rectangle_chip",
@@ -1051,12 +1051,12 @@
       "probe_family": "circle",
       "variant": "foreign_shape",
       "expected_status": "БРАК",
-      "actual_status": "ГОДЕН",
+      "actual_status": "БРАК",
       "raw_score": 1.0,
-      "final_score": 0.0007843137254901962,
-      "matches": 1,
-      "max_similarity": 0.902646364100077,
-      "passed": false
+      "final_score": 1.0,
+      "matches": 0,
+      "max_similarity": null,
+      "passed": true
     },
     {
       "learned_family": "irregular_blob",
@@ -2083,12 +2083,12 @@
       "probe_family": "arc",
       "variant": "small_45",
       "expected_status": "ГОДЕН",
-      "actual_status": "БРАК",
+      "actual_status": "ГОДЕН",
       "raw_score": 1.0,
-      "final_score": 1.0,
-      "matches": 0,
-      "max_similarity": null,
-      "passed": false
+      "final_score": 0.0007843137254901962,
+      "matches": 1,
+      "max_similarity": 0.7898818373322806,
+      "passed": true
     },
     {
       "learned_family": "arc",
@@ -2299,12 +2299,12 @@
       "probe_family": "x_scratch",
       "variant": "small_45",
       "expected_status": "ГОДЕН",
-      "actual_status": "БРАК",
+      "actual_status": "ГОДЕН",
       "raw_score": 1.0,
-      "final_score": 1.0,
-      "matches": 0,
-      "max_similarity": null,
-      "passed": false
+      "final_score": 0.0015686274509803923,
+      "matches": 1,
+      "max_similarity": 0.800267799953737,
+      "passed": true
     },
     {
       "learned_family": "x_scratch",
