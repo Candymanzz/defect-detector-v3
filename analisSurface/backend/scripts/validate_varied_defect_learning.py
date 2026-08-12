@@ -319,7 +319,9 @@ def main() -> int:
     write_image(output_dir / "reference.png", reference)
 
     center_seed = (285, 420)
-    center_shift = (395, 465)
+    # Похожий дефект остаётся в локальной окрестности сохранённого места.
+    # Более дальний перенос теперь намеренно не является допустимой нормой.
+    center_shift = (350, 450)
     image_entries: list[tuple[str, str]] = [("reference.png", "reference")]
     variants_by_family: dict[str, dict[str, np.ndarray]] = {}
     for family in FAMILIES:
@@ -332,8 +334,8 @@ def main() -> int:
             "two": make_frame(
                 reference,
                 family,
-                center=(270, 420),
-                second_center=(415, 475),
+                center=(245, 395),
+                second_center=(335, 455),
                 scale=0.68,
             ),
             "large_145": make_frame(reference, family, center=center_shift, scale=1.45),

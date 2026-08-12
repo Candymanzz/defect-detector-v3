@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 TEMPLATE_SIZE = 64
 TEMPLATE_INNER_SIZE = 56
 TEMPLATE_VERSION = 2
+# Максимальное расстояние между центрами текущего и сохранённого дефекта в
+# нормированных координатах кадра. 0.15 означает локальный сдвиг
+# (например, около 184 px по горизонтали на рабочем кадре шириной 1224 px),
+# но не перенос исключения на другую часть изделия.
+POSITION_TOLERANCE_NORM = 0.15
 
 
 def _utc_now() -> str:
@@ -877,9 +882,20 @@ def _mask_overlap_metrics(first_mask: np.ndarray, second_mask: np.ndarray) -> tu
 
 
 def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -> Optional[float]:
-    """Сопоставление дефекта независимо от положения и уменьшения по кадру."""
-    _, _, cw, ch = candidate.bbox_norm
-    _, _, sw, sh = case.bbox_norm
+    """Сопоставить форму и размер только рядом с местом сохранённой нормы."""
+    cx, cy, cw, ch = candidate.bbox_norm
+    sx, sy, sw, sh = case.bbox_norm
+
+    candidate_center = (cx + cw * 0.5, cy + ch * 0.5)
+    sample_center = (sx + sw * 0.5, sy + sh * 0.5)
+    position_distance = math.hypot(
+        candidate_center[0] - sample_center[0],
+        candidate_center[1] - sample_center[1],
+    )
+    # Проверка выполняется до дорогого сравнения шаблонов. Координаты нормированы,
+    # поэтому допуск одинаков по смыслу при полном кадре и inspect_scale=0.5.
+    if position_distance > POSITION_TOLERANCE_NORM:
+        return None
 
     candidate_area_norm = max(1e-9, cw * ch)
     sample_area_norm = max(1e-9, sw * sh)
@@ -959,7 +975,8 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if one_is_elongated and other_is_compact:
         return None
 
-    # Эти проверки масштабонезависимы: абсолютная площадь и положение не участвуют.
+    # Эти проверки масштабонезависимы: абсолютная площадь не участвует. Положение
+    # уже проверено выше по нормированному расстоянию между центрами.
     if aspect_similarity < 0.40:
         return None
     minimum_fill_similarity = 0.30 if sample_is_thin_trace else 0.38
@@ -1072,6 +1089,23 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if geometry_similarity < 0.72 and not stable_thin_trace_candidate:
         return None
 
+    # Уменьшенная версия одного и того же следа может немного не добрать общий
+    # порог из-за иного соотношения длины его плеч. Это особенно заметно у
+    # L-образных следов, которые на одном кадре сегментируются одним контуром,
+    # а на другом — двумя близкими островками. Послабление узкое: положение уже
+    # проверено выше, увеличение размера запрещено, а форма, контраст и внешний
+    # вид должны оставаться близкими. Общий порог для остальных кандидатов не
+    # меняется.
+    stable_reduced_shape_candidate = (
+        bbox_area_ratio <= 1.0
+        and tolerant_shape_similarity >= 0.84
+        and dice_similarity >= 0.42
+        and aspect_similarity >= 0.60
+        and diff_similarity >= 0.85
+        and appearance_similarity >= 0.72
+        and abs(candidate_geometry.contour_vertices - sample_geometry.contour_vertices) <= 1
+    )
+
     # Уменьшение не штрафуется. Для допустимого увеличения остаётся небольшой
     # штраф, а основной вес имеют форма, diff и внешний вид фрагмента.
     scale_similarity = 1.0 if bbox_area_ratio <= 1.0 else 1.0 / bbox_area_ratio
@@ -1081,7 +1115,12 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         + appearance_similarity * 0.07
         + scale_similarity * 0.05
     )
-    minimum_similarity = 0.68 if stable_thin_trace_candidate else 0.80
+    if stable_thin_trace_candidate:
+        minimum_similarity = 0.68
+    elif stable_reduced_shape_candidate:
+        minimum_similarity = 0.78
+    else:
+        minimum_similarity = 0.80
     if similarity < minimum_similarity:
         return None
     return float(similarity)

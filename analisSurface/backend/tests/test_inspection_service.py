@@ -187,12 +187,12 @@ def test_new_defect_still_fails_next_to_learned_normal(
     assert future.anomaly_score >= future.threshold
 
 
-def test_learned_normal_matches_shifted_rescaled_shape(
+def test_learned_normal_matches_nearby_shifted_rescaled_shape(
     inspection_service: InspectionService,
 ) -> None:
     height, width = 120, 200
-    # Один и тот же материал/фон по всему изделию: проверяем именно перенос
-    # допустимой формы, а не перенос между визуально разными зонами.
+    # Один и тот же материал/фон по всему изделию: проверяем небольшой локальный
+    # сдвиг допустимой формы, а не перенос исключения в другую часть изделия.
     reference_gray = np.full((height, width), 80, dtype=np.uint8)
     reference = np.stack([reference_gray, reference_gray, reference_gray], axis=-1)
     identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
@@ -216,8 +216,8 @@ def test_learned_normal_matches_shifted_rescaled_shape(
     )
 
     shifted_frame = reference.copy()
-    shifted_frame[35:76, 145:150] = 255
-    shifted_frame[71:76, 145:199] = 255
+    shifted_frame[27:68, 55:60] = 255
+    shifted_frame[63:68, 55:109] = 255
     shifted = inspection_service.inspect_frame(
         "portable-normal",
         shifted_frame,
@@ -229,6 +229,45 @@ def test_learned_normal_matches_shifted_rescaled_shape(
     assert shifted.learned_normal_matches_count == 1
     assert shifted.status == "ГОДЕН"
     assert shifted.anomaly_score < shifted.threshold
+
+
+def test_learned_normal_does_not_match_same_shape_far_away(
+    inspection_service: InspectionService,
+) -> None:
+    height, width = 120, 200
+    reference = np.full((height, width, 3), 80, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("position-bound-normal", reference)
+
+    accepted = reference.copy()
+    accepted[20:63, 43:48] = 255
+    accepted[59:64, 43:129] = 255
+    original = inspection_service.inspect_frame(
+        "position-bound-normal",
+        accepted,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+    )
+
+    far_away = reference.copy()
+    far_away[35:76, 145:150] = 255
+    far_away[71:76, 145:199] = 255
+    result = inspection_service.inspect_frame(
+        "position-bound-normal",
+        far_away,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 0
+    assert result.status == "БРАК"
 
 
 def test_learned_normal_matches_smaller_fragmented_shape(
@@ -259,9 +298,9 @@ def test_learned_normal_matches_smaller_fragmented_shape(
     # Та же L-образная структура меньше и разорвана порогом на две близкие
     # компоненты. Для сравнения они должны образовать один логический дефект.
     fragmented = reference.copy()
-    fragmented[35:46, 160:165] = 130
-    fragmented[51:70, 156:161] = 130
-    fragmented[66:70, 156:187] = 130
+    fragmented[27:38, 59:64] = 130
+    fragmented[43:62, 55:60] = 130
+    fragmented[58:62, 55:86] = 130
     result = inspection_service.inspect_frame(
         "fragmented-normal",
         fragmented,
@@ -274,7 +313,7 @@ def test_learned_normal_matches_smaller_fragmented_shape(
     assert result.status == "ГОДЕН"
 
 
-def test_one_learned_normal_suppresses_multiple_smaller_matches(
+def test_one_learned_normal_does_not_suppress_multiple_distant_matches(
     inspection_service: InspectionService,
 ) -> None:
     height, width = 120, 180
@@ -310,9 +349,9 @@ def test_one_learned_normal_suppresses_multiple_smaller_matches(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count == 3
-    assert len(result.matched_accepted_case_ids) == 1
-    assert result.status == "ГОДЕН"
+    assert result.learned_normal_matches_count == 0
+    assert result.matched_accepted_case_ids == []
+    assert result.status == "БРАК"
 
 
 def test_larger_similar_defect_remains_reject_after_partial_match(
@@ -522,7 +561,7 @@ def test_learned_horizontal_scratch_does_not_suppress_vertical_scratch(
     assert result.status == "БРАК"
 
 
-def test_learned_bent_trace_matches_smaller_rotated_copies(
+def test_learned_bent_trace_matches_nearby_smaller_rotated_copy(
     inspection_service: InspectionService,
 ) -> None:
     reference = np.full((240, 320, 3), 80, dtype=np.uint8)
@@ -554,15 +593,7 @@ def test_learned_bent_trace_matches_smaller_rotated_copies(
     current = reference.copy()
     cv2.polylines(
         current,
-        [np.asarray([(200, 45), (200, 83), (243, 83)], dtype=np.int32)],
-        False,
-        (145, 145, 145),
-        5,
-        cv2.LINE_AA,
-    )
-    cv2.polylines(
-        current,
-        [np.asarray([(135, 195), (88, 195), (88, 153)], dtype=np.int32)],
+        [np.asarray([(115, 90), (75, 90), (75, 55)], dtype=np.int32)],
         False,
         (145, 145, 145),
         5,
@@ -576,7 +607,7 @@ def test_learned_bent_trace_matches_smaller_rotated_copies(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count == 2
+    assert result.learned_normal_matches_count == 1
     assert result.anomaly_score < result.threshold
 
 

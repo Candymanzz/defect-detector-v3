@@ -104,11 +104,11 @@ def case_definitions() -> list[DatasetCase]:
     def add_bad(name: str, description: str, painter: Callable[[np.ndarray], None]) -> None:
         cases.append(DatasetCase(name, "БРАК", description, painter))
 
-    add_good("good_01_shift_right.png", "Та же L-форма справа", lambda im: draw_l_mark(im, (425, 375)))
-    add_good("good_02_shift_low.png", "Та же L-форма ниже", lambda im: draw_l_mark(im, (330, 480)))
-    add_good("good_03_small_70.png", "Уменьшение до 70%", lambda im: draw_l_mark(im, (390, 455), scale=0.70))
-    add_good("good_04_small_45.png", "Уменьшение до 45%", lambda im: draw_l_mark(im, (275, 500), scale=0.45))
-    add_good("good_05_tiny_25.png", "Уменьшение до 25%", lambda im: draw_l_mark(im, (430, 500), scale=0.25))
+    add_good("good_01_shift_right.png", "Та же L-форма немного справа", lambda im: draw_l_mark(im, (350, 405)))
+    add_good("good_02_shift_low.png", "Та же L-форма немного ниже", lambda im: draw_l_mark(im, (315, 445)))
+    add_good("good_03_small_70.png", "Уменьшение до 70% рядом", lambda im: draw_l_mark(im, (345, 435), scale=0.70))
+    add_good("good_04_small_45.png", "Уменьшение до 45% рядом", lambda im: draw_l_mark(im, (285, 450), scale=0.45))
+    add_good("good_05_tiny_25.png", "Уменьшение до 25% рядом", lambda im: draw_l_mark(im, (350, 450), scale=0.25))
     add_good("good_06_fragmented.png", "Разорванная порогом L-форма", lambda im: draw_l_mark(im, (385, 425), scale=0.75, fragmented=True))
     add_good("good_07_short_arm.png", "Более короткое горизонтальное плечо", lambda im: draw_l_mark(im, (285, 445), scale=0.80, horizontal_scale=0.65))
     add_good("good_08_thin.png", "Более тонкая отметка", lambda im: draw_l_mark(im, (420, 420), scale=0.85, thickness=2))
@@ -125,6 +125,7 @@ def case_definitions() -> list[DatasetCase]:
     add_bad("bad_06_dent.png", "Контрастная вмятина", lambda im: cv2.ellipse(im, (360, 430), (42, 22), -8, 0, 360, (48, 62, 75), -1, cv2.LINE_AA))
     add_bad("bad_07_dot_cluster.png", "Кластер мелких точек", lambda im: draw_dots(im, [(320, 410), (332, 418), (346, 405), (358, 422), (370, 408), (382, 420)]))
     add_bad("bad_08_normal_plus_x.png", "Допустимая L-форма плюс новый X-дефект", lambda im: (draw_l_mark(im, (260, 430), scale=0.55), draw_x(im, (420, 430), 20)))
+    add_bad("bad_09_same_shape_far.png", "Та же L-форма далеко от сохранённого места", lambda im: draw_l_mark(im, (500, 300), scale=0.80))
     return cases
 
 

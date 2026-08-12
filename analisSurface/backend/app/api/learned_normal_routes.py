@@ -165,7 +165,7 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
         <div class="viewer"><img id="reviewImage" alt="inspection"><svg id="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div>
       </div>
       <aside class="side">
-        <div class="notice">Выберите контур. Кнопка запоминает только этот фрагмент для будущих инспекций. В конвейер повторное решение не отправляется.</div>
+        <div class="notice">Выберите контур. Кнопка запоминает только этот фрагмент и его примерное место: похожая форма будет нормой лишь рядом с выбранной областью. В конвейер повторное решение не отправляется.</div>
         <div id="counterfactual" class="counterfactual"></div>
         <div id="defects"></div>
         <input id="note" placeholder="Комментарий (необязательно)">

@@ -41,6 +41,15 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     figure { margin:0; background:#0a0e14; border:1px solid #29384b; border-radius:10px; overflow:hidden; }
     figcaption { padding:8px 10px; color:#b8c4d2; border-bottom:1px solid #29384b; }
     figure img { display:block; width:100%; min-height:120px; max-height:360px; object-fit:contain; background:#070a0e; }
+    .roi-editor { position:relative; width:100%; background:#070a0e; }
+    .roi-editor img { width:100%; height:auto; min-height:0; max-height:none; object-fit:initial; user-select:none; }
+    .roi-overlay { position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; }
+    .roi-overlay polygon { fill:rgba(65,148,255,.20); stroke:#55a4ff; stroke-width:.005; vector-effect:non-scaling-stroke; pointer-events:none; }
+    .roi-overlay polyline { fill:none; stroke:#76b6ff; stroke-width:.004; vector-effect:non-scaling-stroke; pointer-events:none; }
+    .roi-overlay circle { fill:#ffe073; stroke:#152131; stroke-width:.003; vector-effect:non-scaling-stroke; pointer-events:none; }
+    .roi-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:9px 10px; border-top:1px solid #29384b; }
+    .roi-controls button { padding:7px 10px; }
+    .roi-help { padding:0 10px 10px; color:#9eabbc; font-size:12px; }
     .result { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:10px; margin-top:12px; }
     .metric { padding:11px; border-radius:9px; background:#101923; border:1px solid #2d3c51; }
     .metric b { display:block; margin-top:4px; font-size:20px; }
@@ -84,7 +93,24 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       <button id="runButton" onclick="runInspection()">Запустить проверку</button>
     </div>
     <div class="previews">
-      <figure><figcaption>Выбранный эталон</figcaption><img id="referencePreview" alt="Эталон"></figure>
+      <figure>
+        <figcaption>Эталон и область инспекции</figcaption>
+        <div class="roi-editor">
+          <img id="referencePreview" alt="Эталон">
+          <svg id="roiOverlay" class="roi-overlay" viewBox="0 0 1 1" preserveAspectRatio="none" onclick="addRoiPoint(event)">
+            <polygon id="roiPolygon"></polygon>
+            <polyline id="roiPolyline"></polyline>
+            <g id="roiVertices"></g>
+          </svg>
+        </div>
+        <div class="roi-controls">
+          <button onclick="undoRoiPoint()">Удалить точку</button>
+          <button onclick="clearRoi()">Очистить</button>
+          <button onclick="useFullFrameRoi()">Весь кадр</button>
+          <span id="roiStatus" class="muted">Весь кадр</span>
+        </div>
+        <div class="roi-help">Кликайте по эталону, чтобы поставить минимум 3 вершины. При проверке область замыкается автоматически.</div>
+      </figure>
       <figure><figcaption>Выбранный текущий кадр</figcaption><img id="currentPreview" alt="Текущий кадр"></figure>
     </div>
     <div id="message" class="muted"></div>
@@ -103,7 +129,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 
   <section id="defectPanel" class="panel hidden">
     <h2>Дефекты этого кадра</h2>
-    <div class="muted">Выберите красный контур. Сохранение изменит только будущие проверки; текущий результат никуда повторно не передаётся.</div>
+    <div class="muted">Выберите красный контур. Сохранится форма и её примерное место: далёкий похожий дефект не будет нормой. Изменятся только будущие проверки; текущий результат никуда повторно не передаётся.</div>
     <div class="review-grid">
       <div class="viewer"><img id="reviewImage"><svg id="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div>
       <div>
@@ -123,6 +149,8 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 <script>
   let currentReview = null;
   let selectedDefectId = null;
+  let roiPoints = [];
+  const fullFrameRoi = [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const productType = () => document.getElementById('productType').value.trim() || 'local-test';
   const setMessage = (text, error=false) => { const node=document.getElementById('message'); node.textContent=text; node.className=error?'bad':'muted'; };
@@ -135,7 +163,40 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
   bindPreview('referenceFile','referencePreview');
   bindPreview('currentFile','currentPreview');
-  document.getElementById('productType').addEventListener('change', loadAcceptedCases);
+  document.getElementById('referenceFile').addEventListener('change', clearRoi);
+  document.getElementById('productType').addEventListener('change', () => { clearRoi(); loadAcceptedCases(); });
+
+  const roiSvgPoints = points => points.map(point => `${point.x},${point.y}`).join(' ');
+  function renderRoi() {
+    const polygon = document.getElementById('roiPolygon');
+    const polyline = document.getElementById('roiPolyline');
+    polygon.setAttribute('points', roiPoints.length >= 3 ? roiSvgPoints(roiPoints) : '');
+    polyline.setAttribute('points', roiPoints.length >= 2 ? roiSvgPoints(roiPoints) : '');
+    document.getElementById('roiVertices').innerHTML = roiPoints.map(
+      point => `<circle cx="${point.x}" cy="${point.y}" r="0.009"></circle>`
+    ).join('');
+    const status = document.getElementById('roiStatus');
+    status.textContent = roiPoints.length === 0
+      ? 'Весь кадр'
+      : roiPoints.length < 3
+        ? `Точек: ${roiPoints.length} — нужно минимум 3`
+        : `ROI: ${roiPoints.length} точек`;
+    status.className = roiPoints.length > 0 && roiPoints.length < 3 ? 'bad' : 'muted';
+  }
+  function addRoiPoint(event) {
+    const image = document.getElementById('referencePreview');
+    if(!image.src) { setMessage('Сначала выберите эталон.', true); return; }
+    const rect = event.currentTarget.getBoundingClientRect();
+    if(rect.width <= 0 || rect.height <= 0) return;
+    roiPoints.push({
+      x:Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      y:Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    });
+    renderRoi();
+  }
+  function undoRoiPoint() { roiPoints = roiPoints.slice(0, -1); renderRoi(); }
+  function clearRoi() { roiPoints = []; renderRoi(); }
+  function useFullFrameRoi() { roiPoints = fullFrameRoi.map(point => ({...point})); renderRoi(); }
 
   async function jsonResponse(response) {
     const payload = await response.json().catch(() => ({}));
@@ -147,6 +208,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     const reference = document.getElementById('referenceFile').files[0];
     const current = document.getElementById('currentFile').files[0];
     if(!reference || !current) { setMessage('Выберите оба изображения: эталон и текущий кадр.', true); return; }
+    if(roiPoints.length > 0 && roiPoints.length < 3) { setMessage('Для области инспекции нужно минимум 3 точки либо нажмите «Очистить» для проверки всего кадра.', true); return; }
     const button = document.getElementById('runButton');
     button.disabled = true;
     document.getElementById('resultPanel').classList.add('hidden');
@@ -158,6 +220,14 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       refForm.append('product_type', productType());
       refForm.append('file', reference);
       await jsonResponse(await fetch('/upload-ref', {method:'POST', body:refForm}));
+
+      setMessage('Сохранение области инспекции...');
+      const effectiveRoi = roiPoints.length >= 3 ? roiPoints : fullFrameRoi;
+      await jsonResponse(await fetch('/roi-polygon', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({product_type:productType(), points:effectiveRoi}),
+      }));
 
       setMessage('Выполняется инспекция...');
       const inspectForm = new FormData();
@@ -186,6 +256,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       <div class="metric">Итоговый score<b>${Number(result.anomaly_score).toFixed(4)}</b></div>
       <div class="metric">Исходный score<b>${Number(result.raw_anomaly_score).toFixed(4)}</b></div>
       <div class="metric">Порог<b>${Number(result.threshold).toFixed(4)}</b></div>
+      <div class="metric">Область анализа<b>${roiPoints.length >= 3 ? `ROI · ${roiPoints.length} точек` : 'Весь кадр'}</b></div>
       <div class="metric">Исключено областей<b>${Number(result.learned_normal_matches_count || 0)}</b></div>
       <div class="metric">Вычтено из score<b>${Number(result.learned_normal_adjustment || 0).toFixed(4)}</b></div>
       <div class="metric">Время HTTP-проверки<b>${elapsedMs.toFixed(1)} мс</b></div>`;
@@ -272,6 +343,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
 
   loadAcceptedCases();
+  renderRoi();
 </script>
 </body>
 </html>"""

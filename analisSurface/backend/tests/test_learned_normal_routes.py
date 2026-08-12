@@ -23,6 +23,8 @@ def test_local_inspection_test_page_is_available() -> None:
     assert "Локальный тест инспекции" in response.text
     assert "Запустить проверку" in response.text
     assert "Сохранённые нормы теста" in response.text
+    assert "Эталон и область инспекции" in response.text
+    assert "fetch('/roi-polygon'" in response.text
     assert "fetch('/upload-ref'" in response.text
     assert "fetch('/inspect'" in response.text
 
@@ -61,6 +63,57 @@ def test_local_inspection_multipart_flow_returns_visuals_and_review() -> None:
     review = client.get(f"/learning/reviews/{payload['inspection_id']}")
     assert review.status_code == 200
     assert review.json()["defects"]
+
+
+def test_local_inspection_roi_limits_analysis_to_selected_polygon() -> None:
+    width, height = 120, 80
+    reference = np.full((height, width, 3), 80, dtype=np.uint8)
+    outside = reference.copy()
+    outside[20:50, 82:108] = 220
+    inside = reference.copy()
+    inside[20:50, 12:38] = 220
+
+    def encoded(image: np.ndarray) -> bytes:
+        ok, payload = cv2.imencode(".png", image)
+        assert ok
+        return payload.tobytes()
+
+    product_type = "local-ui-roi-test"
+    uploaded = client.post(
+        "/upload-ref",
+        data={"product_type": product_type},
+        files={"file": ("reference.png", encoded(reference), "image/png")},
+    )
+    assert uploaded.status_code == 200
+    roi = client.post(
+        "/roi-polygon",
+        json={
+            "product_type": product_type,
+            "points": [
+                {"x": 0.0, "y": 0.0},
+                {"x": 0.5, "y": 0.0},
+                {"x": 0.5, "y": 1.0},
+                {"x": 0.0, "y": 1.0},
+            ],
+        },
+    )
+    assert roi.status_code == 200
+
+    outside_result = client.post(
+        "/inspect",
+        data={"product_type": product_type, "threshold": "0.1"},
+        files={"file": ("outside.png", encoded(outside), "image/png")},
+    )
+    inside_result = client.post(
+        "/inspect",
+        data={"product_type": product_type, "threshold": "0.1"},
+        files={"file": ("inside.png", encoded(inside), "image/png")},
+    )
+
+    assert outside_result.status_code == 200
+    assert outside_result.json()["status"] == "ГОДЕН"
+    assert inside_result.status_code == 200
+    assert inside_result.json()["status"] == "БРАК"
 
 
 def test_learning_review_list_is_backward_compatible_empty_or_list() -> None:
