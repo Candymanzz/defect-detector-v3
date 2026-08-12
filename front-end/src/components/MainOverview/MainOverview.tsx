@@ -1,9 +1,12 @@
 import { useEffect } from "react";
+import { useState } from "react";
 import type { Ref } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
-import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { AnalysisSettingsPanel } from "../SettingList/AnalysisSettingsPanel";
+import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
+import { orchestratorApi } from "../../shared/api";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
@@ -17,6 +20,7 @@ type MainOverviewProps = {
   inspectionResetVersion: number;
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
+  onAnalysisSettingsOpen: (cameraId: number) => Promise<void>;
   onInspectionStatsChange?: (stats: InspectionStats) => void;
   rootRef?: Ref<HTMLDivElement>;
 };
@@ -25,10 +29,12 @@ export function MainOverview({
   inspectionResetVersion,
   selectedSettingsCameraId,
   onSettingsCameraToggle,
+  onAnalysisSettingsOpen,
   onInspectionStatsChange,
   rootRef,
 }: MainOverviewProps) {
   const controller = useMainOverview(inspectionResetVersion);
+  const [showModalAnalysisSettings, setShowModalAnalysisSettings] = useState(false);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
   const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
   const modalInspectionControlState = controller.modalSnapshot
@@ -53,15 +59,23 @@ export function MainOverview({
               const inspectResult = controller.inspectResultsByCameraId[camera.cameraId];
               const artifactInspectResult = controller.inspectArtifactResultsByCameraId[camera.cameraId];
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
-              const showsInspectionResult = controller.hasReference && isInspectionEnabled;
+              // Soft-stop: inspection is off, but capture-only frames must still render on the card.
+              const isCaptureOnlyFrame = isCaptureOnlyInspectResult(inspectResult);
+              const showLiveInspectFrame =
+                Boolean(inspectResult) &&
+                (!controller.hasReference || isInspectionEnabled || isCaptureOnlyFrame);
+              const showInspectionArtifacts = controller.hasReference && isInspectionEnabled;
               const inspectImageUrl = resolveCardInspectImageUrl(
-                showsInspectionResult ? inspectResult : undefined,
-                showsInspectionResult ? artifactInspectResult : undefined,
+                showLiveInspectFrame ? inspectResult : undefined,
+                showInspectionArtifacts ? artifactInspectResult : undefined,
                 controller.previewFrameIdsByCameraId[camera.cameraId],
                 controller.previewImageUrlsByCameraId[camera.cameraId],
               );
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
+              const inspectionResultState = resolveInspectionResultState(
+                isInspectionEnabled || isCaptureOnlyFrame ? inspectResult : undefined,
+              );
 
               return (
                 <StatusCard
@@ -76,12 +90,12 @@ export function MainOverview({
                   isInspectionActionDisabled={!controller.hasReference || isInspectionActionPending}
                   inspectionActionLabel={getInspectionActionLabel(inspectionControlState?.state, isInspectionEnabled)}
                   inspectionStatus={inspectionControlState?.message}
-                  inspectionResult={resolveInspectionResultState(inspectResult)}
+                  inspectionResult={inspectionResultState}
                   onOpen={() =>
                     controller.openInspectionModal(
                       createSelectedCamera(camera),
                       inspectResult,
-                      artifactInspectResult,
+                      showInspectionArtifacts ? artifactInspectResult : undefined,
                       controller.previewFrameIdsByCameraId[camera.cameraId],
                       controller.previewImageUrlsByCameraId[camera.cameraId],
                       controller.inspectionHistoryByCameraId[camera.cameraId] ?? [],
@@ -120,6 +134,23 @@ export function MainOverview({
             result,
           }))}
           selectedInspectionFrameId={controller.modalSnapshot.inspectResult?.frame_id}
+          analysisSettingsContent={
+            showModalAnalysisSettings ? (
+              <div className="modal__analysis-settings">
+                <h3>Настройки анализа · Камера {controller.modalSnapshot.cameraId}</h3>
+                <AnalysisSettingsPanel
+                  selectedCameraId={controller.modalSnapshot.cameraId}
+                  testFrameId={controller.modalSnapshot.inspectResult?.frame_id}
+                  onSaveComplete={async () => {
+                    await orchestratorApi.setTestMode(false);
+                    const inspectionState = await orchestratorApi.startAllInspections();
+                    window.dispatchEvent(new CustomEvent("inspection-control-changed", { detail: inspectionState }));
+                    setShowModalAnalysisSettings(false);
+                  }}
+                />
+              </div>
+            ) : undefined
+          }
           dangerHeaderAction={
             <button
               className={
@@ -142,10 +173,26 @@ export function MainOverview({
               )}
             </button>
           }
+          headerActions={
+            <button
+              className="modal__action"
+              type="button"
+              onClick={async () => {
+                const cameraId = controller.modalSnapshot!.cameraId;
+                await onAnalysisSettingsOpen(cameraId);
+                setShowModalAnalysisSettings(true);
+              }}
+            >
+              Изменить настройки анализа
+            </button>
+          }
           inspectResult={controller.modalSnapshot.inspectResult}
           title={`${controller.modalSnapshot.objectName} / Камера ${controller.modalSnapshot.cameraId}`}
           onInspectionSelect={controller.selectModalInspection}
-          onClose={controller.closeInspectionModal}
+          onClose={() => {
+            setShowModalAnalysisSettings(false);
+            controller.closeInspectionModal();
+          }}
         />
       )}
 

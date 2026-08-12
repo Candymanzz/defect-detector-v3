@@ -33,10 +33,7 @@ public final class InspectionHeaderMapper {
                 num(h.get("jointMaxWidthMm"), 3.0),
                 num(h.get("maxJointParallelismDeg"), 5.0),
                 num(h.get("maxJointTaperMm"), 0.8),
-                bool(h.get("jointSeamSegmentationEnabled") != null
-                                ? h.get("jointSeamSegmentationEnabled")
-                                : h.get("joint_seam_segmentation_enabled"),
-                        false),
+                true,
                 segmentationSensitivity(h)
         );
     }
@@ -61,10 +58,7 @@ public final class InspectionHeaderMapper {
                 num(h.get("jointMaxWidthMm"), 3.0),
                 num(h.get("maxJointParallelismDeg"), 5.0),
                 num(h.get("maxJointTaperMm"), 0.8),
-                bool(h.get("jointSeamSegmentationEnabled") != null
-                                ? h.get("jointSeamSegmentationEnabled")
-                                : h.get("joint_seam_segmentation_enabled"),
-                        false),
+                true,
                 segmentationSensitivity(h)
         );
     }

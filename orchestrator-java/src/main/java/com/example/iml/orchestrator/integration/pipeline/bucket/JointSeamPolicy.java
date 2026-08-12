@@ -30,8 +30,9 @@ public record JointSeamPolicy(
     }
 
     public boolean passesStrict(double parallelismDeg, double widthMm) {
-        return parallelismDeg <= maxParallelismDegStrict
-                && widthMm >= minWidthMmStrict
-                && widthMm <= maxWidthMmStrict;
+        boolean parallelismOk = parallelismDeg <= maxParallelismDegStrict;
+        // Same as geometry joint gate: parallel edges waive the min-width floor.
+        boolean minWidthOk = parallelismOk || widthMm >= minWidthMmStrict;
+        return parallelismOk && minWidthOk && widthMm <= maxWidthMmStrict;
     }
 }

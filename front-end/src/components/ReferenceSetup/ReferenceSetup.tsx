@@ -30,7 +30,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     jointCameraId,
     hasJointRoi,
     canSendAllReferences,
-    hasStoredReferenceForActiveGroup,
+    hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
@@ -76,11 +76,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
-  const shouldStartNewReference = hasStoredReferenceForActiveGroup && !isNewReferenceMode;
+  const shouldStartNewReference = hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode;
   const primaryReferenceLabel = shouldStartNewReference
     ? "Задать новый эталон"
     : isNewReferenceMode
-      ? "Подтвердить и использовать новый эталон →"
+      ? "Подтвердить новые эталоны →"
       : "Задать и использовать эталон →";
 
   useEffect(() => {
@@ -132,7 +132,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     ? "Эталон отправлен — ожидается подтверждение"
                     : referenceSubmission.state === "confirmed"
                       ? "Эталон подтверждён сервером"
-                      : "Сервер отклонил эталон. Проверьте кадры, ROI контроля и шов этикетки"}
+                      : "Сервер отклонил эталон. Проверьте кадры и ROI контроля"}
                 </strong>
                 <time>{new Date(referenceSubmission.submittedAtMs).toLocaleTimeString()}</time>
               </div>
@@ -220,7 +220,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 className="reference-setup__button reference-setup__refresh"
                 onClick={handleCaptureNewReferenceFrames}
               >
-                ↻ Обновить кадры
+                {hasAnyStoredReferenceForActiveGroup ? "＋ Добавить новый кадр" : "↻ Обновить кадры"}
               </Button>
               <div className="reference-setup__legend">
                 <span>
@@ -414,7 +414,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   role={hasSetupError ? "alert" : undefined}
                 >
                   {shouldStartNewReference
-                    ? "После подтверждения нового эталона текущий будет автоматически сохранён в архиве ниже."
+                    ? "Можно задать новые эталоны для любого количества камер. Остальные камеры сохранят старые эталоны."
                     : message}
                 </p>
                 <div className="reference-setup__footer-actions">
@@ -427,7 +427,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   </button>
                   <Button
                     className="reference-setup__button reference-setup__save"
-                    aria-disabled={!shouldStartNewReference && !canSendAllReferences}
+                    disabled={!shouldStartNewReference && !canSendAllReferences}
                     onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
                   >
                     {primaryReferenceLabel}

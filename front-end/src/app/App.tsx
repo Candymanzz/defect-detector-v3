@@ -50,6 +50,13 @@ export function App() {
     setSelectedSettingsCameraId((currentCameraId) => (currentCameraId === cameraId ? null : cameraId));
   };
 
+  const handleAnalysisSettingsOpen = async (cameraId: number) => {
+    await orchestratorApi.setTestMode(true);
+    const inspectionState = await orchestratorApi.getInspectionStatus();
+    window.dispatchEvent(new CustomEvent("inspection-control-changed", { detail: inspectionState }));
+    setSelectedSettingsCameraId(cameraId);
+  };
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -177,6 +184,7 @@ export function App() {
           inspectionResetVersion={inspectionResetVersion}
           selectedSettingsCameraId={selectedSettingsCameraId}
           onSettingsCameraToggle={handleSettingsCameraToggle}
+          onAnalysisSettingsOpen={handleAnalysisSettingsOpen}
           onInspectionStatsChange={setInspectionStats}
         />
         <SettingList

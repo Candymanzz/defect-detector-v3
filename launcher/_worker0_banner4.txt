@@ -1,0 +1,14 @@
+worker start config version=1 path=D:\visionGay\defect-detector-v3\config\config.json camera=0 mode=binary-stdio
+capture source=hik frame=1224x1024 format_pref=Mono8 binning=2x2 mode=Sum frame_timeout_ms=15000 ip=169.254.222.4 exposure_us=3000 trigger=line0 activation=RisingEdge inverter=0
+hik: GevSCPSPacketSize=1500 cam=0
+hik: cam=0 frame geometry ok Width=1224 Height=1024
+hik: cam=0 PixelFormat=Mono8 (GigE ~3x less traffic)
+hik: BalanceWhiteAuto=Off не применён (0x80000106), модель может не поддерживать узел
+hik: ExposureTime=3000 us
+hik: TriggerMode=On TriggerSource=Line0 LineMode=Input TriggerActivation=RisingEdge LineInverter=0 (set=0)
+hik: GevSCPD=10000 (inter-packet delay)
+hik: GevSCFTD node unavailable cam=0 (get 0x80000109)
+hik: cam=0 GevSCFTD stagger failed index=1 per_link=2 mult=1 switch_buf_kb=448 — set transfer_wait_waves=2 in config if frames drop
+hik: cam=0 payload=1253376 bytes shm_slot=3760128 bytes capture=Mono8 shm=BGR8
+hik: GevSCFTD node unavailable cam=0 (get 0x80000109)
+hik: cam=0 GevSCFTD stagger failed index=1 per_link=2 mult=1 switch_buf_kb=448 — set transfer_wait_waves=2 in config if frames drop

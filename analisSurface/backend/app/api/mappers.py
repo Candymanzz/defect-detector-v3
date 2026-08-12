@@ -6,11 +6,15 @@ from app.api.schemas import (
     FPZoneResponse,
     InspectResponse,
     InspectWithVisualsResponse,
+    ProSettingsKnobs,
+    ProSettingsResponse,
     RoiSubZonePoint,
     RoiSubZoneResponse,
     RoiSubZoneScoreResponse,
     ShmImageOutput,
     ShmVisualsResponse,
+    SimpleSettingsKnobs,
+    SimpleSettingsResponse,
 )
 from app.services.analysis_settings import AnalysisSettings
 from app.services.shm_io import ShmImageOutputInfo
@@ -26,6 +30,38 @@ def to_analysis_settings_response(analysis_profile: str, overrides: dict) -> Ana
     defaults = AnalysisSettings.defaults()
     return AnalysisSettingsResponse(
         analysis_profile=analysis_profile,
+        settings=to_analysis_settings_values(effective),
+        defaults=to_analysis_settings_values(defaults),
+        overrides=overrides,
+    )
+
+
+def to_simple_settings_response(
+    analysis_profile: str,
+    overrides: dict,
+    knobs: dict | None,
+) -> SimpleSettingsResponse:
+    effective = AnalysisSettings.from_overrides(overrides)
+    defaults = AnalysisSettings.defaults()
+    return SimpleSettingsResponse(
+        analysis_profile=analysis_profile,
+        knobs=SimpleSettingsKnobs(**knobs) if knobs else None,
+        settings=to_analysis_settings_values(effective),
+        defaults=to_analysis_settings_values(defaults),
+        overrides=overrides,
+    )
+
+
+def to_pro_settings_response(
+    analysis_profile: str,
+    overrides: dict,
+    knobs: dict | None,
+) -> ProSettingsResponse:
+    effective = AnalysisSettings.from_overrides(overrides)
+    defaults = AnalysisSettings.defaults()
+    return ProSettingsResponse(
+        analysis_profile=analysis_profile,
+        knobs=ProSettingsKnobs(**knobs) if knobs else None,
         settings=to_analysis_settings_values(effective),
         defaults=to_analysis_settings_values(defaults),
         overrides=overrides,

@@ -21,4 +21,9 @@ public final class InspectionCycleResumeHolder {
             current.resumeCamera(cameraId);
         }
     }
+
+    public long currentTriggerSequence() {
+        InspectionCycleResumeService current = service;
+        return current == null ? 0L : current.currentTriggerSequence();
+    }
 }

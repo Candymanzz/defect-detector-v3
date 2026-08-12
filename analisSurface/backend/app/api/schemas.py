@@ -83,6 +83,7 @@ class AnalysisSettingsValues(BaseModel):
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    enable_internal_alignment: bool = False
 
 
 class AnalysisSettingsUpdateRequest(BaseModel):
@@ -104,10 +105,41 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     clahe_clip_limit: Optional[float] = None
     fp_recheck_enabled: Optional[bool] = None
     fp_trigger_diff_q90: Optional[float] = None
+    enable_internal_alignment: Optional[bool] = None
 
 
 class AnalysisSettingsResponse(BaseModel):
     analysis_profile: str
+    settings: AnalysisSettingsValues
+    defaults: AnalysisSettingsValues
+    overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
+class SimpleSettingsKnobs(BaseModel):
+    threshold: float = Field(..., gt=0.0, le=1.0)
+    sensitivity: float = Field(..., ge=0.0, le=1.0)
+
+
+class ProSettingsKnobs(BaseModel):
+    threshold: float = Field(..., gt=0.0, le=1.0)
+    noise_tolerance: float = Field(..., ge=0.0, le=1.0)
+    scratch_sensitivity: float = Field(..., ge=0.0, le=1.0)
+    edge_suppression: float = Field(..., ge=0.0, le=1.0)
+    text_handling: float = Field(..., ge=0.0, le=1.0)
+    preprocess_strength: float = Field(..., ge=0.0, le=1.0)
+
+
+class SimpleSettingsResponse(BaseModel):
+    analysis_profile: str
+    knobs: Optional[SimpleSettingsKnobs] = None
+    settings: AnalysisSettingsValues
+    defaults: AnalysisSettingsValues
+    overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
+class ProSettingsResponse(BaseModel):
+    analysis_profile: str
+    knobs: Optional[ProSettingsKnobs] = None
     settings: AnalysisSettingsValues
     defaults: AnalysisSettingsValues
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)

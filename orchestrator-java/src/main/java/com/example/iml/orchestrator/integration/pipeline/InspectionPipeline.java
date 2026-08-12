@@ -35,6 +35,10 @@ public final class InspectionPipeline {
         this.svc = services;
     }
 
+    public InspectionPipelineServices services() {
+        return svc;
+    }
+
     public void processCamera(
             Path projectRoot,
             Map<String, Object> camera,

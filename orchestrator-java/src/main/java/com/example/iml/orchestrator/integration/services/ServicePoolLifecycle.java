@@ -7,12 +7,12 @@ import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -27,6 +27,11 @@ public final class ServicePoolLifecycle {
         this.log = log;
     }
 
+    /**
+     * Стартует пул последовательно: параллельный boot 10× OpenCV на Windows ломает
+     * {@code nu.pattern.OpenCV.loadLocally()} (общий temp + deleteOldInstancesOnStart).
+     * Каждому Java-воркеру — свой {@code java.io.tmpdir}.
+     */
     public List<ServiceProcessSupervisor> startOptionalPool(
             List<String> command,
             Path projectRoot,
@@ -39,34 +44,9 @@ public final class ServicePoolLifecycle {
             return pool;
         }
         List<String> cmd = List.copyOf(command);
-        if (poolSize == 1) {
-            tryStartMember(pool, label, cmd, projectRoot, commandTimeoutMs);
-            return pool;
-        }
-
-        ExecutorService executor = Executors.newFixedThreadPool(Math.min(poolSize, 8), r -> {
-            Thread t = new Thread(r, label + "-boot");
-            t.setDaemon(true);
-            return t;
-        });
-        try {
-            List<Future<ServiceProcessSupervisor>> futures = new ArrayList<>(poolSize);
-            for (int i = 0; i < poolSize; i++) {
-                String serviceName = label + "-" + i;
-                futures.add(executor.submit(() -> tryCreateMember(serviceName, cmd, projectRoot, commandTimeoutMs)));
-            }
-            for (Future<ServiceProcessSupervisor> future : futures) {
-                try {
-                    ServiceProcessSupervisor started = future.get();
-                    if (started != null) {
-                        pool.add(started);
-                    }
-                } catch (Exception e) {
-                    log.warn("failed to join optional {} start: {}", label, e.getMessage());
-                }
-            }
-        } finally {
-            executor.shutdownNow();
+        for (int i = 0; i < poolSize; i++) {
+            String serviceName = label + "-" + i;
+            tryStartMember(pool, serviceName, cmd, projectRoot, commandTimeoutMs);
         }
         return pool;
     }
@@ -91,7 +71,9 @@ public final class ServicePoolLifecycle {
             int commandTimeoutMs
     ) {
         try {
-            ServiceProcessSupervisor supervisor = new ServiceProcessSupervisor(serviceName, cmd, projectRoot, commandTimeoutMs);
+            List<String> launchedCmd = withUniqueJavaIoTmpDir(cmd, serviceName, projectRoot);
+            ServiceProcessSupervisor supervisor =
+                    new ServiceProcessSupervisor(serviceName, launchedCmd, projectRoot, commandTimeoutMs);
             supervisor.start();
             BinaryProtocol.Message health = supervisor.health();
             log.info("{} health => {}", serviceName, health.header());
@@ -100,6 +82,47 @@ public final class ServicePoolLifecycle {
             log.warn("failed to start optional {} service command={}: {}", serviceName, cmd, e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Isolates OpenCV native extract dirs per worker so Windows loaders do not delete each other's DLLs.
+     */
+    static List<String> withUniqueJavaIoTmpDir(List<String> command, String serviceName, Path projectRoot)
+            throws IOException {
+        if (command == null || command.isEmpty() || !looksLikeJavaLauncher(command.get(0))) {
+            return command;
+        }
+        for (String arg : command) {
+            if (arg != null && arg.startsWith("-Djava.io.tmpdir=")) {
+                return command;
+            }
+        }
+        Path base = projectRoot == null
+                ? Path.of(System.getProperty("java.io.tmpdir", "."))
+                : projectRoot.resolve(".tmp").resolve("svc-io");
+        Path tmp = base.resolve(sanitizeServiceName(serviceName));
+        Files.createDirectories(tmp);
+        List<String> out = new ArrayList<>(command.size() + 1);
+        out.add(command.get(0));
+        out.add("-Djava.io.tmpdir=" + tmp.toAbsolutePath().normalize());
+        out.addAll(command.subList(1, command.size()));
+        return List.copyOf(out);
+    }
+
+    private static boolean looksLikeJavaLauncher(String first) {
+        if (first == null || first.isBlank()) {
+            return false;
+        }
+        String name = Path.of(first.trim()).getFileName().toString().toLowerCase(Locale.ROOT);
+        return "java".equals(name) || "java.exe".equals(name);
+    }
+
+    private static String sanitizeServiceName(String serviceName) {
+        String raw = serviceName == null ? "svc" : serviceName.trim();
+        if (raw.isEmpty()) {
+            return "svc";
+        }
+        return raw.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     /**

@@ -32,8 +32,26 @@ export function InspectionHistory({
 }: InspectionHistoryProps) {
   const items = createInspectionHistoryTiles(cameraIds, historyByCameraId);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
-  const selectedInspection = items.find((item) => item.groupKey === selectedGroupKey) ?? null;
+  const [selectedInspectionSnapshot, setSelectedInspectionSnapshot] = useState<InspectionHistoryTile | null>(null);
+  // Keep the opened result mounted even if a newer result changes/rebuilds the
+  // visible history list. Use fresh data when the selected group still exists.
+  const selectedInspection =
+    items.find((item) => item.groupKey === selectedGroupKey) ?? selectedInspectionSnapshot;
   const isLoadingArchive = archiveHistoryState === "loading";
+
+  const selectInspection = (groupKey: string) => {
+    const item = items.find((candidate) => candidate.groupKey === groupKey);
+    if (!item) {
+      return;
+    }
+    setSelectedGroupKey(groupKey);
+    setSelectedInspectionSnapshot(item);
+  };
+
+  const closeInspection = () => {
+    setSelectedGroupKey(null);
+    setSelectedInspectionSnapshot(null);
+  };
 
   return (
     <>
@@ -75,7 +93,7 @@ export function InspectionHistory({
               title={`Инспекция ${item.inspectionId}: ${
                 item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "Съёмка"
               }`}
-              onClick={() => setSelectedGroupKey(item.groupKey)}
+              onClick={() => selectInspection(item.groupKey)}
             >
               {item.inspectionId}
             </button>
@@ -90,8 +108,8 @@ export function InspectionHistory({
           results={selectedInspection.results}
           historyItems={items}
           selectedGroupKey={selectedInspection.groupKey}
-          onHistorySelect={setSelectedGroupKey}
-          onClose={() => setSelectedGroupKey(null)}
+          onHistorySelect={selectInspection}
+          onClose={closeInspection}
         />
       )}
     </>
@@ -131,12 +149,7 @@ function createInspectionHistoryTiles(cameraIds: number[], historyByCameraId: Re
     );
     if (matchingCycleGroup) {
       matchingCycleGroup.results.push(item);
-      matchingCycleGroup.result =
-        matchingCycleGroup.result === "fail" || item.result === "fail"
-          ? "fail"
-          : matchingCycleGroup.result === "capture" || item.result === "capture"
-            ? "capture"
-            : "pass";
+      matchingCycleGroup.result = resolveGroupResult(matchingCycleGroup.results);
       matchingCycleGroup.serverTsMs = Math.max(matchingCycleGroup.serverTsMs, item.inspectResult.server_ts_ms);
       continue;
     }
@@ -172,12 +185,18 @@ function replaceCameraResult(group: InspectionHistoryTile, item: InspectionHisto
   if (!current.inspectResult.artifact_bundle_id && item.inspectResult.artifact_bundle_id) {
     group.results[resultIndex] = item;
   }
-  group.result = group.results.some((result) => result.result === "fail")
-    ? "fail"
-    : group.results.some((result) => result.result === "capture")
-      ? "capture"
-      : "pass";
+  group.result = resolveGroupResult(group.results);
   group.serverTsMs = Math.max(group.serverTsMs, item.inspectResult.server_ts_ms);
+}
+
+function resolveGroupResult(results: InspectionHistoryItem[]): "pass" | "fail" | "capture" {
+  if (results.some((result) => result.result === "fail")) {
+    return "fail";
+  }
+  if (results.some((result) => result.result === "pass")) {
+    return "pass";
+  }
+  return "capture";
 }
 
 function createInspectionGroupKey(source: "inspection" | "frame", inspectionId: string, item: InspectionHistoryItem) {

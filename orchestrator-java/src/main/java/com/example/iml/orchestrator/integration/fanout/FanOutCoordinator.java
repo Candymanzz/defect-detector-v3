@@ -146,7 +146,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
      */
     public void refreshPlcLevels() {
         boolean referenceActive = lastSessionState != null
-                && lastSessionState != ClientWsSessionState.NO_REFERENCE;
+                && lastSessionState != ClientWsSessionState.NO_REFERENCE
+                && lastSessionState != ClientWsSessionState.TEST;
         ServiceHealthGate gate = healthGate;
         boolean healthy = gate == null || gate.healthy();
         boolean ready = referenceActive && healthy;
@@ -190,9 +191,10 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public boolean inspectionEnabled() {
-        // Для ПЛК «инспекция включена» = задан эталон (READY/OPERATIONAL), не Start/Stop gate камер.
+        // Для ПЛК «инспекция включена» = эталон в прод-режиме (не TEST / NO_REFERENCE).
         if (clientWsServer != null) {
-            return clientWsServer.sessionState() != ClientWsSessionState.NO_REFERENCE;
+            ClientWsSessionState state = clientWsServer.sessionState();
+            return state != ClientWsSessionState.NO_REFERENCE && state != ClientWsSessionState.TEST;
         }
         return false;
     }

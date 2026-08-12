@@ -1,0 +1,2 @@
+Воркер: старт с конфигом версии 1 (D:\visionGay\defect-detector-v3\config\config.json), камера 0
+  detector=v1 ip=127.0.0.1

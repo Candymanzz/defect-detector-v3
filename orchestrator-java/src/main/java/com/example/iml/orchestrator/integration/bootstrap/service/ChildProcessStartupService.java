@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.bootstrap.factory.IntegrationSer
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
+import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeStore;
 import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
@@ -25,6 +26,8 @@ import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
 import com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -198,7 +201,7 @@ public final class ChildProcessStartupService {
     private void assembleCoreCollaborators(IntegrationRuntimeContext ctx) {
         ctx.setUiSidecar(new UiArtifactsSidecar(log));
         ctx.setGeometrySnapshotCache(new GeometrySnapshotCache());
-        ctx.setGeometryRuntimeConfig(new GeometryRuntimeConfig());
+        ctx.setGeometryRuntimeConfig(new GeometryRuntimeConfig(openGeometryRuntimeStore(ctx.projectRoot())));
         ctx.setInspectionGate(PerCameraInspectionGate.fromCameras(ctx.cameras()));
         ctx.setManualLineDirection(new ManualLineDirectionService());
         ctx.setPlcFinsHolder(new PlcFinsServiceHolder());
@@ -240,6 +243,16 @@ public final class ChildProcessStartupService {
                 IntegrationFeatureConfig.parseCaptureWithoutReference(ctx.integration())
         );
         ctx.setCaptureCoordinator(captureCoordinator);
+    }
+
+    private GeometryRuntimeStore openGeometryRuntimeStore(Path projectRoot) {
+        Path storagePath = projectRoot.resolve("config/data/geometry_runtime_settings.json");
+        try {
+            return GeometryRuntimeStore.open(storagePath);
+        } catch (IOException e) {
+            log.warn("geometry runtime store unavailable path={}: {}", storagePath.toAbsolutePath(), e.getMessage());
+            return null;
+        }
     }
 
     /** {@code IML_FRONTEND_AUTOSTART=false} — отключить UI при {@code run.ps1 -NoFrontend}. */

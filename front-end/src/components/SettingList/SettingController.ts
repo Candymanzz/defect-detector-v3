@@ -51,7 +51,6 @@ export const INITIAL_SETTING_FORM: SettingForm = {
   brightnessPercent: 0,
   constantFlashMode: false,
   maxShiftMm: DEFAULT_MAX_SHIFT_MM,
-  jointSeamSegmentationEnabled: false,
   jointSeamSegmentationSensitivity: DEFAULT_JOINT_SEAM_SEGMENTATION_SENSITIVITY,
   lineDirection: "reverse",
   savedFramesCount: DEFAULT_SAVED_FRAMES_COUNT,
@@ -144,7 +143,6 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       brightnessPercent: readBrightnessPercent(lightBrightness, selectedCameraId),
       constantFlashMode: lightMode.constant,
       maxShiftMm: readMaxShiftMm(geometryRuntime),
-      jointSeamSegmentationEnabled: readJointSeamSegmentationEnabled(geometryRuntime),
       jointSeamSegmentationSensitivity: readJointSeamSegmentationSensitivity(geometryRuntime),
       lineDirection: "reverse",
       savedFramesCount,
@@ -227,7 +225,6 @@ export async function saveMaxShiftData(
     "Geometry settings",
     saveGeometryRuntimeSettings(
       normalizedForm.maxShiftMm,
-      normalizedForm.jointSeamSegmentationEnabled,
       normalizedForm.jointSeamSegmentationSensitivity,
       selectedCameraId,
       cameraList?.cameras ?? [],
@@ -242,7 +239,6 @@ export async function saveMaxShiftData(
     form: {
       ...form,
       maxShiftMm: normalizedForm.maxShiftMm,
-      jointSeamSegmentationEnabled: normalizedForm.jointSeamSegmentationEnabled,
       jointSeamSegmentationSensitivity: normalizedForm.jointSeamSegmentationSensitivity,
     },
     analysisProductTypes,
@@ -282,13 +278,6 @@ export function createSettingErrorData(error: unknown, form: SettingForm = INITI
 }
 
 export function updateSettingField(form: SettingForm, fieldName: SettingFieldName, rawValue: string): SettingForm {
-  if (fieldName === "jointSeamSegmentationEnabled") {
-    return normalizeSettingForm({
-      ...form,
-      jointSeamSegmentationEnabled: rawValue === "true" || rawValue === "1",
-    });
-  }
-
   const currentValue = form[fieldName];
   const parsedValue = parseInputNumber(rawValue, typeof currentValue === "number" ? currentValue : 0);
 
@@ -321,7 +310,6 @@ function normalizeSettingForm(form: SettingForm): SettingForm {
     brightnessPercent: clampBrightness(form.brightnessPercent),
     constantFlashMode: Boolean(form.constantFlashMode),
     maxShiftMm: clampMaxShiftMm(form.maxShiftMm),
-    jointSeamSegmentationEnabled: Boolean(form.jointSeamSegmentationEnabled),
     jointSeamSegmentationSensitivity: clampSegmentationSensitivity(form.jointSeamSegmentationSensitivity),
     lineDirection: form.lineDirection === "reverse" ? "reverse" : "forward",
     savedFramesCount: clampSavedFramesCount(form.savedFramesCount),
@@ -486,18 +474,6 @@ function readMaxShiftMm(geometryRuntime: GeometryRuntimeConfig) {
   );
 }
 
-function readJointSeamSegmentationEnabled(geometryRuntime: GeometryRuntimeConfig) {
-  return toBoolean(
-    firstDefined([
-      geometryRuntime.runtimeOverrides.joint_seam_segmentation_enabled,
-      geometryRuntime.runtimeOverrides.jointSeamSegmentationEnabled,
-      geometryRuntime.effectiveForNextGeometryInspect.joint_seam_segmentation_enabled,
-      geometryRuntime.effectiveForNextGeometryInspect.jointSeamSegmentationEnabled,
-    ]),
-    false,
-  );
-}
-
 function readJointSeamSegmentationSensitivity(geometryRuntime: GeometryRuntimeConfig) {
   return clampSegmentationSensitivity(
     firstFiniteNumber(
@@ -521,14 +497,14 @@ function readSavedFramesCount(frameArchiveSettings: { max_frames_per_camera?: nu
 
 async function saveGeometryRuntimeSettings(
   maxShiftMm: number,
-  jointSeamSegmentationEnabled: boolean,
   jointSeamSegmentationSensitivity: number,
   selectedCameraId: number | null,
   cameraIds: number[],
 ) {
   const update = {
     max_shift_mm: maxShiftMm,
-    joint_seam_segmentation_enabled: jointSeamSegmentationEnabled,
+    // Seam segmentation is always on; frontend no longer exposes an enable toggle.
+    joint_seam_segmentation_enabled: true,
     joint_seam_segmentation_sensitivity: jointSeamSegmentationSensitivity,
   };
 
@@ -599,16 +575,6 @@ function firstFiniteNumber(values: unknown[], fallback: number) {
   }
 
   return fallback;
-}
-
-function firstDefined(values: unknown[]) {
-  for (const value of values) {
-    if (value !== undefined && value !== null) {
-      return value;
-    }
-  }
-
-  return undefined;
 }
 
 function toFiniteNumber(value: unknown, fallback: number) {

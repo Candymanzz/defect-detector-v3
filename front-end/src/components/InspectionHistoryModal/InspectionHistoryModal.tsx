@@ -114,7 +114,7 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
     >
       <header className="inspection-history-modal__card-header">
         <strong>Камера {result.camera_id}</strong>
-        <span>{item.result === "pass" ? "Годен" : "Брак"}</span>
+        <span>{item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "Съёмка"}</span>
       </header>
 
       <div className="inspection-history-modal__media">

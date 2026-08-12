@@ -338,6 +338,39 @@ export type AnalysisSettingsResponse = {
 
 export type AnalysisSettingsUpdateRequest = Partial<AnalysisSettings>;
 
+export type SimpleAnalysisKnobs = {
+  threshold: number;
+  sensitivity: number;
+};
+
+export type ProAnalysisKnobs = {
+  threshold: number;
+  noise_tolerance: number;
+  scratch_sensitivity: number;
+  edge_suppression: number;
+  text_handling: number;
+  preprocess_strength: number;
+};
+
+export type ClientModeResponse = {
+  ok: boolean;
+  session_state: string;
+  test_mode: boolean;
+  message?: string;
+};
+
+export type TestAnalyzeResponse = {
+  ok: boolean;
+  jobId: string;
+  cameraId: number;
+  frameId: number;
+};
+
+export type AnalysisPresetResponse<TKnobs> = AnalysisSettingsResponse & {
+  knobs: TKnobs | null;
+  detector_id?: string;
+};
+
 export type PlcSignalState = {
   name: string;
   description?: string;

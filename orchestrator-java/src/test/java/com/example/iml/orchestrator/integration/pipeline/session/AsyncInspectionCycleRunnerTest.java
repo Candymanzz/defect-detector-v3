@@ -157,6 +157,43 @@ class AsyncInspectionCycleRunnerTest {
     }
 
     @Test
+    void softStopNullGateStillPublishesCaptureOnlyToUi() throws Exception {
+        AtomicBoolean captureCalled = new AtomicBoolean(false);
+        AtomicBoolean sidecarCalled = new AtomicBoolean(false);
+        AtomicReference<InspectionDecision> decisionRef = new AtomicReference<>();
+
+        BinaryProtocol.Message captureMsg = message(BinaryProtocol.MSG_RESPONSE, Map.of(
+                "frame_id", 23L,
+                "shm_name", "cam_shm",
+                "width", 64,
+                "height", 48,
+                "stride", 192
+        ));
+
+        InspectionPipelineServices svc = pipelineServices(
+                captureCalled,
+                new AtomicBoolean(false),
+                new AtomicBoolean(false),
+                sidecarCalled,
+                new AtomicBoolean(false),
+                decisionRef,
+                captureMsg,
+                null,
+                null
+        );
+
+        // Soft-stop preview path: gate is intentionally null.
+        AsyncInspectionCycleRunner.run(svc, buildInput(2, null), Map.of(), 5000L, null);
+
+        assertTrue(captureCalled.get());
+        assertTrue(sidecarCalled.get(), "null gate must still schedule UI publish (no || short-circuit)");
+        InspectionDecision decision = decisionRef.get();
+        assertNotNull(decision);
+        assertEquals("CAPTURE", decision.action());
+        assertEquals(23L, decision.frameId());
+    }
+
+    @Test
     void exitsEarlyWhenCancelRequestedBeforeStart() throws Exception {
         AtomicBoolean captureCalled = new AtomicBoolean(false);
         InspectionPipelineServices svc = pipelineServices(

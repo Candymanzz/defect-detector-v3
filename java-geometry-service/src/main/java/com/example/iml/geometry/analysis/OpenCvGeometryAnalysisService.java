@@ -755,12 +755,6 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
-    /**
-     * Below this seam visibility, a missing/invalid measurement is treated as inconclusive PASS
-     * (no reliable edges) rather than a hard reject.
-     */
-    static final double JOINT_INCONCLUSIVE_VISIBILITY = 0.2;
-
     private static boolean evaluateJointPass(InspectionRequest request, JointResult joint) {
         if (request.jointRoi() == null) {
             return true;
@@ -770,8 +764,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             return true;
         }
         if (!joint.found) {
-            // Inconclusive when the ROI has no clear seam signal (vis≈0 in production FPs).
-            return joint.visibility < JOINT_INCONCLUSIVE_VISIBILITY;
+            // Joint ROI was drawn — seam must be present. Empty / no-label → FAIL.
+            return false;
         }
         // Canny double-edge (~2–4 px ≈ 0.04–0.08 mm @ 0.02 mm/px) often has vis≈1.0 —
         // still not a real seam gap; treat as inconclusive PASS regardless of visibility.
@@ -779,7 +773,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         if (joint.widthMm < noiseFloorMm) {
             return true;
         }
-        // Width below min / above max is a real defect (including visibly narrow seam).
+        // Width above max is always a defect. Below min — only when edges are NOT parallel:
+        // if parallelism already confirms a real seam pair, skip the min-width gate
+        // (narrow real seams / Canny thin pairs with good parity).
         double maxParallelismDeg = request.maxJointParallelismDeg();
         if (request.jointSeamSegmentationEnabled()) {
             // Sensitivity mainly gates parallelism from fitLine edges:
@@ -788,9 +784,17 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             maxParallelismDeg *= 2.0 - 1.6 * s;
         }
         boolean parallelismOk = joint.parallelismDeg <= maxParallelismDeg;
-        boolean widthOk = joint.widthMm >= request.jointMinWidthMm()
-                && joint.widthMm <= request.jointMaxWidthMm();
-        boolean defectOk = joint.defectMm <= request.maxJointDefectMm();
+        boolean maxWidthOk = joint.widthMm <= request.jointMaxWidthMm();
+        boolean minWidthOk = parallelismOk || joint.widthMm >= request.jointMinWidthMm();
+        boolean widthOk = minWidthOk && maxWidthOk;
+        double effectiveDefectMm = joint.defectMm;
+        if (parallelismOk
+                && joint.widthMm < request.jointMinWidthMm()
+                && maxWidthOk) {
+            // under-min defectMm is derived from jointMinWidthMm — ignore when min gate is waived
+            effectiveDefectMm = 0.0;
+        }
+        boolean defectOk = effectiveDefectMm <= request.maxJointDefectMm();
         boolean taperOk = joint.taperMm <= request.maxJointTaperMm();
         return parallelismOk && widthOk && defectOk && taperOk;
     }

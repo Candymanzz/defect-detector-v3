@@ -45,6 +45,24 @@ const pendingReferenceBundles = new Map<
 const listeners = new Set<ReferenceImageListener>();
 let referenceImageVersion = 0;
 const MAX_ARCHIVED_REFERENCE_GROUPS = 24;
+const REFERENCE_DB_NAME = "defect-detector-reference-library";
+const REFERENCE_DB_STORE = "reference-state";
+const REFERENCE_DB_KEY = "current";
+let persistenceChain: Promise<void> = Promise.resolve();
+
+type PersistedReferenceImage = Omit<StoredReferenceImage, "imageUrl"> & { imageKey: string };
+type PersistedArchivedReferenceGroup = Omit<ArchivedReferenceGroup, "imageUrlsByCameraId" | "images"> & {
+  imageKeysByCameraId: Record<number, string>;
+  images: Array<PersistedReferenceImage & { cameraId: number }>;
+};
+type PersistedReferenceState = {
+  version: 1;
+  activeImages: Array<PersistedReferenceImage & { cameraId: number }>;
+  archives: PersistedArchivedReferenceGroup[];
+  blobs: Array<[string, Blob]>;
+};
+
+void hydratePersistedReferenceState();
 
 export function stageReferenceBundleImages(
   messageId: string,
@@ -117,7 +135,7 @@ export function commitReferenceBundleImages(
     if (baseImageUrl) {
       const referenceImage = {
         imageUrl: versionReferenceImageUrl(baseImageUrl, nextReferenceImageVersion),
-        frame: { ...view.frame },
+        frame: createDurableReferenceFrame(view.frame),
         productType: bundle.product_type,
         committedAtMs: Date.now(),
         roiPoints: copyRoiPoints(roiPointsByCameraId?.[cameraId] ?? view.interest_polygon_norm),
@@ -160,6 +178,10 @@ export function commitReferenceBundleImages(
   });
   referenceImageVersion = nextReferenceImageVersion;
 
+  // Keep the newly accepted reference selectable as well as the superseded one.
+  archiveCurrentReferenceGroup([...updatedCameraIds]);
+  queuePersistReferenceState();
+
   emitReferenceImageChange();
 }
 
@@ -190,6 +212,7 @@ export function clearReferenceImages() {
   referenceImagesByCameraId.clear();
   pendingReferenceBundles.clear();
   referenceImageVersion += 1;
+  queuePersistReferenceState();
   emitReferenceImageChange();
 }
 
@@ -220,6 +243,7 @@ export function deleteArchivedReferenceGroup(id: string) {
     }
   }
   markArchivedReferenceGroupsChanged();
+  queuePersistReferenceState();
   emitReferenceImageChange();
 }
 
@@ -417,6 +441,149 @@ export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[])
     changed = true;
   }
   if (changed) emitReferenceImageChange();
+  if (changed) queuePersistReferenceState();
+}
+
+function createDurableReferenceFrame(frame: ShmFrameRefData): ShmFrameRefData {
+  return {
+    ...frame,
+    shm_name: `/iml_ref_cam${frame.camera_id}`,
+    shm_offset: 0,
+    expires_at_ms: undefined,
+    ttl_ms: undefined,
+    read_token: undefined,
+  };
+}
+
+function queuePersistReferenceState() {
+  if (typeof indexedDB === "undefined") return;
+  // Blob fetches start before obsolete object URLs can be revoked.
+  const snapshot = createPersistedReferenceState();
+  persistenceChain = persistenceChain
+    .catch(() => undefined)
+    .then(async () => writePersistedReferenceState(await snapshot))
+    .catch((error) => console.warn("Не удалось сохранить библиотеку эталонов", error));
+}
+
+async function createPersistedReferenceState(): Promise<PersistedReferenceState> {
+  const activeImages = getReferenceImagesSnapshot();
+  const archives = archivedReferenceGroups.map(copyArchivedReferenceGroup);
+  const urls = new Set<string>();
+  activeImages.forEach((image) => urls.add(image.imageUrl));
+  archives.forEach((archive) => Object.values(archive.imageUrlsByCameraId).forEach((url) => urls.add(url)));
+  const blobs = await Promise.all(
+    [...urls].map(async (url): Promise<[string, Blob] | null> => {
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        return response.ok ? [url, await response.blob()] : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return {
+    version: 1,
+    activeImages: activeImages.map(({ cameraId, imageUrl, ...image }) => ({ cameraId, imageKey: imageUrl, ...image })),
+    archives: archives.map((archive) => ({
+      id: archive.id,
+      createdAtMs: archive.createdAtMs,
+      cameraIds: archive.cameraIds,
+      jointCameraId: archive.jointCameraId,
+      bundle: archive.bundle,
+      imageKeysByCameraId: { ...archive.imageUrlsByCameraId },
+      images: archive.images.map(({ cameraId, imageUrl, ...image }) => ({ cameraId, imageKey: imageUrl, ...image })),
+    })),
+    blobs: blobs.filter((entry): entry is [string, Blob] => entry !== null),
+  };
+}
+
+async function hydratePersistedReferenceState() {
+  if (typeof indexedDB === "undefined") return;
+  try {
+    const state = await readPersistedReferenceState();
+    if (!state || state.version !== 1 || referenceImagesByCameraId.size > 0) return;
+    const objectUrls = new Map(state.blobs.map(([key, blob]) => [key, URL.createObjectURL(blob)]));
+    const resolveUrl = (key: string) => objectUrls.get(key);
+
+    for (const persisted of state.activeImages) {
+      const imageUrl = resolveUrl(persisted.imageKey);
+      if (!imageUrl) continue;
+      referenceImagesByCameraId.set(persisted.cameraId, restorePersistedReferenceImage(persisted, imageUrl));
+    }
+    archivedReferenceGroups.splice(0, archivedReferenceGroups.length);
+    for (const archive of state.archives) {
+      const images = archive.images.flatMap(({ cameraId, imageKey, ...image }) => {
+        const imageUrl = resolveUrl(imageKey);
+        return imageUrl ? [{ cameraId, ...image, imageUrl, frame: createDurableReferenceFrame(image.frame) }] : [];
+      });
+      if (images.length !== archive.images.length) continue;
+      archivedReferenceGroups.push({
+        id: archive.id,
+        createdAtMs: archive.createdAtMs,
+        cameraIds: [...archive.cameraIds],
+        jointCameraId: archive.jointCameraId,
+        bundle: {
+          ...archive.bundle,
+          views: archive.bundle.views.map((view) => ({ ...view, frame: createDurableReferenceFrame(view.frame) })),
+        },
+        imageUrlsByCameraId: Object.fromEntries(images.map((image) => [image.cameraId, image.imageUrl])),
+        images,
+      });
+    }
+    referenceImageVersion += 1;
+    markArchivedReferenceGroupsChanged();
+    emitReferenceImageChange();
+  } catch (error) {
+    console.warn("Не удалось загрузить локальную библиотеку эталонов", error);
+  }
+}
+
+function restorePersistedReferenceImage(persisted: PersistedReferenceImage, imageUrl: string): StoredReferenceImage {
+  return {
+    imageUrl,
+    frame: createDurableReferenceFrame(persisted.frame),
+    productType: persisted.productType,
+    committedAtMs: persisted.committedAtMs,
+    roiPoints: copyRoiPoints(persisted.roiPoints),
+    jointRoiPoints: persisted.jointRoiPoints ? copyRoiPoints(persisted.jointRoiPoints) : undefined,
+    fpZones: persisted.fpZones ? copyFpZones(persisted.fpZones) : undefined,
+  };
+}
+
+function openReferenceDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(REFERENCE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(REFERENCE_DB_STORE)) {
+        request.result.createObjectStore(REFERENCE_DB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function writePersistedReferenceState(state: PersistedReferenceState) {
+  const db = await openReferenceDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(REFERENCE_DB_STORE, "readwrite");
+    transaction.objectStore(REFERENCE_DB_STORE).put(state, REFERENCE_DB_KEY);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
+async function readPersistedReferenceState(): Promise<PersistedReferenceState | undefined> {
+  const db = await openReferenceDb();
+  const state = await new Promise<PersistedReferenceState | undefined>((resolve, reject) => {
+    const request = db.transaction(REFERENCE_DB_STORE, "readonly").objectStore(REFERENCE_DB_STORE).get(REFERENCE_DB_KEY);
+    request.onsuccess = () => resolve(request.result as PersistedReferenceState | undefined);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return state;
 }
 
 function copyFpZones(zones: FpZoneNorm[]) {

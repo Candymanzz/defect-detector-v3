@@ -40,6 +40,22 @@
   flex-basis: 420px;
 }
 
+.modal__analysis-settings {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(117, 143, 164, 0.25);
+  border-radius: 10px;
+  background: rgba(7, 20, 29, 0.72);
+}
+
+.modal__analysis-settings > h3 {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(117, 143, 164, 0.2);
+  color: #edf4f7;
+  font-size: 13px;
+}
+
 @media (min-width: 1400px) {
   .modal__media-grid--with-geometry {
     grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -95,3 +95,735 @@
 2026-08-04 14:14:49.322 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service io-input-monitor stopped
 2026-08-04 14:14:49.322 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface pid=14672
 2026-08-04 14:14:49.334 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface stopped
+2026-08-06 14:34:30.006 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=19836 command=[npm.cmd, run, dev]
+2026-08-06 14:34:30.006 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=15860 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:34:30.006 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=16524 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-06 14:34:30.006 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=10372 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-06 14:34:30.007 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:34:30.021 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 14:34:30.022 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:34:30.024 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:34:30.031 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:34:30.032 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:34:30.034 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:34:30.037 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:34:30.038 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:34:30.042 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:34:30.056 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:34:30.062 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:34:30.055 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 14:34:30.053 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:34:30.051 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:34:30.066 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:34:31.836 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 command failed; restart and retry: EOF
+2026-08-06 14:34:31.843 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:34:31.934 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 command failed; restart and retry: EOF
+2026-08-06 14:34:31.935 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 command failed; restart and retry: EOF
+2026-08-06 14:34:31.936 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 command failed; restart and retry: EOF
+2026-08-06 14:34:31.938 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 14:34:31.942 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:34:31.945 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:34:31.961 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 command failed; restart and retry: EOF
+2026-08-06 14:34:31.967 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:34:31.973 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 command failed; restart and retry: EOF
+2026-08-06 14:34:31.976 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:34:32.001 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 command failed; restart and retry: EOF
+2026-08-06 14:34:32.005 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:34:32.237 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 command failed; restart and retry: EOF
+2026-08-06 14:34:32.242 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:34:32.257 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 command failed; restart and retry: EOF
+2026-08-06 14:34:32.259 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:34:32.261 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 command failed; restart and retry: EOF
+2026-08-06 14:34:32.264 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:34:32.265 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 command failed; restart and retry: EOF
+2026-08-06 14:34:32.268 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:34:32.268 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 command failed; restart and retry: EOF
+2026-08-06 14:34:32.270 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:34:32.314 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 command failed; restart and retry: EOF
+2026-08-06 14:34:32.317 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:34:32.317 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 command failed; restart and retry: EOF
+2026-08-06 14:34:32.320 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:34:32.324 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 command failed; restart and retry: EOF
+2026-08-06 14:34:32.328 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:34:33.502 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:34:33.860 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 14:34:34.008 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 14:34:34.079 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 14:34:34.651 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 command failed; restart and retry: EOF
+2026-08-06 14:34:34.667 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:34:34.806 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 command failed; restart and retry: EOF
+2026-08-06 14:34:34.808 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 14:34:34.914 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 command failed; restart and retry: EOF
+2026-08-06 14:34:34.918 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 14:34:34.929 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 command failed; restart and retry: EOF
+2026-08-06 14:34:34.931 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 14:34:38.069 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-06 14:34:38.143 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 14:34:38.175 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 14:34:38.206 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 14:34:38.238 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 14:34:38.270 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 14:34:38.303 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 14:34:38.334 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 14:34:38.365 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 14:34:38.397 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 14:34:38.428 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 14:34:41.073 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.073 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.095 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.096 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.117 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.118 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.140 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.140 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.162 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.162 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.183 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.183 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.204 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.204 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.226 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.226 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.248 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.249 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.271 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 14:34:41.271 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 14:34:41.278 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-0 pid=9736 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:34:41.306 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-1 pid=14944 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8001]
+2026-08-06 14:34:46.933 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-2 pid=14356 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8002]
+2026-08-06 14:34:52.502 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-3 pid=6844 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8003]
+2026-08-06 14:34:58.052 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-4 pid=4976 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8004]
+2026-08-06 14:35:03.675 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-5 pid=7876 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8005]
+2026-08-06 14:35:09.302 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-6 pid=16852 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8006]
+2026-08-06 14:35:14.935 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-7 pid=10748 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8007]
+2026-08-06 14:35:20.559 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-8 pid=5256 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8008]
+2026-08-06 14:35:26.167 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-9 pid=18416 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8009]
+2026-08-06 14:35:31.760 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-1 pid=14944
+2026-08-06 14:35:31.770 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-1 stopped
+2026-08-06 14:35:31.770 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-2 pid=14356
+2026-08-06 14:35:31.780 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-2 stopped
+2026-08-06 14:35:31.781 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-3 pid=6844
+2026-08-06 14:35:31.791 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-3 stopped
+2026-08-06 14:35:31.791 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-4 pid=4976
+2026-08-06 14:35:31.802 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-4 stopped
+2026-08-06 14:35:31.803 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-5 pid=7876
+2026-08-06 14:35:31.816 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-5 stopped
+2026-08-06 14:35:31.817 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-6 pid=16852
+2026-08-06 14:35:31.829 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-6 stopped
+2026-08-06 14:35:31.829 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-7 pid=10748
+2026-08-06 14:35:31.843 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-7 stopped
+2026-08-06 14:35:31.843 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-8 pid=5256
+2026-08-06 14:35:31.858 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-8 stopped
+2026-08-06 14:35:31.859 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-9 pid=18416
+2026-08-06 14:35:31.873 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-9 stopped
+2026-08-06 14:35:31.876 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-0 pid=5372 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:35:31.913 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-1 pid=19312 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8001]
+2026-08-06 14:35:37.535 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-2 pid=17428 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8002]
+2026-08-06 14:35:43.150 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-3 pid=17488 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8003]
+2026-08-06 14:35:48.746 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-4 pid=16260 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8004]
+2026-08-06 14:35:54.353 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-5 pid=12724 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8005]
+2026-08-06 14:35:59.964 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-6 pid=14656 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8006]
+2026-08-06 14:36:05.573 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-7 pid=15128 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8007]
+2026-08-06 14:36:11.197 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-8 pid=16196 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8008]
+2026-08-06 14:36:17.318 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-9 pid=17148 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8009]
+2026-08-06 14:36:23.910 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-1 pid=19312
+2026-08-06 14:36:23.921 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-1 stopped
+2026-08-06 14:36:23.921 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-2 pid=17428
+2026-08-06 14:36:23.932 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-2 stopped
+2026-08-06 14:36:23.932 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-3 pid=17488
+2026-08-06 14:36:23.943 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-3 stopped
+2026-08-06 14:36:23.944 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-4 pid=16260
+2026-08-06 14:36:23.953 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-4 stopped
+2026-08-06 14:36:23.953 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-5 pid=12724
+2026-08-06 14:36:23.968 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-5 stopped
+2026-08-06 14:36:23.968 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-6 pid=14656
+2026-08-06 14:36:23.981 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-6 stopped
+2026-08-06 14:36:23.982 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-7 pid=15128
+2026-08-06 14:36:23.996 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-7 stopped
+2026-08-06 14:36:23.996 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-8 pid=16196
+2026-08-06 14:36:24.010 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-8 stopped
+2026-08-06 14:36:45.276 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service light-server pid=10372
+2026-08-06 14:36:45.285 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service light-server stopped
+2026-08-06 14:36:45.333 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service io-input-monitor pid=16524
+2026-08-06 14:36:45.344 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service io-input-monitor stopped
+2026-08-06 14:39:34.995 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=14148 command=[npm.cmd, run, dev]
+2026-08-06 14:39:34.995 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=452 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-06 14:39:34.995 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=18128 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:39:34.995 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=2600 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-06 14:39:34.996 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:39:34.998 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:39:35.002 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:39:35.003 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:39:35.012 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:39:35.013 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:39:35.015 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:39:35.016 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:39:35.029 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:39:35.031 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:39:35.033 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:39:35.037 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:39:35.038 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:39:35.039 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 14:39:35.041 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:39:35.043 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 14:39:36.731 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 command failed; restart and retry: EOF
+2026-08-06 14:39:36.747 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:39:36.860 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 command failed; restart and retry: EOF
+2026-08-06 14:39:36.863 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:39:36.889 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 command failed; restart and retry: EOF
+2026-08-06 14:39:36.898 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:39:36.950 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 command failed; restart and retry: EOF
+2026-08-06 14:39:37.010 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 command failed; restart and retry: EOF
+2026-08-06 14:39:37.012 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:39:37.017 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 command failed; restart and retry: EOF
+2026-08-06 14:39:37.022 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 command failed; restart and retry: EOF
+2026-08-06 14:39:37.037 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:39:37.039 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:39:37.043 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 command failed; restart and retry: EOF
+2026-08-06 14:39:37.043 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:39:37.047 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:39:37.048 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 command failed; restart and retry: EOF
+2026-08-06 14:39:37.051 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:39:37.054 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 command failed; restart and retry: EOF
+2026-08-06 14:39:37.056 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:39:37.065 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 command failed; restart and retry: EOF
+2026-08-06 14:39:37.068 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 14:39:37.107 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 command failed; restart and retry: EOF
+2026-08-06 14:39:37.110 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:39:37.140 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 command failed; restart and retry: EOF
+2026-08-06 14:39:37.143 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:39:37.145 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 command failed; restart and retry: EOF
+2026-08-06 14:39:37.150 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:39:37.382 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 command failed; restart and retry: EOF
+2026-08-06 14:39:37.384 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:39:38.318 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 14:39:38.338 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:39:38.631 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 14:39:38.697 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 14:39:39.358 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 command failed; restart and retry: EOF
+2026-08-06 14:39:39.361 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 14:39:39.475 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 command failed; restart and retry: EOF
+2026-08-06 14:39:39.479 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:39:39.574 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 command failed; restart and retry: EOF
+2026-08-06 14:39:39.575 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 14:39:42.843 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-06 14:39:42.918 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 14:39:42.947 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 14:39:42.979 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 14:39:43.010 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 14:39:43.042 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 14:39:43.075 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 14:39:43.106 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 14:39:43.137 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 14:39:43.166 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 14:39:43.198 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 14:39:45.734 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.734 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.755 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.755 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.776 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.776 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.798 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.798 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.820 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.820 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.842 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.843 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.864 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.865 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.886 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.887 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.909 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.909 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.931 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, exposure_us, black_level, frame_timeout_ms, gamma, gain_db] persisted=false
+2026-08-06 14:39:45.932 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[exposure_us, black_level, frame_timeout_ms, gamma, gain_db]
+2026-08-06 14:39:45.937 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-0 pid=19168 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:39:45.978 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-1 pid=14848 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8001]
+2026-08-06 14:39:51.593 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-2 pid=14568 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8002]
+2026-08-06 14:39:57.159 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-3 pid=19568 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8003]
+2026-08-06 14:40:02.707 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-4 pid=20360 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8004]
+2026-08-06 14:40:08.312 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-5 pid=9112 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8005]
+2026-08-06 14:40:13.926 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-6 pid=10900 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8006]
+2026-08-06 14:40:19.551 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-7 pid=12140 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8007]
+2026-08-06 14:40:25.167 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-8 pid=5748 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8008]
+2026-08-06 14:40:30.787 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-9 pid=6056 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8009]
+2026-08-06 14:40:36.381 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-1 pid=14848
+2026-08-06 14:40:36.390 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-1 stopped
+2026-08-06 14:40:36.390 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-2 pid=14568
+2026-08-06 14:40:36.399 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-2 stopped
+2026-08-06 14:40:36.400 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-3 pid=19568
+2026-08-06 14:40:36.410 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-3 stopped
+2026-08-06 14:40:36.410 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-4 pid=20360
+2026-08-06 14:40:36.420 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-4 stopped
+2026-08-06 14:40:36.420 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-5 pid=9112
+2026-08-06 14:40:36.435 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-5 stopped
+2026-08-06 14:40:36.436 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-6 pid=10900
+2026-08-06 14:40:36.449 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-6 stopped
+2026-08-06 14:40:36.450 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-7 pid=12140
+2026-08-06 14:40:36.465 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-7 stopped
+2026-08-06 14:40:36.466 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-8 pid=5748
+2026-08-06 14:40:36.478 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-8 stopped
+2026-08-06 14:40:36.479 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface-9 pid=6056
+2026-08-06 14:40:36.491 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface-9 stopped
+2026-08-06 14:40:36.494 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-0 pid=15192 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:40:36.531 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-1 pid=8176 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8001]
+2026-08-06 14:40:42.151 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-2 pid=8808 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8002]
+2026-08-06 14:40:47.749 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-3 pid=7376 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8003]
+2026-08-06 14:40:53.390 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-4 pid=17620 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8004]
+2026-08-06 14:40:59.544 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-5 pid=14400 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8005]
+2026-08-06 14:41:05.173 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-6 pid=4236 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8006]
+2026-08-06 14:41:10.808 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-7 pid=15648 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8007]
+2026-08-06 14:41:16.433 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-8 pid=11036 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8008]
+2026-08-06 14:53:05.229 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=6440 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-06 14:53:05.229 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=10404 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:53:05.229 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=10952 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-06 14:53:05.229 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=5972 command=[npm.cmd, run, dev]
+2026-08-06 14:53:05.231 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 14:53:05.231 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:53:05.234 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:53:05.236 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:53:05.239 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:53:05.242 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:53:05.244 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:53:05.246 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:53:05.247 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:53:05.249 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:53:05.251 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:53:05.253 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:53:05.254 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:53:05.257 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:53:05.301 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 14:53:05.303 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:53:06.181 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 command failed; restart and retry: EOF
+2026-08-06 14:53:06.191 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:53:07.101 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 command failed; restart and retry: EOF
+2026-08-06 14:53:07.113 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:53:07.136 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 command failed; restart and retry: EOF
+2026-08-06 14:53:07.139 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 command failed; restart and retry: EOF
+2026-08-06 14:53:07.141 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:53:07.143 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:53:07.162 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 command failed; restart and retry: EOF
+2026-08-06 14:53:07.165 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:53:07.190 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 command failed; restart and retry: EOF
+2026-08-06 14:53:07.198 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 command failed; restart and retry: EOF
+2026-08-06 14:53:07.201 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 command failed; restart and retry: EOF
+2026-08-06 14:53:07.211 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 14:53:07.215 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:53:07.218 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:53:07.225 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 command failed; restart and retry: EOF
+2026-08-06 14:53:07.227 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:53:07.231 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 command failed; restart and retry: EOF
+2026-08-06 14:53:07.233 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:53:07.239 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 command failed; restart and retry: EOF
+2026-08-06 14:53:07.241 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:53:07.242 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 command failed; restart and retry: EOF
+2026-08-06 14:53:07.244 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:53:07.266 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 command failed; restart and retry: EOF
+2026-08-06 14:53:07.268 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:53:07.283 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 command failed; restart and retry: EOF
+2026-08-06 14:53:07.292 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:53:07.445 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 command failed; restart and retry: EOF
+2026-08-06 14:53:07.448 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:53:07.468 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 command failed; restart and retry: EOF
+2026-08-06 14:53:07.470 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 14:53:08.757 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:53:08.983 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 14:53:09.013 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 14:53:09.107 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 14:53:09.999 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 command failed; restart and retry: EOF
+2026-08-06 14:53:10.002 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 14:53:10.036 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 command failed; restart and retry: EOF
+2026-08-06 14:53:10.042 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 command failed; restart and retry: EOF
+2026-08-06 14:53:10.044 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:53:10.049 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 14:53:17.064 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-06 14:53:17.140 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 14:53:17.171 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 14:53:17.204 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 14:53:17.235 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 14:53:17.267 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 14:53:17.297 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 14:53:17.327 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 14:53:17.359 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 14:53:17.390 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 14:53:17.422 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 14:53:19.912 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:19.912 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:19.935 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:19.935 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:19.957 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:19.958 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:19.980 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:19.981 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:20.003 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:20.003 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:20.025 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:20.025 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:20.046 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:20.047 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:20.069 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:20.069 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:20.091 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:20.091 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:53:20.113 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, exposure_us, gain_db, gamma, frame_timeout_ms, black_level] persisted=false
+2026-08-06 14:53:20.113 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[exposure_us, gain_db, gamma, frame_timeout_ms, black_level]
+2026-08-06 14:56:28.147 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=10316 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-06 14:56:28.147 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=9908 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 14:56:28.147 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=10656 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-06 14:56:28.150 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=1848 command=[npm.cmd, run, dev]
+2026-08-06 14:56:28.151 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:56:28.152 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:56:28.153 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:56:28.155 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:56:28.164 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:56:28.165 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 14:56:28.166 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:56:28.172 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:56:28.175 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 14:56:28.177 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:56:28.178 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:56:28.179 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:56:28.174 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:56:28.181 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:56:28.182 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:56:28.210 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:56:29.768 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 command failed; restart and retry: EOF
+2026-08-06 14:56:29.772 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 14:56:30.030 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 command failed; restart and retry: EOF
+2026-08-06 14:56:30.036 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 command failed; restart and retry: EOF
+2026-08-06 14:56:30.050 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 14:56:30.066 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 14:56:30.078 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 command failed; restart and retry: EOF
+2026-08-06 14:56:30.087 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 14:56:30.104 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 command failed; restart and retry: EOF
+2026-08-06 14:56:30.122 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 14:56:30.154 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 command failed; restart and retry: EOF
+2026-08-06 14:56:30.175 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 14:56:30.213 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 command failed; restart and retry: EOF
+2026-08-06 14:56:30.218 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 14:56:30.241 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 command failed; restart and retry: EOF
+2026-08-06 14:56:30.243 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 14:56:30.254 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 command failed; restart and retry: EOF
+2026-08-06 14:56:30.256 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 14:56:30.274 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 command failed; restart and retry: EOF
+2026-08-06 14:56:30.275 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 command failed; restart and retry: EOF
+2026-08-06 14:56:30.278 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 command failed; restart and retry: EOF
+2026-08-06 14:56:30.282 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 14:56:30.283 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 14:56:30.284 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 14:56:30.286 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 command failed; restart and retry: EOF
+2026-08-06 14:56:30.287 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 command failed; restart and retry: EOF
+2026-08-06 14:56:30.289 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 command failed; restart and retry: EOF
+2026-08-06 14:56:30.289 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 14:56:30.289 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 command failed; restart and retry: EOF
+2026-08-06 14:56:30.290 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 14:56:30.291 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 14:56:30.295 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 14:56:31.034 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 14:56:32.044 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:56:32.051 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 14:56:32.172 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 14:56:33.091 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 command failed; restart and retry: EOF
+2026-08-06 14:56:33.092 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 command failed; restart and retry: EOF
+2026-08-06 14:56:33.094 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 14:56:33.097 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 14:56:39.551 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-06 14:56:39.637 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 14:56:39.658 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 14:56:39.690 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 14:56:39.724 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 14:56:39.754 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 14:56:39.793 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 14:56:39.817 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 14:56:39.846 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 14:56:39.877 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 14:56:39.909 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 14:56:42.472 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:42.473 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:42.494 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:42.495 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:42.517 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:42.517 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:42.539 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:42.540 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:42.794 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:42.795 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:43.038 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:43.039 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:43.207 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:43.207 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:43.229 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:43.229 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:43.251 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:43.251 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 14:56:43.273 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, black_level, exposure_us, gain_db, gamma, frame_timeout_ms] persisted=false
+2026-08-06 14:56:43.274 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[black_level, exposure_us, gain_db, gamma, frame_timeout_ms]
+2026-08-06 15:12:33.969 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=10956 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-06 15:12:33.969 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=12108 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 15:12:33.969 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=10512 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-06 15:12:33.969 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=10716 command=[npm.cmd, run, dev]
+2026-08-06 15:12:33.970 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 15:12:33.971 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 15:12:33.973 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 15:12:33.976 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 15:12:33.979 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 15:12:33.980 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 15:12:33.984 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 15:12:33.986 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 15:12:33.988 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 15:12:33.990 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 15:12:33.992 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 15:12:33.997 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 15:12:34.002 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 15:12:34.004 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 15:12:34.008 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 15:12:34.010 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 15:12:34.902 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 command failed; restart and retry: EOF
+2026-08-06 15:12:34.906 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 15:12:35.573 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 command failed; restart and retry: EOF
+2026-08-06 15:12:35.619 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 15:12:35.751 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 command failed; restart and retry: EOF
+2026-08-06 15:12:35.763 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 command failed; restart and retry: EOF
+2026-08-06 15:12:35.764 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 15:12:35.777 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 15:12:35.971 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 command failed; restart and retry: EOF
+2026-08-06 15:12:35.974 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 15:12:35.975 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 command failed; restart and retry: EOF
+2026-08-06 15:12:35.978 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 15:12:35.985 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 command failed; restart and retry: EOF
+2026-08-06 15:12:35.986 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 command failed; restart and retry: EOF
+2026-08-06 15:12:35.988 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 15:12:35.990 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 15:12:35.993 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 command failed; restart and retry: EOF
+2026-08-06 15:12:36.002 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 15:12:36.034 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 command failed; restart and retry: EOF
+2026-08-06 15:12:36.034 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 command failed; restart and retry: EOF
+2026-08-06 15:12:36.036 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 15:12:36.038 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 command failed; restart and retry: EOF
+2026-08-06 15:12:36.042 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 15:12:36.049 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 command failed; restart and retry: EOF
+2026-08-06 15:12:36.058 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 15:12:36.061 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 15:12:36.081 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 command failed; restart and retry: EOF
+2026-08-06 15:12:36.087 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 15:12:36.094 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 command failed; restart and retry: EOF
+2026-08-06 15:12:36.101 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 command failed; restart and retry: EOF
+2026-08-06 15:12:36.118 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 15:12:36.121 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 15:12:36.525 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 15:12:36.977 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 15:12:37.223 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 15:12:37.277 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 15:12:38.303 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 command failed; restart and retry: EOF
+2026-08-06 15:12:38.305 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 15:12:38.430 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 command failed; restart and retry: EOF
+2026-08-06 15:12:38.432 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 15:12:38.457 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 command failed; restart and retry: EOF
+2026-08-06 15:12:38.458 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 15:12:38.601 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 command failed; restart and retry: EOF
+2026-08-06 15:12:38.602 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 15:12:41.712 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-06 15:12:41.779 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 15:12:41.791 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=0 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:41.792 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 15:12:41.801 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 15:12:41.803 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=0 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:41.804 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 15:12:41.812 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=1 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:41.814 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 15:12:41.825 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=1 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:41.826 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 15:12:41.834 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 15:12:41.844 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=2 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:41.845 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 15:12:41.857 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=2 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:41.858 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 15:12:41.864 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 15:12:41.875 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=3 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:41.876 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 15:12:41.886 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=3 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:41.888 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 15:12:41.895 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 15:12:41.906 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=4 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:41.907 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 15:12:41.917 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=4 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:41.918 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 15:12:41.927 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 15:12:41.938 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=5 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:41.940 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 15:12:41.949 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=5 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:41.951 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 15:12:41.958 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 15:12:41.968 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=6 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:41.969 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 15:12:41.979 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=6 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:41.981 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 15:12:41.989 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 15:12:41.998 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=7 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:42.000 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 15:12:42.009 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=7 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:42.010 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 15:12:42.021 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 15:12:42.030 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=8 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:42.032 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 15:12:42.042 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=8 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:42.043 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 15:12:42.052 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 15:12:42.061 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=9 command failed on attempt 1/3; restarting: EOF
+2026-08-06 15:12:42.063 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 15:12:42.073 WARN  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker camera=9 command failed on attempt 2/3; restarting: EOF
+2026-08-06 15:12:42.074 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 15:12:43.366 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service frontend pid=10716
+2026-08-06 15:12:43.377 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service frontend stopped
+2026-08-06 15:12:43.377 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service analis-surface pid=12108
+2026-08-06 15:12:43.392 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service analis-surface stopped
+2026-08-06 15:13:40.482 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=11088 command=[npm.cmd, run, dev]
+2026-08-06 15:13:40.482 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=6872 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-06 15:13:40.482 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=1240 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 15:13:40.482 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=9864 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-06 15:13:40.483 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 15:13:40.484 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 15:13:40.486 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 15:13:40.488 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 15:13:40.490 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 15:13:40.491 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 15:13:40.493 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 15:13:40.495 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 15:13:40.498 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 15:13:40.500 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 15:13:40.502 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 15:13:40.503 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 15:13:40.504 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 15:13:40.754 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 15:13:40.763 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 15:13:40.765 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 15:13:42.390 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 command failed; restart and retry: EOF
+2026-08-06 15:13:42.404 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 15:13:42.552 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 command failed; restart and retry: EOF
+2026-08-06 15:13:42.569 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 command failed; restart and retry: EOF
+2026-08-06 15:13:42.589 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 15:13:42.600 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 15:13:42.677 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 command failed; restart and retry: EOF
+2026-08-06 15:13:42.687 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 command failed; restart and retry: EOF
+2026-08-06 15:13:42.687 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 command failed; restart and retry: EOF
+2026-08-06 15:13:42.688 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 command failed; restart and retry: EOF
+2026-08-06 15:13:42.687 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 command failed; restart and retry: EOF
+2026-08-06 15:13:42.695 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 15:13:42.695 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 command failed; restart and retry: EOF
+2026-08-06 15:13:42.697 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 command failed; restart and retry: EOF
+2026-08-06 15:13:42.698 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 15:13:42.705 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 15:13:42.711 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 15:13:42.713 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 15:13:42.714 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 command failed; restart and retry: EOF
+2026-08-06 15:13:42.716 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 15:13:42.718 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 15:13:42.720 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 command failed; restart and retry: EOF
+2026-08-06 15:13:42.723 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 command failed; restart and retry: EOF
+2026-08-06 15:13:42.727 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 15:13:42.730 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 15:13:42.784 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 15:13:42.865 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 command failed; restart and retry: EOF
+2026-08-06 15:13:42.869 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 command failed; restart and retry: EOF
+2026-08-06 15:13:42.871 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 15:13:42.874 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 15:13:43.152 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 command failed; restart and retry: EOF
+2026-08-06 15:13:43.161 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 15:13:44.080 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 15:13:44.287 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 15:13:44.581 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 15:13:44.594 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 15:13:45.144 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 command failed; restart and retry: EOF
+2026-08-06 15:13:45.149 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 15:13:45.377 WARN  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 command failed; restart and retry: EOF
+2026-08-06 15:13:45.380 INFO  [java-geometry-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 15:13:45.505 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 command failed; restart and retry: EOF
+2026-08-06 15:13:45.507 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 15:13:45.539 WARN  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 command failed; restart and retry: EOF
+2026-08-06 15:13:45.541 INFO  [java-positioning-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 15:13:52.040 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-06 15:13:52.114 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 15:13:52.133 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 15:13:52.164 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 15:13:52.195 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 15:13:52.227 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 15:13:52.259 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 15:13:52.290 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 15:13:52.322 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 15:13:52.354 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 15:13:52.385 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 15:13:54.992 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:54.993 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.014 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.014 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.035 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.035 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.057 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.058 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.078 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.078 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.099 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.099 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.120 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.121 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.140 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.140 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.161 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.161 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:13:55.181 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, gain_db, exposure_us, black_level, frame_timeout_ms, gamma] persisted=false
+2026-08-06 15:13:55.181 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[gain_db, exposure_us, black_level, frame_timeout_ms, gamma]
+2026-08-06 15:24:19.160 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=12080 command=[npm.cmd, run, dev]
+2026-08-06 15:24:19.160 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=10480 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-08-06 15:24:19.160 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface pid=13600 command=[D:\visionGay\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-08-06 15:24:19.160 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=6044 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-08-06 15:24:19.169 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-08-06 15:24:19.170 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-08-06 15:24:20.650 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-08-06 15:24:20.674 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-08-06 15:24:21.854 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-08-06 15:24:21.872 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-08-06 15:24:23.062 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-08-06 15:24:23.116 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-08-06 15:24:24.237 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-08-06 15:24:24.291 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-08-06 15:24:25.351 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-08-06 15:24:25.426 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-08-06 15:24:26.414 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-08-06 15:24:26.508 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-08-06 15:24:27.452 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-08-06 15:24:27.545 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-08-06 15:24:28.511 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-08-06 15:24:28.617 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-08-06 15:24:29.509 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-08-06 15:24:29.630 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-08-06 15:24:32.766 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\visionGay\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-08-06 15:24:32.845 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-08-06 15:24:32.875 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-08-06 15:24:32.904 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-08-06 15:24:32.936 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-08-06 15:24:32.967 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-08-06 15:24:32.998 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-08-06 15:24:33.029 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-08-06 15:24:33.061 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-08-06 15:24:33.093 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-08-06 15:24:33.126 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-08-06 15:24:35.633 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.633 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.656 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.656 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.678 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.678 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.700 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.701 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.723 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.723 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.745 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.746 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.767 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.768 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.790 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.790 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.813 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.813 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-08-06 15:24:35.836 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
+2026-08-06 15:24:35.836 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]

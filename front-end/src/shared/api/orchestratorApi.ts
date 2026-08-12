@@ -3,6 +3,11 @@ import { HttpClient } from "./httpClient";
 import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
+  AnalysisPresetResponse,
+  SimpleAnalysisKnobs,
+  ProAnalysisKnobs,
+  ClientModeResponse,
+  TestAnalyzeResponse,
   CameraRuntimeSettings,
   CameraRuntimeSettingsUpdate,
   FpZonesResponse,
@@ -151,6 +156,20 @@ export const orchestratorApi = {
     });
   },
 
+  async stopAllInspections() {
+    return http.json<InspectionStateResponse>("/api/client/inspection/stop-all", {
+      method: "POST",
+      body: {},
+    });
+  },
+
+  async startAllInspections() {
+    return http.json<InspectionStateResponse>("/api/client/inspection/start-all", {
+      method: "POST",
+      body: {},
+    });
+  },
+
   async getLightBrightness() {
     return http.json<LightBrightnessSettings>(LIGHT_BRIGHTNESS_PATH);
   },
@@ -279,6 +298,76 @@ export const orchestratorApi = {
     return http.json<AnalysisSettingsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}`, {
       method: "PUT",
       body: update,
+    });
+  },
+
+  async getSimpleAnalysisSettings(productType: string) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/simple`,
+    );
+  },
+
+  async setSimpleAnalysisSettings(productType: string, knobs: SimpleAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/simple`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getCameraSimpleAnalysisSettings(cameraId: number) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/simple`,
+    );
+  },
+
+  async setCameraSimpleAnalysisSettings(cameraId: number, knobs: SimpleAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<SimpleAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/simple`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getProAnalysisSettings(productType: string) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/pro`,
+    );
+  },
+
+  async setProAnalysisSettings(productType: string, knobs: ProAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/pro`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getCameraProAnalysisSettings(cameraId: number) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/pro`,
+    );
+  },
+
+  async setCameraProAnalysisSettings(cameraId: number, knobs: ProAnalysisKnobs) {
+    return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
+      `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/pro`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getClientMode() {
+    return http.json<ClientModeResponse>("/api/client/mode");
+  },
+
+  async setTestMode(enabled: boolean) {
+    return http.json<ClientModeResponse>("/api/client/mode/test", {
+      method: "POST",
+      body: { enabled },
+    });
+  },
+
+  async testAnalyzeArchiveFrame(cameraId: number, frameId: string) {
+    return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
+      method: "POST",
+      body: { cameraId, frameId, source: "archive" },
     });
   },
 

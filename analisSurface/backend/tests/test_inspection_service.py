@@ -60,31 +60,25 @@ def test_identity_homography_skips_realign(inspection_service: InspectionService
         gray_frame,
         "bench",
         alignment_h_ref_to_cur=identity,
+        enable_internal_alignment=True,
     )
     assert np.array_equal(aligned, gray_frame)
 
 
-def test_python_inspection_uses_fixed_coordinates_and_ignores_homography(
+def test_internal_alignment_disabled_skips_homography_warp(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    inspection_service.set_reference_frame("fixed-position", gray_frame)
-    non_identity = [1.0, 0.2, 35.0, -0.1, 1.0, 18.0, 0.0, 0.0, 1.0]
-
-    def fail_if_called(*args, **kwargs):
-        raise AssertionError("Python alignment must not run for fixed-position inspection")
-
-    monkeypatch.setattr(inspection_service, "_align_to_reference", fail_if_called)
-    result = inspection_service.inspect_frame(
-        "fixed-position",
+    """По умолчанию align выключен: даже не-identity H не применяется."""
+    shift_h = [1.0, 0.0, 12.0, 0.0, 1.0, 8.0, 0.0, 0.0, 1.0]
+    aligned = inspection_service._align_to_reference(
         gray_frame.copy(),
-        threshold=0.5,
-        alignment_h_ref_to_cur=non_identity,
+        gray_frame,
+        "bench",
+        alignment_h_ref_to_cur=shift_h,
+        enable_internal_alignment=False,
     )
-
-    assert result.status == "ГОДЕН"
-    assert np.array_equal(result.aligned_image, gray_frame)
+    assert np.array_equal(aligned, gray_frame)
 
 
 def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
