@@ -1,5 +1,5 @@
 {
-  "id": "2efac350-e4ac-40a5-909f-112d8a55cff1",
+  "id": "eab94b45-22f1-4f75-8342-7639b4b76fc3",
   "product_type": "shape-scratch-direction",
   "reference_hash": "c8c1466852b2b773ecb75b27",
   "bbox_norm": {
@@ -12,10 +12,10 @@
   "diff_mean": 32.20382775119617,
   "diff_q90": 49.0,
   "diff_max": 50.0,
-  "created_at": "2026-08-12T09:20:42.726764+00:00",
-  "source_inspection_id": "f8517538-2ef3-4fc8-82d4-f06878c31e9c",
+  "created_at": "2026-08-12T10:44:41.978356+00:00",
+  "source_inspection_id": "d3a70aa4-faa2-4a5d-9d52-3d6aaa0a9816",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,
-  "template_version": 2
+  "template_version": 3
 }

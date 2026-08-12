@@ -654,6 +654,59 @@ def test_accepted_normal_survives_service_restart(
     assert result.status == "ГОДЕН"
 
 
+def test_new_colored_scratch_inside_accepted_broad_area_remains_a_defect(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((180, 260, 3), 45, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("glare-with-scratch", reference)
+
+    accepted_glare = reference.copy()
+    cv2.rectangle(accepted_glare, (18, 28), (152, 156), (130, 130, 130), -1)
+    first = inspection_service.inspect_frame(
+        "glare-with-scratch",
+        accepted_glare,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    first_review = inspection_service.get_learning_review(first.inspection_id)
+    assert first_review is not None
+    inspection_service.accept_review_defect_as_normal(
+        first.inspection_id,
+        first_review["defects"][0]["id"],
+    )
+
+    glare_only = inspection_service.inspect_frame(
+        "glare-with-scratch",
+        accepted_glare,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert glare_only.learned_normal_matches_count == 1
+    assert glare_only.status == "ГОДЕН"
+
+    glare_and_scratch = accepted_glare.copy()
+    cv2.line(glare_and_scratch, (70, 48), (72, 136), (0, 0, 255), 4, cv2.LINE_AA)
+    result = inspection_service.inspect_frame(
+        "glare-with-scratch",
+        glare_and_scratch,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 1
+    assert result.status == "БРАК"
+    review = inspection_service.get_learning_review(result.inspection_id)
+    assert review is not None
+    assert len(review["defects"]) == 1
+    scratch_bbox = review["defects"][0]["bbox"]
+    assert scratch_bbox["width"] < 30
+    assert scratch_bbox["height"] > 60
+
+
 def test_legacy_stretched_normal_is_loaded_with_recovered_aspect(
     inspection_service: InspectionService,
 ) -> None:

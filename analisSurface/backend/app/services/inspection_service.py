@@ -26,6 +26,7 @@ from app.services.learned_normals import (
     AcceptedNormalMemory,
     InspectionReviewStore,
     decode_review_arrays,
+    extract_defect_candidates,
     filter_review_candidates,
     reference_fingerprint,
 )
@@ -560,7 +561,18 @@ class InspectionService:
         # Review сохраняется только для итогового БРАК. Решение уже считается
         # отправленным и последующее обучение меняет лишь будущие инспекции.
         inspection_id = None
-        review_candidates = filter_review_candidates(learned_filter.candidates)
+        # If a learned large area was matched, the final mask may contain a
+        # new defect inside it (for example, a scratch over an accepted glare).
+        # Build the operator list from that residual mask so the UI shows the
+        # scratch separately instead of the original large connected region.
+        candidate_source = learned_filter.candidates
+        if learned_filter.matched_case_ids:
+            candidate_source = extract_defect_candidates(
+                aligned,
+                filtered_diff_map,
+                segmentation_mask,
+            )
+        review_candidates = filter_review_candidates(candidate_source)
         if status == "БРАК" and review_candidates:
             try:
                 inspection_id = str(uuid.uuid4())
@@ -572,8 +584,8 @@ class InspectionService:
                     score=anomaly_score,
                     threshold=inspection_threshold,
                     aligned=aligned,
-                    diff_map=diff_map,
-                    raw_mask=raw_segmentation_mask,
+                    diff_map=filtered_diff_map,
+                    raw_mask=segmentation_mask,
                     candidates=review_candidates,
                 )
             except Exception:

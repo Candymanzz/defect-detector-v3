@@ -23,6 +23,29 @@
     }
   },
   {
+    "analysis_profile": "bench-lan10",
+    "overrides": {
+      "default_threshold": 0.15,
+      "use_patchcore": true,
+      "min_defect_area": 1,
+      "min_scratch_aspect": 3.0,
+      "min_diff_signal": 40.0,
+      "diff_percentile": 100.0,
+      "scratch_score_floor": 0.35,
+      "scratch_aspect_floor": 4.5,
+      "edge_suppress_factor": 0.2,
+      "text_min_contrast": 55,
+      "text_structure_threshold": 30,
+      "contrast_loss_boost": 2.0,
+      "contrast_loss_ref_grad": 40.0,
+      "contrast_loss_cur_grad": 15.0,
+      "enable_clahe": false,
+      "clahe_clip_limit": 1.21,
+      "fp_recheck_enabled": true,
+      "fp_trigger_diff_q90": 22.0
+    }
+  },
+  {
     "analysis_profile": "bench-lan2",
     "overrides": {
       "default_threshold": 0.15,
@@ -185,29 +208,6 @@
   },
   {
     "analysis_profile": "bench-lan9",
-    "overrides": {
-      "default_threshold": 0.15,
-      "use_patchcore": true,
-      "min_defect_area": 1,
-      "min_scratch_aspect": 3.0,
-      "min_diff_signal": 40.0,
-      "diff_percentile": 100.0,
-      "scratch_score_floor": 0.35,
-      "scratch_aspect_floor": 4.5,
-      "edge_suppress_factor": 0.2,
-      "text_min_contrast": 55,
-      "text_structure_threshold": 30,
-      "contrast_loss_boost": 2.0,
-      "contrast_loss_ref_grad": 40.0,
-      "contrast_loss_cur_grad": 15.0,
-      "enable_clahe": false,
-      "clahe_clip_limit": 1.21,
-      "fp_recheck_enabled": true,
-      "fp_trigger_diff_q90": 22.0
-    }
-  },
-  {
-    "analysis_profile": "bench-lan10",
     "overrides": {
       "default_threshold": 0.15,
       "use_patchcore": true,

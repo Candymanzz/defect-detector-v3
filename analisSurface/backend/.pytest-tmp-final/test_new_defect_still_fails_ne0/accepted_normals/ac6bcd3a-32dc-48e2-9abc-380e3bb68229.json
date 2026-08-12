@@ -1,5 +1,5 @@
 {
-  "id": "f5d8a0f0-64bf-47ca-82d3-cd21c9812062",
+  "id": "ac6bcd3a-32dc-48e2-9abc-380e3bb68229",
   "product_type": "bench",
   "reference_hash": "c8776d13ec227a8aa9a31d43",
   "bbox_norm": {
@@ -12,10 +12,10 @@
   "diff_mean": 62.231914893617024,
   "diff_q90": 125.0,
   "diff_max": 133.0,
-  "created_at": "2026-08-12T09:20:42.339397+00:00",
-  "source_inspection_id": "038aa217-a7e3-424b-8048-0c644ce513b7",
+  "created_at": "2026-08-12T10:44:41.659115+00:00",
+  "source_inspection_id": "97b17ff7-8598-4ec8-83d0-b2ea3cece86b",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,
-  "template_version": 2
+  "template_version": 3
 }

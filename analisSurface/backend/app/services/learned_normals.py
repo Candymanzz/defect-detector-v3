@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 TEMPLATE_SIZE = 64
 TEMPLATE_INNER_SIZE = 56
-TEMPLATE_VERSION = 2
+TEMPLATE_VERSION = 3
 # Максимальное расстояние между центрами текущего и сохранённого дефекта в
 # нормированных координатах кадра. 0.15 означает локальный сдвиг
 # (например, около 184 px по горизонтали на рабочем кадре шириной 1224 px),
@@ -135,6 +135,7 @@ class DefectCandidate:
     mask_template: np.ndarray = field(repr=False)
     diff_template: np.ndarray = field(repr=False)
     appearance_template: np.ndarray = field(repr=False)
+    source_crop: Optional[np.ndarray] = field(default=None, repr=False)
     matched_case_id: Optional[str] = None
     similarity: Optional[float] = None
     _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
@@ -182,6 +183,7 @@ class AcceptedNormalCase:
     mask_template: np.ndarray = field(repr=False)
     diff_template: np.ndarray = field(repr=False)
     appearance_template: np.ndarray = field(repr=False)
+    source_crop: Optional[np.ndarray] = field(default=None, repr=False)
     _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
     _template_cache: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]] = field(
         default=None,
@@ -454,6 +456,7 @@ class AcceptedNormalMemory:
             mask_template=candidate.mask_template.copy(),
             diff_template=candidate.diff_template.copy(),
             appearance_template=candidate.appearance_template.copy(),
+            source_crop=(candidate.source_crop.copy() if candidate.source_crop is not None else None),
         )
         with self._lock:
             self._cases[case.id] = case
@@ -510,13 +513,53 @@ class AcceptedNormalMemory:
                 continue
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
+            x, y, box_width, box_height = candidate.bbox
+            # Большая допустимая область (например, засвет) может содержать
+            # новый локальный дефект. Для новых норм сохраняется исходный BGR
+            # crop: сравнение с ним оставляет цветовой остаток, вместо удаления
+            # всей connected component целиком.
+            use_color_residual = (
+                best_case.source_crop is not None
+                and best_case.source_crop.size > 0
+                and box_width * box_height >= 2048
+                # Residual subtraction is intended for broad connected regions
+                # such as glare. Thin scratches and L-shaped traces still use
+                # shape-normalized suppression so shifted/scaled copies remain
+                # acceptable as before.
+                and candidate.area / max(1, box_width * box_height) >= 0.35
+                and (box_width * box_height) / max(1, aligned.shape[0] * aligned.shape[1]) >= 0.10
+            )
+            if use_color_residual:
+                residual_padding = 2
+                residual_x0 = max(0, x - residual_padding)
+                residual_y0 = max(0, y - residual_padding)
+                residual_x1 = min(filtered_diff.shape[1], x + box_width + residual_padding)
+                residual_y1 = min(filtered_diff.shape[0], y + box_height + residual_padding)
+                # Remove the morphology halo of the accepted component first;
+                # the actual bbox is then replaced with the colour residual.
+                filtered_diff[residual_y0:residual_y1, residual_x0:residual_x1] = 0
+                filtered_mask[residual_y0:residual_y1, residual_x0:residual_x1] = 0
+                expected = cv2.resize(
+                    best_case.source_crop,
+                    (box_width, box_height),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                current = aligned[y : y + box_height, x : x + box_width]
+                color_residual = np.max(
+                    cv2.absdiff(current, expected),
+                    axis=2,
+                ).astype(np.int16)
+                color_residual = np.clip(color_residual - 12, 0, 255).astype(np.uint8)
+                residual_bgr = cv2.cvtColor(color_residual, cv2.COLOR_GRAY2BGR)
+                filtered_diff[y : y + box_height, x : x + box_width] = residual_bgr
+                matched_case_ids.append(best_case.id)
+                continue
             # Убираем также узкий ореол морфологии вокруг совпавшей компоненты,
             # иначе остаточный diff продолжает повышать score уже «разрешённого»
             # фрагмента. Радиус мал и применяется только после строгого match.
             # Candidate хранит только локальную маску своего bbox. Это не создаёт по одной
             # полноразмерной копии маски на каждый компонент (особенно дорого на 5-Мп кадрах).
             # Padding сохраняет прежний двухпиксельный ореол подавления и за пределами bbox.
-            x, y, box_width, box_height = candidate.bbox
             radius = 2
             padded = cv2.copyMakeBorder(
                 candidate.mask.astype(np.uint8) * 255,
@@ -567,6 +610,7 @@ class AcceptedNormalMemory:
                 mask_template=case.mask_template,
                 diff_template=case.diff_template,
                 appearance_template=case.appearance_template,
+                source_crop=case.source_crop if case.source_crop is not None else np.empty((0, 0, 3), dtype=np.uint8),
             )
         temp_json.replace(json_path)
         temp_npz.replace(npz_path)
@@ -604,6 +648,11 @@ class AcceptedNormalMemory:
                         mask_template=arrays["mask_template"].copy(),
                         diff_template=arrays["diff_template"].copy(),
                         appearance_template=arrays["appearance_template"].copy(),
+                        source_crop=(
+                            arrays["source_crop"].copy()
+                            if "source_crop" in arrays.files and arrays["source_crop"].size > 0
+                            else None
+                        ),
                     )
                 self._cases[case.id] = case
             except Exception:
@@ -714,6 +763,7 @@ def extract_defect_candidates(
                 mask_template=_fit_template(local_mask.astype(np.uint8) * 255, binary=True),
                 diff_template=_fit_template(local_diff),
                 appearance_template=_fit_template(local_aligned),
+                source_crop=aligned[y : y + box_height, x : x + box_width].copy(),
             )
         )
     return candidates
@@ -840,7 +890,9 @@ def _angle_distance(first: float, second: float) -> float:
 def _case_templates(case: AcceptedNormalCase) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if case._template_cache is not None:
         return case._template_cache
-    if case.template_version >= TEMPLATE_VERSION:
+    # Version 3 adds a source-resolution colour crop, but does not change the
+    # normalized shape templates introduced in version 2.
+    if case.template_version >= 2:
         templates = (case.mask_template, case.diff_template, case.appearance_template)
     else:
         templates = (
