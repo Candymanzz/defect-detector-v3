@@ -478,13 +478,12 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # 1. Совместить текущий кадр с эталоном (выкл. по умолчанию — кадр уже отцентрирован upstream).
+        # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography, затем ECC).
         aligned = self._align_to_reference(
             frame,
             reference,
             product_type,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
-            enable_internal_alignment=settings.enable_internal_alignment,
         )
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
@@ -544,6 +543,19 @@ class InspectionService:
             sub_zones=sub_zones,
         )
 
+        candidate_source = extract_defect_candidates(
+            aligned,
+            filtered_diff_map,
+            segmentation_mask,
+        )
+        review_candidates = filter_review_candidates(candidate_source)
+        display_mask = np.zeros_like(segmentation_mask)
+        for candidate in review_candidates:
+            x, y, box_width, box_height = candidate.bbox
+            local_mask = candidate.mask.astype(bool)
+            display_region = display_mask[y : y + box_height, x : x + box_width]
+            display_region[local_mask] = 255
+
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         heatmap_u8 = None
         if include_visuals:
@@ -561,18 +573,6 @@ class InspectionService:
         # Review сохраняется только для итогового БРАК. Решение уже считается
         # отправленным и последующее обучение меняет лишь будущие инспекции.
         inspection_id = None
-        # If a learned large area was matched, the final mask may contain a
-        # new defect inside it (for example, a scratch over an accepted glare).
-        # Build the operator list from that residual mask so the UI shows the
-        # scratch separately instead of the original large connected region.
-        candidate_source = learned_filter.candidates
-        if learned_filter.matched_case_ids:
-            candidate_source = extract_defect_candidates(
-                aligned,
-                filtered_diff_map,
-                segmentation_mask,
-            )
-        review_candidates = filter_review_candidates(candidate_source)
         if status == "БРАК" and review_candidates:
             try:
                 inspection_id = str(uuid.uuid4())
@@ -585,7 +585,7 @@ class InspectionService:
                     threshold=inspection_threshold,
                     aligned=aligned,
                     diff_map=filtered_diff_map,
-                    raw_mask=segmentation_mask,
+                    raw_mask=display_mask,
                     candidates=review_candidates,
                 )
             except Exception:
@@ -1052,20 +1052,14 @@ class InspectionService:
         reference: np.ndarray,
         product_type: str,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
-        enable_internal_alignment: bool = False,
     ) -> np.ndarray:
         """Привести current к системе координат reference.
 
-        По умолчанию выключено: центрирование уже сделано в positioning/geometry,
-        повторный warp/ORB/ECC может растянуть кадр и раздуть diff.
-        При enable_internal_alignment=True:
-        приоритет geometry H → ORB+homography → resize; identity H не трогаем.
+        Приоритет: гомография от java-geometry/positioning → ORB-матчи + findHomography → resize.
+        Если кадр уже выровнен upstream (identity H от positioning) — не трогаем:
+        повторный warp+ECC на фоне разницы яркости ломает совмещение и раздувает diff до 1.0.
+        Иначе после нетривиального warp — ECC-подстройка микросдвига.
         """
-        if not enable_internal_alignment:
-            if current.shape[:2] != reference.shape[:2]:
-                return cv2.resize(current, (reference.shape[1], reference.shape[0]))
-            return current
-
         if self._is_identity_homography(alignment_h_ref_to_cur):
             if current.shape[:2] != reference.shape[:2]:
                 return cv2.resize(current, (reference.shape[1], reference.shape[0]))

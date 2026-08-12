@@ -60,23 +60,6 @@ def test_identity_homography_skips_realign(inspection_service: InspectionService
         gray_frame,
         "bench",
         alignment_h_ref_to_cur=identity,
-        enable_internal_alignment=True,
-    )
-    assert np.array_equal(aligned, gray_frame)
-
-
-def test_internal_alignment_disabled_skips_homography_warp(
-    inspection_service: InspectionService,
-    gray_frame: np.ndarray,
-) -> None:
-    """По умолчанию align выключен: даже не-identity H не применяется."""
-    shift_h = [1.0, 0.0, 12.0, 0.0, 1.0, 8.0, 0.0, 0.0, 1.0]
-    aligned = inspection_service._align_to_reference(
-        gray_frame.copy(),
-        gray_frame,
-        "bench",
-        alignment_h_ref_to_cur=shift_h,
-        enable_internal_alignment=False,
     )
     assert np.array_equal(aligned, gray_frame)
 

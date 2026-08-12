@@ -60,7 +60,7 @@ def test_review_filter_keeps_multiple_candidates_with_meaningful_relative_impact
         _candidate("noise", area=40, width=7, height=7),
     ]
 
-    assert [item.id for item in filter_review_candidates(candidates)] == [
+    assert [item.id for item in filter_review_candidates(candidates, min_relative_impact=0.20)] == [
         "strongest",
         "meaningful",
     ]
@@ -94,8 +94,8 @@ def test_review_filter_is_invariant_to_resolution_scale() -> None:
             )
         )
 
-    original_ids = [item.id for item in filter_review_candidates(original)]
-    scaled_ids = [item.id for item in filter_review_candidates(scaled)]
+    original_ids = [item.id for item in filter_review_candidates(original, min_relative_impact=0.20)]
+    scaled_ids = [item.id for item in filter_review_candidates(scaled, min_relative_impact=0.20)]
     assert scaled_ids == original_ids
 
 
@@ -128,7 +128,7 @@ def test_review_filter_keeps_thin_scratch_but_hides_equal_area_spot() -> None:
         _candidate("spot", area=150, width=13, height=13),
     ]
 
-    assert [item.id for item in filter_review_candidates(candidates)] == [
+    assert [item.id for item in filter_review_candidates(candidates, min_relative_impact=0.20)] == [
         "main",
         "thin-scratch",
     ]
@@ -141,7 +141,7 @@ def test_review_filter_uses_weighted_diff_energy_not_area_only() -> None:
         _candidate("strong-medium", area=300, width=20, height=18, diff=90.0),
     ]
 
-    assert [item.id for item in filter_review_candidates(candidates)] == [
+    assert [item.id for item in filter_review_candidates(candidates, min_relative_impact=0.20)] == [
         "main",
         "strong-medium",
     ]

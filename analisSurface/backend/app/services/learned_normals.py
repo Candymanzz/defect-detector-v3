@@ -37,6 +37,7 @@ THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
 REDUCED_SHAPE_MIN_SIMILARITY = 0.78
 GENERAL_MIN_SIMILARITY = 0.80
+REVIEW_MIN_RELATIVE_IMPACT = 0.60
 
 
 def _utc_now() -> str:
@@ -790,7 +791,7 @@ def candidate_review_impact(candidate: DefectCandidate) -> float:
 
 def filter_review_candidates(
     candidates: list[DefectCandidate],
-    min_relative_impact: float = 0.20,
+    min_relative_impact: float = REVIEW_MIN_RELATIVE_IMPACT,
 ) -> list[DefectCandidate]:
     """Оставить области со значимым вкладом относительно текущего кадра.
 
@@ -815,6 +816,12 @@ def filter_review_candidates(
         candidate
         for candidate, impact in zip(candidates, impacts)
         if impact >= cutoff
+        or (
+            max(candidate.bbox[2], candidate.bbox[3])
+            / max(1, min(candidate.bbox[2], candidate.bbox[3]))
+            >= 8.0
+            and candidate.diff_q90 >= 35.0
+        )
     ]
 
 
