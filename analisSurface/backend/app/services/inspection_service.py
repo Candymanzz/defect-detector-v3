@@ -434,13 +434,11 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography).
-        aligned = self._align_to_reference(
-            frame,
-            reference,
-            product_type,
-            alignment_h_ref_to_cur=alignment_h_ref_to_cur,
-        )
+        # 1. Камера и изделие имеют фиксированное положение. Python не выполняет
+        # ORB/ECC/гомографию и не центрирует кадр: при совпадающем разрешении
+        # пиксели используются без преобразования. Разный размер приводится к
+        # размеру эталона только обычным resize.
+        aligned = self._use_fixed_frame(frame, reference)
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
@@ -1024,6 +1022,17 @@ class InspectionService:
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
         return self._refine_alignment_ecc(aligned, reference)
+
+    @staticmethod
+    def _use_fixed_frame(current: np.ndarray, reference: np.ndarray) -> np.ndarray:
+        """Вернуть кадр в фиксированных координатах без центрирования/warp."""
+        if current.shape[:2] == reference.shape[:2]:
+            return current
+        return cv2.resize(
+            current,
+            (reference.shape[1], reference.shape[0]),
+            interpolation=cv2.INTER_AREA,
+        )
 
     @staticmethod
     def _is_identity_homography(

@@ -1,5 +1,5 @@
 {
-  "id": "2d0b675a-c1c5-46b7-80a2-abb54da6f227",
+  "id": "1824f23c-564f-414b-b2ed-f331c63cf1a6",
   "product_type": "portable-normal",
   "reference_hash": "587bdced65ad2b86d06209cf",
   "bbox_norm": {
@@ -12,8 +12,8 @@
   "diff_mean": 71.34001743679163,
   "diff_q90": 120.0,
   "diff_max": 127.0,
-  "created_at": "2026-08-12T08:17:34.805474+00:00",
-  "source_inspection_id": "dc1580a9-f945-4a1f-8725-17004de36a5f",
+  "created_at": "2026-08-12T09:20:42.360860+00:00",
+  "source_inspection_id": "53206549-5ec6-49bc-be95-377859490c76",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,

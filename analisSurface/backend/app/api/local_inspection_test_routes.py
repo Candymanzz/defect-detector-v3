@@ -9,7 +9,10 @@ router = APIRouter()
 
 @router.get("/local-inspection-test", response_class=HTMLResponse, include_in_schema=False)
 async def local_inspection_test_page() -> HTMLResponse:
-    return HTMLResponse(LOCAL_INSPECTION_TEST_HTML)
+    return HTMLResponse(
+        LOCAL_INSPECTION_TEST_HTML,
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
 
 
 LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
@@ -120,7 +123,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     <h2>Результат</h2>
     <div id="resultMetrics" class="result"></div>
     <div class="visuals">
-      <figure><figcaption>Выровненный кадр</figcaption><img id="alignedImage"></figure>
+      <figure><figcaption>Текущий кадр без выравнивания</figcaption><img id="alignedImage"></figure>
       <figure><figcaption>Heatmap</figcaption><img id="heatmapImage"></figure>
       <figure><figcaption>Diff</figcaption><img id="diffImage"></figure>
       <figure><figcaption>Итоговая маска</figcaption><img id="maskImage"></figure>
