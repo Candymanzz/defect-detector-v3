@@ -127,6 +127,10 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
     .card img { width:100%; aspect-ratio:16/10; object-fit:cover; display:block; background:#090d12; }
     .card div { padding:11px; }
     .bad { color:#ff7777; font-weight:700; }
+    .card.learned { border-color:#37b879; }
+    .card.pass-status { border-color:#2f6f4a; }
+    .good { color:#50dc91; font-weight:700; }
+    .card.active { border-color:#ffc441; box-shadow:0 0 0 1px #ffc441; }
     dialog { width:min(1180px,96vw); height:min(850px,94vh); border:1px solid #41516a; border-radius:14px; background:#121a25; color:#eef3f8; padding:0; }
     dialog::backdrop { background:rgba(0,0,0,.72); }
     .modal-head { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #2b394c; }
@@ -162,11 +166,11 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
 </head>
 <body>
   <header>
-    <div><h1>Обучение допустимым фрагментам</h1><div class="muted">Недавние изделия со статусом БРАК. Решение уже прошедшего изделия не изменяется. После перезапуска Python ложняки этой смены сбрасываются.</div></div>
+    <div><h1>Обучение допустимым фрагментам</h1><div class="muted">История инспекций: ГОДЕН и БРАК. Можно вернуться к кадру и пометить ложное срабатывание. После перезапуска Python список сбрасывается.</div></div>
     <button onclick="loadAll()">Обновить</button>
   </header>
   <section>
-    <div class="section-head"><div><h2>Недавний брак</h2><div class="muted">Откройте кадр и нажмите «Дообучить этот БРАК». Все показанные контуры сохраняются как отдельные примеры нормы.</div></div></div>
+    <div class="section-head"><div><h2>История инспекций</h2><div class="muted">Последние кадры сессии — и хорошие, и брак. Откройте кадр, чтобы пометить ложное срабатывание.</div></div></div>
     <main id="reviews" class="grid"></main>
   </section>
 
@@ -176,14 +180,14 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
   </section>
 
   <dialog id="reviewDialog">
-    <div class="modal-head"><div><h2 id="reviewTitle">Разбор дефектов</h2><div id="reviewMeta" class="muted"></div></div><button onclick="reviewDialog.close()">Закрыть</button></div>
+    <div class="modal-head"><div><h2 id="reviewTitle">Разбор дефектов</h2><div id="reviewMeta" class="muted"></div></div><div class="actions"><button onclick="shiftHistory(1)">Предыдущий кадр</button><button onclick="shiftHistory(-1)">Следующий кадр</button><button onclick="reviewDialog.close()">Закрыть</button></div></div>
     <div class="modal-body">
       <div class="viewer-column">
         <div class="actions" style="margin-bottom:10px"><button onclick="setImage('aligned')">Кадр</button><button onclick="setImage('heatmap')">Heatmap</button><button onclick="setImage('diff')">Diff</button><button onclick="setImage('mask')">Маска</button></div>
         <div class="viewer"><img id="reviewImage" alt="inspection"><svg id="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div>
       </div>
       <aside class="side">
-        <div class="notice">Кнопка «Дообучить этот БРАК» запоминает все показанные контуры как ложные срабатывания. Если на кадре был и настоящий дефект — выучит оба. В конвейер повторное решение не отправляется.</div>
+        <div class="notice">Откройте любой кадр из истории. «Дообучить этот БРАК» доступна, если на кадре есть контуры. Если на кадре был и настоящий дефект — выучит оба. В конвейер повторное решение не отправляется.</div>
         <div id="counterfactual" class="counterfactual"></div>
         <div class="actions"><button class="primary" id="acceptAllButton" onclick="acceptAll()">Дообучить этот БРАК</button></div>
         <div id="defects"></div>
@@ -196,6 +200,7 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
 <script>
   const reviewDialog = document.getElementById('reviewDialog');
   let currentReview = null;
+  let historyItems = [];
   let imageKind = 'aligned';
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -204,12 +209,22 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
     root.innerHTML = '<div class="muted">Загрузка...</div>';
     try {
       const payload = await fetch('/learning/reviews', {cache:'no-store'}).then(r => r.json());
-      if (!payload.reviews.length) { root.innerHTML = '<div class="muted">Недавних результатов БРАК пока нет.</div>'; return; }
-      root.innerHTML = payload.reviews.map(item => `
-        <article class="card" onclick="openReview('${encodeURIComponent(item.inspection_id)}')">
-          <img src="/learning/reviews/${encodeURIComponent(item.inspection_id)}/image/heatmap" loading="lazy">
-          <div><span class="bad">БРАК</span> · score ${Number(item.original_score).toFixed(3)}<br><b>${esc(item.product_type)}</b><br><span class="muted">Областей: ${item.defects_count} · ${esc(item.created_at)}</span></div>
-        </article>`).join('');
+      historyItems = payload.reviews || [];
+      if (!historyItems.length) { root.innerHTML = '<div class="muted">История инспекций пуста. После проверки кадр появится здесь.</div>'; return; }
+      root.innerHTML = historyItems.map(item => {
+        const isPass = item.original_status === 'ГОДЕН';
+        const statusClass = isPass ? 'good' : 'bad';
+        const hint = item.accepted_defects_count ? 'уже помечен' : (item.defects_count ? 'можно пометить' : 'дефектов нет');
+        return `
+        <article class="card${item.accepted_defects_count ? ' learned' : ''}${isPass ? ' pass-status' : ''}" data-inspection-id="${esc(item.inspection_id)}" onclick="openReview('${encodeURIComponent(item.inspection_id)}')">
+          <img src="/learning/reviews/${encodeURIComponent(item.inspection_id)}/image/${isPass ? 'aligned' : 'heatmap'}" loading="lazy">
+          <div><span class="${statusClass}">${esc(item.original_status)}</span> · score ${Number(item.original_score).toFixed(3)}<br><b>${esc(item.product_type)}</b><br><span class="muted">${hint} · областей: ${item.defects_count}</span></div>
+        </article>`;
+      }).join('');
+      if(currentReview) {
+        const currentId = currentReview.inspection_id;
+        root.querySelectorAll('.card').forEach(node => node.classList.toggle('active', node.dataset.inspectionId === currentId));
+      }
     } catch (error) { root.innerHTML = `<div class="bad">${esc(error)}</div>`; }
   }
 
@@ -269,12 +284,26 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
     currentReview = await fetch(`/learning/reviews/${encodeURIComponent(id)}`, {cache:'no-store'}).then(async r => { if(!r.ok) throw new Error((await r.json()).detail); return r.json(); });
     imageKind = 'aligned';
     document.getElementById('reviewTitle').textContent = `Разбор: ${currentReview.product_type}`;
-    document.getElementById('reviewMeta').textContent = `Исходно БРАК · score ${Number(currentReview.original_score).toFixed(3)} · ${currentReview.inspection_id}`;
+    document.getElementById('reviewMeta').textContent = `Исходно ${currentReview.original_status} · score ${Number(currentReview.original_score).toFixed(3)} · ${currentReview.inspection_id}`;
     document.getElementById('note').value = '';
     document.getElementById('status').textContent = '';
     renderReview();
     reviewDialog.showModal();
   }
+
+  function shiftHistory(delta) {
+    if(!historyItems.length || !currentReview) return;
+    const index = historyItems.findIndex(item => item.inspection_id === currentReview.inspection_id);
+    const nextIndex = index < 0 ? 0 : index + delta;
+    if(nextIndex < 0 || nextIndex >= historyItems.length) return;
+    openReview(encodeURIComponent(historyItems[nextIndex].inspection_id));
+  }
+
+  document.addEventListener('keydown', event => {
+    if(!reviewDialog.open || event.target.matches('input, textarea')) return;
+    if(event.key === 'ArrowLeft') { event.preventDefault(); shiftHistory(1); }
+    if(event.key === 'ArrowRight') { event.preventDefault(); shiftHistory(-1); }
+  });
 
   function setImage(kind) { imageKind = kind; renderImage(); }
   function renderImage() { if(currentReview) document.getElementById('reviewImage').src = `/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}/image/${imageKind}?v=${Date.now()}`; }
@@ -288,16 +317,22 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
     renderImage();
     const overlay = document.getElementById('overlay');
     overlay.innerHTML = currentReview.defects.map(defect => `<polygon class="${defect.manually_accepted || defect.accepted_as_normal ? 'learned' : ''}" points="${polygonPoints(defect)}"><title>${esc(defect.id)}</title></polygon>`).join('');
-    document.getElementById('defects').innerHTML = currentReview.defects.map(defect => `
+    document.getElementById('defects').innerHTML = currentReview.defects.length
+      ? currentReview.defects.map(defect => `
       <div class="defect ${defect.manually_accepted || defect.accepted_as_normal?'learned':''}">
         <b>${esc(defect.id)}</b> · ${esc(defectState(defect))}
         <div class="metrics"><span>score ${Number(defect.score).toFixed(3)}</span><span>площадь ${defect.area}</span><span>q90 ${Number(defect.diff_q90).toFixed(1)}</span><span>max ${Number(defect.diff_max).toFixed(1)}</span></div>
-      </div>`).join('');
+      </div>`).join('')
+      : '<div class="muted">На этом кадре нет контуров для дообучения.</div>';
     const pending = currentReview.defects.filter(defect => !defect.manually_accepted && !defect.accepted_as_normal);
     document.getElementById('acceptButton').disabled = pending.length === 0;
     document.getElementById('acceptAllButton').disabled = pending.length === 0;
     const cf = document.getElementById('counterfactual');
     cf.textContent = currentReview.counterfactual_status ? `Ознакомительный пересчёт: ${currentReview.counterfactual_status}, score ${Number(currentReview.counterfactual_score).toFixed(3)}. Никуда не передан.` : '';
+    const currentId = currentReview.inspection_id;
+    document.querySelectorAll('#reviews .card').forEach(node => {
+      node.classList.toggle('active', node.dataset.inspectionId === currentId);
+    });
   }
 
   async function acceptAll() {

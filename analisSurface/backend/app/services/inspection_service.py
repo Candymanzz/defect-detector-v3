@@ -654,27 +654,24 @@ class InspectionService:
             heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
             heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
 
-        # Review сохраняется только для итогового БРАК. Решение уже считается
-        # отправленным и последующее обучение меняет лишь будущие инспекции.
-        inspection_id = None
-        if status == "БРАК" and review_candidates:
-            try:
-                inspection_id = str(uuid.uuid4())
-                self._learning_reviews.add(
-                    inspection_id=inspection_id,
-                    product_type=product_type,
-                    reference_hash=ref_hash,
-                    status=status,
-                    score=anomaly_score,
-                    threshold=inspection_threshold,
-                    aligned=aligned,
-                    diff_map=filtered_diff_map,
-                    raw_mask=display_mask,
-                    candidates=review_candidates,
-                )
-            except Exception:
-                inspection_id = None
-                logger.exception("failed to save inspection learning review product_type=%s", product_type)
+        # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
+        inspection_id = str(uuid.uuid4())
+        try:
+            self._learning_reviews.add(
+                inspection_id=inspection_id,
+                product_type=product_type,
+                reference_hash=ref_hash,
+                status=status,
+                score=anomaly_score,
+                threshold=inspection_threshold,
+                aligned=aligned,
+                diff_map=filtered_diff_map,
+                raw_mask=display_mask,
+                candidates=review_candidates,
+            )
+        except Exception:
+            inspection_id = None
+            logger.exception("failed to save inspection history product_type=%s", product_type)
 
         return InspectionResult(
             product_type=product_type,

@@ -33,6 +33,27 @@ def test_inspect_identical_frames_passes(inspection_service: InspectionService, 
     assert result.product_type == "bench"
     assert result.status == "ГОДЕН"
     assert result.anomaly_score < result.threshold
+    assert result.inspection_id is not None
+    history = inspection_service.get_learning_review(result.inspection_id)
+    assert history is not None
+    assert history["original_status"] == "ГОДЕН"
+
+
+def test_inspection_history_keeps_pass_and_fail_frames(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("history", gray_frame)
+    passed = inspection_service.inspect_frame("history", gray_frame.copy(), threshold=0.5, include_visuals=False)
+    defective = gray_frame.copy()
+    defective[10:30, 10:50] = 255
+    failed = inspection_service.inspect_frame("history", defective, threshold=0.1, include_visuals=False)
+
+    reviews = {item["inspection_id"]: item for item in inspection_service.list_learning_reviews()}
+    assert reviews[passed.inspection_id]["original_status"] == "ГОДЕН"
+    assert reviews[failed.inspection_id]["original_status"] == "БРАК"
+    assert reviews[passed.inspection_id]["defects_count"] == 0
+    assert reviews[failed.inspection_id]["defects_count"] >= 1
 
 
 def test_accept_all_review_defects_saves_score_driving_candidates(
@@ -623,7 +644,10 @@ def test_review_filter_does_not_change_score_or_pipeline_verdict(
     assert with_review.anomaly_score == pytest.approx(without_review.anomaly_score)
     assert with_review.raw_anomaly_score == pytest.approx(without_review.raw_anomaly_score)
     assert with_review.inspection_id is not None
-    assert without_review.inspection_id is None
+    assert without_review.inspection_id is not None
+    hidden_review = inspection_service.get_learning_review(without_review.inspection_id)
+    assert hidden_review is not None
+    assert hidden_review["defects"] == []
 
 
 def test_learned_rectangle_does_not_suppress_round_defect(

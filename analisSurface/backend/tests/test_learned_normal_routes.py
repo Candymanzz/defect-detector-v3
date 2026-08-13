@@ -20,6 +20,9 @@ def test_learning_review_page_is_available() -> None:
     assert "СОХРАНЁН КАК НОРМА" in response.text
     assert "БУДЕТ СОХРАНЁН ПО КНОПКЕ" in response.text
     assert "/accept-all-as-normal" in response.text
+    assert "История инспекций" in response.text
+    assert "Предыдущий кадр" in response.text
+    assert "Следующий кадр" in response.text
 
 
 def test_local_inspection_test_page_is_available() -> None:
@@ -37,6 +40,10 @@ def test_local_inspection_test_page_is_available() -> None:
     assert "СОХРАНЁН КАК НОРМА" in response.text
     assert "БУДЕТ СОХРАНЁН ПО КНОПКЕ" in response.text
     assert "/accept-all-as-normal" in response.text
+    assert "История инспекций" in response.text
+    assert "Предыдущий кадр" in response.text
+    assert "Следующий кадр" in response.text
+    assert "openHistoryFrame" in response.text
 
 
 def test_accept_all_defects_route(monkeypatch) -> None:

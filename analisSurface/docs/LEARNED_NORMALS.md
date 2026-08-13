@@ -82,8 +82,8 @@ backend/app/data/accepted_normals/
 
 Для каждого примера создаются JSON-метаданные и сжатые NumPy-шаблоны. На старте
 сервиса каталог очищается: после перезапуска ложняки предыдущей смены не
-действуют. Архив review пишется на диск (`learning_reviews/`) и по умолчанию
-содержит последние 50 результатов `БРАК` (FIFO). Лимит задаётся переменной:
+действуют. Архив инспекций пишется на диск (`learning_reviews/`) и по умолчанию
+содержит последние 50 кадров — и `ГОДЕН`, и `БРАК` (FIFO). Лимит задаётся переменной:
 
 ```text
 ANALIS_LEARNING_REVIEW_LIMIT=50
@@ -106,7 +106,7 @@ DELETE /learning/accepted-cases/{case_id}
 `affects_original_pipeline_decision=false`.
 Дополнительные поля обычного результата инспекции обратно совместимы:
 
-- `inspection_id` — только для сохранённого результата `БРАК`;
+- `inspection_id` — UUID кадра в сессионной истории (`ГОДЕН` и `БРАК`);
 - `learned_normal_matches_count`;
 - `learned_normal_adjustment`;
 - `matched_accepted_case_ids`.

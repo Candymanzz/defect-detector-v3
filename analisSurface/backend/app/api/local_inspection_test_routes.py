@@ -70,6 +70,14 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     .defect { border:1px solid #34465d; border-radius:9px; padding:10px; margin-bottom:8px; }
     .defect.learned { border-color:#45bd7e; }
     .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .history-strip { display:flex; gap:10px; overflow-x:auto; padding:10px 0 4px; }
+    .history-item { flex:0 0 156px; margin:0; padding:0; background:#111b25; border:1px solid #2d3b4f; border-radius:10px; overflow:hidden; cursor:pointer; color:inherit; text-align:left; }
+    .history-item:hover { border-color:#5687c5; }
+    .history-item.active { border-color:#ffc441; box-shadow:0 0 0 1px #ffc441; }
+    .history-item.learned { border-color:#45bd7e; }
+    .history-item.pass-status { border-color:#2f6f4a; }
+    .history-item img { width:100%; height:86px; object-fit:cover; display:block; background:#070a0e; }
+    .history-item div { padding:8px; font-size:12px; }
     .norms { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; margin-top:12px; }
     .normal { display:grid; grid-template-columns:86px minmax(0,1fr); gap:10px; align-items:center; background:#111b25; border:1px solid #31513f; border-radius:10px; padding:9px; }
     .normal img { width:86px; height:86px; object-fit:cover; border-radius:7px; background:#070a0e; }
@@ -83,7 +91,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 <body>
   <header>
     <h1>Локальный тест инспекции</h1>
-    <div class="muted">Эталон → текущий кадр → результат → «Дообучить этот БРАК». После перезапуска Python ложняки смены сбрасываются.</div>
+    <div class="muted">Эталон → текущий кадр → история инспекций (ГОДЕН и БРАК). Можно вернуться к кадру и пометить ложняк. После перезапуска Python история сбрасывается.</div>
     <div class="warning">Используйте отдельный тип <b>local-test</b>. Если указать реальный тип изделия/камеры, сохранённая норма сможет повлиять на производственные инспекции этого типа.</div>
   </header>
 
@@ -119,6 +127,17 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     <div id="message" class="muted"></div>
   </section>
 
+  <section class="panel">
+    <div class="row">
+      <h2>История инспекций</h2>
+      <button type="button" onclick="shiftHistory(1)">Предыдущий кадр</button>
+      <button type="button" onclick="shiftHistory(-1)">Следующий кадр</button>
+      <button type="button" onclick="loadHistory()">Обновить</button>
+    </div>
+    <div class="muted">Последние кадры этой сессии — и хорошие, и брак (до 50). Нажмите кадр, чтобы вернуться. Ложное срабатывание можно пометить, если на кадре есть контуры.</div>
+    <div id="frameHistory" class="history-strip"></div>
+  </section>
+
   <section id="resultPanel" class="panel hidden">
     <h2>Результат</h2>
     <div id="resultMetrics" class="result"></div>
@@ -132,7 +151,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 
   <section id="defectPanel" class="panel hidden">
     <h2>Дефекты этого кадра</h2>
-    <div class="muted">«Дообучить этот БРАК» запоминает все показанные контуры. Если на кадре был и настоящий дефект — выучит оба. Изменятся только будущие проверки.</div>
+    <div class="muted">Откройте кадр из истории. «Дообучить этот БРАК» запоминает контуры как ложные срабатывания. Если на кадре был и настоящий дефект — выучит оба.</div>
     <div class="review-grid">
       <div class="viewer"><img id="reviewImage"><svg id="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div>
       <div>
@@ -152,6 +171,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 
 <script>
   let currentReview = null;
+  let historyItems = [];
   let roiPoints = [];
   const fullFrameRoi = [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -167,7 +187,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   bindPreview('referenceFile','referencePreview');
   bindPreview('currentFile','currentPreview');
   document.getElementById('referenceFile').addEventListener('change', clearRoi);
-  document.getElementById('productType').addEventListener('change', () => { clearRoi(); loadAcceptedCases(); });
+  document.getElementById('productType').addEventListener('change', () => { clearRoi(); loadAcceptedCases(); loadHistory(); });
 
   const roiSvgPoints = points => points.map(point => `${point.x},${point.y}`).join(' ');
   function renderRoi() {
@@ -240,10 +260,14 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       if(threshold !== '') inspectForm.append('threshold', threshold);
       const result = await jsonResponse(await fetch('/inspect', {method:'POST', body:inspectForm}));
       renderResult(result, performance.now() - started);
-      if(result.inspection_id) await loadReview(result.inspection_id);
-      else currentReview = null;
+      await loadHistory();
+      if(result.inspection_id) await openHistoryFrame(result.inspection_id);
+      else {
+        currentReview = null;
+        highlightHistory();
+      }
       await loadAcceptedCases();
-      setMessage('Проверка завершена. После сохранения нормы нажмите «Запустить проверку» ещё раз с тем же кадром.');
+      setMessage('Проверка завершена. Кадр попал в историю инспекций — можно вернуться к ГОДЕН или БРАК.');
     } catch(error) {
       setMessage(`Ошибка: ${error.message || error}`, true);
     } finally {
@@ -278,6 +302,80 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     document.getElementById('defectPanel').classList.remove('hidden');
   }
 
+  async function openHistoryFrame(inspectionId) {
+    await loadReview(inspectionId);
+    const review = currentReview;
+    const statusClass = review.original_status === 'ГОДЕН' ? 'good' : 'bad';
+    const stamp = Date.now();
+    const imageUrl = kind => `/learning/reviews/${encodeURIComponent(review.inspection_id)}/image/${kind}?v=${stamp}`;
+    document.getElementById('resultMetrics').innerHTML = `
+      <div class="metric">Статус<b class="${statusClass}">${esc(review.original_status)}</b></div>
+      <div class="metric">Score кадра<b>${Number(review.original_score).toFixed(4)}</b></div>
+      <div class="metric">Порог<b>${Number(review.threshold).toFixed(4)}</b></div>
+      <div class="metric">Областей<b>${Number(review.defects.length)}</b></div>
+      <div class="metric">Уже сохранено<b>${Number(review.accepted_defects_count || 0)}</b></div>
+      <div class="metric">Кадр из истории<b>${esc(String(review.inspection_id).slice(0, 8))}</b></div>`;
+    document.getElementById('alignedImage').src = imageUrl('aligned');
+    document.getElementById('heatmapImage').src = imageUrl('heatmap');
+    document.getElementById('diffImage').src = imageUrl('diff');
+    document.getElementById('maskImage').src = imageUrl('mask');
+    document.getElementById('resultPanel').classList.remove('hidden');
+    highlightHistory();
+  }
+
+  async function loadHistory() {
+    const root = document.getElementById('frameHistory');
+    root.innerHTML = '<div class="muted">Загрузка истории...</div>';
+    try {
+      const query = new URLSearchParams({product_type: productType()});
+      const payload = await jsonResponse(await fetch(`/learning/reviews?${query}`, {cache:'no-store'}));
+      historyItems = payload.reviews || [];
+      if(!historyItems.length) {
+        root.innerHTML = '<div class="muted">История пуста. После проверки кадр появится здесь.</div>';
+        return;
+      }
+      root.innerHTML = historyItems.map(item => {
+        const isPass = item.original_status === 'ГОДЕН';
+        const statusClass = isPass ? 'good' : 'bad';
+        const hint = item.accepted_defects_count ? 'уже помечен' : (item.defects_count ? 'можно пометить' : 'дефектов нет');
+        return `
+        <button type="button" class="history-item${item.accepted_defects_count ? ' learned' : ''}${isPass ? ' pass-status' : ''}" data-inspection-id="${esc(item.inspection_id)}">
+          <img src="/learning/reviews/${encodeURIComponent(item.inspection_id)}/image/${isPass ? 'aligned' : 'heatmap'}" alt="${esc(item.original_status)}" loading="lazy">
+          <div><span class="${statusClass}">${esc(item.original_status)}</span> · ${Number(item.original_score).toFixed(3)}<br>
+          <span class="muted">${hint} · областей ${item.defects_count}</span></div>
+        </button>`;
+      }).join('');
+      root.querySelectorAll('.history-item').forEach(node => {
+        node.addEventListener('click', () => openHistoryFrame(node.dataset.inspectionId));
+      });
+      highlightHistory();
+    } catch(error) {
+      root.innerHTML = `<div class="bad">${esc(error.message || error)}</div>`;
+    }
+  }
+
+  function highlightHistory() {
+    const currentId = currentReview && currentReview.inspection_id;
+    document.querySelectorAll('#frameHistory .history-item').forEach(node => {
+      node.classList.toggle('active', node.dataset.inspectionId === currentId);
+    });
+  }
+
+  function shiftHistory(delta) {
+    if(!historyItems.length) return;
+    const currentId = currentReview && currentReview.inspection_id;
+    const index = historyItems.findIndex(item => item.inspection_id === currentId);
+    const nextIndex = index < 0 ? 0 : index + delta;
+    if(nextIndex < 0 || nextIndex >= historyItems.length) return;
+    openHistoryFrame(historyItems[nextIndex].inspection_id);
+  }
+
+  document.addEventListener('keydown', event => {
+    if(event.target.matches('input, textarea')) return;
+    if(event.key === 'ArrowLeft') { event.preventDefault(); shiftHistory(1); }
+    if(event.key === 'ArrowRight') { event.preventDefault(); shiftHistory(-1); }
+  });
+
   function polygonPoints(defect) { return (defect.polygon || []).map(point => `${point.x},${point.y}`).join(' '); }
   function defectState(item) {
     if(item.manually_accepted) return `СОХРАНЁН КАК НОРМА · ID ${String(item.matched_case_id || '').slice(0, 8)}`;
@@ -290,11 +388,13 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     document.getElementById('overlay').innerHTML = currentReview.defects.map(item => `
       <polygon class="${item.manually_accepted || item.accepted_as_normal ? 'learned' : ''}" points="${polygonPoints(item)}"><title>${esc(item.id)}</title></polygon>`).join('');
     const list = document.getElementById('defectList');
-    list.innerHTML = currentReview.defects.map(item => `
+    list.innerHTML = currentReview.defects.length
+      ? currentReview.defects.map(item => `
       <div class="defect ${item.manually_accepted || item.accepted_as_normal?'learned':''}">
         <b>${esc(item.id)}</b> · ${esc(defectState(item))}<br>
         <span class="muted">score ${Number(item.score).toFixed(3)} · площадь ${Number(item.area)} · q90 ${Number(item.diff_q90).toFixed(1)}</span>
-      </div>`).join('');
+      </div>`).join('')
+      : '<div class="muted">На этом кадре нет контуров для дообучения.</div>';
     const pending = currentReview.defects.filter(item => !item.manually_accepted && !item.accepted_as_normal);
     document.getElementById('acceptButton').disabled = pending.length === 0;
     const acceptAllButton = document.getElementById('acceptAllButton');
@@ -316,7 +416,9 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       document.getElementById('acceptStatus').textContent = `Запомнено контуров: ${Number(payload.accepted_count)}.${preview} Запустите проверку повторно.`;
       currentReview = await jsonResponse(await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}));
       renderReview();
+      highlightHistory();
       await loadAcceptedCases();
+      await loadHistory();
     } catch(error) {
       document.getElementById('acceptStatus').textContent = `Ошибка: ${error.message || error}`;
       renderReview();
@@ -349,6 +451,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
 
   loadAcceptedCases();
+  loadHistory();
   renderRoi();
 </script>
 </body>
