@@ -1,5 +1,5 @@
 {
-  "id": "be032a31-b765-41ef-9d3e-b6cb5d091883",
+  "id": "1d0859a0-f3b2-4fa8-bf3c-ada8f6fa5f03",
   "product_type": "shape-rectangle-circle",
   "reference_hash": "c8c1466852b2b773ecb75b27",
   "bbox_norm": {
@@ -12,8 +12,8 @@
   "diff_mean": 33.60446247464503,
   "diff_q90": 41.0,
   "diff_max": 41.0,
-  "created_at": "2026-08-12T11:54:09.873987+00:00",
-  "source_inspection_id": "e136b275-d876-40c6-bb38-22d9502fb22d",
+  "created_at": "2026-08-12T13:44:53.485417+00:00",
+  "source_inspection_id": "9dfafb62-6cbe-431f-8764-25c125bbb8f8",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,

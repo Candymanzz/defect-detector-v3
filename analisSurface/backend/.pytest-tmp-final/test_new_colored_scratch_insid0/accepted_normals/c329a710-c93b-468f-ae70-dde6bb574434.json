@@ -1,5 +1,5 @@
 {
-  "id": "b6a684e1-a1db-4467-987a-321ac2e5c75f",
+  "id": "c329a710-c93b-468f-ae70-dde6bb574434",
   "product_type": "glare-with-scratch",
   "reference_hash": "bbe58fe4d204b7e3a120404e",
   "bbox_norm": {
@@ -12,8 +12,8 @@
   "diff_mean": 50.984607432083166,
   "diff_q90": 52.0,
   "diff_max": 52.0,
-  "created_at": "2026-08-12T11:54:10.018489+00:00",
-  "source_inspection_id": "7b393834-9d60-46d6-b336-d7956f0bab35",
+  "created_at": "2026-08-12T13:44:53.665639+00:00",
+  "source_inspection_id": "97408b60-93af-48f1-98ee-5bf899d273a4",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,

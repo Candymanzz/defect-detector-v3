@@ -1,5 +1,5 @@
 {
-  "id": "0c8423a3-8e59-4d57-b1ca-91382f19c9fc",
+  "id": "e58c7b24-3736-4645-9530-d7f7a3d3f922",
   "product_type": "position-bound-normal",
   "reference_hash": "587bdced65ad2b86d06209cf",
   "bbox_norm": {
@@ -12,8 +12,8 @@
   "diff_mean": 71.34001743679163,
   "diff_q90": 120.0,
   "diff_max": 127.0,
-  "created_at": "2026-08-12T11:54:09.596036+00:00",
-  "source_inspection_id": "13a736e9-a3dc-4e77-8ac5-0bbc8769ed6b",
+  "created_at": "2026-08-12T13:44:53.207971+00:00",
+  "source_inspection_id": "7722d972-a418-4643-a924-fed2266947a4",
   "source_defect_id": "defect-1",
   "note": "",
   "enabled": true,
