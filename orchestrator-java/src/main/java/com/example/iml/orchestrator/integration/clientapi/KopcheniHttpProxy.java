@@ -32,8 +32,20 @@ public final class KopcheniHttpProxy {
         String suffix = stripClientPrefix(exchangePath);
         String query = ex.getRequestURI().getRawQuery();
         String target = baseUrl + suffix + (query == null || query.isEmpty() ? "" : "?" + query);
+        send(ex, target, readRequestBody(ex), ex.getRequestHeaders().getFirst("Content-Type"));
+    }
+
+    /**
+     * Прямой прокси на Python-путь. Если {@code body} не null — он уходит вместо тела входящего запроса.
+     */
+    public static void forwardTarget(HttpExchange ex, String baseUrl, String pythonPath, byte[] body) throws IOException {
+        String target = baseUrl + (pythonPath.startsWith("/") ? pythonPath : "/" + pythonPath);
+        String contentType = body != null ? "application/json; charset=utf-8" : ex.getRequestHeaders().getFirst("Content-Type");
+        send(ex, target, body != null ? body : readRequestBody(ex), contentType);
+    }
+
+    private static void send(HttpExchange ex, String target, byte[] body, String contentType) throws IOException {
         String method = ex.getRequestMethod().toUpperCase(Locale.ROOT);
-        byte[] body = readRequestBody(ex);
         boolean noBody = "GET".equals(method)
                 || "HEAD".equals(method)
                 || body.length == 0 && ("DELETE".equals(method) || "OPTIONS".equals(method));
@@ -41,9 +53,8 @@ public final class KopcheniHttpProxy {
                 .timeout(Duration.ofSeconds(120))
                 .version(HttpClient.Version.HTTP_1_1)
                 .method(method, noBody ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body));
-        String ct = ex.getRequestHeaders().getFirst("Content-Type");
-        if (ct != null && !ct.isBlank() && body.length > 0) {
-            rb.header("Content-Type", ct);
+        if (contentType != null && !contentType.isBlank() && body.length > 0) {
+            rb.header("Content-Type", contentType);
         }
         rb.header("Accept", ex.getRequestHeaders().getFirst("Accept") != null ? ex.getRequestHeaders().getFirst("Accept") : "*/*");
         try {

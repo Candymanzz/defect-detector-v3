@@ -272,6 +272,7 @@ export type InspectResultPayload = {
   camera_id: number;
   frame_id: string;
   inspection_id?: string;
+  learned_review_id?: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;

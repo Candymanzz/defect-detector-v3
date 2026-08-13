@@ -366,6 +366,22 @@ export type TestAnalyzeResponse = {
   frameId: number;
 };
 
+export type AcceptLearnedNormalsRequest = {
+  frameId: string | number;
+  productType: string;
+  cameraId?: number;
+  note?: string;
+};
+
+export type AcceptLearnedNormalsResponse = {
+  saved?: boolean;
+  accepted_count?: number;
+  inspection_id?: string;
+  learned_review_id?: string;
+  affects_original_pipeline_decision?: boolean;
+  [key: string]: unknown;
+};
+
 export type AnalysisPresetResponse<TKnobs> = AnalysisSettingsResponse & {
   knobs: TKnobs | null;
   detector_id?: string;

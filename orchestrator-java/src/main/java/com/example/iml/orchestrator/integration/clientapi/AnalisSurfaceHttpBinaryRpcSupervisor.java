@@ -428,6 +428,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return errorMessageToMsg(resp, "inspect-shm");
         }
         Map<String, Object> json = readJson(resp.body());
+        rememberLearnedReview(header, json);
         Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
         pyHeader.put("product_type", originalProductType);
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
@@ -526,6 +527,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return errorMessageToMsg(resp, "inspect-shm-visuals");
         }
         Map<String, Object> json = readJson(resp.body());
+        rememberLearnedReview(header, json);
         Map<String, Object> h = inspectJsonToStdioHeader(json);
         h.put("product_type", String.valueOf(header.getOrDefault("product_type", "")));
         Object hm = json.get("heatmap_u8");
@@ -769,7 +771,32 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         h.put("recheck_adjustment", YamlScalars.toDouble(json.get("recheck_adjustment"), 0.0));
         Object ids = json.get("rechecked_zone_ids");
         h.put("rechecked_zone_ids", ids == null ? List.of() : ids);
+        Object learnedReviewId = json.get("inspection_id");
+        if (learnedReviewId != null) {
+            String reviewId = String.valueOf(learnedReviewId).trim();
+            if (!reviewId.isEmpty() && !"null".equalsIgnoreCase(reviewId)) {
+                h.put("learned_review_id", reviewId);
+            }
+        }
+        h.put("learned_normal_matches_count", YamlScalars.toInt(json.get("learned_normal_matches_count"), 0));
+        h.put("learned_normal_adjustment", YamlScalars.toDouble(json.get("learned_normal_adjustment"), 0.0));
         return h;
+    }
+
+    private void rememberLearnedReview(Map<String, Object> header, Map<String, Object> json) {
+        Object learnedReviewId = json.get("inspection_id");
+        if (learnedReviewId == null) {
+            return;
+        }
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
+        String productType = String.valueOf(header.getOrDefault("product_type", ""));
+        LearnedReviewIndex.remember(
+                cameraId,
+                frameId,
+                scopedProductType(productType, cameraId),
+                String.valueOf(learnedReviewId)
+        );
     }
 
     private HttpResponse<byte[]> httpGetRaw(String path) throws IOException {

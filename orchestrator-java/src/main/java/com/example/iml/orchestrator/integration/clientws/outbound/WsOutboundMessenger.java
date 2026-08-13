@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.clientws.outbound;
 
+import com.example.iml.orchestrator.integration.clientapi.LearnedReviewIndex;
 import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsInvalidCaptureDescriptorException;
@@ -554,6 +555,10 @@ public final class WsOutboundMessenger {
         payload.put("camera_id", cameraId);
         payload.put("frame_id", Long.toString(frameIdLong));
         payload.put("inspection_id", Long.toString(inspectionId));
+        String learnedReviewId = LearnedReviewIndex.lookup(cameraId, frameIdLong, null);
+        if (learnedReviewId != null) {
+            payload.put("learned_review_id", learnedReviewId);
+        }
         payload.put("session_state", sessionState.get().name());
         payload.set("current", current);
         String bundleId = inspectionArtifactBundleId == null ? "" : inspectionArtifactBundleId.trim();
