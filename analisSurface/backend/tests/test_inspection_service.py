@@ -34,6 +34,134 @@ def test_inspect_identical_frames_passes(inspection_service: InspectionService, 
     assert result.anomaly_score < result.threshold
 
 
+def test_accept_all_review_defects_saves_score_driving_candidates(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((240, 360, 3), 78, dtype=np.uint8)
+    for x in range(20, 350, 40):
+        cv2.line(reference, (x, 18), (x, 220), (91, 91, 91), 1)
+    for y in range(30, 230, 40):
+        cv2.line(reference, (15, y), (345, y), (84, 84, 84), 1)
+    current = reference.copy()
+    current[35:64, 34:78] = 206
+    current[152:188, 254:309] = 220
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("accept-all", reference)
+
+    result = inspection_service.inspect_frame(
+        "accept-all",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(result.inspection_id)
+    assert review is not None
+    # Обе области заметно влияют на результат и должны быть доступны оператору.
+    assert len(review["defects"]) == 2
+
+    accepted = inspection_service.accept_all_review_defects_as_normal(
+        result.inspection_id,
+        note="whole image accepted",
+    )
+
+    assert accepted["accepted_count"] == 2
+    assert len(accepted["accepted_cases"]) == 2
+    updated = inspection_service.get_learning_review(result.inspection_id)
+    assert updated is not None
+    assert all(item["manually_accepted"] for item in updated["defects"])
+    replay = inspection_service.inspect_frame(
+        "accept-all",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert replay.status == "ГОДЕН"
+    assert replay.learned_normal_matches_count == 2
+    with pytest.raises(ValueError, match="already accepted"):
+        inspection_service.accept_all_review_defects_as_normal(result.inspection_id)
+
+
+def test_accept_all_review_defects_handles_mixed_shapes_and_sizes(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((240, 360, 3), 78, dtype=np.uint8)
+    for x in range(20, 350, 40):
+        cv2.line(reference, (x, 18), (x, 220), (91, 91, 91), 1)
+    for y in range(30, 230, 40):
+        cv2.line(reference, (15, y), (345, y), (84, 84, 84), 1)
+    current = reference.copy()
+    current[34:65, 32:77] = 210
+    cv2.line(current, (145, 80), (275, 101), (236, 236, 236), 3)
+    cv2.circle(current, (285, 175), 13, (212, 212, 212), -1)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("accept-all-mixed", reference)
+
+    result = inspection_service.inspect_frame(
+        "accept-all-mixed",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(result.inspection_id)
+    assert review is not None
+    # Все три заметно влияющие области разных форм должны быть показаны и
+    # добавлены в норму одной кнопкой.
+    assert len(review["defects"]) == 3
+
+    accepted = inspection_service.accept_all_review_defects_as_normal(result.inspection_id)
+    assert accepted["accepted_count"] == 3
+
+    replay = inspection_service.inspect_frame(
+        "accept-all-mixed",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert replay.status == "ГОДЕН"
+    assert replay.learned_normal_matches_count == 3
+
+
+def test_accept_all_keeps_new_important_defect_rejected(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((180, 300, 3), 80, dtype=np.uint8)
+    accepted_frame = reference.copy()
+    accepted_frame[35:80, 30:85] = 205
+    # Слабая точка не должна сохраняться и после обучения не должна повторно
+    # становиться главной причиной брака.
+    accepted_frame[135:141, 130:136] = 110
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("accept-all-new-defect", reference)
+
+    original = inspection_service.inspect_frame(
+        "accept-all-new-defect",
+        accepted_frame,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None
+    inspection_service.accept_all_review_defects_as_normal(original.inspection_id)
+
+    new_frame = accepted_frame.copy()
+    new_frame[95:135, 205:265] = 230
+    result = inspection_service.inspect_frame(
+        "accept-all-new-defect",
+        new_frame,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count >= 1
+    assert result.status == "БРАК"
+
+
 def test_inspect_without_reference_raises(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     with pytest.raises(ValueError, match="Reference for product_type"):
         inspection_service.inspect_frame("missing", gray_frame)

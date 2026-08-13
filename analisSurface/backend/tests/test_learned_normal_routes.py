@@ -15,6 +15,10 @@ def test_learning_review_page_is_available() -> None:
     assert "Обучение допустимым фрагментам" in response.text
     assert "Сохранённые нормы" in response.text
     assert "Удалить из списка нормы" in response.text
+    assert "Считать все дефекты допустимой нормой" in response.text
+    assert "СОХРАНЁН КАК НОРМА" in response.text
+    assert "БУДЕТ СОХРАНЁН ПО КНОПКЕ" in response.text
+    assert "/accept-all-as-normal" in response.text
 
 
 def test_local_inspection_test_page_is_available() -> None:
@@ -27,6 +31,36 @@ def test_local_inspection_test_page_is_available() -> None:
     assert "fetch('/roi-polygon'" in response.text
     assert "fetch('/upload-ref'" in response.text
     assert "fetch('/inspect'" in response.text
+    assert "Считать все дефекты нормой" in response.text
+    assert "СОХРАНЁН КАК НОРМА" in response.text
+    assert "БУДЕТ СОХРАНЁН ПО КНОПКЕ" in response.text
+    assert "/accept-all-as-normal" in response.text
+
+
+def test_accept_all_defects_route(monkeypatch) -> None:
+    expected = {
+        "saved": True,
+        "accepted_count": 2,
+        "inspection_id": "inspection-1",
+    }
+    monkeypatch.setattr(
+        inspection_service,
+        "accept_all_review_defects_as_normal",
+        lambda inspection_id, note="": {
+            **expected,
+            "inspection_id": inspection_id,
+            "note": note,
+        },
+    )
+
+    response = client.post(
+        "/learning/reviews/inspection-1/accept-all-as-normal",
+        json={"note": "accepted image"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["accepted_count"] == 2
+    assert response.json()["note"] == "accepted image"
 
 
 def test_local_inspection_multipart_flow_returns_visuals_and_review() -> None:

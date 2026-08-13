@@ -177,8 +177,99 @@ class InspectionService:
             counterfactual_status=None,
         )
 
-        # Ознакомительный пересчёт не покидает этот API и не публикуется в
-        # оркестратор/PLC. Он показывает, как новый пример повлиял бы на тот кадр.
+        counterfactual_score, counterfactual_status = self._review_counterfactual(review)
+        self._learning_reviews.mark_accepted(
+            inspection_id,
+            defect_id,
+            counterfactual_score=counterfactual_score,
+            counterfactual_status=counterfactual_status,
+        )
+        return {
+            "saved": True,
+            "accepted_case": accepted_case.to_public_dict(),
+            "inspection_id": inspection_id,
+            "defect_id": defect_id,
+            "original_status": review.original_status,
+            "original_score": review.original_score,
+            "counterfactual_status": counterfactual_status,
+            "counterfactual_score": counterfactual_score,
+            "affects_original_pipeline_decision": False,
+            "pipeline_decision_sent": True,
+        }
+
+    def accept_all_review_defects_as_normal(
+        self,
+        inspection_id: str,
+        note: str = "",
+    ) -> dict:
+        """Одной операцией запомнить все ещё не принятые дефекты review."""
+        review = self._learning_reviews.get(inspection_id)
+        if review is None:
+            raise KeyError("inspection")
+
+        candidates = [
+            candidate
+            for candidate in review.defects
+            if candidate.id not in review.accepted_defect_ids
+            and candidate.matched_case_id is None
+        ]
+        if not candidates:
+            raise ValueError("All review defects are already accepted as normal")
+
+        accepted_cases = []
+        try:
+            for candidate in candidates:
+                accepted_case = self._accepted_normals.add_from_candidate(
+                    product_type=review.product_type,
+                    reference_hash=review.reference_hash,
+                    inspection_id=review.inspection_id,
+                    candidate=candidate,
+                    note=note,
+                )
+                candidate.matched_case_id = accepted_case.id
+                candidate.similarity = 1.0
+                accepted_cases.append(accepted_case)
+        except Exception:
+            # Групповое действие не должно оставлять частично сохранённый набор.
+            for candidate, accepted_case in zip(candidates, accepted_cases):
+                self._accepted_normals.delete(accepted_case.id)
+                candidate.matched_case_id = None
+                candidate.similarity = None
+            raise
+
+        for candidate in candidates:
+            self._learning_reviews.mark_accepted(
+                inspection_id,
+                candidate.id,
+                counterfactual_score=None,
+                counterfactual_status=None,
+            )
+
+        counterfactual_score, counterfactual_status = self._review_counterfactual(review)
+        for candidate in candidates:
+            self._learning_reviews.mark_accepted(
+                inspection_id,
+                candidate.id,
+                counterfactual_score=counterfactual_score,
+                counterfactual_status=counterfactual_status,
+            )
+
+        return {
+            "saved": True,
+            "accepted_count": len(accepted_cases),
+            "accepted_cases": [case.to_public_dict() for case in accepted_cases],
+            "inspection_id": inspection_id,
+            "defect_ids": [candidate.id for candidate in candidates],
+            "original_status": review.original_status,
+            "original_score": review.original_score,
+            "counterfactual_status": counterfactual_status,
+            "counterfactual_score": counterfactual_score,
+            "affects_original_pipeline_decision": False,
+            "pipeline_decision_sent": True,
+        }
+
+    def _review_counterfactual(self, review) -> tuple[Optional[float], Optional[str]]:
+        """Ознакомительный пересчёт без публикации решения в оркестратор/PLC."""
         counterfactual_score: Optional[float] = None
         counterfactual_status: Optional[str] = None
         try:
@@ -210,32 +301,12 @@ class InspectionService:
                 polygon=self.get_roi_polygon(review.product_type),
                 sub_zones=self.get_roi_sub_zones(review.product_type),
             )
-            self._learning_reviews.mark_accepted(
-                inspection_id,
-                defect_id,
-                counterfactual_score=counterfactual_score,
-                counterfactual_status=counterfactual_status,
-            )
         except Exception:
-            # Сбой необязательного preview не отменяет успешно сохранённое
-            # обучение и тем более не инициирует повторное pipeline-решение.
             logger.exception(
-                "accepted-normal counterfactual preview failed inspection_id=%s defect_id=%s",
-                inspection_id,
-                defect_id,
+                "accepted-normal counterfactual preview failed inspection_id=%s",
+                review.inspection_id,
             )
-        return {
-            "saved": True,
-            "accepted_case": accepted_case.to_public_dict(),
-            "inspection_id": inspection_id,
-            "defect_id": defect_id,
-            "original_status": review.original_status,
-            "original_score": review.original_score,
-            "counterfactual_status": counterfactual_status,
-            "counterfactual_score": counterfactual_score,
-            "affects_original_pipeline_decision": False,
-            "pipeline_decision_sent": True,
-        }
+        return counterfactual_score, counterfactual_status
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
         self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
@@ -517,6 +588,24 @@ class InspectionService:
         segmentation_mask = learned_filter.filtered_mask
         if learned_filter.matched_case_ids:
             learned_score, segmentation_mask = self._run_anomaly_model(learned_diff_map, settings)
+            if learned_filter.all_important_candidates_matched:
+                residual_candidates = extract_defect_candidates(
+                    aligned,
+                    learned_diff_map,
+                    segmentation_mask,
+                )
+                significant_residuals = filter_review_candidates(
+                    residual_candidates,
+                    baseline_maximum_impact=learned_filter.original_max_candidate_impact,
+                )
+                if not significant_residuals:
+                    # Адаптивный percentile после вычитания нормы не должен
+                    # повышать ранее слабый фон до нового дефекта. Остаток
+                    # сравнивается с исходной силой кадра; если значимых новых
+                    # областей нет, результат очищается полностью.
+                    learned_diff_map = np.zeros_like(learned_diff_map)
+                    segmentation_mask = np.zeros_like(segmentation_mask)
+                    learned_score = 0.0
 
         # 6. Ослабить ложняки в явных FP-зонах (известный шум/текст).
         fp_recheck = self._recheck_fp_zones(
@@ -548,6 +637,8 @@ class InspectionService:
             filtered_diff_map,
             segmentation_mask,
         )
+        # Сохраняем в review только значимые области: они и отображаются, и
+        # принимаются групповой кнопкой как допустимая норма.
         review_candidates = filter_review_candidates(candidate_source)
         display_mask = np.zeros_like(segmentation_mask)
         for candidate in review_candidates:

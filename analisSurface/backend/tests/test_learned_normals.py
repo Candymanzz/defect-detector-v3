@@ -134,6 +134,108 @@ def test_review_filter_keeps_thin_scratch_but_hides_equal_area_spot() -> None:
     ]
 
 
+def test_review_filter_keeps_low_contrast_scratch_with_material_relative_impact() -> None:
+    candidates = [
+        _candidate("main", area=10000, width=100, height=100, diff=50.0),
+        _candidate(
+            "important-scratch",
+            area=2500,
+            width=250,
+            height=8,
+            diff_mean=28.0,
+            diff_q90=33.0,
+            diff_max=36.0,
+        ),
+        _candidate(
+            "weak-trace",
+            area=700,
+            width=150,
+            height=7,
+            diff_mean=28.0,
+            diff_q90=31.0,
+            diff_max=35.0,
+        ),
+    ]
+
+    assert [item.id for item in filter_review_candidates(candidates)] == [
+        "main",
+        "important-scratch",
+    ]
+
+
+def test_review_filter_keeps_significant_scratch_below_broad_defect_cutoff() -> None:
+    candidates = [
+        _candidate("broad-defect", area=10_000, width=125, height=80, diff=50.0),
+        _candidate(
+            "visible-scratch",
+            area=1_000,
+            width=260,
+            height=10,
+            diff_mean=27.0,
+            diff_q90=31.0,
+            diff_max=38.0,
+        ),
+        _candidate(
+            "weak-line-noise",
+            area=450,
+            width=180,
+            height=8,
+            diff_mean=25.0,
+            diff_q90=30.0,
+            diff_max=34.0,
+        ),
+    ]
+
+    assert [item.id for item in filter_review_candidates(candidates)] == [
+        "broad-defect",
+        "visible-scratch",
+    ]
+
+
+def test_review_filter_keeps_secondary_score_driving_component() -> None:
+    candidates = [
+        _candidate("main-defect", area=1_000, width=40, height=30, diff=60.0),
+        _candidate("secondary-defect", area=190, width=22, height=12, diff=58.0),
+        _candidate("weak-noise", area=70, width=10, height=8, diff=45.0),
+    ]
+
+    assert [item.id for item in filter_review_candidates(candidates)] == [
+        "main-defect",
+        "secondary-defect",
+    ]
+
+
+def test_residual_filter_keeps_new_absolute_signal_but_drops_weak_background() -> None:
+    candidates = [
+        _candidate(
+            "weak-background",
+            area=500,
+            width=40,
+            height=20,
+            diff_mean=10.0,
+            diff_q90=16.0,
+            diff_max=20.0,
+        ),
+        _candidate(
+            "new-defect",
+            area=250,
+            width=31,
+            height=18,
+            diff_mean=8.0,
+            diff_q90=19.0,
+            diff_max=29.0,
+        ),
+    ]
+
+    assert [
+        item.id
+        for item in filter_review_candidates(
+            candidates,
+            baseline_maximum_impact=100_000.0,
+        )
+    ] == ["new-defect"]
+
+
 def test_review_filter_uses_weighted_diff_energy_not_area_only() -> None:
     candidates = [
         _candidate("main", area=1000, width=35, height=35, diff=80.0),
