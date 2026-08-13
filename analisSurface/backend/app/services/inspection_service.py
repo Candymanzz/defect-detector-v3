@@ -184,7 +184,7 @@ class InspectionService:
         review.accepted_defect_ids.add(defect_id)
         self._learning_reviews.put(review)
 
-        counterfactual_score, counterfactual_status = self._store_review_counterfactual(review)
+        counterfactual_score, counterfactual_status = self._review_counterfactual(review)
         return {
             "saved": True,
             "accepted_case": accepted_case.to_public_dict(),
@@ -198,40 +198,55 @@ class InspectionService:
             "pipeline_decision_sent": True,
         }
 
-    def accept_review_all_as_normal(self, inspection_id: str, note: str = "") -> dict:
-        """Считать весь БРАК этого кадра ложным. Каждый контур — отдельный case."""
+    def accept_all_review_defects_as_normal(
+        self,
+        inspection_id: str,
+        note: str = "",
+    ) -> dict:
+        """Одной операцией запомнить все ещё не принятые дефекты review."""
         review = self._learning_reviews.get(inspection_id)
         if review is None:
             raise KeyError("inspection")
-        pending = [
+
+        candidates = [
             candidate
             for candidate in review.defects
-            if candidate.id not in review.accepted_defect_ids and candidate.matched_case_id is None
+            if candidate.id not in review.accepted_defect_ids
+            and candidate.matched_case_id is None
         ]
-        if not pending:
-            raise ValueError("No pending defects to accept as normal")
+        if not candidates:
+            raise ValueError("All review defects are already accepted as normal")
 
         accepted_cases = []
-        for candidate in pending:
-            accepted_case = self._accepted_normals.add_from_candidate(
-                product_type=review.product_type,
-                reference_hash=review.reference_hash,
-                inspection_id=review.inspection_id,
-                candidate=candidate,
-                note=note,
-            )
-            candidate.matched_case_id = accepted_case.id
-            candidate.similarity = 1.0
-            review.accepted_defect_ids.add(candidate.id)
-            accepted_cases.append(accepted_case)
-        self._learning_reviews.put(review)
+        try:
+            for candidate in candidates:
+                accepted_case = self._accepted_normals.add_from_candidate(
+                    product_type=review.product_type,
+                    reference_hash=review.reference_hash,
+                    inspection_id=review.inspection_id,
+                    candidate=candidate,
+                    note=note,
+                )
+                candidate.matched_case_id = accepted_case.id
+                candidate.similarity = 1.0
+                review.accepted_defect_ids.add(candidate.id)
+                accepted_cases.append(accepted_case)
+        except Exception:
+            for candidate, accepted_case in zip(candidates, accepted_cases):
+                self._accepted_normals.delete(accepted_case.id)
+                candidate.matched_case_id = None
+                candidate.similarity = None
+                review.accepted_defect_ids.discard(candidate.id)
+            raise
 
-        counterfactual_score, counterfactual_status = self._store_review_counterfactual(review)
+        self._learning_reviews.put(review)
+        counterfactual_score, counterfactual_status = self._review_counterfactual(review)
         return {
             "saved": True,
-            "accepted_cases": [case.to_public_dict() for case in accepted_cases],
             "accepted_count": len(accepted_cases),
+            "accepted_cases": [case.to_public_dict() for case in accepted_cases],
             "inspection_id": inspection_id,
+            "defect_ids": [candidate.id for candidate in candidates],
             "original_status": review.original_status,
             "original_score": review.original_score,
             "counterfactual_status": counterfactual_status,
@@ -240,7 +255,10 @@ class InspectionService:
             "pipeline_decision_sent": True,
         }
 
-    def _store_review_counterfactual(self, review) -> Tuple[Optional[float], Optional[str]]:
+    def accept_review_all_as_normal(self, inspection_id: str, note: str = "") -> dict:
+        return self.accept_all_review_defects_as_normal(inspection_id, note)
+
+    def _review_counterfactual(self, review) -> Tuple[Optional[float], Optional[str]]:
         """Ознакомительный пересчёт не публикуется в оркестратор/PLC."""
         counterfactual_score: Optional[float] = None
         counterfactual_status: Optional[str] = None
@@ -563,6 +581,24 @@ class InspectionService:
         segmentation_mask = learned_filter.filtered_mask
         if learned_filter.matched_case_ids:
             learned_score, segmentation_mask = self._run_anomaly_model(learned_diff_map, settings)
+            if learned_filter.all_important_candidates_matched:
+                residual_candidates = extract_defect_candidates(
+                    aligned,
+                    learned_diff_map,
+                    segmentation_mask,
+                )
+                significant_residuals = filter_review_candidates(
+                    residual_candidates,
+                    baseline_maximum_impact=learned_filter.original_max_candidate_impact,
+                )
+                if not significant_residuals:
+                    # Адаптивный percentile после вычитания нормы не должен
+                    # повышать ранее слабый фон до нового дефекта. Остаток
+                    # сравнивается с исходной силой кадра; если значимых новых
+                    # областей нет, результат очищается полностью.
+                    learned_diff_map = np.zeros_like(learned_diff_map)
+                    segmentation_mask = np.zeros_like(segmentation_mask)
+                    learned_score = 0.0
 
         # 6. Ослабить ложняки в явных FP-зонах (известный шум/текст).
         fp_recheck = self._recheck_fp_zones(
@@ -594,6 +630,8 @@ class InspectionService:
             filtered_diff_map,
             segmentation_mask,
         )
+        # Сохраняем в review только значимые области: они и отображаются, и
+        # принимаются групповой кнопкой как допустимая норма.
         review_candidates = filter_review_candidates(candidate_source)
         display_mask = np.zeros_like(segmentation_mask)
         for candidate in review_candidates:

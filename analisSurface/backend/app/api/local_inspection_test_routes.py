@@ -65,11 +65,9 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     .viewer { position:relative; min-width:0; background:#070a0e; border-radius:10px; overflow:hidden; }
     .viewer img { display:block; width:100%; height:auto; }
     .viewer svg { position:absolute; inset:0; width:100%; height:100%; }
-    polygon { fill:rgba(255,65,65,.24); stroke:#ff5252; stroke-width:.004; vector-effect:non-scaling-stroke; cursor:pointer; }
-    polygon.selected { fill:rgba(255,196,65,.34); stroke:#ffc441; stroke-width:.007; }
+    polygon { fill:rgba(255,65,65,.24); stroke:#ff5252; stroke-width:.004; vector-effect:non-scaling-stroke; pointer-events:none; }
     polygon.learned { fill:rgba(52,220,129,.28); stroke:#45df91; }
-    .defect { border:1px solid #34465d; border-radius:9px; padding:10px; margin-bottom:8px; cursor:pointer; }
-    .defect.selected { border-color:#ffc441; }
+    .defect { border:1px solid #34465d; border-radius:9px; padding:10px; margin-bottom:8px; }
     .defect.learned { border-color:#45bd7e; }
     .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .norms { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; margin-top:12px; }
@@ -134,14 +132,14 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 
   <section id="defectPanel" class="panel hidden">
     <h2>Дефекты этого кадра</h2>
-    <div class="muted">«Дообучить этот БРАК» запоминает все контуры кадра. Если на кадре был и настоящий дефект — выучит оба. Один контур можно принять отдельно. Изменятся только будущие проверки.</div>
+    <div class="muted">«Дообучить этот БРАК» запоминает все показанные контуры. Если на кадре был и настоящий дефект — выучит оба. Изменятся только будущие проверки.</div>
     <div class="review-grid">
       <div class="viewer"><img id="reviewImage"><svg id="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div>
       <div>
         <div id="defectList"></div>
         <label>Комментарий<input id="normalNote" placeholder="Например: блик этикетки"></label>
         <button class="primary" id="acceptAllButton" onclick="acceptAll()">Дообучить этот БРАК</button>
-        <button id="acceptButton" disabled onclick="acceptSelected()">Считать выбранный дефект нормой</button>
+        <button id="acceptButton" disabled onclick="acceptAll()">Считать все дефекты нормой</button>
         <div id="acceptStatus" class="muted" style="margin-top:8px"></div>
       </div>
     </div>
@@ -154,7 +152,6 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 
 <script>
   let currentReview = null;
-  let selectedDefectId = null;
   let roiPoints = [];
   const fullFrameRoi = [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -275,7 +272,6 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 
   async function loadReview(inspectionId) {
     currentReview = await jsonResponse(await fetch(`/learning/reviews/${encodeURIComponent(inspectionId)}`, {cache:'no-store'}));
-    selectedDefectId = null;
     document.getElementById('normalNote').value = '';
     document.getElementById('acceptStatus').textContent = '';
     renderReview();
@@ -283,29 +279,32 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
 
   function polygonPoints(defect) { return (defect.polygon || []).map(point => `${point.x},${point.y}`).join(' '); }
-  function selectDefect(id) { selectedDefectId=id; renderReview(); }
+  function defectState(item) {
+    if(item.manually_accepted) return `СОХРАНЁН КАК НОРМА · ID ${String(item.matched_case_id || '').slice(0, 8)}`;
+    if(item.accepted_as_normal) return `РАСПОЗНАН КАК НОРМА · ID ${String(item.matched_case_id || '').slice(0, 8)}`;
+    return 'БУДЕТ СОХРАНЁН ПО КНОПКЕ · влияет на score';
+  }
   function renderReview() {
     if(!currentReview) return;
     document.getElementById('reviewImage').src = `/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}/image/aligned?v=${Date.now()}`;
     document.getElementById('overlay').innerHTML = currentReview.defects.map(item => `
-      <polygon class="${item.manually_accepted || item.accepted_as_normal ? 'learned ' : ''}${selectedDefectId===item.id?'selected':''}" points="${polygonPoints(item)}" data-defect-id="${esc(item.id)}"><title>${esc(item.id)}</title></polygon>`).join('');
-    document.querySelectorAll('#overlay polygon').forEach(node => node.addEventListener('click', () => selectDefect(node.dataset.defectId)));
+      <polygon class="${item.manually_accepted || item.accepted_as_normal ? 'learned' : ''}" points="${polygonPoints(item)}"><title>${esc(item.id)}</title></polygon>`).join('');
     const list = document.getElementById('defectList');
     list.innerHTML = currentReview.defects.map(item => `
-      <div class="defect ${selectedDefectId===item.id?'selected ':''}${item.manually_accepted || item.accepted_as_normal?'learned':''}" data-defect-id="${esc(item.id)}">
-        <b>${esc(item.id)}</b> · ${item.manually_accepted || item.accepted_as_normal ? 'уже норма' : 'влияет на score'}<br>
+      <div class="defect ${item.manually_accepted || item.accepted_as_normal?'learned':''}">
+        <b>${esc(item.id)}</b> · ${esc(defectState(item))}<br>
         <span class="muted">score ${Number(item.score).toFixed(3)} · площадь ${Number(item.area)} · q90 ${Number(item.diff_q90).toFixed(1)}</span>
       </div>`).join('');
-    list.querySelectorAll('.defect').forEach(node => node.addEventListener('click', () => selectDefect(node.dataset.defectId)));
-    const selected = currentReview.defects.find(item => item.id === selectedDefectId);
-    document.getElementById('acceptButton').disabled = !selected || selected.manually_accepted || selected.accepted_as_normal;
-    document.getElementById('acceptAllButton').disabled = !currentReview.defects.some(item => !item.manually_accepted && !item.accepted_as_normal);
+    const pending = currentReview.defects.filter(item => !item.manually_accepted && !item.accepted_as_normal);
+    document.getElementById('acceptButton').disabled = pending.length === 0;
+    const acceptAllButton = document.getElementById('acceptAllButton');
+    if(acceptAllButton) acceptAllButton.disabled = pending.length === 0;
   }
 
   async function acceptAll() {
     if(!currentReview) return;
-    const button = document.getElementById('acceptAllButton');
-    button.disabled = true;
+    const buttons = [document.getElementById('acceptAllButton'), document.getElementById('acceptButton')];
+    buttons.forEach(button => { if(button) button.disabled = true; });
     document.getElementById('acceptStatus').textContent = 'Сохранение всех контуров...';
     try {
       const response = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}/accept-all-as-normal`, {
@@ -314,29 +313,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       const payload = await jsonResponse(response);
       const preview = payload.counterfactual_status
         ? ` Ознакомительный пересчёт: ${payload.counterfactual_status}, score ${Number(payload.counterfactual_score).toFixed(4)}.` : '';
-      document.getElementById('acceptStatus').textContent = `Запомнено контуров: ${payload.accepted_count}.${preview} Запустите проверку повторно.`;
-      currentReview = await jsonResponse(await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}));
-      renderReview();
-      await loadAcceptedCases();
-    } catch(error) {
-      document.getElementById('acceptStatus').textContent = `Ошибка: ${error.message || error}`;
-      renderReview();
-    }
-  }
-
-  async function acceptSelected() {
-    if(!currentReview || !selectedDefectId) return;
-    const button = document.getElementById('acceptButton');
-    button.disabled = true;
-    document.getElementById('acceptStatus').textContent = 'Сохранение...';
-    try {
-      const response = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}/defects/${encodeURIComponent(selectedDefectId)}/accept-as-normal`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({note:document.getElementById('normalNote').value})
-      });
-      const payload = await jsonResponse(response);
-      const preview = payload.counterfactual_status
-        ? ` Ознакомительный пересчёт: ${payload.counterfactual_status}, score ${Number(payload.counterfactual_score).toFixed(4)}.` : '';
-      document.getElementById('acceptStatus').textContent = `Фрагмент сохранён.${preview} Запустите проверку повторно.`;
+      document.getElementById('acceptStatus').textContent = `Запомнено контуров: ${Number(payload.accepted_count)}.${preview} Запустите проверку повторно.`;
       currentReview = await jsonResponse(await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}));
       renderReview();
       await loadAcceptedCases();
@@ -356,7 +333,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       root.innerHTML = payload.cases.map(item => `
         <article class="normal">
           <img src="/learning/accepted-cases/${encodeURIComponent(item.id)}/image?v=${Date.now()}" alt="Норма">
-          <div><b>${esc(item.source_defect_id)}</b><br><span class="muted">${esc(item.created_at)}</span>${item.note?`<br>${esc(item.note)}`:''}<br><button class="danger delete-normal" data-case-id="${esc(item.id)}">Удалить</button></div>
+          <div><b>${esc(item.source_defect_id)} · СОХРАНЁН КАК НОРМА</b><br><span class="muted">ID: ${esc(item.id)}<br>площадь ${Number(item.area)} · q90 ${Number(item.diff_q90).toFixed(1)}<br>${esc(item.created_at)}</span>${item.note?`<br>${esc(item.note)}`:''}<br><button class="danger delete-normal" data-case-id="${esc(item.id)}">Удалить</button></div>
         </article>`).join('');
       root.querySelectorAll('.delete-normal').forEach(button => button.addEventListener('click', () => deleteCase(button.dataset.caseId)));
     } catch(error) { root.innerHTML=`<div class="bad">${esc(error.message || error)}</div>`; }

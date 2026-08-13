@@ -38,8 +38,20 @@ THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
 REDUCED_SHAPE_MIN_SIMILARITY = 0.78
 GENERAL_MIN_SIMILARITY = 0.80
-REVIEW_MIN_RELATIVE_IMPACT = 0.60
 DEFAULT_REVIEW_LIMIT = 50
+# Review must expose secondary components that can still keep the verdict BAD
+# after the largest components have been accepted. 15% keeps material defects
+# visible without bringing back the many weak speckles from the raw mask.
+REVIEW_MIN_RELATIVE_IMPACT = 0.15
+# Царапина может занимать немного пикселей, но всё равно заметно влиять на
+# результат. Для неё используется отдельный, всё ещё относительный порог.
+REVIEW_SIGNIFICANT_SCRATCH_MIN_Q90 = 30.0
+# A thin trace occupies far fewer pixels than a broad stain/glare, so comparing
+# both with the same relative cutoff hides visually meaningful scratches. 8%
+# still rejects weak line noise, but keeps the real bad1 scratch (~9.4%).
+REVIEW_SIGNIFICANT_SCRATCH_MIN_RELATIVE_IMPACT = 0.08
+LEARNED_RESIDUAL_MIN_Q90 = 18.0
+LEARNED_RESIDUAL_MIN_MAX = 24.0
 
 
 def wipe_directory(path: Path) -> None:
@@ -232,6 +244,8 @@ class LearnedFilterResult:
     candidates: list[DefectCandidate]
     matched_case_ids: list[str]
     matched_candidates_count: int = 0
+    all_important_candidates_matched: bool = False
+    original_max_candidate_impact: float = 0.0
 
 
 @dataclass
@@ -738,6 +752,14 @@ class AcceptedNormalMemory:
                 and case.reference_hash == reference_hash
             ]
 
+        important_candidate_ids = {
+            candidate.id for candidate in filter_review_candidates(candidates)
+        }
+        original_max_candidate_impact = max(
+            (candidate_review_impact(candidate) for candidate in candidates),
+            default=0.0,
+        )
+        matched_candidate_ids: set[str] = set()
         filtered_diff = diff_map.copy()
         filtered_mask = segmentation_mask.copy()
         matched_case_ids: list[str] = []
@@ -747,6 +769,7 @@ class AcceptedNormalMemory:
                 continue
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
+            matched_candidate_ids.add(candidate.id)
             self._apply_crop_cascade(
                 candidate,
                 best_case,
@@ -756,12 +779,29 @@ class AcceptedNormalMemory:
             )
             matched_case_ids.append(best_case.id)
 
+        # После вычитания нормы слабые остатки нельзя ранжировать заново как
+        # «самые важные»: иначе тот же принятый оператором кадр снова становится
+        # БРАК. Если совпали все исходно значимые области, подавляем только
+        # незначимые компоненты исходного кадра. Новый значимый дефект не даст
+        # этому условию выполниться и продолжит влиять на вердикт.
+        if (
+            important_candidate_ids
+            and important_candidate_ids.issubset(matched_candidate_ids)
+        ):
+            for candidate in candidates:
+                if candidate.id in matched_candidate_ids:
+                    continue
+                self._suppress_candidate(filtered_diff, filtered_mask, candidate)
+
         return LearnedFilterResult(
             filtered_diff_map=filtered_diff,
             filtered_mask=filtered_mask,
             candidates=candidates,
             matched_case_ids=list(dict.fromkeys(matched_case_ids)),
             matched_candidates_count=len(matched_case_ids),
+            all_important_candidates_matched=bool(important_candidate_ids)
+            and important_candidate_ids.issubset(matched_candidate_ids),
+            original_max_candidate_impact=original_max_candidate_impact,
         )
 
     @staticmethod
@@ -818,6 +858,16 @@ class AcceptedNormalMemory:
             residual_bgr = cv2.cvtColor(color_residual, cv2.COLOR_GRAY2BGR)
             filtered_diff[y : y + box_height, x : x + box_width] = residual_bgr
             return
+        AcceptedNormalMemory._suppress_candidate(filtered_diff, filtered_mask, candidate)
+
+    @staticmethod
+    def _suppress_candidate(
+        filtered_diff: np.ndarray,
+        filtered_mask: np.ndarray,
+        candidate: DefectCandidate,
+    ) -> None:
+        """Удалить локальную компоненту вместе с узким морфологическим ореолом."""
+        x, y, box_width, box_height = candidate.bbox
         radius = 2
         padded = cv2.copyMakeBorder(
             candidate.mask.astype(np.uint8) * 255,
@@ -842,8 +892,10 @@ class AcceptedNormalMemory:
         crop_x1 = crop_x0 + (x1 - x0)
         crop_y1 = crop_y0 + (y1 - y0)
         suppress_crop = suppress_local[crop_y0:crop_y1, crop_x0:crop_x1]
-        filtered_diff[y0:y1, x0:x1][suppress_crop] = 0
-        filtered_mask[y0:y1, x0:x1][suppress_crop] = 0
+        diff_region = filtered_diff[y0:y1, x0:x1]
+        mask_region = filtered_mask[y0:y1, x0:x1]
+        diff_region[suppress_crop] = 0
+        mask_region[suppress_crop] = 0
 
     def _save_case(self, case: AcceptedNormalCase) -> None:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
@@ -1040,6 +1092,7 @@ def candidate_review_impact(candidate: DefectCandidate) -> float:
 def filter_review_candidates(
     candidates: list[DefectCandidate],
     min_relative_impact: float = REVIEW_MIN_RELATIVE_IMPACT,
+    baseline_maximum_impact: Optional[float] = None,
 ) -> list[DefectCandidate]:
     """Оставить области со значимым вкладом относительно текущего кадра.
 
@@ -1055,20 +1108,34 @@ def filter_review_candidates(
 
     relative_threshold = float(np.clip(min_relative_impact, 0.0, 1.0))
     impacts = [candidate_review_impact(candidate) for candidate in candidates]
-    maximum_impact = max(impacts)
+    maximum_impact = (
+        float(baseline_maximum_impact)
+        if baseline_maximum_impact is not None
+        else max(impacts)
+    )
     if maximum_impact <= 0.0:
         return candidates[:1]
 
     cutoff = maximum_impact * relative_threshold
+    scratch_cutoff = maximum_impact * min(
+        relative_threshold,
+        REVIEW_SIGNIFICANT_SCRATCH_MIN_RELATIVE_IMPACT,
+    )
     return [
         candidate
         for candidate, impact in zip(candidates, impacts)
         if impact >= cutoff
         or (
+            baseline_maximum_impact is not None
+            and candidate.diff_q90 >= LEARNED_RESIDUAL_MIN_Q90
+            and candidate.diff_max >= LEARNED_RESIDUAL_MIN_MAX
+        )
+        or (
             max(candidate.bbox[2], candidate.bbox[3])
             / max(1, min(candidate.bbox[2], candidate.bbox[3]))
             >= 8.0
-            and candidate.diff_q90 >= 35.0
+            and candidate.diff_q90 >= REVIEW_SIGNIFICANT_SCRATCH_MIN_Q90
+            and impact >= scratch_cutoff
         )
     ]
 
