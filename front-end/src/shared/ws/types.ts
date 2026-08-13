@@ -272,6 +272,8 @@ export type InspectResultPayload = {
   camera_id: number;
   frame_id: string;
   inspection_id?: string;
+  /** UI test-analyze result (geometry+python on archive/artifact frame). */
+  test_analyze?: boolean;
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;

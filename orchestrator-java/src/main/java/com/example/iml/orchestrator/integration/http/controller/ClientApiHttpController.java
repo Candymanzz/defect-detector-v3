@@ -146,7 +146,7 @@ public final class ClientApiHttpController implements HttpController {
             });
             Map<String, Integer> units = parseTimeoutUnits(body);
             if (units.isEmpty()) {
-                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required (D4400..D4404 or names)");
+                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required (D4400..D4405 or names)");
                 return;
             }
             sendTimeoutsResponse(ctx, plc, plc.writeTimeouts(units));

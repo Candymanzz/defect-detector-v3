@@ -422,6 +422,28 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+      const isTestAnalyze = Boolean(inspectResult.test_analyze);
+
+      // TEST re-runs must bypass capture-only / production acceptance gates.
+      if (isTestAnalyze) {
+        setHasReference(true);
+        addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
+        addInspectionStatsItem(setInspectionStatsByCameraId, inspectResult);
+        addModalInspectionItem(setModalSnapshot, inspectResult);
+        latestInspectResultByCameraIdRef.current[cameraId] = inspectResult;
+        setInspectResultsByCameraId((previousResults) => ({
+          ...previousResults,
+          [cameraId]: inspectResult,
+        }));
+        if (hasImmutableInspectArtifact(inspectResult) || inspectResult.artifact_bundle_id) {
+          latestArtifactResultByCameraIdRef.current[cameraId] = inspectResult;
+          setInspectArtifactResultsByCameraId((previousResults) => ({
+            ...previousResults,
+            [cameraId]: inspectResult,
+          }));
+        }
+        return;
+      }
 
       // Preview-only captures remain visible while inspection is globally stopped.
       if (isCaptureOnlyInspectResult(inspectResult)) {
@@ -460,6 +482,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
         return;
       }
 
+      // Production path only (test-analyze handled above).
       if (
         !shouldAcceptInspectionResult(
           cameraId,
@@ -823,7 +846,7 @@ function addInspectionHistoryItem(
   inspectResult: InspectResultPayload,
 ) {
   const result = resolveInspectionResultState(inspectResult);
-  if (!result) {
+  if (!result && !inspectResult.test_analyze) {
     return;
   }
 
@@ -834,7 +857,7 @@ function addInspectionHistoryItem(
       [inspectResult.camera_id]: upsertInspectionHistoryItem(cameraHistory, {
         frameId: inspectResult.frame_id,
         inspectionId: resolveInspectionId(inspectResult),
-        result,
+        result: result ?? "fail",
         inspectResult,
       }),
     };
@@ -846,7 +869,8 @@ function addModalInspectionItem(
   inspectResult: InspectResultPayload,
 ) {
   const result = resolveInspectionResultState(inspectResult);
-  if (!result) {
+  // test-analyze must always refresh the open modal, even when stage statuses are SKIPPED/UNKNOWN.
+  if (!result && !inspectResult.test_analyze) {
     return;
   }
 
@@ -855,16 +879,22 @@ function addModalInspectionItem(
       return currentSnapshot;
     }
 
+    const historyResult = result ?? "fail";
     const nextItems = upsertModalInspectionItem(currentSnapshot.inspectionItems, {
       frameId: inspectResult.frame_id,
       inspectionId: resolveInspectionId(inspectResult),
-      result,
+      result: historyResult,
       inspectResult,
     });
     const nextSnapshot = {
       ...currentSnapshot,
       inspectionItems: nextItems,
     };
+
+    // Test-analyze: always refresh the open modal with the newest geometry/python result.
+    if (inspectResult.test_analyze) {
+      return updateModalSnapshotResult(nextSnapshot, inspectResult);
+    }
 
     if (
       currentSnapshot.inspectResult?.frame_id === inspectResult.frame_id &&

@@ -83,6 +83,8 @@ export function ModalWrapper({
     cameraId,
     inspectResult?.frame_id,
     inspectResult?.geometry_status,
+    inspectResult?.server_ts_ms,
+    inspectResult?.test_analyze,
   );
   const [editedFpZones, setEditedFpZones] = useState<FpZoneNorm[]>(() => copyFpZones(referenceFpZones ?? []));
   const [fpZonesStatus, setFpZonesStatus] = useState<FpZonesStatus>({ state: "idle", text: "" });
@@ -156,6 +158,7 @@ export function ModalWrapper({
             label="Последний кадр инспекции"
           />
           <HeatmapPanel
+            key={`heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`}
             cameraId={cameraId}
             cameraImageUrl={displayedCurrentImageUrl}
             heatmapUrl={inspectHeatmapUrl}
@@ -206,6 +209,7 @@ export function ModalWrapper({
         )}
 
         <InspectResultPanel
+          key={`inspect-${inspectResult?.camera_id ?? "x"}-${inspectResult?.server_ts_ms ?? 0}-${inspectResult?.anomaly_score ?? "na"}`}
           geometry={geometrySnapshot.geometry}
           inspectResult={inspectResult}
         />
@@ -356,6 +360,8 @@ function useGeometrySnapshot(
   cameraId: number | undefined,
   frameId: string | undefined,
   geometryStatus: string | undefined,
+  serverTsMs: number | undefined,
+  testAnalyze: boolean | undefined,
 ): GeometrySnapshotState {
   const [state, setState] = useState<GeometrySnapshotState>({
     geometry: null,
@@ -365,6 +371,16 @@ function useGeometrySnapshot(
 
   useEffect(() => {
     if (!isOpen || cameraId === undefined) {
+      return;
+    }
+
+    const normalizedStatus = geometryStatus?.trim().toUpperCase();
+    if (normalizedStatus === "SKIPPED" || normalizedStatus === "SKIP") {
+      setState({
+        geometry: null,
+        loading: false,
+        error: "Геометрия пропущена для этого кадра",
+      });
       return;
     }
 
@@ -379,6 +395,15 @@ function useGeometrySnapshot(
       .getGeometryLatestSnapshot(cameraId)
       .then((snapshot) => {
         if (controller.signal.aborted) {
+          return;
+        }
+        // Avoid showing a stale geometry snapshot from another frame during test re-runs.
+        if (frameId !== undefined && String(snapshot.frameId) !== String(frameId)) {
+          setState({
+            geometry: null,
+            loading: false,
+            error: testAnalyze ? "Нет свежего снимка геометрии для тестового кадра" : null,
+          });
           return;
         }
         setState({
@@ -405,7 +430,7 @@ function useGeometrySnapshot(
       });
 
     return () => controller.abort();
-  }, [isOpen, cameraId, frameId, geometryStatus]);
+  }, [isOpen, cameraId, frameId, geometryStatus, serverTsMs, testAnalyze]);
 
   if (!isOpen || cameraId === undefined) {
     return EMPTY_GEOMETRY_SNAPSHOT;
@@ -612,7 +637,13 @@ function InspectResultPanel({
     >
       <header className="modal-inspect-result__header">
         <h3>Результат инспекции</h3>
-        {inspectResult && <span>кадр {inspectResult.frame_id}</span>}
+        {inspectResult && (
+          <span>
+            {inspectResult.test_analyze || inspectResult.inspection_id === "тест"
+              ? "тест"
+              : `кадр ${inspectResult.frame_id}`}
+          </span>
+        )}
       </header>
 
       {inspectResult ? (

@@ -15,7 +15,7 @@ io_input:
     - 3                 # DI3 = триггер съёмки
 
   # Единственный DO: capture DO5 → Line0 камер. Брак/ready/fault — только FINS.
-  # DI3↑ → UDP (arm wait_frame) → delay → один DO5↑ (RisingEdge на Line0).
+  # DI3↑ → UDP (arm wait_frame) → delay → DO5↑ на каждый импульс (очередь, без SkipBusy).
   capture:
     enabled: true
     direction_port: 2
@@ -34,8 +34,8 @@ io_input:
     pulse_duration_ms: 50
     pulse_repeat: 1
     pulse_repeat_gap_ms: 100
-    # Съёмка только при DI2=1: первый DI3↑ → DO5; повторный DI3↑ пока DI2 ещё 1 — холостой.
-    # Без latch — уровень DI2 проверяется на каждом DI3; новое окно после DI2↓↑.
+    # Съёмка только при DI2=1: DI3↑ → DO5; без DI2 — skip.
+    repeat_di3_capture: true
     require_direction: true
     direction_latch: false
     initial_direction: forward
