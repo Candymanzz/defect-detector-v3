@@ -165,7 +165,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   </section>
 
   <section class="panel">
-    <div class="row"><h2>Сохранённые нормы теста</h2><button onclick="loadAcceptedCases()">Обновить список</button></div>
+    <div class="row"><h2>Сохранённые нормы теста</h2><button onclick="loadAcceptedCases()">Обновить список</button><button class="danger" onclick="clearAllCases()">Сбросить все нормы</button></div>
     <div id="acceptedCases" class="norms"></div>
   </section>
 
@@ -448,6 +448,19 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       await loadAcceptedCases();
       setMessage('Фрагмент удалён. Запустите проверку повторно, чтобы увидеть результат без исключения.');
     } catch(error) { setMessage(`Ошибка удаления: ${error.message || error}`, true); }
+  }
+
+  async function clearAllCases() {
+    if(!confirm('Сбросить все выученные ложняки? Следующая проверка снова будет считать эти следы браком.')) return;
+    try {
+      const payload = await jsonResponse(await fetch('/learning/accepted-cases', {method:'DELETE'}));
+      await loadAcceptedCases();
+      if(currentReview) {
+        currentReview = await jsonResponse(await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}));
+        renderReview();
+      }
+      setMessage(`Сброшено норм: ${Number(payload.cases_count)}. Запустите проверку повторно.`);
+    } catch(error) { setMessage(`Ошибка сброса: ${error.message || error}`, true); }
   }
 
   loadAcceptedCases();

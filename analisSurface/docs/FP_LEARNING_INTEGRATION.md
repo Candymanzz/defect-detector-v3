@@ -134,6 +134,12 @@ Content-Type: application/json
    - нет `learned_review_id`;
    - этот кадр уже принят (`accepted_defects_count > 0` или локальный флаг после 200).
 
+6. При смене видео / эталона сбросить все выученные ложняки:
+
+```http
+DELETE /api/orchestrator/learning/accepted-cases
+```
+
 ---
 
 ## 4. Полный контур (как на `/learning-review`)
@@ -147,6 +153,7 @@ Content-Type: application/json
 | Кнопка «дообучить» | `POST .../accept-all-as-normal` | только БРАК с контурами |
 | Список выученных ложняков | `GET /learning/accepted-cases?product_type=` | тот же `#cam=N` |
 | Удалить один ложняк | `DELETE /learning/accepted-cases/{case_id}` | — |
+| Сбросить все ложняки | `DELETE /learning/accepted-cases` | все камеры сессии |
 
 Картинки **не** брать с камеры и **не** собирать на фронте из heatmap SHM.
 Review-картинки — снимок того inspect, по которому учили. Камера уже ушла дальше.
@@ -204,6 +211,53 @@ POST /learning/reviews/{inspection_id}/accept-all-as-normal
 
 Точечный accept одного контура (`POST .../defects/{defect_id}/accept-as-normal`)
 для прод-кнопки не нужен. Это запасной advanced-режим.
+
+### Удаление норм
+
+Два DELETE. Прокси те же: `/api/orchestrator/learning/accepted-cases...`.
+
+Один ложняк — если оператор ошибся на конкретном куске:
+
+```http
+DELETE /learning/accepted-cases/{case_id}
+```
+
+Успех `200`:
+
+```json
+{"deleted": true, "case_id": "ea81f37c-..."}
+```
+
+`404` — нормы уже нет (удалили раньше или Python перезапустили).
+
+Все ложняки сразу — смена видео, эталона или «начать смену заново».
+Без фильтра по камере: чистит **всю** сессию Python.
+
+```http
+DELETE /learning/accepted-cases
+```
+
+Успех `200`:
+
+```json
+{"deleted": true, "cases_count": 3}
+```
+
+Пустой список тоже `200`, `cases_count: 0`.
+
+Что происходит:
+
+- файлы в `accepted_normals/` удаляются;
+- история кадров **не** стирается, с них только снимается пометка «уже принято»;
+- следующие инспекции снова считают эти следы браком;
+- PLC-вердикт уже прошедших изделий не меняется.
+
+`POST /clear-inspection-context` эти нормы **не** трогает. Для смены видео
+нужен именно `DELETE /learning/accepted-cases`, не удаление по одной.
+
+`case_id` берётся из `GET /learning/accepted-cases` или из
+`accepted_case_ids` ответа `accept-all-as-normal`. Это не Java `inspection_id`
+и не `learned_review_id`.
 
 ### Ключ применения норм
 
@@ -269,6 +323,7 @@ POST /learning/reviews/{inspection_id}/accept-all-as-normal
 | Не смешивать id | `MainController.resolveInspectionId` оставить для Java-цикла |
 | Кнопка на карточке / в модалке кадра | рядом с текущим `FpZoneEditor`, но это **не** полигон |
 | Список норм камеры | новый маленький блок, не внутри редактора зон |
+| Удалить один / сбросить все | `DELETE .../accepted-cases/{id}` и `DELETE .../accepted-cases` |
 
 Старый поток `client.fp_zones_update` не трогать.
 
@@ -304,7 +359,8 @@ POST /learning/reviews/{inspection_id}/accept-all-as-normal
 3. Кнопка на текущем БРАКе выбранной камеры.
 4. Обработка `404` / `409`.
 5. (Опционально) лента `GET /learning/reviews?product_type=...#cam=N`.
-6. (Опционально) список и удаление `accepted-cases`.
+6. (Опционально) список `accepted-cases`, удаление одного и сброс всех
+   (`DELETE /learning/accepted-cases`). Сброс всех обязателен при смене видео.
 
 Пункты 5–6 не блокируют пользу: каскад следующих кадров включается уже после
 пункта 3.
@@ -326,6 +382,8 @@ POST /learning/reviews/{inspection_id}/accept-all-as-normal
 7. Перезапуск только Python: кнопка по старому UUID даёт `404`, новые ложняки
    нужно отметить заново.
 8. Полигон FP-зоны по-прежнему вырезает область.
+9. `DELETE /learning/accepted-cases` отвечает `200`, список норм пустой,
+   повтор того же изделия снова даёт БРАК.
 
 Локально без основной программы тот же сценарий уже есть на
 `http://127.0.0.1:8000/local-inspection-test`.

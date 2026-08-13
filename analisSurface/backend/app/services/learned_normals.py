@@ -439,6 +439,12 @@ class InspectionReviewStore:
             self.put(review)
 
     def unmark_case(self, case_id: str) -> None:
+        self._unmark_reviews(lambda candidate: candidate.matched_case_id == case_id)
+
+    def unmark_all_cases(self) -> None:
+        self._unmark_reviews(lambda candidate: True)
+
+    def _unmark_reviews(self, should_unmark) -> None:
         with self._lock:
             for inspection_id in list(self._order):
                 review = self.get(inspection_id)
@@ -446,7 +452,9 @@ class InspectionReviewStore:
                     continue
                 changed = False
                 for candidate in review.defects:
-                    if candidate.matched_case_id != case_id:
+                    if not should_unmark(candidate):
+                        continue
+                    if candidate.matched_case_id is None and candidate.id not in review.accepted_defect_ids:
                         continue
                     candidate.matched_case_id = None
                     candidate.similarity = None
@@ -723,6 +731,14 @@ class AcceptedNormalMemory:
                 except OSError:
                     logger.exception("failed to delete accepted-normal artifact case_id=%s", case_id)
             return True
+
+    def clear(self) -> int:
+        """Удалить все сохранённые нормы текущей сессии."""
+        with self._lock:
+            deleted_count = len(self._cases)
+            self._cases.clear()
+            wipe_directory(self.storage_dir)
+            return deleted_count
 
     def apply(
         self,

@@ -310,6 +310,43 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     assert without_exception.status == "БРАК"
 
 
+def test_delete_all_accepted_normals_clears_every_camera(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    acceptable = gray_frame.copy()
+    acceptable[10:30, 10:50] = 255
+    reviews = []
+    for product_type in ("cam-a", "cam-b"):
+        inspection_service.set_reference_frame(product_type, gray_frame)
+        original = inspection_service.inspect_frame(
+            product_type,
+            acceptable,
+            threshold=0.1,
+            include_visuals=False,
+        )
+        review = inspection_service.get_learning_review(original.inspection_id)
+        inspection_service.accept_review_defect_as_normal(
+            original.inspection_id,
+            review["defects"][0]["id"],
+        )
+        reviews.append(original.inspection_id)
+
+    assert len(inspection_service.list_accepted_normal_cases()) == 2
+    assert inspection_service.delete_all_accepted_normal_cases() == 2
+    assert inspection_service.list_accepted_normal_cases() == []
+    assert inspection_service.delete_all_accepted_normal_cases() == 0
+
+    for inspection_id in reviews:
+        review = inspection_service.get_learning_review(inspection_id)
+        assert review is not None
+        assert review["defects"][0]["manually_accepted"] is False
+
+    future = inspection_service.inspect_frame("cam-a", acceptable, threshold=0.1, include_visuals=False)
+    assert future.learned_normal_matches_count == 0
+    assert future.status == "БРАК"
+
+
 def test_new_defect_still_fails_next_to_learned_normal(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,

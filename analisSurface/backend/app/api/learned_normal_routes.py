@@ -84,6 +84,13 @@ async def list_accepted_cases(product_type: Optional[str] = Query(None)) -> dict
     return {"cases": inspection_service.list_accepted_normal_cases(product_type=product_type)}
 
 
+@router.delete("/learning/accepted-cases")
+async def delete_all_accepted_cases() -> dict:
+    """Сбросить все выученные ложняки текущей сессии, по всем камерам."""
+    deleted_count = inspection_service.delete_all_accepted_normal_cases()
+    return {"deleted": True, "cases_count": deleted_count}
+
+
 @router.get("/learning/accepted-cases/{case_id}/image")
 async def get_accepted_case_image(case_id: str) -> Response:
     image = inspection_service.get_accepted_normal_case_image(case_id)
@@ -175,7 +182,7 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
   </section>
 
   <section class="section">
-    <div class="section-head"><div><h2>Сохранённые нормы</h2><div class="muted">Эти фрагменты исключаются из оценки будущих инспекций. Удаление применяется сразу.</div></div></div>
+    <div class="section-head"><div><h2>Сохранённые нормы</h2><div class="muted">Эти фрагменты исключаются из оценки будущих инспекций. Удаление применяется сразу. «Сбросить все» нужно при смене видео или эталона.</div></div><button class="danger" onclick="clearAllAcceptedCases()">Сбросить все нормы</button></div>
     <div id="acceptedCases" class="normal-grid"></div>
   </section>
 
@@ -267,15 +274,31 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
       const response = await fetch(`/learning/accepted-cases/${encodeURIComponent(caseId)}`, {method:'DELETE'});
       const payload = await response.json();
       if(!response.ok) throw new Error(payload.detail || 'Не удалось удалить фрагмент');
-      await Promise.all([loadAcceptedCases(), loadReviews()]);
-      if(currentReview && reviewDialog.open) {
-        currentReview = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}).then(r => r.json());
-        renderReview();
-      }
+      await refreshAfterAcceptedChange();
     } catch(error) {
       alert(String(error));
       button.disabled = false;
       button.textContent = 'Удалить из списка нормы';
+    }
+  }
+
+  async function clearAllAcceptedCases() {
+    if(!confirm('Сбросить все выученные ложняки по всем камерам? Следующие инспекции снова будут считать эти следы браком.')) return;
+    try {
+      const response = await fetch('/learning/accepted-cases', {method:'DELETE'});
+      const payload = await response.json();
+      if(!response.ok) throw new Error(payload.detail || 'Не удалось сбросить нормы');
+      await refreshAfterAcceptedChange();
+    } catch(error) {
+      alert(String(error));
+    }
+  }
+
+  async function refreshAfterAcceptedChange() {
+    await Promise.all([loadAcceptedCases(), loadReviews()]);
+    if(currentReview && reviewDialog.open) {
+      currentReview = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}).then(r => r.json());
+      renderReview();
     }
   }
 

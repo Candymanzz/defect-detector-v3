@@ -16,6 +16,7 @@ def test_learning_review_page_is_available() -> None:
     assert "Дообучить этот БРАК" in response.text
     assert "Сохранённые нормы" in response.text
     assert "Удалить из списка нормы" in response.text
+    assert "Сбросить все нормы" in response.text
     assert "Считать все дефекты допустимой нормой" in response.text
     assert "СОХРАНЁН КАК НОРМА" in response.text
     assert "БУДЕТ СОХРАНЁН ПО КНОПКЕ" in response.text
@@ -44,6 +45,7 @@ def test_local_inspection_test_page_is_available() -> None:
     assert "Предыдущий кадр" in response.text
     assert "Следующий кадр" in response.text
     assert "openHistoryFrame" in response.text
+    assert "Сбросить все нормы" in response.text
 
 
 def test_accept_all_defects_route(monkeypatch) -> None:
@@ -188,3 +190,12 @@ def test_accepted_case_image_and_delete_routes(monkeypatch) -> None:
 
     missing = client.delete("/learning/accepted-cases/missing")
     assert missing.status_code == 404
+
+
+def test_delete_all_accepted_cases_route(monkeypatch) -> None:
+    monkeypatch.setattr(inspection_service, "delete_all_accepted_normal_cases", lambda: 3)
+
+    cleared = client.delete("/learning/accepted-cases")
+    assert cleared.status_code == 200
+    assert cleared.json()["deleted"] is True
+    assert cleared.json()["cases_count"] == 3

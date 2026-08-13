@@ -154,6 +154,11 @@ class InspectionService:
             self._learning_reviews.unmark_case(case_id)
         return deleted
 
+    def delete_all_accepted_normal_cases(self) -> int:
+        deleted_count = self._accepted_normals.clear()
+        self._learning_reviews.unmark_all_cases()
+        return deleted_count
+
     def accept_review_defect_as_normal(
         self,
         inspection_id: str,
