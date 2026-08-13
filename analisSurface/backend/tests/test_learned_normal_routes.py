@@ -13,6 +13,7 @@ def test_learning_review_page_is_available() -> None:
     response = client.get("/learning-review")
     assert response.status_code == 200
     assert "Обучение допустимым фрагментам" in response.text
+    assert "Дообучить этот БРАК" in response.text
     assert "Сохранённые нормы" in response.text
     assert "Удалить из списка нормы" in response.text
 
@@ -21,6 +22,7 @@ def test_local_inspection_test_page_is_available() -> None:
     response = client.get("/local-inspection-test")
     assert response.status_code == 200
     assert "Локальный тест инспекции" in response.text
+    assert "Дообучить этот БРАК" in response.text
     assert "Запустить проверку" in response.text
     assert "Сохранённые нормы теста" in response.text
     assert "Эталон и область инспекции" in response.text

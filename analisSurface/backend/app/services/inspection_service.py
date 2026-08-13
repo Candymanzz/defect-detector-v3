@@ -41,7 +41,13 @@ class InspectionService:
     Публичная точка входа для анализа — inspect_frame().
     CRUD по ROI/зонам и загрузка JSON вынесены в отдельные методы без алгоритмической логики.
     """
-    def __init__(self, learned_normals_dir: Optional[Path] = None, review_limit: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        learned_normals_dir: Optional[Path] = None,
+        review_limit: Optional[int] = None,
+        reviews_dir: Optional[Path] = None,
+        session_wipe: bool = True,
+    ) -> None:
         self.references: Dict[str, np.ndarray] = {}
         self._reference_hashes: Dict[str, str] = {}
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
@@ -60,9 +66,14 @@ class InspectionService:
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
         data_dir = Path(__file__).resolve().parent.parent / "data"
         self._accepted_normals = AcceptedNormalMemory(
-            learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals"
+            learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals",
+            session_wipe=session_wipe,
         )
-        self._learning_reviews = InspectionReviewStore(max_items=review_limit)
+        self._learning_reviews = InspectionReviewStore(
+            max_items=review_limit,
+            storage_dir=reviews_dir if reviews_dir is not None else data_dir / "learning_reviews",
+            session_wipe=session_wipe,
+        )
 
         self._anomaly_engine = None
         self._load_anomalib_engine()
@@ -170,15 +181,67 @@ class InspectionService:
         )
         candidate.matched_case_id = accepted_case.id
         candidate.similarity = 1.0
-        self._learning_reviews.mark_accepted(
-            inspection_id,
-            defect_id,
-            counterfactual_score=None,
-            counterfactual_status=None,
-        )
+        review.accepted_defect_ids.add(defect_id)
+        self._learning_reviews.put(review)
 
-        # Ознакомительный пересчёт не покидает этот API и не публикуется в
-        # оркестратор/PLC. Он показывает, как новый пример повлиял бы на тот кадр.
+        counterfactual_score, counterfactual_status = self._store_review_counterfactual(review)
+        return {
+            "saved": True,
+            "accepted_case": accepted_case.to_public_dict(),
+            "inspection_id": inspection_id,
+            "defect_id": defect_id,
+            "original_status": review.original_status,
+            "original_score": review.original_score,
+            "counterfactual_status": counterfactual_status,
+            "counterfactual_score": counterfactual_score,
+            "affects_original_pipeline_decision": False,
+            "pipeline_decision_sent": True,
+        }
+
+    def accept_review_all_as_normal(self, inspection_id: str, note: str = "") -> dict:
+        """Считать весь БРАК этого кадра ложным. Каждый контур — отдельный case."""
+        review = self._learning_reviews.get(inspection_id)
+        if review is None:
+            raise KeyError("inspection")
+        pending = [
+            candidate
+            for candidate in review.defects
+            if candidate.id not in review.accepted_defect_ids and candidate.matched_case_id is None
+        ]
+        if not pending:
+            raise ValueError("No pending defects to accept as normal")
+
+        accepted_cases = []
+        for candidate in pending:
+            accepted_case = self._accepted_normals.add_from_candidate(
+                product_type=review.product_type,
+                reference_hash=review.reference_hash,
+                inspection_id=review.inspection_id,
+                candidate=candidate,
+                note=note,
+            )
+            candidate.matched_case_id = accepted_case.id
+            candidate.similarity = 1.0
+            review.accepted_defect_ids.add(candidate.id)
+            accepted_cases.append(accepted_case)
+        self._learning_reviews.put(review)
+
+        counterfactual_score, counterfactual_status = self._store_review_counterfactual(review)
+        return {
+            "saved": True,
+            "accepted_cases": [case.to_public_dict() for case in accepted_cases],
+            "accepted_count": len(accepted_cases),
+            "inspection_id": inspection_id,
+            "original_status": review.original_status,
+            "original_score": review.original_score,
+            "counterfactual_status": counterfactual_status,
+            "counterfactual_score": counterfactual_score,
+            "affects_original_pipeline_decision": False,
+            "pipeline_decision_sent": True,
+        }
+
+    def _store_review_counterfactual(self, review) -> Tuple[Optional[float], Optional[str]]:
+        """Ознакомительный пересчёт не публикуется в оркестратор/PLC."""
         counterfactual_score: Optional[float] = None
         counterfactual_status: Optional[str] = None
         try:
@@ -210,32 +273,15 @@ class InspectionService:
                 polygon=self.get_roi_polygon(review.product_type),
                 sub_zones=self.get_roi_sub_zones(review.product_type),
             )
-            self._learning_reviews.mark_accepted(
-                inspection_id,
-                defect_id,
-                counterfactual_score=counterfactual_score,
-                counterfactual_status=counterfactual_status,
-            )
+            review.counterfactual_score = counterfactual_score
+            review.counterfactual_status = counterfactual_status
+            self._learning_reviews.put(review)
         except Exception:
-            # Сбой необязательного preview не отменяет успешно сохранённое
-            # обучение и тем более не инициирует повторное pipeline-решение.
             logger.exception(
-                "accepted-normal counterfactual preview failed inspection_id=%s defect_id=%s",
-                inspection_id,
-                defect_id,
+                "accepted-normal counterfactual preview failed inspection_id=%s",
+                review.inspection_id,
             )
-        return {
-            "saved": True,
-            "accepted_case": accepted_case.to_public_dict(),
-            "inspection_id": inspection_id,
-            "defect_id": defect_id,
-            "original_status": review.original_status,
-            "original_score": review.original_score,
-            "counterfactual_status": counterfactual_status,
-            "counterfactual_score": counterfactual_score,
-            "affects_original_pipeline_decision": False,
-            "pipeline_decision_sent": True,
-        }
+        return counterfactual_score, counterfactual_status
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
         self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")

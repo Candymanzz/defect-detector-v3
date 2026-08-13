@@ -39,6 +39,8 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     button:disabled { opacity:.5; cursor:not-allowed; }
     button.danger { border-color:#7e3d46; background:#582a32; }
     button.danger:hover { background:#723640; }
+    button.primary { border-color:#2f6f4a; background:#1f5136; font-weight:700; }
+    button.primary:hover { background:#276544; }
     .previews,.visuals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:14px; }
     .visuals { grid-template-columns:repeat(4,minmax(0,1fr)); }
     figure { margin:0; background:#0a0e14; border:1px solid #29384b; border-radius:10px; overflow:hidden; }
@@ -83,7 +85,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 <body>
   <header>
     <h1>Локальный тест инспекции</h1>
-    <div class="muted">Эталон → текущий кадр → результат → сохранение отдельного дефекта как допустимой нормы.</div>
+    <div class="muted">Эталон → текущий кадр → результат → «Дообучить этот БРАК». После перезапуска Python ложняки смены сбрасываются.</div>
     <div class="warning">Используйте отдельный тип <b>local-test</b>. Если указать реальный тип изделия/камеры, сохранённая норма сможет повлиять на производственные инспекции этого типа.</div>
   </header>
 
@@ -132,12 +134,13 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
 
   <section id="defectPanel" class="panel hidden">
     <h2>Дефекты этого кадра</h2>
-    <div class="muted">Выберите красный контур. Сохранится форма и её примерное место: далёкий похожий дефект не будет нормой. Изменятся только будущие проверки; текущий результат никуда повторно не передаётся.</div>
+    <div class="muted">«Дообучить этот БРАК» запоминает все контуры кадра. Если на кадре был и настоящий дефект — выучит оба. Один контур можно принять отдельно. Изменятся только будущие проверки.</div>
     <div class="review-grid">
       <div class="viewer"><img id="reviewImage"><svg id="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div>
       <div>
         <div id="defectList"></div>
-        <label>Комментарий<input id="normalNote" placeholder="Например: допустимый след штампа"></label>
+        <label>Комментарий<input id="normalNote" placeholder="Например: блик этикетки"></label>
+        <button class="primary" id="acceptAllButton" onclick="acceptAll()">Дообучить этот БРАК</button>
         <button id="acceptButton" disabled onclick="acceptSelected()">Считать выбранный дефект нормой</button>
         <div id="acceptStatus" class="muted" style="margin-top:8px"></div>
       </div>
@@ -296,6 +299,29 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     list.querySelectorAll('.defect').forEach(node => node.addEventListener('click', () => selectDefect(node.dataset.defectId)));
     const selected = currentReview.defects.find(item => item.id === selectedDefectId);
     document.getElementById('acceptButton').disabled = !selected || selected.manually_accepted || selected.accepted_as_normal;
+    document.getElementById('acceptAllButton').disabled = !currentReview.defects.some(item => !item.manually_accepted && !item.accepted_as_normal);
+  }
+
+  async function acceptAll() {
+    if(!currentReview) return;
+    const button = document.getElementById('acceptAllButton');
+    button.disabled = true;
+    document.getElementById('acceptStatus').textContent = 'Сохранение всех контуров...';
+    try {
+      const response = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}/accept-all-as-normal`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({note:document.getElementById('normalNote').value})
+      });
+      const payload = await jsonResponse(response);
+      const preview = payload.counterfactual_status
+        ? ` Ознакомительный пересчёт: ${payload.counterfactual_status}, score ${Number(payload.counterfactual_score).toFixed(4)}.` : '';
+      document.getElementById('acceptStatus').textContent = `Запомнено контуров: ${payload.accepted_count}.${preview} Запустите проверку повторно.`;
+      currentReview = await jsonResponse(await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}));
+      renderReview();
+      await loadAcceptedCases();
+    } catch(error) {
+      document.getElementById('acceptStatus').textContent = `Ошибка: ${error.message || error}`;
+      renderReview();
+    }
   }
 
   async function acceptSelected() {

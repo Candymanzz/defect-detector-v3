@@ -352,7 +352,11 @@ def main() -> int:
             raise RuntimeError(f"Refusing to remove unexpected directory: {runtime_dir}")
         shutil.rmtree(runtime_dir)
 
-    service = InspectionService(learned_normals_dir=runtime_dir, review_limit=100)
+    service = InspectionService(
+        learned_normals_dir=runtime_dir,
+        reviews_dir=runtime_dir / "reviews",
+        review_limit=100,
+    )
     service._anomaly_engine = None
     rows: list[dict] = []
     learning_rows: list[dict] = []

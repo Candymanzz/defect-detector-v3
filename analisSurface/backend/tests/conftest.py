@@ -7,7 +7,12 @@ from app.services.inspection_service import InspectionService
 
 @pytest.fixture
 def inspection_service(tmp_path: Path) -> InspectionService:
-    service = InspectionService(learned_normals_dir=tmp_path / "accepted_normals", review_limit=10)
+    service = InspectionService(
+        learned_normals_dir=tmp_path / "accepted_normals",
+        reviews_dir=tmp_path / "learning_reviews",
+        review_limit=10,
+        session_wipe=True,
+    )
     service._anomaly_engine = None
     return service
 

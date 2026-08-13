@@ -61,6 +61,23 @@ async def accept_defect_as_normal(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@router.post("/learning/reviews/{inspection_id}/accept-all-as-normal")
+async def accept_all_defects_as_normal(
+    inspection_id: str,
+    payload: AcceptDefectAsNormalRequest,
+) -> dict:
+    try:
+        return inspection_service.accept_review_all_as_normal(
+            inspection_id=inspection_id,
+            note=payload.note,
+        )
+    except KeyError as exc:
+        label = str(exc.args[0]) if exc.args else "item"
+        raise HTTPException(status_code=404, detail=f"Learning {label} not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.get("/learning/accepted-cases")
 async def list_accepted_cases(product_type: Optional[str] = Query(None)) -> dict:
     return {"cases": inspection_service.list_accepted_normal_cases(product_type=product_type)}
@@ -128,6 +145,8 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
     .actions { display:flex; gap:8px; flex-wrap:wrap; }
     input { width:100%; border:1px solid #34465e; border-radius:8px; background:#0e151f; color:#fff; padding:9px; }
     .notice { border-radius:8px; background:#202c3c; padding:10px; font-size:13px; }
+    .primary { border-color:#2f6f4a; background:#1f5136; font-weight:700; }
+    .primary:hover { background:#276544; }
     .counterfactual { color:#ffd16a; }
     .section { margin-top:26px; }
     .section-head { display:flex; align-items:end; justify-content:space-between; gap:14px; margin-bottom:12px; }
@@ -144,11 +163,11 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
 </head>
 <body>
   <header>
-    <div><h1>Обучение допустимым фрагментам</h1><div class="muted">Недавние изделия со статусом БРАК. Решение уже прошедшего изделия не изменяется.</div></div>
+    <div><h1>Обучение допустимым фрагментам</h1><div class="muted">Недавние изделия со статусом БРАК. Решение уже прошедшего изделия не изменяется. После перезапуска Python ложняки этой смены сбрасываются.</div></div>
     <button onclick="loadAll()">Обновить</button>
   </header>
   <section>
-    <div class="section-head"><div><h2>Недавний брак</h2><div class="muted">Выберите изделие, затем конкретный контур.</div></div></div>
+    <div class="section-head"><div><h2>Недавний брак</h2><div class="muted">Откройте кадр и нажмите «Дообучить этот БРАК». Выбор одного контура — запасной режим.</div></div></div>
     <main id="reviews" class="grid"></main>
   </section>
 
@@ -165,8 +184,9 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
         <div class="viewer"><img id="reviewImage" alt="inspection"><svg id="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div>
       </div>
       <aside class="side">
-        <div class="notice">Выберите контур. Кнопка запоминает только этот фрагмент и его примерное место: похожая форма будет нормой лишь рядом с выбранной областью. В конвейер повторное решение не отправляется.</div>
+        <div class="notice">Кнопка «Дообучить этот БРАК» запоминает все контуры этого кадра как ложные срабатывания. Если на кадре был и настоящий дефект — выучит оба. Один контур можно принять отдельно. В конвейер повторное решение не отправляется.</div>
         <div id="counterfactual" class="counterfactual"></div>
+        <div class="actions"><button class="primary" id="acceptAllButton" onclick="acceptAll()">Дообучить этот БРАК</button></div>
         <div id="defects"></div>
         <input id="note" placeholder="Комментарий (необязательно)">
         <button id="acceptButton" disabled onclick="acceptSelected()">Считать выбранный фрагмент допустимой нормой</button>
@@ -274,8 +294,25 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
       </div>`).join('');
     const selected = currentReview.defects.find(d => d.id === selectedDefectId);
     document.getElementById('acceptButton').disabled = !selected || selected.manually_accepted || selected.accepted_as_normal;
+    document.getElementById('acceptAllButton').disabled = !currentReview.defects.some(d => !d.manually_accepted && !d.accepted_as_normal);
     const cf = document.getElementById('counterfactual');
     cf.textContent = currentReview.counterfactual_status ? `Ознакомительный пересчёт: ${currentReview.counterfactual_status}, score ${Number(currentReview.counterfactual_score).toFixed(3)}. Никуда не передан.` : '';
+  }
+
+  async function acceptAll() {
+    if(!currentReview) return;
+    const button = document.getElementById('acceptAllButton');
+    button.disabled = true;
+    document.getElementById('status').textContent = 'Сохранение всех контуров как ложный БРАК...';
+    const response = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}/accept-all-as-normal`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({note:document.getElementById('note').value})
+    });
+    const payload = await response.json();
+    if(!response.ok) { document.getElementById('status').textContent = payload.detail || 'Ошибка'; renderReview(); return; }
+    document.getElementById('status').textContent = `Запомнено контуров: ${payload.accepted_count}. Будет применяться только к будущим инспекциям.`;
+    currentReview = await fetch(`/learning/reviews/${encodeURIComponent(currentReview.inspection_id)}`, {cache:'no-store'}).then(r => r.json());
+    renderReview();
+    loadAll();
   }
 
   async function acceptSelected() {

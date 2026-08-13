@@ -58,7 +58,11 @@ def load_images(input_dir: Path) -> dict[str, np.ndarray]:
 
 def make_service(runtime_root: Path) -> InspectionService:
     runtime_dir = runtime_root / uuid.uuid4().hex
-    service = InspectionService(learned_normals_dir=runtime_dir, review_limit=100)
+    service = InspectionService(
+        learned_normals_dir=runtime_dir,
+        reviews_dir=runtime_dir / "reviews",
+        review_limit=100,
+    )
     # Проверяем тот же классический CV fallback, который используется без PatchCore-модели.
     service._anomaly_engine = None
     return service

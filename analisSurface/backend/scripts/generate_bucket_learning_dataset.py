@@ -186,7 +186,11 @@ def main() -> int:
         if runtime_dir.parent != output_dir or runtime_dir.name != ".runtime_norms":
             raise RuntimeError(f"Refusing to remove unexpected directory: {runtime_dir}")
         shutil.rmtree(runtime_dir)
-    service = InspectionService(learned_normals_dir=runtime_dir, review_limit=50)
+    service = InspectionService(
+        learned_normals_dir=runtime_dir,
+        reviews_dir=runtime_dir / "reviews",
+        review_limit=50,
+    )
     service._anomaly_engine = None
     product_type = "bucket-generated-test"
     service.set_reference_frame(product_type, reference)

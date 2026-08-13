@@ -194,8 +194,16 @@ def main() -> int:
     reference = synthetic_reference(args.width, args.height)
     rectangles = case_rectangles(args.width, args.height, args.cases)
 
-    baseline = InspectionService(learned_normals_dir=empty_dir, review_limit=1)
-    learned = InspectionService(learned_normals_dir=learned_dir, review_limit=1)
+    baseline = InspectionService(
+        learned_normals_dir=empty_dir,
+        reviews_dir=empty_dir / "reviews",
+        review_limit=1,
+    )
+    learned = InspectionService(
+        learned_normals_dir=learned_dir,
+        reviews_dir=learned_dir / "reviews",
+        review_limit=1,
+    )
     baseline._anomaly_engine = None
     learned._anomaly_engine = None
     baseline.set_reference_frame(product_type, reference)

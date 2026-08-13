@@ -11,6 +11,7 @@ import json
 import logging
 import math
 import os
+import shutil
 import threading
 import uuid
 from collections import OrderedDict
@@ -38,6 +39,14 @@ SCALED_SHAPE_MIN_SIMILARITY = 0.76
 REDUCED_SHAPE_MIN_SIMILARITY = 0.78
 GENERAL_MIN_SIMILARITY = 0.80
 REVIEW_MIN_RELATIVE_IMPACT = 0.60
+DEFAULT_REVIEW_LIMIT = 50
+
+
+def wipe_directory(path: Path) -> None:
+    """Удалить каталог сессии целиком и создать пустой."""
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
 
 
 def _utc_now() -> str:
@@ -284,17 +293,38 @@ class InspectionReview:
 
 
 class InspectionReviewStore:
-    """Ограниченный RAM-архив недавних браков для операторского review."""
+    """Архив недавних БРАК на диске: последние N штук, FIFO при переполнении.
 
-    def __init__(self, max_items: Optional[int] = None) -> None:
-        raw_limit = os.environ.get("ANALIS_LEARNING_REVIEW_LIMIT", "40")
+    Картинки и шаблоны дефектов не держатся в RAM. После рестарта каталог
+    очищается (session_wipe): условия смены уже другие.
+    """
+
+    def __init__(
+        self,
+        max_items: Optional[int] = None,
+        storage_dir: Optional[Path] = None,
+        session_wipe: bool = True,
+    ) -> None:
+        raw_limit = os.environ.get("ANALIS_LEARNING_REVIEW_LIMIT", str(DEFAULT_REVIEW_LIMIT))
         try:
             configured = int(raw_limit)
         except ValueError:
-            configured = 40
+            configured = DEFAULT_REVIEW_LIMIT
         self.max_items = max(1, min(500, max_items if max_items is not None else configured))
-        self._items: OrderedDict[str, InspectionReview] = OrderedDict()
+        self.storage_dir = Path(storage_dir) if storage_dir is not None else None
+        self._order: OrderedDict[str, dict] = OrderedDict()
         self._lock = threading.RLock()
+        if self.storage_dir is not None:
+            if session_wipe:
+                wipe_directory(self.storage_dir)
+            else:
+                self.storage_dir.mkdir(parents=True, exist_ok=True)
+                self._load_index()
+
+    def _review_dir(self, inspection_id: str) -> Path:
+        if self.storage_dir is None:
+            raise RuntimeError("Review storage_dir is not configured")
+        return self.storage_dir / Path(inspection_id).name
 
     def add(
         self,
@@ -314,9 +344,6 @@ class InspectionReviewStore:
         diff_gray = _gray(diff_map)
         energy = cv2.max(mask_gray, cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX))
         heatmap = cv2.applyColorMap(energy, cv2.COLORMAP_JET)
-        # Full-frame component masks нужны только во время live-фильтрации. Для
-        # review достаточно маленьких шаблонов 64x64; иначе N дефектов держали бы
-        # N полных масок одного и того же кадра.
         review_candidates = [
             replace(candidate, mask=np.zeros((0, 0), dtype=bool))
             for candidate in candidates
@@ -336,22 +363,38 @@ class InspectionReviewStore:
             defects=review_candidates,
         )
         with self._lock:
-            self._items[inspection_id] = review
-            self._items.move_to_end(inspection_id)
-            while len(self._items) > self.max_items:
-                self._items.popitem(last=False)
+            if self.storage_dir is not None:
+                self._write_review(review)
+            self._order[inspection_id] = review.summary()
+            self._order.move_to_end(inspection_id)
+            while len(self._order) > self.max_items:
+                evicted_id, _ = self._order.popitem(last=False)
+                self._delete_review_dir(evicted_id)
         return review
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
         with self._lock:
-            items = list(reversed(self._items.values()))
+            items = list(reversed(self._order.values()))
             if product_type:
-                items = [item for item in items if item.product_type == product_type]
-            return [item.summary() for item in items]
+                items = [item for item in items if item.get("product_type") == product_type]
+            return [dict(item) for item in items]
 
     def get(self, inspection_id: str) -> Optional[InspectionReview]:
         with self._lock:
-            return self._items.get(inspection_id)
+            if inspection_id not in self._order:
+                return None
+            if self.storage_dir is None:
+                return None
+            return self._read_review(inspection_id)
+
+    def put(self, review: InspectionReview) -> None:
+        """Перезаписать review на диске. Индекс в RAM обновляется из summary()."""
+        with self._lock:
+            if review.inspection_id not in self._order:
+                raise KeyError(review.inspection_id)
+            if self.storage_dir is not None:
+                self._write_review(review)
+            self._order[review.inspection_id] = review.summary()
 
     def mark_accepted(
         self,
@@ -360,21 +403,33 @@ class InspectionReviewStore:
         *,
         counterfactual_score: Optional[float],
         counterfactual_status: Optional[str],
+        matched_case_id: Optional[str] = None,
+        similarity: Optional[float] = None,
     ) -> None:
         with self._lock:
-            review = self._items.get(inspection_id)
+            review = self.get(inspection_id)
             if review is None:
                 raise KeyError(inspection_id)
             review.accepted_defect_ids.add(defect_id)
+            if matched_case_id is not None:
+                for candidate in review.defects:
+                    if candidate.id != defect_id:
+                        continue
+                    candidate.matched_case_id = matched_case_id
+                    candidate.similarity = similarity
+                    break
             review.counterfactual_score = (
                 float(counterfactual_score) if counterfactual_score is not None else None
             )
             review.counterfactual_status = counterfactual_status
+            self.put(review)
 
     def unmark_case(self, case_id: str) -> None:
-        """Убрать удалённый пример из ещё живых операторских review."""
         with self._lock:
-            for review in self._items.values():
+            for inspection_id in list(self._order):
+                review = self.get(inspection_id)
+                if review is None:
+                    continue
                 changed = False
                 for candidate in review.defects:
                     if candidate.matched_case_id != case_id:
@@ -383,19 +438,194 @@ class InspectionReviewStore:
                     candidate.similarity = None
                     review.accepted_defect_ids.discard(candidate.id)
                     changed = True
-                if changed:
-                    review.counterfactual_score = None
-                    review.counterfactual_status = None
+                if not changed:
+                    continue
+                review.counterfactual_score = None
+                review.counterfactual_status = None
+                if self.storage_dir is not None:
+                    self._write_review(review)
+                self._order[inspection_id] = review.summary()
+
+    def _delete_review_dir(self, inspection_id: str) -> None:
+        if self.storage_dir is None:
+            return
+        path = self._review_dir(inspection_id)
+        if path.exists():
+            shutil.rmtree(path, ignore_errors=True)
+
+    def _write_review(self, review: InspectionReview) -> None:
+        folder = self._review_dir(review.inspection_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "aligned.jpg").write_bytes(review.aligned_jpeg)
+        (folder / "diff.png").write_bytes(review.diff_png)
+        (folder / "mask.png").write_bytes(review.raw_mask_png)
+        (folder / "heatmap.jpg").write_bytes(review.heatmap_jpeg)
+        defects_payload = []
+        npz_arrays: dict[str, np.ndarray] = {}
+        for candidate in review.defects:
+            defects_payload.append(
+                {
+                    **candidate.to_public_dict(),
+                    "manually_accepted": candidate.id in review.accepted_defect_ids,
+                    "bbox": list(candidate.bbox),
+                    "bbox_norm": list(candidate.bbox_norm),
+                    "polygon_norm": [list(point) for point in candidate.polygon_norm],
+                }
+            )
+            prefix = candidate.id.replace("/", "_")
+            npz_arrays[f"{prefix}__mask"] = candidate.mask_template
+            npz_arrays[f"{prefix}__diff"] = candidate.diff_template
+            npz_arrays[f"{prefix}__appearance"] = candidate.appearance_template
+            crop = candidate.source_crop
+            npz_arrays[f"{prefix}__crop"] = (
+                crop if crop is not None else np.empty((0, 0, 3), dtype=np.uint8)
+            )
+        meta = {
+            "inspection_id": review.inspection_id,
+            "product_type": review.product_type,
+            "reference_hash": review.reference_hash,
+            "created_at": review.created_at,
+            "original_status": review.original_status,
+            "original_score": review.original_score,
+            "threshold": review.threshold,
+            "accepted_defect_ids": sorted(review.accepted_defect_ids),
+            "counterfactual_score": review.counterfactual_score,
+            "counterfactual_status": review.counterfactual_status,
+            "defects": defects_payload,
+        }
+        (folder / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        if npz_arrays:
+            np.savez_compressed(folder / "defects.npz", **npz_arrays)
+
+    def _read_review(self, inspection_id: str) -> Optional[InspectionReview]:
+        folder = self._review_dir(inspection_id)
+        meta_path = folder / "meta.json"
+        if not meta_path.exists():
+            return None
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            arrays: dict[str, np.ndarray] = {}
+            npz_path = folder / "defects.npz"
+            if npz_path.exists():
+                with np.load(npz_path, allow_pickle=False) as loaded:
+                    arrays = {key: loaded[key].copy() for key in loaded.files}
+            defects: list[DefectCandidate] = []
+            accepted_ids = set(str(item) for item in meta.get("accepted_defect_ids", []))
+            for entry in meta.get("defects", []):
+                defect_id = str(entry.get("id", ""))
+                prefix = defect_id.replace("/", "_")
+                crop = arrays.get(f"{prefix}__crop")
+                bbox = entry.get("bbox") or [0, 0, 1, 1]
+                bbox_norm = entry.get("bbox_norm") or [0.0, 0.0, 0.0, 0.0]
+                polygon = entry.get("polygon_norm") or [
+                    [point["x"], point["y"]] for point in entry.get("polygon", [])
+                ]
+                defects.append(
+                    DefectCandidate(
+                        id=defect_id,
+                        bbox=(int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])),
+                        bbox_norm=(
+                            float(bbox_norm[0]),
+                            float(bbox_norm[1]),
+                            float(bbox_norm[2]),
+                            float(bbox_norm[3]),
+                        ),
+                        polygon_norm=[(float(p[0]), float(p[1])) for p in polygon if len(p) >= 2],
+                        area=int(entry.get("area", 0)),
+                        diff_mean=float(entry.get("diff_mean", 0.0)),
+                        diff_q90=float(entry.get("diff_q90", 0.0)),
+                        diff_max=float(entry.get("diff_max", 0.0)),
+                        score=float(entry.get("score", 0.0)),
+                        mask=np.zeros((0, 0), dtype=bool),
+                        mask_template=arrays.get(f"{prefix}__mask", np.zeros((2, 2), dtype=np.uint8)),
+                        diff_template=arrays.get(f"{prefix}__diff", np.zeros((2, 2), dtype=np.uint8)),
+                        appearance_template=arrays.get(
+                            f"{prefix}__appearance",
+                            np.zeros((2, 2), dtype=np.uint8),
+                        ),
+                        source_crop=crop if crop is not None and crop.size > 0 else None,
+                        matched_case_id=entry.get("matched_case_id"),
+                        similarity=entry.get("similarity"),
+                    )
+                )
+            return InspectionReview(
+                inspection_id=str(meta["inspection_id"]),
+                product_type=str(meta["product_type"]),
+                reference_hash=str(meta.get("reference_hash", "")),
+                created_at=str(meta.get("created_at", "")),
+                original_status=str(meta.get("original_status", "")),
+                original_score=float(meta.get("original_score", 0.0)),
+                threshold=float(meta.get("threshold", 0.0)),
+                aligned_jpeg=(folder / "aligned.jpg").read_bytes(),
+                diff_png=(folder / "diff.png").read_bytes(),
+                raw_mask_png=(folder / "mask.png").read_bytes(),
+                heatmap_jpeg=(folder / "heatmap.jpg").read_bytes(),
+                defects=defects,
+                accepted_defect_ids=accepted_ids,
+                counterfactual_score=(
+                    float(meta["counterfactual_score"])
+                    if meta.get("counterfactual_score") is not None
+                    else None
+                ),
+                counterfactual_status=meta.get("counterfactual_status"),
+            )
+        except Exception:
+            logger.exception("failed to load learning review inspection_id=%s", inspection_id)
+            return None
+
+    def _load_index(self) -> None:
+        if self.storage_dir is None or not self.storage_dir.exists():
+            return
+        loaded: list[tuple[str, dict]] = []
+        for folder in self.storage_dir.iterdir():
+            meta_path = folder / "meta.json"
+            if not folder.is_dir() or not meta_path.exists():
+                continue
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                inspection_id = str(meta.get("inspection_id", folder.name))
+                loaded.append(
+                    (
+                        inspection_id,
+                        {
+                            "inspection_id": inspection_id,
+                            "product_type": str(meta.get("product_type", "")),
+                            "reference_hash": str(meta.get("reference_hash", "")),
+                            "created_at": str(meta.get("created_at", "")),
+                            "original_status": str(meta.get("original_status", "")),
+                            "original_score": float(meta.get("original_score", 0.0)),
+                            "threshold": float(meta.get("threshold", 0.0)),
+                            "defects_count": len(meta.get("defects", [])),
+                            "accepted_defects_count": len(meta.get("accepted_defect_ids", [])),
+                            "counterfactual_score": meta.get("counterfactual_score"),
+                            "counterfactual_status": meta.get("counterfactual_status"),
+                            "pipeline_decision_sent": True,
+                        },
+                    )
+                )
+            except Exception:
+                logger.exception("failed to index learning review dir=%s", folder)
+        loaded.sort(key=lambda item: item[1].get("created_at", ""))
+        for inspection_id, summary in loaded[-self.max_items :]:
+            self._order[inspection_id] = summary
 
 
 class AcceptedNormalMemory:
-    """Персистентная память фрагментов, подтверждённых оператором как норма."""
+    """Память фрагментов, подтверждённых оператором как ложный БРАК.
 
-    def __init__(self, storage_dir: Path) -> None:
+    На диске только в пределах текущего процесса. После рестарта каталог
+    очищается (session_wipe): свет, эталон и установка уже другие.
+    """
+
+    def __init__(self, storage_dir: Path, session_wipe: bool = True) -> None:
         self.storage_dir = Path(storage_dir)
         self._cases: dict[str, AcceptedNormalCase] = {}
         self._lock = threading.RLock()
-        self._load()
+        if session_wipe:
+            wipe_directory(self.storage_dir)
+        else:
+            self.storage_dir.mkdir(parents=True, exist_ok=True)
+            self._load()
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
         with self._lock:
@@ -489,6 +719,15 @@ class AcceptedNormalMemory:
         diff_map: np.ndarray,
         segmentation_mask: np.ndarray,
     ) -> LearnedFilterResult:
+        """Каскад по кропу вокруг сохранённого ложняка, не второй полный inspect.
+
+        1. Кандидат в маске — кроп уже сработал против основного эталона.
+        2. Нет блоба рядом с нормой (~15% кадра) — мини-эталон не трогаем.
+        3. Блоб рядом — кроп vs мини-эталон (форма + diff):
+           похож → погасить; для широкого блика оставить цветовой остаток,
+           чтобы новый скол поверх ложняка остался браком.
+           не похож → брак.
+        """
         candidates = extract_defect_candidates(aligned, diff_map, segmentation_mask)
         with self._lock:
             cases = [
@@ -503,90 +742,18 @@ class AcceptedNormalMemory:
         filtered_mask = segmentation_mask.copy()
         matched_case_ids: list[str] = []
         for candidate in candidates:
-            best_case: Optional[AcceptedNormalCase] = None
-            best_similarity = 0.0
-            for case in cases:
-                similarity = candidate_similarity(candidate, case)
-                if similarity is not None and similarity > best_similarity:
-                    best_similarity = similarity
-                    best_case = case
+            best_case, best_similarity = self._best_matching_case(candidate, cases)
             if best_case is None:
                 continue
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
-            x, y, box_width, box_height = candidate.bbox
-            # Большая допустимая область (например, засвет) может содержать
-            # новый локальный дефект. Для новых норм сохраняется исходный BGR
-            # crop: сравнение с ним оставляет цветовой остаток, вместо удаления
-            # всей connected component целиком.
-            use_color_residual = (
-                best_case.source_crop is not None
-                and best_case.source_crop.size > 0
-                and box_width * box_height >= 2048
-                # Residual subtraction is intended for broad connected regions
-                # such as glare. Thin scratches and L-shaped traces still use
-                # shape-normalized suppression so shifted/scaled copies remain
-                # acceptable as before.
-                and candidate.area / max(1, box_width * box_height) >= 0.35
-                and (box_width * box_height) / max(1, aligned.shape[0] * aligned.shape[1]) >= 0.10
+            self._apply_crop_cascade(
+                candidate,
+                best_case,
+                aligned,
+                filtered_diff,
+                filtered_mask,
             )
-            if use_color_residual:
-                residual_padding = 2
-                residual_x0 = max(0, x - residual_padding)
-                residual_y0 = max(0, y - residual_padding)
-                residual_x1 = min(filtered_diff.shape[1], x + box_width + residual_padding)
-                residual_y1 = min(filtered_diff.shape[0], y + box_height + residual_padding)
-                # Remove the morphology halo of the accepted component first;
-                # the actual bbox is then replaced with the colour residual.
-                filtered_diff[residual_y0:residual_y1, residual_x0:residual_x1] = 0
-                filtered_mask[residual_y0:residual_y1, residual_x0:residual_x1] = 0
-                expected = cv2.resize(
-                    best_case.source_crop,
-                    (box_width, box_height),
-                    interpolation=cv2.INTER_LINEAR,
-                )
-                current = aligned[y : y + box_height, x : x + box_width]
-                color_residual = np.max(
-                    cv2.absdiff(current, expected),
-                    axis=2,
-                ).astype(np.int16)
-                color_residual = np.clip(color_residual - 12, 0, 255).astype(np.uint8)
-                residual_bgr = cv2.cvtColor(color_residual, cv2.COLOR_GRAY2BGR)
-                filtered_diff[y : y + box_height, x : x + box_width] = residual_bgr
-                matched_case_ids.append(best_case.id)
-                continue
-            # Убираем также узкий ореол морфологии вокруг совпавшей компоненты,
-            # иначе остаточный diff продолжает повышать score уже «разрешённого»
-            # фрагмента. Радиус мал и применяется только после строгого match.
-            # Candidate хранит только локальную маску своего bbox. Это не создаёт по одной
-            # полноразмерной копии маски на каждый компонент (особенно дорого на 5-Мп кадрах).
-            # Padding сохраняет прежний двухпиксельный ореол подавления и за пределами bbox.
-            radius = 2
-            padded = cv2.copyMakeBorder(
-                candidate.mask.astype(np.uint8) * 255,
-                radius,
-                radius,
-                radius,
-                radius,
-                cv2.BORDER_CONSTANT,
-                value=0,
-            )
-            suppress_local = cv2.dilate(
-                padded,
-                np.ones((5, 5), dtype=np.uint8),
-                iterations=1,
-            ) > 0
-            x0 = max(0, x - radius)
-            y0 = max(0, y - radius)
-            x1 = min(filtered_diff.shape[1], x + box_width + radius)
-            y1 = min(filtered_diff.shape[0], y + box_height + radius)
-            crop_x0 = x0 - (x - radius)
-            crop_y0 = y0 - (y - radius)
-            crop_x1 = crop_x0 + (x1 - x0)
-            crop_y1 = crop_y0 + (y1 - y0)
-            suppress_crop = suppress_local[crop_y0:crop_y1, crop_x0:crop_x1]
-            filtered_diff[y0:y1, x0:x1][suppress_crop] = 0
-            filtered_mask[y0:y1, x0:x1][suppress_crop] = 0
             matched_case_ids.append(best_case.id)
 
         return LearnedFilterResult(
@@ -596,6 +763,87 @@ class AcceptedNormalMemory:
             matched_case_ids=list(dict.fromkeys(matched_case_ids)),
             matched_candidates_count=len(matched_case_ids),
         )
+
+    @staticmethod
+    def _best_matching_case(
+        candidate: DefectCandidate,
+        cases: list[AcceptedNormalCase],
+    ) -> tuple[Optional[AcceptedNormalCase], float]:
+        best_case: Optional[AcceptedNormalCase] = None
+        best_similarity = 0.0
+        for case in cases:
+            similarity = candidate_similarity(candidate, case)
+            if similarity is not None and similarity > best_similarity:
+                best_similarity = similarity
+                best_case = case
+        return best_case, best_similarity
+
+    @staticmethod
+    def _apply_crop_cascade(
+        candidate: DefectCandidate,
+        matched_case: AcceptedNormalCase,
+        aligned: np.ndarray,
+        filtered_diff: np.ndarray,
+        filtered_mask: np.ndarray,
+    ) -> None:
+        x, y, box_width, box_height = candidate.bbox
+        # Широкий блик: кроп vs мини-эталон в RGB, чтобы новый дефект поверх
+        # знакомого засвета остался в остатке. Тонкие царапины гасятся по форме.
+        use_color_residual = (
+            matched_case.source_crop is not None
+            and matched_case.source_crop.size > 0
+            and box_width * box_height >= 2048
+            and candidate.area / max(1, box_width * box_height) >= 0.35
+            and (box_width * box_height) / max(1, aligned.shape[0] * aligned.shape[1]) >= 0.10
+        )
+        if use_color_residual:
+            residual_padding = 2
+            residual_x0 = max(0, x - residual_padding)
+            residual_y0 = max(0, y - residual_padding)
+            residual_x1 = min(filtered_diff.shape[1], x + box_width + residual_padding)
+            residual_y1 = min(filtered_diff.shape[0], y + box_height + residual_padding)
+            filtered_diff[residual_y0:residual_y1, residual_x0:residual_x1] = 0
+            filtered_mask[residual_y0:residual_y1, residual_x0:residual_x1] = 0
+            expected = cv2.resize(
+                matched_case.source_crop,
+                (box_width, box_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            current = aligned[y : y + box_height, x : x + box_width]
+            color_residual = np.max(
+                cv2.absdiff(current, expected),
+                axis=2,
+            ).astype(np.int16)
+            color_residual = np.clip(color_residual - 12, 0, 255).astype(np.uint8)
+            residual_bgr = cv2.cvtColor(color_residual, cv2.COLOR_GRAY2BGR)
+            filtered_diff[y : y + box_height, x : x + box_width] = residual_bgr
+            return
+        radius = 2
+        padded = cv2.copyMakeBorder(
+            candidate.mask.astype(np.uint8) * 255,
+            radius,
+            radius,
+            radius,
+            radius,
+            cv2.BORDER_CONSTANT,
+            value=0,
+        )
+        suppress_local = cv2.dilate(
+            padded,
+            np.ones((5, 5), dtype=np.uint8),
+            iterations=1,
+        ) > 0
+        x0 = max(0, x - radius)
+        y0 = max(0, y - radius)
+        x1 = min(filtered_diff.shape[1], x + box_width + radius)
+        y1 = min(filtered_diff.shape[0], y + box_height + radius)
+        crop_x0 = x0 - (x - radius)
+        crop_y0 = y0 - (y - radius)
+        crop_x1 = crop_x0 + (x1 - x0)
+        crop_y1 = crop_y0 + (y1 - y0)
+        suppress_crop = suppress_local[crop_y0:crop_y1, crop_x0:crop_x1]
+        filtered_diff[y0:y1, x0:x1][suppress_crop] = 0
+        filtered_mask[y0:y1, x0:x1][suppress_crop] = 0
 
     def _save_case(self, case: AcceptedNormalCase) -> None:
         self.storage_dir.mkdir(parents=True, exist_ok=True)

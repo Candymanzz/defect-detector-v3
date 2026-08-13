@@ -80,12 +80,13 @@ score. Остальные дефекты продолжают формирова
 backend/app/data/accepted_normals/
 ```
 
-Для каждого примера создаются JSON-метаданные и сжатые NumPy-шаблоны. Они
-загружаются после перезапуска сервиса. Архив review хранится только в RAM и по
-умолчанию содержит последние 40 результатов `БРАК`. Лимит задаётся переменной:
+Для каждого примера создаются JSON-метаданные и сжатые NumPy-шаблоны. На старте
+сервиса каталог очищается: после перезапуска ложняки предыдущей смены не
+действуют. Архив review пишется на диск (`learning_reviews/`) и по умолчанию
+содержит последние 50 результатов `БРАК` (FIFO). Лимит задаётся переменной:
 
 ```text
-ANALIS_LEARNING_REVIEW_LIMIT=40
+ANALIS_LEARNING_REVIEW_LIMIT=50
 ```
 
 ## API
@@ -95,12 +96,14 @@ GET    /learning/reviews
 GET    /learning/reviews/{inspection_id}
 GET    /learning/reviews/{inspection_id}/image/{aligned|heatmap|diff|mask}
 POST   /learning/reviews/{inspection_id}/defects/{defect_id}/accept-as-normal
+POST   /learning/reviews/{inspection_id}/accept-all-as-normal
 GET    /learning/accepted-cases
 GET    /learning/accepted-cases/{case_id}/image
 DELETE /learning/accepted-cases/{case_id}
 ```
 
-`POST .../accept-as-normal` возвращает `affects_original_pipeline_decision=false`.
+`POST .../accept-as-normal` и `POST .../accept-all-as-normal` возвращают
+`affects_original_pipeline_decision=false`.
 Дополнительные поля обычного результата инспекции обратно совместимы:
 
 - `inspection_id` — только для сохранённого результата `БРАК`;

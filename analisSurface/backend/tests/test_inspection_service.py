@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -611,7 +612,72 @@ def test_learned_bent_trace_matches_nearby_smaller_rotated_copy(
     assert result.anomaly_score < result.threshold
 
 
-def test_accepted_normal_survives_service_restart(
+def test_learning_reviews_fifo_evicts_oldest_on_disk(
+    tmp_path: Path,
+    gray_frame: np.ndarray,
+) -> None:
+    service = InspectionService(
+        learned_normals_dir=tmp_path / "accepted_normals",
+        reviews_dir=tmp_path / "learning_reviews",
+        review_limit=3,
+        session_wipe=True,
+    )
+    service._anomaly_engine = None
+    service.set_reference_frame("fifo", gray_frame)
+    inspection_ids: list[str] = []
+    for _ in range(4):
+        defective = gray_frame.copy()
+        defective[10:30, 10:50] = 255
+        result = service.inspect_frame("fifo", defective, threshold=0.1, include_visuals=False)
+        assert result.inspection_id is not None
+        inspection_ids.append(result.inspection_id)
+
+    assert service.get_learning_review(inspection_ids[0]) is None
+    assert not (tmp_path / "learning_reviews" / inspection_ids[0]).exists()
+    assert service.get_learning_review(inspection_ids[1]) is not None
+    assert service.get_learning_review(inspection_ids[3]) is not None
+    assert len(service.list_learning_reviews()) == 3
+
+
+def test_accept_all_review_defects_as_normal(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("accept-all", gray_frame)
+    defective = gray_frame.copy()
+    defective[10:30, 10:50] = 255
+    original = inspection_service.inspect_frame(
+        "accept-all",
+        defective,
+        threshold=0.1,
+        include_visuals=False,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None
+    assert len(review["defects"]) >= 1
+
+    accepted = inspection_service.accept_review_all_as_normal(original.inspection_id, note="весь кадр")
+    assert accepted["accepted_count"] == len(review["defects"])
+    assert accepted["affects_original_pipeline_decision"] is False
+    stored = inspection_service.get_learning_review(original.inspection_id)
+    assert stored is not None
+    assert stored["accepted_defects_count"] == len(review["defects"])
+    assert all(item["manually_accepted"] for item in stored["defects"])
+
+    result = inspection_service.inspect_frame(
+        "accept-all",
+        defective,
+        threshold=0.1,
+        include_visuals=False,
+    )
+    assert result.learned_normal_matches_count == accepted["accepted_count"]
+    assert result.status == "ГОДЕН"
+
+    with pytest.raises(ValueError, match="No pending defects"):
+        inspection_service.accept_review_all_as_normal(original.inspection_id)
+
+
+def test_accepted_normal_is_wiped_on_service_restart(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,
 ) -> None:
@@ -627,14 +693,17 @@ def test_accepted_normal_survives_service_restart(
 
     restarted = InspectionService(
         learned_normals_dir=inspection_service._accepted_normals.storage_dir,
+        reviews_dir=inspection_service._learning_reviews.storage_dir,
         review_limit=5,
+        session_wipe=True,
     )
     restarted._anomaly_engine = None
     restarted.set_reference_frame("bench", gray_frame)
     result = restarted.inspect_frame("bench", acceptable, threshold=0.1, include_visuals=False)
 
-    assert result.learned_normal_matches_count == 1
-    assert result.status == "ГОДЕН"
+    assert result.learned_normal_matches_count == 0
+    assert result.status == "БРАК"
+    assert restarted.get_learning_review(original.inspection_id) is None
 
 
 def test_new_colored_scratch_inside_accepted_broad_area_remains_a_defect(
@@ -736,7 +805,12 @@ def test_legacy_stretched_normal_is_loaded_with_recovered_aspect(
     }
     np.savez_compressed(arrays_path, **legacy_arrays)
 
-    restarted = InspectionService(learned_normals_dir=storage_dir, review_limit=5)
+    restarted = InspectionService(
+        learned_normals_dir=storage_dir,
+        reviews_dir=inspection_service._learning_reviews.storage_dir,
+        review_limit=5,
+        session_wipe=False,
+    )
     restarted._anomaly_engine = None
     restarted.set_reference_frame("legacy-template", reference)
     result = restarted.inspect_frame(
