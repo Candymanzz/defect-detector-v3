@@ -124,6 +124,13 @@ export function ModalWrapper({
           <h2>{title}</h2>
           <div className="modal__header-actions">
             {dangerHeaderAction}
+            {inspectionResultState === "fail" && inspectResult?.learned_review_id && inspectResult.detector.product_type && (
+              <LearnFrameAction
+                key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
+                inspectResult={inspectResult}
+                productType={inspectResult.detector.product_type}
+              />
+            )}
             {headerActions}
             <button
               aria-label="Закрыть"
@@ -214,6 +221,47 @@ export function ModalWrapper({
           inspectResult={inspectResult}
         />
       </section>
+    </div>
+  );
+}
+
+function LearnFrameAction({ inspectResult, productType }: { inspectResult: InspectResultPayload; productType: string }) {
+  const [state, setState] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const handleAccept = async () => {
+    setState("saving");
+    setMessage("Кадр отправляется в дообучение…");
+    try {
+      const result = await orchestratorApi.acceptLearnedNormals({
+        frameId: inspectResult.frame_id,
+        cameraId: inspectResult.camera_id,
+        productType,
+      });
+      const count = result.accepted_count ?? result.accepted_case_ids?.length ?? result.accepted_cases?.length ?? 0;
+      setState("success");
+      setMessage(`Кадр добавлен в анализ${count > 0 ? `: сохранено фрагментов — ${count}` : ""}.`);
+    } catch (error) {
+      const status = error instanceof HttpError ? error.status : undefined;
+      setState("error");
+      setMessage(
+        status === 404
+          ? "Кадр уже не в сессии. Выберите свежий БРАК."
+          : status === 409
+            ? "Кадр уже добавлен или в нём нечего дообучать."
+            : error instanceof Error
+              ? error.message
+              : "Не удалось добавить кадр в анализ.",
+      );
+    }
+  };
+
+  return (
+    <div className="modal__learning-action" data-state={state}>
+      <button className="modal__action" type="button" disabled={state === "saving" || state === "success"} onClick={handleAccept}>
+        {state === "saving" ? "Добавление…" : state === "success" ? "Добавлено в анализ" : "Добавить кадр в анализ"}
+      </button>
+      {message && <span role={state === "error" ? "alert" : "status"}>{message}</span>}
     </div>
   );
 }

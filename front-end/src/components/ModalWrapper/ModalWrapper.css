@@ -198,6 +198,30 @@
   text-transform: uppercase;
 }
 
+.modal__learning-action {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #f5d79d;
+  font-size: 0.82rem;
+}
+
+.modal__learning-action .modal__action {
+  border: 1px solid #e5a832;
+  background: #c98212;
+  color: #fff;
+  cursor: pointer;
+}
+
+.modal__learning-action .modal__action:disabled { cursor: default; opacity: 0.7; }
+.modal__learning-action[data-state="success"] { color: #b8efc2; }
+.modal__learning-action[data-state="error"] { color: #ffc2c2; }
+
+.modal__learning-action span {
+  max-width: 220px;
+  line-height: 1.2;
+}
+
 .modal__inspection-indicator[data-result="pass"] {
   border-color: #22c55e;
   background: rgba(34, 197, 94, 0.16);

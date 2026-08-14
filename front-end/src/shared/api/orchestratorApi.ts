@@ -21,6 +21,7 @@ import type {
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
   LightModeSettings,
+  LearnedNormalCase,
   LineDirection,
   LineDirectionSettings,
   LineDirectionUpdateResponse,
@@ -391,6 +392,22 @@ export const orchestratorApi = {
       query.set("cameraId", String(cameraId));
     }
     return http.json<{ reviews: unknown[] }>(`/api/client/learning/reviews?${query}`);
+  },
+
+  async getLearnedNormals(productType: string, cameraId: number) {
+    const query = new URLSearchParams({ productType, cameraId: String(cameraId) });
+    return http.json<{ cases: LearnedNormalCase[] }>(`/api/client/learning/accepted-cases?${query}`);
+  },
+
+  learnedNormalImageUrl(caseId: string) {
+    return http.url(`/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}/image`);
+  },
+
+  async deleteLearnedNormal(caseId: string) {
+    return http.json<{ deleted: boolean; case_id?: string }>(
+      `/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}`,
+      { method: "DELETE" },
+    );
   },
 
   async clearLearnedNormals() {
