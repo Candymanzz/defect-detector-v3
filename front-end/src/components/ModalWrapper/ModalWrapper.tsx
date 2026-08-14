@@ -217,7 +217,6 @@ export function ModalWrapper({
 
         <InspectResultPanel
           key={`inspect-${inspectResult?.camera_id ?? "x"}-${inspectResult?.server_ts_ms ?? 0}-${inspectResult?.anomaly_score ?? "na"}`}
-          geometry={geometrySnapshot.geometry}
           inspectResult={inspectResult}
         />
       </section>
@@ -671,13 +670,8 @@ function HeatmapPanel({
   );
 }
 
-function InspectResultPanel({
-  inspectResult,
-  geometry,
-}: {
-  inspectResult?: InspectResultPayload;
-  geometry?: GeometryInspectResponse | null;
-}) {
+function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPayload }) {
+  const resultState = resolveInspectionResultState(inspectResult);
   return (
     <section
       className="modal-inspect-result"
@@ -695,73 +689,20 @@ function InspectResultPanel({
       </header>
 
       {inspectResult ? (
-        <>
-          <dl className="modal-inspect-result__summary">
-            <InspectResultField
-              label="камера"
-              value={inspectResult.camera_id}
-            />
-            <InspectResultField
-              label="состояние"
-              value={inspectResult.session_state}
-            />
-            <InspectResultField
-              label="изделие"
-              value={inspectResult.detector.product_type}
-            />
-            <InspectResultField
-              label="детектор"
-              value={inspectResult.detector.detector_id}
-            />
-            <InspectResultField
-              label="активный вид"
-              value={inspectResult.active_reference_view_index}
-            />
-            <InspectResultField
-              label="FP зоны"
-              value={inspectResult.fp_zones.length}
-            />
-            <InspectResultField
-              label="тепловая карта"
-              value={inspectResult.heatmap ? `${inspectResult.heatmap.width}x${inspectResult.heatmap.height}` : "нет"}
-            />
-            <InspectResultField
-              label="время сервера"
-              value={formatServerTime(inspectResult.server_ts_ms)}
-            />
-            <InspectResultField
-              label="радиус отклонения"
-              value={
-                geometry?.deviationRadiusMm !== undefined
-                  ? `${Number(geometry.deviationRadiusMm).toFixed(3)} мм`
-                  : undefined
-              }
-            />
-          </dl>
-
-          <div className="modal-inspect-result__decision">{formatInspectDecisionLine(inspectResult, geometry)}</div>
-
-          <InspectResultRaw inspectResult={inspectResult} />
-        </>
+        <dl className="modal-inspect-result__summary modal-inspect-result__summary--compact">
+          <InspectResultField
+            label="Результат"
+            value={resultState === "pass" ? "Годен" : resultState === "fail" ? "Брак" : "—"}
+          />
+          <InspectResultField
+            label="Аномалия"
+            value={formatAnomalyPercent(inspectResult.anomaly_score)}
+          />
+        </dl>
       ) : (
         <div className="modal-inspect-result__empty">Синхронизированного результата инспекции ещё нет</div>
       )}
     </section>
-  );
-}
-
-function InspectResultRaw({ inspectResult }: { inspectResult: InspectResultPayload }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <details
-      className="modal-inspect-result__details"
-      open={isOpen}
-      onToggle={(event) => setIsOpen(event.currentTarget.open)}
-    >
-      <summary>Исходный результат</summary>
-      {isOpen && <pre className="modal-inspect-result__raw">{JSON.stringify(inspectResult, null, 2)}</pre>}
-    </details>
   );
 }
 
@@ -774,32 +715,9 @@ function InspectResultField({ label, value }: { label: string; value?: string | 
   );
 }
 
-function formatInspectDecisionLine(inspectResult: InspectResultPayload, geometry?: GeometryInspectResponse | null) {
-  const deviation = geometry?.deviationRadiusMm !== undefined ? Number(geometry.deviationRadiusMm).toFixed(3) : "-";
-  return [
-    `общий результат: ${formatOptionalValue(inspectResult.overall_pass)}`,
-    `действие: ${formatOptionalValue(inspectResult.action)}`,
-    `оценка аномалии: ${formatOptionalValue(inspectResult.anomaly_score)}`,
-    `статус Python: ${formatOptionalValue(inspectResult.python_status)}`,
-    `статус геометрии: ${formatOptionalValue(inspectResult.geometry_status)}`,
-    `радиус отклонения, мм: ${deviation}`,
-  ].join(" | ");
-}
-
-function formatOptionalValue(value: string | number | boolean | undefined) {
-  if (value === undefined) {
-    return "-";
-  }
-
-  return String(value);
-}
-
-function formatServerTime(serverTsMs: number) {
-  if (!Number.isFinite(serverTsMs) || serverTsMs <= 0) {
-    return "-";
-  }
-
-  return new Date(serverTsMs).toLocaleTimeString();
+function formatAnomalyPercent(score?: number) {
+  if (score === undefined || !Number.isFinite(score)) return "—";
+  return `${(score * 100).toFixed(2)}%`;
 }
 
 function resolveFpZonesHeatmapSize(inspectResult: InspectResultPayload | undefined) {
