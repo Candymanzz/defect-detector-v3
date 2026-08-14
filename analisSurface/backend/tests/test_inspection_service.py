@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
+from app.services.analysis_settings_presets import expand_simple
 from app.services.inspection_geometry import (
     polygon_area,
     validate_polygon_inside_parent,
@@ -197,6 +198,30 @@ def test_inspect_detects_large_difference(inspection_service: InspectionService,
     result = inspection_service.inspect_frame("bench", defective, threshold=0.01)
 
     assert result.status == "БРАК"
+    assert result.anomaly_score >= result.threshold
+
+
+def test_scoped_camera_inspection_uses_saved_profile_threshold_when_request_omits_it(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    profile = "bench-lan1"
+    scoped_product_type = f"{profile}#cam=0"
+    inspection_service._analysis_settings_overrides = {
+        profile: expand_simple(threshold=0.01, sensitivity=1.0),
+    }
+    inspection_service.set_reference_frame(scoped_product_type, gray_frame)
+    defective = gray_frame.copy()
+    defective[10:30, 10:50] = 255
+
+    result = inspection_service.inspect_frame(
+        scoped_product_type,
+        defective,
+        threshold=None,
+        alignment_h_ref_to_cur=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    )
+
+    assert result.threshold == pytest.approx(0.01)
     assert result.anomaly_score >= result.threshold
 
 

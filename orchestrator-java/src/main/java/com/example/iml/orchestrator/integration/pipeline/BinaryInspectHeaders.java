@@ -298,7 +298,9 @@ public final class BinaryInspectHeaders {
         pyHeader.put("frame_id", capture.header().get("frame_id"));
         pyHeader.put("product_type", productType);
         pyHeader.put("detector_id", detectorId);
-        pyHeader.put("threshold", YamlScalars.toDouble(pythonCfg == null ? null : pythonCfg.get("fallback_threshold"), 0.25));
+        // Keep the threshold absent so Python can resolve default_threshold from the
+        // selected analysis profile. GeometryRuntimeConfig may still add an explicit
+        // per-frame override after this header is built.
         // Горячий путь: false; превью — {@link com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar}.
         pyHeader.put("include_visuals", includeVisuals);
         if (pythonCfg != null && pythonCfg.get("rois") != null) {

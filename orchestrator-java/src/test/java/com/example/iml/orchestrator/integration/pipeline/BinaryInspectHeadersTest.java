@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -141,6 +142,40 @@ class BinaryInspectHeadersTest {
         assertNotNull(referenceJointRoi);
         assertNotNull(header.get("jointRoi"));
         assertTrueMapsEqual(referenceJointRoi, header.get("jointRoi"));
+    }
+
+    @Test
+    void pythonHeaderDoesNotOverrideProfileThresholdWithYamlFallback() {
+        Map<String, Object> header = BinaryInspectHeaders.pythonInspectHeader(
+                1,
+                "bench-lan1",
+                "surface",
+                capture,
+                null,
+                Map.of("fallback_threshold", 0.45),
+                false
+        );
+
+        assertFalse(header.containsKey("threshold"));
+    }
+
+    @Test
+    void explicitRuntimeThresholdCanStillOverrideProfileThreshold() {
+        Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.pythonInspectHeader(
+                1,
+                "bench-lan1",
+                "surface",
+                capture,
+                null,
+                Map.of("fallback_threshold", 0.45),
+                false
+        ));
+        GeometryRuntimeConfig runtimeConfig = new GeometryRuntimeConfig();
+        runtimeConfig.replaceAllFromClient("bench-lan1", Map.of("threshold", 0.07));
+
+        runtimeConfig.applyToPythonHeader(header, Map.of("fallback_threshold", 0.45), "bench-lan1");
+
+        assertEquals(0.07, header.get("threshold"));
     }
 
     private static void assertTrueMapsEqual(Object expected, Object actual) {

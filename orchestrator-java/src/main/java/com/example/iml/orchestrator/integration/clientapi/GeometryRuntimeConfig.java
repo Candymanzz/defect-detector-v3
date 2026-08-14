@@ -127,7 +127,7 @@ public final class GeometryRuntimeConfig {
         header.put("jointSeamSegmentationEnabled", true);
     }
 
-    /** Порог чувствительности для python {@code inspect_shm} (поверх {@code python_detector.fallback_threshold}). */
+    /** Явное runtime-переопределение порога для python {@code inspect_shm}, если оно задано для профиля. */
     public void applyToPythonHeader(Map<String, Object> header, Map<String, Object> pythonYaml) {
         applyToPythonHeader(header, pythonYaml, null);
     }
