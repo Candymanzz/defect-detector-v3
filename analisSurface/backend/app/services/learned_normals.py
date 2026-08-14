@@ -52,6 +52,12 @@ REVIEW_SIGNIFICANT_SCRATCH_MIN_Q90 = 30.0
 REVIEW_SIGNIFICANT_SCRATCH_MIN_RELATIVE_IMPACT = 0.08
 LEARNED_RESIDUAL_MIN_Q90 = 18.0
 LEARNED_RESIDUAL_MIN_MAX = 24.0
+# A broad accepted illumination patch represents the whole local glare field,
+# not only the strongest binary core that happened to cross the detector cutoff.
+BROAD_REGION_MIN_BBOX_AREA_NORM = 0.04
+BROAD_REGION_MIN_FILL_RATIO = 0.45
+BROAD_REGION_PADDING_RATIO = 0.35
+BROAD_REGION_RESIDUAL_FLOOR = 10
 
 
 def wipe_directory(path: Path) -> None:
@@ -779,6 +785,7 @@ class AcceptedNormalMemory:
         filtered_diff = diff_map.copy()
         filtered_mask = segmentation_mask.copy()
         matched_case_ids: list[str] = []
+        applied_broad_case_ids: set[str] = set()
         for candidate in candidates:
             best_case, best_similarity = self._best_matching_case(candidate, cases)
             if best_case is None:
@@ -786,13 +793,17 @@ class AcceptedNormalMemory:
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
             matched_candidate_ids.add(candidate.id)
-            self._apply_crop_cascade(
-                candidate,
-                best_case,
-                aligned,
-                filtered_diff,
-                filtered_mask,
-            )
+            broad_case = _is_broad_accepted_region(best_case)
+            if not broad_case or best_case.id not in applied_broad_case_ids:
+                self._apply_crop_cascade(
+                    candidate,
+                    best_case,
+                    aligned,
+                    filtered_diff,
+                    filtered_mask,
+                )
+                if broad_case:
+                    applied_broad_case_ids.add(best_case.id)
             matched_case_ids.append(best_case.id)
 
         # После вычитания нормы слабые остатки нельзя ранжировать заново как
@@ -843,6 +854,15 @@ class AcceptedNormalMemory:
         filtered_mask: np.ndarray,
     ) -> None:
         x, y, box_width, box_height = candidate.bbox
+        if _is_broad_accepted_region(matched_case):
+            AcceptedNormalMemory._suppress_broad_illumination(
+                candidate,
+                matched_case,
+                aligned,
+                filtered_diff,
+                filtered_mask,
+            )
+            return
         # Широкий блик: кроп vs мини-эталон в RGB, чтобы новый дефект поверх
         # знакомого засвета остался в остатке. Тонкие царапины гасятся по форме.
         use_color_residual = (
@@ -875,6 +895,129 @@ class AcceptedNormalMemory:
             filtered_diff[y : y + box_height, x : x + box_width] = residual_bgr
             return
         AcceptedNormalMemory._suppress_candidate(filtered_diff, filtered_mask, candidate)
+
+    @staticmethod
+    def _suppress_broad_illumination(
+        candidate: DefectCandidate,
+        matched_case: AcceptedNormalCase,
+        aligned: np.ndarray,
+        filtered_diff: np.ndarray,
+        filtered_mask: np.ndarray,
+    ) -> None:
+        """Suppress an accepted glare field while retaining sharp new damage."""
+        frame_height, frame_width = filtered_diff.shape[:2]
+        x, y, box_width, box_height = candidate.bbox
+        exact_core_match = False
+        if matched_case.source_crop is not None and matched_case.source_crop.size > 0:
+            expected_core = cv2.resize(
+                matched_case.source_crop,
+                (box_width, box_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            current_core = aligned[y : y + box_height, x : x + box_width]
+            if current_core.shape == expected_core.shape and current_core.size > 0:
+                exact_delta = np.max(
+                    cv2.absdiff(current_core, expected_core),
+                    axis=2,
+                )
+                exact_core_match = float(np.percentile(exact_delta, 99)) <= 6.0
+        sample_x_norm, sample_y_norm, sample_w_norm, sample_h_norm = matched_case.bbox_norm
+        sample_x = int(round(sample_x_norm * frame_width))
+        sample_y = int(round(sample_y_norm * frame_height))
+        sample_width = max(1, int(round(sample_w_norm * frame_width)))
+        sample_height = max(1, int(round(sample_h_norm * frame_height)))
+        padding_x = max(
+            8,
+            int(round(max(box_width, sample_width) * BROAD_REGION_PADDING_RATIO)),
+        )
+        padding_y = max(
+            8,
+            int(round(max(box_height, sample_height) * BROAD_REGION_PADDING_RATIO)),
+        )
+        region_x0 = max(0, min(x, sample_x) - padding_x)
+        region_y0 = max(0, min(y, sample_y) - padding_y)
+        region_x1 = min(
+            frame_width,
+            max(x + box_width, sample_x + sample_width) + padding_x,
+        )
+        region_y1 = min(
+            frame_height,
+            max(y + box_height, sample_y + sample_height) + padding_y,
+        )
+        if region_x1 <= region_x0 or region_y1 <= region_y0:
+            AcceptedNormalMemory._suppress_candidate(filtered_diff, filtered_mask, candidate)
+            return
+        if exact_core_match:
+            filtered_diff[region_y0:region_y1, region_x0:region_x1] = 0
+            filtered_mask[region_y0:region_y1, region_x0:region_x1] = 0
+            return
+
+        # The low-frequency part of the difference is illumination. Only a sharp
+        # residual is returned to the detector so a scratch/chip over the glare is
+        # still rejected.
+        region_diff = _gray(
+            filtered_diff[region_y0:region_y1, region_x0:region_x1]
+        ).copy()
+        sigma = max(
+            4.0,
+            min(region_x1 - region_x0, region_y1 - region_y0) * 0.06,
+        )
+        low_frequency = cv2.GaussianBlur(
+            region_diff,
+            (0, 0),
+            sigmaX=sigma,
+            sigmaY=sigma,
+        )
+        residual = np.clip(
+            region_diff.astype(np.int16)
+            - low_frequency.astype(np.int16)
+            - BROAD_REGION_RESIDUAL_FLOOR,
+            0,
+            255,
+        ).astype(np.uint8)
+
+        # Within the detected core, compare with the saved accepted crop too.
+        # Removing its smooth colour drift keeps varying glare quiet, while a new
+        # coloured or dark trace remains in the high-frequency residual.
+        if matched_case.source_crop is not None and matched_case.source_crop.size > 0:
+            expected = cv2.resize(
+                matched_case.source_crop,
+                (box_width, box_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            current = aligned[y : y + box_height, x : x + box_width]
+            if current.shape == expected.shape and current.size > 0:
+                signed_colour_delta = current.astype(np.float32) - expected.astype(np.float32)
+                core_sigma = max(3.0, min(box_width, box_height) * 0.10)
+                smooth_colour_delta = cv2.GaussianBlur(
+                    signed_colour_delta,
+                    (0, 0),
+                    sigmaX=core_sigma,
+                    sigmaY=core_sigma,
+                )
+                colour_residual = np.max(
+                    np.abs(signed_colour_delta - smooth_colour_delta),
+                    axis=2,
+                )
+                colour_residual = np.clip(
+                    colour_residual - BROAD_REGION_RESIDUAL_FLOOR,
+                    0,
+                    255,
+                ).astype(np.uint8)
+                local_x0 = x - region_x0
+                local_y0 = y - region_y0
+                local_x1 = local_x0 + box_width
+                local_y1 = local_y0 + box_height
+                residual[local_y0:local_y1, local_x0:local_x1] = cv2.max(
+                    residual[local_y0:local_y1, local_x0:local_x1],
+                    colour_residual,
+                )
+
+        filtered_diff[region_y0:region_y1, region_x0:region_x1] = cv2.cvtColor(
+            residual,
+            cv2.COLOR_GRAY2BGR,
+        )
+        filtered_mask[region_y0:region_y1, region_x0:region_x1] = 0
 
     @staticmethod
     def _suppress_candidate(
@@ -1242,6 +1385,24 @@ def _case_templates(case: AcceptedNormalCase) -> tuple[np.ndarray, np.ndarray, n
     return templates
 
 
+def _is_broad_accepted_region(
+    case: AcceptedNormalCase,
+    geometry: Optional[_MaskGeometry] = None,
+) -> bool:
+    """Return whether a saved case should model a local illumination field."""
+    _, _, width_norm, height_norm = case.bbox_norm
+    if width_norm * height_norm < BROAD_REGION_MIN_BBOX_AREA_NORM:
+        return False
+    if geometry is None:
+        mask_template, _, _ = _case_templates(case)
+        geometry = _mask_geometry(mask_template)
+    return bool(
+        geometry is not None
+        and geometry.fill_ratio >= BROAD_REGION_MIN_FILL_RATIO
+        and geometry.component_count <= 3
+    )
+
+
 def _contour_match_distance(first: _MaskGeometry, second: _MaskGeometry) -> float:
     return float(
         cv2.matchShapes(
@@ -1311,22 +1472,6 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     candidate_area_norm = max(1e-9, cw * ch)
     sample_area_norm = max(1e-9, sw * sh)
     bbox_area_ratio = candidate_area_norm / sample_area_norm
-    # Нижней границы нет: любая уменьшенная версия подтверждённого следа может
-    # совпасть. Увеличение ограничено, чтобы большая аномалия не наследовала
-    # исключение от маленького примера.
-    if bbox_area_ratio >= 1.55:
-        return None
-
-    if candidate.diff_q90 > max(case.diff_q90 * 1.60, case.diff_q90 + 12.0):
-        return None
-    maximum_diff_max = (
-        max(case.diff_max * 1.75, case.diff_max + 35.0)
-        if bbox_area_ratio <= 1.0
-        else max(case.diff_max * 1.50, case.diff_max + 20.0)
-    )
-    if candidate.diff_max > maximum_diff_max:
-        return None
-
     case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
     candidate_mask = candidate.mask_template > 0
     candidate_diff_template = candidate.diff_template
@@ -1341,6 +1486,31 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         sample_geometry = _mask_geometry(sample_mask)
         case._geometry_cache = sample_geometry
     if candidate_geometry is None or sample_geometry is None:
+        return None
+    sample_is_broad_region = _is_broad_accepted_region(case, sample_geometry)
+    # Нижней границы нет: любая уменьшенная версия подтверждённого следа может
+    # совпасть. Увеличение ограничено, чтобы большая аномалия не наследовала
+    # исключение от маленького примера.
+    maximum_bbox_area_ratio = 1.90 if sample_is_broad_region else 1.55
+    if bbox_area_ratio >= maximum_bbox_area_ratio:
+        return None
+
+    maximum_diff_q90 = (
+        max(case.diff_q90 * 2.00, case.diff_q90 + 25.0)
+        if sample_is_broad_region
+        else max(case.diff_q90 * 1.60, case.diff_q90 + 12.0)
+    )
+    if candidate.diff_q90 > maximum_diff_q90:
+        return None
+    if sample_is_broad_region:
+        maximum_diff_max = max(case.diff_max * 2.00, case.diff_max + 45.0)
+    else:
+        maximum_diff_max = (
+            max(case.diff_max * 1.75, case.diff_max + 35.0)
+            if bbox_area_ratio <= 1.0
+            else max(case.diff_max * 1.50, case.diff_max + 20.0)
+        )
+    if candidate.diff_max > maximum_diff_max:
         return None
 
     sample_is_thin_trace = (
@@ -1398,27 +1568,39 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
 
     # Направление важно только для явно вытянутых следов. Для почти круглых пятен
     # PCA-угол нестабилен и не должен мешать совпадению.
-    if min(candidate_geometry.elongation, sample_geometry.elongation) >= 1.8:
+    if (
+        not sample_is_broad_region
+        and min(candidate_geometry.elongation, sample_geometry.elongation) >= 1.8
+    ):
         maximum_angle_distance = 45.0 if sample_is_bent_trace else 30.0
         if _angle_distance(candidate_geometry.angle_degrees, sample_geometry.angle_degrees) > maximum_angle_distance:
             return None
     one_is_elongated = max(candidate_geometry.elongation, sample_geometry.elongation) >= 2.5
     other_is_compact = min(candidate_geometry.elongation, sample_geometry.elongation) <= 1.45
-    if one_is_elongated and other_is_compact:
+    if one_is_elongated and other_is_compact and not sample_is_broad_region:
         return None
 
     # Эти проверки масштабонезависимы: абсолютная площадь не участвует. Положение
     # уже проверено выше по нормированному расстоянию между центрами.
-    if aspect_similarity < 0.40:
+    minimum_aspect_similarity = 0.30 if sample_is_broad_region else 0.40
+    if aspect_similarity < minimum_aspect_similarity:
         return None
-    minimum_fill_similarity = 0.30 if sample_is_thin_trace else 0.38
+    minimum_fill_similarity = (
+        0.20
+        if sample_is_broad_region
+        else (0.30 if sample_is_thin_trace else 0.38)
+    )
     if fill_similarity < minimum_fill_similarity:
         return None
     minimum_compactness_similarity = 0.28 if sample_is_thin_trace else 0.33
     if (
-        compactness_similarity < minimum_compactness_similarity
-        or solidity_similarity < 0.42
-    ) and not scaled_core_geometry_candidate:
+        not sample_is_broad_region
+        and (
+            compactness_similarity < minimum_compactness_similarity
+            or solidity_similarity < 0.42
+        )
+        and not scaled_core_geometry_candidate
+    ):
         return None
 
     comparison_region = cv2.dilate(
@@ -1446,6 +1628,18 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         )
         / 255.0
     )
+    stable_broad_region_candidate = (
+        sample_is_broad_region
+        and tolerant_shape_similarity >= 0.65
+        and dice_similarity >= 0.22
+        and core_tolerant_similarity >= 0.75
+        and aspect_similarity >= 0.35
+        and fill_similarity >= 0.25
+        and diff_similarity >= 0.62
+        and appearance_similarity >= 0.30
+    )
+    if sample_is_broad_region and not stable_broad_region_candidate:
+        return None
     stable_scaled_shape_candidate = (
         scaled_core_geometry_candidate
         and diff_similarity >= 0.82
@@ -1495,10 +1689,14 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if (
         not stable_thin_trace_candidate
         and not stable_scaled_shape_candidate
+        and not stable_broad_region_candidate
         and (tolerant_shape_similarity < 0.72 or dice_similarity < 0.32)
     ):
         return None
-    if diff_similarity < 0.70 or appearance_similarity < 0.45:
+    if (
+        (diff_similarity < 0.70 or appearance_similarity < 0.45)
+        and not stable_broad_region_candidate
+    ):
         return None
 
     geometry_similarity = (
@@ -1514,7 +1712,11 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         max(candidate_geometry.elongation, sample_geometry.elongation) < 2.2
         and min(candidate_geometry.fill_ratio, sample_geometry.fill_ratio) >= 0.55
     )
-    if both_filled_compact and not stable_scaled_shape_candidate:
+    if (
+        both_filled_compact
+        and not stable_scaled_shape_candidate
+        and not stable_broad_region_candidate
+    ):
         if dice_similarity < 0.83 or aspect_similarity < 0.78:
             return None
         contour_distance = _contour_match_distance(candidate_geometry, sample_geometry)
@@ -1529,8 +1731,22 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         geometry_similarity < 0.72
         and not stable_thin_trace_candidate
         and not stable_scaled_shape_candidate
+        and not stable_broad_region_candidate
     ):
         return None
+
+    if stable_broad_region_candidate:
+        broad_similarity = (
+            tolerant_shape_similarity * 0.25
+            + dice_similarity * 0.12
+            + core_tolerant_similarity * 0.18
+            + core_dice_similarity * 0.10
+            + aspect_similarity * 0.10
+            + fill_similarity * 0.05
+            + diff_similarity * 0.12
+            + appearance_similarity * 0.08
+        )
+        return float(broad_similarity) if broad_similarity >= 0.62 else None
 
     # Уменьшенная версия одного и того же следа может немного не добрать общий
     # порог из-за иного соотношения длины его плеч. Это особенно заметно у

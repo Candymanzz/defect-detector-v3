@@ -935,6 +935,69 @@ def test_new_colored_scratch_inside_accepted_broad_area_remains_a_defect(
     assert scratch_bbox["height"] > 60
 
 
+def test_accepted_glare_covers_weaker_shifted_field_but_not_a_new_scratch(
+    inspection_service: InspectionService,
+) -> None:
+    height, width = 220, 320
+    reference = np.full((height, width, 3), 42, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    profile = "varying-glare"
+    inspection_service._analysis_settings_overrides[profile] = expand_simple(
+        threshold=0.10,
+        sensitivity=1.0,
+    )
+    inspection_service.set_reference_frame(profile, reference)
+
+    def with_glare(center_x: int, center_y: int, strength: int) -> np.ndarray:
+        y_grid, x_grid = np.ogrid[:height, :width]
+        radius = np.sqrt(
+            ((x_grid - center_x) / 105.0) ** 2
+            + ((y_grid - center_y) / 82.0) ** 2
+        )
+        illumination = np.clip(1.0 - radius, 0.0, 1.0) * float(strength)
+        frame = reference.astype(np.float32) + illumination[..., None]
+        return np.clip(frame, 0, 255).astype(np.uint8)
+
+    accepted_glare = with_glare(96, 112, 105)
+    first = inspection_service.inspect_frame(
+        profile,
+        accepted_glare,
+        threshold=0.10,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    first_review = inspection_service.get_learning_review(first.inspection_id)
+    assert first_review is not None
+    assert len(first_review["defects"]) >= 1
+    inspection_service.accept_all_review_defects_as_normal(first.inspection_id)
+
+    weaker_shifted_glare = with_glare(106, 116, 72)
+    glare_only = inspection_service.inspect_frame(
+        profile,
+        weaker_shifted_glare,
+        threshold=0.10,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert glare_only.learned_normal_matches_count >= 1
+    assert glare_only.status == "ГОДЕН"
+
+    glare_and_scratch = weaker_shifted_glare.copy()
+    cv2.line(glare_and_scratch, (92, 66), (101, 162), (0, 0, 255), 5, cv2.LINE_AA)
+    damaged = inspection_service.inspect_frame(
+        profile,
+        glare_and_scratch,
+        threshold=0.10,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert damaged.learned_normal_matches_count >= 1
+    assert damaged.status == "БРАК"
+    damaged_review = inspection_service.get_learning_review(damaged.inspection_id)
+    assert damaged_review is not None
+    assert len(damaged_review["defects"]) >= 1
+
+
 def test_legacy_stretched_normal_is_loaded_with_recovered_aspect(
     inspection_service: InspectionService,
 ) -> None:
