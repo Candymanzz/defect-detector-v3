@@ -66,7 +66,6 @@ class ReferenceResponse(BaseModel):
 
 class AnalysisSettingsValues(BaseModel):
     default_threshold: float = 0.25
-    use_patchcore: bool = True
     min_defect_area: int = 6
     min_scratch_aspect: float = 3.0
     min_diff_signal: float = 12.0
@@ -88,7 +87,6 @@ class AnalysisSettingsValues(BaseModel):
 
 class AnalysisSettingsUpdateRequest(BaseModel):
     default_threshold: Optional[float] = None
-    use_patchcore: Optional[bool] = None
     min_defect_area: Optional[int] = None
     min_scratch_aspect: Optional[float] = None
     min_diff_signal: Optional[float] = None

@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
+from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import expand_simple
 from app.services.inspection_geometry import (
     polygon_area,
@@ -312,6 +313,22 @@ def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
     heat = service._build_heatmap_gray(mask, residual)
 
     assert heat.max() == 0
+
+
+def test_region_score_is_zero_when_final_defect_mask_is_empty() -> None:
+    service = InspectionService.__new__(InspectionService)
+    diff_map = np.full((32, 40, 3), 180, dtype=np.uint8)
+    empty_mask = np.zeros_like(diff_map)
+    region_mask = np.ones((32, 40), dtype=bool)
+
+    score = service._score_region(
+        diff_map,
+        empty_mask,
+        region_mask,
+        AnalysisSettings.defaults(),
+    )
+
+    assert score == 0.0
 
 
 def test_identity_homography_skips_realign(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:

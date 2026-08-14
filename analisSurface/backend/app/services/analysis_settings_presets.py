@@ -10,7 +10,6 @@ from app.services.analysis_settings import AnalysisSettings
 _DEFAULTS = AnalysisSettings.defaults().to_dict()
 
 _COARSE: dict[str, Any] = {
-    "use_patchcore": True,
     "min_defect_area": 50,
     "min_scratch_aspect": 5.0,
     "min_diff_signal": 40.0,
@@ -30,7 +29,6 @@ _COARSE: dict[str, Any] = {
 }
 
 _SENSITIVE: dict[str, Any] = {
-    "use_patchcore": True,
     "min_defect_area": 3,
     "min_scratch_aspect": 2.0,
     "min_diff_signal": 4.0,
@@ -60,7 +58,7 @@ _TEXT_FIELDS = (
     "contrast_loss_cur_grad",
 )
 _PREPROCESS_FIELDS = ("enable_clahe", "clahe_clip_limit")
-_FIXED_FIELDS = ("use_patchcore", "fp_recheck_enabled", "fp_trigger_diff_q90")
+_FIXED_FIELDS = ("fp_recheck_enabled", "fp_trigger_diff_q90")
 
 
 def _validate_unit_interval(name: str, value: float) -> float:

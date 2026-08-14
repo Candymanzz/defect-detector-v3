@@ -63,8 +63,6 @@ def make_service(runtime_root: Path) -> InspectionService:
         reviews_dir=runtime_dir / "reviews",
         review_limit=100,
     )
-    # Проверяем тот же классический CV fallback, который используется без PatchCore-модели.
-    service._anomaly_engine = None
     return service
 
 
@@ -81,11 +79,17 @@ def inspect_one(
         product_type,
         image,
         threshold=threshold,
-        include_visuals=False,
+        include_visuals=True,
         alignment_h_ref_to_cur=IDENTITY_H if alignment == "identity" else None,
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
     review = service.get_learning_review(result.inspection_id) if result.inspection_id else None
+    mask_pixels = (
+        int(np.count_nonzero(cv2.cvtColor(result.segmentation_mask, cv2.COLOR_BGR2GRAY)))
+        if result.segmentation_mask is not None
+        else 0
+    )
+    heatmap_max = int(np.max(result.heatmap_u8)) if result.heatmap_u8 is not None else 0
     row = {
         "filename": filename,
         "status": result.status,
@@ -94,6 +98,12 @@ def inspect_one(
         "matches": int(result.learned_normal_matches_count),
         "adjustment": round(float(result.learned_normal_adjustment), 6),
         "review_defects": len(review["defects"]) if review else 0,
+        "mask_pixels": mask_pixels,
+        "heatmap_max": heatmap_max,
+        "bad_without_visual_defect": bool(
+            result.status == "БРАК"
+            and (mask_pixels == 0 or heatmap_max == 0 or not review or not review["defects"])
+        ),
         "elapsed_ms": round(elapsed_ms, 2),
     }
     return row, result
@@ -166,10 +176,11 @@ def run_legacy_scenario(
     runtime_root: Path,
     threshold: float,
 ) -> dict[str, Any]:
+    reference_shape = images["Untitled.jpg"].shape[:2]
     filenames = [
         name
-        for name in images
-        if name.startswith("Untitled") or name.startswith("light_def")
+        for name, image in images.items()
+        if image.shape[:2] == reference_shape
     ]
     service = make_service(runtime_root)
     product_type = "palochki-legacy"
@@ -229,6 +240,9 @@ def write_bucket_csv(path: Path, scenarios: list[dict[str, Any]]) -> None:
         "matches",
         "adjustment",
         "review_defects",
+        "mask_pixels",
+        "heatmap_max",
+        "bad_without_visual_defect",
         "elapsed_ms",
     ]
     with path.open("w", newline="", encoding="utf-8-sig") as output:
@@ -306,6 +320,9 @@ def main() -> int:
                 row["status"],
                 f"score={row['score']:.3f}",
                 f"matches={row['matches']}",
+                f"mask={row['mask_pixels']}",
+                f"heat={row['heatmap_max']}",
+                f"inconsistent={row['bad_without_visual_defect']}",
                 f"ms={row['elapsed_ms']:.1f}",
             )
     print("legacy learned cases:", legacy["learned_cases"])
@@ -316,6 +333,9 @@ def main() -> int:
             row["status"],
             f"score={row['score']:.3f}",
             f"matches={row['matches']}",
+            f"mask={row['mask_pixels']}",
+            f"heat={row['heatmap_max']}",
+            f"inconsistent={row['bad_without_visual_defect']}",
         )
     return 0
 

@@ -42,7 +42,6 @@ def test_expand_pro_mid_matches_defaults_groups() -> None:
         "text_min_contrast",
         "enable_clahe",
         "clahe_clip_limit",
-        "use_patchcore",
         "fp_recheck_enabled",
     ):
         assert expanded[key] == defaults[key], key

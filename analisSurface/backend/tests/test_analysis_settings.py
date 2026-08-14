@@ -7,20 +7,17 @@ def test_defaults_are_valid() -> None:
     settings = AnalysisSettings.defaults()
     settings.validate()
     assert settings.default_threshold == 0.25
-    assert settings.use_patchcore is True
 
 
 def test_from_overrides_applies_known_fields() -> None:
     settings = AnalysisSettings.from_overrides(
         {
             "default_threshold": 0.4,
-            "use_patchcore": False,
             "min_defect_area": 12,
             "unknown_field": 999,
         }
     )
     assert settings.default_threshold == 0.4
-    assert settings.use_patchcore is False
     assert settings.min_defect_area == 12
 
 

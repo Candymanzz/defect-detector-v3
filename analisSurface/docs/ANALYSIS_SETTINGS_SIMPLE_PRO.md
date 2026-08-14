@@ -141,7 +141,6 @@ Content-Type: application/json
 
 Без отдельных ручек (всегда defaults):
 
-- `use_patchcore = true`
 - `fp_recheck_enabled = true`
 - `fp_trigger_diff_q90 = 22.0`
 
