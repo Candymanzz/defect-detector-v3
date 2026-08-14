@@ -998,6 +998,49 @@ def test_accepted_glare_covers_weaker_shifted_field_but_not_a_new_scratch(
     assert len(damaged_review["defects"]) >= 1
 
 
+@pytest.mark.parametrize("damage_kind", ["tiny-red-scratch", "dark-spot"])
+def test_small_damage_inside_an_exact_accepted_glare_is_not_hidden(
+    inspection_service: InspectionService,
+    damage_kind: str,
+) -> None:
+    reference = np.full((180, 260, 3), 45, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    profile = f"small-damage-in-glare-{damage_kind}"
+    inspection_service.set_reference_frame(profile, reference)
+
+    accepted_glare = reference.copy()
+    cv2.rectangle(accepted_glare, (18, 28), (152, 156), (130, 130, 130), -1)
+    original = inspection_service.inspect_frame(
+        profile,
+        accepted_glare,
+        threshold=0.10,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    original_review = inspection_service.get_learning_review(original.inspection_id)
+    assert original_review is not None
+    inspection_service.accept_all_review_defects_as_normal(original.inspection_id)
+
+    damaged = accepted_glare.copy()
+    if damage_kind == "tiny-red-scratch":
+        cv2.line(damaged, (75, 82), (76, 105), (0, 0, 255), 2, cv2.LINE_AA)
+    else:
+        cv2.circle(damaged, (92, 104), 6, (5, 5, 5), -1, cv2.LINE_AA)
+
+    result = inspection_service.inspect_frame(
+        profile,
+        damaged,
+        threshold=0.10,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert result.learned_normal_matches_count >= 1
+    assert result.status == "БРАК"
+    result_review = inspection_service.get_learning_review(result.inspection_id)
+    assert result_review is not None
+    assert len(result_review["defects"]) >= 1
+
+
 def test_legacy_stretched_normal_is_loaded_with_recovered_aspect(
     inspection_service: InspectionService,
 ) -> None:

@@ -58,6 +58,12 @@ BROAD_REGION_MIN_BBOX_AREA_NORM = 0.04
 BROAD_REGION_MIN_FILL_RATIO = 0.45
 BROAD_REGION_PADDING_RATIO = 0.35
 BROAD_REGION_RESIDUAL_FLOOR = 10
+GLARE_WEAK_LUMINANCE_DELTA = 6.0
+GLARE_STRONG_LUMINANCE_DELTA = 18.0
+GLARE_MIN_POSITIVE_AREA_RATIO = 0.20
+GLARE_MIN_MEAN_POSITIVE_DELTA = 5.0
+GLARE_MAX_NEGATIVE_AREA_RATIO = 0.50
+GLARE_EXACT_PIXEL_TOLERANCE = 6
 
 
 def wipe_directory(path: Path) -> None:
@@ -752,6 +758,7 @@ class AcceptedNormalMemory:
         product_type: str,
         reference_hash: str,
         aligned: np.ndarray,
+        reference: Optional[np.ndarray] = None,
         diff_map: np.ndarray,
         segmentation_mask: np.ndarray,
     ) -> LearnedFilterResult:
@@ -787,18 +794,23 @@ class AcceptedNormalMemory:
         matched_case_ids: list[str] = []
         applied_broad_case_ids: set[str] = set()
         for candidate in candidates:
-            best_case, best_similarity = self._best_matching_case(candidate, cases)
+            best_case, best_similarity = self._best_matching_case(
+                candidate,
+                cases,
+                reference,
+            )
             if best_case is None:
                 continue
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
             matched_candidate_ids.add(candidate.id)
-            broad_case = _is_broad_accepted_region(best_case)
+            broad_case = _is_luminance_glare_case(best_case, reference)
             if not broad_case or best_case.id not in applied_broad_case_ids:
                 self._apply_crop_cascade(
                     candidate,
                     best_case,
                     aligned,
+                    reference,
                     filtered_diff,
                     filtered_mask,
                 )
@@ -835,11 +847,12 @@ class AcceptedNormalMemory:
     def _best_matching_case(
         candidate: DefectCandidate,
         cases: list[AcceptedNormalCase],
+        reference: Optional[np.ndarray] = None,
     ) -> tuple[Optional[AcceptedNormalCase], float]:
         best_case: Optional[AcceptedNormalCase] = None
         best_similarity = 0.0
         for case in cases:
-            similarity = candidate_similarity(candidate, case)
+            similarity = candidate_similarity(candidate, case, reference)
             if similarity is not None and similarity > best_similarity:
                 best_similarity = similarity
                 best_case = case
@@ -850,15 +863,17 @@ class AcceptedNormalMemory:
         candidate: DefectCandidate,
         matched_case: AcceptedNormalCase,
         aligned: np.ndarray,
+        reference: Optional[np.ndarray],
         filtered_diff: np.ndarray,
         filtered_mask: np.ndarray,
     ) -> None:
         x, y, box_width, box_height = candidate.bbox
-        if _is_broad_accepted_region(matched_case):
+        if _is_luminance_glare_case(matched_case, reference):
             AcceptedNormalMemory._suppress_broad_illumination(
                 candidate,
                 matched_case,
                 aligned,
+                reference,
                 filtered_diff,
                 filtered_mask,
             )
@@ -901,6 +916,7 @@ class AcceptedNormalMemory:
         candidate: DefectCandidate,
         matched_case: AcceptedNormalCase,
         aligned: np.ndarray,
+        reference: Optional[np.ndarray],
         filtered_diff: np.ndarray,
         filtered_mask: np.ndarray,
     ) -> None:
@@ -920,7 +936,9 @@ class AcceptedNormalMemory:
                     cv2.absdiff(current_core, expected_core),
                     axis=2,
                 )
-                exact_core_match = float(np.percentile(exact_delta, 99)) <= 6.0
+                # Never hide a small new defect merely because it occupies less
+                # than one percent of a broad glare crop.
+                exact_core_match = int(np.max(exact_delta)) <= GLARE_EXACT_PIXEL_TOLERANCE
         sample_x_norm, sample_y_norm, sample_w_norm, sample_h_norm = matched_case.bbox_norm
         sample_x = int(round(sample_x_norm * frame_width))
         sample_y = int(round(sample_y_norm * frame_height))
@@ -969,8 +987,7 @@ class AcceptedNormalMemory:
             sigmaY=sigma,
         )
         residual = np.clip(
-            region_diff.astype(np.int16)
-            - low_frequency.astype(np.int16)
+            cv2.absdiff(region_diff, low_frequency).astype(np.int16)
             - BROAD_REGION_RESIDUAL_FLOOR,
             0,
             255,
@@ -1403,6 +1420,68 @@ def _is_broad_accepted_region(
     )
 
 
+def _case_reference_crop(
+    case: AcceptedNormalCase,
+    reference: Optional[np.ndarray],
+) -> Optional[np.ndarray]:
+    if reference is None or reference.size == 0 or case.source_crop is None:
+        return None
+    if case.source_crop.size == 0:
+        return None
+    frame_height, frame_width = reference.shape[:2]
+    x_norm, y_norm, width_norm, height_norm = case.bbox_norm
+    x0 = int(round(x_norm * frame_width))
+    y0 = int(round(y_norm * frame_height))
+    x1 = int(round((x_norm + width_norm) * frame_width))
+    y1 = int(round((y_norm + height_norm) * frame_height))
+    x0 = max(0, min(frame_width - 1, x0))
+    y0 = max(0, min(frame_height - 1, y0))
+    x1 = max(x0 + 1, min(frame_width, x1))
+    y1 = max(y0 + 1, min(frame_height, y1))
+    crop = reference[y0:y1, x0:x1]
+    if crop.size == 0:
+        return None
+    source_height, source_width = case.source_crop.shape[:2]
+    return cv2.resize(crop, (source_width, source_height), interpolation=cv2.INTER_LINEAR)
+
+
+def _is_luminance_glare_case(
+    case: AcceptedNormalCase,
+    reference: Optional[np.ndarray],
+    geometry: Optional[_MaskGeometry] = None,
+) -> bool:
+    """Recognize a saved broad region as a positive illumination change."""
+    if not _is_broad_accepted_region(case, geometry):
+        return False
+    if reference is None:
+        # Backwards-compatible fallback for direct users of AcceptedNormalMemory.
+        return True
+    reference_crop = _case_reference_crop(case, reference)
+    if reference_crop is None or case.source_crop is None:
+        return False
+    signed_delta = (
+        _gray(case.source_crop).astype(np.float32)
+        - _gray(reference_crop).astype(np.float32)
+    )
+    positive_delta = np.clip(signed_delta, 0.0, None)
+    positive_area_ratio = float(
+        np.mean(signed_delta >= GLARE_WEAK_LUMINANCE_DELTA)
+    )
+    negative_area_ratio = float(
+        np.mean(signed_delta <= -GLARE_WEAK_LUMINANCE_DELTA)
+    )
+    mean_positive_delta = float(np.mean(positive_delta))
+    strong_area_ratio = float(
+        np.mean(signed_delta >= GLARE_STRONG_LUMINANCE_DELTA)
+    )
+    return bool(
+        positive_area_ratio >= GLARE_MIN_POSITIVE_AREA_RATIO
+        and mean_positive_delta >= GLARE_MIN_MEAN_POSITIVE_DELTA
+        and strong_area_ratio >= 0.05
+        and negative_area_ratio <= GLARE_MAX_NEGATIVE_AREA_RATIO
+    )
+
+
 def _contour_match_distance(first: _MaskGeometry, second: _MaskGeometry) -> float:
     return float(
         cv2.matchShapes(
@@ -1453,7 +1532,11 @@ def _diff_core_mask(diff_template: np.ndarray, mask: np.ndarray) -> np.ndarray:
     ) > 0
 
 
-def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -> Optional[float]:
+def candidate_similarity(
+    candidate: DefectCandidate,
+    case: AcceptedNormalCase,
+    reference: Optional[np.ndarray] = None,
+) -> Optional[float]:
     """Сопоставить форму и размер только рядом с местом сохранённой нормы."""
     cx, cy, cw, ch = candidate.bbox_norm
     sx, sy, sw, sh = case.bbox_norm
@@ -1487,7 +1570,11 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         case._geometry_cache = sample_geometry
     if candidate_geometry is None or sample_geometry is None:
         return None
-    sample_is_broad_region = _is_broad_accepted_region(case, sample_geometry)
+    sample_is_broad_region = _is_luminance_glare_case(
+        case,
+        reference,
+        sample_geometry,
+    )
     # Нижней границы нет: любая уменьшенная версия подтверждённого следа может
     # совпасть. Увеличение ограничено, чтобы большая аномалия не наследовала
     # исключение от маленького примера.

@@ -274,6 +274,7 @@ class InspectionService:
                 product_type=review.product_type,
                 reference_hash=review.reference_hash,
                 aligned=aligned,
+                reference=self.get_reference(review.product_type),
                 diff_map=diff_map,
                 segmentation_mask=raw_mask,
             )
@@ -578,6 +579,7 @@ class InspectionService:
             product_type=product_type,
             reference_hash=ref_hash,
             aligned=aligned,
+            reference=reference,
             diff_map=diff_map,
             segmentation_mask=segmentation_mask,
         )
