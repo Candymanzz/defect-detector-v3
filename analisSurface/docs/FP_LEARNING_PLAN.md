@@ -35,7 +35,8 @@
 
 ### 2.2 Learned normals (Python)
 
-Документы: `docs/LEARNED_NORMALS.md`, `backend/docs/LEARNED_NORMALS_API.md`.
+Документы: `docs/LEARNED_NORMALS.md`, `backend/docs/LEARNED_NORMALS_API.md`,
+кнопки React: `docs/FP_LEARNING_FRONTEND.md`.
 
 На каждом inspect:
 
@@ -168,7 +169,8 @@ backend/app/data/learning_reviews/{inspection_id}/
 
 ## 6. Стыковка с продом (ещё не сделано)
 
-Гайд для оркестратора и React: `docs/FP_LEARNING_INTEGRATION.md`.
+Гайд для оркестратора: `docs/FP_LEARNING_INTEGRATION.md`.
+Кнопки React: `docs/FP_LEARNING_FRONTEND.md`.
 
 Коротко:
 

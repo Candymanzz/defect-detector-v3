@@ -92,6 +92,9 @@ ANALIS_LEARNING_REVIEW_LIMIT=50
 
 ## API
 
+Кнопки основной программы ходят в оркестратор, не сюда напрямую:
+`docs/FP_LEARNING_FRONTEND.md`.
+
 ```text
 GET    /learning/reviews
 GET    /learning/reviews/{inspection_id}

@@ -1,8 +1,8 @@
 # Стыковка дообучения на ложных срабатываниях с основной программой
 
-Гайд для оркестратора (Java) и React. Python-сторона уже готова: пайплайн inspect
-менять не нужно. Подробности алгоритма — в `LEARNED_NORMALS.md` и
-`backend/docs/LEARNED_NORMALS_API.md`.
+Гайд для оркестратора (Java) и контракт Python. Кнопки React — отдельно:
+`docs/FP_LEARNING_FRONTEND.md`.
+
 
 Эталон поведения в Python: страницы `/learning-review` и `/local-inspection-test`.
 
@@ -77,68 +77,22 @@ Python отвечает `404`.
                               ↓
                      JSON.inspection_id (UUID)
                               ↓
-              оркестратор кладёт learned_review_id в WS
+         оркестратор помнит UUID по cameraId+frameId
+         и кладёт learned_review_id в WS
                               ↓
-              фронт хранит его рядом с кадром камеры
+              оператор кликает карточку в истории
                               ↓
-              оператор жмёт «Дообучить этот БРАК»
-                              ↓
-     POST /learning/reviews/{learned_review_id}/accept-all-as-normal
+     POST /api/client/learning/accept-all-as-normal
+          { frameId, productType, cameraId }
                               ↓
               следующие кадры этой камеры уже тише
 ```
 
-### Что должен сделать оркестратор
+Оркестраторский мост **уже есть** (`LearnedReviewIndex`, WS `learned_review_id`,
+`POST /api/client/learning/accept-all-as-normal`). Фронту UUID знать не нужно.
+Прокси: `/api/client/learning/...` → Python `/learning/...`.
 
-1. В `AnalisSurfaceHttpBinaryRpcSupervisor.inspectJsonToStdioHeader`
-   прокинуть Python `inspection_id` как `learned_review_id` (или
-   `python_inspection_id`).
-2. В `WsOutboundMessenger.buildInspectResultJson` положить это поле
-   в `server.inspect_result`. Существующее `inspection_id` оставить Java `long`.
-3. Проксировать learning HTTP так же, как FP-зоны
-   (`OrchestratorFpZonesHttpController` → `KopcheniHttpProxy`).
-
-Шаблон прокси:
-
-```text
-фронт:  /api/orchestrator/learning/...
-Python: /learning/...
-```
-
-Как у FP-зон: `/api/orchestrator/fp-zones` → `/fp-zones`.
-Фронт **не** ходит в Python напрямую: браузер видит только оркестратор.
-
-Для картинок прокси должен пробрасывать бинарный ответ как есть
-(`Content-Type: image/jpeg` / `image/png`), не через JSON.
-
-### Что должен сделать фронт
-
-1. В `InspectResultPayload` добавить `learned_review_id?: string`.
-2. Хранить его на карточке кадра **отдельно** от Java `inspection_id`.
-   `resolveInspectionId` для обучения не использовать.
-3. На кадре `БРАК` с непустым `learned_review_id` показать кнопку
-   «Дообучить этот БРАК».
-4. По клику:
-
-```http
-POST /api/orchestrator/learning/reviews/{learned_review_id}/accept-all-as-normal
-Content-Type: application/json
-
-{ "note": "" }
-```
-
-`product_type` слать не нужно: он уже лежит в review на стороне Python.
-
-5. Кнопку disabled, если:
-   - кадр `ГОДЕН` / нет контуров;
-   - нет `learned_review_id`;
-   - этот кадр уже принят (`accepted_defects_count > 0` или локальный флаг после 200).
-
-6. При смене видео / эталона сбросить все выученные ложняки:
-
-```http
-DELETE /api/orchestrator/learning/accepted-cases
-```
+Кнопки «дообучить» и «сбросить на этом кадре»: `docs/FP_LEARNING_FRONTEND.md`.
 
 ---
 
@@ -150,7 +104,7 @@ DELETE /api/orchestrator/learning/accepted-cases
 |---|---|---|
 | Лента кадров этой камеры | `GET /learning/reviews?product_type=` | `"{product}#cam={N}"` |
 | Карточка кадра (aligned / heatmap / diff / mask) | `GET /learning/reviews/{id}/image/{kind}` | UUID Python |
-| Кнопка «дообучить» | `POST .../accept-all-as-normal` | только БРАК с контурами |
+| Кнопка «дообучить» | `POST /api/client/learning/accept-all-as-normal` | `frameId` + `cameraId` + `productType` с карточки |
 | Список выученных ложняков | `GET /learning/accepted-cases?product_type=` | тот же `#cam=N` |
 | Удалить один ложняк | `DELETE /learning/accepted-cases/{case_id}` | — |
 | Сбросить все ложняки | `DELETE /learning/accepted-cases` | все камеры сессии |
@@ -304,26 +258,18 @@ DELETE /learning/accepted-cases
 
 ### Оркестратор
 
-| Задача | Файл-ориентир |
-|---|---|
-| Прокинуть UUID из JSON Python в header inspect | `AnalisSurfaceHttpBinaryRpcSupervisor.inspectJsonToStdioHeader` |
-| Отдать UUID на фронт отдельным полем | `WsOutboundMessenger.buildInspectResultJson` |
-| HTTP-прокси `/api/orchestrator/learning/**` | по образцу `OrchestratorFpZonesHttpController` + регистрация в `HttpFrontController` |
-| Scoped `product_type` | уже есть `scopedProductType`; для learning GET/POST использовать его, не original |
+Уже сделано в клиентском API:
 
-Не делать отдельный binary-RPC `op`, если достаточно HTTP-прокси как у
-`/fp-zones` и `/analysis-settings`. Кнопка — редкое действие оператора, не
-горячий путь кадра.
+| Задача | Где |
+|---|---|
+| Карта `cameraId+frameId` → UUID | `LearnedReviewIndex` |
+| WS `learned_review_id` | `WsOutboundMessenger.buildInspectResultJson` |
+| Фронт шлёт `frameId`, не UUID | `POST /api/client/learning/accept-all-as-normal` |
+| Прокси остальных learning URL | `/api/client/learning/**` и `/api/orchestrator/learning/**` |
 
 ### React
 
-| Задача | Файл-ориентир |
-|---|---|
-| Тип WS | `front-end/src/shared/ws/types.ts` → `InspectResultPayload` |
-| Не смешивать id | `MainController.resolveInspectionId` оставить для Java-цикла |
-| Кнопка на карточке / в модалке кадра | рядом с текущим `FpZoneEditor`, но это **не** полигон |
-| Список норм камеры | новый маленький блок, не внутри редактора зон |
-| Удалить один / сбросить все | `DELETE .../accepted-cases/{id}` и `DELETE .../accepted-cases` |
+Кнопки и поля с карточки: `docs/FP_LEARNING_FRONTEND.md`.
 
 Старый поток `client.fp_zones_update` не трогать.
 
@@ -346,24 +292,18 @@ DELETE /learning/accepted-cases
 }
 ```
 
-- `inspection_id` — как сейчас, Java cycle.
-- `learned_review_id` — то, что уходит в `POST /learning/reviews/{id}/...`.
+- `inspection_id` — как сейчас, Java cycle. В learning API не слать.
+- `frame_id` — то, что уходит в `acceptLearnedNormals({ frameId })`.
+- `learned_review_id` — сигнал «этот кадр ещё можно дообучить». В тело POST
+  класть не обязательно: оркестратор сам найдёт UUID по `frame_id`.
 
 ---
 
 ## 8. Порядок работ
 
-1. Прокинуть `learned_review_id` inspect → WS. Без UI можно проверить в логах
-   и в DevTools сокета.
-2. HTTP-прокси `/api/orchestrator/learning/**`, включая картинки.
-3. Кнопка на текущем БРАКе выбранной камеры.
-4. Обработка `404` / `409`.
-5. (Опционально) лента `GET /learning/reviews?product_type=...#cam=N`.
-6. (Опционально) список `accepted-cases`, удаление одного и сброс всех
-   (`DELETE /learning/accepted-cases`). Сброс всех обязателен при смене видео.
-
-Пункты 5–6 не блокируют пользу: каскад следующих кадров включается уже после
-пункта 3.
+1. ~~Мост UUID и клиентский POST~~ **сделано** (`LearnedReviewIndex`,
+   `POST /api/client/learning/accept-all-as-normal`).
+2. Кнопки на карточке БРАКа: `docs/FP_LEARNING_FRONTEND.md`.
 
 ---
 
@@ -373,7 +313,8 @@ DELETE /learning/accepted-cases
 2. Прогнать изделие в БРАК на одной камере.
 3. В WS-сообщении есть `learned_review_id` в формате UUID, а `inspection_id`
    по-прежнему число.
-4. Кнопка «Дообучить этот БРАК» отвечает `200`,
+4. Кнопка на **выбранной карточке** истории шлёт `frameId` этой карточки
+   (не `20` и не Java `inspection_id`), отвечает `200`,
    `affects_original_pipeline_decision=false`. Уже показанный вердикт на экране
    и на PLC не меняется.
 5. Следующее такое же изделие на **той же** камере: `learned_normal_matches_count > 0`
