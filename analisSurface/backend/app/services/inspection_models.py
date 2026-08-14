@@ -32,6 +32,7 @@ class InspectionResult:
     learned_normal_matches_count: int = 0
     learned_normal_adjustment: float = 0.0
     matched_accepted_case_ids: list[str] = field(default_factory=list)
+    fp_zone_scores: list["FPZoneScore"] = field(default_factory=list)
     aligned_image: Optional[np.ndarray] = None
     diff_map: Optional[np.ndarray] = None
     # BGR colormap for API/base64; UI SHM expects gray_u8 (see heatmap_u8).
@@ -51,8 +52,18 @@ class RoiSubZone:
 
 
 @dataclass
+class FPZoneScore:
+    zone_id: str
+    triggered_vs_reference: bool
+    applied_fp_etalon: bool
+    residual_score: float
+    status: str
+    note: str = ""
+
+
+@dataclass
 class FPZone:
-    """Зона ложного срабатывания: при создании запоминается baseline активности diff/маски."""
+    """Зона ложного срабатывания: полигон + мини-эталон (кроп ложной картинки)."""
 
     id: str
     product_type: str
@@ -61,9 +72,9 @@ class FPZone:
     heatmap_w: int
     heatmap_h: int
     created_at: str
-    # Профиль «нормального» шума в зоне — сравнивается при fp-recheck.
-    baseline_diff_q90: float = 0.0
-    baseline_diff_max: float = 0.0
-    baseline_active_ratio: float = 0.0
-    baseline_score: float = 0.0
     note: str = ""
+    reference_hash: str = ""
+    crop_bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
+    fp_crop: Optional[np.ndarray] = field(default=None, repr=False)
+    source_inspection_id: str = ""
+    source_defect_id: str = ""

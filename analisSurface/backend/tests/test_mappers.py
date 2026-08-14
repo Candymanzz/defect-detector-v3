@@ -81,3 +81,4 @@ def test_to_fp_zone_response_maps_norm_points() -> None:
     assert response.heatmap_w == 64
     assert response.points_norm_ref[0].x == 0.1
     assert response.note == "test"
+    assert response.has_crop is False

@@ -13,6 +13,7 @@ frontend/dist/
 *.jpg
 c_capture/camera_server
 backend/app/data/fp_zones.json
+backend/app/data/fp_zone_crops/
 backend/app/data/learning_reviews/
 backend/app/data/accepted_normals/
 /LightServer/obj

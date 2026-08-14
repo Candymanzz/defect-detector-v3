@@ -24,6 +24,15 @@ class RoiSubZoneScoreResponse(BaseModel):
     status: str
 
 
+class FPZoneScoreResponse(BaseModel):
+    zone_id: str
+    triggered_vs_reference: bool
+    applied_fp_etalon: bool
+    residual_score: float
+    status: str
+    note: str = ""
+
+
 class InspectResponse(BaseModel):
     """Результат инспекции без тяжёлых картинок (/inspect-shm, база для /inspect-shm-visuals)."""
 
@@ -42,6 +51,7 @@ class InspectResponse(BaseModel):
     learned_normal_matches_count: int = 0
     learned_normal_adjustment: float = 0.0
     matched_accepted_case_ids: list[str] = Field(default_factory=list)
+    fp_zone_scores: list[FPZoneScoreResponse] = Field(default_factory=list)
 
 
 class InspectWithVisualsResponse(InspectResponse):
@@ -224,6 +234,8 @@ class FPZoneResponse(BaseModel):
     heatmap_h: int
     created_at: str
     note: str
+    has_crop: bool = False
+    reference_hash: str = ""
 
 
 class FPZoneListResponse(BaseModel):

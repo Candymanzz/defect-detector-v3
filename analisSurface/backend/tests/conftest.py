@@ -14,6 +14,9 @@ def inspection_service(tmp_path: Path) -> InspectionService:
         session_wipe=True,
     )
     service._anomaly_engine = None
+    service._fp_zones_file = tmp_path / "fp_zones.json"
+    service._fp_crops_dir = tmp_path / "fp_zone_crops"
+    service.fp_zones = {}
     return service
 
 

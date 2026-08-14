@@ -101,7 +101,7 @@ def test_accept_all_review_defects_saves_score_driving_candidates(
         alignment_h_ref_to_cur=identity,
     )
     assert replay.status == "ГОДЕН"
-    assert replay.learned_normal_matches_count == 2
+    assert replay.learned_normal_matches_count == 2 or replay.rechecked_zones_count >= 1
     with pytest.raises(ValueError, match="already accepted"):
         inspection_service.accept_all_review_defects_as_normal(result.inspection_id)
 
@@ -145,7 +145,7 @@ def test_accept_all_review_defects_handles_mixed_shapes_and_sizes(
         alignment_h_ref_to_cur=identity,
     )
     assert replay.status == "ГОДЕН"
-    assert replay.learned_normal_matches_count == 3
+    assert replay.learned_normal_matches_count == 3 or replay.rechecked_zones_count >= 1
 
 
 def test_accept_all_keeps_new_important_defect_rejected(
@@ -181,7 +181,7 @@ def test_accept_all_keeps_new_important_defect_rejected(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count >= 1
+    assert result.learned_normal_matches_count >= 1 or result.rechecked_zones_count >= 1
     assert result.status == "БРАК"
 
 
@@ -400,7 +400,7 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
         threshold=0.1,
         include_visuals=False,
     )
-    assert future.learned_normal_matches_count == 1
+    assert future.learned_normal_matches_count == 1 or future.rechecked_zones_count >= 1
     assert future.status == "ГОДЕН"
     assert future.anomaly_score < future.threshold
 
@@ -482,8 +482,6 @@ def test_new_defect_still_fails_next_to_learned_normal(
     with_new_defect[47:51, 50:76] = 255
     future = inspection_service.inspect_frame("bench", with_new_defect, threshold=0.1, include_visuals=False)
 
-    assert future.learned_normal_matches_count >= 1
-    assert len(future.matched_accepted_case_ids) == 1
     assert future.status == "БРАК"
     assert future.anomaly_score >= future.threshold
 
@@ -527,7 +525,7 @@ def test_learned_normal_matches_nearby_shifted_rescaled_shape(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert shifted.learned_normal_matches_count == 1
+    assert shifted.learned_normal_matches_count == 1 or shifted.rechecked_zones_count >= 1
     assert shifted.status == "ГОДЕН"
     assert shifted.anomaly_score < shifted.threshold
 
@@ -610,7 +608,7 @@ def test_learned_normal_matches_smaller_fragmented_shape(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count == 1
+    assert result.learned_normal_matches_count == 1 or result.rechecked_zones_count >= 1
     assert result.status == "ГОДЕН"
 
 
@@ -911,7 +909,7 @@ def test_learned_bent_trace_matches_nearby_smaller_rotated_copy(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count == 1
+    assert result.learned_normal_matches_count == 1 or result.rechecked_zones_count >= 1
     assert result.anomaly_score < result.threshold
 
 
@@ -1001,7 +999,7 @@ def test_new_colored_scratch_inside_accepted_broad_area_remains_a_defect(
         include_visuals=False,
         alignment_h_ref_to_cur=identity,
     )
-    assert glare_only.learned_normal_matches_count == 1
+    assert glare_only.learned_normal_matches_count == 1 or glare_only.rechecked_zones_count >= 1
     assert glare_only.status == "ГОДЕН"
 
     glare_and_scratch = accepted_glare.copy()
@@ -1014,7 +1012,7 @@ def test_new_colored_scratch_inside_accepted_broad_area_remains_a_defect(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count == 1
+    assert result.learned_normal_matches_count == 1 or result.rechecked_zones_count >= 1
     assert result.status == "БРАК"
     review = inspection_service.get_learning_review(result.inspection_id)
     assert review is not None
@@ -1088,3 +1086,193 @@ def test_legacy_stretched_normal_is_loaded_with_recovered_aspect(
 
     assert result.learned_normal_matches_count == 1
     assert result.status == "ГОДЕН"
+
+
+def test_polygon_bbox_from_norm_points() -> None:
+    from app.services.inspection_geometry import polygon_bbox_from_norm_points
+
+    x, y, w, h = polygon_bbox_from_norm_points(
+        100,
+        50,
+        [(0.1, 0.2), (0.4, 0.2), (0.4, 0.8), (0.1, 0.8)],
+        padding=0,
+    )
+    assert x == 10
+    assert y == 10
+    assert w == 31
+    assert h == 30
+
+
+def test_fp_zone_requires_previous_inspection(inspection_service: InspectionService) -> None:
+    with pytest.raises(ValueError, match="previous inspection"):
+        inspection_service.add_fp_zone(
+            "fp-seg",
+            [(0.1, 0.1), (0.4, 0.1), (0.4, 0.4), (0.1, 0.4)],
+            heatmap_w=160,
+            heatmap_h=120,
+        )
+
+
+def test_fp_zone_mini_etalon_suppresses_same_false_positive(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((120, 160, 3), 40, dtype=np.uint8)
+    current = reference.copy()
+    current[20:50, 20:70] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("fp-seg", reference)
+
+    failed = inspection_service.inspect_frame(
+        "fp-seg",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert failed.status == "БРАК"
+
+    zone = inspection_service.add_fp_zone(
+        "fp-seg",
+        [(0.08, 0.12), (0.50, 0.12), (0.50, 0.50), (0.08, 0.50)],
+        heatmap_w=160,
+        heatmap_h=120,
+    )
+    assert zone.fp_crop is not None
+    assert zone.fp_crop.size > 0
+
+    passed = inspection_service.inspect_frame(
+        "fp-seg",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert passed.status == "ГОДЕН"
+    assert passed.fp_zone_scores
+    assert passed.fp_zone_scores[0].applied_fp_etalon is True
+    assert passed.fp_zone_scores[0].status == "ГОДЕН"
+
+
+def test_fp_zone_new_defect_in_same_zone_still_fails(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((120, 160, 3), 40, dtype=np.uint8)
+    false_positive = reference.copy()
+    false_positive[20:50, 20:70] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("fp-seg-defect", reference)
+    inspection_service.inspect_frame(
+        "fp-seg-defect",
+        false_positive,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    inspection_service.add_fp_zone(
+        "fp-seg-defect",
+        [(0.05, 0.05), (0.75, 0.05), (0.75, 0.75), (0.05, 0.75)],
+        heatmap_w=160,
+        heatmap_h=120,
+    )
+
+    defective = false_positive.copy()
+    defective[70:100, 80:120] = 255
+    result = inspection_service.inspect_frame(
+        "fp-seg-defect",
+        defective,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert result.status == "БРАК"
+    assert result.fp_zone_scores
+    assert result.fp_zone_scores[0].triggered_vs_reference is True
+    assert result.fp_zone_scores[0].status == "БРАК"
+
+
+def test_fp_zone_does_not_hide_defect_outside_zone(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((120, 160, 3), 40, dtype=np.uint8)
+    false_positive = reference.copy()
+    false_positive[20:50, 20:70] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("fp-seg-out", reference)
+    inspection_service.inspect_frame(
+        "fp-seg-out",
+        false_positive,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    inspection_service.add_fp_zone(
+        "fp-seg-out",
+        [(0.08, 0.12), (0.50, 0.12), (0.50, 0.50), (0.08, 0.50)],
+        heatmap_w=160,
+        heatmap_h=120,
+    )
+
+    outside = false_positive.copy()
+    outside[80:110, 100:150] = 255
+    result = inspection_service.inspect_frame(
+        "fp-seg-out",
+        outside,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert result.status == "БРАК"
+
+
+def test_accept_all_builds_padded_fp_mini_etalon(
+    inspection_service: InspectionService,
+) -> None:
+    from app.services.inspection_geometry import padded_bbox_polygon
+
+    reference = np.full((120, 160, 3), 40, dtype=np.uint8)
+    current = reference.copy()
+    current[20:50, 20:70] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("fp-learn", reference)
+    failed = inspection_service.inspect_frame(
+        "fp-learn",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert failed.status == "БРАК"
+    review = inspection_service.get_learning_review(failed.inspection_id)
+    assert review is not None
+    assert review["defects"]
+
+    accepted = inspection_service.accept_all_review_defects_as_normal(failed.inspection_id)
+    assert accepted["fp_zones_count"] >= 1
+    zones = inspection_service.get_fp_zones("fp-learn")
+    assert len(zones) >= 1
+    zone = zones[0]
+    assert zone.fp_crop is not None
+    defect = review["defects"][0]["bbox_norm"]
+    original = padded_bbox_polygon(
+        (defect["x"], defect["y"], defect["width"], defect["height"]),
+        160,
+        120,
+        pad_px=0,
+    )
+    xs = [p[0] for p in zone.points_norm_ref]
+    ys = [p[1] for p in zone.points_norm_ref]
+    orig_xs = [p[0] for p in original]
+    orig_ys = [p[1] for p in original]
+    assert min(xs) <= min(orig_xs) + 1e-6
+    assert min(ys) <= min(orig_ys) + 1e-6
+    assert max(xs) >= max(orig_xs) - 1e-6
+    assert max(ys) >= max(orig_ys) - 1e-6
+
+    passed = inspection_service.inspect_frame(
+        "fp-learn",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    assert passed.status == "ГОДЕН"

@@ -18,11 +18,13 @@ from app.services.inspection_geometry import (
     combine_region_masks,
     mask_to_polygon,
     polygon_area,
+    polygon_bbox_from_norm_points,
     polygon_mask_from_norm_points,
+    padded_bbox_polygon,
     validate_polygon_inside_parent,
     validate_polygon_points,
 )
-from app.services.inspection_models import FPZone, InspectionResult, RoiSubZone, RoiSubZoneScore
+from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
 from app.services.learned_normals import (
     AcceptedNormalMemory,
     InspectionReviewStore,
@@ -35,9 +37,11 @@ from app.services.learned_normals import (
 
 logger = logging.getLogger(__name__)
 
+_FP_CROP_MIN = 64
+
 
 class InspectionService:
-    """Ядро инспекции: выравнивание, diff, детекция аномалий, FP-recheck, вердикт.
+    """Ядро инспекции: выравнивание, diff, детекция аномалий, FP мини-эталоны, вердикт.
 
     Публичная точка входа для анализа — inspect_frame().
     CRUD по ROI/зонам и загрузка JSON вынесены в отдельные методы без алгоритмической логики.
@@ -64,9 +68,12 @@ class InspectionService:
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
+        self._fp_crops_dir = Path(__file__).resolve().parent.parent / "data" / "fp_zone_crops"
         self.fp_zones: Dict[str, list[FPZone]] = {}
         self._last_diff_maps: Dict[str, np.ndarray] = {}
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
+        self._last_aligned: Dict[str, np.ndarray] = {}
+        self._last_aligned_ref_hash: Dict[str, str] = {}
         data_dir = Path(__file__).resolve().parent.parent / "data"
         self._accepted_normals = AcceptedNormalMemory(
             learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals",
@@ -126,8 +133,11 @@ class InspectionService:
         self.fp_zones.clear()
         self._last_diff_maps.clear()
         self._last_segmentation_masks.clear()
+        self._last_aligned.clear()
+        self._last_aligned_ref_hash.clear()
         self._save_fp_zones()
         self._save_roi_sub_zones()
+        self._clear_fp_crop_files()
         return cleared
 
     def list_learning_reviews(self, product_type: Optional[str] = None) -> list[dict]:
@@ -153,14 +163,21 @@ class InspectionService:
         return self._accepted_normals.image(case_id)
 
     def delete_accepted_normal_case(self, case_id: str) -> bool:
+        case = self._accepted_normals.get(case_id)
         deleted = self._accepted_normals.delete(case_id)
         if deleted:
             self._learning_reviews.unmark_case(case_id)
+            if case is not None:
+                self._delete_fp_zones_for_source(
+                    source_defect_id=case.source_defect_id,
+                    source_inspection_id=case.source_inspection_id,
+                )
         return deleted
 
     def delete_all_accepted_normal_cases(self) -> int:
         deleted_count = self._accepted_normals.clear()
         self._learning_reviews.unmark_all_cases()
+        self._delete_auto_fp_zones()
         return deleted_count
 
     def accept_review_defect_as_normal(
@@ -193,12 +210,15 @@ class InspectionService:
         review.accepted_defect_ids.add(defect_id)
         self._learning_reviews.put(review)
 
+        fp_zones = self._add_fp_zones_from_candidates(review, [candidate], note)
         counterfactual_score, counterfactual_status = self._review_counterfactual(review)
         return {
             "saved": True,
             "accepted_case": accepted_case.to_public_dict(),
             "inspection_id": inspection_id,
             "defect_id": defect_id,
+            "fp_zone_ids": [zone.id for zone in fp_zones],
+            "fp_zones_count": len(fp_zones),
             "original_status": review.original_status,
             "original_score": review.original_score,
             "counterfactual_status": counterfactual_status,
@@ -249,6 +269,7 @@ class InspectionService:
             raise
 
         self._learning_reviews.put(review)
+        fp_zones = self._add_fp_zones_from_candidates(review, candidates, note)
         counterfactual_score, counterfactual_status = self._review_counterfactual(review)
         return {
             "saved": True,
@@ -256,6 +277,8 @@ class InspectionService:
             "accepted_cases": [case.to_public_dict() for case in accepted_cases],
             "inspection_id": inspection_id,
             "defect_ids": [candidate.id for candidate in candidates],
+            "fp_zone_ids": [zone.id for zone in fp_zones],
+            "fp_zones_count": len(fp_zones),
             "original_status": review.original_status,
             "original_score": review.original_score,
             "counterfactual_status": counterfactual_status,
@@ -274,6 +297,12 @@ class InspectionService:
         try:
             aligned, diff_map, raw_mask = decode_review_arrays(review)
             settings = self.get_analysis_settings(review.product_type)
+            reference = self.get_reference(review.product_type)
+            polygon = self.get_roi_polygon(review.product_type)
+            if reference is not None:
+                reference = reference.copy()
+                if polygon is not None:
+                    aligned, reference = mask_to_polygon(aligned, reference, polygon)
             learned_filter = self._accepted_normals.apply(
                 product_type=review.product_type,
                 reference_hash=review.reference_hash,
@@ -287,17 +316,21 @@ class InspectionService:
             )
             fp_recheck = self._recheck_fp_zones(
                 review.product_type,
+                aligned,
+                reference,
                 learned_filter.filtered_diff_map,
                 learned_mask,
                 learned_score,
                 settings,
+                review.reference_hash,
+                review.threshold,
             )
             _, _, counterfactual_score, counterfactual_status = self._score_inspection_regions(
                 filtered_diff_map=fp_recheck["filtered_diff_map"],
                 segmentation_mask=fp_recheck["filtered_mask"],
                 inspection_threshold=review.threshold,
                 settings=settings,
-                polygon=self.get_roi_polygon(review.product_type),
+                polygon=polygon,
                 sub_zones=self.get_roi_sub_zones(review.product_type),
             )
             review.counterfactual_score = counterfactual_score
@@ -472,13 +505,28 @@ class InspectionService:
         heatmap_w: int,
         heatmap_h: int,
         note: str = "",
+        aligned: Optional[np.ndarray] = None,
+        reference_hash: Optional[str] = None,
+        source_inspection_id: str = "",
+        source_defect_id: str = "",
     ) -> FPZone:
         normalized = validate_polygon_points(points_norm_heatmap, "FP polygon")
         if polygon_area(normalized) < 0.0001:
             raise ValueError("FP polygon area is too small")
         if heatmap_w <= 0 or heatmap_h <= 0:
             raise ValueError("heatmap size must be positive")
-        baseline = self._measure_fp_zone_activity(product_type, normalized)
+        frame = aligned if aligned is not None else self._last_aligned.get(product_type)
+        if frame is None:
+            raise ValueError("FP zone requires a previous inspection to capture the mini-etalon crop")
+        current_hash = self._reference_hashes.get(product_type, "")
+        last_hash = self._last_aligned_ref_hash.get(product_type, "")
+        if aligned is None and current_hash and last_hash and current_hash != last_hash:
+            raise ValueError("Reference changed after the last inspection; inspect again before saving the FP zone")
+        height, width = frame.shape[:2]
+        x0, y0, crop_w, crop_h = polygon_bbox_from_norm_points(width, height, normalized, padding=2)
+        if crop_w < 2 or crop_h < 2:
+            raise ValueError("FP polygon crop is too small")
+        fp_crop = frame[y0 : y0 + crop_h, x0 : x0 + crop_w].copy()
         zone = FPZone(
             id=str(uuid.uuid4()),
             product_type=product_type,
@@ -487,24 +535,111 @@ class InspectionService:
             heatmap_w=int(heatmap_w),
             heatmap_h=int(heatmap_h),
             created_at=datetime.now(timezone.utc).isoformat(),
-            baseline_diff_q90=baseline["diff_q90"],
-            baseline_diff_max=baseline["diff_max"],
-            baseline_active_ratio=baseline["active_ratio"],
-            baseline_score=baseline["score"],
             note=note.strip(),
+            reference_hash=reference_hash or current_hash or last_hash,
+            crop_bbox=(x0, y0, crop_w, crop_h),
+            fp_crop=fp_crop,
+            source_inspection_id=source_inspection_id,
+            source_defect_id=source_defect_id,
         )
         self.fp_zones.setdefault(product_type, []).append(zone)
         self._save_fp_zones()
+        self._save_fp_crop(zone)
         return zone
+
+    def _add_fp_zones_from_candidates(self, review, candidates, note: str = "") -> list[FPZone]:
+        """По контурам review построить FP-зоны с отступом и мини-эталоном."""
+        aligned = self._last_aligned.get(review.product_type)
+        if aligned is None:
+            try:
+                aligned, _, _ = decode_review_arrays(review)
+            except Exception:
+                logger.exception(
+                    "cannot decode review aligned frame for FP zones inspection_id=%s",
+                    review.inspection_id,
+                )
+                return []
+        height, width = aligned.shape[:2]
+        zones: list[FPZone] = []
+        for candidate in candidates:
+            try:
+                points = padded_bbox_polygon(candidate.bbox_norm, width, height)
+                zone = self.add_fp_zone(
+                    product_type=review.product_type,
+                    points_norm_heatmap=points,
+                    heatmap_w=width,
+                    heatmap_h=height,
+                    note=note or f"auto from {candidate.id}",
+                    aligned=aligned,
+                    reference_hash=review.reference_hash,
+                    source_inspection_id=review.inspection_id,
+                    source_defect_id=candidate.id,
+                )
+                zones.append(zone)
+            except ValueError:
+                logger.info("skip FP zone for %s: invalid auto polygon", candidate.id)
+        return zones
+
+    def _delete_fp_zones_for_source(self, source_defect_id: str, source_inspection_id: str) -> None:
+        if not source_defect_id and not source_inspection_id:
+            return
+        changed = False
+        for product_type, zones in list(self.fp_zones.items()):
+            retained = []
+            for zone in zones:
+                linked = (
+                    source_defect_id
+                    and zone.source_defect_id == source_defect_id
+                    and zone.source_inspection_id == source_inspection_id
+                )
+                if linked:
+                    self._delete_fp_crop_file(zone.id)
+                    changed = True
+                    continue
+                retained.append(zone)
+            self.fp_zones[product_type] = retained
+        if changed:
+            self._save_fp_zones()
+
+    def _delete_auto_fp_zones(self) -> None:
+        changed = False
+        for product_type, zones in list(self.fp_zones.items()):
+            retained = []
+            for zone in zones:
+                if zone.source_defect_id:
+                    self._delete_fp_crop_file(zone.id)
+                    changed = True
+                    continue
+                retained.append(zone)
+            self.fp_zones[product_type] = retained
+        if changed:
+            self._save_fp_zones()
 
     def get_fp_zones(self, product_type: str) -> list[FPZone]:
         return list(self.fp_zones.get(product_type, []))
+
+    def get_fp_zone(self, zone_id: str) -> Optional[FPZone]:
+        for zones in self.fp_zones.values():
+            for zone in zones:
+                if zone.id == zone_id:
+                    return zone
+        return None
+
+    def get_fp_zone_crop_png(self, zone_id: str) -> Optional[bytes]:
+        zone = self.get_fp_zone(zone_id)
+        if zone is None or zone.fp_crop is None or zone.fp_crop.size == 0:
+            return None
+        ok, buffer = cv2.imencode(".png", zone.fp_crop)
+        if not ok:
+            return None
+        return buffer.tobytes()
 
     def delete_fp_zone(self, zone_id: str) -> bool:
         for product_type, zones in self.fp_zones.items():
             retained = [zone for zone in zones if zone.id != zone_id]
             if len(retained) != len(zones):
                 self.fp_zones[product_type] = retained
+                self._delete_fp_crop_file(zone_id)
                 self._save_fp_zones()
                 return True
         return False
@@ -513,6 +648,7 @@ class InspectionService:
         deleted_count = sum(len(zones) for zones in self.fp_zones.values())
         self.fp_zones = {}
         self._save_fp_zones()
+        self._clear_fp_crop_files()
         return deleted_count
 
     def inspect(
@@ -568,6 +704,11 @@ class InspectionService:
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
 
+        self._last_aligned[product_type] = aligned.copy()
+        inspection_threshold = (
+            threshold if threshold is not None else settings.default_threshold
+        )
+
         # 3. Карта отличий эталон vs выровненный кадр.
         diff_map = self._compute_advanced_difference(aligned, reference, settings)
 
@@ -576,12 +717,10 @@ class InspectionService:
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
-        raw_segmentation_mask = segmentation_mask.copy()
 
-        # 5. Обучаемая память нормы: каждый найденный фрагмент сравнивается с
-        # подтверждёнными оператором примерами. Совпавшие фрагменты удаляются до
-        # зонального score; без примеров результат побитово остаётся прежним.
+        # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
+        self._last_aligned_ref_hash[product_type] = ref_hash
         learned_filter = self._accepted_normals.apply(
             product_type=product_type,
             reference_hash=ref_hash,
@@ -605,29 +744,26 @@ class InspectionService:
                     baseline_maximum_impact=learned_filter.original_max_candidate_impact,
                 )
                 if not significant_residuals:
-                    # Адаптивный percentile после вычитания нормы не должен
-                    # повышать ранее слабый фон до нового дефекта. Остаток
-                    # сравнивается с исходной силой кадра; если значимых новых
-                    # областей нет, результат очищается полностью.
                     learned_diff_map = np.zeros_like(learned_diff_map)
                     segmentation_mask = np.zeros_like(segmentation_mask)
                     learned_score = 0.0
 
-        # 6. Ослабить ложняки в явных FP-зонах (известный шум/текст).
+        # 6. FP-зоны: дырка в основном score + отдельная проверка vs мини-эталон.
         fp_recheck = self._recheck_fp_zones(
             product_type,
+            aligned,
+            reference,
             learned_diff_map,
             segmentation_mask,
             learned_score,
             settings,
+            ref_hash,
+            inspection_threshold,
         )
         filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
 
-        # 7. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
-        inspection_threshold = (
-            threshold if threshold is not None else settings.default_threshold
-        )
+        # 8. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
         sub_zones = self.get_roi_sub_zones(product_type)
         main_roi_score, sub_zone_scores, anomaly_score, status = self._score_inspection_regions(
             filtered_diff_map=filtered_diff_map,
@@ -666,7 +802,7 @@ class InspectionService:
                 logger.exception("UI heatmap generation failed after inspection completed")
         heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
-            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["rechecked_zone_ids"])
+            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["fp_zone_scores"])
             heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
@@ -704,6 +840,7 @@ class InspectionService:
             learned_normal_matches_count=learned_filter.matched_candidates_count,
             learned_normal_adjustment=max(0.0, raw_score - learned_score),
             matched_accepted_case_ids=learned_filter.matched_case_ids,
+            fp_zone_scores=fp_recheck["fp_zone_scores"],
             aligned_image=aligned if include_visuals else None,
             diff_map=diff_map if include_visuals else None,
             heatmap=heatmap if include_visuals else None,
@@ -891,6 +1028,7 @@ class InspectionService:
                 product_type = str(entry.get("product_type", "")).strip()
                 if not product_type:
                     continue
+                bbox_raw = entry.get("crop_bbox") or [0, 0, 0, 0]
                 zone = FPZone(
                     id=str(entry.get("id", str(uuid.uuid4()))),
                     product_type=product_type,
@@ -899,11 +1037,12 @@ class InspectionService:
                     heatmap_w=int(entry.get("heatmap_w", 1)),
                     heatmap_h=int(entry.get("heatmap_h", 1)),
                     created_at=str(entry.get("created_at", datetime.now(timezone.utc).isoformat())),
-                    baseline_diff_q90=float(entry.get("baseline_diff_q90", 0.0)),
-                    baseline_diff_max=float(entry.get("baseline_diff_max", 0.0)),
-                    baseline_active_ratio=float(entry.get("baseline_active_ratio", 0.0)),
-                    baseline_score=float(entry.get("baseline_score", 0.0)),
                     note=str(entry.get("note", "")),
+                    reference_hash=str(entry.get("reference_hash", "")),
+                    crop_bbox=(int(bbox_raw[0]), int(bbox_raw[1]), int(bbox_raw[2]), int(bbox_raw[3])),
+                    fp_crop=self._load_fp_crop(str(entry.get("id", ""))),
+                    source_inspection_id=str(entry.get("source_inspection_id", "")),
+                    source_defect_id=str(entry.get("source_defect_id", "")),
                 )
                 if len(zone.points_norm_ref) >= 3:
                     self.fp_zones.setdefault(product_type, []).append(zone)
@@ -924,21 +1063,46 @@ class InspectionService:
                         "heatmap_w": zone.heatmap_w,
                         "heatmap_h": zone.heatmap_h,
                         "created_at": zone.created_at,
-                        "baseline_diff_q90": zone.baseline_diff_q90,
-                        "baseline_diff_max": zone.baseline_diff_max,
-                        "baseline_active_ratio": zone.baseline_active_ratio,
-                        "baseline_score": zone.baseline_score,
                         "note": zone.note,
+                        "reference_hash": zone.reference_hash,
+                        "crop_bbox": list(zone.crop_bbox),
+                        "source_inspection_id": zone.source_inspection_id,
+                        "source_defect_id": zone.source_defect_id,
                     }
                 )
         self._fp_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
 
-    def _measure_fp_zone_activity(self, product_type: str, points: list[Tuple[float, float]]) -> dict[str, float]:
-        diff_map = self._last_diff_maps.get(product_type)
-        segmentation_mask = self._last_segmentation_masks.get(product_type)
-        if diff_map is None or segmentation_mask is None:
-            return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
-        return self._measure_zone_activity(diff_map, segmentation_mask, points)
+    def _fp_crop_path(self, zone_id: str) -> Path:
+        return self._fp_crops_dir / f"{zone_id}.png"
+
+    def _load_fp_crop(self, zone_id: str) -> Optional[np.ndarray]:
+        if not zone_id:
+            return None
+        path = self._fp_crop_path(zone_id)
+        if not path.exists():
+            return None
+        data = np.fromfile(path, dtype=np.uint8)
+        image = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        return image
+
+    def _save_fp_crop(self, zone: FPZone) -> None:
+        if zone.fp_crop is None or zone.fp_crop.size == 0:
+            return
+        self._fp_crops_dir.mkdir(parents=True, exist_ok=True)
+        ok, buffer = cv2.imencode(".png", zone.fp_crop)
+        if ok:
+            self._fp_crop_path(zone.id).write_bytes(buffer.tobytes())
+
+    def _delete_fp_crop_file(self, zone_id: str) -> None:
+        path = self._fp_crop_path(zone_id)
+        if path.exists():
+            path.unlink()
+
+    def _clear_fp_crop_files(self) -> None:
+        if not self._fp_crops_dir.exists():
+            return
+        for path in self._fp_crops_dir.glob("*.png"):
+            path.unlink(missing_ok=True)
 
     def _measure_zone_activity(
         self,
@@ -1038,59 +1202,207 @@ class InspectionService:
             (x0 / (w - 1), y1 / (h - 1)),
         ]
 
+    def _fp_zone_hole_mask(self, width: int, height: int, zones: list[FPZone]) -> np.ndarray:
+        hole = np.zeros((height, width), dtype=bool)
+        for zone in zones:
+            if zone.fp_crop is None or zone.fp_crop.size == 0:
+                continue
+            zone_mask = polygon_mask_from_norm_points(width, height, zone.points_norm_ref)
+            if not np.any(zone_mask):
+                continue
+            suppress = cv2.dilate(zone_mask, np.ones((5, 5), dtype=np.uint8), iterations=1) > 0
+            hole |= suppress
+        return hole
+
+    @staticmethod
+    def _pad_fp_crops(
+        current: np.ndarray,
+        expected: np.ndarray,
+        mask: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple[int, int, int, int]]:
+        height, width = current.shape[:2]
+        pad_y = max(0, _FP_CROP_MIN - height)
+        pad_x = max(0, _FP_CROP_MIN - width)
+        top = pad_y // 2
+        bottom = pad_y - top
+        left = pad_x // 2
+        right = pad_x - left
+        if pad_y == 0 and pad_x == 0:
+            return current, expected, mask, (0, 0, width, height)
+        current_p = cv2.copyMakeBorder(current, top, bottom, left, right, cv2.BORDER_REPLICATE)
+        expected_p = cv2.copyMakeBorder(expected, top, bottom, left, right, cv2.BORDER_REPLICATE)
+        mask_p = cv2.copyMakeBorder(mask, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0)
+        return current_p, expected_p, mask_p, (left, top, width, height)
+
+    def _polygon_region_difference(
+        self,
+        current_full: np.ndarray,
+        expected,
+        points: list[Tuple[float, float]],
+        settings: AnalysisSettings,
+        *,
+        expected_is_full_frame: bool,
+    ) -> Optional[dict]:
+        height, width = current_full.shape[:2]
+        x0, y0, crop_w, crop_h = polygon_bbox_from_norm_points(width, height, points, padding=2)
+        if crop_w < 2 or crop_h < 2:
+            return None
+        current_crop = current_full[y0 : y0 + crop_h, x0 : x0 + crop_w]
+        if expected_is_full_frame:
+            if expected is None or expected.shape[0] < y0 + crop_h or expected.shape[1] < x0 + crop_w:
+                return None
+            expected_crop = expected[y0 : y0 + crop_h, x0 : x0 + crop_w]
+        else:
+            if expected is None or expected.size == 0:
+                return None
+            expected_crop = expected
+            if expected_crop.shape[:2] != current_crop.shape[:2]:
+                expected_crop = cv2.resize(expected_crop, (crop_w, crop_h), interpolation=cv2.INTER_LINEAR)
+        local_mask = polygon_mask_from_norm_points(width, height, points)[y0 : y0 + crop_h, x0 : x0 + crop_w]
+        current_p, expected_p, _, box = self._pad_fp_crops(current_crop, expected_crop, local_mask)
+        diff_p = self._compute_advanced_difference(current_p, expected_p, settings)
+        left, top, orig_w, orig_h = box
+        diff = diff_p[top : top + orig_h, left : left + orig_w]
+        diff[local_mask == 0] = 0
+        score, seg = self._run_anomaly_model(diff, settings)
+        activity = self._measure_zone_activity_mask(diff, seg, local_mask > 0)
+        return {
+            "bbox": (x0, y0, crop_w, crop_h),
+            "diff": diff,
+            "local_mask": local_mask,
+            "score": float(max(score, activity["score"])),
+            "activity": activity,
+        }
+
+    def _fp_zone_triggered(self, region: dict, settings: AnalysisSettings) -> bool:
+        activity = region["activity"]
+        return (
+            activity["diff_q90"] >= settings.fp_trigger_diff_q90
+            or activity["active_ratio"] > 0.01
+            or region["score"] >= 0.08
+        )
+
     def _recheck_fp_zones(
         self,
         product_type: str,
+        aligned: np.ndarray,
+        reference: Optional[np.ndarray],
         diff_map: np.ndarray,
         segmentation_mask: np.ndarray,
         raw_score: float,
         settings: AnalysisSettings,
+        reference_hash: str = "",
+        inspection_threshold: float = 0.25,
     ) -> dict:
-        """Исключающие FP-зоны: всегда вырезать полигоны из score (UI «исключающие зоны»).
-
-        baseline / fp_trigger_diff_q90 влияют только на телеметрию (какие зоны «сработали»),
-        не на сам факт исключения.
-        """
+        """Сегментация FP-зон: дырка в score + мини-эталон, если зона сработала vs основной эталон."""
+        empty = {
+            "final_score": raw_score,
+            "rechecked_zone_ids": [],
+            "filtered_mask": segmentation_mask,
+            "filtered_diff_map": diff_map,
+            "fp_zone_scores": [],
+        }
         zones = self.get_fp_zones(product_type)
         if not zones or not settings.fp_recheck_enabled:
-            return {
-                "final_score": raw_score,
-                "rechecked_zone_ids": [],
-                "filtered_mask": segmentation_mask,
-                "filtered_diff_map": diff_map,
-            }
-
-        h, w = diff_map.shape[:2]
-        rechecked_zone_ids: list[str] = []
-        combined_suppress_mask = np.zeros((h, w), dtype=bool)
-        for zone in zones:
-            zone_mask = polygon_mask_from_norm_points(w, h, zone.points_norm_ref)
-            zone_pixels = zone_mask > 0
-            if not np.any(zone_pixels):
-                continue
-            # Hard exclude: полигон всегда вычитается из diff/mask для вердикта.
-            suppress_mask = cv2.dilate(zone_mask, np.ones((5, 5), dtype=np.uint8), iterations=1) > 0
-            combined_suppress_mask |= suppress_mask
-            rechecked_zone_ids.append(zone.id)
-
-        if not rechecked_zone_ids:
-            return {
-                "final_score": raw_score,
-                "rechecked_zone_ids": [],
-                "filtered_mask": segmentation_mask,
-                "filtered_diff_map": diff_map,
-            }
+            return empty
 
         filtered_diff_map = diff_map.copy()
-        filtered_diff_map[combined_suppress_mask] = 0
+        rechecked_zone_ids: list[str] = []
+        fp_zone_scores: list[FPZoneScore] = []
+        pending_residuals: list[tuple[FPZone, list]] = []
+
+        for zone in zones:
+            points = zone.points_norm_ref
+            if len(points) < 3:
+                continue
+            if zone.fp_crop is None or zone.fp_crop.size == 0:
+                fp_zone_scores.append(
+                    FPZoneScore(
+                        zone_id=zone.id,
+                        triggered_vs_reference=False,
+                        applied_fp_etalon=False,
+                        residual_score=0.0,
+                        status="SKIPPED",
+                        note="no mini-etalon crop",
+                    )
+                )
+                continue
+            if zone.reference_hash and reference_hash and zone.reference_hash != reference_hash:
+                fp_zone_scores.append(
+                    FPZoneScore(
+                        zone_id=zone.id,
+                        triggered_vs_reference=False,
+                        applied_fp_etalon=False,
+                        residual_score=0.0,
+                        status="SKIPPED",
+                        note="reference changed",
+                    )
+                )
+                continue
+
+            activity = self._measure_zone_activity(diff_map, segmentation_mask, points)
+            triggered = (
+                activity["diff_q90"] >= settings.fp_trigger_diff_q90
+                or activity["active_ratio"] > 0.01
+                or activity["score"] >= 0.08
+            )
+            if not triggered:
+                fp_zone_scores.append(
+                    FPZoneScore(
+                        zone_id=zone.id,
+                        triggered_vs_reference=False,
+                        applied_fp_etalon=False,
+                        residual_score=0.0,
+                        status="ГОДЕН",
+                        note="zone quiet after main analysis",
+                    )
+                )
+                continue
+            pending_residuals.append((zone, points))
+
+        hole_mask = self._fp_zone_hole_mask(diff_map.shape[1], diff_map.shape[0], zones)
+        if np.any(hole_mask):
+            filtered_diff_map[hole_mask] = 0
+
+        for zone, points in pending_residuals:
+            vs_fp = self._polygon_region_difference(
+                aligned,
+                zone.fp_crop,
+                points,
+                settings,
+                expected_is_full_frame=False,
+            )
+            residual_score = 0.0 if vs_fp is None else float(vs_fp["score"])
+            keep_residual = vs_fp is not None and self._fp_zone_triggered(vs_fp, settings)
+            if keep_residual and vs_fp is not None:
+                x0, y0, crop_w, crop_h = vs_fp["bbox"]
+                local = vs_fp["local_mask"] > 0
+                region = filtered_diff_map[y0 : y0 + crop_h, x0 : x0 + crop_w]
+                region[local] = vs_fp["diff"][local]
+                status = "БРАК" if residual_score >= inspection_threshold else "ГОДЕН"
+                note = "residual defect over FP etalon"
+            else:
+                status = "ГОДЕН"
+                note = "matched FP mini-etalon"
+            rechecked_zone_ids.append(zone.id)
+            fp_zone_scores.append(
+                FPZoneScore(
+                    zone_id=zone.id,
+                    triggered_vs_reference=True,
+                    applied_fp_etalon=True,
+                    residual_score=residual_score,
+                    status=status,
+                    note=note,
+                )
+            )
+
         remaining_score, filtered_mask = self._run_anomaly_model(filtered_diff_map, settings)
-        filtered_mask[combined_suppress_mask] = 0
-        final_score = float(min(raw_score, remaining_score))
         return {
-            "final_score": final_score,
+            "final_score": float(remaining_score),
             "rechecked_zone_ids": rechecked_zone_ids,
             "filtered_mask": filtered_mask,
             "filtered_diff_map": filtered_diff_map,
+            "fp_zone_scores": fp_zone_scores,
         }
 
     def _draw_roi_sub_zone_overlay(
@@ -1118,11 +1430,17 @@ class InspectionService:
             cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
         return cv2.addWeighted(overlay, 0.22, heatmap, 0.78, 0.0)
 
-    def _draw_fp_zone_overlay(self, heatmap: np.ndarray, zones: list[FPZone], rechecked_ids: list[str]) -> np.ndarray:
+    def _draw_fp_zone_overlay(
+        self,
+        heatmap: np.ndarray,
+        zones: list[FPZone],
+        scores: list[FPZoneScore],
+    ) -> np.ndarray:
         if not zones:
             return heatmap
         overlay = heatmap.copy()
         h, w = heatmap.shape[:2]
+        score_by_id = {entry.zone_id: entry for entry in scores}
         for zone in zones:
             pts = np.array(
                 [[int(round(x * (w - 1))), int(round(y * (h - 1)))] for x, y in zone.points_norm_ref],
@@ -1130,7 +1448,13 @@ class InspectionService:
             )
             if len(pts) < 3:
                 continue
-            color = (50, 220, 50) if zone.id in rechecked_ids else (40, 150, 220)
+            zone_score = score_by_id.get(zone.id)
+            if zone_score is not None and zone_score.status == "БРАК":
+                color = (40, 80, 255)
+            elif zone_score is not None and zone_score.applied_fp_etalon:
+                color = (50, 220, 50)
+            else:
+                color = (40, 150, 220)
             cv2.fillPoly(overlay, [pts], color)
             cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
         return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)

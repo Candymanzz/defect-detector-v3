@@ -31,6 +31,44 @@ def polygon_area(points: list[Tuple[float, float]]) -> float:
     return abs(area) * 0.5
 
 
+def padded_bbox_polygon(
+    bbox_norm: Tuple[float, float, float, float],
+    width: int,
+    height: int,
+    pad_px: int | None = None,
+    pad_frac: float = 0.02,
+) -> list[Tuple[float, float]]:
+    """Прямоугольник вокруг bbox дефекта с небольшим отступом от края."""
+    x, y, box_w, box_h = bbox_norm
+    min_side = max(1, min(width, height))
+    pad = int(pad_px) if pad_px is not None else max(8, round(min_side * pad_frac))
+    pad_x = pad / max(1, width)
+    pad_y = pad / max(1, height)
+    x0 = max(0.0, min(1.0, float(x) - pad_x))
+    y0 = max(0.0, min(1.0, float(y) - pad_y))
+    x1 = max(0.0, min(1.0, float(x) + float(box_w) + pad_x))
+    y1 = max(0.0, min(1.0, float(y) + float(box_h) + pad_y))
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+def polygon_bbox_from_norm_points(
+    width: int,
+    height: int,
+    points: list[Tuple[float, float]],
+    padding: int = 2,
+) -> Tuple[int, int, int, int]:
+    """Пиксельный bbox (x, y, w, h) нормализованного полигона, с padding и clip."""
+    if width <= 0 or height <= 0 or len(points) < 3:
+        return 0, 0, 0, 0
+    xs = [int(round(x * (width - 1))) for x, _ in points]
+    ys = [int(round(y * (height - 1))) for _, y in points]
+    x0 = max(0, min(xs) - padding)
+    y0 = max(0, min(ys) - padding)
+    x1 = min(width, max(xs) + padding + 1)
+    y1 = min(height, max(ys) + padding + 1)
+    return x0, y0, max(0, x1 - x0), max(0, y1 - y0)
+
+
 def polygon_mask_from_norm_points(width: int, height: int, points: list[Tuple[float, float]]) -> np.ndarray:
     pts = np.array(
         [[int(round(x * (width - 1))), int(round(y * (height - 1)))] for x, y in points],
