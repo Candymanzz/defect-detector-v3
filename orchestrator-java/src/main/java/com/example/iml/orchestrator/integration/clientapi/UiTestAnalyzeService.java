@@ -271,14 +271,15 @@ public final class UiTestAnalyzeService {
             // Async UI sidecar still reads SHM for JPEG/heatmap; delay cleanup.
             Path toDelete = shmPath;
             if (toDelete != null) {
-                worker.execute(() -> {
-                    try {
-                        Thread.sleep(90_000L);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    JpegBgrShmWriter.deleteQuietly(toDelete);
-                });
+                // Never sleep on the single test-analyze executor: doing so queued every
+                // repeated check behind this cleanup for 90 seconds.
+                java.util.concurrent.CompletableFuture.runAsync(
+                        () -> JpegBgrShmWriter.deleteQuietly(toDelete),
+                        java.util.concurrent.CompletableFuture.delayedExecutor(
+                                90L,
+                                java.util.concurrent.TimeUnit.SECONDS
+                        )
+                );
             }
         }
     }

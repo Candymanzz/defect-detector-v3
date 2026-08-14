@@ -91,13 +91,9 @@ public final class InspectionArtifactRegistry {
                 System.currentTimeMillis()
         );
         byId.put(id, bundle);
-        String previousLatest = latestIdByCamera.put(cameraId, id);
-        if (previousLatest != null && !previousLatest.equals(id)) {
-            Bundle previous = byId.get(previousLatest);
-            if (previous != null) {
-                remove(previous);
-            }
-        }
+        latestIdByCamera.put(cameraId, id);
+        // Do not delete the previous camera bundle immediately: an in-flight UI publish
+        // (especially test-analyze re-runs on the same frame) may still serve it over WS/HTTP.
         cleanup();
         return bundle;
     }

@@ -545,7 +545,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     );
                     if (ws != null && (hasCur || hasHm)) {
                         try {
-                            String frameHttpPath = archived && archive != null
+                            boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
+                            // test-analyze must keep live artifact URLs so the UI can show the freshly
+                            // generated heatmap instead of the immutable archive copy for this frame.
+                            String frameHttpPath = !testAnalyze && archived && archive != null
                                     ? archive.frameArtifactHttpPath(cameraId, frameId, "frame.jpg")
                                     : resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur);
                             String heatmapArtifactToken = bundleId == null && hasHm

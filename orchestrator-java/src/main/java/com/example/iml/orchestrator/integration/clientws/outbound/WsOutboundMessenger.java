@@ -554,7 +554,12 @@ public final class WsOutboundMessenger {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("camera_id", cameraId);
         payload.put("frame_id", Long.toString(frameIdLong));
-        payload.put("inspection_id", Long.toString(inspectionId));
+        boolean testAnalyze = YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false);
+        if (testAnalyze) {
+            payload.put("inspection_id", "тест");
+        } else {
+            payload.put("inspection_id", Long.toString(inspectionId));
+        }
         String learnedReviewId = LearnedReviewIndex.lookup(cameraId, frameIdLong, null);
         if (learnedReviewId != null) {
             payload.put("learned_review_id", learnedReviewId);
@@ -579,7 +584,10 @@ public final class WsOutboundMessenger {
             hm.put("pixel_format", "gray_u8");
             hm.put("channels", 1);
             String tok = heatmapArtifactTokenOrNull == null ? "" : heatmapArtifactTokenOrNull.trim();
-            if (previewHttpPath.contains("/api/frame-archive/") && previewHttpPath.endsWith("/frame.jpg")) {
+            // test-analyze: never reuse archived heatmap — UI must show freshly generated result.
+            if (!testAnalyze
+                    && previewHttpPath.contains("/api/frame-archive/")
+                    && previewHttpPath.endsWith("/frame.jpg")) {
                 hm.put("http_path", previewHttpPath.substring(0, previewHttpPath.length() - "frame.jpg".length())
                         + "heatmap.u8");
             } else if (!bundleId.isEmpty()) {

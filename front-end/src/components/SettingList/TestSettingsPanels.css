@@ -1,0 +1,157 @@
+.modal__test-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 0 0 auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.modal__test-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 12px;
+}
+
+.modal__test-settings-header > h3 {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: none;
+}
+
+.modal__test-settings-status {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(117, 143, 164, 0.2);
+  color: #b8c7cf;
+  font-size: 12px;
+}
+
+.modal__test-settings-status[data-state="complete"] {
+  color: #8ee6b1;
+}
+
+.modal__test-settings-status[data-state="error"] {
+  color: #ff9b9b;
+}
+
+.modal__test-settings-hint {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: #9eb0b8;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.modal__test-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+}
+
+.modal__test-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.modal__test-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(117, 143, 164, 0.22);
+  border-radius: 8px;
+  background: rgba(4, 12, 18, 0.55);
+}
+
+.modal__test-settings-section > h4 {
+  margin: 0;
+  color: #d7e6ec;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.geometry-test-settings,
+.analysis-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.geometry-test-settings__intro,
+.analysis-presets__intro {
+  margin: 0;
+  color: #9eb0b8;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.geometry-test-settings__fields,
+.analysis-presets__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.geometry-test-settings__field,
+.analysis-presets__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #c9d6dc;
+  font-size: 12px;
+}
+
+.geometry-test-settings__field > span,
+.analysis-presets__field > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.geometry-test-settings__field output,
+.analysis-presets__field output {
+  color: #8be2b0;
+  font-variant-numeric: tabular-nums;
+}
+
+.geometry-test-settings__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.geometry-test-settings__status {
+  color: #9eb0b8;
+  font-size: 12px;
+}
+
+.geometry-test-settings__status[data-kind="error"] {
+  color: #f87171;
+}
+
+.geometry-test-settings__status[data-kind="saving"] {
+  color: #facc15;
+}
+
+.geometry-test-settings__status[data-kind="success"] {
+  color: #72f2a8;
+}
+
+@media (max-width: 1100px) {
+  .modal__test-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
