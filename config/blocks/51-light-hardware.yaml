@@ -1,28 +1,34 @@
 # Конфигурация вспышек для LightServer.v3 (авто-поиск: config/blocks/51-light-hardware.yaml).
 # Оркестратор и другие сервисы этот файл не читают.
 #
-# Ethernet MV-LE + COM MV-LE (camera id 2 и 7 — центральные).
+# Ethernet MV-LE + COM MV-LE (camera id 2 и 7 — центральные, COM2).
 # Bank On/Off: POST /api/camera-flash/bank (Ethernet + COM).
+#
+# Разводка Ethernet (IP → ch-camera_number):
+#   220.3: 1-9  2-6  3-6  4-9
+#   220.4: 1-2  2-5  3-5  4-2
+#   220.1: 1-4  2-1  3-1  4-4
+#   220.2: 1-7  2-10 3-10 4-7
 
 light_hardware:
   initialize_on_startup: true
 
   devices:
-    # Центральные вспышки (camera id 2 и 7): один контроллер, 2 канала.
-    - id: com1
+    # Центральные вспышки (camera id 2 и 7): один контроллер COM2, 2 канала.
+    - id: com2
       enabled: true
       type: com
-      com_port: COM1
+      com_port: COM2
       channels: 2
     - id: mv-le-1
       enabled: true
       type: ethernet
-      ip: "169.254.220.23"
+      ip: "169.254.220.4"
       channels: 4
     - id: mv-le-2
       enabled: true
       type: ethernet
-      ip: "169.254.220.22"
+      ip: "169.254.220.3"
       channels: 4
     - id: mv-le-3
       enabled: true
@@ -38,33 +44,42 @@ light_hardware:
   # POST /api/camera-flash/pair — routes с 2+ каналами; /single — 1 канал (COM).
   # camera_number = camera id + 1. COM: id 2→3, id 7→8; Ethernet: остальные id 0–9.
   camera_routes:
+    # 220.1 (mv-le-4): ch2+ch3 → cam1, ch1+ch4 → cam4
     - camera_number: 1
-      device_id: mv-le-3
-      channels: [2, 4]
-    - camera_number: 2
       device_id: mv-le-4
-      channels: [2, 4]
-    - camera_number: 3
-      device_id: com1
-      channels: [1]
+      channels: [2, 3]
     - camera_number: 4
-      device_id: mv-le-3
-      channels: [1, 3]
-    - camera_number: 5
       device_id: mv-le-4
-      channels: [1, 3]
+      channels: [1, 4]
+
+    # 220.4 (mv-le-1): ch1+ch4 → cam2, ch2+ch3 → cam5
+    - camera_number: 2
+      device_id: mv-le-1
+      channels: [1, 4]
+    - camera_number: 5
+      device_id: mv-le-1
+      channels: [2, 3]
+
+    # COM2: cam3 / cam8
+    - camera_number: 3
+      device_id: com2
+      channels: [1]
+    - camera_number: 8
+      device_id: com2
+      channels: [2]
+
+    # 220.3 (mv-le-2): ch2+ch3 → cam6, ch1+ch4 → cam9
     - camera_number: 6
       device_id: mv-le-2
-      channels: [2, 4]
-    - camera_number: 7
-      device_id: mv-le-1
-      channels: [2, 4]
-    - camera_number: 8
-      device_id: com1
-      channels: [2]
+      channels: [2, 3]
     - camera_number: 9
       device_id: mv-le-2
-      channels: [1, 3]
+      channels: [1, 4]
+
+    # 220.2 (mv-le-3): ch1+ch4 → cam7, ch2+ch3 → cam10
+    - camera_number: 7
+      device_id: mv-le-3
+      channels: [1, 4]
     - camera_number: 10
-      device_id: mv-le-1
-      channels: [1, 3]
+      device_id: mv-le-3
+      channels: [2, 3]
