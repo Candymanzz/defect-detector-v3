@@ -102,11 +102,16 @@ public final class LightingBootstrapService {
         PipelineReferenceRegistry pipelineReferenceRegistry = new PipelineReferenceRegistry();
         ctx.setPipelineReferenceRegistry(pipelineReferenceRegistry);
         Map<Integer, String> detectorByCamera = new LinkedHashMap<>();
+        Map<Integer, String> analysisProfileByCamera = new LinkedHashMap<>();
         for (Map<String, Object> camera : ctx.cameras()) {
             int cameraId = ((Number) camera.get("id")).intValue();
             detectorByCamera.put(cameraId, String.valueOf(camera.getOrDefault("detector", "v1")));
+            analysisProfileByCamera.put(cameraId, ConfiguredCameras.analysisProfileForCamera(camera, cameraId));
         }
         ctx.setDetectorByCamera(detectorByCamera);
+        com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor.setAnalysisProfilesByCamera(
+                analysisProfileByCamera
+        );
         if (ctx.bootConfig().referenceSource() == ReferenceSource.CLIENT) {
             log.info("integration.reference_source=client — эталон только через client.reference_bundle (WebSocket)");
         }

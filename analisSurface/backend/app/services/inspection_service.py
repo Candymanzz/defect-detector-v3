@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -58,6 +59,8 @@ class InspectionService:
         self._analysis_settings_overrides: Dict[str, dict[str, object]] = {}
         self._analysis_settings_simple_knobs: Dict[str, dict[str, object]] = {}
         self._analysis_settings_pro_knobs: Dict[str, dict[str, object]] = {}
+        self._analysis_settings_lock = threading.Lock()
+        self._analysis_settings_mtime_ns = -1
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
@@ -80,6 +83,7 @@ class InspectionService:
         self._load_fp_zones()
         self._load_roi_sub_zones()
         self._load_analysis_settings()
+        self._stamp_analysis_settings_mtime()
 
     def _load_anomalib_engine(self) -> None:
         try:
@@ -379,10 +383,12 @@ class InspectionService:
         return False
 
     def get_analysis_settings(self, analysis_profile: str) -> AnalysisSettings:
+        self._reload_analysis_settings_if_stale()
         overrides = self._resolve_analysis_settings_overrides(analysis_profile)
         return AnalysisSettings.from_overrides(overrides)
 
     def get_analysis_settings_overrides(self, analysis_profile: str) -> dict[str, object]:
+        self._reload_analysis_settings_if_stale()
         return dict(self._resolve_analysis_settings_overrides(analysis_profile))
 
     def _resolve_analysis_settings_overrides(self, analysis_profile: str) -> dict[str, object]:
@@ -539,9 +545,11 @@ class InspectionService:
         include_heatmap_u8: bool = False,
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
+        analysis_profile: Optional[str] = None,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
-        settings = self.get_analysis_settings(product_type)
+        settings_key = (analysis_profile or "").strip() or product_type
+        settings = self.get_analysis_settings(settings_key)
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
@@ -646,12 +654,14 @@ class InspectionService:
             display_region[local_mask] = 255
 
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
+        # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
+        heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
-            heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
+            heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
         elif include_heatmap_u8:
             try:
-                heatmap_u8 = self._build_heatmap_gray(segmentation_mask, diff_map)
+                heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
         heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
@@ -779,6 +789,27 @@ class InspectionService:
             self._analysis_settings_simple_knobs = {}
             self._analysis_settings_pro_knobs = {}
 
+    def _analysis_settings_file_mtime_ns(self) -> int:
+        try:
+            if not self._analysis_settings_file.exists():
+                return 0
+            return int(self._analysis_settings_file.stat().st_mtime_ns)
+        except OSError:
+            return 0
+
+    def _stamp_analysis_settings_mtime(self) -> None:
+        self._analysis_settings_mtime_ns = self._analysis_settings_file_mtime_ns()
+
+    def _reload_analysis_settings_if_stale(self) -> None:
+        mtime_ns = self._analysis_settings_file_mtime_ns()
+        if mtime_ns == self._analysis_settings_mtime_ns:
+            return
+        with self._analysis_settings_lock:
+            if mtime_ns == self._analysis_settings_mtime_ns:
+                return
+            self._load_analysis_settings()
+            self._analysis_settings_mtime_ns = mtime_ns
+
     def _save_analysis_settings(self) -> None:
         self._analysis_settings_file.parent.mkdir(parents=True, exist_ok=True)
         profiles = set(self._analysis_settings_overrides) | set(self._analysis_settings_simple_knobs) | set(
@@ -798,6 +829,7 @@ class InspectionService:
                 entry["pro_knobs"] = pro_knobs
             entries.append(entry)
         self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+        self._stamp_analysis_settings_mtime()
 
     def _load_roi_sub_zones(self) -> None:
         self.roi_sub_zones = {}
@@ -1525,18 +1557,19 @@ class InspectionService:
         return heuristic_score, heuristic_mask
 
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
-        """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET)."""
-        mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET).
+
+        Gate diff by the defect mask. Global min-max of the whole ROI turns residual
+        lighting into a solid green JET blob even when there is no defect.
+        """
+        mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         if diff_map is None:
             return mask_gray
 
-        # Combine model/anomaly mask with raw difference energy so thin scratches stay visible.
-        diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
-        combined = cv2.max(mask_gray, diff_norm)
-        combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
-        combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
-        return np.clip(combined_gamma, 0, 255).astype(np.uint8)
+        diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+        gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
+        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
+        return cv2.max(mask_gray, gated_diff)
 
     def _colorize_heatmap(self, heatmap_gray: np.ndarray, mask: np.ndarray) -> np.ndarray:
         heatmap = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)

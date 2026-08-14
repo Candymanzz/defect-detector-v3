@@ -42,7 +42,7 @@ function createHeatmapColorLut() {
     lut[index] = color.r;
     lut[index + 1] = color.g;
     lut[index + 2] = color.b;
-    lut[index + 3] = Math.round(95 + 110 * ratio);
+    lut[index + 3] = value === 0 ? 0 : Math.round(70 + 150 * ratio);
   }
 
   return lut;
