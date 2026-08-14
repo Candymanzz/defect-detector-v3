@@ -225,6 +225,95 @@ def test_scoped_camera_inspection_uses_saved_profile_threshold_when_request_omit
     assert result.anomaly_score >= result.threshold
 
 
+def test_inspect_uses_camera_analysis_profile_not_bundle_product_type(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service._analysis_settings_overrides = {
+        "bench-lan3": expand_simple(threshold=0.91, sensitivity=0.0),
+    }
+    inspection_service.set_reference_frame("reference-product#cam=2", gray_frame)
+    defective = gray_frame.copy()
+    defective[10:30, 10:50] = 255
+
+    result = inspection_service.inspect_frame(
+        "reference-product#cam=2",
+        defective,
+        threshold=None,
+        analysis_profile="bench-lan3",
+        alignment_h_ref_to_cur=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    )
+
+    assert result.threshold == pytest.approx(0.91)
+
+
+def test_inspect_reloads_settings_written_by_another_worker(
+    tmp_path: Path,
+    gray_frame: np.ndarray,
+) -> None:
+    settings_file = tmp_path / "analysis_settings.json"
+    writer = InspectionService(
+        learned_normals_dir=tmp_path / "writer-normals",
+        reviews_dir=tmp_path / "writer-reviews",
+        review_limit=4,
+        session_wipe=True,
+    )
+    reader = InspectionService(
+        learned_normals_dir=tmp_path / "reader-normals",
+        reviews_dir=tmp_path / "reader-reviews",
+        review_limit=4,
+        session_wipe=True,
+    )
+    writer._anomaly_engine = None
+    reader._anomaly_engine = None
+    writer._analysis_settings_file = settings_file
+    reader._analysis_settings_file = settings_file
+    writer.apply_simple_settings(
+        "bench-lan3",
+        expand_simple(threshold=0.88, sensitivity=0.0),
+        {"threshold": 0.88, "sensitivity": 0.0},
+    )
+
+    settings = reader.get_analysis_settings("bench-lan3")
+    assert settings.default_threshold == pytest.approx(0.88)
+    assert settings.min_diff_signal == pytest.approx(40.0)
+
+
+def test_heatmap_stays_localized_to_defect_instead_of_filling_roi(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("heatmap-roi", gray_frame)
+    defective = gray_frame.copy()
+    defective[18:36, 22:58] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+    result = inspection_service.inspect_frame(
+        "heatmap-roi",
+        defective,
+        threshold=0.1,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.heatmap_u8 is not None
+    heat = result.heatmap_u8
+    assert heat[24:30, 30:50].max() > 40
+    assert float(np.mean(heat > 16)) < 0.25
+    assert heat[2:8, 2:12].max() < 16
+
+
+def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
+    service = InspectionService.__new__(InspectionService)
+    mask = np.zeros((32, 40, 3), dtype=np.uint8)
+    residual = np.full((32, 40, 3), 40, dtype=np.uint8)
+    residual[8:12, 10:18] = 180
+
+    heat = service._build_heatmap_gray(mask, residual)
+
+    assert heat.max() == 0
+
+
 def test_identity_homography_skips_realign(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
     assert inspection_service._is_identity_homography(identity)

@@ -40,7 +40,9 @@ export function MainOverview({
   const controller = useMainOverview(inspectionResetVersion);
   const [showModalAnalysisSettings, setShowModalAnalysisSettings] = useState(false);
   const [testFrameId, setTestFrameId] = useState<string | undefined>(undefined);
-  const [testAnalyzeState, setTestAnalyzeState] = useState<"idle" | "submitting" | "awaiting" | "complete" | "error">("idle");
+  const [testAnalyzeState, setTestAnalyzeState] = useState<"idle" | "submitting" | "awaiting" | "complete" | "error">(
+    "idle",
+  );
   const [testAnalyzeMessage, setTestAnalyzeMessage] = useState("");
   const pendingTestRef = useRef<{ cameraId: number; frameId: string; previousServerTs: number }>({
     cameraId: -1,
@@ -73,12 +75,11 @@ export function MainOverview({
     }
 
     setTestAnalyzeState("submitting");
-    setTestAnalyzeMessage(`${action === "save" ? "Сохранение" : "Применение"} настроек и запуск инспекции кадра ${frameId}…`);
+    setTestAnalyzeMessage(
+      `${action === "save" ? "Сохранение" : "Применение"} настроек и запуск инспекции кадра ${frameId}…`,
+    );
     try {
-      await Promise.all([
-        geometrySettingsRef.current?.save(),
-        analysisSettingsRef.current?.save(),
-      ]);
+      await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
       pendingTestRef.current = {
         cameraId: snapshot.cameraId,
         frameId,
@@ -120,7 +121,10 @@ export function MainOverview({
   }, [controller.modalSnapshot?.inspectResult, testAnalyzeState]);
 
   return (
-    <div className="camera-overviews" ref={rootRef}>
+    <div
+      className="camera-overviews"
+      ref={rootRef}
+    >
       {cameraCardGroups.map((cameraGroup, groupIndex) => (
         <section
           className="camera-overview"
@@ -136,8 +140,7 @@ export function MainOverview({
               // Soft-stop: inspection is off, but capture-only frames must still render on the card.
               const isCaptureOnlyFrame = isCaptureOnlyInspectResult(inspectResult);
               const showLiveInspectFrame =
-                Boolean(inspectResult) &&
-                (!controller.hasReference || isInspectionEnabled || isCaptureOnlyFrame);
+                Boolean(inspectResult) && (!controller.hasReference || isInspectionEnabled || isCaptureOnlyFrame);
               const showInspectionArtifacts = controller.hasReference && isInspectionEnabled;
               const inspectImageUrl = resolveCardInspectImageUrl(
                 showLiveInspectFrame ? inspectResult : undefined,
@@ -213,13 +216,17 @@ export function MainOverview({
               <div className="modal__analysis-settings modal__test-settings">
                 <h3>Настройки камеры {controller.modalSnapshot.cameraId}</h3>
                 {testAnalyzeMessage && (
-                  <p className="modal__test-settings-status" data-state={testAnalyzeState} aria-live="polite">
+                  <p
+                    className="modal__test-settings-status"
+                    data-state={testAnalyzeState}
+                    aria-live="polite"
+                  >
                     {testAnalyzeMessage}
                   </p>
                 )}
                 <p className="modal__test-settings-hint">
-                  Крутите параметры — результат geometry + python обновляется на выбранном кадре. Режим теста
-                  остаётся открытым, пока не нажмёте «Завершить тест» или не закроете окно.
+                  Крутите параметры — результат geometry + python обновляется на выбранном кадре. Режим теста остаётся
+                  открытым, пока не нажмёте «Завершить тест» или не закроете окно.
                 </p>
                 <div className="modal__test-settings-grid">
                   <section className="modal__test-settings-section">
@@ -279,9 +286,7 @@ export function MainOverview({
                 showModalAnalysisSettings
               }
               title={
-                showModalAnalysisSettings
-                  ? "Сначала завершите тест настроек"
-                  : modalInspectionControlState?.message
+                showModalAnalysisSettings ? "Сначала завершите тест настроек" : modalInspectionControlState?.message
               }
               onClick={() => void controller.toggleInspection(controller.modalSnapshot!.cameraId)}
             >
@@ -307,7 +312,7 @@ export function MainOverview({
                   setShowModalAnalysisSettings(true);
                 }}
               >
-                Изменить настройки камеры
+                Изменить настройки анализа
               </button>
             )
           }

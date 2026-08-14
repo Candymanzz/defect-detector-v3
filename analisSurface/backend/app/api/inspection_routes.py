@@ -128,6 +128,7 @@ def _inspect_shm_sync(
         include_heatmap_u8=include_heatmap_u8,
         detector_id=payload.detector_id,
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
+        analysis_profile=payload.analysis_profile,
     )
 
 

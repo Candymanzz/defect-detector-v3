@@ -482,6 +482,15 @@
   margin: 0;
 }
 
+.modal-inspect-result__summary--compact {
+  grid-template-columns: repeat(2, minmax(150px, 240px));
+  justify-content: start;
+}
+
+.modal-inspect-result__summary--compact .modal-inspect-result__field dd {
+  font-size: 1.15rem;
+}
+
 .modal-inspect-result__field {
   display: grid;
   gap: 4px;
