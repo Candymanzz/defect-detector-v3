@@ -6,6 +6,8 @@
 
 import asyncio
 import logging
+import time
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 
@@ -24,10 +26,43 @@ from app.api.schemas import (
 )
 from app.runtime import get_application_id
 from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8_image_to_shm
+from app.services.inspection_timing import record_inspection_timing
 
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _timing_started() -> tuple[int, str]:
+    return time.perf_counter_ns(), datetime.now(timezone.utc).isoformat()
+
+
+def _record_timing(
+    *,
+    started_ns: int,
+    started_at: str,
+    payload: ShmFrameRequest,
+    result=None,
+    endpoint: str,
+    error: Exception | None = None,
+) -> None:
+    record_inspection_timing(
+        event="inspection_timing",
+        endpoint=endpoint,
+        started_at=started_at,
+        duration_ms=round((time.perf_counter_ns() - started_ns) / 1_000_000, 3),
+        product_type=payload.product_type,
+        camera=(payload.product_type.rsplit("#cam=", 1)[1] if "#cam=" in payload.product_type else None),
+        width=payload.width,
+        height=payload.height,
+        detector_id=payload.detector_id,
+        analysis_profile=payload.analysis_profile,
+        threshold=payload.threshold,
+        status=(result.status if result is not None else None),
+        anomaly_score=(result.anomaly_score if result is not None else None),
+        inspection_id=(result.inspection_id if result is not None else None),
+        error=(type(error).__name__ if error is not None else None),
+    )
 
 
 def cleanup_requested_visual_outputs(payload: ShmVisualsRequest) -> None:
@@ -154,12 +189,28 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
 
     Выход: InspectResponse — status, anomaly_score, threshold, sub_zone_scores, ...
     """
+    started_ns, started_at = _timing_started()
     try:
         result = await _inspect_shm_parallel(payload, include_visuals=False, include_heatmap_u8=False)
     except (OSError, ValueError) as exc:
+        _record_timing(
+            started_ns=started_ns,
+            started_at=started_at,
+            payload=payload,
+            endpoint="/inspect-shm",
+            error=exc,
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return to_inspect_response(result)
+    response = to_inspect_response(result)
+    _record_timing(
+        started_ns=started_ns,
+        started_at=started_at,
+        payload=payload,
+        result=result,
+        endpoint="/inspect-shm",
+    )
+    return response
 
 
 @router.post("/inspect-shm-visuals", response_model=ShmVisualsResponse)
@@ -170,6 +221,7 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
     Выход: InspectResponse + ShmImageOutput (path, width, height, stride, channels) на каждый визуал.
     Ошибка записи визуалов не отменяет вердикт инспекции.
     """
+    started_ns, started_at = _timing_started()
     try:
         result = await _inspect_shm_parallel(
             payload,
@@ -183,6 +235,13 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
             include_heatmap_u8=payload.heatmap_u8_output_path is not None,
         )
     except (OSError, ValueError) as exc:
+        _record_timing(
+            started_ns=started_ns,
+            started_at=started_at,
+            payload=payload,
+            endpoint="/inspect-shm-visuals",
+            error=exc,
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
@@ -193,7 +252,15 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
         cleanup_requested_visual_outputs(payload)
         visual_outputs = {}
 
-    return to_visuals_response(result, visual_outputs)
+    response = to_visuals_response(result, visual_outputs)
+    _record_timing(
+        started_ns=started_ns,
+        started_at=started_at,
+        payload=payload,
+        result=result,
+        endpoint="/inspect-shm-visuals",
+    )
+    return response
 
 
 @router.post("/clear-inspection-context")
