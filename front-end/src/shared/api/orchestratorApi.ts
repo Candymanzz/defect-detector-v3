@@ -8,6 +8,8 @@ import type {
   ProAnalysisKnobs,
   ClientModeResponse,
   TestAnalyzeResponse,
+  AcceptLearnedNormalsRequest,
+  AcceptLearnedNormalsResponse,
   CameraRuntimeSettings,
   CameraRuntimeSettingsUpdate,
   FpZonesResponse,
@@ -19,6 +21,7 @@ import type {
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
   LightModeSettings,
+  LearnedNormalCase,
   LineDirection,
   LineDirectionSettings,
   LineDirectionUpdateResponse,
@@ -368,6 +371,48 @@ export const orchestratorApi = {
     return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
       method: "POST",
       body: { cameraId, frameId, source: "archive" },
+    });
+  },
+
+  async acceptLearnedNormals(request: AcceptLearnedNormalsRequest) {
+    return http.json<AcceptLearnedNormalsResponse>("/api/client/learning/accept-all-as-normal", {
+      method: "POST",
+      body: {
+        frameId: request.frameId,
+        productType: request.productType,
+        cameraId: request.cameraId,
+        note: request.note ?? "",
+      },
+    });
+  },
+
+  async getLearningReviews(productType: string, cameraId?: number) {
+    const query = new URLSearchParams({ product_type: productType });
+    if (cameraId !== undefined) {
+      query.set("cameraId", String(cameraId));
+    }
+    return http.json<{ reviews: unknown[] }>(`/api/client/learning/reviews?${query}`);
+  },
+
+  async getLearnedNormals(productType: string, cameraId: number) {
+    const query = new URLSearchParams({ productType, cameraId: String(cameraId) });
+    return http.json<{ cases: LearnedNormalCase[] }>(`/api/client/learning/accepted-cases?${query}`);
+  },
+
+  learnedNormalImageUrl(caseId: string) {
+    return http.url(`/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}/image`);
+  },
+
+  async deleteLearnedNormal(caseId: string) {
+    return http.json<{ deleted: boolean; case_id?: string }>(
+      `/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}`,
+      { method: "DELETE" },
+    );
+  },
+
+  async clearLearnedNormals() {
+    return http.json<{ deleted: boolean; cases_count?: number }>("/api/client/learning/accepted-cases", {
+      method: "DELETE",
     });
   },
 

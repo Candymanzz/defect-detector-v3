@@ -233,6 +233,9 @@ java -jar java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar
 
 На странице Swagger вверху выберите **Server** с тем же портом, с которого вы открыли страницу, иначе кнопка «Execute» будет стучаться не туда.
 
+Краткое описание API обучения допустимым дефектам находится в
+[`analisSurface/backend/docs/LEARNED_NORMALS_API.md`](analisSurface/backend/docs/LEARNED_NORMALS_API.md).
+
 ---
 
 ## Короткая шпаргалка (когда всё уже установлено)

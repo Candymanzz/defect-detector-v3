@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.http.controller;
 
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.KopcheniHttpProxy;
+import com.example.iml.orchestrator.integration.clientapi.LearnedReviewIndex;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.http.HttpController;
@@ -78,6 +79,10 @@ public final class ClientApiHttpController implements HttpController {
             handleTestAnalyze(ctx);
             return;
         }
+        if (path.equals("/api/client/learning/accept-all-as-normal") || path.startsWith("/api/client/learning/")) {
+            handleLearning(ctx);
+            return;
+        }
         if (path.equals("/api/client/mode") || path.equals("/api/client/mode/test")) {
             handleProgramMode(ctx, path);
             return;
@@ -146,7 +151,7 @@ public final class ClientApiHttpController implements HttpController {
             });
             Map<String, Integer> units = parseTimeoutUnits(body);
             if (units.isEmpty()) {
-                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required (D4400..D4404 or names)");
+                HttpResponses.sendJsonError(ctx, 400, "body.timeouts required (D4400..D4405 or names)");
                 return;
             }
             sendTimeoutsResponse(ctx, plc, plc.writeTimeouts(units));
@@ -494,6 +499,183 @@ public final class ClientApiHttpController implements HttpController {
                         : "Прод-режим: Пуск инспекции для ожидания DI3"
         );
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+    }
+
+    private void handleLearning(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        String pythonBase = pythonBaseUrl();
+        if (pythonBase.isEmpty()) {
+            HttpResponses.sendJsonError(ctx, 503, "python detector base url not configured");
+            return;
+        }
+        String path = ctx.path();
+        if (path.equals("/api/client/learning/accept-all-as-normal")) {
+            handleAcceptAllAsNormal(ctx, pythonBase);
+            return;
+        }
+        String pythonPath = path.substring("/api/client".length());
+        String query = ctx.query();
+        if (query != null && !query.isBlank()) {
+            pythonPath = pythonPath + "?" + rewriteLearningQuery(query);
+        }
+        KopcheniHttpProxy.forwardTarget(ctx.exchange(), pythonBase, pythonPath, null);
+    }
+
+    private void handleAcceptAllAsNormal(HttpRequestContext ctx, String pythonBase) throws IOException {
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        Map<String, Object> body;
+        try {
+            byte[] raw = ctx.readBody();
+            body = raw.length == 0 ? Map.of() : JSON.readValue(raw, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid json body");
+            return;
+        }
+        Long frameId = parseLongId(first(body, "frameId", "frame_id"));
+        String productType = stringId(first(body, "productType", "product_type"));
+        Integer cameraId = parseIntId(first(body, "cameraId", "camera_id"));
+        String learnedReviewId = stringId(first(body, "learnedReviewId", "learned_review_id"));
+        if (learnedReviewId == null && (frameId == null || productType == null)) {
+            HttpResponses.sendJsonError(ctx, 400, "body.frameId and body.productType required");
+            return;
+        }
+        if (learnedReviewId == null) {
+            String scoped = LearnedReviewIndex.scopedProductType(productType, cameraId);
+            learnedReviewId = LearnedReviewIndex.lookup(cameraId, frameId, scoped);
+            if (learnedReviewId == null) {
+                learnedReviewId = LearnedReviewIndex.lookup(cameraId, frameId, productType);
+            }
+        }
+        if (learnedReviewId == null) {
+            HttpResponses.sendJsonError(ctx, 404, "learned review not found for frameId/productType");
+            return;
+        }
+        ObjectNode pythonBody = JSON.createObjectNode();
+        Object note = first(body, "note");
+        pythonBody.put("note", note == null ? "" : String.valueOf(note));
+        KopcheniHttpProxy.forwardTarget(
+                ctx.exchange(),
+                pythonBase,
+                "/learning/reviews/" + urlEncode(learnedReviewId) + "/accept-all-as-normal",
+                JSON.writeValueAsBytes(pythonBody)
+        );
+    }
+
+    private String rewriteLearningQuery(String query) {
+        Integer cameraId = null;
+        String productType = null;
+        StringBuilder kept = new StringBuilder();
+        for (String part : query.split("&")) {
+            if (part.isBlank()) {
+                continue;
+            }
+            String[] kv = part.split("=", 2);
+            String key = urlDecode(kv[0]);
+            String value = kv.length > 1 ? urlDecode(kv[1]) : "";
+            if ("cameraId".equals(key) || "camera_id".equals(key)) {
+                cameraId = parseIntId(value);
+                continue;
+            }
+            if ("productType".equals(key) || "product_type".equals(key)) {
+                productType = value;
+                continue;
+            }
+            if (!kept.isEmpty()) {
+                kept.append('&');
+            }
+            kept.append(part);
+        }
+        if (productType != null && !productType.isBlank()) {
+            String scoped = LearnedReviewIndex.scopedProductType(productType, cameraId);
+            if (!kept.isEmpty()) {
+                kept.append('&');
+            }
+            kept.append("product_type=").append(urlEncode(scoped));
+        }
+        return kept.toString();
+    }
+
+    private String pythonBaseUrl() {
+        if (clientApi.kopcheniConfigured()) {
+            return clientApi.kopcheniBaseUrl();
+        }
+        Map<String, Object> pythonCfg = clientApi.pythonDetectorYaml();
+        if (pythonCfg == null) {
+            return "";
+        }
+        Object url = pythonCfg.get("base_url");
+        if (url == null) {
+            return "";
+        }
+        String base = String.valueOf(url).trim();
+        if (base.endsWith("/")) {
+            return base.substring(0, base.length() - 1);
+        }
+        return base;
+    }
+
+    private static Object first(Map<String, Object> body, String... keys) {
+        if (body == null) {
+            return null;
+        }
+        for (String key : keys) {
+            Object value = body.get(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static String stringId(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        String text = String.valueOf(raw).trim();
+        return text.isEmpty() || "null".equalsIgnoreCase(text) ? null : text;
+    }
+
+    private static Long parseLongId(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number n) {
+            return n.longValue();
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static Integer parseIntId(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number n) {
+            return n.intValue();
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static String urlEncode(String value) {
+        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private void handleTestAnalyze(HttpRequestContext ctx) throws IOException {

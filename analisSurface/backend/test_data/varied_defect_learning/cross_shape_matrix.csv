@@ -1,0 +1,13 @@
+﻿learned_family,circle,ellipse,rectangle_chip,triangle_chip,irregular_blob,horizontal_scratch,vertical_scratch,diagonal_scratch,zigzag_crack,arc,x_scratch,dot_cluster
+circle,SAME,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК
+ellipse,БРАК,SAME,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК
+rectangle_chip,БРАК,БРАК,SAME,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК
+triangle_chip,БРАК,БРАК,БРАК,SAME,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК
+irregular_blob,БРАК,БРАК,БРАК,БРАК,SAME,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК
+horizontal_scratch,БРАК,БРАК,БРАК,БРАК,БРАК,SAME,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК
+vertical_scratch,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,SAME,БРАК,БРАК,БРАК,БРАК,БРАК
+diagonal_scratch,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,SAME,БРАК,БРАК,БРАК,БРАК
+zigzag_crack,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,SAME,БРАК,БРАК,БРАК
+arc,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,SAME,БРАК,БРАК
+x_scratch,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,SAME,БРАК
+dot_cluster,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,БРАК,SAME

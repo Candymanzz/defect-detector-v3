@@ -366,6 +366,34 @@ export type TestAnalyzeResponse = {
   frameId: number;
 };
 
+export type AcceptLearnedNormalsRequest = {
+  frameId: string | number;
+  productType: string;
+  cameraId?: number;
+  note?: string;
+};
+
+export type AcceptLearnedNormalsResponse = {
+  saved?: boolean;
+  accepted_count?: number;
+  inspection_id?: string;
+  learned_review_id?: string;
+  accepted_case_ids?: string[];
+  accepted_cases?: LearnedNormalCase[];
+  affects_original_pipeline_decision?: boolean;
+  [key: string]: unknown;
+};
+
+export type LearnedNormalCase = {
+  id: string;
+  product_type: string;
+  source_inspection_id?: string;
+  source_defect_id?: string;
+  created_at?: string;
+  note?: string;
+  enabled?: boolean;
+};
+
 export type AnalysisPresetResponse<TKnobs> = AnalysisSettingsResponse & {
   knobs: TKnobs | null;
   detector_id?: string;

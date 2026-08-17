@@ -187,11 +187,19 @@ export function updateModalSnapshotResult(
   currentSnapshot: ModalInspectionSnapshot,
   inspectResult: InspectResultPayload,
 ) {
+  const nextHeatmapUrl = resolveInspectHeatmapUrl(inspectResult);
+  // Immediate test-analyze notifies arrive without heatmap; keep the last map/descriptor until the final one lands.
+  const retainPreviousHeatmap =
+    Boolean(inspectResult.test_analyze) && !inspectResult.heatmap && currentSnapshot.inspectResult?.heatmap;
+  const displayInspectResult = retainPreviousHeatmap
+    ? { ...inspectResult, heatmap: currentSnapshot.inspectResult?.heatmap ?? null }
+    : inspectResult;
   return {
     ...currentSnapshot,
-    inspectResult,
-    cameraImageUrl: resolveImmutableInspectionImageUrl(inspectResult) ?? createWsFrameImageUrl(inspectResult),
-    heatmapUrl: resolveInspectHeatmapUrl(inspectResult),
+    inspectResult: displayInspectResult,
+    cameraImageUrl:
+      resolveImmutableInspectionImageUrl(displayInspectResult) ?? createWsFrameImageUrl(displayInspectResult),
+    heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };
 }
 
@@ -218,6 +226,9 @@ export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], next
 }
 
 export function resolveInspectionId(inspectResult: InspectResultPayload) {
+  if (inspectResult.test_analyze) {
+    return "тест";
+  }
   return inspectResult.inspection_id ?? inspectResult.frame_id;
 }
 
@@ -461,11 +472,40 @@ function resolveInspectHeatmapUrl(inspectResult: InspectResultPayload) {
   if (!inspectResult.heatmap) {
     return undefined;
   }
+
+  // Test runs publish a unique immutable bundle for this exact rerun. Prefer it over
+  // the camera-wide latest heatmap, which can be overwritten by a production cycle.
+  if (inspectResult.test_analyze) {
+    if (inspectResult.heatmap.http_path) {
+      return withCacheBust(orchestratorApi.url(inspectResult.heatmap.http_path), inspectResult.server_ts_ms);
+    }
+    if (inspectResult.artifact_bundle_id) {
+      return withCacheBust(
+        orchestratorApi.url(
+          `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/heatmap.u8`,
+        ),
+        inspectResult.server_ts_ms,
+      );
+    }
+    return withCacheBust(orchestratorApi.heatmapUrl(inspectResult.camera_id), inspectResult.server_ts_ms);
+  }
+
   const framePath = inspectResult.http_path ?? inspectResult.current?.http_path;
   if (framePath?.includes("/api/frame-archive/") && framePath.endsWith("/frame.jpg")) {
     return orchestratorApi.url(framePath.replace(/\/frame\.jpg$/, "/heatmap.u8"));
   }
   return resolveHeatmapSourceUrlOrUndefined(inspectResult.heatmap);
+}
+
+function withCacheBust(url: string | undefined, version: number | undefined) {
+  if (!url) {
+    return undefined;
+  }
+  if (version === undefined || !Number.isFinite(version)) {
+    return url;
+  }
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}t=${version}`;
 }
 
 function resolveHeatmapSourceUrlOrUndefined(heatmap: HeatmapDescriptor) {

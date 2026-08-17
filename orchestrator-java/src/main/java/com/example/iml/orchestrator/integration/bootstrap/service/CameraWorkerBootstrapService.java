@@ -159,6 +159,9 @@ public final class CameraWorkerBootstrapService {
             int cameraId = ((Number) camera.get("id")).intValue();
             analysisProfileByCamera.put(cameraId, ConfiguredCameras.analysisProfileForCamera(camera, cameraId));
         }
+        com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor.setAnalysisProfilesByCamera(
+                analysisProfileByCamera
+        );
         ClientStreamConfig clientStreamCfg = ClientStreamConfig.fromRootYaml(ctx.root());
         ctx.uiServer().attachCameraWorkers(ctx.workersByCamera());
         CameraStreamService cameraStreamService = new CameraStreamService(

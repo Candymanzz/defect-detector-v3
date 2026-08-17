@@ -24,6 +24,15 @@ class RoiSubZoneScoreResponse(BaseModel):
     status: str
 
 
+class FPZoneScoreResponse(BaseModel):
+    zone_id: str
+    triggered_vs_reference: bool
+    applied_fp_etalon: bool
+    residual_score: float
+    status: str
+    note: str = ""
+
+
 class InspectResponse(BaseModel):
     """Результат инспекции без тяжёлых картинок (/inspect-shm, база для /inspect-shm-visuals)."""
 
@@ -38,6 +47,11 @@ class InspectResponse(BaseModel):
     rechecked_zone_ids: list[str] = Field(default_factory=list)
     main_roi_score: float = 0.0
     sub_zone_scores: list[RoiSubZoneScoreResponse] = Field(default_factory=list)
+    inspection_id: Optional[str] = None
+    learned_normal_matches_count: int = 0
+    learned_normal_adjustment: float = 0.0
+    matched_accepted_case_ids: list[str] = Field(default_factory=list)
+    fp_zone_scores: list[FPZoneScoreResponse] = Field(default_factory=list)
 
 
 class InspectWithVisualsResponse(InspectResponse):
@@ -159,6 +173,7 @@ class ShmFrameRequest(BaseModel):
     threshold: Optional[float] = None  # перекрывает analysis_settings.default_threshold
     detector_id: Optional[str] = None
     algorithm_params: Optional[dict] = None
+    analysis_profile: Optional[str] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None  # 3x3 от geometry
 
 
@@ -219,6 +234,8 @@ class FPZoneResponse(BaseModel):
     heatmap_h: int
     created_at: str
     note: str
+    has_crop: bool = False
+    reference_hash: str = ""
 
 
 class FPZoneListResponse(BaseModel):

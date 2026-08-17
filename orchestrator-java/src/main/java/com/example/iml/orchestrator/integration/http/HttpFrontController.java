@@ -20,6 +20,7 @@ import com.example.iml.orchestrator.integration.http.controller.LightHttpControl
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorAnalysisSettingsHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorFpZonesHttpController;
+import com.example.iml.orchestrator.integration.http.controller.OrchestratorLearningHttpController;
 
 import com.sun.net.httpserver.HttpExchange;
 
@@ -192,6 +193,10 @@ public final class HttpFrontController {
         OrchestratorFpZonesHttpController fpZones = new OrchestratorFpZonesHttpController(ctx.analisSurfaceBaseUrl());
 
         router.register(HttpRoute.regex("*", Pattern.compile("^/api/orchestrator/fp-zones(/.*)?$"), fpZones));
+
+        OrchestratorLearningHttpController learning = new OrchestratorLearningHttpController(ctx.analisSurfaceBaseUrl());
+
+        router.register(HttpRoute.regex("*", Pattern.compile("^/api/orchestrator/learning(/.*)?$"), learning));
 
         OrchestratorAnalysisSettingsHttpController analysisSettings = new OrchestratorAnalysisSettingsHttpController(
                 ctx.analisSurfaceBaseUrl(),

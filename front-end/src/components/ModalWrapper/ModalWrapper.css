@@ -42,7 +42,7 @@
 
 .modal__analysis-settings {
   min-width: 0;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid rgba(117, 143, 164, 0.25);
   border-radius: 10px;
   background: rgba(7, 20, 29, 0.72);
@@ -54,6 +54,10 @@
   border-bottom: 1px solid rgba(117, 143, 164, 0.2);
   color: #edf4f7;
   font-size: 13px;
+}
+
+.modal__test-settings {
+  flex: 0 0 auto;
 }
 
 @media (min-width: 1400px) {
@@ -192,6 +196,30 @@
   font-weight: 900;
   text-align: center;
   text-transform: uppercase;
+}
+
+.modal__learning-action {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #f5d79d;
+  font-size: 0.82rem;
+}
+
+.modal__learning-action .modal__action {
+  border: 1px solid #e5a832;
+  background: #c98212;
+  color: #fff;
+  cursor: pointer;
+}
+
+.modal__learning-action .modal__action:disabled { cursor: default; opacity: 0.7; }
+.modal__learning-action[data-state="success"] { color: #b8efc2; }
+.modal__learning-action[data-state="error"] { color: #ffc2c2; }
+
+.modal__learning-action span {
+  max-width: 220px;
+  line-height: 1.2;
 }
 
 .modal__inspection-indicator[data-result="pass"] {
@@ -452,6 +480,15 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin: 0;
+}
+
+.modal-inspect-result__summary--compact {
+  grid-template-columns: repeat(2, minmax(150px, 240px));
+  justify-content: start;
+}
+
+.modal-inspect-result__summary--compact .modal-inspect-result__field dd {
+  font-size: 1.15rem;
 }
 
 .modal-inspect-result__field {

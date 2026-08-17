@@ -3,7 +3,9 @@ import { MainOverview } from "../components/MainOverview";
 import { PlcPanel } from "../components/PlcPanel";
 import { SettingList } from "../components/SettingList";
 import { orchestratorApi } from "../shared/api/orchestratorApi";
+import type { PlcTimeoutState } from "../shared/api/types";
 import logo from "../shared/assets/images/savt_logo_white.png";
+import { errorMessage as formatErrorMessage } from "../shared/lib/errors";
 import { Button } from "../shared/ui/Button";
 import type { InspectionStats } from "../components/MainOverview/type";
 import { useBackendStatus } from "./useBackendStatus";
@@ -22,16 +24,30 @@ const EMPTY_INSPECTION_STATS: InspectionStats = {
 
 /** PLC DM D4405: 0 = сталь, 1 = пластик. */
 const HANDLE_MATERIAL_MODE_KEY = "handle_material_mode";
+const HANDLE_MATERIAL_ADDRESS = "D4405";
+
+function findHandleModeEntry(timeouts: PlcTimeoutState[] | undefined): PlcTimeoutState | undefined {
+  return (timeouts ?? []).find(
+    (item) => item.name === HANDLE_MATERIAL_MODE_KEY || item.address === HANDLE_MATERIAL_ADDRESS,
+  );
+}
+
+function handleModeUnits(entry: PlcTimeoutState | undefined): number {
+  if (!entry) {
+    return 0;
+  }
+  const raw = entry as PlcTimeoutState & { value_units?: number };
+  const units = raw.valueUnits ?? raw.value_units ?? raw.rawWord;
+  return Number.isFinite(units) ? Number(units) : 0;
+}
 
 function isPlasticFromTimeoutUnits(units: number | undefined): boolean {
   return (units ?? 0) !== 0;
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message.trim();
-  }
-  return "Не удалось записать режим ручки в ПЛК";
+function handleModeErrorMessage(error: unknown): string {
+  const message = formatErrorMessage(error).trim();
+  return message || "Не удалось записать режим ручки в ПЛК";
 }
 
 export function App() {
@@ -65,16 +81,14 @@ export function App() {
         if (cancelled) {
           return;
         }
-        const entry = (response.timeouts ?? []).find(
-          (item) => item.name === HANDLE_MATERIAL_MODE_KEY || item.address === "D4405",
-        );
+        const entry = findHandleModeEntry(response.timeouts);
         if (entry) {
-          setIsPlasticHandleMode(isPlasticFromTimeoutUnits(entry.valueUnits));
+          setIsPlasticHandleMode(isPlasticFromTimeoutUnits(handleModeUnits(entry)));
         }
         setHandleModeError(null);
       } catch (error) {
         if (!cancelled) {
-          setHandleModeError(errorMessage(error));
+          setHandleModeError(handleModeErrorMessage(error));
         }
       }
     })();
@@ -88,22 +102,23 @@ export function App() {
       return;
     }
     const previous = isPlasticHandleMode;
+    const value = nextPlastic ? 1 : 0;
     setIsPlasticHandleMode(nextPlastic);
     setHandleModeBusy(true);
     setHandleModeError(null);
     try {
+      // Пишем и по имени, и по адресу — FINS DM D4405 raw 0/1.
       const response = await orchestratorApi.putPlcTimeouts({
-        [HANDLE_MATERIAL_MODE_KEY]: nextPlastic ? 1 : 0,
+        [HANDLE_MATERIAL_MODE_KEY]: value,
+        [HANDLE_MATERIAL_ADDRESS]: value,
       });
-      const entry = (response.timeouts ?? []).find(
-        (item) => item.name === HANDLE_MATERIAL_MODE_KEY || item.address === "D4405",
-      );
+      const entry = findHandleModeEntry(response.timeouts);
       if (entry) {
-        setIsPlasticHandleMode(isPlasticFromTimeoutUnits(entry.valueUnits));
+        setIsPlasticHandleMode(isPlasticFromTimeoutUnits(handleModeUnits(entry)));
       }
     } catch (error) {
       setIsPlasticHandleMode(previous);
-      setHandleModeError(errorMessage(error));
+      setHandleModeError(handleModeErrorMessage(error));
     } finally {
       setHandleModeBusy(false);
     }
@@ -136,7 +151,6 @@ export function App() {
       <header className="app-header">
         <div className="app-header-left">
           <img
-            width={"30%"}
             src={logo}
             alt="Детектор дефектов"
             className="logo"
@@ -144,27 +158,27 @@ export function App() {
           <h1 style={{ fontSize: "24px", fontWeight: "bold" }}>Автоматизация контроля качества</h1>
         </div>
         <div className="app-header-right">
-          <div
+          <button
+            type="button"
             className="app-header-handle-mode"
             title={handleModeError ?? "Режим ручки → PLC D4405 (0=сталь, 1=пластик)"}
             data-error={handleModeError ? "true" : undefined}
+            data-busy={handleModeBusy ? "true" : undefined}
+            data-plastic={isPlasticHandleMode ? "true" : undefined}
+            aria-pressed={isPlasticHandleMode}
+            aria-label="Режим типа ручки"
+            disabled={handleModeBusy}
+            onClick={() => {
+              void handleHandleModeChange(!isPlasticHandleMode);
+            }}
           >
             <span data-active={!isPlasticHandleMode}>Стальная ручка</span>
-            <label className="app-header-handle-switch">
-              <input
-                type="checkbox"
-                role="switch"
-                aria-label="Режим типа ручки"
-                checked={isPlasticHandleMode}
-                disabled={handleModeBusy}
-                onChange={(event) => {
-                  void handleHandleModeChange(event.target.checked);
-                }}
-              />
-              <span aria-hidden="true" />
-            </label>
+            <span className="app-header-handle-switch" aria-hidden="true">
+              <span />
+            </span>
             <span data-active={isPlasticHandleMode}>Пластиковая ручка</span>
-          </div>
+          </button>
+          {handleModeError ? <span className="app-header-handle-error">{handleModeError}</span> : null}
           <Button
             type="button"
             className="app-header-plc-button"

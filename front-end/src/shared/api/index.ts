@@ -9,6 +9,8 @@ export type {
   ProAnalysisKnobs,
   ClientModeResponse,
   TestAnalyzeResponse,
+  AcceptLearnedNormalsRequest,
+  AcceptLearnedNormalsResponse,
   ApiOk,
   ApiErrorResponse,
   CameraId,

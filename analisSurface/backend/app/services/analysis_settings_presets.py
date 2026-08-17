@@ -27,7 +27,6 @@ _COARSE: dict[str, Any] = {
     "clahe_clip_limit": 1.0,
     "fp_recheck_enabled": True,
     "fp_trigger_diff_q90": 22.0,
-    "enable_internal_alignment": False,
 }
 
 _SENSITIVE: dict[str, Any] = {
@@ -48,7 +47,6 @@ _SENSITIVE: dict[str, Any] = {
     "clahe_clip_limit": 2.0,
     "fp_recheck_enabled": True,
     "fp_trigger_diff_q90": 22.0,
-    "enable_internal_alignment": False,
 }
 
 _NOISE_FIELDS = ("min_diff_signal", "min_defect_area", "diff_percentile")
@@ -62,7 +60,7 @@ _TEXT_FIELDS = (
     "contrast_loss_cur_grad",
 )
 _PREPROCESS_FIELDS = ("enable_clahe", "clahe_clip_limit")
-_FIXED_FIELDS = ("use_patchcore", "fp_recheck_enabled", "fp_trigger_diff_q90", "enable_internal_alignment")
+_FIXED_FIELDS = ("use_patchcore", "fp_recheck_enabled", "fp_trigger_diff_q90")
 
 
 def _validate_unit_interval(name: str, value: float) -> float:

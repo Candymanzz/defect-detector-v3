@@ -1,13 +1,22 @@
 import numpy as np
 import pytest
+from pathlib import Path
 
 from app.services.inspection_service import InspectionService
 
 
 @pytest.fixture
-def inspection_service() -> InspectionService:
-    service = InspectionService()
+def inspection_service(tmp_path: Path) -> InspectionService:
+    service = InspectionService(
+        learned_normals_dir=tmp_path / "accepted_normals",
+        reviews_dir=tmp_path / "learning_reviews",
+        review_limit=10,
+        session_wipe=True,
+    )
     service._anomaly_engine = None
+    service._fp_zones_file = tmp_path / "fp_zones.json"
+    service._fp_crops_dir = tmp_path / "fp_zone_crops"
+    service.fp_zones = {}
     return service
 
 

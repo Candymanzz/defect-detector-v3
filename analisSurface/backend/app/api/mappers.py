@@ -4,6 +4,7 @@ from app.api.schemas import (
     AnalysisSettingsValues,
     FPZonePoint,
     FPZoneResponse,
+    FPZoneScoreResponse,
     InspectResponse,
     InspectWithVisualsResponse,
     ProSettingsKnobs,
@@ -103,6 +104,21 @@ def to_inspect_response(result) -> InspectResponse:
         recheck_adjustment=result.recheck_adjustment,
         rechecked_zone_ids=result.rechecked_zone_ids or [],
         main_roi_score=result.main_roi_score,
+        inspection_id=getattr(result, "inspection_id", None),
+        learned_normal_matches_count=getattr(result, "learned_normal_matches_count", 0),
+        learned_normal_adjustment=getattr(result, "learned_normal_adjustment", 0.0),
+        matched_accepted_case_ids=getattr(result, "matched_accepted_case_ids", None) or [],
+        fp_zone_scores=[
+            FPZoneScoreResponse(
+                zone_id=entry.zone_id,
+                triggered_vs_reference=entry.triggered_vs_reference,
+                applied_fp_etalon=entry.applied_fp_etalon,
+                residual_score=entry.residual_score,
+                status=entry.status,
+                note=entry.note,
+            )
+            for entry in (getattr(result, "fp_zone_scores", None) or [])
+        ],
         sub_zone_scores=[
             RoiSubZoneScoreResponse(
                 zone_id=entry.zone_id,
@@ -155,6 +171,7 @@ def to_visuals_response(
 
 
 def to_fp_zone_response(zone) -> FPZoneResponse:
+    fp_crop = getattr(zone, "fp_crop", None)
     return FPZoneResponse(
         id=zone.id,
         product_type=zone.product_type,
@@ -164,4 +181,6 @@ def to_fp_zone_response(zone) -> FPZoneResponse:
         heatmap_h=zone.heatmap_h,
         created_at=zone.created_at,
         note=zone.note,
+        has_crop=fp_crop is not None and getattr(fp_crop, "size", 0) > 0,
+        reference_hash=getattr(zone, "reference_hash", "") or "",
     )

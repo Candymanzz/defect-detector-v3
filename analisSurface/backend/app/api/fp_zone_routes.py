@@ -1,6 +1,11 @@
-"""FP-зоны (false positive): области известного шума на heatmap для fp-recheck."""
+"""FP-зоны: полигон ложного срабатывания становится мини-эталоном.
+
+На следующей инспекции зона вычитается из основного анализа и проверяется отдельно:
+кроп vs основной эталон, затем vs сохранённая ложная картинка.
+"""
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 
 from app.api.dependencies import inspection_service
 from app.api.mappers import to_fp_zone_response
@@ -12,10 +17,10 @@ router = APIRouter()
 
 @router.post("/fp-zones", response_model=FPZoneResponse)
 async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
-    """POST /fp-zones — добавить зону ложного срабатывания.
+    """POST /fp-zones — сохранить зону ложного срабатывания как мини-эталон.
 
-    points — полигон на heatmap (норм. координаты); heatmap_w/h — размер heatmap при разметке.
-    При создании сохраняется baseline активности diff в зоне.
+    Нужна предыдущая инспекция того же product_type: из выровненного кадра
+    вырезается кроп полигона. points — норм. координаты [0,1].
     """
     points = [(p.x, p.y) for p in payload.points]
     try:
@@ -41,9 +46,18 @@ async def get_fp_zones(product_type: str) -> FPZoneListResponse:
     )
 
 
+@router.get("/fp-zones/{zone_id}/crop")
+async def get_fp_zone_crop(zone_id: str) -> Response:
+    """GET /fp-zones/{zone_id}/crop — PNG мини-эталона зоны."""
+    png = inspection_service.get_fp_zone_crop_png(zone_id)
+    if png is None:
+        raise HTTPException(status_code=404, detail="FP zone crop not found")
+    return Response(content=png, media_type="image/png")
+
+
 @router.delete("/fp-zones")
 async def delete_all_fp_zones() -> dict:
-    """DELETE /fp-zones — удалить все FP-зоны (все product_type) и очистить fp_zones.json."""
+    """DELETE /fp-zones — удалить все FP-зоны и их мини-эталоны."""
     deleted_count = inspection_service.delete_all_fp_zones()
     return {"deleted": True, "zones_count": deleted_count}
 
