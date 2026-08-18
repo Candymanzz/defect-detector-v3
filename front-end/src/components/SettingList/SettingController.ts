@@ -167,24 +167,12 @@ export async function saveLightMode(
 
 export async function saveSettingData(form: SettingForm, selectedCameraId: number | null = null): Promise<SettingData> {
   const normalizedForm = normalizeSettingForm(form);
-  const cameraList = selectedCameraId === null ? await orchestratorApi.listCameras() : null;
-  const analysisSaveRequests =
-    selectedCameraId === null
-      ? createAllCameraAnalysisSaveRequests(cameraList?.cameras ?? [], normalizedForm.analysisSettings)
-      : [
-          saveWithContext(
-            `Analysis settings camera ${selectedCameraId}`,
-            orchestratorApi.setCameraAnalysisSettings(selectedCameraId, normalizedForm.analysisSettings),
-          ),
-        ];
-
   const lightBrightness = await orchestratorApi.getLightBrightness();
   const [frameArchiveResponse] = await Promise.all([
     orchestratorApi.setFrameArchiveMaxFrames(normalizedForm.savedFramesCount),
     orchestratorApi.setLightBrightness(
       createBrightnessUpdate(lightBrightness, selectedCameraId, normalizedForm.brightnessPercent),
     ),
-    ...analysisSaveRequests,
   ]);
   setInspectionHistoryLimit(frameArchiveResponse.max_frames_per_camera);
 
@@ -533,28 +521,6 @@ async function loadAnalysisProductTypes() {
   } catch {
     return [FALLBACK_ANALYSIS_PRODUCT_TYPE];
   }
-}
-
-function resolveAnalysisProductTypesToSave(fallbackProductTypes: string[]) {
-  return fallbackProductTypes.length > 0 ? fallbackProductTypes : [FALLBACK_ANALYSIS_PRODUCT_TYPE];
-}
-
-function createAllCameraAnalysisSaveRequests(cameraIds: number[], settings: AnalysisSettings) {
-  if (cameraIds.length === 0) {
-    return resolveAnalysisProductTypesToSave([]).map((analysisProfile) =>
-      saveWithContext(
-        `Analysis settings profile ${analysisProfile}`,
-        orchestratorApi.setAnalysisSettings(analysisProfile, settings),
-      ),
-    );
-  }
-
-  return cameraIds.map((cameraId) =>
-    saveWithContext(
-      `Analysis settings camera ${cameraId}`,
-      orchestratorApi.setCameraAnalysisSettings(cameraId, settings),
-    ),
-  );
 }
 
 function parseInputNumber(rawValue: string, fallback: number) {

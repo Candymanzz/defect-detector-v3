@@ -62,10 +62,14 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   const previewRequestIdRef = useRef(0);
   const previewTimerRef = useRef<number | null>(null);
   const hydratedRef = useRef(false);
+  const userEditedSimpleRef = useRef(false);
+  const userEditedProRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     hydratedRef.current = false;
+    userEditedSimpleRef.current = false;
+    userEditedProRef.current = false;
     loadSimple(selectedCameraId, profile)
       .then((response) => {
         if (!active) return;
@@ -81,23 +85,35 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   }, [selectedCameraId, profile]);
 
   useEffect(() => {
-    if (!hydratedRef.current || selectedCameraId === null || !testFrameId) {
+    if (!hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
       return;
     }
     if (previewTimerRef.current !== null) {
       window.clearTimeout(previewTimerRef.current);
     }
     const requestId = ++previewRequestIdRef.current;
+    const persistSimple = userEditedSimpleRef.current;
+    const persistPro = userEditedProRef.current;
+    const preview = selectedCameraId !== null && Boolean(testFrameId);
     previewTimerRef.current = window.setTimeout(() => {
-      const persistRequest = mode === "simple"
-        ? saveSimple(selectedCameraId, simple)
-        : savePro(selectedCameraId, pro);
-      setStatus({ kind: "saving", text: `Проверка на кадре ${testFrameId}…` });
-      void persistRequest
-        .then(() => orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId))
+      setStatus({
+        kind: "saving",
+        text: preview ? `Сохранение и проверка на кадре ${testFrameId}…` : "Сохранение…",
+      });
+      void Promise.resolve()
+        .then(() => (persistSimple ? saveSimple(selectedCameraId, simple) : undefined))
+        .then(() => (persistPro ? savePro(selectedCameraId, pro) : undefined))
+        .then(() => (preview ? orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId!) : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
-            setStatus({ kind: "success", text: `Кадр ${testFrameId} отправлен на повторный анализ` });
+            setStatus({
+              kind: "success",
+              text: preview
+                ? `Настройки сохранены, кадр ${testFrameId} пересчитан`
+                : selectedCameraId === null
+                  ? "Настройки сохранены для всех камер"
+                  : `Настройки камеры ${selectedCameraId} сохранены`,
+            });
           }
         })
         .catch((error) => {
@@ -112,7 +128,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         previewTimerRef.current = null;
       }
     };
-  }, [mode, pro, profile, selectedCameraId, simple, testFrameId]);
+  }, [pro, selectedCameraId, simple, testFrameId]);
 
   const unlock = () => {
     if (password !== ACCESS_CODE) {
@@ -221,8 +237,13 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                 value={value} disabled={busy}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => {
                   const next = Number(event.target.value);
-                  if (mode === "simple") setSimple((current) => ({ ...current, [field.name]: next }));
-                  else setPro((current) => ({ ...current, [field.name]: next }));
+                  if (mode === "simple") {
+                    userEditedSimpleRef.current = true;
+                    setSimple((current) => ({ ...current, [field.name]: next }));
+                  } else {
+                    userEditedProRef.current = true;
+                    setPro((current) => ({ ...current, [field.name]: next }));
+                  }
                 }}
               />
               <small>{field.hint}</small>

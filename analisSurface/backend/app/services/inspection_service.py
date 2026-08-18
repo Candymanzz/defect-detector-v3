@@ -463,12 +463,30 @@ class InspectionService:
         return {}
 
     def get_simple_knobs(self, analysis_profile: str) -> dict[str, object] | None:
-        knobs = self._analysis_settings_simple_knobs.get(analysis_profile)
-        return dict(knobs) if knobs is not None else None
+        self._reload_analysis_settings_if_stale()
+        return self._resolve_analysis_settings_knobs(self._analysis_settings_simple_knobs, analysis_profile)
 
     def get_pro_knobs(self, analysis_profile: str) -> dict[str, object] | None:
-        knobs = self._analysis_settings_pro_knobs.get(analysis_profile)
-        return dict(knobs) if knobs is not None else None
+        self._reload_analysis_settings_if_stale()
+        return self._resolve_analysis_settings_knobs(self._analysis_settings_pro_knobs, analysis_profile)
+
+    def _resolve_analysis_settings_knobs(
+        self,
+        knobs_by_profile: Dict[str, dict[str, object]],
+        analysis_profile: str,
+    ) -> dict[str, object] | None:
+        key = (analysis_profile or "").strip()
+        if not key:
+            return None
+        knobs = knobs_by_profile.get(key)
+        if knobs is not None:
+            return dict(knobs)
+        if "#cam=" in key:
+            base = key.rsplit("#cam=", 1)[0].strip()
+            knobs = knobs_by_profile.get(base) if base else None
+            if knobs is not None:
+                return dict(knobs)
+        return None
 
     def apply_simple_settings(
         self,
