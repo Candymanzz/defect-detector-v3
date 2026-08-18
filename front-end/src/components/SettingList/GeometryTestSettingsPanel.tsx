@@ -28,12 +28,14 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
   const [jointSensitivity, setJointSensitivity] = useState(DEFAULT_JOINT_SENSITIVITY);
   const [status, setStatus] = useState<Status>({ kind: "loading", text: "Загрузка геометрии…" });
   const hydratedRef = useRef(false);
+  const userEditedRef = useRef(false);
   const previewRequestIdRef = useRef(0);
   const previewTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
     hydratedRef.current = false;
+    userEditedRef.current = false;
     setStatus({ kind: "loading", text: "Загрузка геометрии…" });
     orchestratorApi
       .getGeometryRuntime(selectedCameraId)
@@ -57,20 +59,29 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
   }, [selectedCameraId]);
 
   useEffect(() => {
-    if (!hydratedRef.current || selectedCameraId === null || !testFrameId) {
+    if (!hydratedRef.current || selectedCameraId === null || !userEditedRef.current) {
       return;
     }
     if (previewTimerRef.current !== null) {
       window.clearTimeout(previewTimerRef.current);
     }
     const requestId = ++previewRequestIdRef.current;
+    const preview = Boolean(testFrameId);
     previewTimerRef.current = window.setTimeout(() => {
-      setStatus({ kind: "saving", text: `Проверка геометрии на кадре ${testFrameId}…` });
+      setStatus({
+        kind: "saving",
+        text: preview ? `Сохранение геометрии и проверка кадра ${testFrameId}…` : "Сохранение геометрии…",
+      });
       void persistGeometry(selectedCameraId, maxShiftMm, jointSensitivity)
-        .then(() => orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId))
+        .then(() => (preview ? orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId!) : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
-            setStatus({ kind: "success", text: `Кадр ${testFrameId} отправлен на геометрию + анализ` });
+            setStatus({
+              kind: "success",
+              text: preview
+                ? `Геометрия сохранена, кадр ${testFrameId} пересчитан`
+                : "Геометрия сохранена",
+            });
           }
         })
         .catch((error) => {
@@ -142,6 +153,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
             value={maxShiftMm}
             disabled={busy || selectedCameraId === null}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              userEditedRef.current = true;
               setMaxShiftMm(clamp(Number(event.target.value), 0, 100));
             }}
           />
@@ -159,6 +171,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
             value={jointSensitivity}
             disabled={busy || selectedCameraId === null}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
+              userEditedRef.current = true;
               setJointSensitivity(clamp(Number(event.target.value), 0, 1));
             }}
           />

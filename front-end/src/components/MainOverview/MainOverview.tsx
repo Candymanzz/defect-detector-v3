@@ -234,6 +234,7 @@ export function MainOverview({
                     <GeometryTestSettingsPanel
                       ref={geometrySettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
+                      testFrameId={testFrameId}
                       hideSaveAction
                     />
                   </section>
@@ -242,6 +243,7 @@ export function MainOverview({
                     <AnalysisSettingsPanel
                       ref={analysisSettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
+                      testFrameId={testFrameId}
                       hideSaveAction
                     />
                   </section>
@@ -321,9 +323,14 @@ export function MainOverview({
           onInspectionSelect={controller.selectModalInspection}
           onClose={() => {
             if (showModalAnalysisSettings) {
-              void exitTestModeAndResume().finally(() => {
-                controller.closeInspectionModal();
-              });
+              void Promise.allSettled([
+                geometrySettingsRef.current?.save() ?? Promise.resolve(),
+                analysisSettingsRef.current?.save() ?? Promise.resolve(),
+              ])
+                .then(() => exitTestModeAndResume())
+                .finally(() => {
+                  controller.closeInspectionModal();
+                });
               return;
             }
             setShowModalAnalysisSettings(false);

@@ -277,6 +277,8 @@ def test_inspect_reloads_settings_written_by_another_worker(
     settings = reader.get_analysis_settings("bench-lan3")
     assert settings.default_threshold == pytest.approx(0.88)
     assert settings.min_diff_signal == pytest.approx(40.0)
+    assert reader.get_simple_knobs("bench-lan3") == {"threshold": 0.88, "sensitivity": 0.0}
+    assert reader.get_simple_knobs("bench-lan3#cam=2") == {"threshold": 0.88, "sensitivity": 0.0}
 
 
 def test_heatmap_stays_localized_to_defect_instead_of_filling_roi(
