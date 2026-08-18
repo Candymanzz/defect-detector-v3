@@ -38,3 +38,4 @@ camera-worker/build/Release/camera_worker.exe
 /IoInputMonitor/bin
 /IoInputMonitor/obj
 /LightServer.v3/bin
+/config
