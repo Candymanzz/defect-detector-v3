@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * UDP-слушатель DI: DI2 — текущее направление, DI3 — триггер съёмки.
+ * UDP-слушатель DI: DI2 — направление, DI3 — триггер съёмки, DI4 — безопасное выключение (listener).
  */
 public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport {
 
@@ -175,13 +175,14 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             socket = new DatagramSocket(new InetSocketAddress(bindAddress, udpConfig.bindPort()));
             socket.setReuseAddress(true);
             log.info(
-                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={}",
+                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} shutdown_di={} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={}",
                     udpConfig.bindHost(),
                     udpConfig.bindPort(),
                     ioInputConfig.payloadFormat(),
                     ioInputConfig.workPort(),
                     ioInputConfig.directionPort(),
                     ioInputConfig.triggerPort(),
+                    ioInputConfig.shutdownPort(),
                     ioInputConfig.triggerEdge(),
                     ioInputConfig.requireDirection(),
                     ioInputConfig.requireWork(),
@@ -505,6 +506,14 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 evaluateTriggerDecision(port, active);
                 directionLatch.onTriggerRelease();
             }
+            return;
+        }
+        if (ioInputConfig.shutdownPort() >= 1 && port == ioInputConfig.shutdownPort()) {
+            log.info(
+                    "io_input_trigger DI{}={} (shutdown port — handled by DiShutdownController)",
+                    port,
+                    active ? 1 : 0
+            );
             return;
         }
         if (port > 0) {

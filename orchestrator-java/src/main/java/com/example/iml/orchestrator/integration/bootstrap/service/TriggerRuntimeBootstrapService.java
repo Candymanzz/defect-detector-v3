@@ -272,12 +272,13 @@ public final class TriggerRuntimeBootstrapService {
         } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
             if (triggerCfg.usesIoInputMonitor()) {
                 log.info(
-                        "inspection_trigger external io_input {}:{} di={}/{}/{} trigger_edge={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
+                        "inspection_trigger external io_input {}:{} di={}/{}/{} shutdown_di={} trigger_edge={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                         triggerCfg.udp().bindHost(),
                         triggerCfg.udp().bindPort(),
                         triggerCfg.ioInput().workPort(),
                         triggerCfg.ioInput().directionPort(),
                         triggerCfg.ioInput().triggerPort(),
+                        triggerCfg.ioInput().shutdownPort(),
                         triggerCfg.ioInput().triggerEdge(),
                         triggerCfg.ioInput().di3Only(),
                         triggerCfg.ioInput().directionLatchOnWork(),

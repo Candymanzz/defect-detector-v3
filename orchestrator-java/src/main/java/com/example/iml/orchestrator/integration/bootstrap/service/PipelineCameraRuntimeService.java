@@ -14,6 +14,8 @@ import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import com.example.iml.orchestrator.integration.preview.LivePreviewPublisher;
+import com.example.iml.orchestrator.integration.trigger.DiShutdownController;
+import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import org.apache.logging.log4j.Logger;
 
 import java.nio.file.Path;
@@ -126,6 +128,7 @@ public final class PipelineCameraRuntimeService {
         if (livePreview != null && ctx.lineCaptureCoordinator() != null) {
             livePreview.setLineCaptureCoordinator(ctx.lineCaptureCoordinator());
         }
+        wireDiShutdown(ctx, stopSignal);
 
         lifecycle.registerAll(ctx.managedRuntimeComponents());
         // Components already started by owning services; close-only composite.
@@ -133,6 +136,30 @@ public final class PipelineCameraRuntimeService {
 
         runCameraTasks(ctx, triggerWire, stopSignal);
         return true;
+    }
+
+    /** DI4=1 (или {@code shutdown_port}) → LightsShutdown + остановка оркестратора. */
+    private void wireDiShutdown(IntegrationRuntimeContext ctx, OrchestratorStopSignal stopSignal) {
+        if (ctx.triggerRuntime() == null || stopSignal == null) {
+            return;
+        }
+        InspectionTriggerConfig triggerCfg = InspectionTriggerConfig.parse(ctx.integration());
+        int shutdownPort = triggerCfg.ioInput().shutdownPort();
+        if (shutdownPort < 1) {
+            log.info("inspection_trigger shutdown_port=0 — DI shutdown disabled");
+            return;
+        }
+        DiShutdownController shutdown = new DiShutdownController(
+                log,
+                shutdownPort,
+                stopSignal,
+                ctx.fanOut()
+        );
+        ctx.triggerRuntime().addDiChangeListener(shutdown::onDiChange);
+        log.info(
+                "inspection_trigger DI{}=1 → safe shutdown (lights Off, stop orchestrator + child services)",
+                shutdownPort
+        );
     }
 
     private void startShmJanitor(IntegrationRuntimeContext ctx) {

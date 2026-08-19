@@ -131,4 +131,39 @@ class IoInputDiscreteConfigTest {
 
         assertTrue(cfg.externalHardwareCapture());
     }
+
+    @Test
+    void parsesShutdownPortFromIntegrationConfig() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of("shutdown_port", 4)
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertEquals(4, cfg.shutdownPort());
+    }
+
+    @Test
+    void shutdownPortZeroDisables() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of("shutdown_port", 0)
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertEquals(0, cfg.shutdownPort());
+    }
+
+    @Test
+    void shutdownPortDefaultsToFour() {
+        assertEquals(4, IoInputDiscreteConfig.defaults().shutdownPort());
+    }
 }

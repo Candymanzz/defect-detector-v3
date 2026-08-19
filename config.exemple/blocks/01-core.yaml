@@ -96,7 +96,7 @@ integration:
       enabled: true
       bind_host: "0.0.0.0"
       bind_port: 9100
-      # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер
+      # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер, DI4=shutdown
       format: io_input
       debounce_ms: 0
       # allowed_remote_hosts: ["127.0.0.1"]
@@ -104,6 +104,8 @@ integration:
       work_port: 1
       direction_port: 2
       trigger_port: 3
+      # DI4=1 → LightsShutdown + остановка оркестратора и всех сервисов. 0 = выкл.
+      shutdown_port: 4
       direction_latch_on_work: false
       di3_only: true
       # Съёмка только при DI2=1: DI3↑ → wait_frame; без DI2 — skip.
