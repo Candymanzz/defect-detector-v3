@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -702,25 +703,40 @@ class InspectionService:
         analysis_profile: Optional[str] = None,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
+        started_at = time.perf_counter()
+        timings_ms: dict[str, float] = {}
+
+        def mark(step_name: str, step_started_at: float) -> None:
+            timings_ms[step_name] = (time.perf_counter() - step_started_at) * 1000.0
+
         settings_key = (analysis_profile or "").strip() or product_type
+        step_started_at = time.perf_counter()
         settings = self.get_analysis_settings(settings_key)
+        mark("settings", step_started_at)
+
+        step_started_at = time.perf_counter()
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
+        mark("reference", step_started_at)
 
         # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography, затем ECC).
+        step_started_at = time.perf_counter()
         aligned = self._align_to_reference(
             frame,
             reference,
             product_type,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
+        mark("align", step_started_at)
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
+        step_started_at = time.perf_counter()
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
+        mark("roi_mask", step_started_at)
 
         self._last_aligned[product_type] = aligned.copy()
         inspection_threshold = (
@@ -728,15 +744,20 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
+        step_started_at = time.perf_counter()
         diff_map = self._compute_advanced_difference(aligned, reference, settings)
+        mark("diff_map", step_started_at)
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
+        step_started_at = time.perf_counter()
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
+        mark("anomaly_model_initial", step_started_at)
 
         # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
+        step_started_at = time.perf_counter()
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
         self._last_aligned_ref_hash[product_type] = ref_hash
         learned_filter = self._accepted_normals.apply(
@@ -765,8 +786,10 @@ class InspectionService:
                     learned_diff_map = np.zeros_like(learned_diff_map)
                     segmentation_mask = np.zeros_like(segmentation_mask)
                     learned_score = 0.0
+        mark("learned_normals", step_started_at)
 
         # 6. FP-зоны: дырка в основном score + отдельная проверка vs мини-эталон.
+        step_started_at = time.perf_counter()
         fp_recheck = self._recheck_fp_zones(
             product_type,
             aligned,
@@ -780,8 +803,10 @@ class InspectionService:
         )
         filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
+        mark("fp_recheck", step_started_at)
 
         # 8. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
+        step_started_at = time.perf_counter()
         sub_zones = self.get_roi_sub_zones(product_type)
         main_roi_score, sub_zone_scores, anomaly_score, status = self._score_inspection_regions(
             filtered_diff_map=filtered_diff_map,
@@ -791,7 +816,9 @@ class InspectionService:
             polygon=polygon,
             sub_zones=sub_zones,
         )
+        mark("roi_scoring", step_started_at)
 
+        step_started_at = time.perf_counter()
         candidate_source = extract_defect_candidates(
             aligned,
             filtered_diff_map,
@@ -806,9 +833,11 @@ class InspectionService:
             local_mask = candidate.mask.astype(bool)
             display_region = display_mask[y : y + box_height, x : x + box_width]
             display_region[local_mask] = 255
+        mark("review_candidates", step_started_at)
 
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
+        step_started_at = time.perf_counter()
         heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
@@ -822,8 +851,10 @@ class InspectionService:
         if include_visuals and heatmap is not None:
             heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["fp_zone_scores"])
             heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
+        mark("visuals", step_started_at)
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
+        step_started_at = time.perf_counter()
         inspection_id = str(uuid.uuid4())
         try:
             self._learning_reviews.add(
@@ -841,6 +872,26 @@ class InspectionService:
         except Exception:
             inspection_id = None
             logger.exception("failed to save inspection history product_type=%s", product_type)
+        mark("history_save", step_started_at)
+
+        total_ms = (time.perf_counter() - started_at) * 1000.0
+        logger.info(
+            "inspection_completed product_type=%s analysis_profile=%s detector_id=%s status=%s "
+            "score=%.4f threshold=%.4f inspection_id=%s matched_normals=%s fp_rechecked=%s "
+            "sub_zones=%s timings_ms=%s total_ms=%.3f",
+            product_type,
+            settings_key,
+            detector_id or get_application_id(),
+            status,
+            anomaly_score,
+            inspection_threshold,
+            inspection_id or "-",
+            learned_filter.matched_candidates_count,
+            len(fp_recheck["rechecked_zone_ids"]),
+            len(sub_zone_scores),
+            json.dumps({key: round(value, 3) for key, value in timings_ms.items()}, ensure_ascii=False, sort_keys=True),
+            total_ms,
+        )
 
         return InspectionResult(
             product_type=product_type,
