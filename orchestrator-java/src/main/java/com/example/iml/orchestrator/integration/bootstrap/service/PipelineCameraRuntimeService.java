@@ -209,12 +209,22 @@ public final class PipelineCameraRuntimeService {
             t.setDaemon(true);
             return t;
         }));
+        ctx.setInspectionCycleExecutor(poolFactory.createStageExecutor(
+                "inspection-cycle",
+                cfg.inspectionCycleParallelism(),
+                cfg.stageQueueSize()
+        ));
         ctx.setCaptureStageExecutor(poolFactory.createStageExecutor("stage-capture", cfg.cameraParallelism(), cfg.stageQueueSize()));
         ctx.setPythonStageExecutor(poolFactory.createStageExecutor("stage-python", cfg.pythonParallelism(), cfg.stageQueueSize()));
         ctx.setGeometryStageExecutor(poolFactory.createStageExecutor(
                 "stage-geometry", Math.max(1, ctx.geometryPool().size()), cfg.stageQueueSize()));
         ctx.setDecisionStageExecutor(poolFactory.createStageExecutor("stage-decision", cfg.cameraParallelism(), cfg.stageQueueSize()));
-        log.info("pipeline settings: queue_size={} python_parallelism={}", cfg.stageQueueSize(), cfg.pythonParallelism());
+        log.info(
+                "pipeline settings: queue_size={} python_parallelism={} inspection_cycle_parallelism={}",
+                cfg.stageQueueSize(),
+                cfg.pythonParallelism(),
+                cfg.inspectionCycleParallelism()
+        );
     }
 
     private void runCameraTasks(
@@ -223,7 +233,7 @@ public final class PipelineCameraRuntimeService {
             OrchestratorStopSignal stopSignal
     ) throws Exception {
         Semaphore geometrySlots = new Semaphore(Math.max(1, ctx.geometryPool().size()));
-        Semaphore pythonSlots = new Semaphore(Math.max(1, ctx.pythonPool().size()));
+        Semaphore pythonSlots = new Semaphore(Math.max(1, ctx.bootConfig().pythonParallelism()));
         AtomicInteger geometryRoundRobin = new AtomicInteger(0);
         AtomicInteger pythonRoundRobin = new AtomicInteger(0);
 
@@ -279,12 +289,14 @@ public final class PipelineCameraRuntimeService {
                         geometryRoundRobin,
                         pythonRoundRobin,
                         ctx.referenceByCamera(),
+                        ctx.pipelineReferenceRegistry(),
                         ctx.bootConfig().referenceSource(),
                         ctx.bootConfig().reloadReference(),
                         ctx.captureStageExecutor(),
                         ctx.pythonStageExecutor(),
                         ctx.geometryStageExecutor(),
                         ctx.decisionStageExecutor(),
+                        ctx.inspectionCycleExecutor(),
                         ctx.uiCfg(),
                         ctx.uiServer(),
                         ctx.uiVisualsPython(),

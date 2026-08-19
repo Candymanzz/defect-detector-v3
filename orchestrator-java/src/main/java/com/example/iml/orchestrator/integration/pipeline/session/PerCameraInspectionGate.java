@@ -16,6 +16,9 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class PerCameraInspectionGate {
 
+    private record PhaseKey(long parentCycleId, int phaseId) {
+    }
+
     public enum BeginResult {
         STARTED,
         DISABLED,
@@ -24,6 +27,7 @@ public final class PerCameraInspectionGate {
 
     private final ConcurrentHashMap<Integer, AtomicBoolean> inspectionEnabled = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> inFlight = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Set<PhaseKey>> inFlightPhases = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> cancelRequested = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> activeTriggerSequence = new ConcurrentHashMap<>();
@@ -43,9 +47,10 @@ public final class PerCameraInspectionGate {
         this.activeTriggerSequence.putAll(activeTriggerSequence);
         activeTriggerSequence.forEach((cameraId, ignored) ->
                 this.resumeAfterTriggerSequence.put(cameraId, new AtomicLong(0L)));
+        activeTriggerSequence.forEach((cameraId, ignored) ->
+                this.inFlightPhases.put(cameraId, ConcurrentHashMap.newKeySet()));
     }
 
-    @SuppressWarnings("unchecked")
     public static PerCameraInspectionGate fromCameras(List<Map<String, Object>> cameras) {
         ConcurrentHashMap<Integer, AtomicBoolean> enabled = new ConcurrentHashMap<>();
         ConcurrentHashMap<Integer, AtomicBoolean> flight = new ConcurrentHashMap<>();
@@ -181,6 +186,16 @@ public final class PerCameraInspectionGate {
     }
 
     public BeginResult tryBeginInspection(int cameraId, long triggerSequence) {
+        long parentCycleId = Math.max(0L, triggerSequence);
+        return tryBeginInspection(cameraId, parentCycleId, 0, triggerSequence);
+    }
+
+    public BeginResult tryBeginInspection(
+            int cameraId,
+            long parentCycleId,
+            int phaseId,
+            long triggerSequence
+    ) {
         AtomicBoolean flight = inFlight.get(cameraId);
         if (flight == null) {
             return BeginResult.DISABLED;
@@ -193,9 +208,12 @@ public final class PerCameraInspectionGate {
             if (boundary != null && triggerSequence > 0L && triggerSequence <= boundary.get()) {
                 return BeginResult.DISABLED;
             }
-            if (!flight.compareAndSet(false, true)) {
+            Set<PhaseKey> phases = inFlightPhases.get(cameraId);
+            PhaseKey phaseKey = new PhaseKey(Math.max(0L, parentCycleId), Math.max(0, phaseId));
+            if (phases == null || !phases.add(phaseKey)) {
                 return BeginResult.IN_FLIGHT;
             }
+            flight.set(true);
             if (boundary != null) {
                 boundary.set(0L);
             }
@@ -314,21 +332,47 @@ public final class PerCameraInspectionGate {
 
     public void endInspection(int cameraId) {
         AtomicBoolean flight = inFlight.get(cameraId);
-        AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
-        AtomicLong activeSeq = activeTriggerSequence.get(cameraId);
         if (flight == null) {
             return;
         }
         synchronized (flight) {
-            flight.set(false);
-            if (cancelFlag != null) {
-                cancelFlag.set(false);
+            Set<PhaseKey> phases = inFlightPhases.get(cameraId);
+            if (phases != null) {
+                phases.clear();
             }
-            if (activeSeq != null) {
-                activeSeq.set(0L);
-            }
-            flight.notifyAll();
+            finishIfIdle(cameraId, flight);
         }
+    }
+
+    public void endInspection(int cameraId, long parentCycleId, int phaseId) {
+        AtomicBoolean flight = inFlight.get(cameraId);
+        if (flight == null) {
+            return;
+        }
+        synchronized (flight) {
+            Set<PhaseKey> phases = inFlightPhases.get(cameraId);
+            if (phases != null) {
+                phases.remove(new PhaseKey(Math.max(0L, parentCycleId), Math.max(0, phaseId)));
+            }
+            finishIfIdle(cameraId, flight);
+        }
+    }
+
+    private void finishIfIdle(int cameraId, AtomicBoolean flight) {
+        Set<PhaseKey> phases = inFlightPhases.get(cameraId);
+        if (phases != null && !phases.isEmpty()) {
+            return;
+        }
+        flight.set(false);
+        AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
+        if (cancelFlag != null) {
+            cancelFlag.set(false);
+        }
+        AtomicLong activeSeq = activeTriggerSequence.get(cameraId);
+        if (activeSeq != null) {
+            activeSeq.set(0L);
+        }
+        flight.notifyAll();
     }
 
     public boolean requestCancel(int cameraId) {

@@ -319,6 +319,7 @@ class AsyncInspectionCycleRunnerTest {
                 null,
                 1L,
                 100L,
+                decisionExec,
                 null
         );
     }

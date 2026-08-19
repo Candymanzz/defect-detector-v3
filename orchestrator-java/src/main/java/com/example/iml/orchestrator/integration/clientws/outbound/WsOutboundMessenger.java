@@ -216,6 +216,9 @@ public final class WsOutboundMessenger {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("group_id", result.groupId());
         payload.put("trigger_sequence", result.triggerSequence());
+        payload.put("parent_cycle_id", result.parentCycleId());
+        payload.put("phase_id", result.phaseId());
+        payload.put("raw_trigger_sequence", result.rawTriggerSequence());
         payload.put("overall_pass", result.overallPass());
         ArrayNode cameraIds = JSON.createArrayNode();
         for (Integer cameraId : result.bucketCameraIds()) {
@@ -223,7 +226,9 @@ public final class WsOutboundMessenger {
         }
         payload.set("bucket_camera_ids", cameraIds);
         ArrayNode frames = JSON.createArrayNode();
-        for (Map.Entry<Integer, InspectionDecision> entry : result.frameDecisions().entrySet()) {
+        for (Map.Entry<Integer, InspectionDecision> entry : result.frameDecisions().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .toList()) {
             InspectionDecision decision = entry.getValue();
             if (decision == null) {
                 continue;

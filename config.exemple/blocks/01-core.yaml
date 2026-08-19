@@ -62,10 +62,11 @@ integration:
     immediate_prefire: false
   geometry_pool_size: 10
   positioning_pool_size: 10
-  python_parallelism: 10
-  # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
-  python_server_pool_size: 1
-  stage_queue_size: 20
+  python_parallelism: 20
+  # Два uvicorn server URL; phase0 закреплён за server0, phase1 — за server1.
+  python_server_pool_size: 2
+  inspection_cycle_parallelism: 20
+  stage_queue_size: 40
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000
   # Пауза только между запуском процессов камер (health идёт параллельно). 0 = почти одновременно.
@@ -80,10 +81,22 @@ integration:
   light_server_startup_delay_ms: 0
   # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).
   inspection_cycle_timeout_ms: 3500
-  # Агрегация: mode=ten_cameras → группы 0–4 и 5–9, все 10 камер в инспекции.
+  # Две фазы одного parent cycle; camera_ids можно повторять между фазами.
   inspection_bucket:
     enabled: true
-    mode: ten_cameras
+    phases:
+      - id: 0
+        groups:
+          - id: 0
+            camera_ids: [0, 1, 2, 3, 4]
+          - id: 1
+            camera_ids: [5, 6, 7, 8, 9]
+      - id: 1
+        groups:
+          - id: 2
+            camera_ids: [0, 1, 2, 3, 4]
+          - id: 3
+            camera_ids: [5, 6, 7, 8, 9]
     timeout_ms: 3500
     line_broadcast_interval_ms: 3500
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
@@ -92,6 +105,10 @@ integration:
     interval_ms: 5000
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
+    two_phase:
+      # Пока DI2=1: первый DI3↑ = phase0, второй = phase1, остальные игнорируются.
+      # DI2↓ завершает цикл и сбрасывает счётчик; интервал между двумя DI3 не используется.
+      enabled: true
     udp:
       enabled: true
       bind_host: "0.0.0.0"
@@ -148,7 +165,7 @@ integration:
   analis_surface_autostart:
     enabled: true
     # Потоков inspect в одном uvicorn (10 кадров с 10 камер параллельно).
-    inspect_workers: 10
+    inspect_workers: 20
     working_dir: "analisSurface/backend"
     startup_timeout_ms: 180000
     health_path: "/health"

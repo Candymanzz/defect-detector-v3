@@ -23,4 +23,22 @@ public interface PythonInspectStage {
             Semaphore pythonSlots,
             AtomicInteger pythonRoundRobin
     );
+
+    default PipelineState apply(
+            PipelineState state,
+            int cameraId,
+            String productType,
+            String detectorId,
+            ReferenceSnapshot activeReference,
+            Map<String, Object> pythonCfg,
+            List<? extends BinaryRpcSupervisor> pythonPool,
+            Semaphore pythonSlots,
+            AtomicInteger pythonRoundRobin,
+            int phaseId
+    ) {
+        return apply(
+                state, cameraId, productType, detectorId, activeReference,
+                pythonCfg, pythonPool, pythonSlots, pythonRoundRobin
+        );
+    }
 }

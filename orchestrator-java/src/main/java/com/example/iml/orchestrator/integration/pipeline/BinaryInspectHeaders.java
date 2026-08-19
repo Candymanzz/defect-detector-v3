@@ -164,6 +164,7 @@ public final class BinaryInspectHeaders {
         header.put("reference_width", activeReference.header().get("width"));
         header.put("reference_height", activeReference.header().get("height"));
         header.put("reference_stride", activeReference.header().get("stride"));
+        copyReferenceScope(header, activeReference.header());
     }
 
     /**
@@ -343,6 +344,7 @@ public final class BinaryInspectHeaders {
             pyHeader.put("reference_width", activeReference.header().get("width"));
             pyHeader.put("reference_height", activeReference.header().get("height"));
             pyHeader.put("reference_stride", activeReference.header().get("stride"));
+            copyReferenceScope(pyHeader, activeReference.header());
         }
         Object poly = resolveMainRoiPolygonNorm(activeReference, null);
         if (poly != null) {
@@ -388,6 +390,21 @@ public final class BinaryInspectHeaders {
         if (referenceCaptureHeader.get("camera_id") != null) {
             h.put("camera_id", referenceCaptureHeader.get("camera_id"));
         }
+        if (referenceCaptureHeader.get("phase_id") != null) {
+            h.put("phase_id", referenceCaptureHeader.get("phase_id"));
+        }
+        if (referenceCaptureHeader.get("group_id") != null) {
+            h.put("group_id", referenceCaptureHeader.get("group_id"));
+        }
         return h;
+    }
+
+    private static void copyReferenceScope(Map<String, Object> target, Map<String, Object> referenceHeader) {
+        if (referenceHeader.get("phase_id") != null) {
+            target.put("phase_id", referenceHeader.get("phase_id"));
+        }
+        if (referenceHeader.get("group_id") != null) {
+            target.put("group_id", referenceHeader.get("group_id"));
+        }
     }
 }

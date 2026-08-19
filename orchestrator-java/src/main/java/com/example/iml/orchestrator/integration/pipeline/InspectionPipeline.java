@@ -10,6 +10,7 @@ import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
 import com.example.iml.orchestrator.integration.pipeline.reference.ReferenceBootstrapOutcome;
+import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.pipeline.session.AsyncInspectionCycleInput;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
@@ -54,12 +55,14 @@ public final class InspectionPipeline {
             AtomicInteger geometryRoundRobin,
             AtomicInteger pythonRoundRobin,
             Map<Integer, ReferenceSnapshot> referenceByCamera,
+            PipelineReferenceRegistry referenceRegistry,
             ReferenceSource referenceSource,
             boolean reloadReferenceGlobal,
             ExecutorService captureStageExecutor,
             ExecutorService pythonStageExecutor,
             ExecutorService geometryStageExecutor,
             ExecutorService decisionStageExecutor,
+            ExecutorService inspectionCycleExecutor,
             Map<String, Object> uiCfg,
             UiHttpServer uiServer,
             BinaryRpcSupervisor uiVisualsPython,
@@ -112,6 +115,7 @@ public final class InspectionPipeline {
                 pipelineStagesLog,
                 0L,
                 0L,
+                inspectionCycleExecutor,
                 bucketAggregator
         );
 
@@ -177,7 +181,7 @@ public final class InspectionPipeline {
                 triggerStrategy,
                 triggerMode,
                 referenceSource,
-                referenceByCamera,
+                referenceRegistry,
                 inspectionGate,
                 inspectionCycleTimeoutMs,
                 captureWithoutReference

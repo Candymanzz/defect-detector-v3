@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.ReferenceSource;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 
@@ -24,7 +25,7 @@ public final class ProductionInspectionOrchestrator {
             InspectionTriggerStrategy triggerStrategy,
             IntegrationFeatureConfig.InspectionTriggerMode triggerMode,
             ReferenceSource referenceSource,
-            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            PipelineReferenceRegistry referenceRegistry,
             PerCameraInspectionGate inspectionGate,
             long inspectionCycleTimeoutMs,
             boolean captureWithoutReference
@@ -36,7 +37,7 @@ public final class ProductionInspectionOrchestrator {
                 in,
                 triggerStrategy,
                 referenceFromClient,
-                referenceByCamera,
+                referenceRegistry,
                 inspectionGate,
                 inspectionCycleTimeoutMs,
                 captureWithoutReference
@@ -99,23 +100,25 @@ public final class ProductionInspectionOrchestrator {
             AsyncInspectionCycleInput in,
             InspectionTriggerStrategy triggerStrategy,
             boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            PipelineReferenceRegistry referenceRegistry,
             PerCameraInspectionGate inspectionGate,
             long inspectionCycleTimeoutMs,
             boolean captureWithoutReference
     ) throws Exception {
         while (!Thread.currentThread().isInterrupted()) {
             InspectionTriggerEvent event = triggerStrategy.awaitNext(in.cameraId());
-            runCycle(
-                    svc,
-                    in,
-                    referenceFromClient,
-                    referenceByCamera,
-                    inspectionGate,
-                    inspectionCycleTimeoutMs,
-                    captureWithoutReference,
-                    event
-            );
+            PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(
+                    in.cameraId(), event.parentCycleId(), event.phaseId(), event.sequence());
+            try {
+                in.cycleExecutor().execute(() -> runCycle(
+                        svc, in, referenceFromClient, referenceRegistry, inspectionGate,
+                        inspectionCycleTimeoutMs, captureWithoutReference, event, begin));
+            } catch (RuntimeException schedulingFailure) {
+                if (begin == PerCameraInspectionGate.BeginResult.STARTED) {
+                    inspectionGate.endInspection(in.cameraId(), event.parentCycleId(), event.phaseId());
+                }
+                throw schedulingFailure;
+            }
             int delay = triggerStrategy.postCycleDelayMs();
             if (delay > 0) {
                 sleepInterruptibly(delay);
@@ -127,13 +130,13 @@ public final class ProductionInspectionOrchestrator {
             InspectionPipelineServices svc,
             AsyncInspectionCycleInput in,
             boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            PipelineReferenceRegistry referenceRegistry,
             PerCameraInspectionGate inspectionGate,
             long inspectionCycleTimeoutMs,
             boolean captureWithoutReference,
-            InspectionTriggerEvent event
+            InspectionTriggerEvent event,
+            PerCameraInspectionGate.BeginResult begin
     ) {
-        PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId(), event.sequence());
         if (begin == PerCameraInspectionGate.BeginResult.DISABLED) {
             if (!inspectionGate.tryBeginPreviewCapture(in.cameraId())) {
                 svc.log().debug(
@@ -173,19 +176,18 @@ public final class ProductionInspectionOrchestrator {
         }
         if (begin == PerCameraInspectionGate.BeginResult.IN_FLIGHT) {
             svc.log().warn(
-                    "integration cam={}: unexpected in-flight gate (capture already at DI3 prefire); retrying (source={})",
+                    "integration cam={}: duplicate in-flight phase skipped source={} phase={} parent_cycle={}",
                     in.cameraId(),
-                    event.source()
+                    event.source(),
+                    event.phaseId(),
+                    event.parentCycleId()
             );
-            begin = inspectionGate.tryBeginInspection(in.cameraId(), event.sequence());
-            if (begin != PerCameraInspectionGate.BeginResult.STARTED) {
-                return;
-            }
+            return;
         }
         long inspectionId = 0L;
         try {
             AsyncInspectionCycleInput cycleIn = resolveCycleInput(
-                    in, referenceFromClient, referenceByCamera, captureWithoutReference);
+                    in, referenceFromClient, referenceRegistry, captureWithoutReference, event.phaseId());
             if (cycleIn == null) {
                 if (referenceFromClient) {
                     svc.log().debug(
@@ -195,7 +197,12 @@ public final class ProductionInspectionOrchestrator {
                 }
                 return;
             }
-            cycleIn = cycleIn.withTriggerSequence(event.sequence());
+            cycleIn = cycleIn.withTriggerIdentity(
+                    event.sequence(),
+                    event.phaseId(),
+                    event.parentCycleId(),
+                    event.rawTriggerSequence()
+            );
             // Один DI3/line seq = один inspection_id на всех камерах (и на bucket UI).
             // Иначе Stop→Start rejoin получает свой счётчик и на фронте «идёт параллельно».
             inspectionId = event.sequence() > 0L
@@ -205,17 +212,23 @@ public final class ProductionInspectionOrchestrator {
             boolean captureOnly = cycleIn.activeReference() == null || !cycleIn.activeReference().isUsable();
             if (captureOnly) {
                 svc.log().info(
-                        "integration cam={}: capture started capture_id={} source={} (no reference — frame only)",
+                        "integration cam={}: capture started capture_id={} source={} phase={} parent_cycle={} raw_seq={} (no reference — frame only)",
                         in.cameraId(),
                         inspectionId,
-                        event.source()
+                        event.source(),
+                        event.phaseId(),
+                        event.parentCycleId(),
+                        event.rawTriggerSequence()
                 );
             } else {
                 svc.log().info(
-                        "integration cam={}: inspection started inspection_id={} source={}",
+                        "integration cam={}: inspection started inspection_id={} source={} phase={} parent_cycle={} raw_seq={}",
                         in.cameraId(),
                         inspectionId,
-                        event.source()
+                        event.source(),
+                        event.phaseId(),
+                        event.parentCycleId(),
+                        event.rawTriggerSequence()
                 );
             }
             AsyncInspectionCycleRunner.run(svc, cycleIn, null, inspectionCycleTimeoutMs, inspectionGate);
@@ -236,7 +249,7 @@ public final class ProductionInspectionOrchestrator {
             );
             svc.log().debug("inspection cycle error", e);
         } finally {
-            inspectionGate.endInspection(in.cameraId());
+            inspectionGate.endInspection(in.cameraId(), event.parentCycleId(), event.phaseId());
         }
     }
 
@@ -249,7 +262,12 @@ public final class ProductionInspectionOrchestrator {
         long frameSequence = Math.max(0L, event.sequence());
         AsyncInspectionCycleInput previewIn = in
                 .withPerCycleIdentity(in.productType(), null, 0L)
-                .withTriggerSequence(frameSequence)
+                .withTriggerIdentity(
+                        frameSequence,
+                        event.phaseId(),
+                        event.parentCycleId(),
+                        event.rawTriggerSequence()
+                )
                 .withInspectionId(frameSequence);
         // null gate marks this as preview-only: publish the frame, but do not add a bucket result.
         AsyncInspectionCycleRunner.run(svc, previewIn, null, inspectionCycleTimeoutMs, null);
@@ -258,13 +276,14 @@ public final class ProductionInspectionOrchestrator {
     static AsyncInspectionCycleInput resolveCycleInput(
             AsyncInspectionCycleInput in,
             boolean referenceFromClient,
-            Map<Integer, ReferenceSnapshot> referenceByCamera,
-            boolean captureWithoutReference
+            PipelineReferenceRegistry referenceRegistry,
+            boolean captureWithoutReference,
+            int phaseId
     ) {
         if (!referenceFromClient) {
             return in;
         }
-        ReferenceSnapshot ref = referenceByCamera.get(in.cameraId());
+        ReferenceSnapshot ref = referenceRegistry == null ? null : referenceRegistry.get(phaseId, in.cameraId());
         if (ref != null && ref.isUsable()) {
             String productType = ref.productType() != null && !ref.productType().isBlank()
                     ? ref.productType()
@@ -276,6 +295,17 @@ public final class ProductionInspectionOrchestrator {
         }
         // Эталон ещё не задан: снимаем кадр по триггеру, geometry/python — после reference_bundle.
         return in.withPerCycleIdentity(in.productType(), null, 0L);
+    }
+
+    static AsyncInspectionCycleInput resolveCycleInput(
+            AsyncInspectionCycleInput in,
+            boolean referenceFromClient,
+            Map<Integer, ReferenceSnapshot> referenceByCamera,
+            boolean captureWithoutReference
+    ) {
+        PipelineReferenceRegistry compatibility = new PipelineReferenceRegistry();
+        compatibility.byCamera().putAll(referenceByCamera);
+        return resolveCycleInput(in, referenceFromClient, compatibility, captureWithoutReference, 0);
     }
 
     private static void sleepInterruptibly(int delayMs) throws InterruptedException {

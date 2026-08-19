@@ -106,6 +106,67 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
+    void phaseOnePairWaitsForPhaseZeroAndKeepsRawSequence() {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(
+                                new BucketGroup(0, 0, List.of(0)),
+                                new BucketGroup(0, 1, List.of(1)),
+                                new BucketGroup(1, 2, List.of(0)),
+                                new BucketGroup(1, 3, List.of(1))
+                        ),
+                        1000L,
+                        1000L
+                )
+        );
+        List<BucketFanOutResult> published = new ArrayList<>();
+
+        aggregator.recordFrameResult(101L, 100L, 1, 101L, 0, decision(0, 401L, true), published::add);
+        aggregator.recordFrameResult(101L, 100L, 1, 101L, 1, decision(1, 402L, true), published::add);
+        assertEquals(0, published.size(), "phase1 pair must remain held");
+
+        aggregator.recordFrameResult(100L, 100L, 0, 100L, 1, decision(1, 403L, true), published::add);
+        aggregator.recordFrameResult(100L, 100L, 0, 100L, 0, decision(0, 404L, true), published::add);
+
+        assertEquals(List.of(0, 1, 2, 3), published.stream().map(BucketFanOutResult::groupId).toList());
+        assertEquals(List.of(0, 0, 1, 1), published.stream().map(BucketFanOutResult::phaseId).toList());
+        assertEquals(101L, published.get(2).rawTriggerSequence());
+        assertEquals(100L, published.get(2).parentCycleId());
+    }
+
+    @Test
+    void phaseTimeoutRejectsOnlyMissingGroup() throws Exception {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(
+                                new BucketGroup(0, 0, List.of(0)),
+                                new BucketGroup(0, 1, List.of(1))
+                        ),
+                        60L,
+                        1000L
+                )
+        );
+        List<BucketFanOutResult> published = new java.util.concurrent.CopyOnWriteArrayList<>();
+        aggregator.recordFrameResult(200L, 200L, 0, 200L, 0, decision(0, 500L, true), published::add);
+
+        long deadline = System.currentTimeMillis() + 1000L;
+        while (published.size() < 2 && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10L);
+        }
+
+        assertEquals(2, published.size());
+        assertTrue(published.get(0).overallPass());
+        assertEquals(0, published.get(0).groupId());
+        assertTrue(!published.get(1).overallPass());
+        assertEquals(1, published.get(1).groupId());
+        assertTrue(published.get(1).frameDecisions().isEmpty());
+    }
+
+    @Test
     void jointPassIgnoresLowSiblingVisibilityStrictGate() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(

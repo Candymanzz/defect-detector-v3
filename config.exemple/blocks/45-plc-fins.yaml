@@ -13,7 +13,7 @@ plc_fins:
   src_node: 254
   response_timeout_ms: 1000
   pulse_ms: 80
-  queue_size: 64
+  queue_size: 128
   register_map_path: "plk/register-map.yaml"
   vision_ready_signal: "vision_ready"
   vision_fault_signal: "vision_fault"

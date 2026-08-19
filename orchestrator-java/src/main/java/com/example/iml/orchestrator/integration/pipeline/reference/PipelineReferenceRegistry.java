@@ -27,30 +27,57 @@ import java.util.function.IntFunction;
 
 /**
  * Эталоны для пайплайна: из камеры ({@code reference_source=camera}) или от клиента по WS.
- * После двух пакетов эталонов (ведро 0–4 и 5–9) хранит по одному {@link ReferenceSnapshot} на камеру,
- * как analisSurface хранит {@code references[product#cam=id]}.
+ * Хранит отдельный {@link ReferenceSnapshot} на пару (фаза, камера).
  * <p>
- * Кадры из {@code client.reference_bundle} копируются в стабильный {@code iml_ref_cam{N}},
+ * Кадры из {@code client.reference_bundle} копируются в стабильный {@code iml_ref_phase{P}_cam{N}},
  * чтобы line-pin ({@code iml_line_pin_*}) и чистка SHM не ломали путь эталона.
  */
 public final class PipelineReferenceRegistry {
 
-    /** Совпадает с {@code BucketInspectionConfig.DEFAULT_CAMERAS_PER_PRESET_GROUP}. */
-    private static final int CAMERAS_PER_BUCKET = 5;
+    public record ReferenceKey(int phaseId, int cameraId) {
+        public ReferenceKey {
+            phaseId = Math.max(0, phaseId);
+        }
+    }
 
-    private final Map<Integer, ReferenceSnapshot> byCamera = new ConcurrentHashMap<>();
+    private final Map<ReferenceKey, ReferenceSnapshot> byPhaseAndCamera = new ConcurrentHashMap<>();
+    private final Map<Integer, ReferenceSnapshot> phaseZeroByCamera = new ConcurrentHashMap<>();
 
     public Map<Integer, ReferenceSnapshot> byCamera() {
-        return byCamera;
+        return phaseZeroByCamera;
     }
 
     public ReferenceSnapshot get(int cameraId) {
-        return byCamera.get(cameraId);
+        return get(0, cameraId);
+    }
+
+    public ReferenceSnapshot get(int phaseId, int cameraId) {
+        ReferenceSnapshot snapshot = byPhaseAndCamera.get(new ReferenceKey(phaseId, cameraId));
+        return snapshot != null || phaseId != 0 ? snapshot : phaseZeroByCamera.get(cameraId);
+    }
+
+    public Map<ReferenceKey, ReferenceSnapshot> byPhaseAndCamera() {
+        return Map.copyOf(byPhaseAndCamera);
+    }
+
+    public void put(int phaseId, int cameraId, ReferenceSnapshot snapshot) {
+        if (snapshot == null) {
+            byPhaseAndCamera.remove(new ReferenceKey(phaseId, cameraId));
+            if (phaseId == 0) {
+                phaseZeroByCamera.remove(cameraId);
+            }
+            return;
+        }
+        byPhaseAndCamera.put(new ReferenceKey(phaseId, cameraId), snapshot);
+        if (phaseId == 0) {
+            phaseZeroByCamera.put(cameraId, snapshot);
+        }
     }
 
     /** Сброс эталонов пайплайна (остановка инспекции / clear reference). */
     public void clear() {
-        byCamera.clear();
+        byPhaseAndCamera.clear();
+        phaseZeroByCamera.clear();
     }
 
     /**
@@ -64,7 +91,7 @@ public final class PipelineReferenceRegistry {
             CameraCaptureStage captureStage
     ) throws Exception {
         int jointCameraId = snap.views().get(snap.jointViewIndex()).frame().cameraId();
-        int bucketGroupId = resolveBucketGroupId(snap);
+        int bucketGroupId = snap.groupId();
         ReferenceViewSlot jointSlot = snap.views().get(snap.jointViewIndex());
         ShmFrameRefData jointFrame = jointSlot.frame();
         Map<String, Object> bucketJointRoiNorm = jointSlot.jointRoi() == null
@@ -80,6 +107,7 @@ public final class PipelineReferenceRegistry {
                     frame,
                     slot,
                     jointCameraId,
+                    snap.phaseId(),
                     bucketGroupId,
                     bucketJointRoiNorm,
                     bucketJointPolygonNorm
@@ -87,17 +115,19 @@ public final class PipelineReferenceRegistry {
             Map<String, Object> effectiveHeader = captureStage == null
                     ? header
                     : captureStage.maybeDownscaleClientReferenceHeader(header, frame.cameraId());
-            Map<String, Object> durableHeader = pinDurableReference(effectiveHeader, frame.cameraId());
-            ReferenceSnapshot snapshot = new ReferenceSnapshot(snap.productType(), Map.copyOf(durableHeader));
-            byCamera.put(frame.cameraId(), snapshot);
+            Map<String, Object> durableHeader = pinDurableReference(effectiveHeader, snap.phaseId(), frame.cameraId());
+            String scopedProductType = scopedProductType(snap.productType(), snap.phaseId(), frame.cameraId());
+            ReferenceSnapshot snapshot = new ReferenceSnapshot(scopedProductType, Map.copyOf(durableHeader));
+            put(snap.phaseId(), frame.cameraId(), snapshot);
             String detectorId = detectorIdResolver == null ? "" : detectorIdResolver.apply(frame.cameraId());
             Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
-                    snap.productType(), detectorId, durableHeader);
+                    scopedProductType, detectorId, durableHeader);
             for (BinaryRpcSupervisor python : AnalisSurfacePoolSupport.uniqueServerClients(pythonPool)) {
                 python.command(refHdr);
             }
             log.info(
-                    "pipeline reference from client cam={} bucket_group={} product_type={} frame_id={} shm={} source_shm={}",
+                    "pipeline reference from client phase={} cam={} group={} product_type={} frame_id={} shm={} source_shm={}",
+                    snap.phaseId(),
                     frame.cameraId(),
                     bucketGroupId,
                     snap.productType(),
@@ -111,7 +141,11 @@ public final class PipelineReferenceRegistry {
     /**
      * Копирует пиксели эталона в {@code iml_ref_cam{N}} (не перезаписывается line-pin / ring buffer).
      */
-    static Map<String, Object> pinDurableReference(Map<String, Object> header, int cameraId) throws IOException {
+    static Map<String, Object> pinDurableReference(
+            Map<String, Object> header,
+            int phaseId,
+            int cameraId
+    ) throws IOException {
         if (header == null || header.isEmpty()) {
             throw new IOException("empty reference header");
         }
@@ -124,7 +158,7 @@ public final class PipelineReferenceRegistry {
         if (shmName.isBlank() || width <= 0 || height <= 0 || stride < width * 3 || shmOffset < 0L) {
             throw new IOException("invalid reference frame geometry for cam=" + resolvedCameraId);
         }
-        String durableBase = "iml_ref_cam" + resolvedCameraId;
+        String durableBase = "iml_ref_phase" + Math.max(0, phaseId) + "_cam" + resolvedCameraId;
         String currentBase = shmName.startsWith("/") ? shmName.substring(1) : shmName;
         currentBase = currentBase.replace('/', '_');
         // Уже стабильный путь с offset=0 — повторно копировать не обязательно.
@@ -179,18 +213,11 @@ public final class PipelineReferenceRegistry {
         }
     }
 
-    private static int resolveBucketGroupId(ReferenceBundleSnapshot snap) {
-        int minCameraId = snap.views().stream()
-                .mapToInt(slot -> slot.frame().cameraId())
-                .min()
-                .orElse(0);
-        return Math.max(0, minCameraId / CAMERAS_PER_BUCKET);
-    }
-
     private static Map<String, Object> frameToCaptureHeader(
             ShmFrameRefData frame,
             ReferenceViewSlot slot,
             int jointCameraId,
+            int phaseId,
             int bucketGroupId,
             Map<String, Object> bucketJointRoiNorm,
             List<Map<String, Object>> bucketJointPolygonNorm
@@ -205,6 +232,8 @@ public final class PipelineReferenceRegistry {
         header.put("stride", frame.strideBytes());
         header.put("client_reference_bundle", true);
         header.put("bucket_group_id", bucketGroupId);
+        header.put("group_id", bucketGroupId);
+        header.put("phase_id", Math.max(0, phaseId));
         header.put("joint_camera_id", jointCameraId);
         if (frame.pixelFormat() != null && !frame.pixelFormat().isBlank()) {
             header.put("format", frame.pixelFormat());
@@ -231,5 +260,11 @@ public final class PipelineReferenceRegistry {
         normalized.put("width", roi.width() / (double) frameWidth);
         normalized.put("height", roi.height() / (double) frameHeight);
         return Map.copyOf(normalized);
+    }
+
+    static String scopedProductType(String productType, int phaseId, int cameraId) {
+        String base = productType == null ? "" : productType.trim();
+        base = base.replaceAll("#phase=\\d+", "").replaceAll("#cam=\\d+", "");
+        return base + "#phase=" + Math.max(0, phaseId) + "#cam=" + cameraId;
     }
 }

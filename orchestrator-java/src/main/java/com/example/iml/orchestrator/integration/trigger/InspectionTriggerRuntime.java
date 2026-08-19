@@ -133,6 +133,7 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
                         log,
                         udp,
                         cfg.ioInput(),
+                        cfg.twoPhase(),
                         bus,
                         onLineWorkChanged,
                         bucketGroups,

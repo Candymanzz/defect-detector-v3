@@ -5,7 +5,7 @@
 #
 # У каждого сигнала важны только:
 #   name            — ключ в API/UI. Не переименовывайте служебные:
-#                     vision_ready, vision_fault, reject_line_1, reject_line_2
+#                     vision_ready, vision_fault, reject_line_1..reject_line_4
 #                     (на них ссылаются 45-plc-fins.yaml и код брака).
 #   area            — область памяти Omron: CIO | W | H | DM
 #   address         — "слово.бит", как в CX-Programmer: "0.04", "240.15"
@@ -61,6 +61,24 @@ signals:
     data_type: bool
     direction: pc_to_plc
     bucket_group_id: 1
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: reject_line_3
+    description: Техзрение брак линия 3 (W0.08)
+    area: W
+    address: "0.08"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 2
+    source_csv: "25_247_MAP - Входы.csv"
+
+  - name: reject_line_4
+    description: Техзрение брак линия 4 (W0.09)
+    area: W
+    address: "0.09"
+    data_type: bool
+    direction: pc_to_plc
+    bucket_group_id: 3
     source_csv: "25_247_MAP - Входы.csv"
 
   # ─── Состояния · CIO 140 (чтение) ──────────────────────────────────

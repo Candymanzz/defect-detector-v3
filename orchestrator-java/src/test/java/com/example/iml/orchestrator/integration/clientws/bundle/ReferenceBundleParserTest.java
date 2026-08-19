@@ -54,8 +54,42 @@ class ReferenceBundleParserTest {
         assertInstanceOf(ReferenceBundleParser.Result.Ok.class, result);
         ReferenceBundleSnapshot snapshot = ((ReferenceBundleParser.Result.Ok) result).snapshot();
         assertEquals("bench", snapshot.productType());
+        assertEquals(0, snapshot.phaseId());
+        assertEquals(0, snapshot.groupId());
         assertEquals(1, snapshot.views().size());
         assertEquals(0, snapshot.views().get(0).frame().cameraId());
+    }
+
+    @Test
+    void parseBundleCarriesExplicitPhaseAndGroup() throws Exception {
+        JsonNode envelope = MAPPER.readTree("""
+                {
+                  "protocol_version": 1,
+                  "payload": {
+                    "product_type": "bench",
+                    "phase_id": 1,
+                    "group_id": 3,
+                    "joint_view_index": 0,
+                    "heatmap_width": 10,
+                    "heatmap_height": 10,
+                    "views": [{
+                      "frame": {"camera_id": 5, "frame_id": "1", "shm_name": "/cam5", "width": 10, "height": 10, "stride": 30},
+                      "interest_roi": {"x": 0, "y": 0, "width": 10, "height": 10},
+                      "interest_polygon_norm": [
+                        {"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 1, "y": 1}
+                      ],
+                      "joint_roi": {"x": 1, "y": 1, "width": 8, "height": 8}
+                    }],
+                    "fp_zones": []
+                  }
+                }
+                """);
+
+        ReferenceBundleParser.Result result = ReferenceBundleParser.parseBundle(envelope, 1, List.of(5));
+        assertInstanceOf(ReferenceBundleParser.Result.Ok.class, result);
+        ReferenceBundleSnapshot snapshot = ((ReferenceBundleParser.Result.Ok) result).snapshot();
+        assertEquals(1, snapshot.phaseId());
+        assertEquals(3, snapshot.groupId());
     }
 
     @Test

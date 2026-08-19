@@ -34,6 +34,32 @@ final class PerCameraInspectionGateRestartTest {
         gate.endPreviewCapture(0);
     }
 
+    @Test
+    void allowsTwoPhasesOfSameParentAndWaitsForBothToFinish() {
+        PerCameraInspectionGate gate = gate(true);
+
+        assertEquals(
+                PerCameraInspectionGate.BeginResult.STARTED,
+                gate.tryBeginInspection(0, 55L, 0, 100L)
+        );
+        assertEquals(
+                PerCameraInspectionGate.BeginResult.STARTED,
+                gate.tryBeginInspection(0, 55L, 1, 101L)
+        );
+        assertEquals(
+                PerCameraInspectionGate.BeginResult.IN_FLIGHT,
+                gate.tryBeginInspection(0, 55L, 1, 101L)
+        );
+
+        gate.endInspection(0, 55L, 0);
+        assertTrue(gate.isInspectionInFlight(0));
+        assertFalse(gate.awaitAllIdle(1));
+
+        gate.endInspection(0, 55L, 1);
+        assertFalse(gate.isInspectionInFlight(0));
+        assertTrue(gate.awaitAllIdle(10));
+    }
+
     private static PerCameraInspectionGate gate(boolean enabled) {
         return PerCameraInspectionGate.fromCameras(List.of(Map.of(
                 "id", 0,

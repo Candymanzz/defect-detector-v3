@@ -291,7 +291,9 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         }
         Map<String, Object> pythonCfg = ctx.pythonCfg();
         String baseUrl = pythonCfg == null ? null : String.valueOf(pythonCfg.getOrDefault("base_url", "http://127.0.0.1:8000"));
-        int poolSize = Math.max(1, ctx.pythonPool() == null ? 1 : ctx.pythonPool().size());
+        // pythonPool contains HTTP clients (20 in two-phase mode), not uvicorn processes.
+        // Restart exactly the configured server count to avoid spawning one model per client.
+        int poolSize = Math.max(1, ctx.bootConfig().pythonServerPoolSize());
         AnalisSurfaceLauncher.PoolStartResult result = analisLauncher.startPoolIfConfigured(
                 ctx.integration(),
                 ctx.projectRoot(),

@@ -6,25 +6,34 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public record InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfig ioInput) {
+public record InspectionTriggerConfig(
+        UdpTriggerConfig udp,
+        IoInputDiscreteConfig ioInput,
+        TwoPhaseTriggerConfig twoPhase
+) {
+
+    public InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfig ioInput) {
+        this(udp, ioInput, TwoPhaseTriggerConfig.defaults());
+    }
 
     public static InspectionTriggerConfig parse(Map<String, Object> integration) {
         UdpTriggerConfig udpDefaults = UdpTriggerConfig.defaults();
         if (integration == null) {
             IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(null, udpDefaults.debounceMs());
-            return new InspectionTriggerConfig(udpDefaults, ioInput);
+            return new InspectionTriggerConfig(udpDefaults, ioInput, TwoPhaseTriggerConfig.defaults());
         }
         Object raw = integration.get("inspection_trigger");
         if (!(raw instanceof Map<?, ?> root)) {
             IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(null, udpDefaults.debounceMs());
-            return new InspectionTriggerConfig(udpDefaults, ioInput);
+            return new InspectionTriggerConfig(udpDefaults, ioInput, TwoPhaseTriggerConfig.defaults());
         }
         @SuppressWarnings("unchecked")
         Map<String, Object> m = (Map<String, Object>) root;
         IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(integration, udpDefaults.debounceMs());
+        TwoPhaseTriggerConfig twoPhase = TwoPhaseTriggerConfig.parse(m);
         Object udpRaw = m.get("udp");
         if (!(udpRaw instanceof Map<?, ?> udpMap)) {
-            return new InspectionTriggerConfig(udpDefaults, ioInput);
+            return new InspectionTriggerConfig(udpDefaults, ioInput, twoPhase);
         }
         @SuppressWarnings("unchecked")
         Map<String, Object> udp = (Map<String, Object>) udpMap;
@@ -38,7 +47,8 @@ public record InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfi
         ioInput = IoInputDiscreteConfig.parse(integration, debounceMs);
         return new InspectionTriggerConfig(
                 new UdpTriggerConfig(enabled, bindHost, bindPort, format, defaultCameraId, debounceMs, allowed),
-                ioInput
+                ioInput,
+                twoPhase
         );
     }
 

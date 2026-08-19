@@ -115,6 +115,25 @@ class BinaryInspectHeadersTest {
     }
 
     @Test
+    void binaryHeadersCarryReferencePhaseAndGroup() {
+        ReferenceSnapshot reference = new ReferenceSnapshot("product#phase=1#cam=2", Map.of(
+                "width", 2448, "height", 2048, "stride", 7344,
+                "shm_name", "ref_phase1", "shm_offset", 0,
+                "phase_id", 1, "group_id", 2
+        ));
+
+        Map<String, Object> geometry = BinaryInspectHeaders.geometryInspectHeader(
+                2, capture, reference, null, null);
+        Map<String, Object> python = BinaryInspectHeaders.pythonInspectHeader(
+                2, reference.productType(), "v1", capture, null, null, false, reference);
+
+        assertEquals(1, geometry.get("phase_id"));
+        assertEquals(2, geometry.get("group_id"));
+        assertEquals(1, python.get("phase_id"));
+        assertEquals(2, python.get("group_id"));
+    }
+
+    @Test
     void runtimeOverrideDoesNotReplaceReferenceJointRoi() {
         Map<String, Object> jointNorm = Map.of("x", 0.1, "y", 0.1, "width", 0.2, "height", 0.2);
         ReferenceSnapshot jointCameraRef = new ReferenceSnapshot("product", Map.of(

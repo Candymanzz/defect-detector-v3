@@ -62,7 +62,8 @@ public final class InspectionTriggerBus implements AutoCloseable {
         if (raw.broadcast()) {
             return publishBroadcast(raw) > 0;
         }
-        return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
+        long seq = sequence.incrementAndGet();
+        return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), seq, 0, seq, seq);
     }
 
     public long prefireLineBroadcast(String source) {
@@ -85,6 +86,17 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return seq;
     }
 
+    /** Резервирует raw sequence без software-prefire для аппаратного Line0. */
+    public long reserveLineBroadcastSequence(String source) {
+        long seq = sequence.incrementAndGet();
+        LOG.info(
+                "sync_diag channel=inspect event=line_sequence_reserved trigger_sequence={} source={}",
+                seq,
+                source
+        );
+        return seq;
+    }
+
     public int dispatchLineBroadcast(String source, long seq) {
         if (seq <= 0L) {
             return 0;
@@ -99,6 +111,28 @@ public final class InspectionTriggerBus implements AutoCloseable {
         }
         Instant receivedAt = Instant.now();
         return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
+    }
+
+    public int dispatchLineBroadcast(
+            String source,
+            long seq,
+            Instant receivedAt,
+            List<Integer> cameraIds,
+            TwoPhaseTriggerCorrelator.PhaseAssignment phase
+    ) {
+        if (seq <= 0L || phase == null || phase.rawTriggerSequence() != seq) {
+            return 0;
+        }
+        Instant effectiveReceivedAt = receivedAt == null ? Instant.now() : receivedAt;
+        return dispatchLineBroadcast(
+                source,
+                seq,
+                effectiveReceivedAt,
+                cameraIds,
+                phase.phaseId(),
+                phase.parentCycleId(),
+                phase.rawTriggerSequence()
+        );
     }
 
     /** Рассылка триггера инспекции без prefire (экспозиция уже на Line0 через IoInputMonitor→DO0). */
@@ -156,6 +190,18 @@ public final class InspectionTriggerBus implements AutoCloseable {
     }
 
     private int dispatchLineBroadcast(String source, long seq, Instant receivedAt, List<Integer> cameraIds) {
+        return dispatchLineBroadcast(source, seq, receivedAt, cameraIds, 0, seq, seq);
+    }
+
+    private int dispatchLineBroadcast(
+            String source,
+            long seq,
+            Instant receivedAt,
+            List<Integer> cameraIds,
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
+    ) {
         List<Integer> targets = resolveTargetCameras(cameraIds);
         lastDispatchedSequence.set(seq);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
@@ -166,7 +212,15 @@ public final class InspectionTriggerBus implements AutoCloseable {
             );
             int published = 0;
             for (Integer cameraId : targets) {
-                if (offerToCamera(cameraId, receivedAt, source, seq)) {
+                if (offerToCamera(
+                        cameraId,
+                        receivedAt,
+                        source,
+                        seq,
+                        phaseId,
+                        parentCycleId,
+                        rawTriggerSequence
+                )) {
                     published++;
                 }
             }
@@ -182,7 +236,15 @@ public final class InspectionTriggerBus implements AutoCloseable {
             int cameraId = targets.get(i);
             long delayMs = (long) i * captureTriggerStaggerMs;
             staggerScheduler.schedule(
-                    () -> offerToCamera(cameraId, receivedAt, source, seq),
+                    () -> offerToCamera(
+                            cameraId,
+                            receivedAt,
+                            source,
+                            seq,
+                            phaseId,
+                            parentCycleId,
+                            rawTriggerSequence
+                    ),
                     delayMs,
                     TimeUnit.MILLISECONDS
             );
@@ -206,12 +268,29 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return filtered;
     }
 
-    private boolean offerToCamera(int cameraId, Instant receivedAt, String source, long seq) {
+    private boolean offerToCamera(
+            int cameraId,
+            Instant receivedAt,
+            String source,
+            long seq,
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
+    ) {
         BlockingQueue<InspectionTriggerEvent> queue = perCamera.get(cameraId);
         if (queue == null) {
             return false;
         }
-        InspectionTriggerEvent event = new InspectionTriggerEvent(cameraId, seq, receivedAt, source, false);
+        InspectionTriggerEvent event = new InspectionTriggerEvent(
+                cameraId,
+                seq,
+                receivedAt,
+                source,
+                false,
+                phaseId,
+                parentCycleId,
+                rawTriggerSequence
+        );
         return queue.offer(event);
     }
 

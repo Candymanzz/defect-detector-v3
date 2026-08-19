@@ -23,19 +23,30 @@ import java.util.concurrent.TimeUnit;
  */
 public final class BucketInspectionAggregator implements AutoCloseable {
 
-    private record BucketKey(long triggerSequence, int groupId) {
+    private record BucketKey(long parentCycleId, int phaseId, int groupId) {
+    }
+
+    private record PhaseGroupKey(int phaseId, int groupId) {
+    }
+
+    private record PhaseCameraKey(int phaseId, int cameraId) {
+    }
+
+    private record BarrierKey(long parentCycleId, int phaseId) {
     }
 
     private final Logger log;
     private final List<BucketGroup> groups;
-    private final Map<Integer, BucketGroup> groupById;
-    private final Map<Integer, Integer> groupIdByCamera;
+    private final Map<PhaseGroupKey, BucketGroup> groupByPhaseAndId;
+    private final Map<PhaseCameraKey, Integer> groupIdByPhaseAndCamera;
+    private final Map<Integer, List<BucketGroup>> groupsByPhase;
     private final long timeoutMs;
     private final JointSeamPolicy jointSeamPolicy;
     private final ScheduledExecutorService timeoutExecutor;
     private final ConcurrentHashMap<BucketKey, BucketState> buckets = new ConcurrentHashMap<>();
-    /** Барьер: ждать все groupId одного triggerSequence перед fanOut. */
-    private final ConcurrentHashMap<Long, SequenceBarrier> sequenceBarriers = new ConcurrentHashMap<>();
+    /** Отдельный барьер пары групп каждой фазы одного parent cycle. */
+    private final ConcurrentHashMap<BarrierKey, SequenceBarrier> sequenceBarriers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, ParentCycleState> parentCycles = new ConcurrentHashMap<>();
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config) {
         this(log, config, JointSeamPolicy.defaults());
@@ -44,12 +55,14 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config, JointSeamPolicy jointSeamPolicy) {
         this.log = log;
         this.groups = List.copyOf(config.groups());
-        this.groupById = new HashMap<>();
-        this.groupIdByCamera = new HashMap<>();
+        this.groupByPhaseAndId = new HashMap<>();
+        this.groupIdByPhaseAndCamera = new HashMap<>();
+        this.groupsByPhase = new HashMap<>();
         for (BucketGroup group : groups) {
-            groupById.put(group.id(), group);
+            groupByPhaseAndId.put(new PhaseGroupKey(group.phaseId(), group.id()), group);
+            groupsByPhase.computeIfAbsent(group.phaseId(), ignored -> new java.util.ArrayList<>()).add(group);
             for (Integer cameraId : group.cameraIds()) {
-                groupIdByCamera.put(cameraId, group.id());
+                groupIdByPhaseAndCamera.put(new PhaseCameraKey(group.phaseId(), cameraId), group.id());
             }
         }
         this.timeoutMs = config.timeoutMs();
@@ -74,16 +87,16 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     }
 
     public boolean isBucketCamera(int cameraId) {
-        return groupIdByCamera.containsKey(cameraId);
+        return groupIdByPhaseAndCamera.keySet().stream().anyMatch(key -> key.cameraId() == cameraId);
     }
 
     /** Пиры той же bucket-группы (включая саму камеру). */
     public List<Integer> peerCameraIds(int cameraId) {
-        Integer groupId = groupIdByCamera.get(cameraId);
+        Integer groupId = groupIdByPhaseAndCamera.get(new PhaseCameraKey(0, cameraId));
         if (groupId == null) {
             return List.of();
         }
-        BucketGroup group = groupById.get(groupId);
+        BucketGroup group = groupByPhaseAndId.get(new PhaseGroupKey(0, groupId));
         return group == null ? List.of() : List.copyOf(group.cameraIds());
     }
 
@@ -92,13 +105,13 @@ public final class BucketInspectionAggregator implements AutoCloseable {
      * Берём максимальный triggerSequence (самый свежий открытый цикл).
      */
     public Long findOpenSequenceMissingCamera(int cameraId) {
-        Integer groupId = groupIdByCamera.get(cameraId);
+        Integer groupId = groupIdByPhaseAndCamera.get(new PhaseCameraKey(0, cameraId));
         if (groupId == null) {
             return null;
         }
         Long best = null;
         for (Map.Entry<BucketKey, BucketState> entry : buckets.entrySet()) {
-            if (entry.getKey().groupId() != groupId) {
+            if (entry.getKey().phaseId() != 0 || entry.getKey().groupId() != groupId) {
                 continue;
             }
             BucketState state = entry.getValue();
@@ -106,7 +119,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 if (state.published || state.frameDecisions.containsKey(cameraId)) {
                     continue;
                 }
-                long seq = entry.getKey().triggerSequence();
+                long seq = state.rawTriggerSequence;
                 if (best == null || seq > best) {
                     best = seq;
                 }
@@ -121,7 +134,30 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             InspectionDecision decision,
             BucketFanOutSink fanOut
     ) {
-        Integer groupId = groupIdByCamera.get(cameraId);
+        recordFrameResult(
+                triggerSequence, triggerSequence, 0, triggerSequence,
+                cameraId, decision, fanOut
+        );
+    }
+
+    /**
+     * Phase-aware contract for the two-phase pipeline. Aggregation remains keyed by the
+     * raw trigger sequence until the full parent-cycle barrier is implemented.
+     */
+    public void recordFrameResult(
+            long triggerSequence,
+            long parentCycleId,
+            int phaseId,
+            long rawTriggerSequence,
+            int cameraId,
+            InspectionDecision decision,
+            BucketFanOutSink fanOut
+    ) {
+        log.debug(
+                "bucket frame input cam={} trigger_sequence={} parent_cycle={} phase={} raw_seq={}",
+                cameraId, triggerSequence, parentCycleId, phaseId, rawTriggerSequence
+        );
+        Integer groupId = groupIdByPhaseAndCamera.get(new PhaseCameraKey(phaseId, cameraId));
         if (groupId == null) {
             return;
         }
@@ -134,12 +170,15 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             );
             return;
         }
-        BucketGroup group = groupById.get(groupId);
+        BucketGroup group = groupByPhaseAndId.get(new PhaseGroupKey(phaseId, groupId));
         if (group == null) {
             return;
         }
-        BucketKey key = new BucketKey(triggerSequence, groupId);
-        BucketState state = buckets.computeIfAbsent(key, ignored -> new BucketState(triggerSequence, groupId, group));
+        BucketKey key = new BucketKey(parentCycleId, phaseId, groupId);
+        BucketState state = buckets.computeIfAbsent(
+                key,
+                ignored -> new BucketState(triggerSequence, parentCycleId, phaseId, rawTriggerSequence, groupId, group)
+        );
         synchronized (state) {
             if (state.published) {
                 return;
@@ -174,7 +213,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             }
             log.warn(
                     "inspection bucket timeout seq={} group={} received={}/{} cameras={}",
-                    key.triggerSequence(),
+                    state.rawTriggerSequence,
                     key.groupId(),
                     state.frameDecisions.size(),
                     state.group.cameraIds().size(),
@@ -255,27 +294,26 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                         state.triggerSequence,
                         bucketPass,
                         expectedCameraIds,
-                        snapshot
+                        snapshot,
+                        state.parentCycleId,
+                        state.phaseId,
+                        state.rawTriggerSequence
                 ),
                 fanOut
         );
     }
 
-    /**
-     * Одно ведро → сразу в fanOut. Два+ ведра → ждать все groupId одного seq, потом слать пакетом
-     * (reject_line_1 и reject_line_2 синхронно).
-     */
+    /** Ждёт только группы своей фазы; phase1 дополнительно ждёт завершения phase0 parent cycle. */
     private void enqueueSyncedFanOut(BucketFanOutResult result, BucketFanOutSink fanOut) {
         if (fanOut == null) {
             return;
         }
-        if (groups.size() <= 1) {
-            fanOut.publishBucket(result);
-            return;
-        }
+        ParentCycleState parent = parentCycles.computeIfAbsent(result.parentCycleId(), ignored -> new ParentCycleState());
+        List<BucketGroup> phaseGroups = groupsByPhase.getOrDefault(result.phaseId(), List.of());
+        BarrierKey key = new BarrierKey(result.parentCycleId(), result.phaseId());
         SequenceBarrier barrier = sequenceBarriers.computeIfAbsent(
-                result.triggerSequence(),
-                seq -> new SequenceBarrier(seq)
+                key,
+                ignored -> new SequenceBarrier(key, result.rawTriggerSequence(), phaseGroups)
         );
         List<BucketFanOutResult> toPublish = null;
         synchronized (barrier) {
@@ -284,12 +322,18 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             }
             barrier.readyByGroup.put(result.groupId(), result);
             scheduleSequenceSyncTimeout(barrier, fanOut);
-            if (barrier.readyByGroup.size() >= groups.size()) {
-                toPublish = takeBarrierResults(barrier);
+            if (barrier.readyByGroup.size() >= phaseGroups.size()) {
+                barrier.pairReady = true;
+                if (result.phaseId() == 0 || parent.phase0Done) {
+                    toPublish = takeBarrierResults(barrier);
+                }
             }
         }
         if (toPublish != null) {
             publishSyncedResults(toPublish, fanOut);
+            onPhasePublished(result.parentCycleId(), result.phaseId(), parent, fanOut);
+        } else if (result.phaseId() == 1) {
+            ensurePhaseZeroBarrier(result.parentCycleId(), fanOut);
         }
     }
 
@@ -298,45 +342,71 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             return;
         }
         barrier.syncTimeoutFuture = timeoutExecutor.schedule(
-                () -> onSequenceSyncTimeout(barrier.triggerSequence, fanOut),
+                () -> onSequenceSyncTimeout(barrier.key, fanOut),
                 timeoutMs,
                 TimeUnit.MILLISECONDS
         );
     }
 
-    private void onSequenceSyncTimeout(long triggerSequence, BucketFanOutSink fanOut) {
-        SequenceBarrier barrier = sequenceBarriers.get(triggerSequence);
+    private void ensurePhaseZeroBarrier(long parentCycleId, BucketFanOutSink fanOut) {
+        if (!groupsByPhase.containsKey(0)) {
+            ParentCycleState parent = parentCycles.computeIfAbsent(parentCycleId, ignored -> new ParentCycleState());
+            parent.phase0Done = true;
+            releaseHeldPhaseOne(parentCycleId, parent, fanOut);
+            return;
+        }
+        BarrierKey key = new BarrierKey(parentCycleId, 0);
+        SequenceBarrier phaseZero = sequenceBarriers.computeIfAbsent(
+                key,
+                ignored -> new SequenceBarrier(key, parentCycleId, groupsByPhase.get(0))
+        );
+        synchronized (phaseZero) {
+            scheduleSequenceSyncTimeout(phaseZero, fanOut);
+        }
+    }
+
+    private void onSequenceSyncTimeout(BarrierKey key, BucketFanOutSink fanOut) {
+        SequenceBarrier barrier = sequenceBarriers.get(key);
         if (barrier == null) {
             return;
         }
+        ParentCycleState parent = parentCycles.computeIfAbsent(key.parentCycleId(), ignored -> new ParentCycleState());
         List<BucketFanOutResult> toPublish;
         synchronized (barrier) {
             if (barrier.flushed) {
                 return;
             }
-            for (BucketGroup group : groups) {
+            for (BucketGroup group : barrier.expectedGroups) {
                 if (barrier.readyByGroup.containsKey(group.id())) {
                     continue;
                 }
                 log.warn(
-                        "inspection sequence sync timeout seq={} missing_group={} — synthetic reject for line",
-                        triggerSequence,
+                        "inspection phase sync timeout parent={} phase={} missing_group={} — synthetic reject",
+                        key.parentCycleId(),
+                        key.phaseId(),
                         group.id()
                 );
                 barrier.readyByGroup.put(
                         group.id(),
                         new BucketFanOutResult(
                                 group.id(),
-                                triggerSequence,
+                                barrier.rawTriggerSequence,
                                 false,
                                 group.cameraIds(),
-                                Map.of()
+                                Map.of(),
+                                key.parentCycleId(),
+                                key.phaseId(),
+                                barrier.rawTriggerSequence
                         )
                 );
             }
-            toPublish = takeBarrierResults(barrier);
+            barrier.pairReady = true;
+            toPublish = key.phaseId() == 0 || parent.phase0Done ? takeBarrierResults(barrier) : null;
         }
-        publishSyncedResults(toPublish, fanOut);
+        if (toPublish != null) {
+            publishSyncedResults(toPublish, fanOut);
+            onPhasePublished(key.parentCycleId(), key.phaseId(), parent, fanOut);
+        }
     }
 
     private List<BucketFanOutResult> takeBarrierResults(SequenceBarrier barrier) {
@@ -344,11 +414,66 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         if (barrier.syncTimeoutFuture != null) {
             barrier.syncTimeoutFuture.cancel(false);
         }
-        sequenceBarriers.remove(barrier.triggerSequence, barrier);
-        return groups.stream()
+        sequenceBarriers.remove(barrier.key, barrier);
+        return barrier.expectedGroups.stream()
                 .map(group -> barrier.readyByGroup.get(group.id()))
                 .filter(result -> result != null)
+                .sorted(java.util.Comparator.comparingInt(BucketFanOutResult::groupId))
                 .toList();
+    }
+
+    private void onPhasePublished(
+            long parentCycleId,
+            int phaseId,
+            ParentCycleState parent,
+            BucketFanOutSink fanOut
+    ) {
+        if (phaseId == 0) {
+            parent.phase0Done = true;
+            releaseHeldPhaseOne(parentCycleId, parent, fanOut);
+            if (!parent.phase1Done) {
+                ensurePhaseOneBarrier(parentCycleId, fanOut);
+            }
+        } else {
+            parent.phase1Done = true;
+        }
+        if (parent.phase0Done && (parent.phase1Done || !groupsByPhase.containsKey(1))) {
+            parentCycles.remove(parentCycleId, parent);
+        }
+    }
+
+    private void ensurePhaseOneBarrier(long parentCycleId, BucketFanOutSink fanOut) {
+        List<BucketGroup> phaseOneGroups = groupsByPhase.get(1);
+        if (phaseOneGroups == null || phaseOneGroups.isEmpty()) {
+            return;
+        }
+        BarrierKey key = new BarrierKey(parentCycleId, 1);
+        SequenceBarrier phaseOne = sequenceBarriers.computeIfAbsent(
+                key,
+                ignored -> new SequenceBarrier(key, parentCycleId + 1L, phaseOneGroups)
+        );
+        synchronized (phaseOne) {
+            if (!phaseOne.flushed) {
+                scheduleSequenceSyncTimeout(phaseOne, fanOut);
+            }
+        }
+    }
+
+    private void releaseHeldPhaseOne(long parentCycleId, ParentCycleState parent, BucketFanOutSink fanOut) {
+        SequenceBarrier phaseOne = sequenceBarriers.get(new BarrierKey(parentCycleId, 1));
+        if (phaseOne == null) {
+            return;
+        }
+        List<BucketFanOutResult> results = null;
+        synchronized (phaseOne) {
+            if (!phaseOne.flushed && phaseOne.pairReady) {
+                results = takeBarrierResults(phaseOne);
+            }
+        }
+        if (results != null) {
+            publishSyncedResults(results, fanOut);
+            onPhasePublished(parentCycleId, 1, parent, fanOut);
+        }
     }
 
     private void publishSyncedResults(List<BucketFanOutResult> results, BucketFanOutSink fanOut) {
@@ -356,8 +481,9 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             return;
         }
         log.info(
-                "inspection sequence fanout seq={} groups={} passes={}",
-                results.get(0).triggerSequence(),
+                "inspection phase fanout parent={} phase={} groups={} passes={}",
+                results.get(0).parentCycleId(),
+                results.get(0).phaseId(),
                 results.stream().map(BucketFanOutResult::groupId).toList(),
                 results.stream().map(BucketFanOutResult::overallPass).toList()
         );
@@ -424,32 +550,54 @@ public final class BucketInspectionAggregator implements AutoCloseable {
 
     private static final class BucketState {
         private final long triggerSequence;
+        private final long parentCycleId;
+        private final int phaseId;
+        private final long rawTriggerSequence;
         private final int groupId;
         private final BucketGroup group;
         private final Map<Integer, InspectionDecision> frameDecisions = new LinkedHashMap<>();
         private volatile boolean published;
         private volatile ScheduledFuture<?> timeoutFuture;
 
-        private BucketState(long triggerSequence, int groupId, BucketGroup group) {
+        private BucketState(
+                long triggerSequence,
+                long parentCycleId,
+                int phaseId,
+                long rawTriggerSequence,
+                int groupId,
+                BucketGroup group
+        ) {
             this.triggerSequence = triggerSequence;
+            this.parentCycleId = parentCycleId;
+            this.phaseId = phaseId;
+            this.rawTriggerSequence = rawTriggerSequence;
             this.groupId = groupId;
             this.group = group;
         }
 
         private BucketKey key() {
-            return new BucketKey(triggerSequence, groupId);
+            return new BucketKey(parentCycleId, phaseId, groupId);
         }
     }
 
-    /** Ожидание всех вёдер одного triggerSequence перед отправкой на ПЛК/UI. */
     private static final class SequenceBarrier {
-        private final long triggerSequence;
+        private final BarrierKey key;
+        private final long rawTriggerSequence;
+        private final List<BucketGroup> expectedGroups;
         private final Map<Integer, BucketFanOutResult> readyByGroup = new LinkedHashMap<>();
+        private volatile boolean pairReady;
         private volatile boolean flushed;
         private volatile ScheduledFuture<?> syncTimeoutFuture;
 
-        private SequenceBarrier(long triggerSequence) {
-            this.triggerSequence = triggerSequence;
+        private SequenceBarrier(BarrierKey key, long rawTriggerSequence, List<BucketGroup> expectedGroups) {
+            this.key = key;
+            this.rawTriggerSequence = rawTriggerSequence;
+            this.expectedGroups = List.copyOf(expectedGroups);
         }
+    }
+
+    private static final class ParentCycleState {
+        private volatile boolean phase0Done;
+        private volatile boolean phase1Done;
     }
 }

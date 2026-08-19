@@ -67,6 +67,10 @@ public record BucketInspectionConfig(
 
     @SuppressWarnings("unchecked")
     private static List<BucketGroup> parseGroups(Map<?, ?> m, Collection<Integer> enabledCameraIds) {
+        Object rawPhases = m.get("phases");
+        if (rawPhases instanceof List<?> phases && !phases.isEmpty()) {
+            return parseExplicitPhases(phases);
+        }
         Object rawGroups = m.get("groups");
         if (rawGroups instanceof List<?> list && !list.isEmpty()) {
             return parseExplicitGroups(list);
@@ -80,6 +84,56 @@ public record BucketInspectionConfig(
             return splitIntoPresetGroups(mode, cameraIds);
         }
         return resolvePresetGroupsForMode(mode, enabledCameraIds);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<BucketGroup> parseExplicitPhases(List<?> phases) {
+        List<BucketGroup> groups = new ArrayList<>();
+        Set<Integer> seenPhaseIds = new HashSet<>();
+        Set<Integer> seenGroupIds = new HashSet<>();
+        for (Object item : phases) {
+            if (!(item instanceof Map<?, ?> rawPhase)) {
+                continue;
+            }
+            Map<String, Object> phaseMap = (Map<String, Object>) rawPhase;
+            int phaseId = YamlScalars.toInt(phaseMap.get("id"), groups.isEmpty() ? 0 : groups.get(groups.size() - 1).phaseId() + 1);
+            if (!seenPhaseIds.add(phaseId)) {
+                throw new IllegalStateException("inspection_bucket.phases: duplicate phase id=" + phaseId);
+            }
+            Object rawGroups = phaseMap.get("groups");
+            if (!(rawGroups instanceof List<?> phaseGroups) || phaseGroups.isEmpty()) {
+                throw new IllegalStateException("inspection_bucket.phases: phase id=" + phaseId + " requires groups");
+            }
+            Set<Integer> camerasInPhase = new HashSet<>();
+            for (Object groupItem : phaseGroups) {
+                if (!(groupItem instanceof Map<?, ?> rawGroup)) {
+                    continue;
+                }
+                Map<String, Object> groupMap = (Map<String, Object>) rawGroup;
+                int groupId = YamlScalars.toInt(groupMap.get("id"), groups.size());
+                if (!seenGroupIds.add(groupId)) {
+                    throw new IllegalStateException("inspection_bucket.phases: duplicate group id=" + groupId);
+                }
+                List<Integer> cameraIds = parseFlatCameraIds(groupMap.get("camera_ids"));
+                if (cameraIds.isEmpty()) {
+                    throw new IllegalStateException(
+                            "inspection_bucket.phases: group id=" + groupId + " requires non-empty camera_ids"
+                    );
+                }
+                for (Integer cameraId : cameraIds) {
+                    if (!camerasInPhase.add(cameraId)) {
+                        throw new IllegalStateException(
+                                "inspection_bucket.phases: camera " + cameraId + " appears twice in phase " + phaseId
+                        );
+                    }
+                }
+                groups.add(new BucketGroup(phaseId, groupId, cameraIds));
+            }
+        }
+        if (groups.isEmpty()) {
+            throw new IllegalStateException("inspection_bucket.phases must contain groups");
+        }
+        return List.copyOf(groups);
     }
 
     @SuppressWarnings("unchecked")

@@ -68,7 +68,7 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
                         .toList();
                 app.kopcheniBroadcaster().broadcast(
                         AnalisSurfaceClientWsSync.replaceFpZones(
-                                scopedProductType(productType, cameraId),
+                                scopedProductType(productType, snapshot.phaseId(), cameraId),
                                 normalizedHw,
                                 normalizedHh,
                                 cameraZones
@@ -94,15 +94,12 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
         return Math.max(1, (int) Math.round(dim * inspectScale));
     }
 
-    private static String scopedProductType(String productType, int cameraId) {
+    private static String scopedProductType(String productType, int phaseId, int cameraId) {
         String normalized = productType == null ? "" : productType.trim();
         if (normalized.isEmpty() || cameraId < 0) {
             return normalized;
         }
-        String suffix = "#cam=" + cameraId;
-        if (normalized.endsWith(suffix)) {
-            return normalized;
-        }
-        return normalized + suffix;
+        String base = normalized.replaceAll("#phase=\\d+", "").replaceAll("#cam=\\d+", "");
+        return base + "#phase=" + Math.max(0, phaseId) + "#cam=" + cameraId;
     }
 }

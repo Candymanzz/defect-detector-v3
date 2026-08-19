@@ -60,6 +60,11 @@ public final class ReferenceBundleParser {
         if (productType == null) {
             throw new BundleParseException("invalid_product_type", "product_type required");
         }
+        int phaseId = payload.path("phase_id").asInt(0);
+        int groupId = payload.path("group_id").asInt(-1);
+        if (phaseId < 0) {
+            throw new BundleParseException("invalid_phase_id", "phase_id must be >= 0");
+        }
         JsonNode viewsNode = payload.path("views");
         if (!viewsNode.isArray() || viewsNode.size() == 0) {
             throw new BundleParseException("invalid_views", "views must be a non-empty array");
@@ -85,9 +90,15 @@ public final class ReferenceBundleParser {
             }
             views.add(slot);
         }
+        if (groupId < 0) {
+            int cameraBucket = views.stream().mapToInt(slot -> slot.frame().cameraId()).min().orElse(0) / 5;
+            groupId = phaseId * 2 + cameraBucket;
+        }
         List<FpZoneNorm> fpZones = parseFpZones(payload.path("fp_zones"));
         return new ReferenceBundleSnapshot(
                 productType,
+                phaseId,
+                groupId,
                 List.copyOf(views),
                 jointViewIndex,
                 heatmapW,

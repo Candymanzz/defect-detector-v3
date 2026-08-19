@@ -227,7 +227,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             );
         }
         int cameraId = YamlScalars.toInt(view.get("camera_id"), YamlScalars.toInt(header.get("camera_id"), -1));
-        String scopedProductType = scopedProductType(productType, cameraId);
+        int phaseId = YamlScalars.toInt(header.get("phase_id"), 0);
+        String scopedProductType = scopedProductType(productType, phaseId, cameraId);
         Map<String, Object> refHdr = new LinkedHashMap<>(view);
         refHdr.put("product_type", scopedProductType);
         refHdr.put("camera_id", cameraId);
@@ -801,6 +802,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
         String productType = String.valueOf(header.getOrDefault("product_type", ""));
         LearnedReviewIndex.remember(
+                YamlScalars.toInt(header.get("phase_id"), extractScopeId(productType, "phase", 0)),
                 cameraId,
                 frameId,
                 scopedProductType(productType, cameraId),
@@ -953,23 +955,31 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private static String runtimeKey(String productType, int cameraId) {
-        String normalizedProductType = productType == null ? "" : productType.trim();
-        if (normalizedProductType.contains("#cam=")) {
-            return normalizedProductType;
-        }
-        return normalizedProductType + "#cam=" + cameraId;
+        return scopedProductType(productType, cameraId);
     }
 
     private static String scopedProductType(String productType, int cameraId) {
+        int phaseId = extractScopeId(productType, "phase", 0);
+        return scopedProductType(productType, phaseId, cameraId);
+    }
+
+    private static String scopedProductType(String productType, int phaseId, int cameraId) {
         String normalized = productType == null ? "" : productType.trim();
         if (normalized.isEmpty() || cameraId < 0) {
             return normalized;
         }
-        String suffix = "#cam=" + cameraId;
-        if (normalized.endsWith(suffix)) {
-            return normalized;
+        String base = normalized.replaceAll("#phase=\\d+", "").replaceAll("#cam=\\d+", "");
+        return base + "#phase=" + Math.max(0, phaseId) + "#cam=" + cameraId;
+    }
+
+    private static int extractScopeId(String productType, String key, int fallback) {
+        if (productType == null) {
+            return fallback;
         }
-        return normalized + suffix;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("#" + java.util.regex.Pattern.quote(key) + "=(\\d+)")
+                .matcher(productType);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : fallback;
     }
 
     private static String resolveAnalysisProfile(Map<String, Object> header, int cameraId) {
