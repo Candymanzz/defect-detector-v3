@@ -140,6 +140,7 @@ export function resolveCardInspectImageUrl(
 
 export function createModalInspectionSnapshot(
   camera: SelectedCamera,
+  productContext: { productKey: string; phaseId: number; groupId: number } | undefined,
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
   previewFrameId: string | undefined,
@@ -159,6 +160,7 @@ export function createModalInspectionSnapshot(
 
   return {
     ...camera,
+    ...productContext,
     initialFrameId: snapshotResult?.frame_id,
     inspectResult: snapshotResult,
     cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl,
@@ -255,11 +257,13 @@ export type ArchivedInspectionHistoryLoadResult = {
 
 export async function loadArchivedInspectionHistory(
   cameraIds: number[],
+  phaseId?: number,
+  groupId?: number,
 ): Promise<ArchivedInspectionHistoryLoadResult> {
   const histories = await Promise.all(
     cameraIds.map(async (cameraId) => {
       try {
-        const response = await orchestratorApi.getFrameArchiveHistory(cameraId);
+        const response = await orchestratorApi.getFrameArchiveHistory(cameraId, phaseId, groupId);
         setInspectionHistoryLimit(response.max_frames_per_camera);
         const frames = await Promise.all(response.frames.map((frame) => enrichArchivedFrameHeatmapSize(frame)));
         return {
@@ -317,6 +321,8 @@ export function archivedFrameToInspectResult(
   const frameHttpPath = frame.frame_url;
   return {
     camera_id: cameraId,
+    phase_id: frame.phase_id ?? 0,
+    group_id: frame.group_id ?? -1,
     frame_id: frame.frame_id,
     inspection_id: frame.inspection_id,
     session_state: "READY",

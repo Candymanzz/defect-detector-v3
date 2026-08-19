@@ -121,6 +121,7 @@ export type InspectBucketFramePayload = {
 };
 
 export type InspectBucketResultPayload = {
+  phase_id?: number;
   group_id: number;
   trigger_sequence: number;
   overall_pass: boolean;
@@ -270,6 +271,8 @@ export type WsStatusHandler = (status: WsConnectionStatus) => void;
 
 export type InspectResultPayload = {
   camera_id: number;
+  phase_id?: number;
+  group_id?: number;
   frame_id: string;
   inspection_id?: string;
   learned_review_id?: string;

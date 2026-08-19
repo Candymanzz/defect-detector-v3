@@ -17,6 +17,7 @@ import type {
   GeometryRuntimeConfig,
   InspectionStateResponse,
   InspectionResetResponse,
+  InspectionLayout,
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
@@ -56,6 +57,10 @@ export const orchestratorApi = {
 
   async listCameras() {
     return http.json<UiCameraList>("/api/cameras");
+  },
+
+  async getInspectionLayout() {
+    return http.json<InspectionLayout>("/api/inspection-layout");
   },
 
   async getLatestSnapshot(cameraId: number) {
@@ -250,8 +255,12 @@ export const orchestratorApi = {
     });
   },
 
-  async getFrameArchiveHistory(cameraId: number) {
-    return http.json<FrameArchiveHistoryResponse>(`/api/frame-archive/cameras/${cameraId}/history`);
+  async getFrameArchiveHistory(cameraId: number, phaseId?: number, groupId?: number) {
+    const params = new URLSearchParams();
+    if (phaseId != null) params.set("phase_id", String(phaseId));
+    if (groupId != null) params.set("group_id", String(groupId));
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    return http.json<FrameArchiveHistoryResponse>(`/api/frame-archive/cameras/${cameraId}/history${query}`);
   },
 
   async deleteFrameArchiveFrame(cameraId: number, frameId: string | number) {

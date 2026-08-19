@@ -14,7 +14,7 @@ import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
 import { useMainOverview } from "./useMainOverview";
-import type { InspectionStats } from "./type";
+import type { CameraCardData, InspectionProduct, InspectionStats } from "./type";
 import "./MainOverview.css";
 import "../SettingList/TestSettingsPanels.css";
 
@@ -52,7 +52,26 @@ export function MainOverview({
   const analysisSettingsRef = useRef<AnalysisSettingsPanelHandle>(null);
   const geometrySettingsRef = useRef<GeometryTestSettingsPanelHandle>(null);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
-  const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
+  const cameraCardById = new Map(cameraCards.map((camera) => [camera.cameraId, camera]));
+  const configuredProducts = controller.inspectionProducts.map((product, index) => ({
+    ...product,
+    productNumber: index + 1,
+    cameras: product.cameraIds.map((cameraId) => cameraCardById.get(cameraId)).filter((camera) => camera != null),
+  }));
+  const cameraCardGroups: Array<InspectionProduct & { productNumber: number; cameras: CameraCardData[] }> =
+    configuredProducts.length
+    ? orderProductsForGrid(configuredProducts)
+    : chunkItems(cameraCards, CAMERAS_PER_OVERVIEW).map((cameras, index) => ({
+        key: `fallback:${index}`,
+        productNumber: index + 1,
+        phaseId: 0,
+        groupId: index,
+        cameraIds: cameras.map((camera) => camera.cameraId),
+        resultsByCameraId: {},
+        overallPass: undefined,
+        triggerSequence: undefined,
+        cameras,
+      }));
   const modalInspectionControlState = controller.modalSnapshot
     ? controller.inspectionControlByCameraId[controller.modalSnapshot.cameraId]
     : undefined;
@@ -122,20 +141,40 @@ export function MainOverview({
 
   return (
     <div
-      className="camera-overviews"
+      className={`camera-overviews ${cameraCardGroups.length > 2 ? "camera-overviews--multi-column" : ""}`}
       ref={rootRef}
     >
-      {cameraCardGroups.map((cameraGroup, groupIndex) => (
+      {cameraCardGroups.map((cameraGroup) => (
         <section
-          className="camera-overview"
-          aria-label={`Кадры камер для объекта ${groupIndex + 1}`}
-          key={groupIndex}
+          className={`camera-overview ${cameraGroup.overallPass === false ? "camera-overview--fail" : cameraGroup.overallPass === true ? "camera-overview--pass" : ""}`}
+          aria-label={`Кадры камер для изделия ${cameraGroup.productNumber}`}
+          key={cameraGroup.key}
         >
+          <header className="camera-overview__header">
+            <div>
+              <h2>Изделие {cameraGroup.productNumber}</h2>
+              <span>Камеры {formatCameraRange(cameraGroup.cameraIds)}</span>
+            </div>
+            <strong className={cameraGroup.overallPass === false ? "is-fail" : cameraGroup.overallPass === true ? "is-pass" : ""}>
+              {cameraGroup.overallPass === false ? "● БРАК" : cameraGroup.overallPass === true ? "● ГОДЕН" : "Ожидание"}
+            </strong>
+            <div className="camera-overview__inspection">
+              <span>Последняя инспекция</span>
+              <b>{cameraGroup.triggerSequence == null ? "—" : `#${cameraGroup.triggerSequence}`}</b>
+            </div>
+          </header>
           <div className="camera-grid">
-            {cameraGroup.map((camera) => {
+            {cameraGroup.cameras.map((camera) => {
               const inspectionControlState = controller.inspectionControlByCameraId[camera.cameraId];
-              const inspectResult = controller.inspectResultsByCameraId[camera.cameraId];
-              const artifactInspectResult = controller.inspectArtifactResultsByCameraId[camera.cameraId];
+              const inspectResult =
+                cameraGroup.resultsByCameraId[camera.cameraId] ?? controller.inspectResultsByCameraId[camera.cameraId];
+              const artifactCandidate = controller.inspectArtifactResultsByCameraId[camera.cameraId];
+              const artifactInspectResult =
+                artifactCandidate &&
+                (artifactCandidate.phase_id ?? 0) === cameraGroup.phaseId &&
+                (artifactCandidate.group_id ?? -1) === cameraGroup.groupId
+                  ? artifactCandidate
+                  : inspectResult;
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
               // Soft-stop: inspection is off, but capture-only frames must still render on the card.
               const isCaptureOnlyFrame = isCaptureOnlyInspectResult(inspectResult);
@@ -171,11 +210,16 @@ export function MainOverview({
                   onOpen={() =>
                     controller.openInspectionModal(
                       createSelectedCamera(camera),
+                      {
+                        productKey: cameraGroup.key,
+                        phaseId: cameraGroup.phaseId,
+                        groupId: cameraGroup.groupId,
+                      },
                       inspectResult,
                       showInspectionArtifacts ? artifactInspectResult : undefined,
                       controller.previewFrameIdsByCameraId[camera.cameraId],
                       controller.previewImageUrlsByCameraId[camera.cameraId],
-                      controller.inspectionHistoryByCameraId[camera.cameraId] ?? [],
+                      controller.inspectionHistoryByProductKey[cameraGroup.key]?.[camera.cameraId] ?? [],
                     )
                   }
                   onSelect={() => onSettingsCameraToggle(camera.cameraId)}
@@ -186,11 +230,17 @@ export function MainOverview({
           </div>
 
           <InspectionHistory
-            cameraIds={cameraGroup.map((camera) => camera.cameraId)}
-            historyByCameraId={controller.inspectionHistoryByCameraId}
+            cameraIds={cameraGroup.cameraIds}
+            historyByCameraId={controller.inspectionHistoryByProductKey[cameraGroup.key] ?? {}}
             archiveHistoryState={controller.archiveHistoryState}
             archiveHistoryMessage={controller.archiveHistoryMessage}
-            onLoadArchivedHistory={(ids) => void controller.loadArchivedHistory(ids)}
+            onLoadArchivedHistory={(ids) =>
+              void controller.loadArchivedHistory(ids, {
+                productKey: cameraGroup.key,
+                phaseId: cameraGroup.phaseId,
+                groupId: cameraGroup.groupId,
+              })
+            }
           />
         </section>
       ))}
@@ -341,10 +391,24 @@ export function MainOverview({
 
       {controller.isArchiveViewerOpen && (
         <ArchiveHistoryViewer
-          cameraIds={controller.cameraIds}
+          cameraIds={
+            controller.archiveProductContext
+              ? cameraCardGroups.find((group) => group.key === controller.archiveProductContext?.productKey)
+                  ?.cameraIds ?? controller.cameraIds
+              : controller.cameraIds
+          }
           historyByCameraId={controller.archivedHistoryByCameraId}
+          isProductScoped={Boolean(controller.archiveProductContext)}
           onClose={controller.closeArchiveViewer}
-          onChanged={() => controller.loadArchivedHistory(controller.cameraIds)}
+          onChanged={() =>
+            controller.loadArchivedHistory(
+              controller.archiveProductContext
+                ? cameraCardGroups.find((group) => group.key === controller.archiveProductContext?.productKey)
+                    ?.cameraIds ?? controller.cameraIds
+                : controller.cameraIds,
+              controller.archiveProductContext,
+            )
+          }
         />
       )}
     </div>
@@ -355,6 +419,25 @@ function chunkItems<T>(items: T[], chunkSize: number) {
   return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
     const startIndex = groupIndex * chunkSize;
     return items.slice(startIndex, startIndex + chunkSize);
+  });
+}
+
+function formatCameraRange(cameraIds: number[]) {
+  if (cameraIds.length === 0) {
+    return "—";
+  }
+  const sorted = [...cameraIds].sort((left, right) => left - right);
+  return sorted.length === 1 ? String(sorted[0]) : `${sorted[0]}–${sorted[sorted.length - 1]}`;
+}
+
+function orderProductsForGrid<T extends InspectionProduct & { productNumber: number }>(products: T[]) {
+  if (products.length <= 2) {
+    return products;
+  }
+  return [...products].sort((left, right) => {
+    const leftFirstCamera = Math.min(...left.cameraIds);
+    const rightFirstCamera = Math.min(...right.cameraIds);
+    return leftFirstCamera - rightFirstCamera || left.phaseId - right.phaseId || left.groupId - right.groupId;
   });
 }
 

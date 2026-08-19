@@ -513,6 +513,8 @@ public final class WsOutboundMessenger {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("camera_id", cameraId);
         payload.put("frame_id", Long.toString(frameIdLong));
+        payload.put("phase_id", YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("phase_id"), 0));
+        payload.put("group_id", YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("group_id"), -1));
         payload.put("session_state", sessionState.get().name());
         payload.set("current", current);
         if (httpPath != null && !httpPath.isBlank()) {

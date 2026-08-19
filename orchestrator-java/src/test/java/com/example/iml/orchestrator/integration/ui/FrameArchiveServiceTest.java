@@ -29,6 +29,8 @@ class FrameArchiveServiceTest {
                         0,
                         frameId,
                         frameId + 100,
+                        1,
+                        2,
                         "product",
                         "detector",
                         com.example.iml.orchestrator.integration.pipeline.InspectionDecision.simple(
@@ -51,6 +53,8 @@ class FrameArchiveServiceTest {
             assertEquals(2, history.size());
             assertEquals(3L, history.get(0).frameId());
             assertEquals(2L, history.get(1).frameId());
+            assertEquals(1, history.get(0).phaseId());
+            assertEquals(2, history.get(0).groupId());
             assertTrue(Files.isRegularFile(tempDir.resolve("camera_0/f_0000003/frame.jpg")));
             assertTrue(Files.isRegularFile(tempDir.resolve("camera_0/f_0000003/result.json")));
             assertFalse(Files.exists(tempDir.resolve("camera_0/f_0000001")));

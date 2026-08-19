@@ -1,9 +1,14 @@
 .camera-overviews {
-  display: flex;
+  display: grid;
   flex: 1 1 auto;
-  flex-direction: column;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: 10px;
   min-width: 0;
+}
+
+.camera-overviews--multi-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .camera-overview {
@@ -16,8 +21,59 @@
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
 }
 
+.camera-overview--pass {
+  border-color: #22c55e;
+}
+
+.camera-overview--fail {
+  border-color: #ef4444;
+}
+
+.camera-overview__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 18px;
+  align-items: center;
+  margin: 0 5px 12px;
+}
+
+.camera-overview__header h2 {
+  display: inline;
+  margin: 0 12px 0 0;
+  font-size: 1.15rem;
+}
+
+.camera-overview__header span {
+  color: #a8b4b1;
+  font-size: 0.8rem;
+}
+
+.camera-overview__header strong {
+  color: #8c9996;
+  font-size: 0.78rem;
+}
+
+.camera-overview__header .is-pass {
+  color: #4ade80;
+}
+
+.camera-overview__header .is-fail {
+  color: #f05252;
+}
+
+.camera-overview__inspection {
+  display: grid;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.camera-overview__inspection b {
+  font-size: 0.95rem;
+}
+
 @media (max-width: 900px) {
   .camera-overviews {
     width: 100%;
+    grid-template-columns: 1fr;
   }
 }

@@ -203,6 +203,14 @@ public final class FrameArchiveHttpController implements HttpController {
         }
         HttpResponses.corsJson(ctx.exchange());
         List<FrameArchiveService.ArchivedFrame> frames = frameArchive.listHistory(cameraId);
+        Integer phaseId = queryInt(ctx.query(), "phase_id");
+        Integer groupId = queryInt(ctx.query(), "group_id");
+        if (phaseId != null || groupId != null) {
+            frames = frames.stream()
+                    .filter(frame -> phaseId == null || frame.phaseId() == phaseId)
+                    .filter(frame -> groupId == null || frame.groupId() == groupId)
+                    .toList();
+        }
         ObjectNode root = JSON.createObjectNode();
         root.put("camera_id", cameraId);
         root.put("max_frames_per_camera", frameArchive.maxFramesPerCamera());
@@ -211,6 +219,8 @@ public final class FrameArchiveHttpController implements HttpController {
             ObjectNode item = items.addObject();
             item.put("frame_id", Long.toString(frame.frameId()));
             item.put("inspection_id", Long.toString(frame.inspectionId()));
+            item.put("phase_id", frame.phaseId());
+            item.put("group_id", frame.groupId());
             item.put("overall_pass", frame.overallPass());
             item.put("action", frame.action());
             item.put("anomaly_score", frame.anomalyScore());
@@ -229,6 +239,23 @@ public final class FrameArchiveHttpController implements HttpController {
             item.put("result_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "result.json"));
         }
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+    }
+
+    private static Integer queryInt(String query, String key) {
+        if (query == null || query.isBlank()) {
+            return null;
+        }
+        for (String part : query.split("&")) {
+            String[] pair = part.split("=", 2);
+            if (pair.length == 2 && key.equals(pair[0])) {
+                try {
+                    return Integer.parseInt(pair[1]);
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     private void handleArtifact(HttpRequestContext ctx, int cameraId, long frameId, String artifactName) throws IOException {

@@ -172,6 +172,16 @@ export type LightEndpointBrightness = {
 
 export type LightBrightnessPercent = number | string;
 
+export type InspectionLayoutGroup = {
+  phase_id: number;
+  group_id: number;
+  camera_ids: number[];
+};
+
+export type InspectionLayout = {
+  groups: InspectionLayoutGroup[];
+};
+
 export type LightBrightnessSettings = {
   default_brightness_percent: number;
   endpoints: LightEndpointBrightness[];
@@ -242,6 +252,8 @@ export type FrameArchiveSettingsUpdateResponse = {
 export type FrameArchiveHistoryFrame = {
   frame_id: string;
   inspection_id: string;
+  phase_id?: number;
+  group_id?: number;
   overall_pass: boolean;
   action: string;
   anomaly_score: number;
