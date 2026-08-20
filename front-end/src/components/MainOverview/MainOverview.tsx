@@ -85,7 +85,7 @@ export function MainOverview({
         frameId,
         previousServerTs: snapshot.inspectResult?.server_ts_ms ?? 0,
       };
-      const accepted = await orchestratorApi.testAnalyzeArchiveFrame(snapshot.cameraId, frameId);
+      const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, frameId);
       setTestAnalyzeState("awaiting");
       setTestAnalyzeMessage(`Проверка запущена (${accepted.jobId}). Ожидание полного результата кадра ${frameId}…`);
     } catch (error) {
@@ -300,22 +300,60 @@ export function MainOverview({
           }
           headerActions={
             showModalAnalysisSettings ? undefined : (
-              <button
-                className="modal__action"
-                type="button"
-                onClick={async () => {
+              <>
+                <button
+                  className="modal__action"
+                  type="button"
+                  disabled={testAnalyzeState === "submitting"}
+                  onClick={async () => {
                   const cameraId = controller.modalSnapshot!.cameraId;
-                  const frameId = controller.modalSnapshot!.inspectResult?.frame_id;
-                  if (!frameId) {
+                  const inspectResult = controller.modalSnapshot!.inspectResult;
+                  const frameId = inspectResult?.frame_id;
+                  if (!frameId || !inspectResult) {
                     return;
                   }
-                  setTestFrameId(frameId);
-                  await onAnalysisSettingsOpen(cameraId);
-                  setShowModalAnalysisSettings(true);
+                  try {
+                    setTestAnalyzeState("submitting");
+                    setTestAnalyzeMessage(`Фиксация кадра ${frameId} для теста настроек…`);
+                    setTestFrameId(frameId);
+                    await onAnalysisSettingsOpen(cameraId);
+                    const pinSource = resolveTestPinSource(inspectResult);
+                    await orchestratorApi.pinTestFrame({
+                      cameraId,
+                      frameId,
+                      source: pinSource.source,
+                      httpPath: pinSource.httpPath,
+                    });
+                    setShowModalAnalysisSettings(true);
+                    setTestAnalyzeState("idle");
+                    setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Крутите параметры и нажмите «Проверить».`);
+                  } catch (error) {
+                    setTestFrameId(undefined);
+                    setShowModalAnalysisSettings(false);
+                    setTestAnalyzeState("error");
+                    setTestAnalyzeMessage(
+                      error instanceof Error ? error.message : "Не удалось зафиксировать кадр для теста",
+                    );
+                    try {
+                      await orchestratorApi.setTestMode(false);
+                      const inspectionState = await orchestratorApi.startAllInspections();
+                      window.dispatchEvent(
+                        new CustomEvent("inspection-control-changed", { detail: inspectionState }),
+                      );
+                    } catch {
+                      // leave error message from pin/open failure
+                    }
+                  }
                 }}
-              >
-                Изменить настройки анализа
-              </button>
+                >
+                  {testAnalyzeState === "submitting" ? "Фиксация кадра…" : "Изменить настройки анализа"}
+                </button>
+                {testAnalyzeState === "error" && testAnalyzeMessage && (
+                  <span className="modal__test-settings-status" data-state="error" role="alert">
+                    {testAnalyzeMessage}
+                  </span>
+                )}
+              </>
             )
           }
           inspectResult={controller.modalSnapshot.inspectResult}
@@ -356,6 +394,25 @@ function chunkItems<T>(items: T[], chunkSize: number) {
     const startIndex = groupIndex * chunkSize;
     return items.slice(startIndex, startIndex + chunkSize);
   });
+}
+
+function resolveTestPinSource(inspectResult: {
+  artifact_bundle_id?: string;
+  http_path?: string;
+  current?: { http_path?: string };
+}): { source: "archive" | "artifact"; httpPath?: string } {
+  // Prefer durable frame-archive over short-lived inspection artifacts (~2 min TTL).
+  const path = inspectResult.http_path ?? inspectResult.current?.http_path;
+  if (path?.includes("/api/frame-archive/")) {
+    return { source: "archive", httpPath: path };
+  }
+  if (inspectResult.artifact_bundle_id) {
+    return {
+      source: "artifact",
+      httpPath: `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
+    };
+  }
+  return { source: "archive" };
 }
 
 function getInspectionActionLabel(state: "idle" | "starting" | "stopping" | "error" | undefined, isEnabled: boolean) {

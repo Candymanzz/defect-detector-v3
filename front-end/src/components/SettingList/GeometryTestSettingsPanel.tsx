@@ -73,7 +73,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
         text: preview ? `Сохранение геометрии и проверка кадра ${testFrameId}…` : "Сохранение геометрии…",
       });
       void persistGeometry(selectedCameraId, maxShiftMm, jointSensitivity)
-        .then(() => (preview ? orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId!) : undefined))
+        .then(() => (preview ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId!) : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
             setStatus({
@@ -117,7 +117,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
       await persistGeometry(selectedCameraId, maxShiftMm, jointSensitivity);
       if (!hideSaveAction) {
         if (testFrameId) {
-          await orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId);
+          await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId);
           setStatus({ kind: "success", text: `Геометрия сохранена, кадр ${testFrameId} пересчитан` });
           return;
         }

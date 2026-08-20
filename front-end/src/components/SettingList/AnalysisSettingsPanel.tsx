@@ -103,7 +103,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       void Promise.resolve()
         .then(() => (persistSimple ? saveSimple(selectedCameraId, simple) : undefined))
         .then(() => (persistPro ? savePro(selectedCameraId, pro) : undefined))
-        .then(() => (preview ? orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId!) : undefined))
+        .then(() => (preview ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId!) : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
             setStatus({
@@ -168,7 +168,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       await request;
       if (!hideSaveAction) {
         if (selectedCameraId !== null && testFrameId) {
-          await orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId);
+          await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId);
           setStatus({ kind: "success", text: `Сохранено, кадр ${testFrameId} пересчитан` });
           return;
         }

@@ -366,6 +366,20 @@ export type TestAnalyzeResponse = {
   frameId: number;
 };
 
+export type PinTestFrameRequest = {
+  cameraId: number;
+  frameId: string | number;
+  source?: "archive" | "artifact";
+  httpPath?: string;
+};
+
+export type PinTestFrameResponse = {
+  ok: boolean;
+  cameraId: number;
+  frameId: number;
+  pinId: string;
+};
+
 export type AcceptLearnedNormalsRequest = {
   frameId: string | number;
   productType: string;

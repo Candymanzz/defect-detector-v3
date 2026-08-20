@@ -423,19 +423,23 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // Keep the frame-ready publication above, but avoid spending detector/CPU
                     // capacity on a heatmap that the UI will immediately replace.
                     // Archive the frame JPEG immediately so a superseded publish still persists history.
+                    // test-analyze must never rewrite the rolling archive slot used to pin the source frame.
+                    boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
                     if (!isLatestPublish(cameraId, publishSequence)) {
-                        saveFrameArchiveImmediately(
-                                cameraId,
-                                frameId,
-                                inspectionId,
-                                productType,
-                                detectorId,
-                                decision,
-                                hasCur ? currentJpeg : null,
-                                null,
-                                0,
-                                0
-                        );
+                        if (!testAnalyze) {
+                            saveFrameArchiveImmediately(
+                                    cameraId,
+                                    frameId,
+                                    inspectionId,
+                                    productType,
+                                    detectorId,
+                                    decision,
+                                    hasCur ? currentJpeg : null,
+                                    null,
+                                    0,
+                                    0
+                            );
+                        }
                         return;
                     }
 
@@ -531,7 +535,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     }
                     // Snapshot/copy while JPEG and heatmap files are still on disk (before finally).
                     FrameArchiveService archive = frameArchiveService;
-                    boolean archived = saveFrameArchiveImmediately(
+                    boolean archived = !testAnalyze && saveFrameArchiveImmediately(
                             cameraId,
                             frameId,
                             inspectionId,
@@ -545,7 +549,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     );
                     if (ws != null && (hasCur || hasHm)) {
                         try {
-                            boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
                             // test-analyze must keep live artifact URLs so the UI can show the freshly
                             // generated heatmap instead of the immutable archive copy for this frame.
                             String frameHttpPath = !testAnalyze && archived && archive != null
