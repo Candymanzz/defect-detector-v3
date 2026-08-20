@@ -221,6 +221,7 @@ class InspectionService:
             "inspection_id": inspection_id,
             "defect_id": defect_id,
             "fp_zone_ids": [zone.id for zone in fp_zones],
+            "fp_zones": [self._fp_zone_public_overlay(zone) for zone in fp_zones],
             "fp_zones_count": len(fp_zones),
             "original_status": review.original_status,
             "original_score": review.original_score,
@@ -283,6 +284,7 @@ class InspectionService:
             "inspection_id": inspection_id,
             "defect_ids": [candidate.id for candidate in candidates],
             "fp_zone_ids": [zone.id for zone in fp_zones],
+            "fp_zones": [self._fp_zone_public_overlay(zone) for zone in fp_zones],
             "fp_zones_count": len(fp_zones),
             "original_status": review.original_status,
             "original_score": review.original_score,
@@ -602,6 +604,16 @@ class InspectionService:
             except ValueError:
                 logger.info("skip FP zone for %s: invalid auto polygon", candidate.id)
         return zones
+
+    @staticmethod
+    def _fp_zone_public_overlay(zone: FPZone) -> dict:
+        return {
+            "id": zone.id,
+            "note": zone.note,
+            "points_norm_heatmap": [
+                {"x": float(x), "y": float(y)} for x, y in zone.points_norm_heatmap
+            ],
+        }
 
     def _delete_fp_zones_for_source(self, source_defect_id: str, source_inspection_id: str) -> None:
         if not source_defect_id and not source_inspection_id:

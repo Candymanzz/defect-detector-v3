@@ -95,7 +95,7 @@ export function drawGrayU8Heatmap(canvas: HTMLCanvasElement | null, heatmap: Hea
   }
 
   const imageData = ctx.createImageData(heatmap.width, heatmap.height);
-  const normalizationLut = createNormalizationLut(bytes, expectedSize);
+  const normalizationLut = createNormalizationLut();
   const pixels = imageData.data;
 
   for (let index = 0; index < expectedSize; index += 1) {

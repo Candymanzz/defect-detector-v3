@@ -38,7 +38,7 @@ workerScope.onmessage = (event: MessageEvent<HeatmapRenderRequest>) => {
     }
 
     const imageData = context.createImageData(width, height);
-    const normalizationLut = createNormalizationLut(bytes, expectedSize);
+    const normalizationLut = createNormalizationLut();
     const pixels = imageData.data;
 
     for (let index = 0; index < expectedSize; index += 1) {

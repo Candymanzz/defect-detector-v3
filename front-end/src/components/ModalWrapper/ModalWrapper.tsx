@@ -129,22 +129,16 @@ export function ModalWrapper({
                 key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
                 inspectResult={inspectResult}
                 productType={inspectResult.detector.product_type}
-                onAccepted={(cases) => {
-                  const acceptedZones = cases.flatMap((item) =>
-                    (item.polygon_norm?.length ?? 0) >= 3
-                      ? [{ id: item.id, camera_id: inspectResult.camera_id, note: item.note ?? "Добавлено в анализ", points_norm_heatmap: item.polygon_norm! }]
-                      : [],
-                  );
+                onAccepted={(result) => {
+                  const acceptedZones = (result.fp_zones?.length ? result.fp_zones : result.accepted_cases ?? []).flatMap((item) => {
+                    const points = "points_norm_heatmap" in item ? item.points_norm_heatmap : item.polygon_norm;
+                    return (points?.length ?? 0) >= 3
+                      ? [{ id: item.id, camera_id: inspectResult.camera_id, note: item.note ?? "Добавлено в анализ", points_norm_heatmap: points! }]
+                      : [];
+                  });
                   const nextZones = mergeFpZones(editedFpZones, acceptedZones);
                   setEditedFpZones(nextZones);
                   updateReferenceFpZones([inspectResult.camera_id], nextZones);
-                  if (orchestratorWs.isOpen && inspectResult.heatmap) {
-                    orchestratorWs.sendFpZonesUpdate({
-                      heatmap_width: inspectResult.heatmap.width,
-                      heatmap_height: inspectResult.heatmap.height,
-                      fp_zones: nextZones,
-                    });
-                  }
                 }}
               />
             )}
@@ -249,7 +243,7 @@ function LearnFrameAction({
 }: {
   inspectResult: InspectResultPayload;
   productType: string;
-  onAccepted: (cases: NonNullable<Awaited<ReturnType<typeof orchestratorApi.acceptLearnedNormals>>["accepted_cases"]>) => void;
+  onAccepted: (result: Awaited<ReturnType<typeof orchestratorApi.acceptLearnedNormals>>) => void;
 }) {
   const [state, setState] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -265,7 +259,7 @@ function LearnFrameAction({
       });
       const acceptedCaseIds = result.accepted_case_ids ?? result.accepted_cases?.map((item) => item.id) ?? [];
       attachLearnedCasesToActiveReference(inspectResult.camera_id, acceptedCaseIds);
-      onAccepted(result.accepted_cases ?? []);
+      onAccepted(result);
       const count = result.accepted_count ?? result.accepted_case_ids?.length ?? result.accepted_cases?.length ?? 0;
       setState("success");
       setMessage(`Кадр добавлен в анализ${count > 0 ? `: сохранено фрагментов — ${count}` : ""}.`);
@@ -709,11 +703,25 @@ function HeatmapPanel({
 function mergeFpZones(...zoneGroups: FpZoneNorm[][]) {
   const zonesByKey = new Map<string, FpZoneNorm>();
   for (const zone of zoneGroups.flat()) {
-    const polygonKey = zone.points_norm_heatmap.map((point) => `${point.x}:${point.y}`).join("|");
-    const key = `${zone.camera_id ?? "any"}:${polygonKey || zone.id ?? "empty"}`;
+    const polygonKey = createCanonicalPolygonKey(zone.points_norm_heatmap);
+    const key = polygonKey || zone.id || "empty";
     zonesByKey.set(key, zone);
   }
   return [...zonesByKey.values()];
+}
+
+function createCanonicalPolygonKey(points: FpZoneNorm["points_norm_heatmap"]) {
+  if (points.length === 0) return "";
+
+  const normalized = points.map((point) => `${point.x.toFixed(5)}:${point.y.toFixed(5)}`);
+  const candidates: string[] = [];
+  for (const sequence of [normalized, [...normalized].reverse()]) {
+    for (let offset = 0; offset < sequence.length; offset += 1) {
+      candidates.push([...sequence.slice(offset), ...sequence.slice(0, offset)].join("|"));
+    }
+  }
+  candidates.sort();
+  return candidates[0];
 }
 
 function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPayload }) {

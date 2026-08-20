@@ -1,33 +1,11 @@
 export const HEATMAP_COLOR_LUT = createHeatmapColorLut();
 
-export function createNormalizationLut(bytes: Uint8Array, size: number) {
-  let min = 255;
-  let max = 0;
-
-  for (let index = 0; index < size; index += 1) {
-    const value = bytes[index];
-
-    if (value < min) {
-      min = value;
-    }
-    if (value > max) {
-      max = value;
-    }
-  }
-
+export function createNormalizationLut() {
   const normalized = new Uint8Array(256);
-
-  if (max <= min) {
-    return normalized;
-  }
-
-  const range = max - min;
-
-  for (let value = min; value <= max; value += 1) {
-    const ratio = (value - min) / range;
+  for (let value = 1; value <= 255; value += 1) {
+    const ratio = value / 255;
     normalized[value] = Math.round(ratio ** 0.8 * 255);
   }
-
   return normalized;
 }
 

@@ -380,8 +380,15 @@ export type AcceptLearnedNormalsResponse = {
   learned_review_id?: string;
   accepted_case_ids?: string[];
   accepted_cases?: LearnedNormalCase[];
+  fp_zones?: AcceptedFpZone[];
   affects_original_pipeline_decision?: boolean;
   [key: string]: unknown;
+};
+
+export type AcceptedFpZone = {
+  id: string;
+  note?: string;
+  points_norm_heatmap: Array<{ x: number; y: number }>;
 };
 
 export type LearnedNormalCase = {

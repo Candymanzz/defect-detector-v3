@@ -447,15 +447,30 @@ function copyRoiPoints(points: InterestPointNorm[]) {
 
 export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[]) {
   let changed = false;
+  let archivesChanged = false;
   for (const cameraId of cameraIds) {
     const referenceImage = referenceImagesByCameraId.get(cameraId);
     if (!referenceImage) continue;
+    const cameraZones = copyFpZonesForCamera(zones, cameraId);
     referenceImagesByCameraId.set(cameraId, {
       ...referenceImage,
-      fpZones: copyFpZonesForCamera(zones, cameraId),
+      fpZones: cameraZones,
     });
     changed = true;
+
+    for (const archive of archivedReferenceGroups) {
+      const archivedImage = archive.images.find(
+        (image) => image.cameraId === cameraId && image.frame.frame_id === referenceImage.frame.frame_id,
+      );
+      if (!archivedImage) continue;
+      archivedImage.fpZones = copyFpZones(cameraZones);
+      archive.bundle.fp_zones = archive.images.flatMap((image) =>
+        copyFpZonesForCamera(image.fpZones ?? [], image.cameraId),
+      );
+      archivesChanged = true;
+    }
   }
+  if (archivesChanged) markArchivedReferenceGroupsChanged();
   if (changed) emitReferenceImageChange();
   if (changed) queuePersistReferenceState();
 }
