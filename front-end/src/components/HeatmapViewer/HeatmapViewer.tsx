@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { HeatmapDescriptor } from "../../shared/ws";
+import type { FpZoneNorm, HeatmapDescriptor } from "../../shared/ws";
 import {
   clearHeatmapCanvas,
   drawGrayU8Heatmap,
@@ -13,6 +13,7 @@ type HeatmapViewerProps = {
   cameraId: number;
   heatmap: HeatmapDescriptor | null;
   backgroundImageUrl?: string;
+  learnedZones?: FpZoneNorm[];
 };
 type HeatmapStatus = "idle" | "loading" | "ready" | "error";
 type HeatmapWorkerResponse = {
@@ -21,7 +22,7 @@ type HeatmapWorkerResponse = {
   error?: string;
 };
 
-export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: HeatmapViewerProps) {
+export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl, learnedZones = [] }: HeatmapViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestIdRef = useRef(0);
   const [status, setStatus] = useState<HeatmapStatus>("idle");
@@ -142,6 +143,24 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
           ref={canvasRef}
           className="heatmap-viewer__canvas"
         />
+
+        {learnedZones.some((zone) => zone.points_norm_heatmap.length >= 3) && (
+          <svg
+            className="heatmap-viewer__learned-overlay"
+            viewBox="0 0 1 1"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {learnedZones.map((zone, index) =>
+              zone.points_norm_heatmap.length >= 3 ? (
+                <polygon
+                  key={zone.id ?? index}
+                  points={zone.points_norm_heatmap.map((point) => `${point.x},${point.y}`).join(" ")}
+                />
+              ) : null,
+            )}
+          </svg>
+        )}
 
         {status === "loading" && <div className="heatmap-viewer__status">Загрузка тепловой карты</div>}
       </div>

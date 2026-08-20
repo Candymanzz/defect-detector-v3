@@ -305,7 +305,7 @@ def test_heatmap_stays_localized_to_defect_instead_of_filling_roi(
     assert heat[2:8, 2:12].max() < 16
 
 
-def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
+def test_heatmap_keeps_residual_when_mask_is_empty() -> None:
     service = InspectionService.__new__(InspectionService)
     mask = np.zeros((32, 40, 3), dtype=np.uint8)
     residual = np.full((32, 40, 3), 40, dtype=np.uint8)
@@ -313,7 +313,8 @@ def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
 
     heat = service._build_heatmap_gray(mask, residual)
 
-    assert heat.max() == 0
+    assert heat.max() == 180
+    assert heat[0, 0] == 40
 
 
 def test_identity_homography_skips_realign(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:

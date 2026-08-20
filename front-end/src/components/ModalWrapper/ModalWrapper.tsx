@@ -129,6 +129,16 @@ export function ModalWrapper({
                 key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
                 inspectResult={inspectResult}
                 productType={inspectResult.detector.product_type}
+                onAccepted={(cases) => {
+                  setEditedFpZones((current) => [
+                    ...current,
+                    ...cases.flatMap((item) =>
+                      (item.polygon_norm?.length ?? 0) >= 3
+                        ? [{ id: item.id, note: item.note ?? "Добавлено в анализ", points_norm_heatmap: item.polygon_norm! }]
+                        : [],
+                    ),
+                  ]);
+                }}
               />
             )}
             {headerActions}
@@ -170,6 +180,7 @@ export function ModalWrapper({
             cameraImageUrl={displayedCurrentImageUrl}
             heatmapUrl={inspectHeatmapUrl}
             inspectResult={inspectResult}
+            learnedZones={editedFpZones}
           />
           {analysisSettingsContent ?? (
             <GeometryDeviationViewer
@@ -224,7 +235,15 @@ export function ModalWrapper({
   );
 }
 
-function LearnFrameAction({ inspectResult, productType }: { inspectResult: InspectResultPayload; productType: string }) {
+function LearnFrameAction({
+  inspectResult,
+  productType,
+  onAccepted,
+}: {
+  inspectResult: InspectResultPayload;
+  productType: string;
+  onAccepted: (cases: NonNullable<Awaited<ReturnType<typeof orchestratorApi.acceptLearnedNormals>>["accepted_cases"]>) => void;
+}) {
   const [state, setState] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -239,6 +258,7 @@ function LearnFrameAction({ inspectResult, productType }: { inspectResult: Inspe
       });
       const acceptedCaseIds = result.accepted_case_ids ?? result.accepted_cases?.map((item) => item.id) ?? [];
       attachLearnedCasesToActiveReference(inspectResult.camera_id, acceptedCaseIds);
+      onAccepted(result.accepted_cases ?? []);
       const count = result.accepted_count ?? result.accepted_case_ids?.length ?? result.accepted_cases?.length ?? 0;
       setState("success");
       setMessage(`Кадр добавлен в анализ${count > 0 ? `: сохранено фрагментов — ${count}` : ""}.`);
@@ -637,11 +657,13 @@ function HeatmapPanel({
   cameraImageUrl,
   heatmapUrl,
   inspectResult,
+  learnedZones,
 }: {
   cameraId?: number;
   cameraImageUrl?: string;
   heatmapUrl?: string;
   inspectResult?: InspectResultPayload;
+  learnedZones: FpZoneNorm[];
 }) {
   const matchingInspectResult =
     cameraId !== undefined && inspectResult?.camera_id === cameraId ? inspectResult : undefined;
@@ -652,6 +674,10 @@ function HeatmapPanel({
         : null,
     [heatmapUrl, matchingInspectResult],
   );
+  const mergedLearnedZones = useMemo(
+    () => mergeFpZones(matchingInspectResult?.fp_zones ?? [], learnedZones),
+    [learnedZones, matchingInspectResult?.fp_zones],
+  );
   return (
     <figure className="modal-image-panel">
       <figcaption>Тепловая карта</figcaption>
@@ -660,6 +686,7 @@ function HeatmapPanel({
           cameraId={cameraId}
           heatmap={frozenHeatmap}
           backgroundImageUrl={cameraImageUrl}
+          learnedZones={mergedLearnedZones}
         />
       ) : (
         <div className="modal-image-panel__image-wrap">
@@ -670,6 +697,15 @@ function HeatmapPanel({
       )}
     </figure>
   );
+}
+
+function mergeFpZones(...zoneGroups: FpZoneNorm[][]) {
+  const zonesByKey = new Map<string, FpZoneNorm>();
+  for (const zone of zoneGroups.flat()) {
+    const key = zone.id ?? zone.points_norm_heatmap.map((point) => `${point.x}:${point.y}`).join("|");
+    zonesByKey.set(key, zone);
+  }
+  return [...zonesByKey.values()];
 }
 
 function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPayload }) {

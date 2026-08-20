@@ -387,6 +387,7 @@ export type AcceptLearnedNormalsResponse = {
 export type LearnedNormalCase = {
   id: string;
   product_type: string;
+  polygon_norm?: Array<{ x: number; y: number }>;
   source_inspection_id?: string;
   source_defect_id?: string;
   created_at?: string;

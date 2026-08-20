@@ -1089,13 +1089,27 @@ button.reference-setup__object-row {
 }
 
 .reference-setup__gallery-stage {
+  position: relative;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
-  gap: 10px;
   min-height: 0;
   place-items: center;
   overflow: hidden;
   background: #05080c;
+}
+
+.reference-setup__gallery-stage > button {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.reference-setup__gallery-stage > button:first-child {
+  left: 8px;
+}
+
+.reference-setup__gallery-stage > button:last-child {
+  right: 8px;
 }
 
 .reference-setup__gallery-stage > img {
@@ -1158,10 +1172,6 @@ button.reference-setup__object-row {
     height: 96vh;
   }
 
-  .reference-setup__gallery-stage {
-    grid-template-columns: 36px minmax(0, 1fr) 36px;
-    gap: 4px;
-  }
 }
 
 .reference-setup__hint {

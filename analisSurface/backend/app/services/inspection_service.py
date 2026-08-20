@@ -813,7 +813,6 @@ class InspectionService:
             display_region[local_mask] = 255
 
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
-        # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
         heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
@@ -1906,17 +1905,15 @@ class InspectionService:
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
         """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET).
 
-        Gate diff by the defect mask. Global min-max of the whole ROI turns residual
-        lighting into a solid green JET blob even when there is no defect.
+        Keep the full residual field visible for every inspection. The defect mask
+        boosts confirmed anomaly pixels, while the UI performs display normalization.
         """
         mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         if diff_map is None:
             return mask_gray
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
-        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
-        return cv2.max(mask_gray, gated_diff)
+        return cv2.max(mask_gray, diff_gray)
 
     def _colorize_heatmap(self, heatmap_gray: np.ndarray, mask: np.ndarray) -> np.ndarray:
         heatmap = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)
