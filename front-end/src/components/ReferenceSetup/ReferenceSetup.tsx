@@ -47,6 +47,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     fpZonesByCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
+  const [selectedLearnedCaseId, setSelectedLearnedCaseId] = useState<string | null>(null);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
@@ -92,6 +93,30 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
       document.documentElement.style.overflow = previousHtmlOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedLearnedCaseId) return;
+
+    const handleGalleryKeyDown = (event: KeyboardEvent) => {
+      const selectedIndex = learnedNormals.cases.findIndex((item) => item.id === selectedLearnedCaseId);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedLearnedCaseId(null);
+      } else if (event.key === "ArrowLeft" && selectedIndex >= 0) {
+        event.preventDefault();
+        const previousIndex = (selectedIndex - 1 + learnedNormals.cases.length) % learnedNormals.cases.length;
+        setSelectedLearnedCaseId(learnedNormals.cases[previousIndex]?.id ?? null);
+      } else if (event.key === "ArrowRight" && selectedIndex >= 0) {
+        event.preventDefault();
+        const nextIndex = (selectedIndex + 1) % learnedNormals.cases.length;
+        setSelectedLearnedCaseId(learnedNormals.cases[nextIndex]?.id ?? null);
+      }
+    };
+
+    window.addEventListener("keydown", handleGalleryKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleGalleryKeyDown, { capture: true });
+  }, [learnedNormals.cases, selectedLearnedCaseId]);
 
   return (
     <div
@@ -347,10 +372,17 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       >
                         {learnedNormals.deletingId === item.id ? "…" : "×"}
                       </button>
-                      <img
-                        src={orchestratorApi.learnedNormalImageUrl(item.id)}
-                        alt={`Дополнительный фрагмент ${index + 1}`}
-                      />
+                      <button
+                        className="reference-setup__learned-open"
+                        type="button"
+                        aria-label={`Увеличить дополнительный фрагмент ${index + 1}`}
+                        onClick={() => setSelectedLearnedCaseId(item.id)}
+                      >
+                        <img
+                          src={orchestratorApi.learnedNormalImageUrl(item.id)}
+                          alt={`Дополнительный фрагмент ${index + 1}`}
+                        />
+                      </button>
                       <figcaption>{item.note || `Фрагмент ${index + 1}`}</figcaption>
                     </figure>
                   ))}
@@ -426,7 +458,85 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             onUse={handleUseArchivedReference}
           />
 
+          {selectedLearnedCaseId && (
+            <LearnedFramesGallery
+              cases={learnedNormals.cases}
+              selectedId={selectedLearnedCaseId}
+              onClose={() => setSelectedLearnedCaseId(null)}
+              onSelect={setSelectedLearnedCaseId}
+            />
+          )}
+
         </div>
+      </section>
+    </div>
+  );
+}
+
+function LearnedFramesGallery({
+  cases,
+  selectedId,
+  onClose,
+  onSelect,
+}: {
+  cases: LearnedNormalCase[];
+  selectedId: string;
+  onClose: () => void;
+  onSelect: (caseId: string) => void;
+}) {
+  const selectedIndex = Math.max(0, cases.findIndex((item) => item.id === selectedId));
+  const selectedCase = cases[selectedIndex];
+  if (!selectedCase) return null;
+
+  const selectOffset = (offset: number) => {
+    const nextIndex = (selectedIndex + offset + cases.length) % cases.length;
+    onSelect(cases[nextIndex].id);
+  };
+
+  return (
+    <div
+      className="reference-setup__gallery-backdrop"
+      role="presentation"
+      onMouseDown={onClose}
+    >
+      <section
+        className="reference-setup__gallery"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Просмотр дополнительных кадров анализа"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <strong>{selectedCase.note || `Фрагмент ${selectedIndex + 1}`}</strong>
+          <span>{selectedIndex + 1} / {cases.length}</span>
+          <button type="button" aria-label="Закрыть" onClick={onClose}>x</button>
+        </header>
+        <div className="reference-setup__gallery-stage">
+          {cases.length > 1 && (
+            <button type="button" aria-label="Предыдущий кадр" onClick={() => selectOffset(-1)}>‹</button>
+          )}
+          <img
+            src={orchestratorApi.learnedNormalImageUrl(selectedCase.id)}
+            alt={selectedCase.note || `Дополнительный фрагмент ${selectedIndex + 1}`}
+          />
+          {cases.length > 1 && (
+            <button type="button" aria-label="Следующий кадр" onClick={() => selectOffset(1)}>›</button>
+          )}
+        </div>
+        <nav className="reference-setup__gallery-strip" aria-label="Дополнительные кадры">
+          {cases.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-label={`Открыть кадр ${index + 1}`}
+              aria-current={item.id === selectedCase.id ? "true" : undefined}
+              onClick={() => onSelect(item.id)}
+            >
+              <img src={orchestratorApi.learnedNormalImageUrl(item.id)} alt="" />
+              <span>{index + 1}</span>
+            </button>
+          ))}
+        </nav>
       </section>
     </div>
   );
