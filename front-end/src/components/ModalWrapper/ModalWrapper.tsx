@@ -130,14 +130,21 @@ export function ModalWrapper({
                 inspectResult={inspectResult}
                 productType={inspectResult.detector.product_type}
                 onAccepted={(cases) => {
-                  setEditedFpZones((current) => [
-                    ...current,
-                    ...cases.flatMap((item) =>
-                      (item.polygon_norm?.length ?? 0) >= 3
-                        ? [{ id: item.id, note: item.note ?? "Добавлено в анализ", points_norm_heatmap: item.polygon_norm! }]
-                        : [],
-                    ),
-                  ]);
+                  const acceptedZones = cases.flatMap((item) =>
+                    (item.polygon_norm?.length ?? 0) >= 3
+                      ? [{ id: item.id, camera_id: inspectResult.camera_id, note: item.note ?? "Добавлено в анализ", points_norm_heatmap: item.polygon_norm! }]
+                      : [],
+                  );
+                  const nextZones = mergeFpZones(editedFpZones, acceptedZones);
+                  setEditedFpZones(nextZones);
+                  updateReferenceFpZones([inspectResult.camera_id], nextZones);
+                  if (orchestratorWs.isOpen && inspectResult.heatmap) {
+                    orchestratorWs.sendFpZonesUpdate({
+                      heatmap_width: inspectResult.heatmap.width,
+                      heatmap_height: inspectResult.heatmap.height,
+                      fp_zones: nextZones,
+                    });
+                  }
                 }}
               />
             )}
@@ -702,7 +709,8 @@ function HeatmapPanel({
 function mergeFpZones(...zoneGroups: FpZoneNorm[][]) {
   const zonesByKey = new Map<string, FpZoneNorm>();
   for (const zone of zoneGroups.flat()) {
-    const key = zone.id ?? zone.points_norm_heatmap.map((point) => `${point.x}:${point.y}`).join("|");
+    const polygonKey = zone.points_norm_heatmap.map((point) => `${point.x}:${point.y}`).join("|");
+    const key = `${zone.camera_id ?? "any"}:${polygonKey || zone.id ?? "empty"}`;
     zonesByKey.set(key, zone);
   }
   return [...zonesByKey.values()];

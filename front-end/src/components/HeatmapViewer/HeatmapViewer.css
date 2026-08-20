@@ -26,11 +26,12 @@
 
 .heatmap-viewer__image {
   z-index: 0;
+  opacity: 0.48;
 }
 
 .heatmap-viewer__canvas {
   z-index: 1;
-  opacity: 0.75;
+  opacity: 1;
 }
 
 .heatmap-viewer__learned-overlay {
@@ -43,9 +44,9 @@
 }
 
 .heatmap-viewer__learned-overlay polygon {
-  fill: rgba(34, 197, 94, 0.22);
-  stroke: #22c55e;
-  stroke-width: 3;
+  fill: rgba(34, 197, 94, 0.34);
+  stroke: #4ade80;
+  stroke-width: 4;
   vector-effect: non-scaling-stroke;
 }
 
