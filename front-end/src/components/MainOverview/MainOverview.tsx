@@ -5,6 +5,7 @@ import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
 import { AnalysisSettingsPanel } from "../SettingList/AnalysisSettingsPanel";
+import { notifyAnalysisSettingsChanged } from "../SettingList/analysisSettingsEvents";
 import type { AnalysisSettingsPanelHandle } from "../SettingList/AnalysisSettingsPanel";
 import { GeometryTestSettingsPanel } from "../SettingList/GeometryTestSettingsPanel";
 import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTestSettingsPanel";
@@ -80,6 +81,7 @@ export function MainOverview({
     );
     try {
       await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
+      notifyAnalysisSettingsChanged(snapshot.cameraId);
       pendingTestRef.current = {
         cameraId: snapshot.cameraId,
         frameId,
@@ -361,14 +363,22 @@ export function MainOverview({
           onInspectionSelect={controller.selectModalInspection}
           onClose={() => {
             if (showModalAnalysisSettings) {
-              void Promise.allSettled([
-                geometrySettingsRef.current?.save() ?? Promise.resolve(),
-                analysisSettingsRef.current?.save() ?? Promise.resolve(),
-              ])
-                .then(() => exitTestModeAndResume())
-                .finally(() => {
+              void (async () => {
+                try {
+                  await Promise.all([
+                    geometrySettingsRef.current?.save() ?? Promise.resolve(),
+                    analysisSettingsRef.current?.save() ?? Promise.resolve(),
+                  ]);
+                  notifyAnalysisSettingsChanged(controller.modalSnapshot!.cameraId);
+                  await exitTestModeAndResume();
                   controller.closeInspectionModal();
-                });
+                } catch (error) {
+                  setTestAnalyzeState("error");
+                  setTestAnalyzeMessage(
+                    error instanceof Error ? error.message : "Не удалось сохранить настройки анализа",
+                  );
+                }
+              })();
               return;
             }
             setShowModalAnalysisSettings(false);

@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import type { ProAnalysisKnobs, SimpleAnalysisKnobs } from "../../shared/api";
+import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
 
@@ -55,6 +56,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   const [showUnlock, setShowUnlock] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [status, setStatus] = useState<{ kind: "loading" | "saving" | "success" | "error"; text: string }>({
     kind: "loading",
     text: "Загрузка настроек…",
@@ -64,6 +66,14 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   const hydratedRef = useRef(false);
   const userEditedSimpleRef = useRef(false);
   const userEditedProRef = useRef(false);
+
+  useEffect(() => {
+    return subscribeAnalysisSettingsChanged((changedCameraId) => {
+      if (selectedCameraId === null || changedCameraId === null || changedCameraId === selectedCameraId) {
+        setRefreshVersion((version) => version + 1);
+      }
+    });
+  }, [selectedCameraId]);
 
   useEffect(() => {
     let active = true;
@@ -82,7 +92,19 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       })
       .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
     return () => { active = false; };
-  }, [selectedCameraId, profile]);
+  }, [profile, refreshVersion, selectedCameraId]);
+
+  useEffect(() => {
+    if (!unlocked || refreshVersion === 0) return;
+    let active = true;
+    loadPro(selectedCameraId, profile)
+      .then((response) => {
+        if (!active) return;
+        setPro(response.knobs ?? { ...DEFAULT_PRO, threshold: response.settings.default_threshold });
+      })
+      .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
+    return () => { active = false; };
+  }, [profile, refreshVersion, selectedCameraId, unlocked]);
 
   useEffect(() => {
     if (hideSaveAction || !hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
