@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { HttpError, orchestratorApi } from "../../shared/api";
 import type { GeometryInspectResponse } from "../../shared/api";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
-import { updateReferenceFpZones } from "../../shared/referenceImages";
+import { attachLearnedCasesToActiveReference, updateReferenceFpZones } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import { orchestratorWs } from "../../shared/ws";
 import type { FpZoneNorm, InspectResultPayload, InterestPointNorm, ServerWsMessage } from "../../shared/ws";
@@ -237,6 +237,8 @@ function LearnFrameAction({ inspectResult, productType }: { inspectResult: Inspe
         cameraId: inspectResult.camera_id,
         productType,
       });
+      const acceptedCaseIds = result.accepted_case_ids ?? result.accepted_cases?.map((item) => item.id) ?? [];
+      attachLearnedCasesToActiveReference(inspectResult.camera_id, acceptedCaseIds);
       const count = result.accepted_count ?? result.accepted_case_ids?.length ?? result.accepted_cases?.length ?? 0;
       setState("success");
       setMessage(`Кадр добавлен в анализ${count > 0 ? `: сохранено фрагментов — ${count}` : ""}.`);

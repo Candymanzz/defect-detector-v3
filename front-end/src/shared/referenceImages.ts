@@ -1,4 +1,4 @@
-import { orchestratorApi } from "./api";
+import { HttpError, orchestratorApi } from "./api";
 import { isValidJointRoiPolygon } from "../components/ReferenceSetup/referenceRoi";
 import type {
   ClientReferenceBundlePayload,
@@ -25,6 +25,7 @@ export type ArchivedReferenceGroup = {
   bundle: ClientReferenceBundlePayload;
   imageUrlsByCameraId: Record<number, string>;
   images: Array<StoredReferenceImage & { cameraId: number }>;
+  learnedCaseIdsByCameraId: Record<number, string[]>;
 };
 
 const referenceImagesByCameraId = new Map<number, StoredReferenceImage>();
@@ -230,13 +231,24 @@ export function getArchivedReferenceGroup(id: string) {
   return archive ? copyArchivedReferenceGroup(archive) : undefined;
 }
 
-export function deleteArchivedReferenceGroup(id: string) {
+export async function deleteArchivedReferenceGroup(id: string) {
   const archiveIndex = archivedReferenceGroups.findIndex((referenceGroup) => referenceGroup.id === id);
   if (archiveIndex < 0) {
     return;
   }
 
-  const [archive] = archivedReferenceGroups.splice(archiveIndex, 1);
+  const archive = archivedReferenceGroups[archiveIndex];
+  const learnedCaseIds = [...new Set(Object.values(archive.learnedCaseIdsByCameraId).flat())];
+  await Promise.all(
+    learnedCaseIds.map(async (caseId) => {
+      try {
+        await orchestratorApi.deleteLearnedNormal(caseId);
+      } catch (error) {
+        if (!(error instanceof HttpError) || error.status !== 404) throw error;
+      }
+    }),
+  );
+  archivedReferenceGroups.splice(archiveIndex, 1);
   for (const imageUrl of Object.values(archive.imageUrlsByCameraId)) {
     if (imageUrl.startsWith("blob:") && !isImageUrlInUse(imageUrl)) {
       URL.revokeObjectURL(imageUrl);
@@ -326,6 +338,7 @@ function createArchivedReferenceGroup(
     bundle,
     imageUrlsByCameraId: Object.fromEntries(sortedImages.map((image) => [image.cameraId, image.imageUrl])),
     images: sortedImages.map((image) => ({ cameraId: image.cameraId, ...copyStoredReferenceImage(image) })),
+    learnedCaseIdsByCameraId: {},
   };
 }
 
@@ -350,6 +363,9 @@ function copyArchivedReferenceGroup(archive: ArchivedReferenceGroup): ArchivedRe
     },
     imageUrlsByCameraId: { ...archive.imageUrlsByCameraId },
     images: archive.images.map((image) => ({ cameraId: image.cameraId, ...copyStoredReferenceImage(image) })),
+    learnedCaseIdsByCameraId: Object.fromEntries(
+      Object.entries(archive.learnedCaseIdsByCameraId).map(([cameraId, caseIds]) => [cameraId, [...caseIds]]),
+    ),
   };
 }
 
@@ -444,6 +460,41 @@ export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[])
   if (changed) queuePersistReferenceState();
 }
 
+export function attachLearnedCasesToActiveReference(cameraId: number, caseIds: string[]) {
+  if (caseIds.length === 0) return;
+  const activeImage = referenceImagesByCameraId.get(cameraId);
+  if (!activeImage) return;
+  const archive = archivedReferenceGroups.find((candidate) =>
+    candidate.images.some(
+      (image) => image.cameraId === cameraId && image.frame.frame_id === activeImage.frame.frame_id,
+    ),
+  );
+  if (!archive) return;
+
+  archive.learnedCaseIdsByCameraId[cameraId] = [
+    ...new Set([...(archive.learnedCaseIdsByCameraId[cameraId] ?? []), ...caseIds]),
+  ];
+  markArchivedReferenceGroupsChanged();
+  queuePersistReferenceState();
+  emitReferenceImageChange();
+}
+
+export function detachLearnedCaseFromReferences(caseId: string) {
+  let changed = false;
+  for (const archive of archivedReferenceGroups) {
+    for (const [cameraId, caseIds] of Object.entries(archive.learnedCaseIdsByCameraId)) {
+      const nextIds = caseIds.filter((id) => id !== caseId);
+      if (nextIds.length === caseIds.length) continue;
+      archive.learnedCaseIdsByCameraId[Number(cameraId)] = nextIds;
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  markArchivedReferenceGroupsChanged();
+  queuePersistReferenceState();
+  emitReferenceImageChange();
+}
+
 function createDurableReferenceFrame(frame: ShmFrameRefData): ShmFrameRefData {
   return {
     ...frame,
@@ -493,6 +544,7 @@ async function createPersistedReferenceState(): Promise<PersistedReferenceState>
       bundle: archive.bundle,
       imageKeysByCameraId: { ...archive.imageUrlsByCameraId },
       images: archive.images.map(({ cameraId, imageUrl, ...image }) => ({ cameraId, imageKey: imageUrl, ...image })),
+      learnedCaseIdsByCameraId: archive.learnedCaseIdsByCameraId,
     })),
     blobs: blobs.filter((entry): entry is [string, Blob] => entry !== null),
   };
@@ -529,6 +581,9 @@ async function hydratePersistedReferenceState() {
         },
         imageUrlsByCameraId: Object.fromEntries(images.map((image) => [image.cameraId, image.imageUrl])),
         images,
+        learnedCaseIdsByCameraId: Object.fromEntries(
+          Object.entries(archive.learnedCaseIdsByCameraId ?? {}).map(([cameraId, caseIds]) => [cameraId, [...caseIds]]),
+        ),
       });
     }
     referenceImageVersion += 1;

@@ -85,15 +85,15 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   }, [selectedCameraId, profile]);
 
   useEffect(() => {
-    if (!hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
+    if (hideSaveAction || !hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
       return;
     }
     if (previewTimerRef.current !== null) {
       window.clearTimeout(previewTimerRef.current);
     }
     const requestId = ++previewRequestIdRef.current;
-    const persistSimple = userEditedSimpleRef.current;
-    const persistPro = userEditedProRef.current;
+    const persistSimple = mode === "simple" && userEditedSimpleRef.current;
+    const persistPro = mode === "pro" && userEditedProRef.current;
     const preview = selectedCameraId !== null && Boolean(testFrameId);
     previewTimerRef.current = window.setTimeout(() => {
       setStatus({
@@ -106,6 +106,8 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         .then(() => (preview ? orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId!) : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
+            if (persistSimple) userEditedSimpleRef.current = false;
+            if (persistPro) userEditedProRef.current = false;
             setStatus({
               kind: "success",
               text: preview
@@ -128,7 +130,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         previewTimerRef.current = null;
       }
     };
-  }, [pro, selectedCameraId, simple, testFrameId]);
+  }, [hideSaveAction, mode, pro, selectedCameraId, simple, testFrameId]);
 
   const unlock = () => {
     if (password !== ACCESS_CODE) {
@@ -161,11 +163,16 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     }
     previewRequestIdRef.current += 1;
     setStatus({ kind: "saving", text: "Сохранение…" });
-    const request = mode === "simple"
-      ? saveSimple(selectedCameraId, simple)
-      : savePro(selectedCameraId, pro);
     try {
-      await request;
+      if (mode === "simple") {
+        const response = await saveSimple(selectedCameraId, simple);
+        if (response?.knobs) setSimple(response.knobs);
+        userEditedSimpleRef.current = false;
+      } else {
+        const response = await savePro(selectedCameraId, pro);
+        if (response?.knobs) setPro(response.knobs);
+        userEditedProRef.current = false;
+      }
       if (!hideSaveAction) {
         if (selectedCameraId !== null && testFrameId) {
           await orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId);
