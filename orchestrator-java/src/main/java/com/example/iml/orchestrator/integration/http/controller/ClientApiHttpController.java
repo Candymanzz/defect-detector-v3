@@ -898,7 +898,13 @@ public final class ClientApiHttpController implements HttpController {
                 }
             } else if (clientApi.inspectionGate().disableInspectionAndRequestCancel(cameraId)) {
                 cancelled.add(cameraId);
+            } else {
+                // Already idle/disabled — still mark disabled so bucket no longer waits for this cam.
+                clientApi.inspectionGate().setInspectionEnabled(cameraId, false);
             }
+        }
+        if (!enabled && clientApi.inspectionResumeHolder() != null) {
+            clientApi.inspectionResumeHolder().reevaluateOpenBucketsAfterGateChange();
         }
 
         sendInspectionState(ctx, requestedCameraIds, changed, cancelled, unknown);
@@ -925,6 +931,9 @@ public final class ClientApiHttpController implements HttpController {
             }
         }
         Set<Integer> cancelled = clientApi.inspectionGate().disableAllAndRequestCancel();
+        if (clientApi.inspectionResumeHolder() != null) {
+            clientApi.inspectionResumeHolder().reevaluateOpenBucketsAfterGateChange();
+        }
         sendInspectionState(ctx, requestedCameraIds, changed, cancelled, Set.of());
     }
 
