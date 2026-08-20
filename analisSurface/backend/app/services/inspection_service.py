@@ -52,6 +52,7 @@ class InspectionService:
         review_limit: Optional[int] = None,
         reviews_dir: Optional[Path] = None,
         session_wipe: bool = True,
+        learned_normals_session_wipe: Optional[bool] = None,
     ) -> None:
         self.references: Dict[str, np.ndarray] = {}
         self._reference_hashes: Dict[str, str] = {}
@@ -77,7 +78,7 @@ class InspectionService:
         data_dir = Path(__file__).resolve().parent.parent / "data"
         self._accepted_normals = AcceptedNormalMemory(
             learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals",
-            session_wipe=session_wipe,
+            session_wipe=session_wipe if learned_normals_session_wipe is None else learned_normals_session_wipe,
         )
         self._learning_reviews = InspectionReviewStore(
             max_items=review_limit,
@@ -198,11 +199,13 @@ class InspectionService:
         if candidate.matched_case_id is not None:
             raise ValueError("Defect is already recognized as an accepted normal")
 
+        aligned, _, _ = decode_review_arrays(review)
         accepted_case = self._accepted_normals.add_from_candidate(
             product_type=review.product_type,
             reference_hash=review.reference_hash,
             inspection_id=review.inspection_id,
             candidate=candidate,
+            source_frame=aligned,
             note=note,
         )
         candidate.matched_case_id = accepted_case.id
@@ -247,6 +250,7 @@ class InspectionService:
             raise ValueError("All review defects are already accepted as normal")
 
         accepted_cases = []
+        aligned, _, _ = decode_review_arrays(review)
         try:
             for candidate in candidates:
                 accepted_case = self._accepted_normals.add_from_candidate(
@@ -254,6 +258,7 @@ class InspectionService:
                     reference_hash=review.reference_hash,
                     inspection_id=review.inspection_id,
                     candidate=candidate,
+                    source_frame=aligned,
                     note=note,
                 )
                 candidate.matched_case_id = accepted_case.id
