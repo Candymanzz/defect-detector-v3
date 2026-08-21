@@ -8,6 +8,9 @@
 /logs/
 .dev-stack.pids.json
 .tmp/
+**/.pytest-tmp-final/
+**/.pytest_cache/
+**/test_data/*_preview.png
 
 # Build outputs (GitHub rejects files > 100 MB)
 **/target/
