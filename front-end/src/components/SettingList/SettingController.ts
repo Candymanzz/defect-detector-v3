@@ -491,8 +491,7 @@ async function saveGeometryRuntimeSettings(
 ) {
   const update = {
     max_shift_mm: maxShiftMm,
-    // Seam segmentation is always on; frontend no longer exposes an enable toggle.
-    joint_seam_segmentation_enabled: true,
+    // Sensitivity only; seam turns on in orchestrator when joint ROI is present on the reference.
     joint_seam_segmentation_sensitivity: jointSeamSegmentationSensitivity,
   };
 

@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -134,7 +135,11 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             Map<String, Object> gHeader = BinaryInspectHeaders.geometryInspectHeader(
                     cameraId, state.capture(), activeReference, geometryCfg, pythonCfg);
             if (geometryRuntimeConfig != null) {
-                geometryRuntimeConfig.applyToGeometryHeader(gHeader, productType);
+                // UI пишет geometry-runtime под analysis_profile камеры, не под product_type эталона.
+                geometryRuntimeConfig.applyToGeometryHeader(
+                        gHeader,
+                        CameraAnalysisProfiles.resolve(cameraId, productType)
+                );
             }
             BinaryInspectHeaders.applyMainRoiFromPolygon(gHeader, state.capture(), activeReference);
             BinaryInspectHeaders.syncWrinklesRoiFromMainRoi(gHeader);

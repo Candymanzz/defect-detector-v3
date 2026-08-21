@@ -77,6 +77,59 @@ class BinaryInspectHeadersTest {
         assertEquals(5.0, jointHeader.get("maxJointParallelismDeg"));
         assertEquals(0.8, jointHeader.get("maxJointTaperMm"));
         assertEquals(0.5, jointHeader.get("jointSeamSegmentationSensitivity"));
+        assertEquals(true, jointHeader.get("jointSeamSegmentationEnabled"));
+        assertEquals(true, otherHeader.get("jointSeamSegmentationEnabled"));
+    }
+
+    @Test
+    void withoutJointRoiSeamIsOffAndModeIsOff() {
+        ReferenceSnapshot noJoint = new ReferenceSnapshot("product", Map.of(
+                "width", 2448,
+                "height", 2048,
+                "client_reference_bundle", true,
+                "interest_polygon_norm", List.of(
+                        Map.of("x", 0.1, "y", 0.1),
+                        Map.of("x", 0.9, "y", 0.1),
+                        Map.of("x", 0.9, "y", 0.9)
+                ),
+                "shm_name", "ref_shm",
+                "shm_offset", 0,
+                "stride", 7344
+        ));
+
+        Map<String, Object> header = BinaryInspectHeaders.geometryInspectHeader(
+                1, capture, noJoint, null, null);
+
+        assertEquals(null, header.get("jointRoi"));
+        assertEquals("off", header.get("jointMode"));
+        assertEquals(false, header.get("jointSeamSegmentationEnabled"));
+    }
+
+    @Test
+    void runtimeOverridesDoNotInjectJointWhenReferenceHasNoJoint() {
+        ReferenceSnapshot noJoint = new ReferenceSnapshot("product", Map.of(
+                "width", 2448,
+                "height", 2048,
+                "client_reference_bundle", true,
+                "shm_name", "ref_shm",
+                "shm_offset", 0,
+                "stride", 7344
+        ));
+        Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.geometryInspectHeader(
+                1, capture, noJoint, null, null));
+
+        GeometryRuntimeConfig runtimeConfig = new GeometryRuntimeConfig();
+        runtimeConfig.replaceAllFromClient(Map.of(
+                "maxShiftMm", 1.25,
+                "jointSeamSegmentationEnabled", true,
+                "jointRoi", Map.of("x", 0, "y", 0, "width", 50, "height", 50)
+        ));
+        runtimeConfig.applyToGeometryHeader(header);
+
+        assertEquals(1.25, header.get("maxShiftMm"));
+        assertEquals(null, header.get("jointRoi"));
+        assertEquals("off", header.get("jointMode"));
+        assertEquals(false, header.get("jointSeamSegmentationEnabled"));
     }
 
     @Test

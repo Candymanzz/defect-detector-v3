@@ -69,6 +69,7 @@ public final class UiRuntimeBootstrapService {
             clientWsServer.setReferenceCameraIds(ConfiguredCameras.enabledIds(ctx.root()));
         }
         ctx.uiSidecar().setClientWebSocketServer(clientWsServer);
+        ctx.uiSidecar().setPythonHeatmapContext(ctx.geometryRuntimeConfig(), ctx.pythonCfg());
         if (ctx.clientApiMount().enabled()) {
             log.info(
                     "client_api enabled (same port as ui_http): kopcheni_proxy={} kopcheni_base_url={}",
