@@ -663,6 +663,7 @@ function HeatmapPanel({
           cameraId={cameraId}
           heatmap={frozenHeatmap}
           backgroundImageUrl={cameraImageUrl}
+          excludedNormalZones={matchingInspectResult.excluded_normal_zones}
         />
       ) : (
         <div className="modal-image-panel__image-wrap">

@@ -1,0 +1,13 @@
+{
+  "inspection_id": "1e90f5ab-76ea-4aeb-9f1a-ccad9708beb5",
+  "product_type": "shape-bent-scaled",
+  "reference_hash": "0dca02394c35001cab5f0aff",
+  "created_at": "2026-08-21T09:05:53.507614+00:00",
+  "original_status": "ГОДЕН",
+  "original_score": 0.0,
+  "threshold": 0.1,
+  "accepted_defect_ids": [],
+  "counterfactual_score": null,
+  "counterfactual_status": null,
+  "defects": []
+}

@@ -359,8 +359,21 @@ class InspectionReviewStore:
     ) -> InspectionReview:
         mask_gray = _gray(raw_mask)
         diff_gray = _gray(diff_map)
-        energy = cv2.max(mask_gray, cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX))
+        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
+        energy = cv2.max(mask_gray, diff_norm)
+        energy = cv2.normalize(energy, None, 0, 255, cv2.NORM_MINMAX)
+        energy = np.clip(
+            np.power(energy.astype(np.float32) / 255.0, 0.8) * 255.0,
+            0,
+            255,
+        ).astype(np.uint8)
         heatmap = cv2.applyColorMap(energy, cv2.COLORMAP_JET)
+        mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
+        heatmap = np.clip(
+            heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float),
+            0,
+            255,
+        ).astype(np.uint8)
         review_candidates = [
             replace(candidate, mask=np.zeros((0, 0), dtype=bool))
             for candidate in candidates

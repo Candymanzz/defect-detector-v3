@@ -693,6 +693,7 @@ class InspectionService:
             include_heatmap_u8=include_heatmap_u8,
             detector_id=detector_id,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
+            pre_learning_heatmap=True,
         )
 
     def inspect_frame(
@@ -706,6 +707,7 @@ class InspectionService:
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
         analysis_profile: Optional[str] = None,
         temporary_analysis_overrides: Optional[dict[str, object]] = None,
+        pre_learning_heatmap: bool = False,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         settings_key = (analysis_profile or "").strip() or product_type
@@ -745,6 +747,15 @@ class InspectionService:
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
+        raw_segmentation_mask = segmentation_mask.copy()
+        # Freeze the local multipart heatmap before accepted normals, FP
+        # mini-etalon checks and regional scoring. This is the source/formula
+        # used by the pre-learning pipeline in 29c9cfa.
+        pre_learning_heatmap_u8 = (
+            self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
+            if include_visuals and pre_learning_heatmap
+            else None
+        )
 
         # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
@@ -817,21 +828,67 @@ class InspectionService:
             display_region = display_mask[y : y + box_height, x : x + box_width]
             display_region[local_mask] = 255
 
+        excluded_normal_zones = [
+            {
+                "kind": "accepted_normal",
+                "case_id": candidate.matched_case_id,
+                "similarity": candidate.similarity,
+                "polygon": list(candidate.polygon_norm),
+            }
+            for candidate in learned_filter.candidates
+            if candidate.matched_case_id is not None and len(candidate.polygon_norm) >= 3
+        ]
+        fp_zone_by_id = {zone.id: zone for zone in self.get_fp_zones(product_type)}
+        for zone_score in fp_recheck["fp_zone_scores"]:
+            zone = fp_zone_by_id.get(zone_score.zone_id)
+            if (
+                zone is None
+                or not zone_score.applied_fp_etalon
+                or zone_score.note != "matched FP mini-etalon"
+                or len(zone.points_norm_ref) < 3
+            ):
+                continue
+            excluded_normal_zones.append(
+                {
+                    "kind": "fp_zone",
+                    "case_id": zone.id,
+                    "similarity": None,
+                    "polygon": list(zone.points_norm_ref),
+                }
+            )
+
+        # Heatmap повторяет реализацию до появления дообучения: для отображения
+        # используются исходные diff и mask, а не результат вычитания норм.
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
         heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
-            heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+            heatmap_u8 = (
+                pre_learning_heatmap_u8
+                if pre_learning_heatmap_u8 is not None
+                else self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+            )
         elif include_heatmap_u8:
             try:
-                heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+                heatmap_u8 = self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
-        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
+        if include_visuals and pre_learning_heatmap:
+            heatmap = self._colorize_heatmap_29c9cfa(heatmap_u8)
+        else:
+            heatmap = self._colorize_heatmap(heatmap_u8, raw_segmentation_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
-            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["fp_zone_scores"])
-            heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
+            if not pre_learning_heatmap:
+                heatmap = self._draw_fp_zone_overlay(
+                    heatmap,
+                    self.get_fp_zones(product_type),
+                    fp_recheck["fp_zone_scores"],
+                )
+                heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
+            # Exclusion polygons are a visual annotation only; they do not
+            # participate in the frozen pre-learning heatmap energy.
+            heatmap = self._draw_excluded_normal_overlay(heatmap, excluded_normal_zones)
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
         inspection_id = str(uuid.uuid4())
@@ -844,8 +901,8 @@ class InspectionService:
                 score=anomaly_score,
                 threshold=inspection_threshold,
                 aligned=aligned,
-                diff_map=filtered_diff_map,
-                raw_mask=display_mask,
+                diff_map=diff_map,
+                raw_mask=raw_segmentation_mask,
                 candidates=review_candidates,
             )
         except Exception:
@@ -874,6 +931,7 @@ class InspectionService:
             heatmap=heatmap if include_visuals else None,
             heatmap_u8=heatmap_u8,
             segmentation_mask=segmentation_mask if include_visuals else None,
+            excluded_normal_zones=excluded_normal_zones,
         )
 
     def _score_inspection_regions(
@@ -1490,6 +1548,65 @@ class InspectionService:
             cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
         return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)
 
+    @staticmethod
+    def _draw_excluded_normal_overlay(
+        heatmap: np.ndarray,
+        excluded_zones: list[dict],
+    ) -> np.ndarray:
+        """Mark saved-normal matches directly on the local color heatmap.
+
+        This modifies only the color heatmap returned by the local multipart
+        ``/inspect`` endpoint. The gray SHM heatmap and inspection score stay
+        unchanged.
+        """
+        if not excluded_zones:
+            return heatmap
+
+        height, width = heatmap.shape[:2]
+        overlay = heatmap.copy()
+        polygons: list[np.ndarray] = []
+        dark_green = (22, 92, 12)  # BGR: saved-normal match marker
+        for zone in excluded_zones:
+            if zone.get("kind") != "accepted_normal":
+                continue
+            raw_polygon = zone.get("polygon") or []
+            normalized_points: list[tuple[float, float]] = []
+            for point in raw_polygon:
+                if isinstance(point, dict):
+                    x_raw, y_raw = point.get("x"), point.get("y")
+                elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                    x_raw, y_raw = point[0], point[1]
+                else:
+                    continue
+                try:
+                    normalized_points.append((float(x_raw), float(y_raw)))
+                except (TypeError, ValueError):
+                    continue
+            if len(normalized_points) < 3:
+                continue
+
+            points = np.array(
+                [
+                    [
+                        int(round(np.clip(x, 0.0, 1.0) * (width - 1))),
+                        int(round(np.clip(y, 0.0, 1.0) * (height - 1))),
+                    ]
+                    for x, y in normalized_points
+                ],
+                dtype=np.int32,
+            )
+            cv2.fillPoly(overlay, [points], dark_green)
+            polygons.append(points)
+
+        if not polygons:
+            return heatmap
+        result = cv2.addWeighted(overlay, 0.48, heatmap, 0.52, 0.0)
+        for points in polygons:
+            cv2.polylines(result, [points], isClosed=True, color=(5, 40, 0), thickness=8)
+            cv2.polylines(result, [points], isClosed=True, color=(65, 230, 45), thickness=4)
+            cv2.polylines(result, [points], isClosed=True, color=(255, 255, 255), thickness=1)
+        return result
+
     def _decode_image(self, image_bytes: bytes) -> np.ndarray:
         data = np.frombuffer(image_bytes, dtype=np.uint8)
         image = cv2.imdecode(data, cv2.IMREAD_COLOR)
@@ -1934,10 +2051,66 @@ class InspectionService:
         gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
         return cv2.max(mask_gray, gated_diff)
 
+    def _build_pre_learning_heatmap_gray(
+        self,
+        mask: np.ndarray,
+        diff_map: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Full pre-learning heatmap energy used only for UI visualization."""
+        mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        if diff_map is None:
+            return mask_gray
+
+        diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
+        combined = cv2.max(mask_gray, diff_norm)
+        combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
+        combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
+        return np.clip(combined_gamma, 0, 255).astype(np.uint8)
+
     def _colorize_heatmap(self, heatmap_gray: np.ndarray, mask: np.ndarray) -> np.ndarray:
         heatmap = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)
         mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
         boosted = heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float)
         return np.clip(boosted, 0, 255).astype(np.uint8)
+
+    @staticmethod
+    def _colorize_heatmap_29c9cfa(heatmap_gray: np.ndarray) -> np.ndarray:
+        """Apply the exact RGB stops used by HeatmapColor.ts in 29c9cfa.
+
+        The current learned pipeline adds saturated 255 mask pixels which make
+        a literal min/max normalization collapse almost every residual into
+        dark blue. Use the upper percentile of non-saturated energy for display
+        range, then apply the old UI gamma and its exact
+        blue/cyan/green/yellow/orange/red LUT. This path is visual-only.
+        """
+        gray = heatmap_gray if heatmap_gray.ndim == 2 else cv2.cvtColor(heatmap_gray, cv2.COLOR_BGR2GRAY)
+        min_value = int(np.min(gray))
+        max_value = int(np.max(gray))
+        if max_value <= min_value:
+            normalized_u8 = np.zeros_like(gray, dtype=np.uint8)
+        else:
+            non_saturated = gray[(gray > min_value) & (gray < max_value)]
+            if non_saturated.size >= 32:
+                display_max = float(np.percentile(non_saturated, 99.5))
+            else:
+                display_max = float(max_value)
+            display_max = max(float(min_value + 1), min(float(max_value), display_max))
+            normalized = (gray.astype(np.float32) - min_value) / (display_max - min_value)
+            normalized_u8 = np.floor(
+                np.power(np.clip(normalized, 0.0, 1.0), 0.8) * 255.0 + 0.5
+            ).astype(np.uint8)
+        color_ratio = normalized_u8.astype(np.float32) / 255.0
+
+        stop_positions = np.array([0.0, 0.2, 0.42, 0.62, 0.78, 0.9, 1.0], dtype=np.float32)
+        red_stops = np.array([0, 0, 0, 80, 255, 255, 190], dtype=np.float32)
+        green_stops = np.array([0, 95, 255, 255, 235, 120, 0], dtype=np.float32)
+        blue_stops = np.array([150, 255, 255, 80, 0, 0, 0], dtype=np.float32)
+
+        red = np.interp(color_ratio, stop_positions, red_stops)
+        green = np.interp(color_ratio, stop_positions, green_stops)
+        blue = np.interp(color_ratio, stop_positions, blue_stops)
+        bgr = np.floor(np.stack((blue, green, red), axis=-1) + 0.5)
+        return np.clip(bgr, 0, 255).astype(np.uint8)
 
