@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -151,6 +152,17 @@ class UiTestAnalyzeServiceTest {
 
         byte[] pinnedBytes = Files.readAllBytes(pinStore.get(0).orElseThrow().jpegPath());
         assertTrue(java.util.Arrays.equals(original, pinnedBytes));
+        assertEquals(
+                UiTestAnalyzeService.sha256Hex(original),
+                lastState.get().capture().header().get("pin_jpeg_sha256")
+        );
+        assertEquals(
+                "/api/client/inspection/test-pin/cameras/0/frame.jpg",
+                lastState.get().capture().header().get("http_path")
+        );
+        assertFalse(
+                String.valueOf(lastState.get().capture().header().get("http_path")).contains("current.jpg")
+        );
     }
 
     @Test

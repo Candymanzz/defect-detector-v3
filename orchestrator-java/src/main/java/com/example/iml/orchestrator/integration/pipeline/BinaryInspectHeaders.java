@@ -301,8 +301,8 @@ public final class BinaryInspectHeaders {
         pyHeader.put("product_type", productType);
         pyHeader.put("detector_id", detectorId);
         // Keep the threshold absent so Python can resolve default_threshold from the
-        // selected analysis profile. GeometryRuntimeConfig may still add an explicit
-        // per-frame override after this header is built.
+        // selected analysis profile (analysis_settings). GeometryRuntimeConfig must not
+        // inject anomaly threshold into this header.
         // Горячий путь: false; превью — {@link com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar}.
         pyHeader.put("include_visuals", includeVisuals);
         if (pythonCfg != null && pythonCfg.get("rois") != null) {

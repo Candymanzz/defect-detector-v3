@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -165,8 +166,12 @@ class InspectPythonExecutorTest {
     void appliesGeometryRuntimeUnderCameraAnalysisProfileNotProductType() {
         CameraAnalysisProfiles.setByCamera(Map.of(3, "bench-lan3"));
         GeometryRuntimeConfig runtime = new GeometryRuntimeConfig();
-        runtime.replaceAllFromClient("bench-lan3", Map.of("threshold", 0.11));
-        runtime.replaceAllFromClient("bench", Map.of("threshold", 0.99));
+        runtime.replaceAllFromClient("bench-lan3", Map.of(
+                "mainRoi", Map.of("x", 1, "y", 2, "width", 10, "height", 20)
+        ));
+        runtime.replaceAllFromClient("bench", Map.of(
+                "mainRoi", Map.of("x", 99, "y", 99, "width", 1, "height", 1)
+        ));
 
         InspectPythonExecutor withRuntime = new InspectPythonExecutor(LogManager.getLogger(getClass()), runtime);
         Map<String, Object> header = new HashMap<>();
@@ -175,7 +180,10 @@ class InspectPythonExecutorTest {
         withRuntime.applyAnalysisProfileAndRuntimeOverrides(header, 3, "bench", Map.of("fallback_threshold", 0.45));
 
         assertEquals("bench-lan3", header.get("analysis_profile"));
-        assertEquals(0.11, header.get("threshold"));
+        assertFalse(header.containsKey("threshold"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> algorithmParams = (Map<String, Object>) header.get("algorithm_params");
+        assertEquals(1, ((Number) ((Map<?, ?>) algorithmParams.get("main_roi")).get("x")).intValue());
     }
 
     private static PipelineState stateWithCapture() {

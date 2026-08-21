@@ -148,12 +148,12 @@ public final class GeometryRuntimeConfig {
 
     public void applyToPythonHeader(Map<String, Object> header, Map<String, Object> pythonYaml, String analysisProfile) {
         Map<String, Object> overrides = profileOverrides(analysisProfile);
-        if (overrides.containsKey("threshold")) {
-            header.put("threshold", YamlScalars.toDouble(overrides.get("threshold"), defaultPythonThreshold(pythonYaml)));
-        }
         if (overrides.isEmpty()) {
             return;
         }
+        // Anomaly threshold belongs to analysis_settings (UI knobs / default_threshold).
+        // Do not inject geometry-runtime "threshold" into python inspect — it used to freeze
+        // the AnalysisSettingsPanel slider while a stale value sat in geometry_runtime_settings.json.
         Map<String, Object> algorithmParams = new LinkedHashMap<>();
         putIfPresent(overrides, algorithmParams, "mainRoi", "main_roi");
         putIfPresent(overrides, algorithmParams, "mainRoiPolygonNorm", "main_roi_polygon_norm");
@@ -163,7 +163,6 @@ public final class GeometryRuntimeConfig {
         putIfPresent(overrides, algorithmParams, "maxRotationDeg", "max_rotation_deg");
         putIfPresent(overrides, algorithmParams, "maxConcentricityMm", "max_concentricity_mm");
         putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
-        putIfPresent(overrides, algorithmParams, "threshold", "threshold");
         boolean injectJoint = overrides.containsKey("jointRoi")
                 || overrides.containsKey("jointRoiPolygonNorm");
         if (injectJoint) {

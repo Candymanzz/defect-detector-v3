@@ -17,6 +17,8 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -108,6 +110,8 @@ public final class UiTestAnalyzeService {
     private final AtomicInteger geometryRoundRobin = new AtomicInteger();
     private final AtomicInteger pythonRoundRobin = new AtomicInteger();
     private final AtomicLong inspectionIds = new AtomicLong(System.currentTimeMillis());
+    private final java.util.concurrent.ConcurrentHashMap<Integer, AtomicLong> jobGenerationByCamera =
+            new java.util.concurrent.ConcurrentHashMap<>();
     private final ExecutorService worker;
 
     public UiTestAnalyzeService(
@@ -275,7 +279,18 @@ public final class UiTestAnalyzeService {
         }
         String jobId = UUID.randomUUID().toString().replace("-", "");
         long frameId = resolved.frameId();
-        worker.execute(() -> runJob(jobId, request.cameraId(), frameId, resolved.jpegBytes(), ref, resolved.previewHttpPath()));
+        long generation = jobGenerationByCamera
+                .computeIfAbsent(request.cameraId(), ignored -> new AtomicLong())
+                .incrementAndGet();
+        worker.execute(() -> runJob(
+                jobId,
+                request.cameraId(),
+                frameId,
+                resolved.jpegBytes(),
+                ref,
+                resolved.previewHttpPath(),
+                generation
+        ));
         return new Accepted(jobId, request.cameraId(), frameId);
     }
 
@@ -316,7 +331,8 @@ public final class UiTestAnalyzeService {
             long frameId,
             byte[] jpegBytes,
             ReferenceSnapshot ref,
-            String previewHttpPath
+            String previewHttpPath,
+            long generation
     ) {
         Path shmPath = null;
         try {
@@ -325,6 +341,8 @@ public final class UiTestAnalyzeService {
             shmPath = written.shmPath();
             Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
             captureHeader.put("test_analyze", true);
+            String pinSha = sha256Hex(jpegBytes);
+            captureHeader.put("pin_jpeg_sha256", pinSha);
             if (previewHttpPath != null && !previewHttpPath.isBlank()) {
                 captureHeader.put("http_path", previewHttpPath);
             }
@@ -348,6 +366,10 @@ public final class UiTestAnalyzeService {
                     geometrySlots,
                     geometryRoundRobin
             );
+            if (isSuperseded(cameraId, generation)) {
+                log.info("ui test-analyze superseded after geometry jobId={} cam={} gen={}", jobId, cameraId, generation);
+                return;
+            }
             state = pythonStage.apply(
                     state,
                     cameraId,
@@ -359,6 +381,10 @@ public final class UiTestAnalyzeService {
                     pythonSlots,
                     pythonRoundRobin
             );
+            if (isSuperseded(cameraId, generation)) {
+                log.info("ui test-analyze superseded after python jobId={} cam={} gen={}", jobId, cameraId, generation);
+                return;
+            }
             InspectionDecision decision = decisionPolicy.decide(cameraId, state.capture(), state.py(), state.geom());
             long inspectionId = inspectionIds.incrementAndGet();
             afterInspectionSidecar.scheduleAfterInspection(
@@ -377,11 +403,15 @@ public final class UiTestAnalyzeService {
                     state.geom()
             );
             log.info(
-                    "ui test-analyze done jobId={} cam={} frame={} pass={} python={} geometry={}",
+                    "ui test-analyze done jobId={} cam={} frame={} pin_sha={} http_path={} pass={} "
+                            + "anomaly={} python={} geometry={}",
                     jobId,
                     cameraId,
                     frameId,
+                    pinSha,
+                    previewHttpPath,
                     decision == null ? null : decision.overallPass(),
+                    decision == null ? null : decision.anomalyScore(),
                     decision == null ? null : decision.pythonStatus(),
                     decision == null ? null : decision.geometryStatus()
             );
@@ -404,6 +434,11 @@ public final class UiTestAnalyzeService {
                 );
             }
         }
+    }
+
+    private boolean isSuperseded(int cameraId, long generation) {
+        AtomicLong latest = jobGenerationByCamera.get(cameraId);
+        return latest != null && latest.get() != generation;
     }
 
     private record ResolvedFrame(byte[] jpegBytes, long frameId, String previewHttpPath) {
@@ -499,5 +534,14 @@ public final class UiTestAnalyzeService {
             case "pin" -> Source.PIN;
             default -> throw new AnalyzeException(400, "unknown source: " + raw);
         };
+    }
+
+    static String sha256Hex(byte[] bytes) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            return HexFormat.of().formatHex(digest);
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

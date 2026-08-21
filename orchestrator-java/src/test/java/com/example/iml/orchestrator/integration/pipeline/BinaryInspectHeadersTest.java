@@ -213,7 +213,7 @@ class BinaryInspectHeadersTest {
     }
 
     @Test
-    void explicitRuntimeThresholdCanStillOverrideProfileThreshold() {
+    void geometryRuntimeDoesNotInjectAnomalyThresholdIntoPythonHeader() {
         Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.pythonInspectHeader(
                 1,
                 "bench-lan1",
@@ -228,7 +228,11 @@ class BinaryInspectHeadersTest {
 
         runtimeConfig.applyToPythonHeader(header, Map.of("fallback_threshold", 0.45), "bench-lan1");
 
-        assertEquals(0.07, header.get("threshold"));
+        assertFalse(header.containsKey("threshold"));
+        Object algorithmParams = header.get("algorithm_params");
+        if (algorithmParams instanceof Map<?, ?> params) {
+            assertFalse(params.containsKey("threshold"));
+        }
     }
 
     private static void assertTrueMapsEqual(Object expected, Object actual) {
