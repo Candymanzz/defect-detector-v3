@@ -221,12 +221,14 @@ export function updateModalSnapshotResult(
     ?? resolveImmutableInspectionImageUrl(displayInspectResult)
     ?? createWsFrameImageUrl(displayInspectResult);
 
+  // Once a TEST pin is locked, never swap the modal image — even if WS carries another http_path.
+  const frozenTestImage = currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl;
+
   return {
     ...currentSnapshot,
     inspectResult: displayInspectResult,
-    // Frozen TEST image must never change after pin (disk pin URL).
-    cameraImageUrl: lockedPinImageUrl ?? nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
-    pinnedTestImageUrl: currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl,
+    cameraImageUrl: frozenTestImage ?? nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
+    pinnedTestImageUrl: frozenTestImage,
     heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };
 }

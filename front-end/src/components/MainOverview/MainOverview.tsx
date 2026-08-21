@@ -95,14 +95,14 @@ export function MainOverview({
       );
     }
     const pinHttpPath = pinned.imageHttpPath;
-    const pinnedImageUrl = orchestratorApi.imageUrl(
+    // Always show the durable on-disk pin (not a blob) — blob revoke / remount looked like a frame swap.
+    const pinImageUrl = orchestratorApi.imageUrl(
       `${pinHttpPath}?pin=${encodeURIComponent(pinned.pinId)}`,
       pinned.jpegSha256,
     );
-    const frozenBlobUrl = await createFrozenFrameObjectUrl(pinnedImageUrl);
     controller.freezeModalTestFrame(
       String(pinned.frameId),
-      frozenBlobUrl,
+      pinImageUrl,
       pinHttpPath,
       pinned.pinId,
       pinned.jpegSha256,
@@ -520,18 +520,6 @@ function chunkItems<T>(items: T[], chunkSize: number) {
     const startIndex = groupIndex * chunkSize;
     return items.slice(startIndex, startIndex + chunkSize);
   });
-}
-
-async function createFrozenFrameObjectUrl(imageUrl: string): Promise<string> {
-  const response = await fetch(imageUrl, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Не удалось зафиксировать кадр для UI: HTTP ${response.status}`);
-  }
-  const blob = await response.blob();
-  if (blob.size <= 0) {
-    throw new Error("Не удалось зафиксировать кадр для UI: пустой ответ");
-  }
-  return URL.createObjectURL(blob);
 }
 
 function getInspectionActionLabel(state: "idle" | "starting" | "stopping" | "error" | undefined, isEnabled: boolean) {

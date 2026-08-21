@@ -881,11 +881,24 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         // immediately after freeze without racing the async JPEG publisher.
         boolean ephemeralPin = YamlScalars.toBool(captureHeader.get("line_pinned"), false)
                 || ImlShmJanitor.isEphemeralLinePin(base);
-        if (sourceOffset == 0L && !ephemeralPin && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
+        boolean testAnalyze = YamlScalars.toBool(captureHeader.get("test_analyze"), false);
+        if (!testAnalyze && sourceOffset == 0L && !ephemeralPin && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
             return new FrozenFrame(source, "/" + base, false);
         }
 
-        String frozenName = "iml_ui_inspect_cam_" + cameraId;
+        // Production reuses one slot per camera. TEST must use a unique owned buffer so a
+        // still-finishing production publish cannot overwrite the pinned JPEG mid-encode.
+        String frozenName;
+        if (testAnalyze) {
+            String job = String.valueOf(captureHeader.getOrDefault("test_analyze_job_id", Long.toString(frameId)));
+            String suffix = job.replace("-", "");
+            if (suffix.length() > 12) {
+                suffix = suffix.substring(0, 12);
+            }
+            frozenName = "iml_ui_test_cam_" + cameraId + "_" + suffix;
+        } else {
+            frozenName = "iml_ui_inspect_cam_" + cameraId;
+        }
         Path target = FrameJpegWriter.imlShmFilePath(frozenName);
         Files.createDirectories(target.getParent());
         try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);
@@ -910,8 +923,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Files.deleteIfExists(target);
             throw e;
         }
-        // Stable overwrite name — keep for next frame; pin cleanup happens via ImlShmJanitor.
-        return new FrozenFrame(target, "/" + frozenName, false);
+        return new FrozenFrame(target, "/" + frozenName, testAnalyze);
     }
 
     private HeatmapArtifact generateHeatmapArtifact(

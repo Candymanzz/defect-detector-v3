@@ -171,7 +171,11 @@ export function ModalWrapper({
                 : `heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`
             }
             cameraId={cameraId}
-            cameraImageUrl={displayedCurrentImageUrl}
+            cameraImageUrl={
+              inspectResult?.test_analyze
+                ? undefined
+                : displayedCurrentImageUrl
+            }
             heatmapUrl={inspectHeatmapUrl}
             inspectResult={inspectResult}
           />
@@ -696,7 +700,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
         {inspectResult && (
           <span>
             {inspectResult.test_analyze || inspectResult.inspection_id === "тест"
-              ? "тест"
+              ? `тест · кадр ${inspectResult.frame_id}`
               : `кадр ${inspectResult.frame_id}`}
           </span>
         )}
