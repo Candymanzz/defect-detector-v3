@@ -1,5 +1,7 @@
 import { useEffect } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
+import { formatAnomalyPercent } from "../../shared/lib/anomalyScore";
 import { getReferenceImage } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { HeatmapDescriptor, InspectResultPayload } from "../../shared/ws";
@@ -17,6 +19,7 @@ type InspectionHistoryModalProps = {
   }>;
   selectedGroupKey?: string;
   onHistorySelect?: (groupKey: string) => void;
+  onResultOpen?: (item: InspectionHistoryItem) => void;
   onClose: () => void;
 };
 
@@ -26,6 +29,7 @@ export function InspectionHistoryModal({
   historyItems = [],
   selectedGroupKey,
   onHistorySelect,
+  onResultOpen,
   onClose,
 }: InspectionHistoryModalProps) {
   useEffect(() => {
@@ -92,6 +96,7 @@ export function InspectionHistoryModal({
             <InspectionResultCard
               item={item}
               key={item.inspectResult.camera_id}
+              onOpen={onResultOpen}
             />
           ))}
         </div>
@@ -100,21 +105,37 @@ export function InspectionHistoryModal({
   );
 }
 
-function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
+function InspectionResultCard({
+  item,
+  onOpen,
+}: {
+  item: InspectionHistoryItem;
+  onOpen?: (item: InspectionHistoryItem) => void;
+}) {
   const result = item.inspectResult;
   const imageUrl = resolveInspectionImageUrl(result);
   const referenceImageUrl = getReferenceImage(result.camera_id)?.imageUrl;
   const comparisonImageUrl = referenceImageUrl ?? imageUrl;
   const heatmap = resolveInspectionHeatmap(result);
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpen?.(item);
+    }
+  };
 
   return (
     <article
       className="inspection-history-modal__card"
       data-result={item.result}
+      data-clickable={onOpen ? "true" : undefined}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={() => onOpen?.(item)}
+      onKeyDown={onOpen ? handleKeyDown : undefined}
     >
       <header className="inspection-history-modal__card-header">
         <strong>Камера {result.camera_id}</strong>
-        <span>{item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "Съёмка"}</span>
       </header>
 
       <div className="inspection-history-modal__media">
@@ -147,35 +168,14 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
 
       <dl className="inspection-history-modal__summary">
         <ResultField
-          label="Кадр"
-          value={result.frame_id}
-        />
-        <ResultField
-          label="Действие"
-          value={result.action}
+          label="Вердикт"
+          value={item.result === "pass" ? "Годен" : item.result === "fail" ? "Брак" : "—"}
         />
         <ResultField
           label="Аномалия"
-          value={result.anomaly_score}
-        />
-        <ResultField
-          label="Python"
-          value={result.python_status}
-        />
-        <ResultField
-          label="Геометрия"
-          value={result.geometry_status}
-        />
-        <ResultField
-          label="Изделие"
-          value={result.detector.product_type}
+          value={formatAnomalyPercent(result.anomaly_score)}
         />
       </dl>
-
-      <details className="inspection-history-modal__details">
-        <summary>Все данные результата</summary>
-        <pre>{JSON.stringify(result, null, 2)}</pre>
-      </details>
     </article>
   );
 }

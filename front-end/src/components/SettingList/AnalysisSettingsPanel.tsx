@@ -258,22 +258,64 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       <div className="analysis-presets__fields">
         {fields.map((field) => {
           const value = values[field.name as keyof typeof values];
+          const updateValue = (next: number) => {
+            if (mode === "simple") {
+              userEditedSimpleRef.current = true;
+              setSimple((current) => ({ ...current, [field.name]: next }));
+            } else {
+              userEditedProRef.current = true;
+              setPro((current) => ({ ...current, [field.name]: next }));
+            }
+          };
+          const minimumPercent = field.name === "threshold" ? 1 : 0;
+          const updatePercent = (percent: number) => {
+            updateValue(Math.min(100, Math.max(minimumPercent, percent)) / 100);
+          };
           return (
             <label className="analysis-presets__field" key={field.name}>
-              <span><strong>{field.label}</strong><output>{Number(value).toFixed(2)}</output></span>
+              <span>
+                <strong>{field.label}</strong>
+                <span className="analysis-presets__percent-input">
+                  <input
+                    aria-label={`${field.label}, проценты`}
+                    type="number"
+                    min={minimumPercent}
+                    max="100"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={(Number(value) * 100).toFixed(1)}
+                    disabled={busy}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      const percent = event.target.valueAsNumber;
+                      if (!Number.isFinite(percent)) return;
+                      updatePercent(percent);
+                    }}
+                  />
+                  <span aria-hidden="true">%</span>
+                  <span className="analysis-presets__percent-steppers">
+                    <button
+                      type="button"
+                      aria-label={`Увеличить ${field.label} на одну десятую процента`}
+                      disabled={busy || Number(value) >= 1}
+                      onClick={() => updatePercent(Number(value) * 100 + 0.1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Уменьшить ${field.label} на одну десятую процента`}
+                      disabled={busy || Number(value) * 100 <= minimumPercent}
+                      onClick={() => updatePercent(Number(value) * 100 - 0.1)}
+                    >
+                      ▼
+                    </button>
+                  </span>
+                </span>
+              </span>
               <input
-                type="range" min={field.name === "threshold" ? 0.01 : 0} max="1" step="0.01"
+                type="range" min={field.name === "threshold" ? 0.01 : 0} max="1" step="0.001"
                 value={value} disabled={busy}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                  const next = Number(event.target.value);
-                  if (mode === "simple") {
-                    userEditedSimpleRef.current = true;
-                    setSimple((current) => ({ ...current, [field.name]: next }));
-                  } else {
-                    userEditedProRef.current = true;
-                    setPro((current) => ({ ...current, [field.name]: next }));
-                  }
-                }}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => updateValue(Number(event.target.value))}
               />
               <small>{field.hint}</small>
             </label>
