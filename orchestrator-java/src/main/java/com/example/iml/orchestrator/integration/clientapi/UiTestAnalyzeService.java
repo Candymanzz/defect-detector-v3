@@ -281,6 +281,14 @@ public final class UiTestAnalyzeService {
     public Accepted submit(Request request) throws AnalyzeException {
         validate(request);
         ResolvedFrame resolved = resolveJpeg(request);
+        if (request.source() == Source.PIN
+                && request.frameId() != null
+                && request.frameId().longValue() != resolved.frameId()) {
+            throw new AnalyzeException(
+                    409,
+                    "pinned frame mismatch: requested=" + request.frameId() + " pinned=" + resolved.frameId()
+            );
+        }
         ReferenceSnapshot ref = referenceRegistry.get(request.cameraId());
         if (ref == null || !ref.isUsable()) {
             throw new AnalyzeException(409, "no usable reference for camera " + request.cameraId());
@@ -526,9 +534,8 @@ public final class UiTestAnalyzeService {
         }
         try {
             byte[] bytes = Files.readAllBytes(jpeg);
-            long frameId = frameIdHint != null
-                    ? frameIdHint
-                    : (latest == null ? 0L : latest.frameId());
+            // Never label mutable current.jpg with the caller's stale frame id.
+            long frameId = latest == null ? 0L : latest.frameId();
             return new ResolvedFrame(bytes, frameId, "/api/camera/" + cameraId + "/current.jpg");
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to read current.jpg: " + e.getMessage());

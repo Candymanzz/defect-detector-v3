@@ -340,24 +340,28 @@ export function MainOverview({
                     setTestAnalyzeState("submitting");
                     setTestAnalyzeMessage(`Фиксация кадра ${frameId}…`);
                     setTestFrameId(frameId);
-                    // Capture the exact pixels currently shown BEFORE pin/mode changes.
-                    const displayedUrl = controller.modalSnapshot?.cameraImageUrl;
-                    await onAnalysisSettingsOpen(cameraId);
+                    // Pin first, while the selected inspection and its artifacts are still untouched.
                     const pinSource = resolveTestPinSource(inspectResult);
-                    await orchestratorApi.pinTestFrame({
+                    const pinned = await orchestratorApi.pinTestFrame({
                       cameraId,
                       frameId,
                       source: pinSource.source,
                       httpPath: pinSource.httpPath,
                     });
+                    if (String(pinned.frameId) !== String(frameId)) {
+                      throw new Error(
+                        `Сервер зафиксировал кадр ${pinned.frameId} вместо выбранного кадра ${frameId}`,
+                      );
+                    }
                     const pinHttpPath = `/api/client/inspection/test-pin/cameras/${cameraId}/frame.jpg`;
-                    // Freeze UI on a local blob of the on-screen image so later WS/http never swaps <img src>.
-                    const sourceForBlob =
-                      displayedUrl
-                      ?? (pinSource.httpPath ? orchestratorApi.imageUrl(pinSource.httpPath, frameId) : undefined)
-                      ?? orchestratorApi.imageUrl(pinHttpPath, frameId);
-                    const frozenBlobUrl = await createFrozenFrameObjectUrl(sourceForBlob);
+                    // Read the durable server pin itself: UI and test-analyze now use identical bytes.
+                    const pinnedImageUrl = orchestratorApi.imageUrl(
+                      `${pinHttpPath}?pin=${encodeURIComponent(pinned.pinId)}`,
+                      frameId,
+                    );
+                    const frozenBlobUrl = await createFrozenFrameObjectUrl(pinnedImageUrl);
                     controller.freezeModalTestFrame(frameId, frozenBlobUrl, pinHttpPath);
+                    await onAnalysisSettingsOpen(cameraId);
                     setShowModalAnalysisSettings(true);
                     setTestAnalyzeState("idle");
                     setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Меняйте параметры и нажмите «Проверить».`);
@@ -451,14 +455,15 @@ function resolveTestPinSource(inspectResult: {
   if (path.includes("/api/inspection-artifacts/")) {
     return { source: "artifact", httpPath: path };
   }
-  if (path.includes("/api/camera/") && path.endsWith("/current.jpg")) {
-    return { source: "current", httpPath: path };
-  }
+  // Prefer the immutable inspection artifact over mutable current.jpg.
   if (inspectResult.artifact_bundle_id) {
     return {
       source: "artifact",
       httpPath: `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
     };
+  }
+  if (path.includes("/api/camera/") && path.endsWith("/current.jpg")) {
+    return { source: "current", httpPath: path };
   }
   return { source: "archive" };
 }
