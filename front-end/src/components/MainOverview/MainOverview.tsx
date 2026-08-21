@@ -18,6 +18,7 @@ import { useMainOverview } from "./useMainOverview";
 import type { InspectionStats } from "./type";
 import "./MainOverview.css";
 import "../SettingList/TestSettingsPanels.css";
+import { logTestAnalysis } from "../../shared/lib/testAnalysisLog";
 
 const CAMERAS_PER_OVERVIEW = 5;
 
@@ -83,6 +84,13 @@ export function MainOverview({
         : `Проверка кадра ${frameId}…`,
     );
     try {
+      logTestAnalysis("action.started", {
+        action,
+        cameraId: snapshot.cameraId,
+        frameId,
+        pinnedFrameId: snapshot.pinnedTestFrameId,
+        pinnedHttpPath: snapshot.pinnedTestHttpPath,
+      });
       if (action === "save") {
         await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
         notifyAnalysisSettingsChanged(snapshot.cameraId);
@@ -96,6 +104,12 @@ export function MainOverview({
       setTestAnalyzeState("awaiting");
       setTestAnalyzeMessage(`Проверка кадра ${frameId} запущена, ожидание результата…`);
     } catch (error) {
+      logTestAnalysis("action.failed", {
+        action,
+        cameraId: snapshot.cameraId,
+        frameId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       setTestAnalyzeState("error");
       setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось запустить повторную инспекцию");
     }
@@ -123,6 +137,19 @@ export function MainOverview({
     const resultState = resolveInspectionResultState(result);
     const anomalyPercent =
       typeof result.anomaly_score === "number" ? `${(result.anomaly_score * 100).toFixed(2)}%` : "—";
+    logTestAnalysis("analyze.result", {
+      requestedCameraId: pending.cameraId,
+      requestedFrameId: pending.frameId,
+      actualCameraId: result.camera_id,
+      actualFrameId: result.frame_id,
+      pinJpegSha256: result.pin_jpeg_sha256,
+      serverTsMs: result.server_ts_ms,
+      anomalyScore: result.anomaly_score,
+      anomalyPercent,
+      verdict: resultState,
+      pythonStatus: result.python_status,
+      geometryStatus: result.geometry_status,
+    });
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
       `Кадр ${pending.frameId}: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}, аномалия ${anomalyPercent}.`,
@@ -337,6 +364,13 @@ export function MainOverview({
                     return;
                   }
                   try {
+                    logTestAnalysis("settings-open.clicked", {
+                      cameraId,
+                      selectedFrameId: frameId,
+                      artifactBundleId: inspectResult.artifact_bundle_id,
+                      resultHttpPath: inspectResult.http_path,
+                      currentHttpPath: inspectResult.current?.http_path,
+                    });
                     setTestAnalyzeState("submitting");
                     setTestAnalyzeMessage(`Фиксация кадра ${frameId}…`);
                     setTestFrameId(frameId);
@@ -344,6 +378,7 @@ export function MainOverview({
                     // is an immutable archive/artifact whenever the selected inspection provides one.
                     await onAnalysisSettingsOpen(cameraId);
                     const pinSource = resolveTestPinSource(inspectResult);
+                    logTestAnalysis("pin.source-resolved", { cameraId, frameId, ...pinSource });
                     const pinned = await orchestratorApi.pinTestFrame({
                       cameraId,
                       frameId,
@@ -362,11 +397,23 @@ export function MainOverview({
                       frameId,
                     );
                     const frozenBlobUrl = await createFrozenFrameObjectUrl(pinnedImageUrl);
+                    logTestAnalysis("pin.ui-frozen", {
+                      cameraId,
+                      frameId,
+                      pinId: pinned.pinId,
+                      pinHttpPath,
+                      pinnedImageUrl,
+                    });
                     controller.freezeModalTestFrame(frameId, frozenBlobUrl, pinHttpPath);
                     setShowModalAnalysisSettings(true);
                     setTestAnalyzeState("idle");
                     setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Меняйте параметры и нажмите «Проверить».`);
                   } catch (error) {
+                    logTestAnalysis("settings-open.failed", {
+                      cameraId,
+                      frameId,
+                      error: error instanceof Error ? error.message : String(error),
+                    });
                     setTestFrameId(undefined);
                     setShowModalAnalysisSettings(false);
                     setTestAnalyzeState("error");

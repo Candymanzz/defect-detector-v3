@@ -376,6 +376,7 @@ public final class UiTestAnalyzeService {
             shmPath = written.shmPath();
             Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
             captureHeader.put("test_analyze", true);
+            captureHeader.put("test_analyze_job_id", jobId);
             String pinSha = sha256Hex(jpegBytes);
             captureHeader.put("pin_jpeg_sha256", pinSha);
             if (previewHttpPath != null && !previewHttpPath.isBlank()) {
@@ -389,6 +390,16 @@ public final class UiTestAnalyzeService {
             PipelineState state = new PipelineState(capture, null, null, 0L, 0L, 0L);
             String productType = ref.productType() == null ? "" : ref.productType();
             String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
+            log.info(
+                    "ui test-analyze effective settings jobId={} cam={} frame={} analysisProfile={} "
+                            + "geometry={} python={}",
+                    jobId,
+                    cameraId,
+                    frameId,
+                    productType,
+                    geometryCfg,
+                    pythonCfg
+            );
 
             state = geometryStage.apply(
                     state,

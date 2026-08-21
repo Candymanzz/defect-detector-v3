@@ -1,5 +1,6 @@
 import { appEnv } from "../config/env";
 import { HttpClient } from "./httpClient";
+import { logTestAnalysis } from "../lib/testAnalysisLog";
 import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
@@ -363,10 +364,13 @@ export const orchestratorApi = {
   },
 
   async setTestMode(enabled: boolean) {
-    return http.json<ClientModeResponse>("/api/client/mode/test", {
+    logTestAnalysis("test-mode.request", { enabled });
+    const response = await http.json<ClientModeResponse>("/api/client/mode/test", {
       method: "POST",
       body: { enabled },
     });
+    logTestAnalysis("test-mode.response", response as unknown as Record<string, unknown>);
+    return response;
   },
 
   async testAnalyzeArchiveFrame(cameraId: number, frameId: string) {
@@ -377,7 +381,8 @@ export const orchestratorApi = {
   },
 
   async pinTestFrame(request: PinTestFrameRequest) {
-    return http.json<PinTestFrameResponse>("/api/client/inspection/test-pin", {
+    logTestAnalysis("pin.request", { ...request });
+    const response = await http.json<PinTestFrameResponse>("/api/client/inspection/test-pin", {
       method: "POST",
       body: {
         cameraId: request.cameraId,
@@ -386,10 +391,13 @@ export const orchestratorApi = {
         httpPath: request.httpPath,
       },
     });
+    logTestAnalysis("pin.response", response as unknown as Record<string, unknown>);
+    return response;
   },
 
   async testAnalyzePinnedFrame(cameraId: number, frameId?: string) {
-    return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
+    logTestAnalysis("analyze.request", { cameraId, frameId, source: "pin" });
+    const response = await http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
       method: "POST",
       body: {
         cameraId,
@@ -397,6 +405,8 @@ export const orchestratorApi = {
         source: "pin",
       },
     });
+    logTestAnalysis("analyze.accepted", response as unknown as Record<string, unknown>);
+    return response;
   },
 
   async acceptLearnedNormals(request: AcceptLearnedNormalsRequest) {

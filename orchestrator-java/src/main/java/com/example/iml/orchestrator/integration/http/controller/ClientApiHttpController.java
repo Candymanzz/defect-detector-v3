@@ -12,6 +12,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -25,6 +27,7 @@ import java.util.Set;
 public final class ClientApiHttpController implements HttpController {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Logger LOG = LogManager.getLogger(ClientApiHttpController.class);
 
     private final ClientApiMount clientApi;
 
@@ -368,6 +371,7 @@ public final class ClientApiHttpController implements HttpController {
             if (raw.length > 0) {
                 Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
                 });
+                LOG.info("ui analysis-test geometry settings replace profile={} values={}", analysisProfile, body);
                 clientApi.geometryRuntime().replaceAllFromClient(analysisProfile, body);
             }
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", "{\"ok\":true}".getBytes(StandardCharsets.UTF_8));
@@ -378,6 +382,7 @@ public final class ClientApiHttpController implements HttpController {
             if (raw.length > 0) {
                 Map<String, Object> body = JSON.readValue(raw, new TypeReference<>() {
                 });
+                LOG.info("ui analysis-test geometry settings merge profile={} values={}", analysisProfile, body);
                 clientApi.geometryRuntime().mergeFromClient(analysisProfile, body);
             }
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", "{\"ok\":true}".getBytes(StandardCharsets.UTF_8));

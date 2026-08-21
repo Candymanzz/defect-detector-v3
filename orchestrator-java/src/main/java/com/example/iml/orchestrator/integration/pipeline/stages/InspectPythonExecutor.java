@@ -125,6 +125,17 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
                 PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
             }
+            if (YamlScalars.toBool(state.capture().header().get("test_analyze"), false)) {
+                log.info(
+                        "ui analysis-test python payload jobId={} cam={} frame={} analysisProfile={} worker={} values={}",
+                        state.capture().header().get("test_analyze_job_id"),
+                        cameraId,
+                        state.capture().header().get("frame_id"),
+                        pyHeader.get("analysis_profile"),
+                        python.supervisorLabel(),
+                        pyHeader
+                );
+            }
             pythonSlots.acquire();
             try {
                 BinaryProtocol.Message pyResp = python.command(pyHeader);
