@@ -3,8 +3,10 @@ package com.example.iml.orchestrator.integration.pipeline.bucket;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutSink;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +22,9 @@ import java.util.concurrent.TimeUnit;
  * При нескольких вёдрах (две линии) вердикты на ПЛК/UI уходят только когда
  * готовы все вёдра одного {@code triggerSequence} — одним пакетом.
  * При низкой видимости шва на соседних камерах — ужесточённый гейт метрик шва.
+ *
+ * Soft-stop: в вердикт ведра входят только камеры с включённой инспекцией.
+ * Остановленная камера не обязана прислать кадр и не валит ведро таймаутом.
  */
 public final class BucketInspectionAggregator implements AutoCloseable {
 
@@ -32,16 +37,27 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     private final Map<Integer, Integer> groupIdByCamera;
     private final long timeoutMs;
     private final JointSeamPolicy jointSeamPolicy;
+    private final PerCameraInspectionGate inspectionGate;
     private final ScheduledExecutorService timeoutExecutor;
     private final ConcurrentHashMap<BucketKey, BucketState> buckets = new ConcurrentHashMap<>();
     /** Барьер: ждать все groupId одного triggerSequence перед fanOut. */
     private final ConcurrentHashMap<Long, SequenceBarrier> sequenceBarriers = new ConcurrentHashMap<>();
+    private volatile BucketFanOutSink lastFanOut;
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config) {
-        this(log, config, JointSeamPolicy.defaults());
+        this(log, config, JointSeamPolicy.defaults(), null);
     }
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config, JointSeamPolicy jointSeamPolicy) {
+        this(log, config, jointSeamPolicy, null);
+    }
+
+    public BucketInspectionAggregator(
+            Logger log,
+            BucketInspectionConfig config,
+            JointSeamPolicy jointSeamPolicy,
+            PerCameraInspectionGate inspectionGate
+    ) {
         this.log = log;
         this.groups = List.copyOf(config.groups());
         this.groupById = new HashMap<>();
@@ -54,6 +70,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         }
         this.timeoutMs = config.timeoutMs();
         this.jointSeamPolicy = jointSeamPolicy == null ? JointSeamPolicy.defaults() : jointSeamPolicy;
+        this.inspectionGate = inspectionGate;
         this.timeoutExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "bucket-inspection-timeout");
             t.setDaemon(true);
@@ -106,6 +123,9 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 if (state.published || state.frameDecisions.containsKey(cameraId)) {
                     continue;
                 }
+                if (!isCameraRequired(cameraId)) {
+                    continue;
+                }
                 long seq = entry.getKey().triggerSequence();
                 if (best == null || seq > best) {
                     best = seq;
@@ -113,6 +133,35 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             }
         }
         return best;
+    }
+
+    /**
+     * Soft-stop / Start: пересчитать открытые вёдра — возможно, хватает кадров
+     * среди оставшихся включённых камер.
+     */
+    public void reevaluateOpenBucketsAfterGateChange() {
+        BucketFanOutSink fanOut = lastFanOut;
+        if (fanOut == null) {
+            return;
+        }
+        List<BucketState> ready = new ArrayList<>();
+        for (BucketState state : buckets.values()) {
+            synchronized (state) {
+                if (state.published) {
+                    continue;
+                }
+                if (isBucketComplete(state)) {
+                    ready.add(state);
+                }
+            }
+        }
+        for (BucketState state : ready) {
+            synchronized (state) {
+                if (!state.published && isBucketComplete(state)) {
+                    publishBucket(state, fanOut, false);
+                }
+            }
+        }
     }
 
     public void recordFrameResult(
@@ -138,6 +187,9 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         if (group == null) {
             return;
         }
+        if (fanOut != null) {
+            lastFanOut = fanOut;
+        }
         BucketKey key = new BucketKey(triggerSequence, groupId);
         BucketState state = buckets.computeIfAbsent(key, ignored -> new BucketState(triggerSequence, groupId, group));
         synchronized (state) {
@@ -146,10 +198,39 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             }
             state.frameDecisions.put(cameraId, decision);
             scheduleTimeoutIfNeeded(state, fanOut);
-            if (state.frameDecisions.size() >= group.cameraIds().size()) {
+            if (isBucketComplete(state)) {
                 publishBucket(state, fanOut, false);
             }
         }
+    }
+
+    private boolean isCameraRequired(int cameraId) {
+        // Without a gate every configured camera is required (legacy / unit tests).
+        return inspectionGate == null || inspectionGate.isInspectionEnabled(cameraId);
+    }
+
+    private List<Integer> requiredCameraIds(BucketGroup group) {
+        List<Integer> required = new ArrayList<>();
+        for (Integer cameraId : group.cameraIds()) {
+            if (isCameraRequired(cameraId)) {
+                required.add(cameraId);
+            }
+        }
+        return required;
+    }
+
+    private boolean isBucketComplete(BucketState state) {
+        List<Integer> required = requiredCameraIds(state.group);
+        if (required.isEmpty()) {
+            // Все камеры группы выключены — закрываем ведро без ожидания кадров.
+            return true;
+        }
+        for (Integer cameraId : required) {
+            if (!state.frameDecisions.containsKey(cameraId)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void scheduleTimeoutIfNeeded(BucketState state, BucketFanOutSink fanOut) {
@@ -172,12 +253,14 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             if (state.published) {
                 return;
             }
+            List<Integer> required = requiredCameraIds(state.group);
             log.warn(
-                    "inspection bucket timeout seq={} group={} received={}/{} cameras={}",
+                    "inspection bucket timeout seq={} group={} received={}/{} required={} cameras={}",
                     key.triggerSequence(),
                     key.groupId(),
                     state.frameDecisions.size(),
                     state.group.cameraIds().size(),
+                    required,
                     state.frameDecisions.keySet()
             );
             publishBucket(state, fanOut, true);
@@ -195,18 +278,33 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         buckets.remove(state.key(), state);
 
         List<Integer> expectedCameraIds = state.group.cameraIds();
-        boolean anyReject = timedOut || state.frameDecisions.size() < expectedCameraIds.size();
-        if (!anyReject) {
-            boolean captureOnly = state.frameDecisions.values().stream()
-                    .allMatch(decision -> decision != null && "CAPTURE".equals(decision.action()));
-            if (captureOnly) {
-                anyReject = false;
-            } else {
-                for (Integer cameraId : expectedCameraIds) {
-                    InspectionDecision frameDecision = state.frameDecisions.get(cameraId);
-                    if (frameDecision == null || !frameDecision.overallPass()) {
-                        anyReject = true;
-                        break;
+        List<Integer> requiredCameraIds = requiredCameraIds(state.group);
+        boolean anyReject = false;
+        if (requiredCameraIds.isEmpty()) {
+            // Soft-stop всей группы: не шлём брак из-за отсутствия кадров.
+            anyReject = false;
+        } else {
+            boolean missingRequired = false;
+            for (Integer cameraId : requiredCameraIds) {
+                if (!state.frameDecisions.containsKey(cameraId)) {
+                    missingRequired = true;
+                    break;
+                }
+            }
+            // Incomplete set among enabled cameras (timeout) → reject.
+            // Disabled cameras are excluded from requiredCameraIds and do not force reject.
+            anyReject = missingRequired;
+            if (!anyReject) {
+                boolean captureOnly = requiredCameraIds.stream()
+                        .map(state.frameDecisions::get)
+                        .allMatch(decision -> decision != null && "CAPTURE".equals(decision.action()));
+                if (!captureOnly) {
+                    for (Integer cameraId : requiredCameraIds) {
+                        InspectionDecision frameDecision = state.frameDecisions.get(cameraId);
+                        if (frameDecision == null || !frameDecision.overallPass()) {
+                            anyReject = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -239,12 +337,14 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         }
 
         log.info(
-                "inspection bucket complete seq={} group={} pass={} frames={}/{} reject_cameras={} seam_strict={}",
+                "inspection bucket complete seq={} group={} pass={} frames={}/{} required={} timed_out={} reject_cameras={} seam_strict={}",
                 state.triggerSequence,
                 state.groupId,
                 bucketPass,
                 snapshot.size(),
                 expectedCameraIds.size(),
+                requiredCameraIds,
+                timedOut,
                 rejectCameraIds(snapshot),
                 seamStrict
         );

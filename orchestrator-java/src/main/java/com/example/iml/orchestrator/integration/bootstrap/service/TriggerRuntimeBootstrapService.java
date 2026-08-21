@@ -79,7 +79,8 @@ public final class TriggerRuntimeBootstrapService {
             BucketInspectionAggregator bucketInspectionAggregator = new BucketInspectionAggregator(
                     log,
                     bucketInspectionConfig,
-                    JointSeamPolicy.fromGeometryYaml(ctx.geometryCfg())
+                    JointSeamPolicy.fromGeometryYaml(ctx.geometryCfg()),
+                    ctx.inspectionGate()
             );
             ctx.setBucketInspectionAggregator(bucketInspectionAggregator);
             ctx.inspectionGate().setInspectionEnabledOnlyFor(inspectionCameraIds);

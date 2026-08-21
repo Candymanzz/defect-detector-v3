@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
@@ -74,7 +75,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const learnedNormals = useLearnedNormals(
     selectedSlot?.cameraId,
     selectedProductType,
-    selectedSlot ? activeArchive?.learnedCaseIdsByCameraId[selectedSlot.cameraId] ?? [] : [],
+    selectedSlot ? selectedArchive?.learnedCaseIdsByCameraId[selectedSlot.cameraId] ?? [] : [],
   );
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
@@ -467,13 +468,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             onUse={handleUseArchivedReference}
           />
 
-          {selectedLearnedCaseId && (
+          {selectedLearnedCaseId && createPortal(
             <LearnedFramesGallery
               cases={learnedNormals.cases}
               selectedId={selectedLearnedCaseId}
               onClose={() => setSelectedLearnedCaseId(null)}
               onSelect={setSelectedLearnedCaseId}
-            />
+            />,
+            document.body,
           )}
 
         </div>

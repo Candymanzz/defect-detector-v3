@@ -79,6 +79,14 @@ public final class ClientApiHttpController implements HttpController {
             handleTestAnalyze(ctx);
             return;
         }
+        if (path.equals("/api/client/inspection/test-pin")) {
+            handleTestPin(ctx);
+            return;
+        }
+        if (path.startsWith("/api/client/inspection/test-pin/cameras/") && path.endsWith("/frame.jpg")) {
+            handleTestPinFrameGet(ctx, path);
+            return;
+        }
         if (path.equals("/api/client/learning/accept-all-as-normal") || path.startsWith("/api/client/learning/")) {
             handleLearning(ctx);
             return;
@@ -487,6 +495,11 @@ public final class ClientApiHttpController implements HttpController {
             if (ws.isTestMode()) {
                 ws.exitTestMode();
             }
+            var testAnalyzeHolder = clientApi.uiTestAnalyzeHolder();
+            var testAnalyze = testAnalyzeHolder == null ? null : testAnalyzeHolder.get();
+            if (testAnalyze != null) {
+                testAnalyze.clearPins();
+            }
         }
         ObjectNode root = JSON.createObjectNode();
         root.put("ok", true);
@@ -696,41 +709,9 @@ public final class ClientApiHttpController implements HttpController {
             HttpResponses.sendJsonError(ctx, 409, "enter TEST mode first (POST /api/client/mode/test)");
             return;
         }
-        Map<String, Object> body;
         try {
-            body = JSON.readValue(ctx.readBody(), new TypeReference<Map<String, Object>>() {});
-        } catch (Exception e) {
-            HttpResponses.sendJsonError(ctx, 400, "invalid json body");
-            return;
-        }
-        if (body == null) {
-            body = Map.of();
-        }
-        try {
-            int cameraId = body.containsKey("cameraId")
-                    ? ((Number) body.get("cameraId")).intValue()
-                    : (body.containsKey("camera_id") ? ((Number) body.get("camera_id")).intValue() : -1);
-            String sourceRaw = body.containsKey("source") ? String.valueOf(body.get("source")) : null;
-            Long frameId = null;
-            if (body.get("frameId") instanceof Number n) {
-                frameId = n.longValue();
-            } else if (body.get("frame_id") instanceof Number n) {
-                frameId = n.longValue();
-            } else if (body.get("frameId") != null) {
-                frameId = Long.parseLong(String.valueOf(body.get("frameId")).trim());
-            } else if (body.get("frame_id") != null) {
-                frameId = Long.parseLong(String.valueOf(body.get("frame_id")).trim());
-            }
-            String httpPath = null;
-            if (body.get("httpPath") != null) {
-                httpPath = String.valueOf(body.get("httpPath")).trim();
-            } else if (body.get("http_path") != null) {
-                httpPath = String.valueOf(body.get("http_path")).trim();
-            }
-            var source = com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.parseSource(sourceRaw);
-            var accepted = service.submit(new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request(
-                    cameraId, source, frameId, httpPath
-            ));
+            var request = parseTestAnalyzeRequest(ctx);
+            var accepted = service.submit(request);
             ObjectNode root = JSON.createObjectNode();
             root.put("ok", true);
             root.put("jobId", accepted.jobId());
@@ -741,7 +722,123 @@ public final class ClientApiHttpController implements HttpController {
             HttpResponses.sendJsonError(ctx, e.status(), e.getMessage());
         } catch (ClassCastException | NumberFormatException e) {
             HttpResponses.sendJsonError(ctx, 400, "invalid cameraId/frameId: " + e.getMessage());
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid json body");
         }
+    }
+
+    private void handleTestPin(HttpRequestContext ctx) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"POST".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        var holder = clientApi.uiTestAnalyzeHolder();
+        var service = holder == null ? null : holder.get();
+        if (service == null) {
+            HttpResponses.sendJsonError(ctx, 503, "test-analyze not ready");
+            return;
+        }
+        var wsHolder = clientApi.clientWsHolder();
+        var ws = wsHolder == null ? null : wsHolder.get();
+        if (ws != null && !ws.isTestMode()) {
+            HttpResponses.sendJsonError(ctx, 409, "enter TEST mode first (POST /api/client/mode/test)");
+            return;
+        }
+        try {
+            var request = parseTestAnalyzeRequest(ctx);
+            var pinned = service.pin(request);
+            ObjectNode root = JSON.createObjectNode();
+            root.put("ok", true);
+            root.put("cameraId", pinned.cameraId());
+            root.put("frameId", pinned.frameId());
+            root.put("pinId", pinned.pinId());
+            HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
+        } catch (com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.AnalyzeException e) {
+            HttpResponses.sendJsonError(ctx, e.status(), e.getMessage());
+        } catch (ClassCastException | NumberFormatException e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid cameraId/frameId: " + e.getMessage());
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid json body");
+        }
+    }
+
+    private void handleTestPinFrameGet(HttpRequestContext ctx, String path) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"GET".equalsIgnoreCase(ctx.method()) && !"HEAD".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        var holder = clientApi.uiTestAnalyzeHolder();
+        var service = holder == null ? null : holder.get();
+        if (service == null) {
+            HttpResponses.sendJsonError(ctx, 503, "test-analyze not ready");
+            return;
+        }
+        // /api/client/inspection/test-pin/cameras/{id}/frame.jpg
+        String[] parts = path.split("/");
+        if (parts.length < 8) {
+            HttpResponses.sendJsonError(ctx, 404, "not found");
+            return;
+        }
+        int cameraId;
+        try {
+            cameraId = Integer.parseInt(parts[6]);
+        } catch (NumberFormatException e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid cameraId");
+            return;
+        }
+        var jpeg = service.pinnedJpegPath(cameraId);
+        if (jpeg.isEmpty() || !java.nio.file.Files.isRegularFile(jpeg.get())) {
+            HttpResponses.sendJsonError(ctx, 404, "no pinned test frame for cameraId=" + cameraId);
+            return;
+        }
+        byte[] body = java.nio.file.Files.readAllBytes(jpeg.get());
+        HttpResponses.send(ctx, 200, "image/jpeg", body);
+    }
+
+    private com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request parseTestAnalyzeRequest(
+            HttpRequestContext ctx
+    ) throws IOException, com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.AnalyzeException {
+        Map<String, Object> body;
+        try {
+            body = JSON.readValue(ctx.readBody(), new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.AnalyzeException(
+                    400, "invalid json body"
+            );
+        }
+        if (body == null) {
+            body = Map.of();
+        }
+        int cameraId = body.containsKey("cameraId")
+                ? ((Number) body.get("cameraId")).intValue()
+                : (body.containsKey("camera_id") ? ((Number) body.get("camera_id")).intValue() : -1);
+        String sourceRaw = body.containsKey("source") ? String.valueOf(body.get("source")) : null;
+        Long frameId = null;
+        if (body.get("frameId") instanceof Number n) {
+            frameId = n.longValue();
+        } else if (body.get("frame_id") instanceof Number n) {
+            frameId = n.longValue();
+        } else if (body.get("frameId") != null) {
+            frameId = Long.parseLong(String.valueOf(body.get("frameId")).trim());
+        } else if (body.get("frame_id") != null) {
+            frameId = Long.parseLong(String.valueOf(body.get("frame_id")).trim());
+        }
+        String httpPath = null;
+        if (body.get("httpPath") != null) {
+            httpPath = String.valueOf(body.get("httpPath")).trim();
+        } else if (body.get("http_path") != null) {
+            httpPath = String.valueOf(body.get("http_path")).trim();
+        }
+        var source = com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.parseSource(sourceRaw);
+        return new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request(
+                cameraId, source, frameId, httpPath
+        );
     }
 
     private void handleInspectionStatus(HttpRequestContext ctx) throws IOException {
@@ -839,7 +936,13 @@ public final class ClientApiHttpController implements HttpController {
                 }
             } else if (clientApi.inspectionGate().disableInspectionAndRequestCancel(cameraId)) {
                 cancelled.add(cameraId);
+            } else {
+                // Already idle/disabled — still mark disabled so bucket no longer waits for this cam.
+                clientApi.inspectionGate().setInspectionEnabled(cameraId, false);
             }
+        }
+        if (!enabled && clientApi.inspectionResumeHolder() != null) {
+            clientApi.inspectionResumeHolder().reevaluateOpenBucketsAfterGateChange();
         }
 
         sendInspectionState(ctx, requestedCameraIds, changed, cancelled, unknown);
@@ -866,6 +969,9 @@ public final class ClientApiHttpController implements HttpController {
             }
         }
         Set<Integer> cancelled = clientApi.inspectionGate().disableAllAndRequestCancel();
+        if (clientApi.inspectionResumeHolder() != null) {
+            clientApi.inspectionResumeHolder().reevaluateOpenBucketsAfterGateChange();
+        }
         sendInspectionState(ctx, requestedCameraIds, changed, cancelled, Set.of());
     }
 

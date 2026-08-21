@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -117,14 +118,27 @@ public final class GeometryRuntimeConfig {
 
     public void applyToGeometryHeader(Map<String, Object> header, String analysisProfile) {
         boolean clientReferenceBundle = YamlScalars.toBool(header.get("client_reference_bundle"), false);
-        boolean hasReferenceJointRoi = header.get("jointRoi") != null;
+        boolean hasReferenceJointRoi = header.get("jointRoi") != null
+                || (header.get("jointRoiPolygonNorm") instanceof List<?> poly && poly.size() >= 3);
         profileOverrides(analysisProfile).forEach((key, value) -> {
+            if (!hasReferenceJointRoi && isJointOnlyOverrideKey(key)) {
+                // Без стыка в эталоне не подмешиваем jointRoi/seam из runtime-overrides.
+                return;
+            }
             if (clientReferenceBundle && hasReferenceJointRoi && "jointRoi".equals(key)) {
                 return;
             }
             applyGeometryEntry(header, key, value);
         });
-        header.put("jointSeamSegmentationEnabled", true);
+        if (!hasReferenceJointRoi) {
+            header.put("jointSeamSegmentationEnabled", false);
+            if (header.get("jointRoi") == null) {
+                header.put("jointMode", "off");
+            }
+        } else if (!header.containsKey("jointSeamSegmentationEnabled")
+                || header.get("jointSeamSegmentationEnabled") == null) {
+            header.put("jointSeamSegmentationEnabled", true);
+        }
     }
 
     /** Явное runtime-переопределение порога для python {@code inspect_shm}, если оно задано для профиля. */
@@ -134,33 +148,42 @@ public final class GeometryRuntimeConfig {
 
     public void applyToPythonHeader(Map<String, Object> header, Map<String, Object> pythonYaml, String analysisProfile) {
         Map<String, Object> overrides = profileOverrides(analysisProfile);
-        if (overrides.containsKey("threshold")) {
-            header.put("threshold", YamlScalars.toDouble(overrides.get("threshold"), defaultPythonThreshold(pythonYaml)));
-        }
         if (overrides.isEmpty()) {
             return;
         }
+        // Anomaly threshold belongs to analysis_settings (UI knobs / default_threshold).
+        // Do not inject geometry-runtime "threshold" into python inspect — it used to freeze
+        // the AnalysisSettingsPanel slider while a stale value sat in geometry_runtime_settings.json.
         Map<String, Object> algorithmParams = new LinkedHashMap<>();
         putIfPresent(overrides, algorithmParams, "mainRoi", "main_roi");
         putIfPresent(overrides, algorithmParams, "mainRoiPolygonNorm", "main_roi_polygon_norm");
-        putIfPresent(overrides, algorithmParams, "jointRoi", "joint_roi");
-        putIfPresent(overrides, algorithmParams, "jointRoiPolygonNorm", "joint_roi_polygon_norm");
-        putIfPresent(overrides, algorithmParams, "jointMode", "joint_mode");
         putIfPresent(overrides, algorithmParams, "wrinklesRoi", "wrinkles_roi");
         putIfPresent(overrides, algorithmParams, "pixelsToMm", "pixels_to_mm");
         putIfPresent(overrides, algorithmParams, "maxShiftMm", "max_shift_mm");
         putIfPresent(overrides, algorithmParams, "maxRotationDeg", "max_rotation_deg");
         putIfPresent(overrides, algorithmParams, "maxConcentricityMm", "max_concentricity_mm");
-        putIfPresent(overrides, algorithmParams, "maxJointDefectMm", "max_joint_defect_mm");
-        putIfPresent(overrides, algorithmParams, "jointMinWidthMm", "joint_min_width_mm");
-        putIfPresent(overrides, algorithmParams, "jointMaxWidthMm", "joint_max_width_mm");
-        putIfPresent(overrides, algorithmParams, "maxJointParallelismDeg", "max_joint_parallelism_deg");
-        putIfPresent(overrides, algorithmParams, "maxJointTaperMm", "max_joint_taper_mm");
-        putIfPresent(overrides, algorithmParams, "jointSeamSegmentationSensitivity", "joint_seam_segmentation_sensitivity");
         putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
-        putIfPresent(overrides, algorithmParams, "jointThreshold", "joint_threshold");
-        putIfPresent(overrides, algorithmParams, "threshold", "threshold");
-        algorithmParams.put("joint_seam_segmentation_enabled", true);
+        boolean injectJoint = overrides.containsKey("jointRoi")
+                || overrides.containsKey("jointRoiPolygonNorm");
+        if (injectJoint) {
+            putIfPresent(overrides, algorithmParams, "jointRoi", "joint_roi");
+            putIfPresent(overrides, algorithmParams, "jointRoiPolygonNorm", "joint_roi_polygon_norm");
+            putIfPresent(overrides, algorithmParams, "jointMode", "joint_mode");
+            putIfPresent(overrides, algorithmParams, "maxJointDefectMm", "max_joint_defect_mm");
+            putIfPresent(overrides, algorithmParams, "jointMinWidthMm", "joint_min_width_mm");
+            putIfPresent(overrides, algorithmParams, "jointMaxWidthMm", "joint_max_width_mm");
+            putIfPresent(overrides, algorithmParams, "maxJointParallelismDeg", "max_joint_parallelism_deg");
+            putIfPresent(overrides, algorithmParams, "maxJointTaperMm", "max_joint_taper_mm");
+            putIfPresent(overrides, algorithmParams, "jointSeamSegmentationSensitivity", "joint_seam_segmentation_sensitivity");
+            putIfPresent(overrides, algorithmParams, "jointThreshold", "joint_threshold");
+            putIfPresent(overrides, algorithmParams, "jointSeamSegmentationEnabled", "joint_seam_segmentation_enabled");
+            if (!algorithmParams.containsKey("joint_seam_segmentation_enabled")) {
+                algorithmParams.put("joint_seam_segmentation_enabled", true);
+            }
+        } else {
+            // Sensitivity may be stored without joint ROI; do not enable seam from it alone.
+            putIfPresent(overrides, algorithmParams, "jointSeamSegmentationSensitivity", "joint_seam_segmentation_sensitivity");
+        }
         if (!algorithmParams.isEmpty()) {
             header.put("algorithm_params", algorithmParams);
         }
@@ -210,7 +233,7 @@ public final class GeometryRuntimeConfig {
                 "maxJointTaperMm",
                 YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_taper_mm"), 0.8)
         );
-        m.put("jointSeamSegmentationEnabled", true);
+        m.put("jointSeamSegmentationEnabled", false);
         m.put(
                 "jointSeamSegmentationSensitivity",
                 Math.max(
@@ -257,7 +280,7 @@ public final class GeometryRuntimeConfig {
             return;
         }
         if ("jointSeamSegmentationEnabled".equals(key)) {
-            header.put(key, true);
+            header.put(key, YamlScalars.toBool(value, false));
             return;
         }
         if ("jointSeamSegmentationSensitivity".equals(key)) {
@@ -271,6 +294,20 @@ public final class GeometryRuntimeConfig {
             return;
         }
         header.put(key, value);
+    }
+
+    private static boolean isJointOnlyOverrideKey(String key) {
+        return "jointRoi".equals(key)
+                || "jointRoiPolygonNorm".equals(key)
+                || "jointMode".equals(key)
+                || "jointSeamSegmentationEnabled".equals(key)
+                || "jointSeamSegmentationSensitivity".equals(key)
+                || "maxJointDefectMm".equals(key)
+                || "jointMinWidthMm".equals(key)
+                || "jointMaxWidthMm".equals(key)
+                || "maxJointParallelismDeg".equals(key)
+                || "maxJointTaperMm".equals(key)
+                || "jointThreshold".equals(key);
     }
 
     private static double defaultPythonThreshold(Map<String, Object> pythonYaml) {

@@ -275,6 +275,8 @@ export type InspectResultPayload = {
   learned_review_id?: string;
   /** UI test-analyze result (geometry+python on archive/artifact frame). */
   test_analyze?: boolean;
+  /** SHA-256 of pinned JPEG bytes used for this test-analyze run. */
+  pin_jpeg_sha256?: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;

@@ -3,12 +3,14 @@ package com.example.iml.orchestrator.integration.pipeline.bucket;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutSink;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -202,6 +204,69 @@ class BucketInspectionAggregatorTest {
                 seamDecision(1, 501L, true, false, true, 0.0, 0.0, 0.8),
                 fanOut
         );
+
+        BucketFanOutResult result = published.get();
+        assertTrue(result.overallPass());
+    }
+
+    @Test
+    void softStoppedCameraIsNotRequiredForBucketPass() {
+        PerCameraInspectionGate gate = PerCameraInspectionGate.fromCameras(List.of(
+                Map.of("id", 0),
+                Map.of("id", 1),
+                Map.of("id", 2)
+        ));
+        gate.setInspectionEnabled(1, false);
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0, 1, 2))),
+                        1000L,
+                        1000L
+                ),
+                JointSeamPolicy.defaults(),
+                gate
+        );
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = fanOutSink(published);
+
+        aggregator.recordFrameResult(40L, 0, decision(0, 600L, true), fanOut);
+        assertNull(published.get());
+        aggregator.recordFrameResult(40L, 2, decision(2, 602L, true), fanOut);
+
+        BucketFanOutResult result = published.get();
+        assertTrue(result.overallPass());
+        assertEquals(2, result.frameDecisions().size());
+    }
+
+    @Test
+    void disablingCameraCompletesOpenBucketWithoutWaiting() {
+        PerCameraInspectionGate gate = PerCameraInspectionGate.fromCameras(List.of(
+                Map.of("id", 0),
+                Map.of("id", 1),
+                Map.of("id", 2)
+        ));
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0, 1, 2))),
+                        1000L,
+                        1000L
+                ),
+                JointSeamPolicy.defaults(),
+                gate
+        );
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = fanOutSink(published);
+
+        aggregator.recordFrameResult(41L, 0, decision(0, 700L, true), fanOut);
+        aggregator.recordFrameResult(41L, 2, decision(2, 702L, true), fanOut);
+        assertNull(published.get(), "still waiting for cam 1");
+
+        gate.setInspectionEnabled(1, false);
+        aggregator.reevaluateOpenBucketsAfterGateChange();
 
         BucketFanOutResult result = published.get();
         assertTrue(result.overallPass());

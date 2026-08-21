@@ -5,6 +5,7 @@ import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
 import { AnalysisSettingsPanel } from "../SettingList/AnalysisSettingsPanel";
+import { notifyAnalysisSettingsChanged } from "../SettingList/analysisSettingsEvents";
 import type { AnalysisSettingsPanelHandle } from "../SettingList/AnalysisSettingsPanel";
 import { GeometryTestSettingsPanel } from "../SettingList/GeometryTestSettingsPanel";
 import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTestSettingsPanel";
@@ -69,25 +70,31 @@ export function MainOverview({
 
   const applySettingsAndInspect = async (action: "check" | "save") => {
     const snapshot = controller.modalSnapshot;
-    const frameId = testFrameId ?? snapshot?.inspectResult?.frame_id;
+    const frameId = testFrameId ?? snapshot?.pinnedTestFrameId ?? snapshot?.inspectResult?.frame_id;
     if (!snapshot || !frameId || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting") {
       return;
     }
 
+    // Do NOT re-freeze / touch cameraImageUrl here — that remounts <img> and looks like a frame swap.
     setTestAnalyzeState("submitting");
     setTestAnalyzeMessage(
-      `${action === "save" ? "Сохранение" : "Применение"} настроек и запуск инспекции кадра ${frameId}…`,
+      action === "save"
+        ? `Сохранение настроек и проверка кадра ${frameId}…`
+        : `Проверка кадра ${frameId}…`,
     );
     try {
-      await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
+      if (action === "save") {
+        await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
+        notifyAnalysisSettingsChanged(snapshot.cameraId);
+      }
       pendingTestRef.current = {
         cameraId: snapshot.cameraId,
         frameId,
         previousServerTs: snapshot.inspectResult?.server_ts_ms ?? 0,
       };
-      const accepted = await orchestratorApi.testAnalyzeArchiveFrame(snapshot.cameraId, frameId);
+      await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, frameId);
       setTestAnalyzeState("awaiting");
-      setTestAnalyzeMessage(`Проверка запущена (${accepted.jobId}). Ожидание полного результата кадра ${frameId}…`);
+      setTestAnalyzeMessage(`Проверка кадра ${frameId} запущена, ожидание результата…`);
     } catch (error) {
       setTestAnalyzeState("error");
       setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось запустить повторную инспекцию");
@@ -114,9 +121,11 @@ export function MainOverview({
       return;
     }
     const resultState = resolveInspectionResultState(result);
+    const anomalyPercent =
+      typeof result.anomaly_score === "number" ? `${(result.anomaly_score * 100).toFixed(2)}%` : "—";
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
-      `Кадр ${pending.frameId} проверен с новыми настройками: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}. Полный результат и новый хитмап отображены.`,
+      `Кадр ${pending.frameId}: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}, аномалия ${anomalyPercent}.`,
     );
   }, [controller.modalSnapshot?.inspectResult, testAnalyzeState]);
 
@@ -191,6 +200,18 @@ export function MainOverview({
             archiveHistoryState={controller.archiveHistoryState}
             archiveHistoryMessage={controller.archiveHistoryMessage}
             onLoadArchivedHistory={(ids) => void controller.loadArchivedHistory(ids)}
+            onCameraOpen={(item) => {
+              const camera = cameraCards.find((candidate) => candidate.cameraId === item.inspectResult.camera_id);
+              if (!camera) return;
+              controller.openInspectionModal(
+                createSelectedCamera(camera),
+                item.inspectResult,
+                item.inspectResult,
+                item.frameId,
+                controller.previewImageUrlsByCameraId[camera.cameraId],
+                controller.inspectionHistoryByCameraId[camera.cameraId] ?? [],
+              );
+            }}
           />
         </section>
       ))}
@@ -229,15 +250,18 @@ export function MainOverview({
                   открытым, пока не нажмёте «Завершить тест» или не закроете окно.
                 </p>
                 <div className="modal__test-settings-grid">
-                  <section className="modal__test-settings-section">
-                    <h4>Геометрия / стык</h4>
+                  <details className="modal__test-settings-section modal__test-settings-section--collapsible">
+                    <summary>
+                      <span>Геометрия / стык</span>
+                      <span className="modal__test-settings-chevron" aria-hidden="true" />
+                    </summary>
                     <GeometryTestSettingsPanel
                       ref={geometrySettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
                       hideSaveAction
                     />
-                  </section>
+                  </details>
                   <section className="modal__test-settings-section">
                     <h4>Python-анализ поверхности</h4>
                     <AnalysisSettingsPanel
@@ -300,22 +324,70 @@ export function MainOverview({
           }
           headerActions={
             showModalAnalysisSettings ? undefined : (
-              <button
-                className="modal__action"
-                type="button"
-                onClick={async () => {
+              <>
+                <button
+                  className="modal__action"
+                  type="button"
+                  disabled={testAnalyzeState === "submitting"}
+                  onClick={async () => {
                   const cameraId = controller.modalSnapshot!.cameraId;
-                  const frameId = controller.modalSnapshot!.inspectResult?.frame_id;
-                  if (!frameId) {
+                  const inspectResult = controller.modalSnapshot!.inspectResult;
+                  const frameId = inspectResult?.frame_id;
+                  if (!frameId || !inspectResult) {
                     return;
                   }
-                  setTestFrameId(frameId);
-                  await onAnalysisSettingsOpen(cameraId);
-                  setShowModalAnalysisSettings(true);
+                  try {
+                    setTestAnalyzeState("submitting");
+                    setTestAnalyzeMessage(`Фиксация кадра ${frameId}…`);
+                    setTestFrameId(frameId);
+                    // Capture the exact pixels currently shown BEFORE pin/mode changes.
+                    const displayedUrl = controller.modalSnapshot?.cameraImageUrl;
+                    await onAnalysisSettingsOpen(cameraId);
+                    const pinSource = resolveTestPinSource(inspectResult);
+                    await orchestratorApi.pinTestFrame({
+                      cameraId,
+                      frameId,
+                      source: pinSource.source,
+                      httpPath: pinSource.httpPath,
+                    });
+                    const pinHttpPath = `/api/client/inspection/test-pin/cameras/${cameraId}/frame.jpg`;
+                    // Freeze UI on a local blob of the on-screen image so later WS/http never swaps <img src>.
+                    const sourceForBlob =
+                      displayedUrl
+                      ?? (pinSource.httpPath ? orchestratorApi.imageUrl(pinSource.httpPath, frameId) : undefined)
+                      ?? orchestratorApi.imageUrl(pinHttpPath, frameId);
+                    const frozenBlobUrl = await createFrozenFrameObjectUrl(sourceForBlob);
+                    controller.freezeModalTestFrame(frameId, frozenBlobUrl, pinHttpPath);
+                    setShowModalAnalysisSettings(true);
+                    setTestAnalyzeState("idle");
+                    setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Меняйте параметры и нажмите «Проверить».`);
+                  } catch (error) {
+                    setTestFrameId(undefined);
+                    setShowModalAnalysisSettings(false);
+                    setTestAnalyzeState("error");
+                    setTestAnalyzeMessage(
+                      error instanceof Error ? error.message : "Не удалось зафиксировать кадр для теста",
+                    );
+                    try {
+                      await orchestratorApi.setTestMode(false);
+                      const inspectionState = await orchestratorApi.startAllInspections();
+                      window.dispatchEvent(
+                        new CustomEvent("inspection-control-changed", { detail: inspectionState }),
+                      );
+                    } catch {
+                      // leave error message from pin/open failure
+                    }
+                  }
                 }}
-              >
-                Изменить настройки анализа
-              </button>
+                >
+                  {testAnalyzeState === "submitting" ? "Фиксация кадра…" : "Изменить настройки анализа"}
+                </button>
+                {testAnalyzeState === "error" && testAnalyzeMessage && (
+                  <span className="modal__test-settings-status" data-state="error" role="alert">
+                    {testAnalyzeMessage}
+                  </span>
+                )}
+              </>
             )
           }
           inspectResult={controller.modalSnapshot.inspectResult}
@@ -323,14 +395,22 @@ export function MainOverview({
           onInspectionSelect={controller.selectModalInspection}
           onClose={() => {
             if (showModalAnalysisSettings) {
-              void Promise.allSettled([
-                geometrySettingsRef.current?.save() ?? Promise.resolve(),
-                analysisSettingsRef.current?.save() ?? Promise.resolve(),
-              ])
-                .then(() => exitTestModeAndResume())
-                .finally(() => {
+              void (async () => {
+                try {
+                  await Promise.all([
+                    geometrySettingsRef.current?.save() ?? Promise.resolve(),
+                    analysisSettingsRef.current?.save() ?? Promise.resolve(),
+                  ]);
+                  notifyAnalysisSettingsChanged(controller.modalSnapshot!.cameraId);
+                  await exitTestModeAndResume();
                   controller.closeInspectionModal();
-                });
+                } catch (error) {
+                  setTestAnalyzeState("error");
+                  setTestAnalyzeMessage(
+                    error instanceof Error ? error.message : "Не удалось сохранить настройки анализа",
+                  );
+                }
+              })();
               return;
             }
             setShowModalAnalysisSettings(false);
@@ -356,6 +436,43 @@ function chunkItems<T>(items: T[], chunkSize: number) {
     const startIndex = groupIndex * chunkSize;
     return items.slice(startIndex, startIndex + chunkSize);
   });
+}
+
+function resolveTestPinSource(inspectResult: {
+  artifact_bundle_id?: string;
+  http_path?: string;
+  current?: { http_path?: string };
+}): { source: "archive" | "artifact" | "current"; httpPath?: string } {
+  // Pin the exact JPEG the modal is showing — never silent archive-by-frameId when another path is visible.
+  const path = (inspectResult.http_path ?? inspectResult.current?.http_path ?? "").trim();
+  if (path.includes("/api/frame-archive/")) {
+    return { source: "archive", httpPath: path };
+  }
+  if (path.includes("/api/inspection-artifacts/")) {
+    return { source: "artifact", httpPath: path };
+  }
+  if (path.includes("/api/camera/") && path.endsWith("/current.jpg")) {
+    return { source: "current", httpPath: path };
+  }
+  if (inspectResult.artifact_bundle_id) {
+    return {
+      source: "artifact",
+      httpPath: `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
+    };
+  }
+  return { source: "archive" };
+}
+
+async function createFrozenFrameObjectUrl(imageUrl: string): Promise<string> {
+  const response = await fetch(imageUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Не удалось зафиксировать кадр для UI: HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+  if (blob.size <= 0) {
+    throw new Error("Не удалось зафиксировать кадр для UI: пустой ответ");
+  }
+  return URL.createObjectURL(blob);
 }
 
 function getInspectionActionLabel(state: "idle" | "starting" | "stopping" | "error" | undefined, isEnabled: boolean) {

@@ -366,6 +366,20 @@ export type TestAnalyzeResponse = {
   frameId: number;
 };
 
+export type PinTestFrameRequest = {
+  cameraId: number;
+  frameId: string | number;
+  source?: "archive" | "artifact" | "current";
+  httpPath?: string;
+};
+
+export type PinTestFrameResponse = {
+  ok: boolean;
+  cameraId: number;
+  frameId: number;
+  pinId: string;
+};
+
 export type AcceptLearnedNormalsRequest = {
   frameId: string | number;
   productType: string;
@@ -387,7 +401,6 @@ export type AcceptLearnedNormalsResponse = {
 export type LearnedNormalCase = {
   id: string;
   product_type: string;
-  polygon_norm?: Array<{ x: number; y: number }>;
   source_inspection_id?: string;
   source_defect_id?: string;
   created_at?: string;

@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -38,7 +39,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private static final ConcurrentHashMap<String, String> SHARED_REFERENCE_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> SHARED_ROI_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Object> SCOPE_LOCKS = new ConcurrentHashMap<>();
-    private static volatile Map<Integer, String> ANALYSIS_PROFILE_BY_CAMERA = Map.of();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
@@ -96,7 +96,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     public static void setAnalysisProfilesByCamera(Map<Integer, String> profiles) {
-        ANALYSIS_PROFILE_BY_CAMERA = profiles == null || profiles.isEmpty() ? Map.of() : Map.copyOf(profiles);
+        CameraAnalysisProfiles.setByCamera(profiles);
     }
 
     @Override
@@ -982,14 +982,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 return value;
             }
         }
-        if (cameraId < 0) {
-            return null;
-        }
-        String mapped = ANALYSIS_PROFILE_BY_CAMERA.get(cameraId);
-        if (mapped == null || mapped.isBlank()) {
-            return null;
-        }
-        return mapped.trim();
+        return CameraAnalysisProfiles.resolve(cameraId, null);
     }
 
     private static String referenceSignature(

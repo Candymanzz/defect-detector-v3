@@ -673,6 +673,7 @@ class AcceptedNormalMemory:
             cases.sort(key=lambda case: case.created_at, reverse=True)
             return [case.to_public_dict() for case in cases]
 
+
     def get(self, case_id: str) -> Optional[AcceptedNormalCase]:
         with self._lock:
             return self._cases.get(case_id)

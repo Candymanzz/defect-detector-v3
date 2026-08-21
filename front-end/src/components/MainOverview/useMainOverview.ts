@@ -187,7 +187,47 @@ export function useMainOverview(inspectionResetVersion = 0) {
     setModalSnapshot((currentSnapshot) => selectModalInspectionSnapshot(currentSnapshot, frameId));
   }, []);
 
-  const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
+  const freezeModalTestFrame = useCallback((frameId: string, cameraImageUrl: string, pinHttpPath: string) => {
+    setModalSnapshot((current) => {
+      if (!current?.inspectResult) {
+        return current;
+      }
+      if (
+        current.pinnedTestImageUrl
+        && current.pinnedTestImageUrl.startsWith("blob:")
+        && current.pinnedTestImageUrl !== cameraImageUrl
+      ) {
+        URL.revokeObjectURL(current.pinnedTestImageUrl);
+      }
+      return {
+        ...current,
+        cameraImageUrl,
+        pinnedTestImageUrl: cameraImageUrl,
+        pinnedTestHttpPath: pinHttpPath,
+        pinnedTestFrameId: frameId,
+        inspectResult: {
+          ...current.inspectResult,
+          frame_id: frameId,
+          test_analyze: true,
+          http_path: pinHttpPath,
+          current: {
+            ...current.inspectResult.current,
+            frame_id: frameId,
+            http_path: pinHttpPath,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const closeInspectionModal = useCallback(() => {
+    setModalSnapshot((current) => {
+      if (current?.pinnedTestImageUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(current.pinnedTestImageUrl);
+      }
+      return null;
+    });
+  }, []);
 
   const loadArchivedHistory = useCallback(
     async (targetCameraIds: number[] = cameraIds) => {
@@ -577,6 +617,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
     openInspectionModal,
     selectModalInspection,
     closeInspectionModal,
+    freezeModalTestFrame,
   };
 }
 
@@ -879,6 +920,12 @@ function addModalInspectionItem(
       return currentSnapshot;
     }
 
+    // While TEST settings are open on a pinned frame, ignore live production results so the
+    // modal does not jump to newer DI3 frames / live current.jpg.
+    if (!inspectResult.test_analyze && currentSnapshot.inspectResult?.test_analyze) {
+      return currentSnapshot;
+    }
+
     const historyResult = result ?? "fail";
     const nextItems = upsertModalInspectionItem(currentSnapshot.inspectionItems, {
       frameId: inspectResult.frame_id,
@@ -898,8 +945,8 @@ function addModalInspectionItem(
 
     if (
       currentSnapshot.inspectResult?.frame_id === inspectResult.frame_id &&
-      ((hasDisplayableInspectImage(inspectResult) && !hasDisplayableInspectImage(currentSnapshot.inspectResult)) ||
-        (Boolean(inspectResult.heatmap) && !currentSnapshot.inspectResult.heatmap))
+      hasDisplayableInspectImage(inspectResult) &&
+      !hasDisplayableInspectImage(currentSnapshot.inspectResult)
     ) {
       return updateModalSnapshotResult(nextSnapshot, inspectResult);
     }

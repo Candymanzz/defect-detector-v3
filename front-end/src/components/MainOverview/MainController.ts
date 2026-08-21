@@ -191,16 +191,66 @@ export function updateModalSnapshotResult(
   // Immediate test-analyze notifies arrive without heatmap; keep the last map/descriptor until the final one lands.
   const retainPreviousHeatmap =
     Boolean(inspectResult.test_analyze) && !inspectResult.heatmap && currentSnapshot.inspectResult?.heatmap;
-  const displayInspectResult = retainPreviousHeatmap
+  let displayInspectResult = retainPreviousHeatmap
     ? { ...inspectResult, heatmap: currentSnapshot.inspectResult?.heatmap ?? null }
     : inspectResult;
+
+  const lockedPinPath = currentSnapshot.pinnedTestHttpPath;
+  const lockedPinImageUrl = currentSnapshot.pinnedTestImageUrl;
+  if (
+    (displayInspectResult.test_analyze || currentSnapshot.pinnedTestHttpPath)
+    && lockedPinPath
+  ) {
+    displayInspectResult = {
+      ...displayInspectResult,
+      http_path: lockedPinPath,
+      current: {
+        ...displayInspectResult.current,
+        http_path: lockedPinPath,
+        frame_id: currentSnapshot.pinnedTestFrameId ?? displayInspectResult.current.frame_id,
+      },
+    };
+  }
+
+  const nextCameraImageUrl = lockedPinImageUrl
+    ?? currentSnapshot.cameraImageUrl
+    ?? resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult)
+    ?? resolveImmutableInspectionImageUrl(displayInspectResult)
+    ?? createWsFrameImageUrl(displayInspectResult);
+
   return {
     ...currentSnapshot,
     inspectResult: displayInspectResult,
-    cameraImageUrl:
-      resolveImmutableInspectionImageUrl(displayInspectResult) ?? createWsFrameImageUrl(displayInspectResult),
+    // Frozen TEST image must never change after pin (blob: or locked URL).
+    cameraImageUrl: lockedPinImageUrl ?? nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
+    pinnedTestImageUrl: currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl,
     heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };
+}
+
+/** While TEST settings are open, keep showing the durable pin JPEG — not artifact/current re-encodes. */
+function resolvePinnedTestFrameImageUrl(
+  currentSnapshot: ModalInspectionSnapshot,
+  inspectResult: InspectResultPayload,
+) {
+  const candidatePaths = [
+    inspectResult.http_path,
+    inspectResult.current?.http_path,
+    currentSnapshot.inspectResult?.http_path,
+    currentSnapshot.inspectResult?.current?.http_path,
+  ];
+  for (const path of candidatePaths) {
+    if (path?.includes("/api/client/inspection/test-pin/")) {
+      return orchestratorApi.imageUrl(path, inspectResult.frame_id || currentSnapshot.inspectResult?.frame_id);
+    }
+  }
+  if (
+    (inspectResult.test_analyze || currentSnapshot.inspectResult?.test_analyze)
+    && currentSnapshot.cameraImageUrl?.includes("/api/client/inspection/test-pin/")
+  ) {
+    return currentSnapshot.cameraImageUrl;
+  }
+  return undefined;
 }
 
 export function compareInspectResults(left: InspectResultPayload, right: InspectResultPayload) {
@@ -218,7 +268,11 @@ export function hasDisplayableInspectImage(inspectResult: InspectResultPayload) 
 
 export function hasImmutableInspectArtifact(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
-  return Boolean(inspectResult.artifact_bundle_id || imagePath.includes("/api/frame-archive/"));
+  return Boolean(
+    inspectResult.artifact_bundle_id
+      || imagePath.includes("/api/frame-archive/")
+      || imagePath.includes("/api/client/inspection/test-pin/"),
+  );
 }
 
 export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
@@ -422,6 +476,12 @@ export function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): Inspe
 }
 
 function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload) {
+  const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
+  // Pin must win over archive/artifact: test-analyze WS often carries both bundle id and pin path.
+  if (imagePath.includes("/api/client/inspection/test-pin/")) {
+    return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
+  }
+
   const archiveUrl = resolveArchiveFrameImageUrl(inspectResult);
   if (archiveUrl) {
     return archiveUrl;

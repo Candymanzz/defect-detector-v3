@@ -1,10 +1,13 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -22,6 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InspectGeometryExecutorTest {
 
     private final InspectGeometryExecutor executor = new InspectGeometryExecutor(LogManager.getLogger(getClass()));
+
+    @AfterEach
+    void clearProfiles() {
+        CameraAnalysisProfiles.setByCamera(Map.of());
+    }
 
     @Test
     void returnsUnchangedStateWhenPoolEmpty() {
@@ -178,6 +186,78 @@ class InspectGeometryExecutorTest {
         assertTrue(Boolean.TRUE.equals(result.geom().header().get("overallPass")));
         assertEquals(4, sentHeader.get().get("camera_id"));
         assertTrue(result.geometryMs() >= 0);
+    }
+
+    @Test
+    void appliesGeometryRuntimeUnderCameraAnalysisProfileNotProductType() {
+        CameraAnalysisProfiles.setByCamera(Map.of(4, "bench-lan3"));
+        GeometryRuntimeConfig runtime = new GeometryRuntimeConfig();
+        runtime.replaceAllFromClient("bench-lan3", Map.of("maxShiftMm", 7.5));
+        runtime.replaceAllFromClient("bench", Map.of("maxShiftMm", 0.1));
+
+        AtomicReference<Map<String, Object>> sentHeader = new AtomicReference<>();
+        BinaryRpcSupervisor geometry = new BinaryRpcSupervisor() {
+            @Override
+            public BinaryProtocol.Message command(Map<String, Object> header) {
+                sentHeader.set(header);
+                return new BinaryProtocol.Message(
+                        BinaryProtocol.MSG_RESPONSE,
+                        Map.of("overallPass", true, "status", "PASS"),
+                        new byte[0]
+                );
+            }
+
+            @Override
+            public BinaryProtocol.Message commandNoRetry(Map<String, Object> header) {
+                return command(header);
+            }
+
+            @Override
+            public BinaryProtocol.Message health() {
+                return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, Map.of("status", "ok"), new byte[0]);
+            }
+
+            @Override
+            public void start() {
+            }
+
+            @Override
+            public void restart() {
+            }
+
+            @Override
+            public int restartCount() {
+                return 0;
+            }
+
+            @Override
+            public String supervisorLabel() {
+                return "geometry-profile-test";
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+
+        InspectGeometryExecutor withRuntime = new InspectGeometryExecutor(
+                LogManager.getLogger(getClass()),
+                null,
+                runtime
+        );
+        withRuntime.apply(
+                stateWithCapture(),
+                4,
+                "bench",
+                reference(),
+                Map.of(),
+                Map.of(),
+                List.of(geometry),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(7.5, sentHeader.get().get("maxShiftMm"));
     }
 
     @Test

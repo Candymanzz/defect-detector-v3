@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { HttpError, orchestratorApi } from "../../shared/api";
 import type { GeometryInspectResponse } from "../../shared/api";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { formatAnomalyPercent } from "../../shared/lib/anomalyScore";
 import { attachLearnedCasesToActiveReference, updateReferenceFpZones } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import { orchestratorWs } from "../../shared/ws";
@@ -120,47 +121,35 @@ export function ModalWrapper({
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="modal__header">
-          <h2>{title}</h2>
-          <div className="modal__header-actions">
-            {dangerHeaderAction}
-            {inspectionResultState === "fail" && inspectResult?.learned_review_id && inspectResult.detector.product_type && (
-              <LearnFrameAction
-                key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
-                inspectResult={inspectResult}
-                productType={inspectResult.detector.product_type}
-                onAccepted={(cases) => {
-                  setEditedFpZones((current) => [
-                    ...current,
-                    ...cases.flatMap((item) =>
-                      (item.polygon_norm?.length ?? 0) >= 3
-                        ? [{ id: item.id, note: item.note ?? "Добавлено в анализ", points_norm_heatmap: item.polygon_norm! }]
-                        : [],
-                    ),
-                  ]);
-                }}
-              />
-            )}
-            {headerActions}
-            <button
-              aria-label="Закрыть"
-              className="modal__close"
-              type="button"
-              onClick={onClose}
-            >
-              x
-            </button>
-          </div>
-        </header>
+        <div className="modal__sticky-header">
+          <header className="modal__header">
+            <h2>{title}</h2>
+            <div className="modal__header-actions">
+              {dangerHeaderAction}
+              {inspectionResultState === "fail" && inspectResult?.learned_review_id && inspectResult.detector.product_type && (
+                <LearnFrameAction
+                  key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
+                  inspectResult={inspectResult}
+                  productType={inspectResult.detector.product_type}
+                />
+              )}
+              {headerActions}
+              <button
+                aria-label="Закрыть"
+                className="modal__close"
+                type="button"
+                onClick={onClose}
+              >
+                x
+              </button>
+            </div>
+          </header>
 
-        {inspectionResultState && (
-          <div
-            className="modal__inspection-indicator"
-            data-result={inspectionResultState}
-          >
-            {inspectionResultState === "pass" ? "Годен" : inspectionResultState === "fail" ? "Брак" : "Съёмка"}
-          </div>
-        )}
+          <InspectResultPanel
+            key={`inspect-${inspectResult?.camera_id ?? "x"}-${inspectResult?.server_ts_ms ?? 0}-${inspectResult?.anomaly_score ?? "na"}`}
+            inspectResult={inspectResult}
+          />
+        </div>
 
         <div className="modal__media-grid modal__media-grid--with-geometry">
           <ImagePanel
@@ -172,10 +161,15 @@ export function ModalWrapper({
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
-            label="Последний кадр инспекции"
+            label={inspectResult?.test_analyze ? "Зафиксированный кадр теста" : "Последний кадр инспекции"}
+            retainPreviousWhileLoading={Boolean(inspectResult?.test_analyze)}
           />
           <HeatmapPanel
-            key={`heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`}
+            key={
+              inspectResult?.test_analyze
+                ? `heatmap-test-${cameraId}`
+                : `heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`
+            }
             cameraId={cameraId}
             cameraImageUrl={displayedCurrentImageUrl}
             heatmapUrl={inspectHeatmapUrl}
@@ -225,24 +219,12 @@ export function ModalWrapper({
           </div>
         )}
 
-        <InspectResultPanel
-          key={`inspect-${inspectResult?.camera_id ?? "x"}-${inspectResult?.server_ts_ms ?? 0}-${inspectResult?.anomaly_score ?? "na"}`}
-          inspectResult={inspectResult}
-        />
       </section>
     </div>
   );
 }
 
-function LearnFrameAction({
-  inspectResult,
-  productType,
-  onAccepted,
-}: {
-  inspectResult: InspectResultPayload;
-  productType: string;
-  onAccepted: (cases: NonNullable<Awaited<ReturnType<typeof orchestratorApi.acceptLearnedNormals>>["accepted_cases"]>) => void;
-}) {
+function LearnFrameAction({ inspectResult, productType }: { inspectResult: InspectResultPayload; productType: string }) {
   const [state, setState] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -257,7 +239,6 @@ function LearnFrameAction({
       });
       const acceptedCaseIds = result.accepted_case_ids ?? result.accepted_cases?.map((item) => item.id) ?? [];
       attachLearnedCasesToActiveReference(inspectResult.camera_id, acceptedCaseIds);
-      onAccepted(result.accepted_cases ?? []);
       const count = result.accepted_count ?? result.accepted_case_ids?.length ?? result.accepted_cases?.length ?? 0;
       setState("success");
       setMessage(`Кадр добавлен в анализ${count > 0 ? `: сохранено фрагментов — ${count}` : ""}.`);
@@ -563,6 +544,7 @@ function ImagePanel({
   jointRoiPoints,
   fpZones,
   fetchPriority = "high",
+  retainPreviousWhileLoading = false,
 }: {
   label: string;
   imageUrl?: string;
@@ -570,6 +552,7 @@ function ImagePanel({
   jointRoiPoints?: InterestPointNorm[];
   fpZones?: FpZoneNorm[];
   fetchPriority?: "high" | "low" | "auto";
+  retainPreviousWhileLoading?: boolean;
 }) {
   const [imageSize, setImageSize] = useState({ width: 4, height: 3 });
   const svgPoints = roiPoints?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`).join(" ");
@@ -602,6 +585,7 @@ function ImagePanel({
             decoding="async"
             fetchPriority={fetchPriority}
             placeholderClassName="modal-image-panel__placeholder"
+            retainPreviousWhileLoading={retainPreviousWhileLoading}
             src={imageUrl}
             onLoad={(event) => {
               const { naturalWidth, naturalHeight } = event.currentTarget;
@@ -697,6 +681,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
   return (
     <section
       className="modal-inspect-result"
+      data-result={resultState}
       aria-label="Результат инспекции"
     >
       <header className="modal-inspect-result__header">
@@ -735,11 +720,6 @@ function InspectResultField({ label, value }: { label: string; value?: string | 
       <dd>{value ?? "-"}</dd>
     </div>
   );
-}
-
-function formatAnomalyPercent(score?: number) {
-  if (score === undefined || !Number.isFinite(score)) return "—";
-  return `${(score * 100).toFixed(2)}%`;
 }
 
 function resolveFpZonesHeatmapSize(inspectResult: InspectResultPayload | undefined) {

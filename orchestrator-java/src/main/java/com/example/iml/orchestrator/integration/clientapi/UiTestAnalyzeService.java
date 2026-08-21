@@ -9,6 +9,7 @@ import com.example.iml.orchestrator.integration.pipeline.reference.PipelineRefer
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
 import com.example.iml.orchestrator.integration.pipeline.spi.GeometryInspectStage;
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
+import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
 import com.example.iml.orchestrator.integration.ui.FrameArchiveService;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -17,10 +18,13 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -37,7 +41,9 @@ public final class UiTestAnalyzeService {
 
     public enum Source {
         ARCHIVE,
-        ARTIFACT
+        ARTIFACT,
+        CURRENT,
+        PIN
     }
 
     public record Request(
@@ -52,6 +58,13 @@ public final class UiTestAnalyzeService {
             String jobId,
             int cameraId,
             long frameId
+    ) {
+    }
+
+    public record Pinned(
+            int cameraId,
+            long frameId,
+            String pinId
     ) {
     }
 
@@ -76,6 +89,10 @@ public final class UiTestAnalyzeService {
             "^/api/inspection-artifacts/([0-9a-f]{32})(?:/frame\\.jpg)?/?$",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern CURRENT_PATH = Pattern.compile(
+            "^/api/camera/(\\d+)/current\\.jpg/?$",
+            Pattern.CASE_INSENSITIVE
+    );
 
     private final Logger log;
     private final PipelineReferenceRegistry referenceRegistry;
@@ -89,6 +106,7 @@ public final class UiTestAnalyzeService {
     private final InspectionDecisionPolicy decisionPolicy;
     private final AfterInspectionSidecar afterInspectionSidecar;
     private final FrameArchiveService frameArchive;
+    private final TestFramePinStore pinStore;
     private final Supplier<UiHttpServer> uiServerSupplier;
     private final Supplier<Map<String, Object>> uiCfgSupplier;
     private final Supplier<BinaryRpcSupervisor> uiVisualsPythonSupplier;
@@ -98,6 +116,8 @@ public final class UiTestAnalyzeService {
     private final AtomicInteger geometryRoundRobin = new AtomicInteger();
     private final AtomicInteger pythonRoundRobin = new AtomicInteger();
     private final AtomicLong inspectionIds = new AtomicLong(System.currentTimeMillis());
+    private final java.util.concurrent.ConcurrentHashMap<Integer, AtomicLong> jobGenerationByCamera =
+            new java.util.concurrent.ConcurrentHashMap<>();
     private final ExecutorService worker;
 
     public UiTestAnalyzeService(
@@ -119,6 +139,48 @@ public final class UiTestAnalyzeService {
             Supplier<ExecutorService> uiArtifactsExecutorSupplier,
             ExecutorService worker
     ) {
+        this(
+                log,
+                referenceRegistry,
+                detectorByCamera,
+                geometryCfg,
+                pythonCfg,
+                geometryPool,
+                pythonPool,
+                geometryStage,
+                pythonStage,
+                decisionPolicy,
+                afterInspectionSidecar,
+                frameArchive,
+                openPinStoreQuietly(),
+                uiServerSupplier,
+                uiCfgSupplier,
+                uiVisualsPythonSupplier,
+                uiArtifactsExecutorSupplier,
+                worker
+        );
+    }
+
+    public UiTestAnalyzeService(
+            Logger log,
+            PipelineReferenceRegistry referenceRegistry,
+            Map<Integer, String> detectorByCamera,
+            Map<String, Object> geometryCfg,
+            Map<String, Object> pythonCfg,
+            List<? extends BinaryRpcSupervisor> geometryPool,
+            List<? extends BinaryRpcSupervisor> pythonPool,
+            GeometryInspectStage geometryStage,
+            PythonInspectStage pythonStage,
+            InspectionDecisionPolicy decisionPolicy,
+            AfterInspectionSidecar afterInspectionSidecar,
+            FrameArchiveService frameArchive,
+            TestFramePinStore pinStore,
+            Supplier<UiHttpServer> uiServerSupplier,
+            Supplier<Map<String, Object>> uiCfgSupplier,
+            Supplier<BinaryRpcSupervisor> uiVisualsPythonSupplier,
+            Supplier<ExecutorService> uiArtifactsExecutorSupplier,
+            ExecutorService worker
+    ) {
         this.log = Objects.requireNonNull(log, "log");
         this.referenceRegistry = Objects.requireNonNull(referenceRegistry, "referenceRegistry");
         this.detectorByCamera = detectorByCamera == null ? Map.of() : Map.copyOf(detectorByCamera);
@@ -131,6 +193,7 @@ public final class UiTestAnalyzeService {
         this.decisionPolicy = Objects.requireNonNull(decisionPolicy, "decisionPolicy");
         this.afterInspectionSidecar = Objects.requireNonNull(afterInspectionSidecar, "afterInspectionSidecar");
         this.frameArchive = frameArchive;
+        this.pinStore = Objects.requireNonNull(pinStore, "pinStore");
         this.uiServerSupplier = uiServerSupplier == null ? () -> null : uiServerSupplier;
         this.uiCfgSupplier = uiCfgSupplier == null ? () -> null : uiCfgSupplier;
         this.uiVisualsPythonSupplier = uiVisualsPythonSupplier == null ? () -> null : uiVisualsPythonSupplier;
@@ -138,6 +201,81 @@ public final class UiTestAnalyzeService {
         this.geometrySlots = new Semaphore(Math.max(1, this.geometryPool.size()));
         this.pythonSlots = new Semaphore(Math.max(1, this.pythonPool.size()));
         this.worker = Objects.requireNonNull(worker, "worker");
+    }
+
+    private static TestFramePinStore openPinStoreQuietly() {
+        try {
+            return TestFramePinStore.openDefault();
+        } catch (IOException e) {
+            throw new IllegalStateException("test frame pin store unavailable: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Copy the operator-selected frame into a durable pin for the TEST session.
+     * Source must be archive, artifact, or current (not pin).
+     */
+    public Pinned pin(Request request) throws AnalyzeException {
+        if (request == null) {
+            throw new AnalyzeException(400, "body required");
+        }
+        if (request.cameraId() < 0) {
+            throw new AnalyzeException(400, "cameraId required");
+        }
+        if (request.source() == null || request.source() == Source.PIN) {
+            throw new AnalyzeException(400, "source required (archive|artifact|current)");
+        }
+        Request resolveRequest = request;
+        if (request.source() == Source.ARCHIVE) {
+            if (request.frameId() == null && (request.httpPath() == null || request.httpPath().isBlank())) {
+                throw new AnalyzeException(400, "frameId or httpPath required for archive source");
+            }
+        } else if (request.source() == Source.ARTIFACT) {
+            if (request.httpPath() == null || request.httpPath().isBlank()) {
+                throw new AnalyzeException(400, "httpPath required for artifact source");
+            }
+        } else if (request.source() == Source.CURRENT) {
+            // cameraId is enough; httpPath optional (/api/camera/{id}/current.jpg).
+        }
+        ResolvedFrame resolved = resolveJpeg(resolveRequest);
+        String sha = sha256Hex(resolved.jpegBytes());
+        log.info(
+                "ui test-pin out cam={} source={} frame={} bytes={} sha={} resolvedHttpPath={} requestHttpPath={}",
+                request.cameraId(),
+                request.source(),
+                resolved.frameId(),
+                resolved.jpegBytes().length,
+                sha,
+                resolved.previewHttpPath(),
+                request.httpPath()
+        );
+        try {
+            TestFramePinStore.Pin pin = pinStore.pin(
+                    request.cameraId(),
+                    resolved.frameId(),
+                    resolved.jpegBytes(),
+                    // Durable URL: archive/artifact paths can roll/expire while TEST settings stay open.
+                    "/api/client/inspection/test-pin/cameras/" + request.cameraId() + "/frame.jpg"
+            );
+            log.info(
+                    "ui test-pin stored cam={} frame={} pinPath={} sha={}",
+                    pin.cameraId(),
+                    pin.frameId(),
+                    pin.jpegPath(),
+                    sha
+            );
+            return new Pinned(pin.cameraId(), pin.frameId(), "cam-" + pin.cameraId());
+        } catch (IOException e) {
+            throw new AnalyzeException(500, "failed to pin test frame: " + e.getMessage());
+        }
+    }
+
+    public Optional<Path> pinnedJpegPath(int cameraId) {
+        return pinStore.get(cameraId).map(TestFramePinStore.Pin::jpegPath);
+    }
+
+    public void clearPins() {
+        pinStore.clearAll();
     }
 
     public Accepted submit(Request request) throws AnalyzeException {
@@ -155,7 +293,29 @@ public final class UiTestAnalyzeService {
         }
         String jobId = UUID.randomUUID().toString().replace("-", "");
         long frameId = resolved.frameId();
-        worker.execute(() -> runJob(jobId, request.cameraId(), frameId, resolved.jpegBytes(), ref, resolved.previewHttpPath()));
+        String pinSha = sha256Hex(resolved.jpegBytes());
+        log.info(
+                "ui test-analyze submit out jobId={} cam={} source={} frame={} bytes={} sha={} previewHttpPath={}",
+                jobId,
+                request.cameraId(),
+                request.source(),
+                frameId,
+                resolved.jpegBytes().length,
+                pinSha,
+                resolved.previewHttpPath()
+        );
+        long generation = jobGenerationByCamera
+                .computeIfAbsent(request.cameraId(), ignored -> new AtomicLong())
+                .incrementAndGet();
+        worker.execute(() -> runJob(
+                jobId,
+                request.cameraId(),
+                frameId,
+                resolved.jpegBytes(),
+                ref,
+                resolved.previewHttpPath(),
+                generation
+        ));
         return new Accepted(jobId, request.cameraId(), frameId);
     }
 
@@ -175,7 +335,7 @@ public final class UiTestAnalyzeService {
             }
         }
         if (request.source() == null) {
-            throw new AnalyzeException(400, "source required (archive|artifact)");
+            throw new AnalyzeException(400, "source required (archive|artifact|pin|current)");
         }
         if (request.source() == Source.ARCHIVE) {
             if (request.frameId() == null && (request.httpPath() == null || request.httpPath().isBlank())) {
@@ -185,6 +345,10 @@ public final class UiTestAnalyzeService {
             if (request.httpPath() == null || request.httpPath().isBlank()) {
                 throw new AnalyzeException(400, "httpPath required for artifact source");
             }
+        } else if (request.source() == Source.CURRENT) {
+            // cameraId is enough.
+        } else if (request.source() == Source.PIN) {
+            // cameraId is enough; frameId is optional and used only for logging/UI.
         }
     }
 
@@ -194,7 +358,8 @@ public final class UiTestAnalyzeService {
             long frameId,
             byte[] jpegBytes,
             ReferenceSnapshot ref,
-            String previewHttpPath
+            String previewHttpPath,
+            long generation
     ) {
         Path shmPath = null;
         try {
@@ -203,6 +368,8 @@ public final class UiTestAnalyzeService {
             shmPath = written.shmPath();
             Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
             captureHeader.put("test_analyze", true);
+            String pinSha = sha256Hex(jpegBytes);
+            captureHeader.put("pin_jpeg_sha256", pinSha);
             if (previewHttpPath != null && !previewHttpPath.isBlank()) {
                 captureHeader.put("http_path", previewHttpPath);
             }
@@ -226,6 +393,10 @@ public final class UiTestAnalyzeService {
                     geometrySlots,
                     geometryRoundRobin
             );
+            if (isSuperseded(cameraId, generation)) {
+                log.info("ui test-analyze superseded after geometry jobId={} cam={} gen={}", jobId, cameraId, generation);
+                return;
+            }
             state = pythonStage.apply(
                     state,
                     cameraId,
@@ -237,6 +408,10 @@ public final class UiTestAnalyzeService {
                     pythonSlots,
                     pythonRoundRobin
             );
+            if (isSuperseded(cameraId, generation)) {
+                log.info("ui test-analyze superseded after python jobId={} cam={} gen={}", jobId, cameraId, generation);
+                return;
+            }
             InspectionDecision decision = decisionPolicy.decide(cameraId, state.capture(), state.py(), state.geom());
             long inspectionId = inspectionIds.incrementAndGet();
             afterInspectionSidecar.scheduleAfterInspection(
@@ -255,11 +430,15 @@ public final class UiTestAnalyzeService {
                     state.geom()
             );
             log.info(
-                    "ui test-analyze done jobId={} cam={} frame={} pass={} python={} geometry={}",
+                    "ui test-analyze done jobId={} cam={} frame={} pin_sha={} http_path={} pass={} "
+                            + "anomaly={} python={} geometry={}",
                     jobId,
                     cameraId,
                     frameId,
+                    pinSha,
+                    previewHttpPath,
                     decision == null ? null : decision.overallPass(),
+                    decision == null ? null : decision.anomalyScore(),
                     decision == null ? null : decision.pythonStatus(),
                     decision == null ? null : decision.geometryStatus()
             );
@@ -284,10 +463,21 @@ public final class UiTestAnalyzeService {
         }
     }
 
+    private boolean isSuperseded(int cameraId, long generation) {
+        AtomicLong latest = jobGenerationByCamera.get(cameraId);
+        return latest != null && latest.get() != generation;
+    }
+
     private record ResolvedFrame(byte[] jpegBytes, long frameId, String previewHttpPath) {
     }
 
     ResolvedFrame resolveJpeg(Request request) throws AnalyzeException {
+        if (request.source() == Source.PIN) {
+            return loadPin(request.cameraId());
+        }
+        if (request.source() == Source.CURRENT) {
+            return loadCurrentJpeg(request.cameraId(), request.frameId());
+        }
         String path = request.httpPath() == null ? "" : request.httpPath().trim();
         if (!path.isEmpty()) {
             Matcher archive = ARCHIVE_PATH.matcher(path);
@@ -303,6 +493,14 @@ public final class UiTestAnalyzeService {
             if (artifact.matches()) {
                 return loadArtifact(artifact.group(1), request.cameraId(), request.frameId());
             }
+            Matcher current = CURRENT_PATH.matcher(path);
+            if (current.matches()) {
+                int cam = Integer.parseInt(current.group(1));
+                if (cam != request.cameraId()) {
+                    throw new AnalyzeException(400, "httpPath cameraId mismatch");
+                }
+                return loadCurrentJpeg(cam, request.frameId());
+            }
             if (request.source() == Source.ARTIFACT) {
                 throw new AnalyzeException(400, "unsupported artifact httpPath: " + path);
             }
@@ -314,6 +512,47 @@ public final class UiTestAnalyzeService {
             return loadArchive(request.cameraId(), request.frameId());
         }
         throw new AnalyzeException(400, "cannot resolve frame reference");
+    }
+
+    private ResolvedFrame loadCurrentJpeg(int cameraId, Long frameIdHint) throws AnalyzeException {
+        UiHttpServer ui = uiServerSupplier.get();
+        if (ui == null) {
+            throw new AnalyzeException(503, "ui server unavailable");
+        }
+        CameraPreviewStore.Latest latest = ui.latest(cameraId).orElse(null);
+        Path jpeg = latest == null ? null : latest.currentJpeg();
+        if (jpeg == null || !Files.isRegularFile(jpeg)) {
+            throw new AnalyzeException(404, "current.jpg not available for cameraId=" + cameraId);
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(jpeg);
+            long frameId = frameIdHint != null
+                    ? frameIdHint
+                    : (latest == null ? 0L : latest.frameId());
+            return new ResolvedFrame(bytes, frameId, "/api/camera/" + cameraId + "/current.jpg");
+        } catch (IOException e) {
+            throw new AnalyzeException(500, "failed to read current.jpg: " + e.getMessage());
+        }
+    }
+
+    private ResolvedFrame loadPin(int cameraId) throws AnalyzeException {
+        TestFramePinStore.Pin pin = pinStore.get(cameraId)
+                .orElseThrow(() -> new AnalyzeException(404, "no pinned test frame for cameraId=" + cameraId));
+        try {
+            byte[] bytes = Files.readAllBytes(pin.jpegPath());
+            String pinUrl = "/api/client/inspection/test-pin/cameras/" + cameraId + "/frame.jpg";
+            log.info(
+                    "ui test-analyze loadPin cam={} frame={} bytes={} sha={} http_path={}",
+                    cameraId,
+                    pin.frameId(),
+                    bytes.length,
+                    sha256Hex(bytes),
+                    pinUrl
+            );
+            return new ResolvedFrame(bytes, pin.frameId(), pinUrl);
+        } catch (IOException e) {
+            throw new AnalyzeException(500, "failed to read pinned test frame: " + e.getMessage());
+        }
     }
 
     private ResolvedFrame loadArchive(int cameraId, long frameId) throws AnalyzeException {
@@ -360,7 +599,18 @@ public final class UiTestAnalyzeService {
         return switch (s) {
             case "archive" -> Source.ARCHIVE;
             case "artifact" -> Source.ARTIFACT;
+            case "current" -> Source.CURRENT;
+            case "pin" -> Source.PIN;
             default -> throw new AnalyzeException(400, "unknown source: " + raw);
         };
+    }
+
+    static String sha256Hex(byte[] bytes) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            return HexFormat.of().formatHex(digest);
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

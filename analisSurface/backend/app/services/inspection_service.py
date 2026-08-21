@@ -747,7 +747,7 @@ class InspectionService:
         # mini-etalon checks and regional scoring. This is the source/formula
         # used by the pre-learning pipeline in 29c9cfa.
         pre_learning_heatmap_u8 = (
-            self._build_heatmap_gray(raw_segmentation_mask, diff_map)
+            self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
             if include_visuals and pre_learning_heatmap
             else None
         )
@@ -854,16 +854,19 @@ class InspectionService:
 
         # Heatmap повторяет реализацию до появления дообучения: для отображения
         # используются исходные diff и mask, а не результат вычитания норм.
+        # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
+        # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
+        heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
             heatmap_u8 = (
                 pre_learning_heatmap_u8
                 if pre_learning_heatmap_u8 is not None
-                else self._build_heatmap_gray(raw_segmentation_mask, diff_map)
+                else self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
             )
         elif include_heatmap_u8:
             try:
-                heatmap_u8 = self._build_heatmap_gray(raw_segmentation_mask, diff_map)
+                heatmap_u8 = self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
         if include_visuals and pre_learning_heatmap:
@@ -872,6 +875,11 @@ class InspectionService:
             heatmap = self._colorize_heatmap(heatmap_u8, raw_segmentation_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
             if not pre_learning_heatmap:
+                heatmap = self._draw_fp_zone_overlay(
+                    heatmap,
+                    self.get_fp_zones(product_type),
+                    fp_recheck["fp_zone_scores"],
+                )
                 heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
             # Exclusion polygons are a visual annotation only; they do not
             # participate in the frozen pre-learning heatmap energy.
@@ -1206,12 +1214,15 @@ class InspectionService:
 
         Раньше active_ratio*1.2 зажимал score в 1.0 уже при ~80% маски — любой
         умеренный шум/свет давал вечный БРАК независимо от силы diff.
+        sqrt(active_ratio) + меньшие веса: расширение маски от чувствительности
+        не должно прыгать с ~0.8 сразу в потолок 1.0.
         """
+        ratio = max(0.0, float(active_ratio))
         return float(
             np.clip(
-                (diff_q90 / 255.0) * 0.55
-                + (diff_max / 255.0) * 0.20
-                + float(active_ratio) * 0.35,
+                (diff_q90 / 255.0) * 0.45
+                + (diff_max / 255.0) * 0.15
+                + float(np.sqrt(ratio)) * 0.30,
                 0.0,
                 1.0,
             )
@@ -1750,9 +1761,14 @@ class InspectionService:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
 
-        # CLAHE can over-amplify texture noise on smooth frames, so apply it only
-        # when the frame has enough contrast/variance.
-        if settings.enable_clahe and float(np.std(cur_gray)) > 5.0:
+        # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
+        # near no-op — treat it as off so sensitivity can ramp continuously via
+        # clahe_clip_limit without a sudden score cliff when the bool flips.
+        if (
+            settings.enable_clahe
+            and float(settings.clahe_clip_limit) > 1.05
+            and float(np.std(cur_gray)) > 5.0
+        ):
             clahe = cv2.createCLAHE(clipLimit=settings.clahe_clip_limit, tileGridSize=(8, 8))
             ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
@@ -1990,7 +2006,10 @@ class InspectionService:
         else:
             top_mean = 0.0
 
-        heuristic_score = float(np.clip((max_object_score * 0.85) + (top_mean * 0.55), 0.0, 1.0))
+        # Softer mix than 0.85/0.55: that pair clipped to 1.0 as soon as a few
+        # elongated blobs + bright top-tail appeared, so a small sensitivity nudge
+        # often jumped displayed anomaly from ~80% to 100%.
+        heuristic_score = float(np.clip((max_object_score * 0.55) + (top_mean * 0.40), 0.0, 1.0))
         if max_aspect > settings.scratch_aspect_floor:
             heuristic_score = max(heuristic_score, settings.scratch_score_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
@@ -2013,7 +2032,26 @@ class InspectionService:
         return heuristic_score, heuristic_mask
 
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
-        """Single-channel anomaly energy in the pre-learning heatmap format."""
+        """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET).
+
+        Gate diff by the defect mask. Global min-max of the whole ROI turns residual
+        lighting into a solid green JET blob even when there is no defect.
+        """
+        mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        if diff_map is None:
+            return mask_gray
+
+        diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+        gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
+        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
+        return cv2.max(mask_gray, gated_diff)
+
+    def _build_pre_learning_heatmap_gray(
+        self,
+        mask: np.ndarray,
+        diff_map: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Full pre-learning heatmap energy used only for UI visualization."""
         mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         if diff_map is None:
             return mask_gray

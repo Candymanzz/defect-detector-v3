@@ -305,13 +305,24 @@ def test_heatmap_stays_localized_to_defect_instead_of_filling_roi(
     assert heat[2:8, 2:12].max() < 16
 
 
-def test_heatmap_keeps_residual_when_mask_is_empty() -> None:
+def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
     service = InspectionService.__new__(InspectionService)
     mask = np.zeros((32, 40, 3), dtype=np.uint8)
     residual = np.full((32, 40, 3), 40, dtype=np.uint8)
     residual[8:12, 10:18] = 180
 
     heat = service._build_heatmap_gray(mask, residual)
+
+    assert heat.max() == 0
+
+
+def test_pre_learning_heatmap_keeps_full_residual_energy() -> None:
+    service = InspectionService.__new__(InspectionService)
+    mask = np.zeros((32, 40, 3), dtype=np.uint8)
+    residual = np.full((32, 40, 3), 40, dtype=np.uint8)
+    residual[8:12, 10:18] = 180
+
+    heat = service._build_pre_learning_heatmap_gray(mask, residual)
 
     assert heat.max() == 255
     assert heat[0, 0] == 0
@@ -354,7 +365,7 @@ def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
     # Раньше active_ratio*1.2 давал 1.0 уже при ~0.84 покрытия маски.
     score = InspectionService._activity_score(diff_q90=40.0, diff_max=80.0, active_ratio=0.85)
     assert score < 1.0
-    assert score > 0.3
+    assert score > 0.25
 
 
 def test_excluded_normal_overlay_marks_only_polygon_dark_green(
@@ -375,6 +386,13 @@ def test_excluded_normal_overlay_marks_only_polygon_dark_green(
     assert center_bgr[1] > center_bgr[2] + 20
     assert np.array_equal(result[5, 5], heatmap[5, 5])
 
+
+def test_activity_score_stays_below_ceiling_on_full_strong_mask() -> None:
+    # Даже почти полная маска + сильный diff не должны сразу давать 1.0 —
+    # иначе лёгкий сдвиг sensitivity прыгает с ~80% на 100%.
+    score = InspectionService._activity_score(diff_q90=200.0, diff_max=255.0, active_ratio=0.95)
+    assert score < 1.0
+    assert score > 0.5
 
 def test_score_region_uses_real_mask_not_bbox(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     h, w = gray_frame.shape[:2]

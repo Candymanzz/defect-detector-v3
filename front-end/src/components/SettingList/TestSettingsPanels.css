@@ -125,6 +125,124 @@
   font-variant-numeric: tabular-nums;
 }
 
+.modal__test-settings-section--collapsible {
+  gap: 0;
+}
+
+.modal__test-settings-section--collapsible > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -10px;
+  padding: 12px 10px;
+  color: #d7e6ec;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.modal__test-settings-section--collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.modal__test-settings-section--collapsible[open] > summary {
+  margin-bottom: 0;
+  border-bottom: 1px solid rgba(117, 143, 164, 0.18);
+}
+
+.modal__test-settings-section--collapsible > .geometry-test-settings {
+  padding-top: 10px;
+}
+
+.modal__test-settings-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #8be2b0;
+  border-bottom: 2px solid #8be2b0;
+  transform: rotate(45deg) translate(-2px, 2px);
+  transition: transform 150ms ease;
+}
+
+.modal__test-settings-section--collapsible[open] .modal__test-settings-chevron {
+  transform: rotate(225deg) translate(-2px, 2px);
+}
+
+.analysis-presets__percent-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 2px 3px 4px;
+  border: 1px solid rgba(139, 226, 176, 0.32);
+  border-radius: 7px;
+  color: #8be2b0;
+  background: rgba(139, 226, 176, 0.08);
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-presets__percent-input:focus-within {
+  border-color: #8be2b0;
+  box-shadow: 0 0 0 2px rgba(139, 226, 176, 0.14);
+}
+
+.analysis-presets__percent-input input {
+  width: 68px;
+  padding: 2px 4px;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-align: right;
+  appearance: textfield;
+}
+
+.analysis-presets__percent-input input::-webkit-inner-spin-button,
+.analysis-presets__percent-input input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.analysis-presets__percent-steppers {
+  display: grid;
+  align-self: stretch;
+  margin-left: 2px;
+  overflow: hidden;
+  border-left: 1px solid rgba(139, 226, 176, 0.2);
+  border-radius: 0 5px 5px 0;
+}
+
+.analysis-presets__percent-steppers button {
+  width: 21px;
+  min-height: 14px;
+  padding: 0;
+  border: 0;
+  color: #9cf1c0;
+  background: rgba(139, 226, 176, 0.08);
+  font-size: 7px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.analysis-presets__percent-steppers button + button {
+  border-top: 1px solid rgba(139, 226, 176, 0.16);
+}
+
+.analysis-presets__percent-steppers button:hover:not(:disabled) {
+  color: #effff5;
+  background: rgba(139, 226, 176, 0.22);
+}
+
+.analysis-presets__percent-steppers button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .geometry-test-settings__footer {
   display: flex;
   flex-wrap: wrap;
