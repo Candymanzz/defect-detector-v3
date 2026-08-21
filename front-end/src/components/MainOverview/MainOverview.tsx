@@ -77,11 +77,15 @@ export function MainOverview({
 
     setTestAnalyzeState("submitting");
     setTestAnalyzeMessage(
-      `${action === "save" ? "Сохранение" : "Применение"} настроек и запуск инспекции кадра ${frameId}…`,
+      action === "save"
+        ? `Сохранение настроек и запуск инспекции кадра ${frameId}…`
+        : `Запуск проверки кадра ${frameId} без сохранения настроек…`,
     );
     try {
-      await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
-      notifyAnalysisSettingsChanged(snapshot.cameraId);
+      if (action === "save") {
+        await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
+        notifyAnalysisSettingsChanged(snapshot.cameraId);
+      }
       pendingTestRef.current = {
         cameraId: snapshot.cameraId,
         frameId,
@@ -118,7 +122,7 @@ export function MainOverview({
     const resultState = resolveInspectionResultState(result);
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
-      `Кадр ${pending.frameId} проверен с новыми настройками: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}. Полный результат и новый хитмап отображены.`,
+      `Кадр ${pending.frameId} проверен: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}. Полный результат и новый хитмап отображены.`,
     );
   }, [controller.modalSnapshot?.inspectResult, testAnalyzeState]);
 
@@ -243,15 +247,18 @@ export function MainOverview({
                   открытым, пока не нажмёте «Завершить тест» или не закроете окно.
                 </p>
                 <div className="modal__test-settings-grid">
-                  <section className="modal__test-settings-section">
-                    <h4>Геометрия / стык</h4>
+                  <details className="modal__test-settings-section modal__test-settings-section--collapsible">
+                    <summary>
+                      <span>Геометрия / стык</span>
+                      <span className="modal__test-settings-chevron" aria-hidden="true" />
+                    </summary>
                     <GeometryTestSettingsPanel
                       ref={geometrySettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
                       hideSaveAction
                     />
-                  </section>
+                  </details>
                   <section className="modal__test-settings-section">
                     <h4>Python-анализ поверхности</h4>
                     <AnalysisSettingsPanel

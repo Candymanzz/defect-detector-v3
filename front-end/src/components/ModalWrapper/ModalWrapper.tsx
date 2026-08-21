@@ -121,37 +121,35 @@ export function ModalWrapper({
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="modal__header">
-          <h2>{title}</h2>
-          <div className="modal__header-actions">
-            {dangerHeaderAction}
-            {inspectionResultState === "fail" && inspectResult?.learned_review_id && inspectResult.detector.product_type && (
-              <LearnFrameAction
-                key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
-                inspectResult={inspectResult}
-                productType={inspectResult.detector.product_type}
-              />
-            )}
-            {headerActions}
-            <button
-              aria-label="Закрыть"
-              className="modal__close"
-              type="button"
-              onClick={onClose}
-            >
-              x
-            </button>
-          </div>
-        </header>
+        <div className="modal__sticky-header">
+          <header className="modal__header">
+            <h2>{title}</h2>
+            <div className="modal__header-actions">
+              {dangerHeaderAction}
+              {inspectionResultState === "fail" && inspectResult?.learned_review_id && inspectResult.detector.product_type && (
+                <LearnFrameAction
+                  key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
+                  inspectResult={inspectResult}
+                  productType={inspectResult.detector.product_type}
+                />
+              )}
+              {headerActions}
+              <button
+                aria-label="Закрыть"
+                className="modal__close"
+                type="button"
+                onClick={onClose}
+              >
+                x
+              </button>
+            </div>
+          </header>
 
-        {inspectionResultState && (
-          <div
-            className="modal__inspection-indicator"
-            data-result={inspectionResultState}
-          >
-            {inspectionResultState === "pass" ? "Годен" : inspectionResultState === "fail" ? "Брак" : "Съёмка"}
-          </div>
-        )}
+          <InspectResultPanel
+            key={`inspect-${inspectResult?.camera_id ?? "x"}-${inspectResult?.server_ts_ms ?? 0}-${inspectResult?.anomaly_score ?? "na"}`}
+            inspectResult={inspectResult}
+          />
+        </div>
 
         <div className="modal__media-grid modal__media-grid--with-geometry">
           <ImagePanel
@@ -216,10 +214,6 @@ export function ModalWrapper({
           </div>
         )}
 
-        <InspectResultPanel
-          key={`inspect-${inspectResult?.camera_id ?? "x"}-${inspectResult?.server_ts_ms ?? 0}-${inspectResult?.anomaly_score ?? "na"}`}
-          inspectResult={inspectResult}
-        />
       </section>
     </div>
   );
@@ -678,6 +672,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
   return (
     <section
       className="modal-inspect-result"
+      data-result={resultState}
       aria-label="Результат инспекции"
     >
       <header className="modal-inspect-result__header">
