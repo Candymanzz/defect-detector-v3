@@ -369,7 +369,7 @@ export type TestAnalyzeResponse = {
 export type PinTestFrameRequest = {
   cameraId: number;
   frameId: string | number;
-  source?: "archive" | "artifact";
+  source?: "archive" | "artifact" | "current";
   httpPath?: string;
 };
 

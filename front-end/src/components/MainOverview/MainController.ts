@@ -194,15 +194,45 @@ export function updateModalSnapshotResult(
   const displayInspectResult = retainPreviousHeatmap
     ? { ...inspectResult, heatmap: currentSnapshot.inspectResult?.heatmap ?? null }
     : inspectResult;
+
+  const pinnedImageUrl = resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult);
   const nextCameraImageUrl =
-    resolveImmutableInspectionImageUrl(displayInspectResult) ?? createWsFrameImageUrl(displayInspectResult);
+    pinnedImageUrl
+    ?? resolveImmutableInspectionImageUrl(displayInspectResult)
+    ?? createWsFrameImageUrl(displayInspectResult);
   return {
     ...currentSnapshot,
     inspectResult: displayInspectResult,
     // Never blank the frozen TEST frame while a partial notify has no http_path yet.
+    // Also never swap the pinned JPEG for a freshly encoded artifact/current.jpg mid-TEST.
     cameraImageUrl: nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
     heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };
+}
+
+/** While TEST settings are open, keep showing the durable pin JPEG — not artifact/current re-encodes. */
+function resolvePinnedTestFrameImageUrl(
+  currentSnapshot: ModalInspectionSnapshot,
+  inspectResult: InspectResultPayload,
+) {
+  const candidatePaths = [
+    inspectResult.http_path,
+    inspectResult.current?.http_path,
+    currentSnapshot.inspectResult?.http_path,
+    currentSnapshot.inspectResult?.current?.http_path,
+  ];
+  for (const path of candidatePaths) {
+    if (path?.includes("/api/client/inspection/test-pin/")) {
+      return orchestratorApi.imageUrl(path, inspectResult.frame_id || currentSnapshot.inspectResult?.frame_id);
+    }
+  }
+  if (
+    (inspectResult.test_analyze || currentSnapshot.inspectResult?.test_analyze)
+    && currentSnapshot.cameraImageUrl?.includes("/api/client/inspection/test-pin/")
+  ) {
+    return currentSnapshot.cameraImageUrl;
+  }
+  return undefined;
 }
 
 export function compareInspectResults(left: InspectResultPayload, right: InspectResultPayload) {
@@ -428,14 +458,15 @@ export function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): Inspe
 }
 
 function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload) {
+  const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
+  // Pin must win over archive/artifact: test-analyze WS often carries both bundle id and pin path.
+  if (imagePath.includes("/api/client/inspection/test-pin/")) {
+    return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
+  }
+
   const archiveUrl = resolveArchiveFrameImageUrl(inspectResult);
   if (archiveUrl) {
     return archiveUrl;
-  }
-
-  const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
-  if (imagePath.includes("/api/client/inspection/test-pin/")) {
-    return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
   }
 
   if (!inspectResult.artifact_bundle_id) {

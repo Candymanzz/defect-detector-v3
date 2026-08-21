@@ -435,11 +435,17 @@ function resolveTestPinSource(inspectResult: {
   artifact_bundle_id?: string;
   http_path?: string;
   current?: { http_path?: string };
-}): { source: "archive" | "artifact"; httpPath?: string } {
-  // Prefer durable frame-archive over short-lived inspection artifacts (~2 min TTL).
-  const path = inspectResult.http_path ?? inspectResult.current?.http_path;
-  if (path?.includes("/api/frame-archive/")) {
+}): { source: "archive" | "artifact" | "current"; httpPath?: string } {
+  // Pin the exact JPEG the modal is showing — never silent archive-by-frameId when another path is visible.
+  const path = (inspectResult.http_path ?? inspectResult.current?.http_path ?? "").trim();
+  if (path.includes("/api/frame-archive/")) {
     return { source: "archive", httpPath: path };
+  }
+  if (path.includes("/api/inspection-artifacts/")) {
+    return { source: "artifact", httpPath: path };
+  }
+  if (path.includes("/api/camera/") && path.endsWith("/current.jpg")) {
+    return { source: "current", httpPath: path };
   }
   if (inspectResult.artifact_bundle_id) {
     return {

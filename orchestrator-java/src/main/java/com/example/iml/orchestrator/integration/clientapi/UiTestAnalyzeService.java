@@ -9,6 +9,7 @@ import com.example.iml.orchestrator.integration.pipeline.reference.PipelineRefer
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
 import com.example.iml.orchestrator.integration.pipeline.spi.GeometryInspectStage;
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
+import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
 import com.example.iml.orchestrator.integration.ui.FrameArchiveService;
 import com.example.iml.orchestrator.integration.ui.UiHttpServer;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -41,6 +42,7 @@ public final class UiTestAnalyzeService {
     public enum Source {
         ARCHIVE,
         ARTIFACT,
+        CURRENT,
         PIN
     }
 
@@ -85,6 +87,10 @@ public final class UiTestAnalyzeService {
     );
     private static final Pattern ARTIFACT_PATH = Pattern.compile(
             "^/api/inspection-artifacts/([0-9a-f]{32})(?:/frame\\.jpg)?/?$",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern CURRENT_PATH = Pattern.compile(
+            "^/api/camera/(\\d+)/current\\.jpg/?$",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -207,7 +213,7 @@ public final class UiTestAnalyzeService {
 
     /**
      * Copy the operator-selected frame into a durable pin for the TEST session.
-     * Source must be archive or artifact (not pin).
+     * Source must be archive, artifact, or current (not pin).
      */
     public Pinned pin(Request request) throws AnalyzeException {
         if (request == null) {
@@ -217,7 +223,7 @@ public final class UiTestAnalyzeService {
             throw new AnalyzeException(400, "cameraId required");
         }
         if (request.source() == null || request.source() == Source.PIN) {
-            throw new AnalyzeException(400, "source required (archive|artifact)");
+            throw new AnalyzeException(400, "source required (archive|artifact|current)");
         }
         Request resolveRequest = request;
         if (request.source() == Source.ARCHIVE) {
@@ -228,20 +234,10 @@ public final class UiTestAnalyzeService {
             if (request.httpPath() == null || request.httpPath().isBlank()) {
                 throw new AnalyzeException(400, "httpPath required for artifact source");
             }
+        } else if (request.source() == Source.CURRENT) {
+            // cameraId is enough; httpPath optional (/api/camera/{id}/current.jpg).
         }
-        ResolvedFrame resolved;
-        try {
-            resolved = resolveJpeg(resolveRequest);
-        } catch (AnalyzeException primary) {
-            // Artifact bundles expire quickly; fall back to archive by frameId when possible.
-            if (request.source() == Source.ARTIFACT
-                    && request.frameId() != null
-                    && primary.status() == 404) {
-                resolved = loadArchive(request.cameraId(), request.frameId());
-            } else {
-                throw primary;
-            }
-        }
+        ResolvedFrame resolved = resolveJpeg(resolveRequest);
         try {
             TestFramePinStore.Pin pin = pinStore.pin(
                     request.cameraId(),
@@ -310,7 +306,7 @@ public final class UiTestAnalyzeService {
             }
         }
         if (request.source() == null) {
-            throw new AnalyzeException(400, "source required (archive|artifact|pin)");
+            throw new AnalyzeException(400, "source required (archive|artifact|pin|current)");
         }
         if (request.source() == Source.ARCHIVE) {
             if (request.frameId() == null && (request.httpPath() == null || request.httpPath().isBlank())) {
@@ -320,6 +316,8 @@ public final class UiTestAnalyzeService {
             if (request.httpPath() == null || request.httpPath().isBlank()) {
                 throw new AnalyzeException(400, "httpPath required for artifact source");
             }
+        } else if (request.source() == Source.CURRENT) {
+            // cameraId is enough.
         } else if (request.source() == Source.PIN) {
             // cameraId is enough; frameId is optional and used only for logging/UI.
         }
@@ -448,6 +446,9 @@ public final class UiTestAnalyzeService {
         if (request.source() == Source.PIN) {
             return loadPin(request.cameraId());
         }
+        if (request.source() == Source.CURRENT) {
+            return loadCurrentJpeg(request.cameraId(), request.frameId());
+        }
         String path = request.httpPath() == null ? "" : request.httpPath().trim();
         if (!path.isEmpty()) {
             Matcher archive = ARCHIVE_PATH.matcher(path);
@@ -463,6 +464,14 @@ public final class UiTestAnalyzeService {
             if (artifact.matches()) {
                 return loadArtifact(artifact.group(1), request.cameraId(), request.frameId());
             }
+            Matcher current = CURRENT_PATH.matcher(path);
+            if (current.matches()) {
+                int cam = Integer.parseInt(current.group(1));
+                if (cam != request.cameraId()) {
+                    throw new AnalyzeException(400, "httpPath cameraId mismatch");
+                }
+                return loadCurrentJpeg(cam, request.frameId());
+            }
             if (request.source() == Source.ARTIFACT) {
                 throw new AnalyzeException(400, "unsupported artifact httpPath: " + path);
             }
@@ -474,6 +483,27 @@ public final class UiTestAnalyzeService {
             return loadArchive(request.cameraId(), request.frameId());
         }
         throw new AnalyzeException(400, "cannot resolve frame reference");
+    }
+
+    private ResolvedFrame loadCurrentJpeg(int cameraId, Long frameIdHint) throws AnalyzeException {
+        UiHttpServer ui = uiServerSupplier.get();
+        if (ui == null) {
+            throw new AnalyzeException(503, "ui server unavailable");
+        }
+        CameraPreviewStore.Latest latest = ui.latest(cameraId).orElse(null);
+        Path jpeg = latest == null ? null : latest.currentJpeg();
+        if (jpeg == null || !Files.isRegularFile(jpeg)) {
+            throw new AnalyzeException(404, "current.jpg not available for cameraId=" + cameraId);
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(jpeg);
+            long frameId = frameIdHint != null
+                    ? frameIdHint
+                    : (latest == null ? 0L : latest.frameId());
+            return new ResolvedFrame(bytes, frameId, "/api/camera/" + cameraId + "/current.jpg");
+        } catch (IOException e) {
+            throw new AnalyzeException(500, "failed to read current.jpg: " + e.getMessage());
+        }
     }
 
     private ResolvedFrame loadPin(int cameraId) throws AnalyzeException {
@@ -531,6 +561,7 @@ public final class UiTestAnalyzeService {
         return switch (s) {
             case "archive" -> Source.ARCHIVE;
             case "artifact" -> Source.ARTIFACT;
+            case "current" -> Source.CURRENT;
             case "pin" -> Source.PIN;
             default -> throw new AnalyzeException(400, "unknown source: " + raw);
         };

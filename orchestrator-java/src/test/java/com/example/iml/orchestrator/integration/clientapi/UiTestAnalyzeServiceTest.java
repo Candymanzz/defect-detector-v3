@@ -42,6 +42,7 @@ class UiTestAnalyzeServiceTest {
     void parseSourceAcceptsArchiveArtifactAndPin() throws Exception {
         assertEquals(UiTestAnalyzeService.Source.ARCHIVE, UiTestAnalyzeService.parseSource("archive"));
         assertEquals(UiTestAnalyzeService.Source.ARTIFACT, UiTestAnalyzeService.parseSource("ARTIFACT"));
+        assertEquals(UiTestAnalyzeService.Source.CURRENT, UiTestAnalyzeService.parseSource("current"));
         assertEquals(UiTestAnalyzeService.Source.PIN, UiTestAnalyzeService.parseSource("pin"));
         UiTestAnalyzeService.AnalyzeException ex = assertThrows(
                 UiTestAnalyzeService.AnalyzeException.class,
