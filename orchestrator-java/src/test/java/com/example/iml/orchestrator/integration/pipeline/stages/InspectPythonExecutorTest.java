@@ -1,13 +1,17 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
@@ -21,6 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InspectPythonExecutorTest {
 
     private final InspectPythonExecutor executor = new InspectPythonExecutor(LogManager.getLogger(getClass()));
+
+    @AfterEach
+    void clearProfiles() {
+        CameraAnalysisProfiles.setByCamera(Map.of());
+    }
 
     @Test
     void returnsUnchangedStateWhenPoolEmpty() {
@@ -88,7 +97,7 @@ class InspectPythonExecutorTest {
     }
 
     @Test
-    void callsPythonSupervisorAndReturnsResponse() throws Exception {
+    void callsPythonSupervisorAndReturnsResponse() {
         AtomicReference<Map<String, Object>> sentHeader = new AtomicReference<>();
         BinaryRpcSupervisor python = new BinaryRpcSupervisor() {
             @Override
@@ -150,6 +159,23 @@ class InspectPythonExecutorTest {
         assertTrue(Boolean.TRUE.equals(result.py().header().get("ok")));
         assertEquals(3, sentHeader.get().get("camera_id"));
         assertTrue(result.pythonMs() >= 0);
+    }
+
+    @Test
+    void appliesGeometryRuntimeUnderCameraAnalysisProfileNotProductType() {
+        CameraAnalysisProfiles.setByCamera(Map.of(3, "bench-lan3"));
+        GeometryRuntimeConfig runtime = new GeometryRuntimeConfig();
+        runtime.replaceAllFromClient("bench-lan3", Map.of("threshold", 0.11));
+        runtime.replaceAllFromClient("bench", Map.of("threshold", 0.99));
+
+        InspectPythonExecutor withRuntime = new InspectPythonExecutor(LogManager.getLogger(getClass()), runtime);
+        Map<String, Object> header = new HashMap<>();
+        header.put("product_type", "bench");
+
+        withRuntime.applyAnalysisProfileAndRuntimeOverrides(header, 3, "bench", Map.of("fallback_threshold", 0.45));
+
+        assertEquals("bench-lan3", header.get("analysis_profile"));
+        assertEquals(0.11, header.get("threshold"));
     }
 
     private static PipelineState stateWithCapture() {

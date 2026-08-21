@@ -199,7 +199,7 @@ async function persistGeometry(cameraId: number, maxShiftMm: number, jointSensit
   await orchestratorApi.patchGeometryRuntime(
     {
       max_shift_mm: maxShiftMm,
-      joint_seam_segmentation_enabled: true,
+      // Sensitivity stored for when joint ROI exists; orchestrator enables seam only with ROI.
       joint_seam_segmentation_sensitivity: jointSensitivity,
     },
     cameraId,
