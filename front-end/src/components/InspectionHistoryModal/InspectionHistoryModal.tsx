@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { formatAnomalyPercent } from "../../shared/lib/anomalyScore";
 import { getReferenceImage } from "../../shared/referenceImages";
@@ -18,6 +19,7 @@ type InspectionHistoryModalProps = {
   }>;
   selectedGroupKey?: string;
   onHistorySelect?: (groupKey: string) => void;
+  onResultOpen?: (item: InspectionHistoryItem) => void;
   onClose: () => void;
 };
 
@@ -27,6 +29,7 @@ export function InspectionHistoryModal({
   historyItems = [],
   selectedGroupKey,
   onHistorySelect,
+  onResultOpen,
   onClose,
 }: InspectionHistoryModalProps) {
   useEffect(() => {
@@ -93,6 +96,7 @@ export function InspectionHistoryModal({
             <InspectionResultCard
               item={item}
               key={item.inspectResult.camera_id}
+              onOpen={onResultOpen}
             />
           ))}
         </div>
@@ -101,17 +105,34 @@ export function InspectionHistoryModal({
   );
 }
 
-function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
+function InspectionResultCard({
+  item,
+  onOpen,
+}: {
+  item: InspectionHistoryItem;
+  onOpen?: (item: InspectionHistoryItem) => void;
+}) {
   const result = item.inspectResult;
   const imageUrl = resolveInspectionImageUrl(result);
   const referenceImageUrl = getReferenceImage(result.camera_id)?.imageUrl;
   const comparisonImageUrl = referenceImageUrl ?? imageUrl;
   const heatmap = resolveInspectionHeatmap(result);
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpen?.(item);
+    }
+  };
 
   return (
     <article
       className="inspection-history-modal__card"
       data-result={item.result}
+      data-clickable={onOpen ? "true" : undefined}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={() => onOpen?.(item)}
+      onKeyDown={onOpen ? handleKeyDown : undefined}
     >
       <header className="inspection-history-modal__card-header">
         <strong>Камера {result.camera_id}</strong>

@@ -12,6 +12,7 @@ type InspectionHistoryProps = {
   archiveHistoryState?: "idle" | "loading" | "loaded" | "error";
   archiveHistoryMessage?: string | null;
   onLoadArchivedHistory?: (cameraIds: number[]) => void;
+  onCameraOpen?: (item: InspectionHistoryItem) => void;
 };
 
 type InspectionHistoryTile = {
@@ -29,6 +30,7 @@ export function InspectionHistory({
   archiveHistoryState = "idle",
   archiveHistoryMessage = null,
   onLoadArchivedHistory,
+  onCameraOpen,
 }: InspectionHistoryProps) {
   const items = createInspectionHistoryTiles(cameraIds, historyByCameraId);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
@@ -109,6 +111,10 @@ export function InspectionHistory({
           historyItems={items}
           selectedGroupKey={selectedInspection.groupKey}
           onHistorySelect={selectInspection}
+          onResultOpen={(item) => {
+            closeInspection();
+            onCameraOpen?.(item);
+          }}
           onClose={closeInspection}
         />
       )}

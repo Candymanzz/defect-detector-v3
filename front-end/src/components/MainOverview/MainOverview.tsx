@@ -193,6 +193,18 @@ export function MainOverview({
             archiveHistoryState={controller.archiveHistoryState}
             archiveHistoryMessage={controller.archiveHistoryMessage}
             onLoadArchivedHistory={(ids) => void controller.loadArchivedHistory(ids)}
+            onCameraOpen={(item) => {
+              const camera = cameraCards.find((candidate) => candidate.cameraId === item.inspectResult.camera_id);
+              if (!camera) return;
+              controller.openInspectionModal(
+                createSelectedCamera(camera),
+                item.inspectResult,
+                item.inspectResult,
+                item.frameId,
+                controller.previewImageUrlsByCameraId[camera.cameraId],
+                controller.inspectionHistoryByCameraId[camera.cameraId] ?? [],
+              );
+            }}
           />
         </section>
       ))}
