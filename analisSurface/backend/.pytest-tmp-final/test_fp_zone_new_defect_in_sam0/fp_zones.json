@@ -1,0 +1,55 @@
+[
+  {
+    "id": "3c14a462-b845-4dfd-99c2-583090a0a53c",
+    "product_type": "fp-seg-defect",
+    "points_norm_heatmap": [
+      [
+        0.05,
+        0.05
+      ],
+      [
+        0.75,
+        0.05
+      ],
+      [
+        0.75,
+        0.75
+      ],
+      [
+        0.05,
+        0.75
+      ]
+    ],
+    "points_norm_ref": [
+      [
+        0.05,
+        0.05
+      ],
+      [
+        0.75,
+        0.05
+      ],
+      [
+        0.75,
+        0.75
+      ],
+      [
+        0.05,
+        0.75
+      ]
+    ],
+    "heatmap_w": 160,
+    "heatmap_h": 120,
+    "created_at": "2026-08-21T07:44:51.804786+00:00",
+    "note": "",
+    "reference_hash": "f8fe36a4ed380a08aed84620",
+    "crop_bbox": [
+      6,
+      4,
+      116,
+      88
+    ],
+    "source_inspection_id": "",
+    "source_defect_id": ""
+  }
+]

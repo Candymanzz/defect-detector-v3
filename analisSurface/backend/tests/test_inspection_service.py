@@ -313,8 +313,8 @@ def test_heatmap_keeps_residual_when_mask_is_empty() -> None:
 
     heat = service._build_heatmap_gray(mask, residual)
 
-    assert heat.max() == 180
-    assert heat[0, 0] == 40
+    assert heat.max() == 255
+    assert heat[0, 0] == 0
 
 
 def test_identity_homography_skips_realign(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
@@ -336,6 +336,25 @@ def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
     score = InspectionService._activity_score(diff_q90=40.0, diff_max=80.0, active_ratio=0.85)
     assert score < 1.0
     assert score > 0.3
+
+
+def test_excluded_normal_overlay_marks_only_polygon_green(
+) -> None:
+    heatmap = np.zeros((100, 120, 3), dtype=np.uint8)
+    result = InspectionService._draw_excluded_normal_overlay(
+        heatmap,
+        [
+            {
+                "kind": "accepted_normal",
+                "polygon": [(0.25, 0.25), (0.75, 0.25), (0.75, 0.75), (0.25, 0.75)],
+            }
+        ],
+    )
+
+    center_bgr = result[50, 60].astype(np.int16)
+    assert center_bgr[1] > center_bgr[0] + 40
+    assert center_bgr[1] > center_bgr[2] + 40
+    assert np.array_equal(result[5, 5], heatmap[5, 5])
 
 
 def test_score_region_uses_real_mask_not_bbox(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:

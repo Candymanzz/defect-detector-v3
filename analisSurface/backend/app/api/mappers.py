@@ -89,6 +89,7 @@ def to_inspect_with_visuals_response(result) -> InspectWithVisualsResponse:
             if result.segmentation_mask is not None
             else None
         ),
+        excluded_normal_zones=getattr(result, "excluded_normal_zones", None) or [],
     )
 
 

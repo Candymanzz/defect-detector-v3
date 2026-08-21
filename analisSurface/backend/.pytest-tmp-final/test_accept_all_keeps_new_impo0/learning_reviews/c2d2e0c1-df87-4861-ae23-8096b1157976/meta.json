@@ -1,0 +1,75 @@
+{
+  "inspection_id": "c2d2e0c1-df87-4861-ae23-8096b1157976",
+  "product_type": "accept-all-new-defect",
+  "reference_hash": "536b7a62f7c098478ac856a1",
+  "created_at": "2026-08-21T07:44:49.561144+00:00",
+  "original_status": "БРАК",
+  "original_score": 1.0,
+  "threshold": 0.1,
+  "accepted_defect_ids": [],
+  "counterfactual_score": null,
+  "counterfactual_status": null,
+  "defects": [
+    {
+      "id": "defect-1",
+      "bbox": [
+        205,
+        94,
+        62,
+        42
+      ],
+      "bbox_norm": [
+        0.6833333333333333,
+        0.5222222222222223,
+        0.20666666666666667,
+        0.23333333333333334
+      ],
+      "polygon": [
+        {
+          "x": 0.8896321070234113,
+          "y": 0.5307262569832403
+        },
+        {
+          "x": 0.8862876254180602,
+          "y": 0.7541899441340782
+        },
+        {
+          "x": 0.68561872909699,
+          "y": 0.7486033519553073
+        },
+        {
+          "x": 0.6889632107023411,
+          "y": 0.5251396648044693
+        }
+      ],
+      "area": 2600,
+      "score": 0.6112270714737508,
+      "diff_mean": 80.73692307692308,
+      "diff_q90": 89.0,
+      "diff_max": 89.0,
+      "accepted_as_normal": false,
+      "matched_case_id": null,
+      "similarity": null,
+      "affects_final_score": true,
+      "manually_accepted": false,
+      "polygon_norm": [
+        [
+          0.8896321070234113,
+          0.5307262569832403
+        ],
+        [
+          0.8862876254180602,
+          0.7541899441340782
+        ],
+        [
+          0.68561872909699,
+          0.7486033519553073
+        ],
+        [
+          0.6889632107023411,
+          0.5251396648044693
+        ]
+      ]
+    }
+  ]
+}

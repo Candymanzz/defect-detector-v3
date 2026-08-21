@@ -1,0 +1,13 @@
+{
+  "inspection_id": "f592062e-4cdd-410a-971c-b2ffa8eca49d",
+  "product_type": "fragmented-normal",
+  "reference_hash": "587bdced65ad2b86d06209cf",
+  "created_at": "2026-08-21T07:44:50.412549+00:00",
+  "original_status": "ГОДЕН",
+  "original_score": 0.0,
+  "threshold": 0.1,
+  "accepted_defect_ids": [],
+  "counterfactual_score": null,
+  "counterfactual_status": null,
+  "defects": []
+}

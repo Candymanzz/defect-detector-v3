@@ -180,7 +180,6 @@ export function ModalWrapper({
             cameraImageUrl={displayedCurrentImageUrl}
             heatmapUrl={inspectHeatmapUrl}
             inspectResult={inspectResult}
-            learnedZones={editedFpZones}
           />
           {analysisSettingsContent ?? (
             <GeometryDeviationViewer
@@ -657,13 +656,11 @@ function HeatmapPanel({
   cameraImageUrl,
   heatmapUrl,
   inspectResult,
-  learnedZones,
 }: {
   cameraId?: number;
   cameraImageUrl?: string;
   heatmapUrl?: string;
   inspectResult?: InspectResultPayload;
-  learnedZones: FpZoneNorm[];
 }) {
   const matchingInspectResult =
     cameraId !== undefined && inspectResult?.camera_id === cameraId ? inspectResult : undefined;
@@ -674,10 +671,6 @@ function HeatmapPanel({
         : null,
     [heatmapUrl, matchingInspectResult],
   );
-  const mergedLearnedZones = useMemo(
-    () => mergeFpZones(matchingInspectResult?.fp_zones ?? [], learnedZones),
-    [learnedZones, matchingInspectResult?.fp_zones],
-  );
   return (
     <figure className="modal-image-panel">
       <figcaption>Тепловая карта</figcaption>
@@ -686,7 +679,6 @@ function HeatmapPanel({
           cameraId={cameraId}
           heatmap={frozenHeatmap}
           backgroundImageUrl={cameraImageUrl}
-          learnedZones={mergedLearnedZones}
         />
       ) : (
         <div className="modal-image-panel__image-wrap">
@@ -697,15 +689,6 @@ function HeatmapPanel({
       )}
     </figure>
   );
-}
-
-function mergeFpZones(...zoneGroups: FpZoneNorm[][]) {
-  const zonesByKey = new Map<string, FpZoneNorm>();
-  for (const zone of zoneGroups.flat()) {
-    const key = zone.id ?? zone.points_norm_heatmap.map((point) => `${point.x}:${point.y}`).join("|");
-    zonesByKey.set(key, zone);
-  }
-  return [...zonesByKey.values()];
 }
 
 function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPayload }) {

@@ -1,0 +1,13 @@
+{
+  "inspection_id": "d0bde448-68a2-4ac7-a232-cd84268adb50",
+  "product_type": "portable-normal",
+  "reference_hash": "587bdced65ad2b86d06209cf",
+  "created_at": "2026-08-21T07:44:50.259418+00:00",
+  "original_status": "ГОДЕН",
+  "original_score": 0.0,
+  "threshold": 0.1,
+  "accepted_defect_ids": [],
+  "counterfactual_score": null,
+  "counterfactual_status": null,
+  "defects": []
+}

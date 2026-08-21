@@ -1,0 +1,13 @@
+{
+  "inspection_id": "c173d346-bdd7-4238-882c-306c9f25fffd",
+  "product_type": "fp-seg",
+  "reference_hash": "f8fe36a4ed380a08aed84620",
+  "created_at": "2026-08-21T07:44:51.781319+00:00",
+  "original_status": "ГОДЕН",
+  "original_score": 0.0,
+  "threshold": 0.1,
+  "accepted_defect_ids": [],
+  "counterfactual_score": null,
+  "counterfactual_status": null,
+  "defects": []
+}

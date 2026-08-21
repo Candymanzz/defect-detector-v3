@@ -740,6 +740,7 @@ class InspectionService:
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
+        raw_segmentation_mask = segmentation_mask.copy()
 
         # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
@@ -812,20 +813,49 @@ class InspectionService:
             display_region = display_mask[y : y + box_height, x : x + box_width]
             display_region[local_mask] = 255
 
-        # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
-        heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
+        excluded_normal_zones = [
+            {
+                "kind": "accepted_normal",
+                "case_id": candidate.matched_case_id,
+                "similarity": candidate.similarity,
+                "polygon": list(candidate.polygon_norm),
+            }
+            for candidate in learned_filter.candidates
+            if candidate.matched_case_id is not None and len(candidate.polygon_norm) >= 3
+        ]
+        fp_zone_by_id = {zone.id: zone for zone in self.get_fp_zones(product_type)}
+        for zone_score in fp_recheck["fp_zone_scores"]:
+            zone = fp_zone_by_id.get(zone_score.zone_id)
+            if (
+                zone is None
+                or not zone_score.applied_fp_etalon
+                or zone_score.note != "matched FP mini-etalon"
+                or len(zone.points_norm_ref) < 3
+            ):
+                continue
+            excluded_normal_zones.append(
+                {
+                    "kind": "fp_zone",
+                    "case_id": zone.id,
+                    "similarity": None,
+                    "polygon": list(zone.points_norm_ref),
+                }
+            )
+
+        # Heatmap повторяет реализацию до появления дообучения: для отображения
+        # используются исходные diff и mask, а не результат вычитания норм.
         heatmap_u8 = None
         if include_visuals:
-            heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+            heatmap_u8 = self._build_heatmap_gray(raw_segmentation_mask, diff_map)
         elif include_heatmap_u8:
             try:
-                heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+                heatmap_u8 = self._build_heatmap_gray(raw_segmentation_mask, diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
-        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
+        heatmap = self._colorize_heatmap(heatmap_u8, raw_segmentation_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
-            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["fp_zone_scores"])
             heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
+            heatmap = self._draw_excluded_normal_overlay(heatmap, excluded_normal_zones)
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
         inspection_id = str(uuid.uuid4())
@@ -838,8 +868,8 @@ class InspectionService:
                 score=anomaly_score,
                 threshold=inspection_threshold,
                 aligned=aligned,
-                diff_map=filtered_diff_map,
-                raw_mask=display_mask,
+                diff_map=diff_map,
+                raw_mask=raw_segmentation_mask,
                 candidates=review_candidates,
             )
         except Exception:
@@ -868,6 +898,7 @@ class InspectionService:
             heatmap=heatmap if include_visuals else None,
             heatmap_u8=heatmap_u8,
             segmentation_mask=segmentation_mask if include_visuals else None,
+            excluded_normal_zones=excluded_normal_zones,
         )
 
     def _score_inspection_regions(
@@ -1481,6 +1512,59 @@ class InspectionService:
             cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
         return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)
 
+    @staticmethod
+    def _draw_excluded_normal_overlay(
+        heatmap: np.ndarray,
+        excluded_zones: list[dict],
+    ) -> np.ndarray:
+        """Mark zones actually excluded from this inspection in green.
+
+        This modifies only the color heatmap returned by the local multipart
+        ``/inspect`` endpoint. The gray SHM heatmap and inspection score stay
+        unchanged.
+        """
+        if not excluded_zones:
+            return heatmap
+
+        height, width = heatmap.shape[:2]
+        overlay = heatmap.copy()
+        has_polygon = False
+        green = (45, 225, 70)  # BGR
+        for zone in excluded_zones:
+            raw_polygon = zone.get("polygon") or []
+            normalized_points: list[tuple[float, float]] = []
+            for point in raw_polygon:
+                if isinstance(point, dict):
+                    x_raw, y_raw = point.get("x"), point.get("y")
+                elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                    x_raw, y_raw = point[0], point[1]
+                else:
+                    continue
+                try:
+                    normalized_points.append((float(x_raw), float(y_raw)))
+                except (TypeError, ValueError):
+                    continue
+            if len(normalized_points) < 3:
+                continue
+
+            points = np.array(
+                [
+                    [
+                        int(round(np.clip(x, 0.0, 1.0) * (width - 1))),
+                        int(round(np.clip(y, 0.0, 1.0) * (height - 1))),
+                    ]
+                    for x, y in normalized_points
+                ],
+                dtype=np.int32,
+            )
+            cv2.fillPoly(overlay, [points], green)
+            cv2.polylines(overlay, [points], isClosed=True, color=green, thickness=2)
+            has_polygon = True
+
+        if not has_polygon:
+            return heatmap
+        return cv2.addWeighted(overlay, 0.42, heatmap, 0.58, 0.0)
+
     def _decode_image(self, image_bytes: bytes) -> np.ndarray:
         data = np.frombuffer(image_bytes, dtype=np.uint8)
         image = cv2.imdecode(data, cv2.IMREAD_COLOR)
@@ -1903,17 +1987,17 @@ class InspectionService:
         return heuristic_score, heuristic_mask
 
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
-        """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET).
-
-        Keep the full residual field visible for every inspection. The defect mask
-        boosts confirmed anomaly pixels, while the UI performs display normalization.
-        """
+        """Single-channel anomaly energy in the pre-learning heatmap format."""
         mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         if diff_map is None:
             return mask_gray
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        return cv2.max(mask_gray, diff_gray)
+        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
+        combined = cv2.max(mask_gray, diff_norm)
+        combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
+        combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
+        return np.clip(combined_gamma, 0, 255).astype(np.uint8)
 
     def _colorize_heatmap(self, heatmap_gray: np.ndarray, mask: np.ndarray) -> np.ndarray:
         heatmap = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)

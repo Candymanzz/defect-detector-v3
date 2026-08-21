@@ -61,6 +61,7 @@ class InspectWithVisualsResponse(InspectResponse):
     diff_map_b64: Optional[str] = None
     heatmap_b64: Optional[str] = None
     segmentation_mask_b64: Optional[str] = None
+    excluded_normal_zones: list[dict] = Field(default_factory=list)
 
 
 class UploadRefResponse(BaseModel):

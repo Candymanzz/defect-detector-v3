@@ -1,0 +1,13 @@
+{
+  "inspection_id": "8399ec9a-997f-45d7-8a75-3ba1e2de09a7",
+  "product_type": "bench",
+  "reference_hash": "c8776d13ec227a8aa9a31d43",
+  "created_at": "2026-08-21T07:44:49.120852+00:00",
+  "original_status": "ГОДЕН",
+  "original_score": 0.0,
+  "threshold": 0.5,
+  "accepted_defect_ids": [],
+  "counterfactual_score": null,
+  "counterfactual_status": null,
+  "defects": []
+}
