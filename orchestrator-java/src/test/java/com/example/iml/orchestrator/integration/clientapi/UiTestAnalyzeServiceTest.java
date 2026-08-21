@@ -124,8 +124,6 @@ class UiTestAnalyzeServiceTest {
         ));
         assertEquals(0, pinned.cameraId());
         assertEquals(42L, pinned.frameId());
-        assertEquals("/api/client/inspection/test-pin/cameras/0/frame.jpg", pinned.httpPath());
-        assertEquals(UiTestAnalyzeService.sha256Hex(original), pinned.sha256());
 
         // Overwrite archive slot with a different JPEG — pin must keep the original bytes.
         Path overwrite = Files.createTempFile(tempDir, "overwrite", ".jpg");

@@ -50,14 +50,25 @@ public final class UiTestAnalyzeService {
             int cameraId,
             Source source,
             Long frameId,
-            String httpPath
+            String httpPath,
+            String pinId,
+            Map<String, Object> temporaryGeometry,
+            Map<String, Object> temporaryAnalysis
     ) {
+        public Request(int cameraId, Source source, Long frameId, String httpPath) {
+            this(cameraId, source, frameId, httpPath, null, Map.of(), Map.of());
+        }
+        public Request(int cameraId, Source source, Long frameId, String httpPath, String pinId) {
+            this(cameraId, source, frameId, httpPath, pinId, Map.of(), Map.of());
+        }
     }
 
     public record Accepted(
             String jobId,
             int cameraId,
-            long frameId
+            long frameId,
+            String pinId,
+            String pinJpegSha256
     ) {
     }
 
@@ -65,8 +76,8 @@ public final class UiTestAnalyzeService {
             int cameraId,
             long frameId,
             String pinId,
-            String httpPath,
-            String sha256
+            String jpegSha256,
+            String imageHttpPath
     ) {
     }
 
@@ -237,7 +248,7 @@ public final class UiTestAnalyzeService {
                 throw new AnalyzeException(400, "httpPath required for artifact source");
             }
         } else if (request.source() == Source.CURRENT) {
-            // cameraId is enough; httpPath optional (/api/camera/{id}/current.jpg).
+            throw new AnalyzeException(400, "current source is not allowed for test pin; use archive or artifact");
         }
         ResolvedFrame resolved = resolveJpeg(resolveRequest);
         String sha = sha256Hex(resolved.jpegBytes());
@@ -252,29 +263,27 @@ public final class UiTestAnalyzeService {
                 request.httpPath()
         );
         try {
-            String httpPath = "/api/client/inspection/test-pin/cameras/" + request.cameraId() + "/frame.jpg";
             TestFramePinStore.Pin pin = pinStore.pin(
                     request.cameraId(),
                     resolved.frameId(),
                     resolved.jpegBytes(),
-                    httpPath
+                    sha
             );
             log.info(
-                    "ui test-pin stored cam={} frame={} pinPath={} sha={} http_path={}",
+                    "ui test-pin stored cam={} frame={} pinPath={} sha={}",
                     pin.cameraId(),
                     pin.frameId(),
                     pin.jpegPath(),
-                    sha,
-                    httpPath
+                    sha
             );
-            return new Pinned(pin.cameraId(), pin.frameId(), "cam-" + pin.cameraId(), httpPath, sha);
+            return new Pinned(pin.cameraId(), pin.frameId(), pin.pinId(), pin.jpegSha256(), pin.previewHttpPath());
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to pin test frame: " + e.getMessage());
         }
     }
 
-    public Optional<Path> pinnedJpegPath(int cameraId) {
-        return pinStore.get(cameraId).map(TestFramePinStore.Pin::jpegPath);
+    public Optional<Path> pinnedJpegPath(String pinId) {
+        return pinStore.get(pinId).map(TestFramePinStore.Pin::jpegPath);
     }
 
     public void clearPins() {
@@ -284,6 +293,14 @@ public final class UiTestAnalyzeService {
     public Accepted submit(Request request) throws AnalyzeException {
         validate(request);
         ResolvedFrame resolved = resolveJpeg(request);
+        if (request.source() == Source.PIN
+                && request.frameId() != null
+                && request.frameId().longValue() != resolved.frameId()) {
+            throw new AnalyzeException(
+                    409,
+                    "pinned frame mismatch: requested=" + request.frameId() + " pinned=" + resolved.frameId()
+            );
+        }
         ReferenceSnapshot ref = referenceRegistry.get(request.cameraId());
         if (ref == null || !ref.isUsable()) {
             throw new AnalyzeException(409, "no usable reference for camera " + request.cameraId());
@@ -317,9 +334,12 @@ public final class UiTestAnalyzeService {
                 resolved.jpegBytes(),
                 ref,
                 resolved.previewHttpPath(),
+                request.pinId(),
+                request.temporaryGeometry(),
+                request.temporaryAnalysis(),
                 generation
         ));
-        return new Accepted(jobId, request.cameraId(), frameId);
+        return new Accepted(jobId, request.cameraId(), frameId, request.pinId(), pinSha);
     }
 
     private void validate(Request request) throws AnalyzeException {
@@ -351,7 +371,9 @@ public final class UiTestAnalyzeService {
         } else if (request.source() == Source.CURRENT) {
             // cameraId is enough.
         } else if (request.source() == Source.PIN) {
-            // cameraId is enough; frameId is optional and used only for logging/UI.
+            if (request.pinId() == null || request.pinId().isBlank()) {
+                throw new AnalyzeException(400, "pinId required for pin source");
+            }
         }
     }
 
@@ -362,6 +384,9 @@ public final class UiTestAnalyzeService {
             byte[] jpegBytes,
             ReferenceSnapshot ref,
             String previewHttpPath,
+            String pinId,
+            Map<String, Object> temporaryGeometry,
+            Map<String, Object> temporaryAnalysis,
             long generation
     ) {
         Path shmPath = null;
@@ -371,6 +396,12 @@ public final class UiTestAnalyzeService {
             shmPath = written.shmPath();
             Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
             captureHeader.put("test_analyze", true);
+            captureHeader.put("test_analyze_job_id", jobId);
+            if (pinId != null && !pinId.isBlank()) {
+                captureHeader.put("test_pin_id", pinId);
+            }
+            captureHeader.put("test_geometry_overrides", temporaryGeometry == null ? Map.of() : temporaryGeometry);
+            captureHeader.put("analysis_test_settings", temporaryAnalysis == null ? Map.of() : temporaryAnalysis);
             String pinSha = sha256Hex(jpegBytes);
             captureHeader.put("pin_jpeg_sha256", pinSha);
             if (previewHttpPath != null && !previewHttpPath.isBlank()) {
@@ -476,7 +507,7 @@ public final class UiTestAnalyzeService {
 
     ResolvedFrame resolveJpeg(Request request) throws AnalyzeException {
         if (request.source() == Source.PIN) {
-            return loadPin(request.cameraId());
+            return loadPin(request.pinId(), request.cameraId());
         }
         if (request.source() == Source.CURRENT) {
             return loadCurrentJpeg(request.cameraId(), request.frameId());
@@ -529,21 +560,23 @@ public final class UiTestAnalyzeService {
         }
         try {
             byte[] bytes = Files.readAllBytes(jpeg);
-            long frameId = frameIdHint != null
-                    ? frameIdHint
-                    : (latest == null ? 0L : latest.frameId());
+            // Never label mutable current.jpg with the caller's stale frame id.
+            long frameId = latest == null ? 0L : latest.frameId();
             return new ResolvedFrame(bytes, frameId, "/api/camera/" + cameraId + "/current.jpg");
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to read current.jpg: " + e.getMessage());
         }
     }
 
-    private ResolvedFrame loadPin(int cameraId) throws AnalyzeException {
-        TestFramePinStore.Pin pin = pinStore.get(cameraId)
-                .orElseThrow(() -> new AnalyzeException(404, "no pinned test frame for cameraId=" + cameraId));
+    private ResolvedFrame loadPin(String pinId, int cameraId) throws AnalyzeException {
+        TestFramePinStore.Pin pin = pinStore.get(pinId)
+                .orElseThrow(() -> new AnalyzeException(404, "pinned test frame not found pinId=" + pinId));
+        if (pin.cameraId() != cameraId) {
+            throw new AnalyzeException(409, "pin camera mismatch: requested=" + cameraId + " pinned=" + pin.cameraId());
+        }
         try {
             byte[] bytes = Files.readAllBytes(pin.jpegPath());
-            String pinUrl = "/api/client/inspection/test-pin/cameras/" + cameraId + "/frame.jpg";
+            String pinUrl = pin.previewHttpPath();
             log.info(
                     "ui test-analyze loadPin cam={} frame={} bytes={} sha={} http_path={}",
                     cameraId,
@@ -580,11 +613,21 @@ public final class UiTestAnalyzeService {
             throw new AnalyzeException(503, "ui server unavailable");
         }
         try {
+            UiHttpServer.InspectionArtifactIdentity identity = ui.inspectionArtifactIdentity(bundleId);
+            if (identity.cameraId() != cameraId) {
+                throw new AnalyzeException(409, "artifact camera mismatch");
+            }
+            if (frameIdHint != null && identity.frameId() != frameIdHint.longValue()) {
+                throw new AnalyzeException(
+                        409,
+                        "artifact frame mismatch: requested=" + frameIdHint + " artifact=" + identity.frameId()
+                );
+            }
             byte[] bytes = ui.readInspectionArtifact(bundleId, "frame.jpg");
             if (bytes == null || bytes.length == 0) {
                 throw new AnalyzeException(404, "artifact frame not found: " + bundleId);
             }
-            long frameId = frameIdHint != null ? frameIdHint : Math.abs(bundleId.hashCode());
+            long frameId = identity.frameId();
             String httpPath = "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
             return new ResolvedFrame(bytes, frameId, httpPath);
         } catch (AnalyzeException e) {

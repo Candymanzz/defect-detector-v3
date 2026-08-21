@@ -12,7 +12,7 @@ class TestFramePinStoreTest {
     @TempDir Path tempDir;
 
     @Test
-    void keepsMultipleImmutablePinsForSameCamera() throws Exception {
+    void rePinForSameCameraOverwritesPrevious() throws Exception {
         TestFramePinStore store = new TestFramePinStore(tempDir);
         byte[] firstBytes = new byte[] {1, 2, 3};
         byte[] secondBytes = new byte[] {4, 5, 6};
@@ -21,9 +21,8 @@ class TestFramePinStoreTest {
         TestFramePinStore.Pin second = store.pin(3, 11L, secondBytes, "sha-second");
 
         assertNotEquals(first.pinId(), second.pinId());
-        assertArrayEquals(firstBytes, Files.readAllBytes(store.get(first.pinId()).orElseThrow().jpegPath()));
+        assertTrue(store.get(first.pinId()).isEmpty());
         assertArrayEquals(secondBytes, Files.readAllBytes(store.get(second.pinId()).orElseThrow().jpegPath()));
-        assertEquals(10L, store.get(first.pinId()).orElseThrow().frameId());
         assertEquals(11L, store.get(second.pinId()).orElseThrow().frameId());
     }
 

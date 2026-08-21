@@ -50,6 +50,8 @@ public final class TestFramePinStore {
         if (jpegBytes == null || jpegBytes.length == 0) {
             throw new IllegalArgumentException("jpeg bytes required");
         }
+        // One active pin per camera: selecting another frame overwrites the previous TEST JPEG.
+        clearCamera(cameraId);
         Files.createDirectories(root);
         String pinId = UUID.randomUUID().toString().replace("-", "");
         Path pinDir = root.resolve(pinId).normalize();
@@ -76,6 +78,14 @@ public final class TestFramePinStore {
         );
         byId.put(pinId, pin);
         return pin;
+    }
+
+    public synchronized void clearCamera(int cameraId) {
+        for (Pin pin : byId.values().toArray(Pin[]::new)) {
+            if (pin.cameraId() == cameraId) {
+                clear(pin.pinId());
+            }
+        }
     }
 
     public Optional<Pin> get(String pinId) {

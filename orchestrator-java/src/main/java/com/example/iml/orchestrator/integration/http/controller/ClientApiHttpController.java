@@ -83,7 +83,7 @@ public final class ClientApiHttpController implements HttpController {
             handleTestPin(ctx);
             return;
         }
-        if (path.startsWith("/api/client/inspection/test-pin/cameras/") && path.endsWith("/frame.jpg")) {
+        if (path.startsWith("/api/client/inspection/test-pin/") && path.endsWith("/frame.jpg")) {
             handleTestPinFrameGet(ctx, path);
             return;
         }
@@ -717,6 +717,8 @@ public final class ClientApiHttpController implements HttpController {
             root.put("jobId", accepted.jobId());
             root.put("cameraId", accepted.cameraId());
             root.put("frameId", accepted.frameId());
+            root.put("pinId", accepted.pinId());
+            root.put("pinJpegSha256", accepted.pinJpegSha256());
             HttpResponses.send(ctx, 202, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
         } catch (com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.AnalyzeException e) {
             HttpResponses.sendJsonError(ctx, e.status(), e.getMessage());
@@ -755,6 +757,8 @@ public final class ClientApiHttpController implements HttpController {
             root.put("cameraId", pinned.cameraId());
             root.put("frameId", pinned.frameId());
             root.put("pinId", pinned.pinId());
+            root.put("jpegSha256", pinned.jpegSha256());
+            root.put("imageHttpPath", pinned.imageHttpPath());
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
         } catch (com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.AnalyzeException e) {
             HttpResponses.sendJsonError(ctx, e.status(), e.getMessage());
@@ -779,25 +783,21 @@ public final class ClientApiHttpController implements HttpController {
             HttpResponses.sendJsonError(ctx, 503, "test-analyze not ready");
             return;
         }
-        // /api/client/inspection/test-pin/cameras/{id}/frame.jpg
+        // /api/client/inspection/test-pin/{pinId}/frame.jpg
         String[] parts = path.split("/");
-        if (parts.length < 8) {
+        if (parts.length < 7) {
             HttpResponses.sendJsonError(ctx, 404, "not found");
             return;
         }
-        int cameraId;
-        try {
-            cameraId = Integer.parseInt(parts[6]);
-        } catch (NumberFormatException e) {
-            HttpResponses.sendJsonError(ctx, 400, "invalid cameraId");
-            return;
-        }
-        var jpeg = service.pinnedJpegPath(cameraId);
+        String pinId = parts[5];
+        var jpeg = service.pinnedJpegPath(pinId);
         if (jpeg.isEmpty() || !java.nio.file.Files.isRegularFile(jpeg.get())) {
-            HttpResponses.sendJsonError(ctx, 404, "no pinned test frame for cameraId=" + cameraId);
+            HttpResponses.sendJsonError(ctx, 404, "no pinned test frame pinId=" + pinId);
             return;
         }
         byte[] body = java.nio.file.Files.readAllBytes(jpeg.get());
+        ctx.exchange().getResponseHeaders().set("Cache-Control", "no-store, no-cache, must-revalidate");
+        ctx.exchange().getResponseHeaders().set("Pragma", "no-cache");
         HttpResponses.send(ctx, 200, "image/jpeg", body);
     }
 
@@ -835,10 +835,25 @@ public final class ClientApiHttpController implements HttpController {
         } else if (body.get("http_path") != null) {
             httpPath = String.valueOf(body.get("http_path")).trim();
         }
+        String pinId = body.get("pinId") == null ? null : String.valueOf(body.get("pinId")).trim();
+        Map<String, Object> temporarySettings = body.get("temporarySettings") instanceof Map<?, ?> rawSettings
+                ? castStringObjectMap(rawSettings) : Map.of();
+        Map<String, Object> temporaryGeometry = temporarySettings.get("geometry") instanceof Map<?, ?> rawGeometry
+                ? castStringObjectMap(rawGeometry) : Map.of();
+        Map<String, Object> temporaryAnalysis = temporarySettings.get("analysis") instanceof Map<?, ?> rawAnalysis
+                ? castStringObjectMap(rawAnalysis) : Map.of();
         var source = com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.parseSource(sourceRaw);
         return new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request(
-                cameraId, source, frameId, httpPath
+                cameraId, source, frameId, httpPath, pinId, temporaryGeometry, temporaryAnalysis
         );
+    }
+
+    private static Map<String, Object> castStringObjectMap(Map<?, ?> raw) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        raw.forEach((key, value) -> {
+            if (key != null && value != null) result.put(String.valueOf(key), value);
+        });
+        return Map.copyOf(result);
     }
 
     private void handleInspectionStatus(HttpRequestContext ctx) throws IOException {

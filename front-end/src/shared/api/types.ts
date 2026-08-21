@@ -364,12 +364,14 @@ export type TestAnalyzeResponse = {
   jobId: string;
   cameraId: number;
   frameId: number;
+  pinId: string;
+  pinJpegSha256: string;
 };
 
 export type PinTestFrameRequest = {
   cameraId: number;
   frameId: string | number;
-  source?: "archive" | "artifact" | "current";
+  source?: "archive" | "artifact";
   httpPath?: string;
 };
 
@@ -378,8 +380,8 @@ export type PinTestFrameResponse = {
   cameraId: number;
   frameId: number;
   pinId: string;
-  httpPath?: string;
-  sha256?: string;
+  jpegSha256: string;
+  imageHttpPath: string;
 };
 
 export type AcceptLearnedNormalsRequest = {
