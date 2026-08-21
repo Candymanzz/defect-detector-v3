@@ -83,12 +83,11 @@ export function MainOverview({
   ) => {
     const cameraId = inspectResult.camera_id;
     const frameId = inspectResult.frame_id;
-    const pinSource = resolveTestPinSource(inspectResult);
+    // Always pin the archived JPEG for this frameId — never current.jpg / live artifact.
     const pinned = await orchestratorApi.pinTestFrame({
       cameraId,
       frameId,
-      source: pinSource.source,
-      httpPath: pinSource.httpPath,
+      source: "archive",
     });
     if (String(pinned.frameId) !== String(frameId)) {
       throw new Error(
@@ -335,8 +334,8 @@ export function MainOverview({
                   </p>
                 )}
                 <p className="modal__test-settings-hint">
-                  Кадр теста лежит на диске (pin). При выборе другого кадра файл перезаписывается. Крутите параметры и
-                  нажмите «Проверить». Режим теста открыт, пока не нажмёте «Завершить тест» или не закроете окно.
+                  Кадр берётся из архива по frameId и копируется в отдельную папку pin. При выборе другого кадра pin
+                  перезаписывается. Крутите параметры и нажмите «Проверить».
                 </p>
                 <div className="modal__test-settings-grid">
                   <details className="modal__test-settings-section modal__test-settings-section--collapsible">
@@ -444,7 +443,11 @@ export function MainOverview({
                     setShowModalAnalysisSettings(false);
                     setTestAnalyzeState("error");
                     setTestAnalyzeMessage(
-                      error instanceof Error ? error.message : "Не удалось зафиксировать кадр для теста",
+                      error instanceof Error
+                        ? (error.message.includes("404") || error.message.toLowerCase().includes("not found")
+                          ? `Кадр ${frameId} не найден в архиве — pin только из архива`
+                          : error.message)
+                        : "Не удалось зафиксировать кадр для теста",
                     );
                     try {
                       await orchestratorApi.setTestMode(false);
@@ -509,29 +512,6 @@ function chunkItems<T>(items: T[], chunkSize: number) {
     const startIndex = groupIndex * chunkSize;
     return items.slice(startIndex, startIndex + chunkSize);
   });
-}
-
-function resolveTestPinSource(inspectResult: {
-  artifact_bundle_id?: string;
-  http_path?: string;
-  current?: { http_path?: string };
-}): { source: "archive" | "artifact"; httpPath?: string } {
-  // Pin the exact JPEG the modal is showing — never silent archive-by-frameId when another path is visible.
-  const path = (inspectResult.http_path ?? inspectResult.current?.http_path ?? "").trim();
-  if (path.includes("/api/frame-archive/")) {
-    return { source: "archive", httpPath: path };
-  }
-  if (path.includes("/api/inspection-artifacts/")) {
-    return { source: "artifact", httpPath: path };
-  }
-  // Prefer the immutable inspection artifact over mutable current.jpg.
-  if (inspectResult.artifact_bundle_id) {
-    return {
-      source: "artifact",
-      httpPath: `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
-    };
-  }
-  return { source: "archive" };
 }
 
 async function createFrozenFrameObjectUrl(imageUrl: string): Promise<string> {

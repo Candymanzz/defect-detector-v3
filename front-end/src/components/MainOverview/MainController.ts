@@ -498,10 +498,18 @@ function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload)
 
 function resolveArchiveFrameImageUrl(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
-  if (!imagePath.includes("/api/frame-archive/")) {
-    return undefined;
+  if (imagePath.includes("/api/frame-archive/")) {
+    return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
   }
-  return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
+  // Live WS often points at mutable /api/camera/{id}/current.jpg for every frame_id.
+  // Always address the archived JPEG for this exact frame when showing/selecting history.
+  if (inspectResult.frame_id) {
+    return orchestratorApi.imageUrl(
+      `/api/frame-archive/cameras/${inspectResult.camera_id}/frames/${inspectResult.frame_id}/frame.jpg`,
+      inspectResult.frame_id,
+    );
+  }
+  return undefined;
 }
 
 function createInitialModalInspectionItems(

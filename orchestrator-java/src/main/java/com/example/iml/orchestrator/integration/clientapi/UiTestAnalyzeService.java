@@ -226,7 +226,7 @@ public final class UiTestAnalyzeService {
 
     /**
      * Copy the operator-selected frame into a durable pin for the TEST session.
-     * Source must be archive, artifact, or current (not pin).
+     * Always loads JPEG from frame-archive by cameraId+frameId — never current.jpg / live artifact.
      */
     public Pinned pin(Request request) throws AnalyzeException {
         if (request == null) {
@@ -235,32 +235,30 @@ public final class UiTestAnalyzeService {
         if (request.cameraId() < 0) {
             throw new AnalyzeException(400, "cameraId required");
         }
-        if (request.source() == null || request.source() == Source.PIN) {
-            throw new AnalyzeException(400, "source required (archive|artifact|current)");
+        if (request.frameId() == null) {
+            throw new AnalyzeException(400, "frameId required for test pin (archive)");
         }
-        Request resolveRequest = request;
-        if (request.source() == Source.ARCHIVE) {
-            if (request.frameId() == null && (request.httpPath() == null || request.httpPath().isBlank())) {
-                throw new AnalyzeException(400, "frameId or httpPath required for archive source");
-            }
-        } else if (request.source() == Source.ARTIFACT) {
-            if (request.httpPath() == null || request.httpPath().isBlank()) {
-                throw new AnalyzeException(400, "httpPath required for artifact source");
-            }
-        } else if (request.source() == Source.CURRENT) {
-            throw new AnalyzeException(400, "current source is not allowed for test pin; use archive or artifact");
+        if (request.source() == Source.CURRENT) {
+            throw new AnalyzeException(400, "current source is not allowed for test pin; use archive");
         }
-        ResolvedFrame resolved = resolveJpeg(resolveRequest);
+        // Ignore httpPath / artifact / current — TEST pin must be the archived frame the operator selected.
+        ResolvedFrame resolved = loadArchive(request.cameraId(), request.frameId());
+        if (resolved.frameId() != request.frameId()) {
+            throw new AnalyzeException(
+                    409,
+                    "archive frame mismatch: requested=" + request.frameId() + " resolved=" + resolved.frameId()
+            );
+        }
         String sha = sha256Hex(resolved.jpegBytes());
         log.info(
-                "ui test-pin out cam={} source={} frame={} bytes={} sha={} resolvedHttpPath={} requestHttpPath={}",
+                "ui test-pin out cam={} source=ARCHIVE frame={} bytes={} sha={} archiveHttpPath={} ignoredHttpPath={} ignoredSource={}",
                 request.cameraId(),
-                request.source(),
                 resolved.frameId(),
                 resolved.jpegBytes().length,
                 sha,
                 resolved.previewHttpPath(),
-                request.httpPath()
+                request.httpPath(),
+                request.source()
         );
         try {
             TestFramePinStore.Pin pin = pinStore.pin(
