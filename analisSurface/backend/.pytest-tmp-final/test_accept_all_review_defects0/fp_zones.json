@@ -1,6 +1,6 @@
 [
   {
-    "id": "a21d429f-6fac-40ea-95db-6a80a56db717",
+    "id": "39bc261d-5de3-40f3-bec4-31578d78ec2e",
     "product_type": "accept-all",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 360,
     "heatmap_h": 240,
-    "created_at": "2026-08-21T07:44:49.251580+00:00",
+    "created_at": "2026-08-21T09:05:51.550286+00:00",
     "note": "whole image accepted",
     "reference_hash": "e5a4b02057fe1cc91cf77379",
     "crop_bbox": [
@@ -49,11 +49,11 @@
       67,
       52
     ],
-    "source_inspection_id": "73fa3e07-9b89-49be-bdc3-bce6563e5b4c",
+    "source_inspection_id": "524fb971-385c-489b-b1ec-806f8c863b34",
     "source_defect_id": "defect-1"
   },
   {
-    "id": "e6c51405-fbb2-4412-9b88-4697f80bdee6",
+    "id": "6d07819d-53b9-45ac-9e3f-bb6e9d23f9d5",
     "product_type": "accept-all",
     "points_norm_heatmap": [
       [
@@ -93,7 +93,7 @@
     ],
     "heatmap_w": 360,
     "heatmap_h": 240,
-    "created_at": "2026-08-21T07:44:49.253345+00:00",
+    "created_at": "2026-08-21T09:05:51.552057+00:00",
     "note": "whole image accepted",
     "reference_hash": "e5a4b02057fe1cc91cf77379",
     "crop_bbox": [
@@ -102,7 +102,7 @@
       78,
       59
     ],
-    "source_inspection_id": "73fa3e07-9b89-49be-bdc3-bce6563e5b4c",
+    "source_inspection_id": "524fb971-385c-489b-b1ec-806f8c863b34",
     "source_defect_id": "defect-2"
   }
 ]

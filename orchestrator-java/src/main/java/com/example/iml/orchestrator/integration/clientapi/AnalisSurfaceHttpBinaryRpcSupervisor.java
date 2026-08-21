@@ -789,6 +789,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         h.put("learned_normal_matches_count", YamlScalars.toInt(json.get("learned_normal_matches_count"), 0));
         h.put("learned_normal_adjustment", YamlScalars.toDouble(json.get("learned_normal_adjustment"), 0.0));
+        Object excludedNormalZones = json.get("excluded_normal_zones");
+        h.put("excluded_normal_zones", excludedNormalZones instanceof List<?> ? excludedNormalZones : List.of());
         return h;
     }
 

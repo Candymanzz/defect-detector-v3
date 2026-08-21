@@ -1,6 +1,6 @@
 [
   {
-    "id": "034f3680-f823-4a4b-81aa-20b705c9b1db",
+    "id": "81dc6ed9-1a01-4d3a-9335-6fb15d7ccf6e",
     "product_type": "fp-seg",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 160,
     "heatmap_h": 120,
-    "created_at": "2026-08-21T07:44:51.771617+00:00",
+    "created_at": "2026-08-21T09:05:53.952923+00:00",
     "note": "",
     "reference_hash": "f8fe36a4ed380a08aed84620",
     "crop_bbox": [

@@ -1,6 +1,6 @@
 [
   {
-    "id": "c5e86f15-8fde-47c4-97c1-310605747058",
+    "id": "3023ac9a-c6c8-4816-bdfc-6d46c6cf6692",
     "product_type": "bench",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 80,
     "heatmap_h": 64,
-    "created_at": "2026-08-21T07:44:50.153606+00:00",
+    "created_at": "2026-08-21T09:05:52.428855+00:00",
     "note": "auto from defect-1",
     "reference_hash": "c8776d13ec227a8aa9a31d43",
     "crop_bbox": [
@@ -49,7 +49,7 @@
       41,
       33
     ],
-    "source_inspection_id": "6c912d0f-b02b-4419-8f69-116fa8d43dea",
+    "source_inspection_id": "fb4b2c17-2280-4de1-946c-caf022c54936",
     "source_defect_id": "defect-1"
   }
 ]

@@ -1,6 +1,6 @@
 [
   {
-    "id": "d0f4ceb9-2c41-4108-afc4-1be2156a9019",
+    "id": "6809c58e-fcee-4f22-bb3e-981802fcd329",
     "product_type": "position-bound-normal",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 200,
     "heatmap_h": 120,
-    "created_at": "2026-08-21T07:44:50.315827+00:00",
+    "created_at": "2026-08-21T09:05:52.580903+00:00",
     "note": "auto from defect-1",
     "reference_hash": "587bdced65ad2b86d06209cf",
     "crop_bbox": [
@@ -49,7 +49,7 @@
       110,
       68
     ],
-    "source_inspection_id": "fb0e2fa4-1cba-4d85-aad5-2766ae0fc7e3",
+    "source_inspection_id": "9a01ac47-1dcf-48be-8c3f-bca82711f4a6",
     "source_defect_id": "defect-1"
   }
 ]

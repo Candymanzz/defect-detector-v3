@@ -1,6 +1,6 @@
 [
   {
-    "id": "01dc95f4-6026-40bd-b6b8-436e593adb38",
+    "id": "9c4a212e-2834-47fc-bb38-edc720bf10f0",
     "product_type": "legacy-template",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 200,
     "heatmap_h": 120,
-    "created_at": "2026-08-21T07:44:51.674659+00:00",
+    "created_at": "2026-08-21T09:05:53.868251+00:00",
     "note": "auto from defect-1",
     "reference_hash": "587bdced65ad2b86d06209cf",
     "crop_bbox": [
@@ -49,7 +49,7 @@
       105,
       29
     ],
-    "source_inspection_id": "8442d7d2-98f7-4dee-af14-6e0c35168c5e",
+    "source_inspection_id": "854ad13b-3dea-4ec6-b83b-5722319123a6",
     "source_defect_id": "defect-1"
   }
 ]

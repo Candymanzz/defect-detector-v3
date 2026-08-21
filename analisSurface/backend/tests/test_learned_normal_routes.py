@@ -50,6 +50,7 @@ def test_local_inspection_test_page_is_available() -> None:
     assert 'id="heatmapBackground"' in response.text
     assert 'id="heatmapOpacity"' in response.text
     assert "setHeatmapOpacity" in response.text
+    assert "Heatmap основной инспекции (до дообучения)" in response.text
     assert "Сбросить все нормы" in response.text
 
 
@@ -140,7 +141,7 @@ def test_local_inspection_multipart_flow_returns_visuals_and_review() -> None:
         cv2.IMREAD_COLOR,
     )
     assert decoded_heatmap is not None
-    # Accepted normal regions are intentionally marked green on the color
+    # Accepted normal regions are intentionally marked dark green on the color
     # heatmap while the underlying score/gray heatmap remains unchanged.
     assert replay_payload["excluded_normal_zones"]
     assert not np.array_equal(decoded_heatmap, original_heatmap)

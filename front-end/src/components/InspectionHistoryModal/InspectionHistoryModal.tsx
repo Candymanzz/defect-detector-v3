@@ -138,6 +138,7 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
               cameraId={result.camera_id}
               heatmap={heatmap}
               backgroundImageUrl={comparisonImageUrl}
+              excludedNormalZones={result.excluded_normal_zones}
             />
           ) : (
             <div className="inspection-history-modal__placeholder">Тепловая карта отсутствует</div>

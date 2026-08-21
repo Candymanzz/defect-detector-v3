@@ -1,6 +1,6 @@
 [
   {
-    "id": "38a87760-7a10-49a3-9472-ffed495e3e5f",
+    "id": "b343d449-7f52-41d1-86a7-0a249b8921dc",
     "product_type": "shape-rectangle-circle",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 260,
     "heatmap_h": 180,
-    "created_at": "2026-08-21T07:44:51.071596+00:00",
+    "created_at": "2026-08-21T09:05:53.294213+00:00",
     "note": "auto from defect-1",
     "reference_hash": "c8c1466852b2b773ecb75b27",
     "crop_bbox": [
@@ -49,7 +49,7 @@
       66,
       43
     ],
-    "source_inspection_id": "dcbd7dda-c198-4de0-a32d-70f155e09b58",
+    "source_inspection_id": "502e7502-66be-4e50-bbc5-bbd8a1ff3e82",
     "source_defect_id": "defect-1"
   }
 ]

@@ -1,6 +1,6 @@
 [
   {
-    "id": "3c14a462-b845-4dfd-99c2-583090a0a53c",
+    "id": "971e56ce-47b1-40e4-a800-05ae600942c5",
     "product_type": "fp-seg-defect",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 160,
     "heatmap_h": 120,
-    "created_at": "2026-08-21T07:44:51.804786+00:00",
+    "created_at": "2026-08-21T09:05:53.982370+00:00",
     "note": "",
     "reference_hash": "f8fe36a4ed380a08aed84620",
     "crop_bbox": [

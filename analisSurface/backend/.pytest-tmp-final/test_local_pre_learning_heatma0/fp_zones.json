@@ -1,0 +1,55 @@
+[
+  {
+    "id": "73d4eed4-3568-4c3b-9f0b-a68801b77129",
+    "product_type": "local-raw-heatmap",
+    "points_norm_heatmap": [
+      [
+        0.0,
+        0.015625
+      ],
+      [
+        0.7374999999999999,
+        0.015625
+      ],
+      [
+        0.7374999999999999,
+        0.609375
+      ],
+      [
+        0.0,
+        0.609375
+      ]
+    ],
+    "points_norm_ref": [
+      [
+        0.0,
+        0.015625
+      ],
+      [
+        0.7374999999999999,
+        0.015625
+      ],
+      [
+        0.7374999999999999,
+        0.609375
+      ],
+      [
+        0.0,
+        0.609375
+      ]
+    ],
+    "heatmap_w": 80,
+    "heatmap_h": 64,
+    "created_at": "2026-08-21T09:05:52.150803+00:00",
+    "note": "auto from defect-1",
+    "reference_hash": "c8776d13ec227a8aa9a31d43",
+    "crop_bbox": [
+      0,
+      0,
+      61,
+      41
+    ],
+    "source_inspection_id": "fd0aac3c-28ce-43ff-9848-0983e0f4ead1",
+    "source_defect_id": "defect-1"
+  }
+]

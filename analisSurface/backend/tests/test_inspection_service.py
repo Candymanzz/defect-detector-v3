@@ -317,6 +317,25 @@ def test_heatmap_keeps_residual_when_mask_is_empty() -> None:
     assert heat[0, 0] == 0
 
 
+def test_legacy_local_heatmap_uses_29c9cfa_color_scale() -> None:
+    # Simulate learned-pipeline output: useful residual energy is below 60,
+    # while a small saturated mask reaches 255. The local display must still
+    # expose all old LUT ranges instead of jumping from blue straight to red.
+    gray = np.tile(np.arange(0, 61, dtype=np.uint8), (12, 1))
+    gray[:, -1] = 255
+
+    colored = InspectionService._colorize_heatmap_29c9cfa(gray)
+
+    blue = (colored[:, :, 0] > colored[:, :, 1]) & (colored[:, :, 0] > colored[:, :, 2])
+    green = (colored[:, :, 1] > colored[:, :, 0]) & (colored[:, :, 1] > colored[:, :, 2])
+    yellow = (colored[:, :, 1] > colored[:, :, 0]) & (colored[:, :, 2] > colored[:, :, 0])
+    red = (colored[:, :, 2] > colored[:, :, 0]) & (colored[:, :, 2] > colored[:, :, 1])
+    assert np.any(blue)
+    assert np.any(green)
+    assert np.any(yellow)
+    assert np.any(red)
+
+
 def test_identity_homography_skips_realign(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
     assert inspection_service._is_identity_homography(identity)
@@ -338,7 +357,7 @@ def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
     assert score > 0.3
 
 
-def test_excluded_normal_overlay_marks_only_polygon_green(
+def test_excluded_normal_overlay_marks_only_polygon_dark_green(
 ) -> None:
     heatmap = np.zeros((100, 120, 3), dtype=np.uint8)
     result = InspectionService._draw_excluded_normal_overlay(
@@ -352,8 +371,8 @@ def test_excluded_normal_overlay_marks_only_polygon_green(
     )
 
     center_bgr = result[50, 60].astype(np.int16)
-    assert center_bgr[1] > center_bgr[0] + 40
-    assert center_bgr[1] > center_bgr[2] + 40
+    assert center_bgr[1] > center_bgr[0] + 20
+    assert center_bgr[1] > center_bgr[2] + 20
     assert np.array_equal(result[5, 5], heatmap[5, 5])
 
 
@@ -444,6 +463,44 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     )
     assert without_exception.learned_normal_matches_count == 0
     assert without_exception.status == "БРАК"
+
+
+def test_local_pre_learning_heatmap_is_not_changed_by_accepted_normal(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("local-raw-heatmap", gray_frame)
+    acceptable = gray_frame.copy()
+    acceptable[10:30, 10:50] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+    original = inspection_service.inspect_frame(
+        "local-raw-heatmap",
+        acceptable,
+        threshold=0.1,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+        pre_learning_heatmap=True,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None and review["defects"]
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+    )
+
+    replay = inspection_service.inspect_frame(
+        "local-raw-heatmap",
+        acceptable,
+        threshold=0.1,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+        pre_learning_heatmap=True,
+    )
+
+    assert replay.anomaly_score < replay.threshold
+    assert replay.learned_normal_matches_count == 1
+    assert np.array_equal(replay.heatmap_u8, original.heatmap_u8)
 
 
 def test_delete_all_accepted_normals_clears_every_camera(

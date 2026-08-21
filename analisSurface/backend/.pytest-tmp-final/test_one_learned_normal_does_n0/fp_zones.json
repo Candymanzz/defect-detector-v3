@@ -1,6 +1,6 @@
 [
   {
-    "id": "1d075d78-d42f-4686-adba-7d9cf3eefa71",
+    "id": "f8286e3e-f19a-4e31-816f-b874f650d245",
     "product_type": "multiple-matches",
     "points_norm_heatmap": [
       [
@@ -40,7 +40,7 @@
     ],
     "heatmap_w": 180,
     "heatmap_h": 120,
-    "created_at": "2026-08-21T07:44:50.468112+00:00",
+    "created_at": "2026-08-21T09:05:52.728703+00:00",
     "note": "auto from defect-1",
     "reference_hash": "ca0a442919712351c8e7d58f",
     "crop_bbox": [
@@ -49,7 +49,7 @@
       49,
       39
     ],
-    "source_inspection_id": "9ace9120-0ea4-4664-b0ac-978b96e9bfb8",
+    "source_inspection_id": "b414662f-1763-44b9-a550-b433c1d981e7",
     "source_defect_id": "defect-1"
   }
 ]

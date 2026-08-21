@@ -1,0 +1,13 @@
+{
+  "inspection_id": "99d754fe-cda2-400a-b9e3-8ea5fe873c39",
+  "product_type": "legacy-template",
+  "reference_hash": "587bdced65ad2b86d06209cf",
+  "created_at": "2026-08-21T09:05:53.925908+00:00",
+  "original_status": "ГОДЕН",
+  "original_score": 0.0,
+  "threshold": 0.1,
+  "accepted_defect_ids": [],
+  "counterfactual_score": null,
+  "counterfactual_status": null,
+  "defects": []
+}

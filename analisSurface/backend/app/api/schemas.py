@@ -51,6 +51,9 @@ class InspectResponse(BaseModel):
     learned_normal_matches_count: int = 0
     learned_normal_adjustment: float = 0.0
     matched_accepted_case_ids: list[str] = Field(default_factory=list)
+    # Display-only polygons for saved-normal matches. They do not affect the
+    # score or verdict and let production UI mark already excluded areas.
+    excluded_normal_zones: list[dict] = Field(default_factory=list)
     fp_zone_scores: list[FPZoneScoreResponse] = Field(default_factory=list)
 
 
@@ -61,7 +64,6 @@ class InspectWithVisualsResponse(InspectResponse):
     diff_map_b64: Optional[str] = None
     heatmap_b64: Optional[str] = None
     segmentation_mask_b64: Optional[str] = None
-    excluded_normal_zones: list[dict] = Field(default_factory=list)
 
 
 class UploadRefResponse(BaseModel):
