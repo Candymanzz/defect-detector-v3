@@ -161,12 +161,13 @@ export function ModalWrapper({
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
-            label="Последний кадр инспекции"
+            label={inspectResult?.test_analyze ? "Зафиксированный кадр теста" : "Последний кадр инспекции"}
+            retainPreviousWhileLoading={Boolean(inspectResult?.test_analyze)}
           />
           <HeatmapPanel
             key={
               inspectResult?.test_analyze
-                ? `heatmap-test-${cameraId}-${inspectResult.server_ts_ms}`
+                ? `heatmap-test-${cameraId}`
                 : `heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`
             }
             cameraId={cameraId}
@@ -543,6 +544,7 @@ function ImagePanel({
   jointRoiPoints,
   fpZones,
   fetchPriority = "high",
+  retainPreviousWhileLoading = false,
 }: {
   label: string;
   imageUrl?: string;
@@ -550,6 +552,7 @@ function ImagePanel({
   jointRoiPoints?: InterestPointNorm[];
   fpZones?: FpZoneNorm[];
   fetchPriority?: "high" | "low" | "auto";
+  retainPreviousWhileLoading?: boolean;
 }) {
   const [imageSize, setImageSize] = useState({ width: 4, height: 3 });
   const svgPoints = roiPoints?.map((point) => `${point.x * imageSize.width},${point.y * imageSize.height}`).join(" ");
@@ -582,6 +585,7 @@ function ImagePanel({
             decoding="async"
             fetchPriority={fetchPriority}
             placeholderClassName="modal-image-panel__placeholder"
+            retainPreviousWhileLoading={retainPreviousWhileLoading}
             src={imageUrl}
             onLoad={(event) => {
               const { naturalWidth, naturalHeight } = event.currentTarget;

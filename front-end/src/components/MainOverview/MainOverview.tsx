@@ -75,34 +75,13 @@ export function MainOverview({
       return;
     }
 
-    const pinHttpPath =
-      snapshot.pinnedTestHttpPath
-      ?? `/api/client/inspection/test-pin/cameras/${snapshot.cameraId}/frame.jpg`;
-    const pinImageUrl =
-      snapshot.pinnedTestImageUrl
-      ?? orchestratorApi.imageUrl(pinHttpPath, frameId);
-
-    // Re-lock UI to the frozen pin before any WS update can race in.
-    controller.freezeModalTestFrame(frameId, pinImageUrl, pinHttpPath);
-
+    // Do NOT re-freeze / touch cameraImageUrl here — that remounts <img> and looks like a frame swap.
     setTestAnalyzeState("submitting");
     setTestAnalyzeMessage(
       action === "save"
-        ? `Сохранение настроек и запуск инспекции кадра ${frameId}…`
-        : `Запуск проверки кадра ${frameId} без сохранения настроек…`,
+        ? `Сохранение настроек и проверка кадра ${frameId}…`
+        : `Проверка кадра ${frameId}…`,
     );
-    const outbound = {
-      action,
-      cameraId: snapshot.cameraId,
-      frameId,
-      source: "pin",
-      pinHttpPath,
-      pinImageUrl,
-      previousHttpPath: snapshot.inspectResult?.http_path,
-      previousArtifactBundleId: snapshot.inspectResult?.artifact_bundle_id,
-      previousPinSha: snapshot.inspectResult?.pin_jpeg_sha256,
-    };
-    console.info("[test-analyze][ui][out]", outbound);
     try {
       if (action === "save") {
         await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
@@ -113,12 +92,9 @@ export function MainOverview({
         frameId,
         previousServerTs: snapshot.inspectResult?.server_ts_ms ?? 0,
       };
-      const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, frameId);
-      console.info("[test-analyze][ui][accepted]", { ...outbound, jobId: accepted.jobId, acceptedFrameId: accepted.frameId });
+      await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, frameId);
       setTestAnalyzeState("awaiting");
-      setTestAnalyzeMessage(
-        `Проверка запущена (${accepted.jobId}). pin=${pinHttpPath}; ожидание результата кадра ${frameId}…`,
-      );
+      setTestAnalyzeMessage(`Проверка кадра ${frameId} запущена, ожидание результата…`);
     } catch (error) {
       setTestAnalyzeState("error");
       setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось запустить повторную инспекцию");
@@ -145,21 +121,12 @@ export function MainOverview({
       return;
     }
     const resultState = resolveInspectionResultState(result);
+    const anomalyPercent =
+      typeof result.anomaly_score === "number" ? `${(result.anomaly_score * 100).toFixed(2)}%` : "—";
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
-      `Кадр ${pending.frameId} проверен: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}. `
-        + `in http_path=${result.http_path ?? "—"}; pin_sha=${result.pin_jpeg_sha256?.slice(0, 12) ?? "—"}; `
-        + `anomaly=${result.anomaly_score ?? "—"}.`,
+      `Кадр ${pending.frameId}: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}, аномалия ${anomalyPercent}.`,
     );
-    console.info("[test-analyze][ui][complete]", {
-      frameId: pending.frameId,
-      http_path: result.http_path,
-      artifact_bundle_id: result.artifact_bundle_id,
-      pin_jpeg_sha256: result.pin_jpeg_sha256,
-      anomaly_score: result.anomaly_score,
-      cameraImageUrl: controller.modalSnapshot?.cameraImageUrl,
-      pinnedTestHttpPath: controller.modalSnapshot?.pinnedTestHttpPath,
-    });
   }, [controller.modalSnapshot?.inspectResult, testAnalyzeState]);
 
   return (
@@ -371,18 +338,12 @@ export function MainOverview({
                   }
                   try {
                     setTestAnalyzeState("submitting");
-                    setTestAnalyzeMessage(`Фиксация кадра ${frameId} для теста настроек…`);
+                    setTestAnalyzeMessage(`Фиксация кадра ${frameId}…`);
                     setTestFrameId(frameId);
+                    // Capture the exact pixels currently shown BEFORE pin/mode changes.
+                    const displayedUrl = controller.modalSnapshot?.cameraImageUrl;
                     await onAnalysisSettingsOpen(cameraId);
                     const pinSource = resolveTestPinSource(inspectResult);
-                    console.info("[test-analyze][ui][pin-out]", {
-                      cameraId,
-                      frameId,
-                      source: pinSource.source,
-                      httpPath: pinSource.httpPath,
-                      modalHttpPath: inspectResult.http_path,
-                      artifact_bundle_id: inspectResult.artifact_bundle_id,
-                    });
                     await orchestratorApi.pinTestFrame({
                       cameraId,
                       frameId,
@@ -390,14 +351,16 @@ export function MainOverview({
                       httpPath: pinSource.httpPath,
                     });
                     const pinHttpPath = `/api/client/inspection/test-pin/cameras/${cameraId}/frame.jpg`;
-                    controller.freezeModalTestFrame(
-                      frameId,
-                      orchestratorApi.imageUrl(pinHttpPath, frameId),
-                      pinHttpPath,
-                    );
+                    // Freeze UI on a local blob of the on-screen image so later WS/http never swaps <img src>.
+                    const sourceForBlob =
+                      displayedUrl
+                      ?? (pinSource.httpPath ? orchestratorApi.imageUrl(pinSource.httpPath, frameId) : undefined)
+                      ?? orchestratorApi.imageUrl(pinHttpPath, frameId);
+                    const frozenBlobUrl = await createFrozenFrameObjectUrl(sourceForBlob);
+                    controller.freezeModalTestFrame(frameId, frozenBlobUrl, pinHttpPath);
                     setShowModalAnalysisSettings(true);
                     setTestAnalyzeState("idle");
-                    setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Крутите параметры и нажмите «Проверить».`);
+                    setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Меняйте параметры и нажмите «Проверить».`);
                   } catch (error) {
                     setTestFrameId(undefined);
                     setShowModalAnalysisSettings(false);
@@ -498,6 +461,18 @@ function resolveTestPinSource(inspectResult: {
     };
   }
   return { source: "archive" };
+}
+
+async function createFrozenFrameObjectUrl(imageUrl: string): Promise<string> {
+  const response = await fetch(imageUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Не удалось зафиксировать кадр для UI: HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+  if (blob.size <= 0) {
+    throw new Error("Не удалось зафиксировать кадр для UI: пустой ответ");
+  }
+  return URL.createObjectURL(blob);
 }
 
 function getInspectionActionLabel(state: "idle" | "starting" | "stopping" | "error" | undefined, isEnabled: boolean) {

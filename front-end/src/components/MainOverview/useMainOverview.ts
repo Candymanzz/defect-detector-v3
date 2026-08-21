@@ -187,19 +187,18 @@ export function useMainOverview(inspectionResetVersion = 0) {
     setModalSnapshot((currentSnapshot) => selectModalInspectionSnapshot(currentSnapshot, frameId));
   }, []);
 
-  const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
-
   const freezeModalTestFrame = useCallback((frameId: string, cameraImageUrl: string, pinHttpPath: string) => {
     setModalSnapshot((current) => {
       if (!current?.inspectResult) {
         return current;
       }
-      console.info("[test-analyze][ui][pin-freeze]", {
-        frameId,
-        pinHttpPath,
-        cameraImageUrl,
-        previousHttpPath: current.inspectResult.http_path,
-      });
+      if (
+        current.pinnedTestImageUrl
+        && current.pinnedTestImageUrl.startsWith("blob:")
+        && current.pinnedTestImageUrl !== cameraImageUrl
+      ) {
+        URL.revokeObjectURL(current.pinnedTestImageUrl);
+      }
       return {
         ...current,
         cameraImageUrl,
@@ -218,6 +217,15 @@ export function useMainOverview(inspectionResetVersion = 0) {
           },
         },
       };
+    });
+  }, []);
+
+  const closeInspectionModal = useCallback(() => {
+    setModalSnapshot((current) => {
+      if (current?.pinnedTestImageUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(current.pinnedTestImageUrl);
+      }
+      return null;
     });
   }, []);
 

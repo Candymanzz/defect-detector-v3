@@ -212,29 +212,18 @@ export function updateModalSnapshotResult(
     };
   }
 
-  const nextCameraImageUrl =
-    lockedPinImageUrl
+  const nextCameraImageUrl = lockedPinImageUrl
+    ?? currentSnapshot.cameraImageUrl
     ?? resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult)
     ?? resolveImmutableInspectionImageUrl(displayInspectResult)
     ?? createWsFrameImageUrl(displayInspectResult);
 
-  if (displayInspectResult.test_analyze) {
-    console.info("[test-analyze][ui][in]", {
-      frame_id: displayInspectResult.frame_id,
-      http_path: displayInspectResult.http_path,
-      artifact_bundle_id: displayInspectResult.artifact_bundle_id,
-      pin_jpeg_sha256: displayInspectResult.pin_jpeg_sha256,
-      anomaly_score: displayInspectResult.anomaly_score,
-      has_heatmap: Boolean(displayInspectResult.heatmap),
-      locked_pin: lockedPinPath,
-      cameraImageUrl: nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
-    });
-  }
-
   return {
     ...currentSnapshot,
     inspectResult: displayInspectResult,
-    cameraImageUrl: nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
+    // Frozen TEST image must never change after pin (blob: or locked URL).
+    cameraImageUrl: lockedPinImageUrl ?? nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
+    pinnedTestImageUrl: currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl,
     heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };
 }
