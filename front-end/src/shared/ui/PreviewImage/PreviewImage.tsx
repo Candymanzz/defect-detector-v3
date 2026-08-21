@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 type PreviewImageProps = {
@@ -9,6 +9,7 @@ type PreviewImageProps = {
   emptyLabel?: string;
   decoding?: "async" | "sync" | "auto";
   fetchPriority?: "high" | "low" | "auto";
+  retainPreviousWhileLoading?: boolean;
   onLoad?: (event: SyntheticEvent<HTMLImageElement>) => void;
 };
 
@@ -20,12 +21,57 @@ export function PreviewImage({
   emptyLabel = "Нет изображения",
   decoding = "async",
   fetchPriority = "auto",
+  retainPreviousWhileLoading = false,
   onLoad,
 }: PreviewImageProps) {
+  const [displayedSrc, setDisplayedSrc] = useState<string>();
   const [failedSrc, setFailedSrc] = useState<string>();
-  const failed = Boolean(src && failedSrc === src);
+  const requestRef = useRef(0);
 
-  if (!src) {
+  useEffect(() => {
+    const requestId = ++requestRef.current;
+    if (!retainPreviousWhileLoading || !src || src === displayedSrc) {
+      return;
+    }
+
+    const nextImage = new Image();
+    nextImage.decoding = decoding;
+    nextImage.fetchPriority = fetchPriority;
+
+    const showLoadedImage = () => {
+      if (requestRef.current !== requestId) {
+        return;
+      }
+      setFailedSrc(undefined);
+      setDisplayedSrc(src);
+    };
+
+    nextImage.onload = () => {
+      if (typeof nextImage.decode !== "function") {
+        showLoadedImage();
+        return;
+      }
+      void nextImage.decode().then(showLoadedImage, showLoadedImage);
+    };
+    nextImage.onerror = () => {
+      if (requestRef.current === requestId) {
+        setFailedSrc(src);
+      }
+    };
+    nextImage.src = src;
+
+    return () => {
+      nextImage.onload = null;
+      nextImage.onerror = null;
+    };
+  }, [decoding, displayedSrc, fetchPriority, retainPreviousWhileLoading, src]);
+
+  const effectiveSrc = retainPreviousWhileLoading ? displayedSrc : src;
+  const failed = Boolean(
+    src && failedSrc === src && (!retainPreviousWhileLoading || !effectiveSrc),
+  );
+
+  if (!effectiveSrc && (!src || failed)) {
     return <div className={placeholderClassName}>{emptyLabel}</div>;
   }
 
@@ -37,10 +83,15 @@ export function PreviewImage({
         decoding={decoding}
         fetchPriority={fetchPriority}
         hidden={failed}
-        src={src}
-        onError={() => setFailedSrc(src)}
+        src={effectiveSrc}
+        onError={() => {
+          if (retainPreviousWhileLoading && effectiveSrc === src) {
+            setDisplayedSrc(undefined);
+          }
+          setFailedSrc(src);
+        }}
         onLoad={(event) => {
-          setFailedSrc((previousFailedSrc) => (previousFailedSrc === src ? undefined : previousFailedSrc));
+          setFailedSrc(undefined);
           onLoad?.(event);
         }}
       />
