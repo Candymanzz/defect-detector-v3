@@ -194,9 +194,18 @@ export function useMainOverview(inspectionResetVersion = 0) {
       if (!current?.inspectResult) {
         return current;
       }
+      console.info("[test-analyze][ui][pin-freeze]", {
+        frameId,
+        pinHttpPath,
+        cameraImageUrl,
+        previousHttpPath: current.inspectResult.http_path,
+      });
       return {
         ...current,
         cameraImageUrl,
+        pinnedTestImageUrl: cameraImageUrl,
+        pinnedTestHttpPath: pinHttpPath,
+        pinnedTestFrameId: frameId,
         inspectResult: {
           ...current.inspectResult,
           frame_id: frameId,

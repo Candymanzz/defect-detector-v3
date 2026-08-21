@@ -626,6 +626,13 @@ public final class WsOutboundMessenger {
         payload.set("fp_zones", fpZonesJsonArray(cameraId));
         if (YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false)) {
             payload.put("test_analyze", true);
+            Object pinSha = captureHeader == null ? null : captureHeader.get("pin_jpeg_sha256");
+            if (pinSha != null) {
+                String sha = String.valueOf(pinSha).trim();
+                if (!sha.isEmpty()) {
+                    payload.put("pin_jpeg_sha256", sha);
+                }
+            }
         }
         int hmw = referenceContext.effectiveHeatmapWidth();
         int hmh = referenceContext.effectiveHeatmapHeight();

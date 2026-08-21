@@ -23,7 +23,9 @@ _COARSE: dict[str, Any] = {
     "contrast_loss_boost": 1.2,
     "contrast_loss_ref_grad": 60.0,
     "contrast_loss_cur_grad": 25.0,
-    "enable_clahe": False,
+    # Keep True so sensitivity does not cliff-switch CLAHE on/off around 0.25–0.5;
+    # strength is controlled only by clahe_clip_limit (≈1.0 ≈ off in the pipeline).
+    "enable_clahe": True,
     "clahe_clip_limit": 1.0,
     "fp_recheck_enabled": True,
     "fp_trigger_diff_q90": 22.0,

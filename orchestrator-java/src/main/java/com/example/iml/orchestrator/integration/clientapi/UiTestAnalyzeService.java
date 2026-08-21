@@ -238,6 +238,17 @@ public final class UiTestAnalyzeService {
             // cameraId is enough; httpPath optional (/api/camera/{id}/current.jpg).
         }
         ResolvedFrame resolved = resolveJpeg(resolveRequest);
+        String sha = sha256Hex(resolved.jpegBytes());
+        log.info(
+                "ui test-pin out cam={} source={} frame={} bytes={} sha={} resolvedHttpPath={} requestHttpPath={}",
+                request.cameraId(),
+                request.source(),
+                resolved.frameId(),
+                resolved.jpegBytes().length,
+                sha,
+                resolved.previewHttpPath(),
+                request.httpPath()
+        );
         try {
             TestFramePinStore.Pin pin = pinStore.pin(
                     request.cameraId(),
@@ -245,6 +256,13 @@ public final class UiTestAnalyzeService {
                     resolved.jpegBytes(),
                     // Durable URL: archive/artifact paths can roll/expire while TEST settings stay open.
                     "/api/client/inspection/test-pin/cameras/" + request.cameraId() + "/frame.jpg"
+            );
+            log.info(
+                    "ui test-pin stored cam={} frame={} pinPath={} sha={}",
+                    pin.cameraId(),
+                    pin.frameId(),
+                    pin.jpegPath(),
+                    sha
             );
             return new Pinned(pin.cameraId(), pin.frameId(), "cam-" + pin.cameraId());
         } catch (IOException e) {
@@ -275,6 +293,17 @@ public final class UiTestAnalyzeService {
         }
         String jobId = UUID.randomUUID().toString().replace("-", "");
         long frameId = resolved.frameId();
+        String pinSha = sha256Hex(resolved.jpegBytes());
+        log.info(
+                "ui test-analyze submit out jobId={} cam={} source={} frame={} bytes={} sha={} previewHttpPath={}",
+                jobId,
+                request.cameraId(),
+                request.source(),
+                frameId,
+                resolved.jpegBytes().length,
+                pinSha,
+                resolved.previewHttpPath()
+        );
         long generation = jobGenerationByCamera
                 .computeIfAbsent(request.cameraId(), ignored -> new AtomicLong())
                 .incrementAndGet();
@@ -511,7 +540,16 @@ public final class UiTestAnalyzeService {
                 .orElseThrow(() -> new AnalyzeException(404, "no pinned test frame for cameraId=" + cameraId));
         try {
             byte[] bytes = Files.readAllBytes(pin.jpegPath());
-            return new ResolvedFrame(bytes, pin.frameId(), pin.previewHttpPath());
+            String pinUrl = "/api/client/inspection/test-pin/cameras/" + cameraId + "/frame.jpg";
+            log.info(
+                    "ui test-analyze loadPin cam={} frame={} bytes={} sha={} http_path={}",
+                    cameraId,
+                    pin.frameId(),
+                    bytes.length,
+                    sha256Hex(bytes),
+                    pinUrl
+            );
+            return new ResolvedFrame(bytes, pin.frameId(), pinUrl);
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to read pinned test frame: " + e.getMessage());
         }

@@ -191,20 +191,49 @@ export function updateModalSnapshotResult(
   // Immediate test-analyze notifies arrive without heatmap; keep the last map/descriptor until the final one lands.
   const retainPreviousHeatmap =
     Boolean(inspectResult.test_analyze) && !inspectResult.heatmap && currentSnapshot.inspectResult?.heatmap;
-  const displayInspectResult = retainPreviousHeatmap
+  let displayInspectResult = retainPreviousHeatmap
     ? { ...inspectResult, heatmap: currentSnapshot.inspectResult?.heatmap ?? null }
     : inspectResult;
 
-  const pinnedImageUrl = resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult);
+  const lockedPinPath = currentSnapshot.pinnedTestHttpPath;
+  const lockedPinImageUrl = currentSnapshot.pinnedTestImageUrl;
+  if (
+    (displayInspectResult.test_analyze || currentSnapshot.pinnedTestHttpPath)
+    && lockedPinPath
+  ) {
+    displayInspectResult = {
+      ...displayInspectResult,
+      http_path: lockedPinPath,
+      current: {
+        ...displayInspectResult.current,
+        http_path: lockedPinPath,
+        frame_id: currentSnapshot.pinnedTestFrameId ?? displayInspectResult.current.frame_id,
+      },
+    };
+  }
+
   const nextCameraImageUrl =
-    pinnedImageUrl
+    lockedPinImageUrl
+    ?? resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult)
     ?? resolveImmutableInspectionImageUrl(displayInspectResult)
     ?? createWsFrameImageUrl(displayInspectResult);
+
+  if (displayInspectResult.test_analyze) {
+    console.info("[test-analyze][ui][in]", {
+      frame_id: displayInspectResult.frame_id,
+      http_path: displayInspectResult.http_path,
+      artifact_bundle_id: displayInspectResult.artifact_bundle_id,
+      pin_jpeg_sha256: displayInspectResult.pin_jpeg_sha256,
+      anomaly_score: displayInspectResult.anomaly_score,
+      has_heatmap: Boolean(displayInspectResult.heatmap),
+      locked_pin: lockedPinPath,
+      cameraImageUrl: nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
+    });
+  }
+
   return {
     ...currentSnapshot,
     inspectResult: displayInspectResult,
-    // Never blank the frozen TEST frame while a partial notify has no http_path yet.
-    // Also never swap the pinned JPEG for a freshly encoded artifact/current.jpg mid-TEST.
     cameraImageUrl: nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
     heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };

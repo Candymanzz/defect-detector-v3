@@ -164,7 +164,11 @@ export function ModalWrapper({
             label="Последний кадр инспекции"
           />
           <HeatmapPanel
-            key={`heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`}
+            key={
+              inspectResult?.test_analyze
+                ? `heatmap-test-${cameraId}-${inspectResult.server_ts_ms}`
+                : `heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`
+            }
             cameraId={cameraId}
             cameraImageUrl={displayedCurrentImageUrl}
             heatmapUrl={inspectHeatmapUrl}

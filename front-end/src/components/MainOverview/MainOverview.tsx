@@ -70,10 +70,20 @@ export function MainOverview({
 
   const applySettingsAndInspect = async (action: "check" | "save") => {
     const snapshot = controller.modalSnapshot;
-    const frameId = testFrameId ?? snapshot?.inspectResult?.frame_id;
+    const frameId = testFrameId ?? snapshot?.pinnedTestFrameId ?? snapshot?.inspectResult?.frame_id;
     if (!snapshot || !frameId || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting") {
       return;
     }
+
+    const pinHttpPath =
+      snapshot.pinnedTestHttpPath
+      ?? `/api/client/inspection/test-pin/cameras/${snapshot.cameraId}/frame.jpg`;
+    const pinImageUrl =
+      snapshot.pinnedTestImageUrl
+      ?? orchestratorApi.imageUrl(pinHttpPath, frameId);
+
+    // Re-lock UI to the frozen pin before any WS update can race in.
+    controller.freezeModalTestFrame(frameId, pinImageUrl, pinHttpPath);
 
     setTestAnalyzeState("submitting");
     setTestAnalyzeMessage(
@@ -81,6 +91,18 @@ export function MainOverview({
         ? `Сохранение настроек и запуск инспекции кадра ${frameId}…`
         : `Запуск проверки кадра ${frameId} без сохранения настроек…`,
     );
+    const outbound = {
+      action,
+      cameraId: snapshot.cameraId,
+      frameId,
+      source: "pin",
+      pinHttpPath,
+      pinImageUrl,
+      previousHttpPath: snapshot.inspectResult?.http_path,
+      previousArtifactBundleId: snapshot.inspectResult?.artifact_bundle_id,
+      previousPinSha: snapshot.inspectResult?.pin_jpeg_sha256,
+    };
+    console.info("[test-analyze][ui][out]", outbound);
     try {
       if (action === "save") {
         await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
@@ -92,8 +114,11 @@ export function MainOverview({
         previousServerTs: snapshot.inspectResult?.server_ts_ms ?? 0,
       };
       const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, frameId);
+      console.info("[test-analyze][ui][accepted]", { ...outbound, jobId: accepted.jobId, acceptedFrameId: accepted.frameId });
       setTestAnalyzeState("awaiting");
-      setTestAnalyzeMessage(`Проверка запущена (${accepted.jobId}). Ожидание полного результата кадра ${frameId}…`);
+      setTestAnalyzeMessage(
+        `Проверка запущена (${accepted.jobId}). pin=${pinHttpPath}; ожидание результата кадра ${frameId}…`,
+      );
     } catch (error) {
       setTestAnalyzeState("error");
       setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось запустить повторную инспекцию");
@@ -122,8 +147,19 @@ export function MainOverview({
     const resultState = resolveInspectionResultState(result);
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
-      `Кадр ${pending.frameId} проверен: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}. Полный результат и новый хитмап отображены.`,
+      `Кадр ${pending.frameId} проверен: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}. `
+        + `in http_path=${result.http_path ?? "—"}; pin_sha=${result.pin_jpeg_sha256?.slice(0, 12) ?? "—"}; `
+        + `anomaly=${result.anomaly_score ?? "—"}.`,
     );
+    console.info("[test-analyze][ui][complete]", {
+      frameId: pending.frameId,
+      http_path: result.http_path,
+      artifact_bundle_id: result.artifact_bundle_id,
+      pin_jpeg_sha256: result.pin_jpeg_sha256,
+      anomaly_score: result.anomaly_score,
+      cameraImageUrl: controller.modalSnapshot?.cameraImageUrl,
+      pinnedTestHttpPath: controller.modalSnapshot?.pinnedTestHttpPath,
+    });
   }, [controller.modalSnapshot?.inspectResult, testAnalyzeState]);
 
   return (
@@ -339,6 +375,14 @@ export function MainOverview({
                     setTestFrameId(frameId);
                     await onAnalysisSettingsOpen(cameraId);
                     const pinSource = resolveTestPinSource(inspectResult);
+                    console.info("[test-analyze][ui][pin-out]", {
+                      cameraId,
+                      frameId,
+                      source: pinSource.source,
+                      httpPath: pinSource.httpPath,
+                      modalHttpPath: inspectResult.http_path,
+                      artifact_bundle_id: inspectResult.artifact_bundle_id,
+                    });
                     await orchestratorApi.pinTestFrame({
                       cameraId,
                       frameId,

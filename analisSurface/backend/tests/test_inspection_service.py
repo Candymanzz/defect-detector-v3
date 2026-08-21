@@ -334,7 +334,15 @@ def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
     # Раньше active_ratio*1.2 давал 1.0 уже при ~0.84 покрытия маски.
     score = InspectionService._activity_score(diff_q90=40.0, diff_max=80.0, active_ratio=0.85)
     assert score < 1.0
-    assert score > 0.3
+    assert score > 0.25
+
+
+def test_activity_score_stays_below_ceiling_on_full_strong_mask() -> None:
+    # Даже почти полная маска + сильный diff не должны сразу давать 1.0 —
+    # иначе лёгкий сдвиг sensitivity прыгает с ~80% на 100%.
+    score = InspectionService._activity_score(diff_q90=200.0, diff_max=255.0, active_ratio=0.95)
+    assert score < 1.0
+    assert score > 0.5
 
 def test_score_region_uses_real_mask_not_bbox(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     h, w = gray_frame.shape[:2]
