@@ -340,7 +340,9 @@ export function MainOverview({
                     setTestAnalyzeState("submitting");
                     setTestAnalyzeMessage(`Фиксация кадра ${frameId}…`);
                     setTestFrameId(frameId);
-                    // Pin first, while the selected inspection and its artifacts are still untouched.
+                    // Enter TEST mode first (the server rejects pinning outside it). The source below
+                    // is an immutable archive/artifact whenever the selected inspection provides one.
+                    await onAnalysisSettingsOpen(cameraId);
                     const pinSource = resolveTestPinSource(inspectResult);
                     const pinned = await orchestratorApi.pinTestFrame({
                       cameraId,
@@ -361,7 +363,6 @@ export function MainOverview({
                     );
                     const frozenBlobUrl = await createFrozenFrameObjectUrl(pinnedImageUrl);
                     controller.freezeModalTestFrame(frameId, frozenBlobUrl, pinHttpPath);
-                    await onAnalysisSettingsOpen(cameraId);
                     setShowModalAnalysisSettings(true);
                     setTestAnalyzeState("idle");
                     setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Меняйте параметры и нажмите «Проверить».`);
