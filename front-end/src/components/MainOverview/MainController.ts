@@ -204,6 +204,9 @@ export function updateModalSnapshotResult(
     displayInspectResult = {
       ...displayInspectResult,
       http_path: lockedPinPath,
+      // Keep the production learning review — test-analyze must not erase it.
+      learned_review_id:
+        currentSnapshot.inspectResult?.learned_review_id ?? displayInspectResult.learned_review_id,
       current: {
         ...displayInspectResult.current,
         http_path: lockedPinPath,
@@ -387,6 +390,7 @@ export function archivedFrameToInspectResult(
       http_path: frameHttpPath,
     },
     http_path: frameHttpPath,
+    learned_review_id: frame.learned_review_id,
     heatmap:
       frame.has_heatmap && (frame.heatmap_width ?? 0) > 0 && (frame.heatmap_height ?? 0) > 0
         ? {

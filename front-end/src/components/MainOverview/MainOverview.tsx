@@ -323,7 +323,15 @@ export function MainOverview({
           analysisSettingsContent={
             showModalAnalysisSettings ? (
               <div className="modal__analysis-settings modal__test-settings">
-                <h3>Настройки камеры {controller.modalSnapshot.cameraId}</h3>
+                <div className="modal__test-settings-header">
+                  <h3>Настройки камеры {controller.modalSnapshot.cameraId}</h3>
+                  <p className="modal__test-settings-frame-id" title="Выбранный кадр для анализа и дообучения">
+                    кадр {testFrameId ?? controller.modalSnapshot.pinnedTestFrameId ?? controller.modalSnapshot.inspectResult?.frame_id ?? "—"}
+                    {controller.modalSnapshot.pinnedTestPinId
+                      ? ` · pin ${controller.modalSnapshot.pinnedTestPinId.slice(0, 8)}`
+                      : ""}
+                  </p>
+                </div>
                 {testAnalyzeMessage && (
                   <p
                     className="modal__test-settings-status"
@@ -334,8 +342,8 @@ export function MainOverview({
                   </p>
                 )}
                 <p className="modal__test-settings-hint">
-                  Кадр берётся из архива по frameId и копируется в отдельную папку pin. При выборе другого кадра pin
-                  перезаписывается. Крутите параметры и нажмите «Проверить».
+                  Анализ и дообучение только для этого frameId (JPEG из архива → pin на диске). При выборе другого кадра
+                  pin перезаписывается.
                 </p>
                 <div className="modal__test-settings-grid">
                   <details className="modal__test-settings-section modal__test-settings-section--collapsible">

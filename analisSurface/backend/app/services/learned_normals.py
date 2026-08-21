@@ -38,7 +38,7 @@ THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
 REDUCED_SHAPE_MIN_SIMILARITY = 0.78
 GENERAL_MIN_SIMILARITY = 0.80
-DEFAULT_REVIEW_LIMIT = 50
+DEFAULT_REVIEW_LIMIT = 200
 # Review must expose secondary components that can still keep the verdict BAD
 # after the largest components have been accepted. 15% keeps material defects
 # visible without bringing back the many weak speckles from the raw mask.
@@ -398,8 +398,10 @@ class InspectionReviewStore:
             self._order[inspection_id] = review.summary()
             self._order.move_to_end(inspection_id)
             while len(self._order) > self.max_items:
-                evicted_id, _ = self._order.popitem(last=False)
-                self._delete_review_dir(evicted_id)
+                # Drop from the hot index only — keep review files so accept-all can still
+                # resolve UUID from frame-archive metadata after many later inspections.
+                self._order.popitem(last=False)
+                self._trim_cold_review_dirs()
         return review
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
@@ -411,20 +413,48 @@ class InspectionReviewStore:
 
     def get(self, inspection_id: str) -> Optional[InspectionReview]:
         with self._lock:
-            if inspection_id not in self._order:
-                return None
             if self.storage_dir is None:
                 return None
+            if inspection_id in self._order:
+                return self._read_review(inspection_id)
+            # Cold path: review left the hot FIFO but files remain for archive-backed accept.
             return self._read_review(inspection_id)
+
+    def _trim_cold_review_dirs(self) -> None:
+        """Cap on-disk review folders so soft-FIFO does not grow forever."""
+        if self.storage_dir is None or not self.storage_dir.is_dir():
+            return
+        try:
+            dirs = [p for p in self.storage_dir.iterdir() if p.is_dir()]
+        except OSError:
+            return
+        # Keep up to 5x hot index capacity on disk for delayed operator learning.
+        disk_limit = max(self.max_items * 5, self.max_items)
+        if len(dirs) <= disk_limit:
+            return
+        dirs.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0.0)
+        hot = set(self._order.keys())
+        overflow = len(dirs) - disk_limit
+        deleted = 0
+        for folder in dirs:
+            if deleted >= overflow:
+                break
+            if folder.name in hot:
+                continue
+            self._delete_review_dir(folder.name)
+            deleted += 1
 
     def put(self, review: InspectionReview) -> None:
         """Перезаписать review на диске. Индекс в RAM обновляется из summary()."""
         with self._lock:
-            if review.inspection_id not in self._order:
-                raise KeyError(review.inspection_id)
             if self.storage_dir is not None:
+                if review.inspection_id not in self._order and self._read_review(review.inspection_id) is None:
+                    raise KeyError(review.inspection_id)
                 self._write_review(review)
+            elif review.inspection_id not in self._order:
+                raise KeyError(review.inspection_id)
             self._order[review.inspection_id] = review.summary()
+            self._order.move_to_end(review.inspection_id)
 
     def mark_accepted(
         self,

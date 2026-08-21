@@ -119,6 +119,10 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
                 pyHeader.put("analysis_test_settings", temporaryAnalysis);
             }
+            if (YamlScalars.toBool(state.capture().header().get("test_analyze"), false)) {
+                pyHeader.put("test_analyze", true);
+                pyHeader.put("skip_learning_review", true);
+            }
             double inspectScale = YamlScalars.toDouble(
                     pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
                     1.0

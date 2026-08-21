@@ -680,6 +680,13 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             body.put("detector_id", header.get("detector_id"));
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
+        if (YamlScalars.toBool(header.get("test_analyze"), false)
+                || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
+            body.put("skip_learning_review", true);
+        }
+        if (header.get("analysis_test_settings") instanceof Map<?, ?> temporaryAnalysis && !temporaryAnalysis.isEmpty()) {
+            body.put("analysis_test_settings", temporaryAnalysis);
+        }
         appendAlgorithmParams(body, header);
         return body;
     }
@@ -795,6 +802,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private void rememberLearnedReview(Map<String, Object> header, Map<String, Object> json) {
+        // TEST re-runs must not steal the production learning review id for this frameId.
+        if (YamlScalars.toBool(header.get("test_analyze"), false)
+                || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
+            return;
+        }
         Object learnedReviewId = json.get("inspection_id");
         if (learnedReviewId == null) {
             return;

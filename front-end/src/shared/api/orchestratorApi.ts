@@ -413,6 +413,7 @@ export const orchestratorApi = {
         frameId: request.frameId,
         productType: request.productType,
         cameraId: request.cameraId,
+        learnedReviewId: request.learnedReviewId,
         note: request.note ?? "",
       },
     });

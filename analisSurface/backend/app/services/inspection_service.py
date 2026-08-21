@@ -708,6 +708,7 @@ class InspectionService:
         analysis_profile: Optional[str] = None,
         temporary_analysis_overrides: Optional[dict[str, object]] = None,
         pre_learning_heatmap: bool = False,
+        store_learning_review: bool = True,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         settings_key = (analysis_profile or "").strip() or product_type
@@ -891,23 +892,26 @@ class InspectionService:
             heatmap = self._draw_excluded_normal_overlay(heatmap, excluded_normal_zones)
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
-        inspection_id = str(uuid.uuid4())
-        try:
-            self._learning_reviews.add(
-                inspection_id=inspection_id,
-                product_type=product_type,
-                reference_hash=ref_hash,
-                status=status,
-                score=anomaly_score,
-                threshold=inspection_threshold,
-                aligned=aligned,
-                diff_map=diff_map,
-                raw_mask=raw_segmentation_mask,
-                candidates=review_candidates,
-            )
-        except Exception:
-            inspection_id = None
-            logger.exception("failed to save inspection history product_type=%s", product_type)
+        # TEST/UI re-runs must not invent a new review id for the same frameId.
+        inspection_id = None
+        if store_learning_review:
+            inspection_id = str(uuid.uuid4())
+            try:
+                self._learning_reviews.add(
+                    inspection_id=inspection_id,
+                    product_type=product_type,
+                    reference_hash=ref_hash,
+                    status=status,
+                    score=anomaly_score,
+                    threshold=inspection_threshold,
+                    aligned=aligned,
+                    diff_map=diff_map,
+                    raw_mask=raw_segmentation_mask,
+                    candidates=review_candidates,
+                )
+            except Exception:
+                inspection_id = None
+                logger.exception("failed to save inspection history product_type=%s", product_type)
 
         return InspectionResult(
             product_type=product_type,

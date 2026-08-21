@@ -227,6 +227,9 @@ public final class FrameArchiveHttpController implements HttpController {
                 item.put("heatmap_height", frame.heatmapHeight());
             }
             item.put("result_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "result.json"));
+            if (frame.learnedReviewId() != null && !frame.learnedReviewId().isBlank()) {
+                item.put("learned_review_id", frame.learnedReviewId());
+            }
         }
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }

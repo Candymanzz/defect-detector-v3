@@ -142,6 +142,7 @@ def _inspect_shm_sync(
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
         analysis_profile=payload.analysis_profile,
         temporary_analysis_overrides=temporary_overrides,
+        store_learning_review=not (payload.skip_learning_review or payload.test_analyze),
     )
 
 

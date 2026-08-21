@@ -562,6 +562,13 @@ public final class ClientApiHttpController implements HttpController {
                 learnedReviewId = LearnedReviewIndex.lookup(cameraId, frameId, productType);
             }
         }
+        if (learnedReviewId == null && cameraId != null && frameId != null) {
+            var holder = clientApi.uiTestAnalyzeHolder();
+            var service = holder == null ? null : holder.get();
+            if (service != null) {
+                learnedReviewId = service.archivedLearnedReviewId(cameraId, frameId).orElse(null);
+            }
+        }
         if (learnedReviewId == null) {
             HttpResponses.sendJsonError(ctx, 404, "learned review not found for frameId/productType");
             return;

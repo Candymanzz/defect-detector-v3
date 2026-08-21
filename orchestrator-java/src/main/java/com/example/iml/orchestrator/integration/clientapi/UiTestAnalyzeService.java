@@ -284,6 +284,13 @@ public final class UiTestAnalyzeService {
         return pinStore.get(pinId).map(TestFramePinStore.Pin::jpegPath);
     }
 
+    public Optional<String> archivedLearnedReviewId(int cameraId, long frameId) {
+        if (frameArchive == null || !frameArchive.enabled()) {
+            return Optional.empty();
+        }
+        return frameArchive.learnedReviewId(cameraId, frameId);
+    }
+
     public void clearPins() {
         pinStore.clearAll();
     }

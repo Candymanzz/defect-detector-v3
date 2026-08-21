@@ -179,6 +179,8 @@ class ShmFrameRequest(BaseModel):
     analysis_profile: Optional[str] = None
     analysis_test_settings: Optional[dict] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None  # 3x3 от geometry
+    skip_learning_review: bool = False
+    test_analyze: bool = False
 
 
 class ShmVisualsRequest(ShmFrameRequest):

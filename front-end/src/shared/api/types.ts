@@ -256,6 +256,7 @@ export type FrameArchiveHistoryFrame = {
   heatmap_width?: number;
   heatmap_height?: number;
   result_url: string;
+  learned_review_id?: string;
 };
 
 export type FrameArchiveHistoryResponse = {
@@ -388,6 +389,7 @@ export type AcceptLearnedNormalsRequest = {
   frameId: string | number;
   productType: string;
   cameraId?: number;
+  learnedReviewId?: string;
   note?: string;
 };
 
