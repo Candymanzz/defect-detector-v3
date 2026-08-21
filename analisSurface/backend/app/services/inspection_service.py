@@ -1156,15 +1156,12 @@ class InspectionService:
 
         Раньше active_ratio*1.2 зажимал score в 1.0 уже при ~80% маски — любой
         умеренный шум/свет давал вечный БРАК независимо от силы diff.
-        sqrt(active_ratio) + меньшие веса: расширение маски от чувствительности
-        не должно прыгать с ~0.8 сразу в потолок 1.0.
         """
-        ratio = max(0.0, float(active_ratio))
         return float(
             np.clip(
-                (diff_q90 / 255.0) * 0.45
-                + (diff_max / 255.0) * 0.15
-                + float(np.sqrt(ratio)) * 0.30,
+                (diff_q90 / 255.0) * 0.55
+                + (diff_max / 255.0) * 0.20
+                + float(active_ratio) * 0.35,
                 0.0,
                 1.0,
             )
@@ -1644,14 +1641,9 @@ class InspectionService:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
 
-        # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
-        # near no-op — treat it as off so sensitivity can ramp continuously via
-        # clahe_clip_limit without a sudden score cliff when the bool flips.
-        if (
-            settings.enable_clahe
-            and float(settings.clahe_clip_limit) > 1.05
-            and float(np.std(cur_gray)) > 5.0
-        ):
+        # CLAHE can over-amplify texture noise on smooth frames, so apply it only
+        # when the frame has enough contrast/variance.
+        if settings.enable_clahe and float(np.std(cur_gray)) > 5.0:
             clahe = cv2.createCLAHE(clipLimit=settings.clahe_clip_limit, tileGridSize=(8, 8))
             ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
@@ -1889,10 +1881,7 @@ class InspectionService:
         else:
             top_mean = 0.0
 
-        # Softer mix than 0.85/0.55: that pair clipped to 1.0 as soon as a few
-        # elongated blobs + bright top-tail appeared, so a small sensitivity nudge
-        # often jumped displayed anomaly from ~80% to 100%.
-        heuristic_score = float(np.clip((max_object_score * 0.55) + (top_mean * 0.40), 0.0, 1.0))
+        heuristic_score = float(np.clip((max_object_score * 0.85) + (top_mean * 0.55), 0.0, 1.0))
         if max_aspect > settings.scratch_aspect_floor:
             heuristic_score = max(heuristic_score, settings.scratch_score_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
