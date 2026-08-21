@@ -23,6 +23,7 @@ from app.api.schemas import (
     ShmVisualsResponse,
 )
 from app.runtime import get_application_id
+from app.services.analysis_settings_presets import expand_pro, expand_simple
 from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8_image_to_shm
 
 
@@ -120,6 +121,17 @@ def _inspect_shm_sync(
     include_heatmap_u8: bool,
 ):
     frame = _copy_shm_bgr_frame(payload)
+    temporary_overrides = None
+    if payload.analysis_test_settings:
+        mode = str(payload.analysis_test_settings.get("mode", "")).strip().lower()
+        knobs = payload.analysis_test_settings.get("knobs") or {}
+        if mode == "simple":
+            temporary_overrides = expand_simple(knobs["threshold"], knobs["sensitivity"])
+        elif mode == "pro":
+            temporary_overrides = expand_pro(
+                knobs["threshold"], knobs["noise_tolerance"], knobs["scratch_sensitivity"],
+                knobs["edge_suppression"], knobs["text_handling"], knobs["preprocess_strength"],
+            )
     return inspection_service.inspect_frame(
         product_type=payload.product_type,
         frame=frame,
@@ -129,6 +141,7 @@ def _inspect_shm_sync(
         detector_id=payload.detector_id,
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
         analysis_profile=payload.analysis_profile,
+        temporary_analysis_overrides=temporary_overrides,
     )
 
 

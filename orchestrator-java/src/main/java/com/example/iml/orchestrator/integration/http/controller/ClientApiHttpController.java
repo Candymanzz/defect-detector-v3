@@ -755,12 +755,6 @@ public final class ClientApiHttpController implements HttpController {
             root.put("cameraId", pinned.cameraId());
             root.put("frameId", pinned.frameId());
             root.put("pinId", pinned.pinId());
-            if (pinned.httpPath() != null) {
-                root.put("httpPath", pinned.httpPath());
-            }
-            if (pinned.sha256() != null && !pinned.sha256().isBlank()) {
-                root.put("sha256", pinned.sha256());
-            }
             HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
         } catch (com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.AnalyzeException e) {
             HttpResponses.sendJsonError(ctx, e.status(), e.getMessage());
@@ -804,9 +798,6 @@ public final class ClientApiHttpController implements HttpController {
             return;
         }
         byte[] body = java.nio.file.Files.readAllBytes(jpeg.get());
-        var exchange = ctx.exchange();
-        exchange.getResponseHeaders().set("Cache-Control", "no-store, no-cache, must-revalidate");
-        exchange.getResponseHeaders().set("Pragma", "no-cache");
         HttpResponses.send(ctx, 200, "image/jpeg", body);
     }
 

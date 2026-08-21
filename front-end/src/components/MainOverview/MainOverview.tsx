@@ -68,54 +68,6 @@ export function MainOverview({
     setTestAnalyzeMessage("");
   };
 
-  const pinFrameForTest = async (
-    inspectResult: NonNullable<NonNullable<typeof controller.modalSnapshot>["inspectResult"]>,
-  ) => {
-    const cameraId = inspectResult.camera_id;
-    const frameId = inspectResult.frame_id;
-    const pinSource = resolveTestPinSource(inspectResult);
-    const pinned = await orchestratorApi.pinTestFrame({
-      cameraId,
-      frameId,
-      source: pinSource.source,
-      httpPath: pinSource.httpPath,
-    });
-    const pinHttpPath = pinned.httpPath ?? `/api/client/inspection/test-pin/cameras/${cameraId}/frame.jpg`;
-    // One JPEG on disk per camera; version only when pin content changes.
-    const pinImageUrl = orchestratorApi.imageUrl(pinHttpPath, pinned.sha256 ?? `${pinned.frameId}-${Date.now()}`);
-    controller.freezeModalTestFrame(String(pinned.frameId), pinImageUrl, pinHttpPath);
-    setTestFrameId(String(pinned.frameId));
-    return pinned;
-  };
-
-  const handleTestInspectionSelect = async (frameId: string) => {
-    if (!showModalAnalysisSettings) {
-      controller.selectModalInspection(frameId);
-      return;
-    }
-    const snapshot = controller.modalSnapshot;
-    if (!snapshot) {
-      return;
-    }
-    const item = snapshot.inspectionItems.find((candidate) => candidate.frameId === frameId);
-    const inspectResult = item?.inspectResult;
-    if (!inspectResult) {
-      controller.selectModalInspection(frameId);
-      return;
-    }
-    try {
-      setTestAnalyzeState("submitting");
-      setTestAnalyzeMessage(`Смена кадра теста на ${frameId}…`);
-      controller.selectModalInspection(frameId);
-      await pinFrameForTest(inspectResult);
-      setTestAnalyzeState("idle");
-      setTestAnalyzeMessage(`Кадр ${frameId} записан на диск для теста. Можно проверить.`);
-    } catch (error) {
-      setTestAnalyzeState("error");
-      setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось сменить кадр теста");
-    }
-  };
-
   const applySettingsAndInspect = async (action: "check" | "save") => {
     const snapshot = controller.modalSnapshot;
     const frameId = testFrameId ?? snapshot?.pinnedTestFrameId ?? snapshot?.inspectResult?.frame_id;
@@ -294,9 +246,8 @@ export function MainOverview({
                   </p>
                 )}
                 <p className="modal__test-settings-hint">
-                  Кадр теста лежит на диске (один файл на камеру) и перезаписывается при выборе другого кадра.
-                  Крутите параметры и нажмите «Проверить». Режим теста открыт, пока не нажмёте «Завершить тест» или не
-                  закроете окно.
+                  Крутите параметры — результат geometry + python обновляется на выбранном кадре. Режим теста остаётся
+                  открытым, пока не нажмёте «Завершить тест» или не закроете окно.
                 </p>
                 <div className="modal__test-settings-grid">
                   <details className="modal__test-settings-section modal__test-settings-section--collapsible">
@@ -387,15 +338,29 @@ export function MainOverview({
                   }
                   try {
                     setTestAnalyzeState("submitting");
-                    setTestAnalyzeMessage(`Копирование кадра ${frameId} на диск для теста…`);
+                    setTestAnalyzeMessage(`Фиксация кадра ${frameId}…`);
                     setTestFrameId(frameId);
+                    // Capture the exact pixels currently shown BEFORE pin/mode changes.
+                    const displayedUrl = controller.modalSnapshot?.cameraImageUrl;
                     await onAnalysisSettingsOpen(cameraId);
-                    await pinFrameForTest(inspectResult);
+                    const pinSource = resolveTestPinSource(inspectResult);
+                    await orchestratorApi.pinTestFrame({
+                      cameraId,
+                      frameId,
+                      source: pinSource.source,
+                      httpPath: pinSource.httpPath,
+                    });
+                    const pinHttpPath = `/api/client/inspection/test-pin/cameras/${cameraId}/frame.jpg`;
+                    // Freeze UI on a local blob of the on-screen image so later WS/http never swaps <img src>.
+                    const sourceForBlob =
+                      displayedUrl
+                      ?? (pinSource.httpPath ? orchestratorApi.imageUrl(pinSource.httpPath, frameId) : undefined)
+                      ?? orchestratorApi.imageUrl(pinHttpPath, frameId);
+                    const frozenBlobUrl = await createFrozenFrameObjectUrl(sourceForBlob);
+                    controller.freezeModalTestFrame(frameId, frozenBlobUrl, pinHttpPath);
                     setShowModalAnalysisSettings(true);
                     setTestAnalyzeState("idle");
-                    setTestAnalyzeMessage(
-                      `Кадр ${frameId} на диске (test-pin). При выборе другого кадра файл перезапишется.`,
-                    );
+                    setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Меняйте параметры и нажмите «Проверить».`);
                   } catch (error) {
                     setTestFrameId(undefined);
                     setShowModalAnalysisSettings(false);
@@ -427,7 +392,7 @@ export function MainOverview({
           }
           inspectResult={controller.modalSnapshot.inspectResult}
           title={`${controller.modalSnapshot.objectName} / Камера ${controller.modalSnapshot.cameraId}`}
-          onInspectionSelect={(frameId) => void handleTestInspectionSelect(frameId)}
+          onInspectionSelect={controller.selectModalInspection}
           onClose={() => {
             if (showModalAnalysisSettings) {
               void (async () => {
@@ -496,6 +461,18 @@ function resolveTestPinSource(inspectResult: {
     };
   }
   return { source: "archive" };
+}
+
+async function createFrozenFrameObjectUrl(imageUrl: string): Promise<string> {
+  const response = await fetch(imageUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Не удалось зафиксировать кадр для UI: HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+  if (blob.size <= 0) {
+    throw new Error("Не удалось зафиксировать кадр для UI: пустой ответ");
+  }
+  return URL.createObjectURL(blob);
 }
 
 function getInspectionActionLabel(state: "idle" | "starting" | "stopping" | "error" | undefined, isEnabled: boolean) {

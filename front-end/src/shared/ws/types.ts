@@ -277,6 +277,8 @@ export type InspectResultPayload = {
   test_analyze?: boolean;
   /** SHA-256 of pinned JPEG bytes used for this test-analyze run. */
   pin_jpeg_sha256?: string;
+  test_analyze_job_id?: string;
+  test_pin_id?: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;
