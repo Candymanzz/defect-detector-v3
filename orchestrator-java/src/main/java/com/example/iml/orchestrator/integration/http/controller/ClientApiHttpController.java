@@ -83,6 +83,10 @@ public final class ClientApiHttpController implements HttpController {
             handleTestPin(ctx);
             return;
         }
+        if (path.startsWith("/api/client/inspection/test-pin/cameras/") && path.endsWith("/frame.jpg")) {
+            handleTestPinFrameGet(ctx, path);
+            return;
+        }
         if (path.equals("/api/client/learning/accept-all-as-normal") || path.startsWith("/api/client/learning/")) {
             handleLearning(ctx);
             return;
@@ -761,6 +765,40 @@ public final class ClientApiHttpController implements HttpController {
         } catch (Exception e) {
             HttpResponses.sendJsonError(ctx, 400, "invalid json body");
         }
+    }
+
+    private void handleTestPinFrameGet(HttpRequestContext ctx, String path) throws IOException {
+        HttpResponses.corsJson(ctx.exchange());
+        if (!"GET".equalsIgnoreCase(ctx.method()) && !"HEAD".equalsIgnoreCase(ctx.method())) {
+            HttpResponses.methodNotAllowed(ctx);
+            return;
+        }
+        var holder = clientApi.uiTestAnalyzeHolder();
+        var service = holder == null ? null : holder.get();
+        if (service == null) {
+            HttpResponses.sendJsonError(ctx, 503, "test-analyze not ready");
+            return;
+        }
+        // /api/client/inspection/test-pin/cameras/{id}/frame.jpg
+        String[] parts = path.split("/");
+        if (parts.length < 8) {
+            HttpResponses.sendJsonError(ctx, 404, "not found");
+            return;
+        }
+        int cameraId;
+        try {
+            cameraId = Integer.parseInt(parts[6]);
+        } catch (NumberFormatException e) {
+            HttpResponses.sendJsonError(ctx, 400, "invalid cameraId");
+            return;
+        }
+        var jpeg = service.pinnedJpegPath(cameraId);
+        if (jpeg.isEmpty() || !java.nio.file.Files.isRegularFile(jpeg.get())) {
+            HttpResponses.sendJsonError(ctx, 404, "no pinned test frame for cameraId=" + cameraId);
+            return;
+        }
+        byte[] body = java.nio.file.Files.readAllBytes(jpeg.get());
+        HttpResponses.send(ctx, 200, "image/jpeg", body);
     }
 
     private com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request parseTestAnalyzeRequest(

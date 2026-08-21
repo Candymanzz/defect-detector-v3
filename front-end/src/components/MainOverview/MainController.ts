@@ -194,11 +194,13 @@ export function updateModalSnapshotResult(
   const displayInspectResult = retainPreviousHeatmap
     ? { ...inspectResult, heatmap: currentSnapshot.inspectResult?.heatmap ?? null }
     : inspectResult;
+  const nextCameraImageUrl =
+    resolveImmutableInspectionImageUrl(displayInspectResult) ?? createWsFrameImageUrl(displayInspectResult);
   return {
     ...currentSnapshot,
     inspectResult: displayInspectResult,
-    cameraImageUrl:
-      resolveImmutableInspectionImageUrl(displayInspectResult) ?? createWsFrameImageUrl(displayInspectResult),
+    // Never blank the frozen TEST frame while a partial notify has no http_path yet.
+    cameraImageUrl: nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
     heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };
 }
@@ -218,7 +220,11 @@ export function hasDisplayableInspectImage(inspectResult: InspectResultPayload) 
 
 export function hasImmutableInspectArtifact(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
-  return Boolean(inspectResult.artifact_bundle_id || imagePath.includes("/api/frame-archive/"));
+  return Boolean(
+    inspectResult.artifact_bundle_id
+      || imagePath.includes("/api/frame-archive/")
+      || imagePath.includes("/api/client/inspection/test-pin/"),
+  );
 }
 
 export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
@@ -425,6 +431,11 @@ function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload)
   const archiveUrl = resolveArchiveFrameImageUrl(inspectResult);
   if (archiveUrl) {
     return archiveUrl;
+  }
+
+  const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
+  if (imagePath.includes("/api/client/inspection/test-pin/")) {
+    return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
   }
 
   if (!inspectResult.artifact_bundle_id) {

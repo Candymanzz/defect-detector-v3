@@ -189,6 +189,29 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
   const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
 
+  const freezeModalTestFrame = useCallback((frameId: string, cameraImageUrl: string, pinHttpPath: string) => {
+    setModalSnapshot((current) => {
+      if (!current?.inspectResult) {
+        return current;
+      }
+      return {
+        ...current,
+        cameraImageUrl,
+        inspectResult: {
+          ...current.inspectResult,
+          frame_id: frameId,
+          test_analyze: true,
+          http_path: pinHttpPath,
+          current: {
+            ...current.inspectResult.current,
+            frame_id: frameId,
+            http_path: pinHttpPath,
+          },
+        },
+      };
+    });
+  }, []);
+
   const loadArchivedHistory = useCallback(
     async (targetCameraIds: number[] = cameraIds) => {
       if (targetCameraIds.length === 0 || archiveHistoryLoadingRef.current) {
@@ -577,6 +600,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
     openInspectionModal,
     selectModalInspection,
     closeInspectionModal,
+    freezeModalTestFrame,
   };
 }
 
@@ -876,6 +900,12 @@ function addModalInspectionItem(
 
   setModalSnapshot((currentSnapshot) => {
     if (!currentSnapshot || currentSnapshot.cameraId !== inspectResult.camera_id) {
+      return currentSnapshot;
+    }
+
+    // While TEST settings are open on a pinned frame, ignore live production results so the
+    // modal does not jump to newer DI3 frames / live current.jpg.
+    if (!inspectResult.test_analyze && currentSnapshot.inspectResult?.test_analyze) {
       return currentSnapshot;
     }
 

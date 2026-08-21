@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -242,12 +243,17 @@ public final class UiTestAnalyzeService {
                     request.cameraId(),
                     resolved.frameId(),
                     resolved.jpegBytes(),
-                    resolved.previewHttpPath()
+                    // Durable URL: archive/artifact paths can roll/expire while TEST settings stay open.
+                    "/api/client/inspection/test-pin/cameras/" + request.cameraId() + "/frame.jpg"
             );
             return new Pinned(pin.cameraId(), pin.frameId(), "cam-" + pin.cameraId());
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to pin test frame: " + e.getMessage());
         }
+    }
+
+    public Optional<Path> pinnedJpegPath(int cameraId) {
+        return pinStore.get(cameraId).map(TestFramePinStore.Pin::jpegPath);
     }
 
     public void clearPins() {

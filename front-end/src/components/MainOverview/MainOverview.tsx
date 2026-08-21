@@ -326,6 +326,12 @@ export function MainOverview({
                       source: pinSource.source,
                       httpPath: pinSource.httpPath,
                     });
+                    const pinHttpPath = `/api/client/inspection/test-pin/cameras/${cameraId}/frame.jpg`;
+                    controller.freezeModalTestFrame(
+                      frameId,
+                      orchestratorApi.imageUrl(pinHttpPath, frameId),
+                      pinHttpPath,
+                    );
                     setShowModalAnalysisSettings(true);
                     setTestAnalyzeState("idle");
                     setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Крутите параметры и нажмите «Проверить».`);

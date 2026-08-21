@@ -267,7 +267,23 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (ws != null) {
             try {
                 // Deliver decision immediately; heavy UI artifacts are published in a later update.
-                ws.notifyInspectResult(cameraId, productType, detectorId, inspectionId, decision, cap, null, 0, 0, null, null, false, null);
+                // For test-analyze keep the pinned frame URL — never fall back to live current.jpg.
+                String immediateFramePath = resolveTestAwareFrameHttpPath(cameraId, null, false, testAnalyzeFlag(cap), cap);
+                ws.notifyInspectResult(
+                        cameraId,
+                        productType,
+                        detectorId,
+                        inspectionId,
+                        decision,
+                        cap,
+                        null,
+                        0,
+                        0,
+                        immediateFramePath,
+                        null,
+                        false,
+                        null
+                );
             } catch (Exception e) {
                 log.debug("client_ws inspect_result immediate cam={}: {}", cameraId, e.getMessage());
             }
@@ -407,7 +423,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         );
                         if (ws != null) {
                             try {
-                                String frameHttpPath = resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur);
+                                String frameHttpPath = resolveTestAwareFrameHttpPath(
+                                        cameraId, bundleId, hasCur, testAnalyzeFlag(cap), cap);
                                 ws.notifyInspectResult(
                                         cameraId,
                                         productType,
@@ -562,11 +579,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     );
                     if (ws != null && (hasCur || hasHm)) {
                         try {
-                            // test-analyze must keep live artifact URLs so the UI can show the freshly
-                            // generated heatmap instead of the immutable archive copy for this frame.
+                            // test-analyze: show pinned frame URL; heatmap still comes from fresh artifact/bundle.
                             String frameHttpPath = !testAnalyze && archived && archive != null
                                     ? archive.frameArtifactHttpPath(cameraId, frameId, "frame.jpg")
-                                    : resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur);
+                                    : resolveTestAwareFrameHttpPath(cameraId, bundleId, hasCur, testAnalyze, cap);
                             String heatmapArtifactToken = bundleId == null && hasHm
                                     ? uiServer.registerHeatmapArtifact(cameraId, heatmapU8)
                                     : null;
@@ -622,6 +638,37 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
         }
+    }
+
+    private static boolean testAnalyzeFlag(Map<String, Object> captureHeader) {
+        return YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false);
+    }
+
+    /**
+     * Production may fall back to {@code /api/camera/{id}/current.jpg}.
+     * Test-analyze must never do that — it would show live frames while score is from the pin.
+     */
+    private static String resolveTestAwareFrameHttpPath(
+            int cameraId,
+            String bundleId,
+            boolean hasCurrentJpeg,
+            boolean testAnalyze,
+            Map<String, Object> captureHeader
+    ) {
+        if (testAnalyze) {
+            Object pinned = captureHeader == null ? null : captureHeader.get("http_path");
+            if (pinned != null) {
+                String path = String.valueOf(pinned).trim();
+                if (!path.isEmpty()) {
+                    return path;
+                }
+            }
+            if (bundleId != null && !bundleId.isBlank()) {
+                return "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
+            }
+            return null;
+        }
+        return resolveInspectionFrameHttpPath(cameraId, bundleId, hasCurrentJpeg);
     }
 
     private static String resolveInspectionFrameHttpPath(int cameraId, String bundleId, boolean hasCurrentJpeg) {
