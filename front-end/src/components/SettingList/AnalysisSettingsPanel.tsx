@@ -5,7 +5,6 @@ import type { ProAnalysisKnobs, SimpleAnalysisKnobs } from "../../shared/api";
 import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
-import { logTestAnalysis } from "../../shared/lib/testAnalysisLog";
 
 const ACCESS_CODE = "3333";
 const FALLBACK_PROFILE = "reference-product";
@@ -187,12 +186,6 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     previewRequestIdRef.current += 1;
     setStatus({ kind: "saving", text: "Сохранение…" });
     try {
-      logTestAnalysis("analysis-settings.save", {
-        cameraId: selectedCameraId,
-        frameId: testFrameId,
-        mode,
-        knobs: mode === "simple" ? simple : pro,
-      });
       if (mode === "simple") {
         const response = await saveSimple(selectedCameraId, simple);
         if (response?.knobs) setSimple(response.knobs);
@@ -202,12 +195,6 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         if (response?.knobs) setPro(response.knobs);
         userEditedProRef.current = false;
       }
-      logTestAnalysis("analysis-settings.saved", {
-        cameraId: selectedCameraId,
-        frameId: testFrameId,
-        mode,
-        knobs: mode === "simple" ? simple : pro,
-      });
       if (!hideSaveAction) {
         if (selectedCameraId !== null && testFrameId) {
           await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId);

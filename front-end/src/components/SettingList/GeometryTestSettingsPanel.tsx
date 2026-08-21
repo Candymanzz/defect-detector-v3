@@ -4,7 +4,6 @@ import { orchestratorApi } from "../../shared/api";
 import type { GeometryRuntimeConfig } from "../../shared/api";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
-import { logTestAnalysis } from "../../shared/lib/testAnalysisLog";
 
 const DEFAULT_MAX_SHIFT_MM = 0.5;
 const DEFAULT_JOINT_SENSITIVITY = 0.5;
@@ -116,19 +115,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
     previewRequestIdRef.current += 1;
     setStatus({ kind: "saving", text: "Сохранение геометрии…" });
     try {
-      logTestAnalysis("geometry-settings.save", {
-        cameraId: selectedCameraId,
-        frameId: testFrameId,
-        max_shift_mm: maxShiftMm,
-        joint_seam_segmentation_sensitivity: jointSensitivity,
-      });
       const runtime = await persistGeometry(selectedCameraId, maxShiftMm, jointSensitivity);
-      logTestAnalysis("geometry-settings.saved", {
-        cameraId: selectedCameraId,
-        frameId: testFrameId,
-        runtimeOverrides: runtime.runtimeOverrides,
-        effectiveForNextGeometryInspect: runtime.effectiveForNextGeometryInspect,
-      });
       setMaxShiftMm(readMaxShiftMm(runtime));
       setJointSensitivity(readJointSensitivity(runtime));
       userEditedRef.current = false;

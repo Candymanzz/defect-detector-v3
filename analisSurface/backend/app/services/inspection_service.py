@@ -733,13 +733,6 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
-        logger.info(
-            "analysis inspect effective settings product_type=%s analysis_profile=%s threshold=%s settings=%s",
-            product_type,
-            settings_key,
-            inspection_threshold,
-            settings.to_dict(),
-        )
         diff_map = self._compute_advanced_difference(aligned, reference, settings)
 
         # 4. Бинарная маска дефектов + глобальный score по diff.

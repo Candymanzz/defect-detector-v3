@@ -143,17 +143,6 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             }
             BinaryInspectHeaders.applyMainRoiFromPolygon(gHeader, state.capture(), activeReference);
             BinaryInspectHeaders.syncWrinklesRoiFromMainRoi(gHeader);
-            if (YamlScalars.toBool(state.capture().header().get("test_analyze"), false)) {
-                log.info(
-                        "ui analysis-test geometry payload jobId={} cam={} frame={} analysisProfile={} worker={} values={}",
-                        state.capture().header().get("test_analyze_job_id"),
-                        cameraId,
-                        state.capture().header().get("frame_id"),
-                        CameraAnalysisProfiles.resolve(cameraId, productType),
-                        geometry.supervisorLabel(),
-                        gHeader
-                );
-            }
             geometrySlots.acquire();
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);

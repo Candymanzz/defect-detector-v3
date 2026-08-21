@@ -1,7 +1,5 @@
 """Упрощённые эндпоинты analysis-settings: simple (2 ручки) и pro (6 ручек)."""
 
-import logging
-
 from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspection_service
@@ -16,7 +14,6 @@ from app.services.analysis_settings_presets import expand_pro, expand_simple
 
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 @router.get(
@@ -43,12 +40,6 @@ async def put_simple_analysis_settings(
         expanded = expand_simple(payload.threshold, payload.sensitivity)
         knobs = payload.model_dump()
         overrides = inspection_service.apply_simple_settings(analysis_profile, expanded, knobs)
-        logger.info(
-            "ui analysis-test python settings saved profile=%s mode=simple knobs=%s effective_overrides=%s",
-            analysis_profile,
-            knobs,
-            overrides,
-        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return to_simple_settings_response(analysis_profile, overrides, knobs)
@@ -85,12 +76,6 @@ async def put_pro_analysis_settings(
         )
         knobs = payload.model_dump()
         overrides = inspection_service.apply_pro_settings(analysis_profile, expanded, knobs)
-        logger.info(
-            "ui analysis-test python settings saved profile=%s mode=pro knobs=%s effective_overrides=%s",
-            analysis_profile,
-            knobs,
-            overrides,
-        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return to_pro_settings_response(analysis_profile, overrides, knobs)
