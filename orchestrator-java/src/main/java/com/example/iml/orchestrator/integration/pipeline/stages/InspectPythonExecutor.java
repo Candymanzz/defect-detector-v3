@@ -115,6 +115,10 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             Map<String, Object> pyHeader = BinaryInspectHeaders.pythonInspectHeader(
                     cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
             applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
+            Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
+            if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
+                pyHeader.put("analysis_test_settings", temporaryAnalysis);
+            }
             double inspectScale = YamlScalars.toDouble(
                     pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
                     1.0

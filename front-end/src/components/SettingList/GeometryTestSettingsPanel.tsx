@@ -11,16 +11,21 @@ const DEFAULT_JOINT_SENSITIVITY = 0.5;
 type Props = {
   selectedCameraId: number | null;
   testFrameId?: string;
+  testPinId?: string;
   onSaveComplete?: () => Promise<void> | void;
   hideSaveAction?: boolean;
 };
-export type GeometryTestSettingsPanelHandle = { save: () => Promise<void> };
+export type GeometryTestSettingsPanelHandle = {
+  save: () => Promise<void>;
+  getDraft: () => { max_shift_mm: number; joint_seam_segmentation_sensitivity: number };
+};
 
 type Status = { kind: "loading" | "saving" | "success" | "error"; text: string };
 
 export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHandle, Props>(function GeometryTestSettingsPanel({
   selectedCameraId,
   testFrameId,
+  testPinId,
   onSaveComplete,
   hideSaveAction = false,
 }, ref) {
@@ -73,7 +78,9 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
         text: preview ? `Сохранение геометрии и проверка кадра ${testFrameId}…` : "Сохранение геометрии…",
       });
       void persistGeometry(selectedCameraId, maxShiftMm, jointSensitivity)
-        .then(() => (preview ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId!) : undefined))
+        .then(() => (preview && testPinId
+          ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId!)
+          : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
             userEditedRef.current = false;
@@ -97,7 +104,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
         previewTimerRef.current = null;
       }
     };
-  }, [hideSaveAction, jointSensitivity, maxShiftMm, selectedCameraId, testFrameId]);
+  }, [hideSaveAction, jointSensitivity, maxShiftMm, selectedCameraId, testFrameId, testPinId]);
 
   const persist = async () => {
     if (selectedCameraId === null) {
@@ -120,8 +127,8 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
       setJointSensitivity(readJointSensitivity(runtime));
       userEditedRef.current = false;
       if (!hideSaveAction) {
-        if (testFrameId) {
-          await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId);
+        if (testFrameId && testPinId) {
+          await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId);
           setStatus({ kind: "success", text: `Геометрия сохранена, кадр ${testFrameId} пересчитан` });
           return;
         }
@@ -134,7 +141,13 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
     }
   };
 
-  useImperativeHandle(ref, () => ({ save: persist }));
+  useImperativeHandle(ref, () => ({
+    save: persist,
+    getDraft: () => ({
+      max_shift_mm: maxShiftMm,
+      joint_seam_segmentation_sensitivity: jointSensitivity,
+    }),
+  }));
 
   const busy = status.kind === "loading" || status.kind === "saving";
 

@@ -45,9 +45,19 @@ export function MainOverview({
     "idle",
   );
   const [testAnalyzeMessage, setTestAnalyzeMessage] = useState("");
-  const pendingTestRef = useRef<{ cameraId: number; frameId: string; previousServerTs: number }>({
+  const pendingTestRef = useRef<{
+    cameraId: number;
+    frameId: string;
+    pinId: string;
+    jpegSha256: string;
+    jobId: string;
+    previousServerTs: number;
+  }>({
     cameraId: -1,
     frameId: "",
+    pinId: "",
+    jpegSha256: "",
+    jobId: "",
     previousServerTs: 0,
   });
   const analysisSettingsRef = useRef<AnalysisSettingsPanelHandle>(null);
@@ -71,7 +81,9 @@ export function MainOverview({
   const applySettingsAndInspect = async (action: "check" | "save") => {
     const snapshot = controller.modalSnapshot;
     const frameId = testFrameId ?? snapshot?.pinnedTestFrameId ?? snapshot?.inspectResult?.frame_id;
-    if (!snapshot || !frameId || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting") {
+    const pinId = snapshot?.pinnedTestPinId;
+    const jpegSha256 = snapshot?.pinnedTestJpegSha256;
+    if (!snapshot || !frameId || !pinId || !jpegSha256 || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting") {
       return;
     }
 
@@ -87,12 +99,29 @@ export function MainOverview({
         await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
         notifyAnalysisSettingsChanged(snapshot.cameraId);
       }
+      const analysisDraft = analysisSettingsRef.current?.getDraft();
+      const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {
+        geometry: geometrySettingsRef.current?.getDraft(),
+        analysis: analysisDraft
+          ? { mode: analysisDraft.mode, knobs: analysisDraft.knobs }
+          : undefined,
+      });
+      if (
+        accepted.pinId !== pinId
+        || String(accepted.frameId) !== String(frameId)
+        || accepted.pinJpegSha256 !== jpegSha256
+      ) {
+        throw new Error("Сервер принял для проверки другой pin, кадр или JPEG");
+      }
+      controller.setPendingTestJob(accepted.jobId);
       pendingTestRef.current = {
         cameraId: snapshot.cameraId,
         frameId,
+        pinId,
+        jpegSha256,
+        jobId: accepted.jobId,
         previousServerTs: snapshot.inspectResult?.server_ts_ms ?? 0,
       };
-      await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, frameId);
       setTestAnalyzeState("awaiting");
       setTestAnalyzeMessage(`Проверка кадра ${frameId} запущена, ожидание результата…`);
     } catch (error) {
@@ -115,8 +144,10 @@ export function MainOverview({
       !result?.test_analyze ||
       result.camera_id !== pending.cameraId ||
       result.frame_id !== pending.frameId ||
-      result.server_ts_ms <= pending.previousServerTs ||
-      !result.heatmap
+      result.test_pin_id !== pending.pinId ||
+      result.test_analyze_job_id !== pending.jobId ||
+      result.pin_jpeg_sha256 !== pending.jpegSha256 ||
+      result.server_ts_ms <= pending.previousServerTs
     ) {
       return;
     }
@@ -259,6 +290,7 @@ export function MainOverview({
                       ref={geometrySettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
+                      testPinId={controller.modalSnapshot.pinnedTestPinId}
                       hideSaveAction
                     />
                   </details>
@@ -268,6 +300,7 @@ export function MainOverview({
                       ref={analysisSettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
+                      testPinId={controller.modalSnapshot.pinnedTestPinId}
                       hideSaveAction
                     />
                   </section>
@@ -355,14 +388,20 @@ export function MainOverview({
                         `Сервер зафиксировал кадр ${pinned.frameId} вместо выбранного кадра ${frameId}`,
                       );
                     }
-                    const pinHttpPath = `/api/client/inspection/test-pin/cameras/${cameraId}/frame.jpg`;
+                    const pinHttpPath = pinned.imageHttpPath;
                     // Read the durable server pin itself: UI and test-analyze now use identical bytes.
                     const pinnedImageUrl = orchestratorApi.imageUrl(
                       `${pinHttpPath}?pin=${encodeURIComponent(pinned.pinId)}`,
                       frameId,
                     );
                     const frozenBlobUrl = await createFrozenFrameObjectUrl(pinnedImageUrl);
-                    controller.freezeModalTestFrame(frameId, frozenBlobUrl, pinHttpPath);
+                    controller.freezeModalTestFrame(
+                      frameId,
+                      frozenBlobUrl,
+                      pinHttpPath,
+                      pinned.pinId,
+                      pinned.jpegSha256,
+                    );
                     setShowModalAnalysisSettings(true);
                     setTestAnalyzeState("idle");
                     setTestAnalyzeMessage(`Кадр ${frameId} зафиксирован. Меняйте параметры и нажмите «Проверить».`);
@@ -402,11 +441,6 @@ export function MainOverview({
             if (showModalAnalysisSettings) {
               void (async () => {
                 try {
-                  await Promise.all([
-                    geometrySettingsRef.current?.save() ?? Promise.resolve(),
-                    analysisSettingsRef.current?.save() ?? Promise.resolve(),
-                  ]);
-                  notifyAnalysisSettingsChanged(controller.modalSnapshot!.cameraId);
                   await exitTestModeAndResume();
                   controller.closeInspectionModal();
                 } catch (error) {
@@ -447,7 +481,7 @@ function resolveTestPinSource(inspectResult: {
   artifact_bundle_id?: string;
   http_path?: string;
   current?: { http_path?: string };
-}): { source: "archive" | "artifact" | "current"; httpPath?: string } {
+}): { source: "archive" | "artifact"; httpPath?: string } {
   // Pin the exact JPEG the modal is showing — never silent archive-by-frameId when another path is visible.
   const path = (inspectResult.http_path ?? inspectResult.current?.http_path ?? "").trim();
   if (path.includes("/api/frame-archive/")) {
@@ -462,9 +496,6 @@ function resolveTestPinSource(inspectResult: {
       source: "artifact",
       httpPath: `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/frame.jpg`,
     };
-  }
-  if (path.includes("/api/camera/") && path.endsWith("/current.jpg")) {
-    return { source: "current", httpPath: path };
   }
   return { source: "archive" };
 }

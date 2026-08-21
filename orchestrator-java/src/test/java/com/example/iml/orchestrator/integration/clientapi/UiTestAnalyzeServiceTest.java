@@ -138,7 +138,7 @@ class UiTestAnalyzeServiceTest {
         assertTrue(overwritten.length != original.length || !java.util.Arrays.equals(overwritten, original));
 
         UiTestAnalyzeService.Accepted accepted = service.submit(new UiTestAnalyzeService.Request(
-                0, UiTestAnalyzeService.Source.PIN, 42L, null
+                0, UiTestAnalyzeService.Source.PIN, 42L, null, pinned.pinId()
         ));
         assertEquals(42L, accepted.frameId());
 
@@ -151,14 +151,14 @@ class UiTestAnalyzeServiceTest {
         assertEquals(Boolean.TRUE, lastState.get().capture().header().get("test_analyze"));
         assertEquals(42L, ((Number) lastState.get().capture().header().get("frame_id")).longValue());
 
-        byte[] pinnedBytes = Files.readAllBytes(pinStore.get(0).orElseThrow().jpegPath());
+        byte[] pinnedBytes = Files.readAllBytes(pinStore.get(pinned.pinId()).orElseThrow().jpegPath());
         assertTrue(java.util.Arrays.equals(original, pinnedBytes));
         assertEquals(
                 UiTestAnalyzeService.sha256Hex(original),
                 lastState.get().capture().header().get("pin_jpeg_sha256")
         );
         assertEquals(
-                "/api/client/inspection/test-pin/cameras/0/frame.jpg",
+                pinned.imageHttpPath(),
                 lastState.get().capture().header().get("http_path")
         );
         assertFalse(
@@ -177,7 +177,7 @@ class UiTestAnalyzeServiceTest {
         UiTestAnalyzeService.AnalyzeException ex = assertThrows(
                 UiTestAnalyzeService.AnalyzeException.class,
                 () -> service.submit(new UiTestAnalyzeService.Request(
-                        0, UiTestAnalyzeService.Source.PIN, 1L, null
+                        0, UiTestAnalyzeService.Source.PIN, 1L, null, "missing-pin"
                 ))
         );
         assertEquals(404, ex.status());
