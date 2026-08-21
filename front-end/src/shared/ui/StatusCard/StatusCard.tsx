@@ -52,7 +52,13 @@ export function StatusCard({
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onSelect();
+      onOpen();
     }
+  };
+
+  const handleOpen = () => {
+    onSelect();
+    onOpen();
   };
 
   return (
@@ -60,7 +66,7 @@ export function StatusCard({
       className={classNames}
       tabIndex={0}
       aria-pressed={isSelected}
-      onClick={onSelect}
+      onClick={handleOpen}
       onKeyDown={handleKeyDown}
     >
       <div className="camera-card__image-wrap">

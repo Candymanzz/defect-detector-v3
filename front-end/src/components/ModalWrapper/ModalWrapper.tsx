@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { HttpError, orchestratorApi } from "../../shared/api";
 import type { GeometryInspectResponse } from "../../shared/api";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { formatAnomalyPercent } from "../../shared/lib/anomalyScore";
 import { attachLearnedCasesToActiveReference, updateReferenceFpZones } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import { orchestratorWs } from "../../shared/ws";
@@ -715,11 +716,6 @@ function InspectResultField({ label, value }: { label: string; value?: string | 
       <dd>{value ?? "-"}</dd>
     </div>
   );
-}
-
-function formatAnomalyPercent(score?: number) {
-  if (score === undefined || !Number.isFinite(score)) return "—";
-  return `${(score * 100).toFixed(2)}%`;
 }
 
 function resolveFpZonesHeatmapSize(inspectResult: InspectResultPayload | undefined) {
