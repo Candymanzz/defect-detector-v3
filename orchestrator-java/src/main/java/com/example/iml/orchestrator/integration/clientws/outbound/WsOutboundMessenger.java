@@ -624,6 +624,13 @@ public final class WsOutboundMessenger {
             payload.put("geometry_status", "UNKNOWN");
         }
         payload.set("fp_zones", fpZonesJsonArray(cameraId));
+        JsonNode excludedNormalZones = JSON.valueToTree(
+                captureHeader == null ? List.of() : captureHeader.get("excluded_normal_zones")
+        );
+        payload.set(
+                "excluded_normal_zones",
+                excludedNormalZones.isArray() ? excludedNormalZones : JSON.createArrayNode()
+        );
         if (YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false)) {
             payload.put("test_analyze", true);
             Object jobId = captureHeader == null ? null : captureHeader.get("test_analyze_job_id");

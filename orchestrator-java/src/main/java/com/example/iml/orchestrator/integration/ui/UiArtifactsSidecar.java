@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -211,6 +212,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return;
         }
         Map<String, Object> cap = new LinkedHashMap<>(capture.header());
+        copyDisplayOnlyInspectionMetadata(cap, pyResp);
         // Prefer positioned buffer for UI JPEG / cards (analysis already remapped shm_name).
         String previewShm = resolveUiPreviewShmName(cap, cameraId);
         if (previewShm != null) {
@@ -733,6 +735,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             deleteTemporaryArtifact(heatmap.path(), "discarded source heatmap");
         } catch (RuntimeException e) {
             log.debug("discarded source heatmap cleanup failed: {}", e.getMessage());
+        }
+    }
+
+    private static void copyDisplayOnlyInspectionMetadata(
+            Map<String, Object> captureHeader,
+            BinaryProtocol.Message pyResp
+    ) {
+        if (captureHeader == null || pyResp == null || pyResp.header() == null) {
+            return;
+        }
+        Object excludedZones = pyResp.header().get("excluded_normal_zones");
+        if (excludedZones instanceof List<?>) {
+            captureHeader.put("excluded_normal_zones", excludedZones);
         }
     }
 

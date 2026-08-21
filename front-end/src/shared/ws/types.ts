@@ -295,11 +295,19 @@ export type InspectResultPayload = {
   python_status?: InspectionStageStatus | string;
   geometry_status?: InspectionStageStatus | string;
   fp_zones: FpZoneNorm[];
+  excluded_normal_zones?: ExcludedNormalZone[];
   fp_coordinate_space?: {
     heatmap_width: number;
     heatmap_height: number;
   };
   server_ts_ms: number;
+};
+
+export type ExcludedNormalZone = {
+  kind: string;
+  case_id?: string | null;
+  similarity?: number | null;
+  polygon: Array<{ x: number; y: number } | [number, number]>;
 };
 
 export type InspectionAction = "ACCEPT" | "REJECT" | "CAPTURE";

@@ -1,0 +1,77 @@
+{
+  "inspection_id": "854ad13b-3dea-4ec6-b83b-5722319123a6",
+  "product_type": "legacy-template",
+  "reference_hash": "587bdced65ad2b86d06209cf",
+  "created_at": "2026-08-21T09:05:53.826561+00:00",
+  "original_status": "БРАК",
+  "original_score": 1.0,
+  "threshold": 0.1,
+  "accepted_defect_ids": [
+    "defect-1"
+  ],
+  "counterfactual_score": 0.0,
+  "counterfactual_status": "ГОДЕН",
+  "defects": [
+    {
+      "id": "defect-1",
+      "bbox": [
+        31,
+        25,
+        85,
+        8
+      ],
+      "bbox_norm": [
+        0.155,
+        0.20833333333333334,
+        0.425,
+        0.06666666666666667
+      ],
+      "polygon": [
+        {
+          "x": 0.5778894472361809,
+          "y": 0.2184873949579832
+        },
+        {
+          "x": 0.5728643216080402,
+          "y": 0.2689075630252101
+        },
+        {
+          "x": 0.15577889447236182,
+          "y": 0.2605042016806723
+        },
+        {
+          "x": 0.16080402010050251,
+          "y": 0.21008403361344538
+        }
+      ],
+      "area": 676,
+      "score": 0.495,
+      "diff_mean": 42.739644970414204,
+      "diff_q90": 50.0,
+      "diff_max": 50.0,
+      "accepted_as_normal": true,
+      "matched_case_id": "ed2e75aa-b4bc-4bd3-8483-eb0c2f6fabdb",
+      "similarity": 1.0,
+      "affects_final_score": false,
+      "manually_accepted": true,
+      "polygon_norm": [
+        [
+          0.5778894472361809,
+          0.2184873949579832
+        ],
+        [
+          0.5728643216080402,
+          0.2689075630252101
+        ],
+        [
+          0.15577889447236182,
+          0.2605042016806723
+        ],
+        [
+          0.16080402010050251,
+          0.21008403361344538
+        ]
+      ]
+    }
+  ]
+}

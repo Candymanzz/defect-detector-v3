@@ -22,8 +22,8 @@ describe("createNormalizationLut", () => {
 });
 
 describe("HEATMAP_COLOR_LUT", () => {
-  it("keeps zero-energy pixels fully transparent", () => {
-    expect(HEATMAP_COLOR_LUT[3]).toBe(0);
+  it("keeps the old blue background visible at zero energy", () => {
+    expect(HEATMAP_COLOR_LUT[3]).toBe(95);
   });
 
   it("makes peak energy opaque", () => {

@@ -42,10 +42,16 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     button.primary { border-color:#2f6f4a; background:#1f5136; font-weight:700; }
     button.primary:hover { background:#276544; }
     .previews,.visuals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:14px; }
-    .visuals { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .visuals { grid-template-columns:repeat(2,minmax(0,1fr)); }
     figure { margin:0; background:#0a0e14; border:1px solid #29384b; border-radius:10px; overflow:hidden; }
     figcaption { padding:8px 10px; color:#b8c4d2; border-bottom:1px solid #29384b; }
     figure img { display:block; width:100%; min-height:120px; max-height:360px; object-fit:contain; background:#070a0e; }
+    .heatmap-stack { display:grid; width:100%; background:#070a0e; }
+    .heatmap-stack img { grid-area:1 / 1; display:block; width:100%; height:auto; min-height:120px; max-height:360px; object-fit:contain; background:transparent; }
+    .heatmap-stack .heatmap-layer { opacity:.9; }
+    .heatmap-opacity { display:flex; flex-direction:row; align-items:center; gap:8px; padding:8px 10px; border-top:1px solid #29384b; }
+    .heatmap-opacity input { flex:1; min-width:100px; padding:0; }
+    .heatmap-opacity output { min-width:42px; color:#edf2f8; text-align:right; }
     .roi-editor { position:relative; width:100%; background:#070a0e; }
     .roi-editor img { width:100%; height:auto; min-height:0; max-height:none; object-fit:initial; user-select:none; }
     .roi-overlay { position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; }
@@ -143,7 +149,18 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     <div id="resultMetrics" class="result"></div>
     <div class="visuals">
       <figure><figcaption>Текущий кадр без выравнивания</figcaption><img id="alignedImage"></figure>
-      <figure><figcaption>Heatmap</figcaption><img id="heatmapImage"></figure>
+      <figure>
+        <figcaption>Heatmap основной инспекции (до дообучения) поверх выровненного кадра</figcaption>
+        <div class="heatmap-stack">
+          <img id="heatmapBackground" alt="Выровненный кадр под heatmap">
+          <img id="heatmapImage" class="heatmap-layer" alt="Heatmap">
+        </div>
+        <label class="heatmap-opacity">
+          Непрозрачность heatmap
+          <input id="heatmapOpacity" type="range" min="0" max="100" step="5" value="90" oninput="setHeatmapOpacity(this.value)">
+          <output id="heatmapOpacityValue">90%</output>
+        </label>
+      </figure>
       <figure><figcaption>Diff</figcaption><img id="diffImage"></figure>
       <figure><figcaption>Итоговая маска</figcaption><img id="maskImage"></figure>
     </div>
@@ -261,7 +278,10 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       const result = await jsonResponse(await fetch('/inspect', {method:'POST', body:inspectForm}));
       renderResult(result, performance.now() - started);
       await loadHistory();
-      if(result.inspection_id) await openHistoryFrame(result.inspection_id);
+      if(result.inspection_id) {
+        await loadReview(result.inspection_id);
+        highlightHistory();
+      }
       else {
         currentReview = null;
         highlightHistory();
@@ -276,6 +296,11 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
 
   function imageData(value) { return value ? `data:image/png;base64,${value}` : ''; }
+  function setHeatmapOpacity(value) {
+    const percent = Math.max(0, Math.min(100, Number(value) || 0));
+    document.getElementById('heatmapImage').style.opacity = String(percent / 100);
+    document.getElementById('heatmapOpacityValue').textContent = `${percent}%`;
+  }
   function renderResult(result, elapsedMs) {
     const statusClass = result.status === 'ГОДЕН' ? 'good' : 'bad';
     document.getElementById('resultMetrics').innerHTML = `
@@ -287,7 +312,9 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       <div class="metric">Исключено областей<b>${Number(result.learned_normal_matches_count || 0)}</b></div>
       <div class="metric">Вычтено из score<b>${Number(result.learned_normal_adjustment || 0).toFixed(4)}</b></div>
       <div class="metric">Время HTTP-проверки<b>${elapsedMs.toFixed(1)} мс</b></div>`;
-    document.getElementById('alignedImage').src = imageData(result.aligned_image_b64);
+    const alignedImage = imageData(result.aligned_image_b64);
+    document.getElementById('alignedImage').src = alignedImage;
+    document.getElementById('heatmapBackground').src = alignedImage;
     document.getElementById('heatmapImage').src = imageData(result.heatmap_b64);
     document.getElementById('diffImage').src = imageData(result.diff_map_b64);
     document.getElementById('maskImage').src = imageData(result.segmentation_mask_b64);
@@ -315,7 +342,9 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       <div class="metric">Областей<b>${Number(review.defects.length)}</b></div>
       <div class="metric">Уже сохранено<b>${Number(review.accepted_defects_count || 0)}</b></div>
       <div class="metric">Кадр из истории<b>${esc(String(review.inspection_id).slice(0, 8))}</b></div>`;
-    document.getElementById('alignedImage').src = imageUrl('aligned');
+    const alignedImageUrl = imageUrl('aligned');
+    document.getElementById('alignedImage').src = alignedImageUrl;
+    document.getElementById('heatmapBackground').src = alignedImageUrl;
     document.getElementById('heatmapImage').src = imageUrl('heatmap');
     document.getElementById('diffImage').src = imageUrl('diff');
     document.getElementById('maskImage').src = imageUrl('mask');

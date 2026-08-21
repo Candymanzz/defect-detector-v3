@@ -3,6 +3,7 @@ export const HEATMAP_COLOR_LUT = createHeatmapColorLut();
 export function createNormalizationLut(bytes: Uint8Array, size: number) {
   let min = 255;
   let max = 0;
+  const histogram = new Uint32Array(256);
 
   for (let index = 0; index < size; index += 1) {
     const value = bytes[index];
@@ -13,6 +14,7 @@ export function createNormalizationLut(bytes: Uint8Array, size: number) {
     if (value > max) {
       max = value;
     }
+    histogram[value] += 1;
   }
 
   const normalized = new Uint8Array(256);
@@ -21,11 +23,25 @@ export function createNormalizationLut(bytes: Uint8Array, size: number) {
     return normalized;
   }
 
-  const range = max - min;
+  let displayMax = max;
+  const nonSaturatedCount = Math.max(0, size - histogram[min] - histogram[max]);
+  if (nonSaturatedCount >= 32) {
+    const targetRank = Math.max(1, Math.ceil(nonSaturatedCount * 0.995));
+    let rank = 0;
+    for (let value = min + 1; value < max; value += 1) {
+      rank += histogram[value];
+      if (rank >= targetRank) {
+        displayMax = value;
+        break;
+      }
+    }
+  }
+  displayMax = Math.max(min + 1, Math.min(max, displayMax));
+  const range = displayMax - min;
 
-  for (let value = min; value <= max; value += 1) {
+  for (let value = min; value <= 255; value += 1) {
     const ratio = (value - min) / range;
-    normalized[value] = Math.round(ratio ** 0.8 * 255);
+    normalized[value] = Math.min(255, Math.round(ratio ** 0.8 * 255));
   }
 
   return normalized;
@@ -42,7 +58,7 @@ function createHeatmapColorLut() {
     lut[index] = color.r;
     lut[index + 1] = color.g;
     lut[index + 2] = color.b;
-    lut[index + 3] = value === 0 ? 0 : Math.round(70 + 150 * ratio);
+    lut[index + 3] = Math.round(95 + 110 * ratio);
   }
 
   return lut;
