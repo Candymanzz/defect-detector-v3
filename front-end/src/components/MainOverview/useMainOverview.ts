@@ -192,13 +192,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
       if (!current?.inspectResult) {
         return current;
       }
-      if (
-        current.pinnedTestImageUrl
-        && current.pinnedTestImageUrl.startsWith("blob:")
-        && current.pinnedTestImageUrl !== cameraImageUrl
-      ) {
-        URL.revokeObjectURL(current.pinnedTestImageUrl);
-      }
       return {
         ...current,
         cameraImageUrl,
@@ -220,14 +213,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
     });
   }, []);
 
-  const closeInspectionModal = useCallback(() => {
-    setModalSnapshot((current) => {
-      if (current?.pinnedTestImageUrl?.startsWith("blob:")) {
-        URL.revokeObjectURL(current.pinnedTestImageUrl);
-      }
-      return null;
-    });
-  }, []);
+  const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
 
   const loadArchivedHistory = useCallback(
     async (targetCameraIds: number[] = cameraIds) => {

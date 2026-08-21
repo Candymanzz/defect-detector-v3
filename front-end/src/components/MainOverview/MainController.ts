@@ -221,7 +221,7 @@ export function updateModalSnapshotResult(
   return {
     ...currentSnapshot,
     inspectResult: displayInspectResult,
-    // Frozen TEST image must never change after pin (blob: or locked URL).
+    // Frozen TEST image must never change after pin (disk pin URL).
     cameraImageUrl: lockedPinImageUrl ?? nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
     pinnedTestImageUrl: currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl,
     heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),

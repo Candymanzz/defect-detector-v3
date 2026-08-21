@@ -378,6 +378,8 @@ export type PinTestFrameResponse = {
   cameraId: number;
   frameId: number;
   pinId: string;
+  httpPath?: string;
+  sha256?: string;
 };
 
 export type AcceptLearnedNormalsRequest = {

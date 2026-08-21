@@ -64,7 +64,9 @@ public final class UiTestAnalyzeService {
     public record Pinned(
             int cameraId,
             long frameId,
-            String pinId
+            String pinId,
+            String httpPath,
+            String sha256
     ) {
     }
 
@@ -250,21 +252,22 @@ public final class UiTestAnalyzeService {
                 request.httpPath()
         );
         try {
+            String httpPath = "/api/client/inspection/test-pin/cameras/" + request.cameraId() + "/frame.jpg";
             TestFramePinStore.Pin pin = pinStore.pin(
                     request.cameraId(),
                     resolved.frameId(),
                     resolved.jpegBytes(),
-                    // Durable URL: archive/artifact paths can roll/expire while TEST settings stay open.
-                    "/api/client/inspection/test-pin/cameras/" + request.cameraId() + "/frame.jpg"
+                    httpPath
             );
             log.info(
-                    "ui test-pin stored cam={} frame={} pinPath={} sha={}",
+                    "ui test-pin stored cam={} frame={} pinPath={} sha={} http_path={}",
                     pin.cameraId(),
                     pin.frameId(),
                     pin.jpegPath(),
-                    sha
+                    sha,
+                    httpPath
             );
-            return new Pinned(pin.cameraId(), pin.frameId(), "cam-" + pin.cameraId());
+            return new Pinned(pin.cameraId(), pin.frameId(), "cam-" + pin.cameraId(), httpPath, sha);
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to pin test frame: " + e.getMessage());
         }
