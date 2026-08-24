@@ -706,17 +706,19 @@ class InspectionService:
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
         analysis_profile: Optional[str] = None,
+        settings: Optional[AnalysisSettings] = None,
         temporary_analysis_overrides: Optional[dict[str, object]] = None,
         pre_learning_heatmap: bool = False,
         store_learning_review: bool = True,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         settings_key = (analysis_profile or "").strip() or product_type
-        settings = self.get_analysis_settings(settings_key)
-        if temporary_analysis_overrides:
-            merged_overrides = self.get_analysis_settings_overrides(settings_key)
-            merged_overrides.update(temporary_analysis_overrides)
-            settings = AnalysisSettings.from_overrides(merged_overrides)
+        if settings is None:
+            settings = self.get_analysis_settings(settings_key)
+            if temporary_analysis_overrides:
+                merged_overrides = self.get_analysis_settings_overrides(settings_key)
+                merged_overrides.update(temporary_analysis_overrides)
+                settings = AnalysisSettings.from_overrides(merged_overrides)
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
