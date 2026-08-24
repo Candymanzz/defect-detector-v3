@@ -143,6 +143,12 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             }
             BinaryInspectHeaders.applyMainRoiFromPolygon(gHeader, state.capture(), activeReference);
             BinaryInspectHeaders.syncWrinklesRoiFromMainRoi(gHeader);
+            if (state.capture().header().get("test_geometry_overrides") instanceof Map<?, ?> temporary) {
+                Object maxShift = temporary.get("max_shift_mm");
+                if (maxShift != null) gHeader.put("maxShiftMm", maxShift);
+                Object seamSensitivity = temporary.get("joint_seam_segmentation_sensitivity");
+                if (seamSensitivity != null) gHeader.put("jointSeamSegmentationSensitivity", seamSensitivity);
+            }
             geometrySlots.acquire();
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);

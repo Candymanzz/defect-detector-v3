@@ -36,16 +36,21 @@ type Props = {
   selectedCameraId: number | null;
   profile?: string;
   testFrameId?: string;
+  testPinId?: string;
   onSaveComplete?: () => Promise<void> | void;
   hideSaveAction?: boolean;
 };
-export type AnalysisSettingsPanelHandle = { save: () => Promise<void> };
+export type AnalysisSettingsPanelHandle = {
+  save: () => Promise<void>;
+  getDraft: () => { mode: Mode; knobs: SimpleAnalysisKnobs | ProAnalysisKnobs };
+};
 type Mode = "simple" | "pro";
 
 export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Props>(function AnalysisSettingsPanel({
   selectedCameraId,
   profile = FALLBACK_PROFILE,
   testFrameId,
+  testPinId,
   onSaveComplete,
   hideSaveAction = false,
 }, ref) {
@@ -125,7 +130,9 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       void Promise.resolve()
         .then(() => (persistSimple ? saveSimple(selectedCameraId, simple) : undefined))
         .then(() => (persistPro ? savePro(selectedCameraId, pro) : undefined))
-        .then(() => (preview ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId!) : undefined))
+        .then(() => (preview && testPinId
+          ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId!)
+          : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
             if (persistSimple) userEditedSimpleRef.current = false;
@@ -152,7 +159,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         previewTimerRef.current = null;
       }
     };
-  }, [hideSaveAction, mode, pro, selectedCameraId, simple, testFrameId]);
+  }, [hideSaveAction, mode, pro, selectedCameraId, simple, testFrameId, testPinId]);
 
   const unlock = () => {
     if (password !== ACCESS_CODE) {
@@ -196,8 +203,8 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         userEditedProRef.current = false;
       }
       if (!hideSaveAction) {
-        if (selectedCameraId !== null && testFrameId) {
-          await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testFrameId);
+        if (selectedCameraId !== null && testFrameId && testPinId) {
+          await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId);
           setStatus({ kind: "success", text: `Сохранено, кадр ${testFrameId} пересчитан` });
           return;
         }
@@ -213,7 +220,10 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     }
   };
 
-  useImperativeHandle(ref, () => ({ save: persist }));
+  useImperativeHandle(ref, () => ({
+    save: persist,
+    getDraft: () => ({ mode, knobs: mode === "simple" ? simple : pro }),
+  }));
 
   const openPro = () => {
     if (unlocked) {

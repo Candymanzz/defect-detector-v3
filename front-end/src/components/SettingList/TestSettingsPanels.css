@@ -21,6 +21,16 @@
   border-bottom: none;
 }
 
+.modal__test-settings-frame-id {
+  margin: 0;
+  padding: 8px 12px;
+  color: #d7e6ef;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .modal__test-settings-status {
   margin: 0;
   padding: 8px 12px;

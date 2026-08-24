@@ -633,6 +633,10 @@ public final class WsOutboundMessenger {
         );
         if (YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false)) {
             payload.put("test_analyze", true);
+            Object jobId = captureHeader == null ? null : captureHeader.get("test_analyze_job_id");
+            if (jobId != null) payload.put("test_analyze_job_id", String.valueOf(jobId));
+            Object pinId = captureHeader == null ? null : captureHeader.get("test_pin_id");
+            if (pinId != null) payload.put("test_pin_id", String.valueOf(pinId));
             Object pinSha = captureHeader == null ? null : captureHeader.get("pin_jpeg_sha256");
             if (pinSha != null) {
                 String sha = String.valueOf(pinSha).trim();

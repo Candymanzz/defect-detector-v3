@@ -388,12 +388,19 @@ export const orchestratorApi = {
     });
   },
 
-  async testAnalyzePinnedFrame(cameraId: number, frameId?: string) {
+  async testAnalyzePinnedFrame(
+    cameraId: number,
+    pinId: string,
+    frameId?: string,
+    temporarySettings?: { geometry?: Record<string, number>; analysis?: Record<string, unknown> },
+  ) {
     return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
       method: "POST",
       body: {
         cameraId,
         frameId,
+        pinId,
+        temporarySettings,
         source: "pin",
       },
     });
@@ -406,6 +413,7 @@ export const orchestratorApi = {
         frameId: request.frameId,
         productType: request.productType,
         cameraId: request.cameraId,
+        learnedReviewId: request.learnedReviewId,
         note: request.note ?? "",
       },
     });

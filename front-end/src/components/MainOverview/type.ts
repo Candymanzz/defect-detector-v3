@@ -56,6 +56,9 @@ export type ModalInspectionSnapshot = SelectedCamera & {
   pinnedTestImageUrl?: string;
   pinnedTestHttpPath?: string;
   pinnedTestFrameId?: string;
+  pinnedTestPinId?: string;
+  pinnedTestJpegSha256?: string;
+  pendingTestJobId?: string;
   heatmapUrl?: string;
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];
