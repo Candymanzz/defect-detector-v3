@@ -823,12 +823,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (cap == null || cap.isEmpty()) {
             return null;
         }
+        boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
         Object explicit = cap.get("ui_preview_shm_name");
         if (explicit != null) {
             String name = String.valueOf(explicit).trim();
             if (!name.isEmpty() && previewShmExists(name, cameraId)) {
-                return name.startsWith("/") ? name : "/" + name.replace("/", "_");
+                if (!testAnalyze || !isSharedProductionPosShm(name, cameraId)) {
+                    return name.startsWith("/") ? name : "/" + name.replace("/", "_");
+                }
             }
+        }
+        if (testAnalyze) {
+            // TEST freeze/heatmap must not fall back to leftover live iml_pos_cam_{id}.
+            return null;
         }
         if (YamlScalars.toBool(cap.get("positioning_aligned"), false)) {
             Object shm = cap.get("shm_name");
@@ -849,6 +856,12 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             }
         }
         return null;
+    }
+
+    private static boolean isSharedProductionPosShm(String shmName, int cameraId) {
+        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
+        base = base.replace('/', '_');
+        return ("iml_pos_cam_" + cameraId).equals(base);
     }
 
     private static boolean previewShmExists(String shmName, int cameraId) {
