@@ -86,22 +86,10 @@ class InspectionService:
             session_wipe=session_wipe,
         )
 
-        self._anomaly_engine = None
-        self._load_anomalib_engine()
         self._load_fp_zones()
         self._load_roi_sub_zones()
         self._load_analysis_settings()
         self._stamp_analysis_settings_mtime()
-
-    def _load_anomalib_engine(self) -> None:
-        try:
-            from anomalib.deploy import OpenVINOInferencer  # type: ignore
-
-            self._anomaly_engine = OpenVINOInferencer(
-                path="models/patchcore/openvino/model.xml" # model path
-            )
-        except Exception:
-            self._anomaly_engine = None
 
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
@@ -1919,8 +1907,7 @@ class InspectionService:
     ) -> Tuple[float, np.ndarray]:
         """Вернуть (score 0..1, маска дефектов BGR).
 
-        Сначала эвристика по connected components на diff_map;
-        при use_patchcore — объединение с PatchCore, берётся max(score).
+        Эвристика по connected components на diff_map.
         """
         # Heuristic fallback score with emphasis on strong local differences.
         # This helps thin/high-contrast defects (e.g. scratches) score higher than
@@ -2022,21 +2009,6 @@ class InspectionService:
         if max_aspect > settings.scratch_aspect_floor:
             heuristic_score = max(heuristic_score, settings.scratch_score_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
-
-        if settings.use_patchcore and self._anomaly_engine is not None:
-            try:
-                prediction = self._anomaly_engine.predict(image=diff_map)
-                model_score = float(prediction.pred_score)
-                mask = prediction.pred_mask.astype(np.uint8) * 255
-                if len(mask.shape) == 2:
-                    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-                # Merge model mask with heuristic mask so thin scratches seen in diff_map
-                # are not lost when model mask is conservative on textured surfaces.
-                merged_mask = cv2.bitwise_or(mask, heuristic_mask)
-                # Use the larger score to avoid missing obvious defects when model score is conservative.
-                return max(model_score, heuristic_score), merged_mask
-            except Exception:
-                pass
 
         return heuristic_score, heuristic_mask
 

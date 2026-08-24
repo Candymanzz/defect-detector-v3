@@ -62,7 +62,6 @@ analisSurface/
 │   │       ├── analysis_settings.json
 │   │       ├── fp_zones.json
 │   │       └── roi_sub_zones.json
-│   ├── models/                     # ML-модель PatchCore (OpenVINO), опционально
 │   └── requirements.txt
 └── docs/
     ├── GUIDE.md                         # Этот файл
@@ -285,7 +284,7 @@ flowchart TD
 
 3. **Diff** (`_compute_advanced_difference`) — сравнение яркости/градиентов, CLAHE (если включён), подавление краёв и текста по настройкам.
 
-4. **Аномалии** (`_run_anomaly_model`) — эвристика по connected components на diff (царапины, пятна); опционально PatchCore через anomalib, если модель загружена.
+4. **Аномалии** (`_run_anomaly_model`) — эвристика по connected components на diff (царапины, пятна).
 
 5. **FP-recheck** — для зон из `fp_zones.json`: если всплеск diff похож на известный шум, score снижается.
 

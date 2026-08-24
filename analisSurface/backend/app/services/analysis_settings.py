@@ -7,7 +7,6 @@ class AnalysisSettings:
     """Параметры алгоритма на product_type; подробности — docs/ANALYSIS_SETTINGS.md."""
 
     default_threshold: float = 0.25
-    use_patchcore: bool = True
     min_defect_area: int = 6
     min_scratch_aspect: float = 3.0
     min_diff_signal: float = 12.0

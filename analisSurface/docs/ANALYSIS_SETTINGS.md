@@ -53,7 +53,6 @@ curl -s -X PUT "http://127.0.0.1:8000/analysis-settings/your-product" \
   -H "Content-Type: application/json" \
   -d '{
     "default_threshold": 0.25,
-    "use_patchcore": true,
     "min_defect_area": 6,
     "min_scratch_aspect": 3.0,
     "min_diff_signal": 12.0,
@@ -125,7 +124,6 @@ curl -s -X PUT "http://127.0.0.1:8000/analysis-settings/your-product" \
 | `min_scratch_aspect` | float | `≥ 1` | `3.0` | Соотношение сторон компоненты: тонкие царапины с площадью `> 3` сохраняются при aspect **больше** этого порога. **Выше** → только более вытянутые линии. |
 | `scratch_aspect_floor` | float | `≥ 1` | `4.5` | Если max aspect маски **выше** порога — эвристический score не ниже `scratch_score_floor`. |
 | `scratch_score_floor` | float | `[0, 1]` | `0.35` | Нижняя граница score при длинных тонких дефектах. **Выше** → царапины чаще дают БРАК. |
-| `use_patchcore` | bool | — | `true` | Включить модель PatchCore (если движок загружен). Score = `max(model, heuristic)`. **false** → только эвристика по diff map. |
 
 ---
 

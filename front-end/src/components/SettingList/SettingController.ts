@@ -23,7 +23,6 @@ const FALLBACK_ANALYSIS_PRODUCT_TYPE = "reference-product";
 
 const DEFAULT_ANALYSIS_SETTINGS: AnalysisSettings = {
   default_threshold: 0.25,
-  use_patchcore: true,
   min_defect_area: 6,
   min_scratch_aspect: 3,
   min_diff_signal: 12,
@@ -312,7 +311,6 @@ function normalizeAnalysisSettings(settings: AnalysisSettings): AnalysisSettings
       Number.MIN_VALUE,
       1,
     ),
-    use_patchcore: toBoolean(settings.use_patchcore, DEFAULT_ANALYSIS_SETTINGS.use_patchcore),
     min_defect_area: Math.max(
       1,
       Math.round(toFiniteNumber(settings.min_defect_area, DEFAULT_ANALYSIS_SETTINGS.min_defect_area)),

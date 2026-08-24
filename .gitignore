@@ -10,7 +10,19 @@
 .tmp/
 **/.pytest-tmp-final/
 **/.pytest_cache/
+**/.pytest-tmp-*/
+**/pytest-cache-files-*/
+**/.benchmark-*/
+hs_err_pid*.log
+replay_pid*.log
 **/test_data/*_preview.png
+
+# Synthetic inspection datasets and generated benchmark results.
+/analisSurface/backend/test_data/bucket_learning/
+/analisSurface/backend/test_data/varied_defect_learning/
+/analisSurface/backend/test_data/palochki_validation/
+/analisSurface/backend/test_data/palochki-2/
+/analisSurface/backend/test_data/exact90_*.png
 
 # Build outputs (GitHub rejects files > 100 MB)
 **/target/

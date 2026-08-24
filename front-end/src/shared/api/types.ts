@@ -310,7 +310,6 @@ export type FpZonesUpdateRequest = {
 
 export type AnalysisSettings = {
   default_threshold: number;
-  use_patchcore: boolean;
   min_defect_area: number;
   min_scratch_aspect: number;
   min_diff_signal: number;

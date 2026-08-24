@@ -43,7 +43,6 @@ Middleware всегда добавляет `detector_id`.
   },
   "settings": {
     "default_threshold": 0.25,
-    "use_patchcore": true,
     "min_defect_area": 6,
     "min_scratch_aspect": 3.0,
     "min_diff_signal": 12.0,

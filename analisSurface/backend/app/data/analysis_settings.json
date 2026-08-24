@@ -18,8 +18,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -45,8 +44,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -72,8 +70,7 @@
       "min_defect_area": 35,
       "enable_clahe": false,
       "scratch_score_floor": 0.251,
-      "min_scratch_aspect": 4.32,
-      "use_patchcore": true
+      "min_scratch_aspect": 4.32
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -99,8 +96,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -126,8 +122,7 @@
       "min_defect_area": 29,
       "enable_clahe": false,
       "scratch_score_floor": 0.272,
-      "min_scratch_aspect": 4.04,
-      "use_patchcore": true
+      "min_scratch_aspect": 4.04
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -153,8 +148,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -180,8 +174,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -207,8 +200,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -234,8 +226,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
@@ -261,8 +252,7 @@
       "min_defect_area": 12,
       "enable_clahe": true,
       "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "min_scratch_aspect": 3.2800000000000002
     },
     "simple_knobs": {
       "threshold": 0.3,
