@@ -165,15 +165,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!enabled) {
             return null;
         }
-        boolean storeCurrent = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_current_jpeg"), true);
-        boolean storeHeatmapU8 = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_heatmap_u8"), true);
+        boolean storeCurrent = YamlScalars.toBool(uiCfg.get("store_current_jpeg"), true);
+        boolean storeHeatmapU8 = YamlScalars.toBool(uiCfg.get("store_heatmap_u8"), true);
         if (!storeCurrent && !storeHeatmapU8) {
             return null;
         }
-        int q = Math.max(1, YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("visuals_queue_size"), 8));
+        int q = Math.max(1, YamlScalars.toInt(uiCfg.get("visuals_queue_size"), 8));
         int parallelism = Math.max(
                 1,
-                YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("visuals_parallelism"), 2)
+                YamlScalars.toInt(uiCfg.get("visuals_parallelism"), 2)
         );
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 parallelism,
