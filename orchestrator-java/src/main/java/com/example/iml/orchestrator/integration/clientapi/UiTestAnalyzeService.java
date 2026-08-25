@@ -414,6 +414,21 @@ public final class UiTestAnalyzeService {
             if (previewHttpPath != null && !previewHttpPath.isBlank()) {
                 captureHeader.put("http_path", previewHttpPath);
             }
+            Path testFrameFile = resolveTestFrameFilePath(cameraId, frameId, pinId);
+            if (testFrameFile != null) {
+                captureHeader.put("test_frame_file_path", testFrameFile.toAbsolutePath().toString());
+                captureHeader.put("test_frame_cache_key", cameraId + ":" + frameId);
+                if (previewHttpPath != null && !previewHttpPath.isBlank()) {
+                    captureHeader.put("test_frame_image_url", previewHttpPath);
+                }
+            } else {
+                log.warn(
+                        "ui test-analyze missing local JPEG path cam={} frame={} pinId={} — python will fall back to inspect-shm",
+                        cameraId,
+                        frameId,
+                        pinId
+                );
+            }
             BinaryProtocol.Message capture = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_RESPONSE,
                     Map.copyOf(captureHeader),
@@ -566,6 +581,22 @@ public final class UiTestAnalyzeService {
                         java.util.concurrent.TimeUnit.SECONDS
                 )
         );
+    }
+
+    private Path resolveTestFrameFilePath(int cameraId, long frameId, String pinId) {
+        if (pinId != null && !pinId.isBlank()) {
+            Optional<Path> pinned = pinnedJpegPath(pinId);
+            if (pinned.isPresent() && Files.isRegularFile(pinned.get())) {
+                return pinned.get();
+            }
+        }
+        if (frameArchive != null && frameArchive.enabled()) {
+            Optional<Path> archived = frameArchive.resolveArtifact(cameraId, frameId, "frame.jpg");
+            if (archived.isPresent() && Files.isRegularFile(archived.get())) {
+                return archived.get();
+            }
+        }
+        return null;
     }
 
     private boolean isSuperseded(int cameraId, long generation) {

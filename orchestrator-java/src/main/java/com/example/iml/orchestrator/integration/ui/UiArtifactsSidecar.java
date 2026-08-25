@@ -502,7 +502,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     }
 
                     HeatmapArtifact heatmapSource = sourceHeatmap;
+                    // test-analyze heatmap comes from /inspect-test-frame in the same python call —
+                    // do not run a second /inspect-shm-visuals without ephemeral knobs.
                     if (storeHeatmapU8
+                            && !testAnalyze
                             && (heatmapSource.path() == null || heatmapSource.width() <= 0 || heatmapSource.height() <= 0)) {
                         heatmapSource = generateHeatmapArtifact(
                                 uiVisualsPython,
