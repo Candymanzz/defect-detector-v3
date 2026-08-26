@@ -1,5 +1,7 @@
 """Упрощённые эндпоинты analysis-settings: simple (2 ручки) и pro (6 ручек)."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspection_service
@@ -14,6 +16,16 @@ from app.services.analysis_settings_presets import expand_pro, expand_simple
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _changed_settings(before: dict[str, object], after: dict[str, object]) -> dict[str, dict[str, object]]:
+    """Return only the effective analysis parameters changed by a settings request."""
+    return {
+        key: {"before": before.get(key), "after": value}
+        for key, value in after.items()
+        if before.get(key) != value
+    }
 
 
 @router.get(
@@ -37,12 +49,20 @@ async def put_simple_analysis_settings(
 ) -> SimpleSettingsResponse:
     """PUT — развернуть threshold+sensitivity и записать через InspectionService."""
     try:
+        before = inspection_service.get_analysis_settings(analysis_profile).to_dict()
         expanded = expand_simple(payload.threshold, payload.sensitivity)
         knobs = payload.model_dump()
         overrides = inspection_service.apply_simple_settings(analysis_profile, expanded, knobs)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return to_simple_settings_response(analysis_profile, overrides, knobs)
+    response = to_simple_settings_response(analysis_profile, overrides, knobs)
+    logger.info(
+        "analysis_settings_applied mode=simple profile=%s ui_knobs=%s changed=%s",
+        analysis_profile,
+        knobs,
+        _changed_settings(before, response.settings.model_dump()),
+    )
+    return response
 
 
 @router.get(
@@ -66,6 +86,7 @@ async def put_pro_analysis_settings(
 ) -> ProSettingsResponse:
     """PUT — развернуть pro-ручки и записать через InspectionService."""
     try:
+        before = inspection_service.get_analysis_settings(analysis_profile).to_dict()
         expanded = expand_pro(
             payload.threshold,
             payload.noise_tolerance,
@@ -78,4 +99,11 @@ async def put_pro_analysis_settings(
         overrides = inspection_service.apply_pro_settings(analysis_profile, expanded, knobs)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return to_pro_settings_response(analysis_profile, overrides, knobs)
+    response = to_pro_settings_response(analysis_profile, overrides, knobs)
+    logger.info(
+        "analysis_settings_applied mode=pro profile=%s ui_knobs=%s changed=%s",
+        analysis_profile,
+        knobs,
+        _changed_settings(before, response.settings.model_dump()),
+    )
+    return response
