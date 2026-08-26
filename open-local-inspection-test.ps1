@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
 $BackendDir = Join-Path $RepoRoot "analisSurface\backend"
 $PythonExe = Join-Path $BackendDir ".venv\Scripts\python.exe"
-$InterfaceUrl = "http://127.0.0.1:8000/local-inspection-test"
+$InterfaceUrl = "http://127.0.0.1:8000/local-emulator"
 $HealthUrl = "http://127.0.0.1:8000/health"
 
 function Test-HttpPage([string]$Url) {

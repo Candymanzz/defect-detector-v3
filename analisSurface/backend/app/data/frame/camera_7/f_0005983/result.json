@@ -1,0 +1,16 @@
+{
+  "camera_id" : 7,
+  "frame_id" : "5983",
+  "inspection_id" : "7825",
+  "saved_at_ms" : 1787509622807,
+  "archived" : true,
+  "product_type" : "bench-lan8",
+  "detector_id" : "v1",
+  "frame_http_path" : "/api/frame-archive/cameras/7/frames/5983/frame.jpg",
+  "heatmap" : null,
+  "overall_pass" : false,
+  "action" : "CAPTURE",
+  "anomaly_score" : 0.0,
+  "python_status" : "NO_REFERENCE",
+  "geometry_status" : "SKIPPED"
+}

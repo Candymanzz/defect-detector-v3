@@ -1,0 +1,22 @@
+{
+  "camera_id" : 2,
+  "frame_id" : "5976",
+  "inspection_id" : "7818",
+  "saved_at_ms" : 1787509553028,
+  "archived" : true,
+  "product_type" : "bench-lan2",
+  "detector_id" : "v1",
+  "frame_http_path" : "/api/frame-archive/cameras/2/frames/5976/frame.jpg",
+  "heatmap" : {
+    "width" : 384,
+    "height" : 321,
+    "pixel_format" : "gray_u8",
+    "channels" : 1,
+    "http_path" : "/api/frame-archive/cameras/2/frames/5976/heatmap.u8"
+  },
+  "overall_pass" : false,
+  "action" : "REJECT",
+  "anomaly_score" : 1.0,
+  "python_status" : "БРАК",
+  "geometry_status" : "SKIPPED"
+}

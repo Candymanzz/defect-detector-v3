@@ -12,6 +12,14 @@
 **/.pytest_cache/
 **/test_data/*_preview.png
 
+# Local replay data and generated test artifacts.
+/analisSurface/backend/app/data/emulator_sessions/
+**/.pytest-tmp-*/
+**/pytest-cache-files-*/
+**/.benchmark-*/
+hs_err_pid*.log
+replay_pid*.log
+
 # Build outputs (GitHub rejects files > 100 MB)
 **/target/
 LightServer/bin/
