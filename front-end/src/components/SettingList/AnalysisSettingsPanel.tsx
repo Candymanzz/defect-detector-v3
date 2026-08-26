@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import type { ProAnalysisKnobs, SimpleAnalysisKnobs } from "../../shared/api";
+import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
 
@@ -35,16 +36,21 @@ type Props = {
   selectedCameraId: number | null;
   profile?: string;
   testFrameId?: string;
+  testPinId?: string;
   onSaveComplete?: () => Promise<void> | void;
   hideSaveAction?: boolean;
 };
-export type AnalysisSettingsPanelHandle = { save: () => Promise<void> };
+export type AnalysisSettingsPanelHandle = {
+  save: () => Promise<void>;
+  getDraft: () => { mode: Mode; knobs: SimpleAnalysisKnobs | ProAnalysisKnobs };
+};
 type Mode = "simple" | "pro";
 
 export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Props>(function AnalysisSettingsPanel({
   selectedCameraId,
   profile = FALLBACK_PROFILE,
   testFrameId,
+  testPinId,
   onSaveComplete,
   hideSaveAction = false,
 }, ref) {
@@ -55,6 +61,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   const [showUnlock, setShowUnlock] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [status, setStatus] = useState<{ kind: "loading" | "saving" | "success" | "error"; text: string }>({
     kind: "loading",
     text: "Загрузка настроек…",
@@ -64,6 +71,14 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   const hydratedRef = useRef(false);
   const userEditedSimpleRef = useRef(false);
   const userEditedProRef = useRef(false);
+
+  useEffect(() => {
+    return subscribeAnalysisSettingsChanged((changedCameraId) => {
+      if (selectedCameraId === null || changedCameraId === null || changedCameraId === selectedCameraId) {
+        setRefreshVersion((version) => version + 1);
+      }
+    });
+  }, [selectedCameraId]);
 
   useEffect(() => {
     let active = true;
@@ -82,18 +97,30 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       })
       .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
     return () => { active = false; };
-  }, [selectedCameraId, profile]);
+  }, [profile, refreshVersion, selectedCameraId]);
 
   useEffect(() => {
-    if (!hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
+    if (!unlocked || refreshVersion === 0) return;
+    let active = true;
+    loadPro(selectedCameraId, profile)
+      .then((response) => {
+        if (!active) return;
+        setPro(response.knobs ?? { ...DEFAULT_PRO, threshold: response.settings.default_threshold });
+      })
+      .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
+    return () => { active = false; };
+  }, [profile, refreshVersion, selectedCameraId, unlocked]);
+
+  useEffect(() => {
+    if (hideSaveAction || !hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
       return;
     }
     if (previewTimerRef.current !== null) {
       window.clearTimeout(previewTimerRef.current);
     }
     const requestId = ++previewRequestIdRef.current;
-    const persistSimple = userEditedSimpleRef.current;
-    const persistPro = userEditedProRef.current;
+    const persistSimple = mode === "simple" && userEditedSimpleRef.current;
+    const persistPro = mode === "pro" && userEditedProRef.current;
     const preview = selectedCameraId !== null && Boolean(testFrameId);
     previewTimerRef.current = window.setTimeout(() => {
       setStatus({
@@ -103,9 +130,13 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       void Promise.resolve()
         .then(() => (persistSimple ? saveSimple(selectedCameraId, simple) : undefined))
         .then(() => (persistPro ? savePro(selectedCameraId, pro) : undefined))
-        .then(() => (preview ? orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId!) : undefined))
+        .then(() => (preview && testPinId
+          ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId!)
+          : undefined))
         .then(() => {
           if (requestId === previewRequestIdRef.current) {
+            if (persistSimple) userEditedSimpleRef.current = false;
+            if (persistPro) userEditedProRef.current = false;
             setStatus({
               kind: "success",
               text: preview
@@ -128,7 +159,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         previewTimerRef.current = null;
       }
     };
-  }, [pro, selectedCameraId, simple, testFrameId]);
+  }, [hideSaveAction, mode, pro, selectedCameraId, simple, testFrameId, testPinId]);
 
   const unlock = () => {
     if (password !== ACCESS_CODE) {
@@ -161,14 +192,19 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     }
     previewRequestIdRef.current += 1;
     setStatus({ kind: "saving", text: "Сохранение…" });
-    const request = mode === "simple"
-      ? saveSimple(selectedCameraId, simple)
-      : savePro(selectedCameraId, pro);
     try {
-      await request;
+      if (mode === "simple") {
+        const response = await saveSimple(selectedCameraId, simple);
+        if (response?.knobs) setSimple(response.knobs);
+        userEditedSimpleRef.current = false;
+      } else {
+        const response = await savePro(selectedCameraId, pro);
+        if (response?.knobs) setPro(response.knobs);
+        userEditedProRef.current = false;
+      }
       if (!hideSaveAction) {
-        if (selectedCameraId !== null && testFrameId) {
-          await orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId);
+        if (selectedCameraId !== null && testFrameId && testPinId) {
+          await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId);
           setStatus({ kind: "success", text: `Сохранено, кадр ${testFrameId} пересчитан` });
           return;
         }
@@ -184,7 +220,10 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     }
   };
 
-  useImperativeHandle(ref, () => ({ save: persist }));
+  useImperativeHandle(ref, () => ({
+    save: persist,
+    getDraft: () => ({ mode, knobs: mode === "simple" ? simple : pro }),
+  }));
 
   const openPro = () => {
     if (unlocked) {
@@ -229,22 +268,64 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       <div className="analysis-presets__fields">
         {fields.map((field) => {
           const value = values[field.name as keyof typeof values];
+          const updateValue = (next: number) => {
+            if (mode === "simple") {
+              userEditedSimpleRef.current = true;
+              setSimple((current) => ({ ...current, [field.name]: next }));
+            } else {
+              userEditedProRef.current = true;
+              setPro((current) => ({ ...current, [field.name]: next }));
+            }
+          };
+          const minimumPercent = field.name === "threshold" ? 1 : 0;
+          const updatePercent = (percent: number) => {
+            updateValue(Math.min(100, Math.max(minimumPercent, percent)) / 100);
+          };
           return (
             <label className="analysis-presets__field" key={field.name}>
-              <span><strong>{field.label}</strong><output>{Number(value).toFixed(2)}</output></span>
+              <span>
+                <strong>{field.label}</strong>
+                <span className="analysis-presets__percent-input">
+                  <input
+                    aria-label={`${field.label}, проценты`}
+                    type="number"
+                    min={minimumPercent}
+                    max="100"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={(Number(value) * 100).toFixed(1)}
+                    disabled={busy}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                      const percent = event.target.valueAsNumber;
+                      if (!Number.isFinite(percent)) return;
+                      updatePercent(percent);
+                    }}
+                  />
+                  <span aria-hidden="true">%</span>
+                  <span className="analysis-presets__percent-steppers">
+                    <button
+                      type="button"
+                      aria-label={`Увеличить ${field.label} на одну десятую процента`}
+                      disabled={busy || Number(value) >= 1}
+                      onClick={() => updatePercent(Number(value) * 100 + 0.1)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Уменьшить ${field.label} на одну десятую процента`}
+                      disabled={busy || Number(value) * 100 <= minimumPercent}
+                      onClick={() => updatePercent(Number(value) * 100 - 0.1)}
+                    >
+                      ▼
+                    </button>
+                  </span>
+                </span>
+              </span>
               <input
-                type="range" min={field.name === "threshold" ? 0.01 : 0} max="1" step="0.01"
+                type="range" min={field.name === "threshold" ? 0.01 : 0} max="1" step="0.001"
                 value={value} disabled={busy}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                  const next = Number(event.target.value);
-                  if (mode === "simple") {
-                    userEditedSimpleRef.current = true;
-                    setSimple((current) => ({ ...current, [field.name]: next }));
-                  } else {
-                    userEditedProRef.current = true;
-                    setPro((current) => ({ ...current, [field.name]: next }));
-                  }
-                }}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => updateValue(Number(event.target.value))}
               />
               <small>{field.hint}</small>
             </label>

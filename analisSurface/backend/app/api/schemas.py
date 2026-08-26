@@ -51,6 +51,9 @@ class InspectResponse(BaseModel):
     learned_normal_matches_count: int = 0
     learned_normal_adjustment: float = 0.0
     matched_accepted_case_ids: list[str] = Field(default_factory=list)
+    # Display-only polygons for saved-normal matches. They do not affect the
+    # score or verdict and let production UI mark already excluded areas.
+    excluded_normal_zones: list[dict] = Field(default_factory=list)
     fp_zone_scores: list[FPZoneScoreResponse] = Field(default_factory=list)
 
 
@@ -174,7 +177,10 @@ class ShmFrameRequest(BaseModel):
     detector_id: Optional[str] = None
     algorithm_params: Optional[dict] = None
     analysis_profile: Optional[str] = None
+    analysis_test_settings: Optional[dict] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None  # 3x3 от geometry
+    skip_learning_review: bool = False
+    test_analyze: bool = False
 
 
 class ShmVisualsRequest(ShmFrameRequest):

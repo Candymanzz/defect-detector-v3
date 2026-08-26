@@ -7,8 +7,9 @@
 
 .heatmap-viewer__canvas-wrap {
   position: relative;
+  isolation: isolate;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: var(--heatmap-aspect, 4 / 3);
   overflow: hidden;
   background: #111;
   border-radius: 8px;
@@ -23,8 +24,24 @@
   object-fit: contain;
 }
 
+.heatmap-viewer__image {
+  z-index: 0;
+}
+
 .heatmap-viewer__canvas {
-  opacity: 0.75;
+  z-index: 1;
+  opacity: 0.9;
+}
+
+.heatmap-viewer__status {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #e2e8f0;
+  background: rgba(17, 24, 39, 0.55);
+  font-size: 13px;
 }
 
 .heatmap-viewer figcaption {

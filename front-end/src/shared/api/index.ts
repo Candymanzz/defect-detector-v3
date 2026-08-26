@@ -9,6 +9,8 @@ export type {
   ProAnalysisKnobs,
   ClientModeResponse,
   TestAnalyzeResponse,
+  PinTestFrameRequest,
+  PinTestFrameResponse,
   AcceptLearnedNormalsRequest,
   AcceptLearnedNormalsResponse,
   ApiOk,

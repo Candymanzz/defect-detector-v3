@@ -8,6 +8,8 @@ import type {
   ProAnalysisKnobs,
   ClientModeResponse,
   TestAnalyzeResponse,
+  PinTestFrameRequest,
+  PinTestFrameResponse,
   AcceptLearnedNormalsRequest,
   AcceptLearnedNormalsResponse,
   CameraRuntimeSettings,
@@ -374,6 +376,36 @@ export const orchestratorApi = {
     });
   },
 
+  async pinTestFrame(request: PinTestFrameRequest) {
+    return http.json<PinTestFrameResponse>("/api/client/inspection/test-pin", {
+      method: "POST",
+      body: {
+        cameraId: request.cameraId,
+        frameId: request.frameId,
+        source: request.source ?? "archive",
+        httpPath: request.httpPath,
+      },
+    });
+  },
+
+  async testAnalyzePinnedFrame(
+    cameraId: number,
+    pinId: string,
+    frameId?: string,
+    temporarySettings?: { geometry?: Record<string, number>; analysis?: Record<string, unknown> },
+  ) {
+    return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
+      method: "POST",
+      body: {
+        cameraId,
+        frameId,
+        pinId,
+        temporarySettings,
+        source: "pin",
+      },
+    });
+  },
+
   async acceptLearnedNormals(request: AcceptLearnedNormalsRequest) {
     return http.json<AcceptLearnedNormalsResponse>("/api/client/learning/accept-all-as-normal", {
       method: "POST",
@@ -381,6 +413,7 @@ export const orchestratorApi = {
         frameId: request.frameId,
         productType: request.productType,
         cameraId: request.cameraId,
+        learnedReviewId: request.learnedReviewId,
         note: request.note ?? "",
       },
     });

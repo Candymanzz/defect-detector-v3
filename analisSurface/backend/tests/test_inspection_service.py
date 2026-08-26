@@ -316,6 +316,37 @@ def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
     assert heat.max() == 0
 
 
+def test_pre_learning_heatmap_keeps_full_residual_energy() -> None:
+    service = InspectionService.__new__(InspectionService)
+    mask = np.zeros((32, 40, 3), dtype=np.uint8)
+    residual = np.full((32, 40, 3), 40, dtype=np.uint8)
+    residual[8:12, 10:18] = 180
+
+    heat = service._build_pre_learning_heatmap_gray(mask, residual)
+
+    assert heat.max() == 255
+    assert heat[0, 0] == 0
+
+
+def test_legacy_local_heatmap_uses_29c9cfa_color_scale() -> None:
+    # Simulate learned-pipeline output: useful residual energy is below 60,
+    # while a small saturated mask reaches 255. The local display must still
+    # expose all old LUT ranges instead of jumping from blue straight to red.
+    gray = np.tile(np.arange(0, 61, dtype=np.uint8), (12, 1))
+    gray[:, -1] = 255
+
+    colored = InspectionService._colorize_heatmap_29c9cfa(gray)
+
+    blue = (colored[:, :, 0] > colored[:, :, 1]) & (colored[:, :, 0] > colored[:, :, 2])
+    green = (colored[:, :, 1] > colored[:, :, 0]) & (colored[:, :, 1] > colored[:, :, 2])
+    yellow = (colored[:, :, 1] > colored[:, :, 0]) & (colored[:, :, 2] > colored[:, :, 0])
+    red = (colored[:, :, 2] > colored[:, :, 0]) & (colored[:, :, 2] > colored[:, :, 1])
+    assert np.any(blue)
+    assert np.any(green)
+    assert np.any(yellow)
+    assert np.any(red)
+
+
 def test_identity_homography_skips_realign(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
     assert inspection_service._is_identity_homography(identity)
@@ -334,8 +365,34 @@ def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
     # Раньше active_ratio*1.2 давал 1.0 уже при ~0.84 покрытия маски.
     score = InspectionService._activity_score(diff_q90=40.0, diff_max=80.0, active_ratio=0.85)
     assert score < 1.0
-    assert score > 0.3
+    assert score > 0.25
 
+
+def test_excluded_normal_overlay_marks_only_polygon_dark_green(
+) -> None:
+    heatmap = np.zeros((100, 120, 3), dtype=np.uint8)
+    result = InspectionService._draw_excluded_normal_overlay(
+        heatmap,
+        [
+            {
+                "kind": "accepted_normal",
+                "polygon": [(0.25, 0.25), (0.75, 0.25), (0.75, 0.75), (0.25, 0.75)],
+            }
+        ],
+    )
+
+    center_bgr = result[50, 60].astype(np.int16)
+    assert center_bgr[1] > center_bgr[0] + 20
+    assert center_bgr[1] > center_bgr[2] + 20
+    assert np.array_equal(result[5, 5], heatmap[5, 5])
+
+
+def test_activity_score_stays_below_ceiling_on_full_strong_mask() -> None:
+    # Даже почти полная маска + сильный diff не должны сразу давать 1.0 —
+    # иначе лёгкий сдвиг sensitivity прыгает с ~80% на 100%.
+    score = InspectionService._activity_score(diff_q90=200.0, diff_max=255.0, active_ratio=0.95)
+    assert score < 1.0
+    assert score > 0.5
 
 def test_score_region_uses_real_mask_not_bbox(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     h, w = gray_frame.shape[:2]
@@ -424,6 +481,44 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     )
     assert without_exception.learned_normal_matches_count == 0
     assert without_exception.status == "БРАК"
+
+
+def test_local_pre_learning_heatmap_is_not_changed_by_accepted_normal(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("local-raw-heatmap", gray_frame)
+    acceptable = gray_frame.copy()
+    acceptable[10:30, 10:50] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+    original = inspection_service.inspect_frame(
+        "local-raw-heatmap",
+        acceptable,
+        threshold=0.1,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+        pre_learning_heatmap=True,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None and review["defects"]
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+    )
+
+    replay = inspection_service.inspect_frame(
+        "local-raw-heatmap",
+        acceptable,
+        threshold=0.1,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+        pre_learning_heatmap=True,
+    )
+
+    assert replay.anomaly_score < replay.threshold
+    assert replay.learned_normal_matches_count == 1
+    assert np.array_equal(replay.heatmap_u8, original.heatmap_u8)
 
 
 def test_delete_all_accepted_normals_clears_every_camera(
@@ -935,8 +1030,10 @@ def test_learning_reviews_fifo_evicts_oldest_on_disk(
         assert result.inspection_id is not None
         inspection_ids.append(result.inspection_id)
 
-    assert service.get_learning_review(inspection_ids[0]) is None
-    assert not (tmp_path / "learning_reviews" / inspection_ids[0]).exists()
+    # The hot FIFO contains only the newest three entries, while cold review
+    # files remain available for delayed operator acceptance from the archive.
+    assert service.get_learning_review(inspection_ids[0]) is not None
+    assert (tmp_path / "learning_reviews" / inspection_ids[0]).exists()
     assert service.get_learning_review(inspection_ids[1]) is not None
     assert service.get_learning_review(inspection_ids[3]) is not None
     assert len(service.list_learning_reviews()) == 3

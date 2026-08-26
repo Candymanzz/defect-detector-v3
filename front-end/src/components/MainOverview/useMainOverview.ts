@@ -187,7 +187,59 @@ export function useMainOverview(inspectionResetVersion = 0) {
     setModalSnapshot((currentSnapshot) => selectModalInspectionSnapshot(currentSnapshot, frameId));
   }, []);
 
-  const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
+  const freezeModalTestFrame = useCallback((
+    frameId: string,
+    cameraImageUrl: string,
+    pinHttpPath: string,
+    pinId: string,
+    jpegSha256: string,
+  ) => {
+    setModalSnapshot((current) => {
+      if (!current?.inspectResult) {
+        return current;
+      }
+      if (
+        current.pinnedTestImageUrl
+        && current.pinnedTestImageUrl.startsWith("blob:")
+        && current.pinnedTestImageUrl !== cameraImageUrl
+      ) {
+        URL.revokeObjectURL(current.pinnedTestImageUrl);
+      }
+      return {
+        ...current,
+        cameraImageUrl,
+        pinnedTestImageUrl: cameraImageUrl,
+        pinnedTestHttpPath: pinHttpPath,
+        pinnedTestFrameId: frameId,
+        pinnedTestPinId: pinId,
+        pinnedTestJpegSha256: jpegSha256,
+        inspectResult: {
+          ...current.inspectResult,
+          frame_id: frameId,
+          test_analyze: true,
+          http_path: pinHttpPath,
+          current: {
+            ...current.inspectResult.current,
+            frame_id: frameId,
+            http_path: pinHttpPath,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const setPendingTestJob = useCallback((jobId: string) => {
+    setModalSnapshot((current) => current ? { ...current, pendingTestJobId: jobId } : current);
+  }, []);
+
+  const closeInspectionModal = useCallback(() => {
+    setModalSnapshot((current) => {
+      if (current?.pinnedTestImageUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(current.pinnedTestImageUrl);
+      }
+      return null;
+    });
+  }, []);
 
   const loadArchivedHistory = useCallback(
     async (targetCameraIds: number[] = cameraIds) => {
@@ -577,6 +629,8 @@ export function useMainOverview(inspectionResetVersion = 0) {
     openInspectionModal,
     selectModalInspection,
     closeInspectionModal,
+    freezeModalTestFrame,
+    setPendingTestJob,
   };
 }
 
@@ -879,6 +933,12 @@ function addModalInspectionItem(
       return currentSnapshot;
     }
 
+    // While TEST settings are open on a pinned frame, ignore live production results so the
+    // modal does not jump to newer DI3 frames / live current.jpg.
+    if (!inspectResult.test_analyze && currentSnapshot.inspectResult?.test_analyze) {
+      return currentSnapshot;
+    }
+
     const historyResult = result ?? "fail";
     const nextItems = upsertModalInspectionItem(currentSnapshot.inspectionItems, {
       frameId: inspectResult.frame_id,
@@ -893,6 +953,17 @@ function addModalInspectionItem(
 
     // Test-analyze: always refresh the open modal with the newest geometry/python result.
     if (inspectResult.test_analyze) {
+      if (
+        currentSnapshot.pinnedTestPinId
+        && (
+          inspectResult.test_pin_id !== currentSnapshot.pinnedTestPinId
+          || inspectResult.pin_jpeg_sha256 !== currentSnapshot.pinnedTestJpegSha256
+          || (currentSnapshot.pendingTestJobId
+            && inspectResult.test_analyze_job_id !== currentSnapshot.pendingTestJobId)
+        )
+      ) {
+        return currentSnapshot;
+      }
       return updateModalSnapshotResult(nextSnapshot, inspectResult);
     }
 

@@ -90,6 +90,53 @@ public final class JpegBgrShmWriter {
         return new WrittenFrame(shmName, shmPath, width, height, stride, Map.copyOf(header));
     }
 
+    /**
+     * Copy a SHM slice into a uniquely named buffer. Does not fall back to {@code iml_cam_N_frame}.
+     */
+    public static Path snapshotNamedBuffer(String sourceShmName, String destBase, long sourceOffset, long frameBytes)
+            throws IOException {
+        if (sourceShmName == null || sourceShmName.isBlank() || destBase == null || destBase.isBlank()) {
+            throw new IOException("missing shm names for test snapshot");
+        }
+        if (frameBytes <= 0L) {
+            throw new IOException("invalid frame size for test snapshot");
+        }
+        String srcBase = sourceShmName.startsWith("/") ? sourceShmName.substring(1) : sourceShmName;
+        srcBase = srcBase.replace('/', '_');
+        Path source = FrameJpegWriter.imlShmFilePath(srcBase);
+        if (!Files.isRegularFile(source)) {
+            throw new IOException("source SHM missing: " + source);
+        }
+        Path target = FrameJpegWriter.imlShmFilePath(destBase);
+        Path parent = target.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);
+             FileChannel output = FileChannel.open(
+                     target,
+                     StandardOpenOption.CREATE,
+                     StandardOpenOption.WRITE,
+                     StandardOpenOption.TRUNCATE_EXISTING
+             )) {
+            if (input.size() < sourceOffset + frameBytes) {
+                throw new IOException("source SHM is smaller than the captured frame");
+            }
+            long copied = 0L;
+            while (copied < frameBytes) {
+                long count = input.transferTo(sourceOffset + copied, frameBytes - copied, output);
+                if (count <= 0L) {
+                    throw new IOException("could not copy the complete captured frame");
+                }
+                copied += count;
+            }
+        } catch (IOException | RuntimeException e) {
+            Files.deleteIfExists(target);
+            throw e;
+        }
+        return target;
+    }
+
     public static void deleteQuietly(Path shmPath) {
         if (shmPath == null) {
             return;

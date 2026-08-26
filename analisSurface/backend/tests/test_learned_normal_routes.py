@@ -1,3 +1,5 @@
+import base64
+
 import cv2
 import numpy as np
 from fastapi.testclient import TestClient
@@ -45,6 +47,10 @@ def test_local_inspection_test_page_is_available() -> None:
     assert "Предыдущий кадр" in response.text
     assert "Следующий кадр" in response.text
     assert "openHistoryFrame" in response.text
+    assert 'id="heatmapBackground"' in response.text
+    assert 'id="heatmapOpacity"' in response.text
+    assert "setHeatmapOpacity" in response.text
+    assert "Heatmap основной инспекции (до дообучения)" in response.text
     assert "Сбросить все нормы" in response.text
 
 
@@ -75,6 +81,9 @@ def test_accept_all_defects_route(monkeypatch) -> None:
 
 
 def test_local_inspection_multipart_flow_returns_visuals_and_review() -> None:
+    product_type = "local-ui-route-test"
+    for case in inspection_service.list_accepted_normal_cases(product_type=product_type):
+        inspection_service.delete_accepted_normal_case(case["id"])
     width, height = 80, 64
     gradient = np.tile(np.linspace(25, 185, width, dtype=np.uint8), (height, 1))
     reference = cv2.cvtColor(gradient, cv2.COLOR_GRAY2BGR)
@@ -86,14 +95,14 @@ def test_local_inspection_multipart_flow_returns_visuals_and_review() -> None:
 
     uploaded = client.post(
         "/upload-ref",
-        data={"product_type": "local-ui-route-test"},
+        data={"product_type": product_type},
         files={"file": ("reference.png", ref_png.tobytes(), "image/png")},
     )
     assert uploaded.status_code == 200
 
     inspected = client.post(
         "/inspect",
-        data={"product_type": "local-ui-route-test", "threshold": "0.1"},
+        data={"product_type": product_type, "threshold": "0.1"},
         files={"file": ("current.png", current_png.tobytes(), "image/png")},
     )
     assert inspected.status_code == 200
@@ -104,10 +113,46 @@ def test_local_inspection_multipart_flow_returns_visuals_and_review() -> None:
     assert payload["diff_map_b64"]
     assert payload["heatmap_b64"]
     assert payload["segmentation_mask_b64"]
+    original_heatmap = cv2.imdecode(
+        np.frombuffer(base64.b64decode(payload["heatmap_b64"]), dtype=np.uint8),
+        cv2.IMREAD_COLOR,
+    )
+    assert original_heatmap is not None
 
     review = client.get(f"/learning/reviews/{payload['inspection_id']}")
     assert review.status_code == 200
     assert review.json()["defects"]
+
+    accepted = client.post(
+        f"/learning/reviews/{payload['inspection_id']}/accept-all-as-normal",
+        json={"note": "local heatmap exclusion"},
+    )
+    assert accepted.status_code == 200
+
+    replay = client.post(
+        "/inspect",
+        data={"product_type": product_type, "threshold": "0.1"},
+        files={"file": ("current.png", current_png.tobytes(), "image/png")},
+    )
+    assert replay.status_code == 200
+    replay_payload = replay.json()
+    decoded_heatmap = cv2.imdecode(
+        np.frombuffer(base64.b64decode(replay_payload["heatmap_b64"]), dtype=np.uint8),
+        cv2.IMREAD_COLOR,
+    )
+    assert decoded_heatmap is not None
+    # Accepted normal regions are intentionally marked dark green on the color
+    # heatmap while the underlying score/gray heatmap remains unchanged.
+    assert replay_payload["excluded_normal_zones"]
+    assert not np.array_equal(decoded_heatmap, original_heatmap)
+    heatmap_i16 = decoded_heatmap.astype(np.int16)
+    green_pixels = (heatmap_i16[:, :, 1] > heatmap_i16[:, :, 0] + 20) & (
+        heatmap_i16[:, :, 1] > heatmap_i16[:, :, 2] + 20
+    )
+    assert np.any(green_pixels)
+
+    for case in inspection_service.list_accepted_normal_cases(product_type=product_type):
+        inspection_service.delete_accepted_normal_case(case["id"])
 
 
 def test_local_inspection_roi_limits_analysis_to_selected_polygon() -> None:

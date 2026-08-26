@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -113,6 +114,15 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             long t0 = System.nanoTime();
             Map<String, Object> pyHeader = BinaryInspectHeaders.pythonInspectHeader(
                     cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
+            applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
+            Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
+            if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
+                pyHeader.put("analysis_test_settings", temporaryAnalysis);
+            }
+            if (YamlScalars.toBool(state.capture().header().get("test_analyze"), false)) {
+                pyHeader.put("test_analyze", true);
+                pyHeader.put("skip_learning_review", true);
+            }
             double inspectScale = YamlScalars.toDouble(
                     pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
                     1.0
@@ -122,9 +132,6 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     && YamlScalars.toDouble(state.capture().header().get("downscale_scale"), 1.0d) < 0.999d;
             if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
                 PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
-            }
-            if (inspectionRuntimeConfig != null) {
-                inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, productType);
             }
             pythonSlots.acquire();
             try {
@@ -145,6 +152,25 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Knobs UI и geometry-runtime живут под YAML {@code analysis_profile} камеры,
+     * а {@code product_type} может быть типом эталона — не подменять одно другим.
+     */
+    void applyAnalysisProfileAndRuntimeOverrides(
+            Map<String, Object> pyHeader,
+            int cameraId,
+            String productType,
+            Map<String, Object> pythonCfg
+    ) {
+        String analysisProfile = CameraAnalysisProfiles.resolve(cameraId, productType);
+        if (analysisProfile != null && !analysisProfile.isBlank()) {
+            pyHeader.put("analysis_profile", analysisProfile);
+        }
+        if (inspectionRuntimeConfig != null) {
+            inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
         }
     }
 

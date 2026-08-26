@@ -38,7 +38,7 @@ THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
 REDUCED_SHAPE_MIN_SIMILARITY = 0.78
 GENERAL_MIN_SIMILARITY = 0.80
-DEFAULT_REVIEW_LIMIT = 50
+DEFAULT_REVIEW_LIMIT = 200
 # Review must expose secondary components that can still keep the verdict BAD
 # after the largest components have been accepted. 15% keeps material defects
 # visible without bringing back the many weak speckles from the raw mask.
@@ -192,6 +192,7 @@ class AcceptedNormalCase:
     product_type: str
     reference_hash: str
     bbox_norm: tuple[float, float, float, float]
+    polygon_norm: list[tuple[float, float]]
     area: int
     diff_mean: float
     diff_q90: float
@@ -206,6 +207,7 @@ class AcceptedNormalCase:
     diff_template: np.ndarray = field(repr=False)
     appearance_template: np.ndarray = field(repr=False)
     source_crop: Optional[np.ndarray] = field(default=None, repr=False)
+    source_frame: Optional[np.ndarray] = field(default=None, repr=False)
     _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
     _template_cache: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]] = field(
         default=None,
@@ -224,6 +226,7 @@ class AcceptedNormalCase:
                 "width": self.bbox_norm[2],
                 "height": self.bbox_norm[3],
             },
+            "polygon_norm": [{"x": x, "y": y} for x, y in self.polygon_norm],
             "area": self.area,
             "diff_mean": self.diff_mean,
             "diff_q90": self.diff_q90,
@@ -356,8 +359,21 @@ class InspectionReviewStore:
     ) -> InspectionReview:
         mask_gray = _gray(raw_mask)
         diff_gray = _gray(diff_map)
-        energy = cv2.max(mask_gray, cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX))
+        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
+        energy = cv2.max(mask_gray, diff_norm)
+        energy = cv2.normalize(energy, None, 0, 255, cv2.NORM_MINMAX)
+        energy = np.clip(
+            np.power(energy.astype(np.float32) / 255.0, 0.8) * 255.0,
+            0,
+            255,
+        ).astype(np.uint8)
         heatmap = cv2.applyColorMap(energy, cv2.COLORMAP_JET)
+        mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
+        heatmap = np.clip(
+            heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float),
+            0,
+            255,
+        ).astype(np.uint8)
         review_candidates = [
             replace(candidate, mask=np.zeros((0, 0), dtype=bool))
             for candidate in candidates
@@ -382,8 +398,10 @@ class InspectionReviewStore:
             self._order[inspection_id] = review.summary()
             self._order.move_to_end(inspection_id)
             while len(self._order) > self.max_items:
-                evicted_id, _ = self._order.popitem(last=False)
-                self._delete_review_dir(evicted_id)
+                # Drop from the hot index only — keep review files so accept-all can still
+                # resolve UUID from frame-archive metadata after many later inspections.
+                self._order.popitem(last=False)
+                self._trim_cold_review_dirs()
         return review
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
@@ -395,20 +413,48 @@ class InspectionReviewStore:
 
     def get(self, inspection_id: str) -> Optional[InspectionReview]:
         with self._lock:
-            if inspection_id not in self._order:
-                return None
             if self.storage_dir is None:
                 return None
+            if inspection_id in self._order:
+                return self._read_review(inspection_id)
+            # Cold path: review left the hot FIFO but files remain for archive-backed accept.
             return self._read_review(inspection_id)
+
+    def _trim_cold_review_dirs(self) -> None:
+        """Cap on-disk review folders so soft-FIFO does not grow forever."""
+        if self.storage_dir is None or not self.storage_dir.is_dir():
+            return
+        try:
+            dirs = [p for p in self.storage_dir.iterdir() if p.is_dir()]
+        except OSError:
+            return
+        # Keep up to 5x hot index capacity on disk for delayed operator learning.
+        disk_limit = max(self.max_items * 5, self.max_items)
+        if len(dirs) <= disk_limit:
+            return
+        dirs.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0.0)
+        hot = set(self._order.keys())
+        overflow = len(dirs) - disk_limit
+        deleted = 0
+        for folder in dirs:
+            if deleted >= overflow:
+                break
+            if folder.name in hot:
+                continue
+            self._delete_review_dir(folder.name)
+            deleted += 1
 
     def put(self, review: InspectionReview) -> None:
         """Перезаписать review на диске. Индекс в RAM обновляется из summary()."""
         with self._lock:
-            if review.inspection_id not in self._order:
-                raise KeyError(review.inspection_id)
             if self.storage_dir is not None:
+                if review.inspection_id not in self._order and self._read_review(review.inspection_id) is None:
+                    raise KeyError(review.inspection_id)
                 self._write_review(review)
+            elif review.inspection_id not in self._order:
+                raise KeyError(review.inspection_id)
             self._order[review.inspection_id] = review.summary()
+            self._order.move_to_end(review.inspection_id)
 
     def mark_accepted(
         self,
@@ -657,6 +703,7 @@ class AcceptedNormalMemory:
             cases.sort(key=lambda case: case.created_at, reverse=True)
             return [case.to_public_dict() for case in cases]
 
+
     def get(self, case_id: str) -> Optional[AcceptedNormalCase]:
         with self._lock:
             return self._cases.get(case_id)
@@ -667,6 +714,19 @@ class AcceptedNormalMemory:
             case = self._cases.get(case_id)
             if case is None:
                 return None
+            if case.source_frame is not None:
+                preview = case.source_frame.copy()
+                height, width = preview.shape[:2]
+                polygon = np.array(
+                    [[round(x * width), round(y * height)] for x, y in case.polygon_norm],
+                    dtype=np.int32,
+                )
+                if polygon.shape[0] >= 3:
+                    tint = preview.copy()
+                    cv2.fillPoly(tint, [polygon], (40, 70, 255))
+                    preview = cv2.addWeighted(preview, 0.72, tint, 0.28, 0.0)
+                    cv2.polylines(preview, [polygon], True, (45, 70, 255), max(2, round(min(width, height) / 350)))
+                return _encode(preview, ".png"), "image/png"
             appearance = case.appearance_template.copy()
             mask = case.mask_template.copy() > 0
 
@@ -689,6 +749,7 @@ class AcceptedNormalMemory:
         reference_hash: str,
         inspection_id: str,
         candidate: DefectCandidate,
+        source_frame: Optional[np.ndarray] = None,
         note: str = "",
     ) -> AcceptedNormalCase:
         case = AcceptedNormalCase(
@@ -696,6 +757,12 @@ class AcceptedNormalMemory:
             product_type=product_type,
             reference_hash=reference_hash,
             bbox_norm=candidate.bbox_norm,
+            polygon_norm=list(candidate.polygon_norm) or [
+                (candidate.bbox_norm[0], candidate.bbox_norm[1]),
+                (candidate.bbox_norm[0] + candidate.bbox_norm[2], candidate.bbox_norm[1]),
+                (candidate.bbox_norm[0] + candidate.bbox_norm[2], candidate.bbox_norm[1] + candidate.bbox_norm[3]),
+                (candidate.bbox_norm[0], candidate.bbox_norm[1] + candidate.bbox_norm[3]),
+            ],
             area=candidate.area,
             diff_mean=candidate.diff_mean,
             diff_q90=candidate.diff_q90,
@@ -710,6 +777,7 @@ class AcceptedNormalMemory:
             diff_template=candidate.diff_template.copy(),
             appearance_template=candidate.appearance_template.copy(),
             source_crop=(candidate.source_crop.copy() if candidate.source_crop is not None else None),
+            source_frame=(source_frame.copy() if source_frame is not None else None),
         )
         with self._lock:
             self._cases[case.id] = case
@@ -928,6 +996,7 @@ class AcceptedNormalMemory:
                 diff_template=case.diff_template,
                 appearance_template=case.appearance_template,
                 source_crop=case.source_crop if case.source_crop is not None else np.empty((0, 0, 3), dtype=np.uint8),
+                source_frame=case.source_frame if case.source_frame is not None else np.empty((0, 0, 3), dtype=np.uint8),
             )
         temp_json.replace(json_path)
         temp_npz.replace(npz_path)
@@ -942,6 +1011,7 @@ class AcceptedNormalMemory:
                 arrays_path = self.storage_dir / f"{case_id}.npz"
                 with np.load(arrays_path, allow_pickle=False) as arrays:
                     bbox = payload.get("bbox_norm", {})
+                    polygon_payload = payload.get("polygon_norm", [])
                     case = AcceptedNormalCase(
                         id=case_id,
                         product_type=str(payload["product_type"]),
@@ -952,6 +1022,16 @@ class AcceptedNormalMemory:
                             float(bbox.get("width", 0.0)),
                             float(bbox.get("height", 0.0)),
                         ),
+                        polygon_norm=[
+                            (float(point.get("x", 0.0)), float(point.get("y", 0.0)))
+                            for point in polygon_payload
+                            if isinstance(point, dict)
+                        ] or [
+                            (float(bbox.get("x", 0.0)), float(bbox.get("y", 0.0))),
+                            (float(bbox.get("x", 0.0)) + float(bbox.get("width", 0.0)), float(bbox.get("y", 0.0))),
+                            (float(bbox.get("x", 0.0)) + float(bbox.get("width", 0.0)), float(bbox.get("y", 0.0)) + float(bbox.get("height", 0.0))),
+                            (float(bbox.get("x", 0.0)), float(bbox.get("y", 0.0)) + float(bbox.get("height", 0.0))),
+                        ],
                         area=int(payload.get("area", 0)),
                         diff_mean=float(payload.get("diff_mean", 0.0)),
                         diff_q90=float(payload.get("diff_q90", 0.0)),
@@ -968,6 +1048,11 @@ class AcceptedNormalMemory:
                         source_crop=(
                             arrays["source_crop"].copy()
                             if "source_crop" in arrays.files and arrays["source_crop"].size > 0
+                            else None
+                        ),
+                        source_frame=(
+                            arrays["source_frame"].copy()
+                            if "source_frame" in arrays.files and arrays["source_frame"].size > 0
                             else None
                         ),
                     )

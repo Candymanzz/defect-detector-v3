@@ -275,6 +275,10 @@ export type InspectResultPayload = {
   learned_review_id?: string;
   /** UI test-analyze result (geometry+python on archive/artifact frame). */
   test_analyze?: boolean;
+  /** SHA-256 of pinned JPEG bytes used for this test-analyze run. */
+  pin_jpeg_sha256?: string;
+  test_analyze_job_id?: string;
+  test_pin_id?: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;
@@ -291,11 +295,19 @@ export type InspectResultPayload = {
   python_status?: InspectionStageStatus | string;
   geometry_status?: InspectionStageStatus | string;
   fp_zones: FpZoneNorm[];
+  excluded_normal_zones?: ExcludedNormalZone[];
   fp_coordinate_space?: {
     heatmap_width: number;
     heatmap_height: number;
   };
   server_ts_ms: number;
+};
+
+export type ExcludedNormalZone = {
+  kind: string;
+  case_id?: string | null;
+  similarity?: number | null;
+  polygon: Array<{ x: number; y: number } | [number, number]>;
 };
 
 export type InspectionAction = "ACCEPT" | "REJECT" | "CAPTURE";

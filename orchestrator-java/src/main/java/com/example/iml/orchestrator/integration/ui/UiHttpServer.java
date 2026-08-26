@@ -209,6 +209,14 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         return inspectionArtifacts.read(bundleId, artifactName);
     }
 
+    public record InspectionArtifactIdentity(int cameraId, long frameId) {}
+
+    public InspectionArtifactIdentity inspectionArtifactIdentity(String bundleId) throws IOException {
+        InspectionArtifactRegistry.Bundle bundle = inspectionArtifacts.resolve(bundleId)
+                .orElseThrow(() -> new IOException("inspection artifact bundle is missing"));
+        return new InspectionArtifactIdentity(bundle.cameraId(), bundle.frameId());
+    }
+
     @Override
     public void update(
             int cameraId,

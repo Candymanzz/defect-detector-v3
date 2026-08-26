@@ -624,8 +624,26 @@ public final class WsOutboundMessenger {
             payload.put("geometry_status", "UNKNOWN");
         }
         payload.set("fp_zones", fpZonesJsonArray(cameraId));
+        JsonNode excludedNormalZones = JSON.valueToTree(
+                captureHeader == null ? List.of() : captureHeader.get("excluded_normal_zones")
+        );
+        payload.set(
+                "excluded_normal_zones",
+                excludedNormalZones.isArray() ? excludedNormalZones : JSON.createArrayNode()
+        );
         if (YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false)) {
             payload.put("test_analyze", true);
+            Object jobId = captureHeader == null ? null : captureHeader.get("test_analyze_job_id");
+            if (jobId != null) payload.put("test_analyze_job_id", String.valueOf(jobId));
+            Object pinId = captureHeader == null ? null : captureHeader.get("test_pin_id");
+            if (pinId != null) payload.put("test_pin_id", String.valueOf(pinId));
+            Object pinSha = captureHeader == null ? null : captureHeader.get("pin_jpeg_sha256");
+            if (pinSha != null) {
+                String sha = String.valueOf(pinSha).trim();
+                if (!sha.isEmpty()) {
+                    payload.put("pin_jpeg_sha256", sha);
+                }
+            }
         }
         int hmw = referenceContext.effectiveHeatmapWidth();
         int hmh = referenceContext.effectiveHeatmapHeight();

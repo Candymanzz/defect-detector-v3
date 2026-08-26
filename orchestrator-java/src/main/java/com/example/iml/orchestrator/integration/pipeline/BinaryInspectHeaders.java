@@ -46,6 +46,11 @@ public final class BinaryInspectHeaders {
             gHeader.put("client_reference_bundle", true);
         }
         gHeader.put("jointRoi", resolveJointRoi(cameraId, activeReference, geometryCfg));
+        Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
+        if (jointPolygon instanceof List<?> poly && poly.size() >= 3) {
+            gHeader.put("jointRoiPolygonNorm", poly);
+        }
+        boolean hasJoint = gHeader.get("jointRoi") != null || gHeader.containsKey("jointRoiPolygonNorm");
         gHeader.put("jointMode", resolveJointMode(cameraId, activeReference, gHeader.get("jointRoi")));
         gHeader.put("pixelsToMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.02));
         gHeader.put("maxShiftMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_shift_mm"), 0.5));
@@ -61,7 +66,8 @@ public final class BinaryInspectHeaders {
                 "maxJointTaperMm",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_taper_mm"), 0.8)
         );
-        gHeader.put("jointSeamSegmentationEnabled", true);
+        // Без ROI стыка сегментацию не включаем — иначе test-analyze/настройки ломаются «пустым» стыком.
+        gHeader.put("jointSeamSegmentationEnabled", hasJoint);
         gHeader.put(
                 "jointSeamSegmentationSensitivity",
                 Math.max(
@@ -77,10 +83,6 @@ public final class BinaryInspectHeaders {
                         )
                 )
         );
-        Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
-        if (jointPolygon instanceof List<?> poly && poly.size() >= 3) {
-            gHeader.put("jointRoiPolygonNorm", poly);
-        }
         double defaultThreshold = YamlScalars.toDouble(pythonCfg == null ? null : pythonCfg.get("fallback_threshold"), 0.25);
         double maxWrinkles = YamlScalars.toDouble(
                 geometryCfg == null ? null : geometryCfg.get("max_wrinkles_score"),
@@ -244,7 +246,7 @@ public final class BinaryInspectHeaders {
 
     private static String resolveJointMode(int cameraId, ReferenceSnapshot activeReference, Object jointRoi) {
         if (jointRoi == null) {
-            return "full";
+            return "off";
         }
         if (activeReference != null && activeReference.header() != null) {
             int jointCameraId = YamlScalars.toInt(activeReference.header().get("joint_camera_id"), -1);
@@ -299,8 +301,8 @@ public final class BinaryInspectHeaders {
         pyHeader.put("product_type", productType);
         pyHeader.put("detector_id", detectorId);
         // Keep the threshold absent so Python can resolve default_threshold from the
-        // selected analysis profile. GeometryRuntimeConfig may still add an explicit
-        // per-frame override after this header is built.
+        // selected analysis profile (analysis_settings). GeometryRuntimeConfig must not
+        // inject anomaly threshold into this header.
         // Горячий путь: false; превью — {@link com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar}.
         pyHeader.put("include_visuals", includeVisuals);
         if (pythonCfg != null && pythonCfg.get("rois") != null) {

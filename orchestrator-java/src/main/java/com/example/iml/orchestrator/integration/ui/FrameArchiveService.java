@@ -41,8 +41,35 @@ public final class FrameArchiveService implements AutoCloseable {
             Path frameJpeg,
             Path heatmapU8,
             int heatmapWidth,
-            int heatmapHeight
+            int heatmapHeight,
+            String learnedReviewId
     ) {
+        public SaveRequest(
+                int cameraId,
+                long frameId,
+                long inspectionId,
+                String productType,
+                String detectorId,
+                InspectionDecision decision,
+                Path frameJpeg,
+                Path heatmapU8,
+                int heatmapWidth,
+                int heatmapHeight
+        ) {
+            this(
+                    cameraId,
+                    frameId,
+                    inspectionId,
+                    productType,
+                    detectorId,
+                    decision,
+                    frameJpeg,
+                    heatmapU8,
+                    heatmapWidth,
+                    heatmapHeight,
+                    null
+            );
+        }
     }
 
     public record ArchivedFrame(
@@ -58,7 +85,8 @@ public final class FrameArchiveService implements AutoCloseable {
             long savedAtEpochMs,
             boolean hasHeatmap,
             int heatmapWidth,
-            int heatmapHeight
+            int heatmapHeight,
+            String learnedReviewId
     ) {
     }
 
@@ -413,6 +441,9 @@ public final class FrameArchiveService implements AutoCloseable {
             root.put("python_status", decision.pythonStatus());
             root.put("geometry_status", decision.geometryStatus());
         }
+        if (request.learnedReviewId() != null && !request.learnedReviewId().isBlank()) {
+            root.put("learned_review_id", request.learnedReviewId().trim());
+        }
         JSON.writerWithDefaultPrettyPrinter().writeValue(resultPath.toFile(), root);
     }
 
@@ -495,6 +526,10 @@ public final class FrameArchiveService implements AutoCloseable {
                 heatmapWidth = inferredSize[0];
                 heatmapHeight = inferredSize[1];
             }
+            String learnedReviewId = stringValue(root.get("learned_review_id"));
+            if (learnedReviewId.isEmpty()) {
+                learnedReviewId = null;
+            }
             return Optional.of(new ArchivedFrame(
                     frameId,
                     inspectionId,
@@ -508,12 +543,20 @@ public final class FrameArchiveService implements AutoCloseable {
                     savedAt,
                     hasHeatmap,
                     heatmapWidth,
-                    heatmapHeight
+                    heatmapHeight,
+                    learnedReviewId
             ));
         } catch (IOException e) {
             LOG.debug("frame archive metadata read failed {}: {}", frameDir, e.getMessage());
             return Optional.empty();
         }
+    }
+
+    /** Durable learning key for accept-all even after in-memory review index/FIFO churn. */
+    public Optional<String> learnedReviewId(int cameraId, long frameId) {
+        return parseFrameDir(frameDirectory(cameraId, frameId))
+                .map(ArchivedFrame::learnedReviewId)
+                .filter(id -> id != null && !id.isBlank());
     }
 
     /**

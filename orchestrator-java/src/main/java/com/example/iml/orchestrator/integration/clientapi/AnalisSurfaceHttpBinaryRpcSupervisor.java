@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -38,7 +39,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private static final ConcurrentHashMap<String, String> SHARED_REFERENCE_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> SHARED_ROI_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Object> SCOPE_LOCKS = new ConcurrentHashMap<>();
-    private static volatile Map<Integer, String> ANALYSIS_PROFILE_BY_CAMERA = Map.of();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
@@ -96,7 +96,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     public static void setAnalysisProfilesByCamera(Map<Integer, String> profiles) {
-        ANALYSIS_PROFILE_BY_CAMERA = profiles == null || profiles.isEmpty() ? Map.of() : Map.copyOf(profiles);
+        CameraAnalysisProfiles.setByCamera(profiles);
     }
 
     @Override
@@ -680,6 +680,13 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             body.put("detector_id", header.get("detector_id"));
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
+        if (YamlScalars.toBool(header.get("test_analyze"), false)
+                || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
+            body.put("skip_learning_review", true);
+        }
+        if (header.get("analysis_test_settings") instanceof Map<?, ?> temporaryAnalysis && !temporaryAnalysis.isEmpty()) {
+            body.put("analysis_test_settings", temporaryAnalysis);
+        }
         appendAlgorithmParams(body, header);
         return body;
     }
@@ -789,10 +796,17 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         h.put("learned_normal_matches_count", YamlScalars.toInt(json.get("learned_normal_matches_count"), 0));
         h.put("learned_normal_adjustment", YamlScalars.toDouble(json.get("learned_normal_adjustment"), 0.0));
+        Object excludedNormalZones = json.get("excluded_normal_zones");
+        h.put("excluded_normal_zones", excludedNormalZones instanceof List<?> ? excludedNormalZones : List.of());
         return h;
     }
 
     private void rememberLearnedReview(Map<String, Object> header, Map<String, Object> json) {
+        // TEST re-runs must not steal the production learning review id for this frameId.
+        if (YamlScalars.toBool(header.get("test_analyze"), false)
+                || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
+            return;
+        }
         Object learnedReviewId = json.get("inspection_id");
         if (learnedReviewId == null) {
             return;
@@ -980,14 +994,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 return value;
             }
         }
-        if (cameraId < 0) {
-            return null;
-        }
-        String mapped = ANALYSIS_PROFILE_BY_CAMERA.get(cameraId);
-        if (mapped == null || mapped.isBlank()) {
-            return null;
-        }
-        return mapped.trim();
+        return CameraAnalysisProfiles.resolve(cameraId, null);
     }
 
     private static String referenceSignature(

@@ -5,6 +5,7 @@ import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
 import { AnalysisSettingsPanel } from "../SettingList/AnalysisSettingsPanel";
+import { notifyAnalysisSettingsChanged } from "../SettingList/analysisSettingsEvents";
 import type { AnalysisSettingsPanelHandle } from "../SettingList/AnalysisSettingsPanel";
 import { GeometryTestSettingsPanel } from "../SettingList/GeometryTestSettingsPanel";
 import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTestSettingsPanel";
@@ -44,9 +45,19 @@ export function MainOverview({
     "idle",
   );
   const [testAnalyzeMessage, setTestAnalyzeMessage] = useState("");
-  const pendingTestRef = useRef<{ cameraId: number; frameId: string; previousServerTs: number }>({
+  const pendingTestRef = useRef<{
+    cameraId: number;
+    frameId: string;
+    pinId: string;
+    jpegSha256: string;
+    jobId: string;
+    previousServerTs: number;
+  }>({
     cameraId: -1,
     frameId: "",
+    pinId: "",
+    jpegSha256: "",
+    jobId: "",
     previousServerTs: 0,
   });
   const analysisSettingsRef = useRef<AnalysisSettingsPanelHandle>(null);
@@ -67,27 +78,109 @@ export function MainOverview({
     setTestAnalyzeMessage("");
   };
 
+  const pinFrameForTest = async (
+    inspectResult: NonNullable<NonNullable<typeof controller.modalSnapshot>["inspectResult"]>,
+  ) => {
+    const cameraId = inspectResult.camera_id;
+    const frameId = inspectResult.frame_id;
+    // Always pin the archived JPEG for this frameId — never current.jpg / live artifact.
+    const pinned = await orchestratorApi.pinTestFrame({
+      cameraId,
+      frameId,
+      source: "archive",
+    });
+    if (String(pinned.frameId) !== String(frameId)) {
+      throw new Error(
+        `Сервер зафиксировал кадр ${pinned.frameId} вместо выбранного кадра ${frameId}`,
+      );
+    }
+    const pinHttpPath = pinned.imageHttpPath;
+    // Always show the durable on-disk pin (not a blob) — blob revoke / remount looked like a frame swap.
+    const pinImageUrl = orchestratorApi.imageUrl(
+      `${pinHttpPath}?pin=${encodeURIComponent(pinned.pinId)}`,
+      pinned.jpegSha256,
+    );
+    controller.freezeModalTestFrame(
+      String(pinned.frameId),
+      pinImageUrl,
+      pinHttpPath,
+      pinned.pinId,
+      pinned.jpegSha256,
+    );
+    setTestFrameId(String(pinned.frameId));
+    return pinned;
+  };
+
+  const handleTestInspectionSelect = async (frameId: string) => {
+    if (!showModalAnalysisSettings) {
+      controller.selectModalInspection(frameId);
+      return;
+    }
+    const snapshot = controller.modalSnapshot;
+    const item = snapshot?.inspectionItems.find((candidate) => candidate.frameId === frameId);
+    if (!item?.inspectResult) {
+      controller.selectModalInspection(frameId);
+      return;
+    }
+    try {
+      setTestAnalyzeState("submitting");
+      setTestAnalyzeMessage(`Смена кадра теста на ${frameId}…`);
+      controller.selectModalInspection(frameId);
+      await pinFrameForTest(item.inspectResult);
+      setTestAnalyzeState("idle");
+      setTestAnalyzeMessage(`Кадр ${frameId} записан на диск для теста (предыдущий pin перезаписан).`);
+    } catch (error) {
+      setTestAnalyzeState("error");
+      setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось сменить кадр теста");
+    }
+  };
+
   const applySettingsAndInspect = async (action: "check" | "save") => {
     const snapshot = controller.modalSnapshot;
-    const frameId = testFrameId ?? snapshot?.inspectResult?.frame_id;
-    if (!snapshot || !frameId || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting") {
+    const frameId = testFrameId ?? snapshot?.pinnedTestFrameId ?? snapshot?.inspectResult?.frame_id;
+    const pinId = snapshot?.pinnedTestPinId;
+    const jpegSha256 = snapshot?.pinnedTestJpegSha256;
+    if (!snapshot || !frameId || !pinId || !jpegSha256 || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting") {
       return;
     }
 
+    // Do NOT re-freeze / touch cameraImageUrl here — that remounts <img> and looks like a frame swap.
     setTestAnalyzeState("submitting");
     setTestAnalyzeMessage(
-      `${action === "save" ? "Сохранение" : "Применение"} настроек и запуск инспекции кадра ${frameId}…`,
+      action === "save"
+        ? `Сохранение настроек и проверка кадра ${frameId}…`
+        : `Проверка кадра ${frameId}…`,
     );
     try {
-      await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
+      if (action === "save") {
+        await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
+        notifyAnalysisSettingsChanged(snapshot.cameraId);
+      }
+      const analysisDraft = analysisSettingsRef.current?.getDraft();
+      const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {
+        geometry: geometrySettingsRef.current?.getDraft(),
+        analysis: analysisDraft
+          ? { mode: analysisDraft.mode, knobs: analysisDraft.knobs }
+          : undefined,
+      });
+      if (
+        accepted.pinId !== pinId
+        || String(accepted.frameId) !== String(frameId)
+        || accepted.pinJpegSha256 !== jpegSha256
+      ) {
+        throw new Error("Сервер принял для проверки другой pin, кадр или JPEG");
+      }
+      controller.setPendingTestJob(accepted.jobId);
       pendingTestRef.current = {
         cameraId: snapshot.cameraId,
         frameId,
+        pinId,
+        jpegSha256,
+        jobId: accepted.jobId,
         previousServerTs: snapshot.inspectResult?.server_ts_ms ?? 0,
       };
-      const accepted = await orchestratorApi.testAnalyzeArchiveFrame(snapshot.cameraId, frameId);
       setTestAnalyzeState("awaiting");
-      setTestAnalyzeMessage(`Проверка запущена (${accepted.jobId}). Ожидание полного результата кадра ${frameId}…`);
+      setTestAnalyzeMessage(`Проверка кадра ${frameId} запущена, ожидание результата…`);
     } catch (error) {
       setTestAnalyzeState("error");
       setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось запустить повторную инспекцию");
@@ -108,15 +201,19 @@ export function MainOverview({
       !result?.test_analyze ||
       result.camera_id !== pending.cameraId ||
       result.frame_id !== pending.frameId ||
-      result.server_ts_ms <= pending.previousServerTs ||
-      !result.heatmap
+      result.test_pin_id !== pending.pinId ||
+      result.test_analyze_job_id !== pending.jobId ||
+      result.pin_jpeg_sha256 !== pending.jpegSha256 ||
+      result.server_ts_ms <= pending.previousServerTs
     ) {
       return;
     }
     const resultState = resolveInspectionResultState(result);
+    const anomalyPercent =
+      typeof result.anomaly_score === "number" ? `${(result.anomaly_score * 100).toFixed(2)}%` : "—";
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
-      `Кадр ${pending.frameId} проверен с новыми настройками: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}. Полный результат и новый хитмап отображены.`,
+      `Кадр ${pending.frameId}: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}, аномалия ${anomalyPercent}.`,
     );
   }, [controller.modalSnapshot?.inspectResult, testAnalyzeState]);
 
@@ -191,6 +288,18 @@ export function MainOverview({
             archiveHistoryState={controller.archiveHistoryState}
             archiveHistoryMessage={controller.archiveHistoryMessage}
             onLoadArchivedHistory={(ids) => void controller.loadArchivedHistory(ids)}
+            onCameraOpen={(item) => {
+              const camera = cameraCards.find((candidate) => candidate.cameraId === item.inspectResult.camera_id);
+              if (!camera) return;
+              controller.openInspectionModal(
+                createSelectedCamera(camera),
+                item.inspectResult,
+                item.inspectResult,
+                item.frameId,
+                controller.previewImageUrlsByCameraId[camera.cameraId],
+                controller.inspectionHistoryByCameraId[camera.cameraId] ?? [],
+              );
+            }}
           />
         </section>
       ))}
@@ -214,7 +323,15 @@ export function MainOverview({
           analysisSettingsContent={
             showModalAnalysisSettings ? (
               <div className="modal__analysis-settings modal__test-settings">
-                <h3>Настройки камеры {controller.modalSnapshot.cameraId}</h3>
+                <div className="modal__test-settings-header">
+                  <h3>Настройки камеры {controller.modalSnapshot.cameraId}</h3>
+                  <p className="modal__test-settings-frame-id" title="Выбранный кадр для анализа и дообучения">
+                    кадр {testFrameId ?? controller.modalSnapshot.pinnedTestFrameId ?? controller.modalSnapshot.inspectResult?.frame_id ?? "—"}
+                    {controller.modalSnapshot.pinnedTestPinId
+                      ? ` · pin ${controller.modalSnapshot.pinnedTestPinId.slice(0, 8)}`
+                      : ""}
+                  </p>
+                </div>
                 {testAnalyzeMessage && (
                   <p
                     className="modal__test-settings-status"
@@ -225,25 +342,30 @@ export function MainOverview({
                   </p>
                 )}
                 <p className="modal__test-settings-hint">
-                  Крутите параметры — результат geometry + python обновляется на выбранном кадре. Режим теста остаётся
-                  открытым, пока не нажмёте «Завершить тест» или не закроете окно.
+                  Анализ и дообучение только для этого frameId (JPEG из архива → pin на диске). При выборе другого кадра
+                  pin перезаписывается.
                 </p>
                 <div className="modal__test-settings-grid">
-                  <section className="modal__test-settings-section">
-                    <h4>Геометрия / стык</h4>
+                  <details className="modal__test-settings-section modal__test-settings-section--collapsible">
+                    <summary>
+                      <span>Геометрия / стык</span>
+                      <span className="modal__test-settings-chevron" aria-hidden="true" />
+                    </summary>
                     <GeometryTestSettingsPanel
                       ref={geometrySettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
+                      testPinId={controller.modalSnapshot.pinnedTestPinId}
                       hideSaveAction
                     />
-                  </section>
+                  </details>
                   <section className="modal__test-settings-section">
                     <h4>Python-анализ поверхности</h4>
                     <AnalysisSettingsPanel
                       ref={analysisSettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
+                      testPinId={controller.modalSnapshot.pinnedTestPinId}
                       hideSaveAction
                     />
                   </section>
@@ -300,37 +422,79 @@ export function MainOverview({
           }
           headerActions={
             showModalAnalysisSettings ? undefined : (
-              <button
-                className="modal__action"
-                type="button"
-                onClick={async () => {
+              <>
+                <button
+                  className="modal__action"
+                  type="button"
+                  disabled={testAnalyzeState === "submitting"}
+                  onClick={async () => {
                   const cameraId = controller.modalSnapshot!.cameraId;
-                  const frameId = controller.modalSnapshot!.inspectResult?.frame_id;
-                  if (!frameId) {
+                  const inspectResult = controller.modalSnapshot!.inspectResult;
+                  const frameId = inspectResult?.frame_id;
+                  if (!frameId || !inspectResult) {
                     return;
                   }
-                  setTestFrameId(frameId);
-                  await onAnalysisSettingsOpen(cameraId);
-                  setShowModalAnalysisSettings(true);
+                  try {
+                    setTestAnalyzeState("submitting");
+                    setTestAnalyzeMessage(`Копирование кадра ${frameId} на диск для теста…`);
+                    setTestFrameId(frameId);
+                    // Enter TEST mode first (the server rejects pinning outside it).
+                    await onAnalysisSettingsOpen(cameraId);
+                    await pinFrameForTest(inspectResult);
+                    setShowModalAnalysisSettings(true);
+                    setTestAnalyzeState("idle");
+                    setTestAnalyzeMessage(
+                      `Кадр ${frameId} на диске. При выборе другого кадра pin перезапишется.`,
+                    );
+                  } catch (error) {
+                    setTestFrameId(undefined);
+                    setShowModalAnalysisSettings(false);
+                    setTestAnalyzeState("error");
+                    setTestAnalyzeMessage(
+                      error instanceof Error
+                        ? (error.message.includes("404") || error.message.toLowerCase().includes("not found")
+                          ? `Кадр ${frameId} не найден в архиве — pin только из архива`
+                          : error.message)
+                        : "Не удалось зафиксировать кадр для теста",
+                    );
+                    try {
+                      await orchestratorApi.setTestMode(false);
+                      const inspectionState = await orchestratorApi.startAllInspections();
+                      window.dispatchEvent(
+                        new CustomEvent("inspection-control-changed", { detail: inspectionState }),
+                      );
+                    } catch {
+                      // leave error message from pin/open failure
+                    }
+                  }
                 }}
-              >
-                Изменить настройки анализа
-              </button>
+                >
+                  {testAnalyzeState === "submitting" ? "Фиксация кадра…" : "Изменить настройки анализа"}
+                </button>
+                {testAnalyzeState === "error" && testAnalyzeMessage && (
+                  <span className="modal__test-settings-status" data-state="error" role="alert">
+                    {testAnalyzeMessage}
+                  </span>
+                )}
+              </>
             )
           }
           inspectResult={controller.modalSnapshot.inspectResult}
           title={`${controller.modalSnapshot.objectName} / Камера ${controller.modalSnapshot.cameraId}`}
-          onInspectionSelect={controller.selectModalInspection}
+          onInspectionSelect={(frameId) => void handleTestInspectionSelect(frameId)}
           onClose={() => {
             if (showModalAnalysisSettings) {
-              void Promise.allSettled([
-                geometrySettingsRef.current?.save() ?? Promise.resolve(),
-                analysisSettingsRef.current?.save() ?? Promise.resolve(),
-              ])
-                .then(() => exitTestModeAndResume())
-                .finally(() => {
+              void (async () => {
+                try {
+                  await exitTestModeAndResume();
                   controller.closeInspectionModal();
-                });
+                } catch (error) {
+                  setTestAnalyzeState("error");
+                  setTestAnalyzeMessage(
+                    error instanceof Error ? error.message : "Не удалось сохранить настройки анализа",
+                  );
+                }
+              })();
               return;
             }
             setShowModalAnalysisSettings(false);

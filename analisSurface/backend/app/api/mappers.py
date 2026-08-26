@@ -108,6 +108,7 @@ def to_inspect_response(result) -> InspectResponse:
         learned_normal_matches_count=getattr(result, "learned_normal_matches_count", 0),
         learned_normal_adjustment=getattr(result, "learned_normal_adjustment", 0.0),
         matched_accepted_case_ids=getattr(result, "matched_accepted_case_ids", None) or [],
+        excluded_normal_zones=getattr(result, "excluded_normal_zones", None) or [],
         fp_zone_scores=[
             FPZoneScoreResponse(
                 zone_id=entry.zone_id,

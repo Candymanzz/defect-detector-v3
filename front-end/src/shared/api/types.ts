@@ -256,6 +256,7 @@ export type FrameArchiveHistoryFrame = {
   heatmap_width?: number;
   heatmap_height?: number;
   result_url: string;
+  learned_review_id?: string;
 };
 
 export type FrameArchiveHistoryResponse = {
@@ -364,12 +365,31 @@ export type TestAnalyzeResponse = {
   jobId: string;
   cameraId: number;
   frameId: number;
+  pinId: string;
+  pinJpegSha256: string;
+};
+
+export type PinTestFrameRequest = {
+  cameraId: number;
+  frameId: string | number;
+  source?: "archive" | "artifact";
+  httpPath?: string;
+};
+
+export type PinTestFrameResponse = {
+  ok: boolean;
+  cameraId: number;
+  frameId: number;
+  pinId: string;
+  jpegSha256: string;
+  imageHttpPath: string;
 };
 
 export type AcceptLearnedNormalsRequest = {
   frameId: string | number;
   productType: string;
   cameraId?: number;
+  learnedReviewId?: string;
   note?: string;
 };
 
