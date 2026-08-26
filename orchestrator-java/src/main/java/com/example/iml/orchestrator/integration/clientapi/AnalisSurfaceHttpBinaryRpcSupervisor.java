@@ -11,6 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -428,6 +429,26 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                     new byte[0]
             );
         }
+        Path jpegPath = Path.of(String.valueOf(body.get("file_path")));
+        if (!Files.isRegularFile(jpegPath)) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of(
+                            "error", "inspect-test-frame: file_path not found: " + jpegPath,
+                            "op", "inspect_test_frame"
+                    ),
+                    new byte[0]
+            );
+        }
+        LOG.info(
+                "inspect-test-frame POST cam={} frame={} cache_key={} file_path={} bytes={} image_url={}",
+                cameraId,
+                header.get("frame_id"),
+                body.get("cache_key"),
+                jpegPath.toAbsolutePath(),
+                Files.size(jpegPath),
+                body.getOrDefault("image_url", "")
+        );
 
         Object heatmapOut = body.get("heatmap_u8_output_path");
         BinaryProtocol.Message response;

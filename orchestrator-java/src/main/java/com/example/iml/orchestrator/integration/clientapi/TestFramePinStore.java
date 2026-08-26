@@ -97,6 +97,47 @@ public final class TestFramePinStore {
         return Optional.of(pin);
     }
 
+    /**
+     * Materialize the exact JPEG bytes for one test-analyze job.
+     * Python {@code /inspect-test-frame} must read this file — not a later pin overwrite
+     * and never leftover production SHM.
+     */
+    public Path materializeJobJpeg(String jobId, byte[] jpegBytes) throws IOException {
+        if (jobId == null || jobId.isBlank()) {
+            throw new IllegalArgumentException("jobId required");
+        }
+        if (jpegBytes == null || jpegBytes.length == 0) {
+            throw new IllegalArgumentException("jpeg bytes required");
+        }
+        Files.createDirectories(root);
+        Path jobDir = root.resolve("jobs").resolve(jobId.trim()).normalize();
+        if (!jobDir.startsWith(root.resolve("jobs").normalize())) {
+            throw new IOException("invalid job path");
+        }
+        Files.createDirectories(jobDir);
+        Path jpeg = jobDir.resolve("frame.jpg");
+        Path tmp = jobDir.resolve("frame.jpg.tmp");
+        Files.write(tmp, jpegBytes);
+        try {
+            Files.move(tmp, jpeg, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException atomicFailed) {
+            Files.move(tmp, jpeg, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return jpeg.toAbsolutePath().normalize();
+    }
+
+    public void deleteJobJpeg(String jobId) {
+        if (jobId == null || jobId.isBlank()) {
+            return;
+        }
+        Path jobDir = root.resolve("jobs").resolve(jobId.trim()).normalize();
+        if (!jobDir.startsWith(root.resolve("jobs").normalize())) {
+            return;
+        }
+        deleteQuietly(jobDir.resolve("frame.jpg"));
+        deleteQuietly(jobDir);
+    }
+
     public synchronized void clear(String pinId) {
         Pin removed = byId.remove(pinId);
         if (removed != null) {

@@ -397,7 +397,12 @@ public final class UiTestAnalyzeService {
     ) {
         Path shmPath = null;
         Path isolatedShmPath = null;
+        Path jobJpegPath = null;
         try {
+            // Exact selected bytes for Python /inspect-test-frame — do not re-resolve pin/archive later
+            // (pin can be overwritten when the operator picks another history frame).
+            jobJpegPath = pinStore.materializeJobJpeg(jobId, jpegBytes);
+            String pinSha = sha256Hex(jpegBytes);
             String shmBase = "iml_uitest_cam" + cameraId + "_" + jobId.substring(0, Math.min(8, jobId.length()));
             JpegBgrShmWriter.WrittenFrame written = JpegBgrShmWriter.write(jpegBytes, cameraId, frameId, shmBase);
             shmPath = written.shmPath();
@@ -409,26 +414,25 @@ public final class UiTestAnalyzeService {
             }
             captureHeader.put("test_geometry_overrides", temporaryGeometry == null ? Map.of() : temporaryGeometry);
             captureHeader.put("analysis_test_settings", temporaryAnalysis == null ? Map.of() : temporaryAnalysis);
-            String pinSha = sha256Hex(jpegBytes);
             captureHeader.put("pin_jpeg_sha256", pinSha);
             if (previewHttpPath != null && !previewHttpPath.isBlank()) {
                 captureHeader.put("http_path", previewHttpPath);
             }
-            Path testFrameFile = resolveTestFrameFilePath(cameraId, frameId, pinId);
-            if (testFrameFile != null) {
-                captureHeader.put("test_frame_file_path", testFrameFile.toAbsolutePath().toString());
-                captureHeader.put("test_frame_cache_key", cameraId + ":" + frameId);
-                if (previewHttpPath != null && !previewHttpPath.isBlank()) {
-                    captureHeader.put("test_frame_image_url", previewHttpPath);
-                }
-            } else {
-                log.warn(
-                        "ui test-analyze missing local JPEG path cam={} frame={} pinId={} — python will fall back to inspect-shm",
-                        cameraId,
-                        frameId,
-                        pinId
-                );
+            captureHeader.put("test_frame_file_path", jobJpegPath.toString());
+            captureHeader.put("test_frame_cache_key", cameraId + ":" + frameId);
+            if (previewHttpPath != null && !previewHttpPath.isBlank()) {
+                captureHeader.put("test_frame_image_url", previewHttpPath);
             }
+            log.info(
+                    "ui test-analyze job jpeg jobId={} cam={} frame={} pinId={} bytes={} sha={} file_path={}",
+                    jobId,
+                    cameraId,
+                    frameId,
+                    pinId,
+                    jpegBytes.length,
+                    pinSha,
+                    jobJpegPath
+            );
             BinaryProtocol.Message capture = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_RESPONSE,
                     Map.copyOf(captureHeader),
@@ -514,12 +518,26 @@ public final class UiTestAnalyzeService {
             log.warn("ui test-analyze failed jobId={} cam={} frame={}: {}", jobId, cameraId, frameId, e.getMessage());
             JpegBgrShmWriter.deleteQuietly(shmPath);
             JpegBgrShmWriter.deleteQuietly(isolatedShmPath);
+            if (jobJpegPath != null) {
+                pinStore.deleteJobJpeg(jobId);
+            }
             shmPath = null;
             isolatedShmPath = null;
+            jobJpegPath = null;
         } finally {
             // Async UI sidecar still reads SHM for JPEG/heatmap; delay cleanup.
             scheduleShmDelete(shmPath);
             scheduleShmDelete(isolatedShmPath);
+            if (jobJpegPath != null) {
+                final String jobToDelete = jobId;
+                java.util.concurrent.CompletableFuture.runAsync(
+                        () -> pinStore.deleteJobJpeg(jobToDelete),
+                        java.util.concurrent.CompletableFuture.delayedExecutor(
+                                90L,
+                                java.util.concurrent.TimeUnit.SECONDS
+                        )
+                );
+            }
         }
     }
 
@@ -581,22 +599,6 @@ public final class UiTestAnalyzeService {
                         java.util.concurrent.TimeUnit.SECONDS
                 )
         );
-    }
-
-    private Path resolveTestFrameFilePath(int cameraId, long frameId, String pinId) {
-        if (pinId != null && !pinId.isBlank()) {
-            Optional<Path> pinned = pinnedJpegPath(pinId);
-            if (pinned.isPresent() && Files.isRegularFile(pinned.get())) {
-                return pinned.get();
-            }
-        }
-        if (frameArchive != null && frameArchive.enabled()) {
-            Optional<Path> archived = frameArchive.resolveArtifact(cameraId, frameId, "frame.jpg");
-            if (archived.isPresent() && Files.isRegularFile(archived.get())) {
-                return archived.get();
-            }
-        }
-        return null;
     }
 
     private boolean isSuperseded(int cameraId, long generation) {
@@ -678,16 +680,28 @@ public final class UiTestAnalyzeService {
         }
         try {
             byte[] bytes = Files.readAllBytes(pin.jpegPath());
+            String actualSha = sha256Hex(bytes);
+            if (pin.jpegSha256() != null && !pin.jpegSha256().isBlank() && !pin.jpegSha256().equalsIgnoreCase(actualSha)) {
+                throw new AnalyzeException(
+                        409,
+                        "pinned JPEG sha mismatch pinId=" + pinId
+                                + " expected=" + pin.jpegSha256()
+                                + " actual=" + actualSha
+                );
+            }
             String pinUrl = pin.previewHttpPath();
             log.info(
-                    "ui test-analyze loadPin cam={} frame={} bytes={} sha={} http_path={}",
+                    "ui test-analyze loadPin cam={} frame={} pinId={} bytes={} sha={} http_path={}",
                     cameraId,
                     pin.frameId(),
+                    pinId,
                     bytes.length,
-                    sha256Hex(bytes),
+                    actualSha,
                     pinUrl
             );
             return new ResolvedFrame(bytes, pin.frameId(), pinUrl);
+        } catch (AnalyzeException e) {
+            throw e;
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to read pinned test frame: " + e.getMessage());
         }
