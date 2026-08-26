@@ -488,12 +488,17 @@ public final class ClientApiHttpController implements HttpController {
                 return;
             }
             // Stop production DI3 cycles; operator uses test-analyze in this mode.
+            // Soft-stop normally keeps preview-only DI3 → inspect_result(current); that swaps the TEST frame.
             if (clientApi.inspectionGate() != null) {
+                clientApi.inspectionGate().setSuppressSoftStopPreview(true);
                 clientApi.inspectionGate().disableAllAndRequestCancel();
             }
         } else {
             if (ws.isTestMode()) {
                 ws.exitTestMode();
+            }
+            if (clientApi.inspectionGate() != null) {
+                clientApi.inspectionGate().setSuppressSoftStopPreview(false);
             }
             var testAnalyzeHolder = clientApi.uiTestAnalyzeHolder();
             var testAnalyze = testAnalyzeHolder == null ? null : testAnalyzeHolder.get();
