@@ -193,7 +193,9 @@ Query-параметр:
 Возвращает список сохранённых норм текущей сессии.
 
 Query-параметр `product_type` необязателен. Ответ: `{"cases": [...]}`.
-Элемент содержит `id`, `product_type`, `reference_hash`, `bbox_norm`, `area`,
+Элемент содержит `id`, `product_type`, `reference_hash`, `bbox` (пиксельные
+координаты сохранённого фрагмента), `polygon` и `coordinate_space`, а также
+`bbox_norm`, `area`,
 статистику diff, `created_at`, исходные `inspection_id`/`defect_id`, `note`,
 `enabled` и `template_version`.
 

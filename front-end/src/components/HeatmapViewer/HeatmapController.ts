@@ -155,7 +155,8 @@ export function drawExcludedNormalZones(
     if (zone.kind !== "accepted_normal") {
       continue;
     }
-    const points = normalizedPolygon(zone.polygon, heatmap.width, heatmap.height);
+    const points = pixelPolygon(zone, heatmap.width, heatmap.height)
+      ?? normalizedPolygon(zone.polygon, heatmap.width, heatmap.height);
     if (points.length < 3) {
       continue;
     }
@@ -175,6 +176,39 @@ export function drawExcludedNormalZones(
     context.stroke();
   }
   context.restore();
+}
+
+function pixelPolygon(
+  zone: ExcludedNormalZone,
+  width: number,
+  height: number,
+): Array<[number, number]> | null {
+  const polygon = zone.polygon_px;
+  const sourceWidth = Number(zone.coordinate_width);
+  const sourceHeight = Number(zone.coordinate_height);
+  if (!polygon || polygon.length < 3 || sourceWidth <= 0 || sourceHeight <= 0) {
+    return null;
+  }
+
+  const points: Array<[number, number]> = [];
+  for (const point of polygon) {
+    const x = Array.isArray(point) ? point[0] : point.x;
+    const y = Array.isArray(point) ? point[1] : point.y;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      continue;
+    }
+    points.push([
+      Math.round(
+        (Math.min(sourceWidth - 1, Math.max(0, x)) * (width - 1)) /
+          Math.max(1, sourceWidth - 1),
+      ),
+      Math.round(
+        (Math.min(sourceHeight - 1, Math.max(0, y)) * (height - 1)) /
+          Math.max(1, sourceHeight - 1),
+      ),
+    ]);
+  }
+  return points.length >= 3 ? points : null;
 }
 
 function normalizedPolygon(

@@ -625,6 +625,13 @@ def test_learned_normal_matches_nearby_shifted_rescaled_shape(
     assert shifted.learned_normal_matches_count == 1 or shifted.rechecked_zones_count >= 1
     assert shifted.status == "ГОДЕН"
     assert shifted.anomaly_score < shifted.threshold
+    assert shifted.excluded_normal_zones
+    matched_zone = shifted.excluded_normal_zones[0]
+    expected_polygon = [(point["x"], point["y"]) for point in review["defects"][0]["polygon"]]
+    assert matched_zone["polygon"] == expected_polygon
+    assert matched_zone["polygon_px"]
+    assert matched_zone["coordinate_width"] == width
+    assert matched_zone["coordinate_height"] == height
 
 
 def test_learned_normal_does_not_match_same_shape_far_away(

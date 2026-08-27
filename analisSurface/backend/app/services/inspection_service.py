@@ -829,16 +829,32 @@ class InspectionService:
             display_region = display_mask[y : y + box_height, x : x + box_width]
             display_region[local_mask] = 255
 
-        excluded_normal_zones = [
-            {
+        excluded_normal_zones = []
+        for candidate in learned_filter.candidates:
+            if candidate.matched_case_id is None:
+                continue
+            matched_case = self._accepted_normals.get(candidate.matched_case_id)
+            # Prefer the saved case geometry: it is in the same fixed camera
+            # coordinate space as the heatmap and remains stable when the
+            # detected component jitters a few pixels between frames.
+            polygon_norm = (
+                list(matched_case.polygon_norm)
+                if matched_case is not None and len(matched_case.polygon_norm) >= 3
+                else list(candidate.polygon_norm)
+            )
+            if len(polygon_norm) < 3:
+                continue
+            zone = {
                 "kind": "accepted_normal",
                 "case_id": candidate.matched_case_id,
                 "similarity": candidate.similarity,
-                "polygon": list(candidate.polygon_norm),
+                "polygon": polygon_norm,
             }
-            for candidate in learned_filter.candidates
-            if candidate.matched_case_id is not None and len(candidate.polygon_norm) >= 3
-        ]
+            if matched_case is not None and matched_case.polygon:
+                zone["polygon_px"] = list(matched_case.polygon)
+                zone["coordinate_width"] = matched_case.coordinate_width
+                zone["coordinate_height"] = matched_case.coordinate_height
+            excluded_normal_zones.append(zone)
         fp_zone_by_id = {zone.id: zone for zone in self.get_fp_zones(product_type)}
         for zone_score in fp_recheck["fp_zone_scores"]:
             zone = fp_zone_by_id.get(zone_score.zone_id)
@@ -1573,6 +1589,53 @@ class InspectionService:
         for zone in excluded_zones:
             if zone.get("kind") != "accepted_normal":
                 continue
+            pixel_polygon = zone.get("polygon_px") or []
+            coordinate_width = int(zone.get("coordinate_width") or 0)
+            coordinate_height = int(zone.get("coordinate_height") or 0)
+            if (
+                isinstance(pixel_polygon, (list, tuple))
+                and len(pixel_polygon) >= 3
+                and coordinate_width > 0
+                and coordinate_height > 0
+            ):
+                pixel_points: list[tuple[float, float]] = []
+                for point in pixel_polygon:
+                    if isinstance(point, dict):
+                        x_raw, y_raw = point.get("x"), point.get("y")
+                    elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                        x_raw, y_raw = point[0], point[1]
+                    else:
+                        continue
+                    try:
+                        pixel_points.append((float(x_raw), float(y_raw)))
+                    except (TypeError, ValueError):
+                        continue
+                points = np.array(
+                    [
+                        [
+                            int(
+                                round(
+                                    np.clip(x, 0, coordinate_width - 1)
+                                    * (width - 1)
+                                    / max(1, coordinate_width - 1)
+                                )
+                            ),
+                            int(
+                                round(
+                                    np.clip(y, 0, coordinate_height - 1)
+                                    * (height - 1)
+                                    / max(1, coordinate_height - 1)
+                                )
+                            ),
+                        ]
+                        for x, y in pixel_points
+                    ],
+                    dtype=np.int32,
+                )
+                if len(points) >= 3:
+                    cv2.fillPoly(overlay, [points], dark_green)
+                    polygons.append(points)
+                    continue
             raw_polygon = zone.get("polygon") or []
             normalized_points: list[tuple[float, float]] = []
             for point in raw_polygon:
