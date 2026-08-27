@@ -50,3 +50,12 @@ camera-worker/build/Release/camera_worker.exe
 /IoInputMonitor/obj
 /LightServer.v3/bin
 /config
+
+# Local runtime junk (do not track / pull noise)
+DefectDetector.exe
+hs_err_pid*.log
+**/hs_err_pid*.log
+orchestrator-java/logs/
+**/bin/
+**/obj/
+analisSurface/backend/app/data/analysis_settings.json
