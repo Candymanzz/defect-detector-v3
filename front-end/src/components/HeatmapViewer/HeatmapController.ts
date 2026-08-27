@@ -162,17 +162,8 @@ export function drawExcludedNormalZones(
     }
 
     drawPolygon(context, points);
-    context.fillStyle = "rgba(12, 92, 22, 0.48)";
-    context.fill();
-
-    context.strokeStyle = "rgb(5, 40, 0)";
-    context.lineWidth = 8;
-    context.stroke();
-    context.strokeStyle = "rgb(45, 230, 65)";
-    context.lineWidth = 4;
-    context.stroke();
-    context.strokeStyle = "white";
-    context.lineWidth = 1;
+    context.strokeStyle = "rgb(185, 75, 210)";
+    context.lineWidth = 12;
     context.stroke();
   }
   context.restore();

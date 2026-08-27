@@ -368,7 +368,7 @@ def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
     assert score > 0.25
 
 
-def test_excluded_normal_overlay_marks_only_polygon_dark_green(
+def test_excluded_normal_overlay_draws_all_purple_outlines_without_fill(
 ) -> None:
     heatmap = np.zeros((100, 120, 3), dtype=np.uint8)
     result = InspectionService._draw_excluded_normal_overlay(
@@ -377,14 +377,21 @@ def test_excluded_normal_overlay_marks_only_polygon_dark_green(
             {
                 "kind": "accepted_normal",
                 "polygon": [(0.25, 0.25), (0.75, 0.25), (0.75, 0.75), (0.25, 0.75)],
-            }
+            },
+            {
+                "kind": "accepted_normal",
+                "polygon": [(0.05, 0.05), (0.15, 0.05), (0.15, 0.15), (0.05, 0.15)],
+            },
         ],
     )
 
-    center_bgr = result[50, 60].astype(np.int16)
-    assert center_bgr[1] > center_bgr[0] + 20
-    assert center_bgr[1] > center_bgr[2] + 20
-    assert np.array_equal(result[5, 5], heatmap[5, 5])
+    center_bgr = result[50, 60]
+    outline_bgr = result[25, 60].astype(np.int16)
+    assert np.array_equal(center_bgr, heatmap[50, 60])
+    assert outline_bgr[0] > outline_bgr[1] + 40
+    assert outline_bgr[2] > outline_bgr[1] + 40
+    assert np.any(result[5:20, 5:20] != heatmap[5:20, 5:20])
+    assert np.array_equal(result[30, 5], heatmap[30, 5])
 
 
 def test_activity_score_stays_below_ceiling_on_full_strong_mask() -> None:
@@ -519,6 +526,38 @@ def test_local_pre_learning_heatmap_is_not_changed_by_accepted_normal(
     assert replay.anomaly_score < replay.threshold
     assert replay.learned_normal_matches_count == 1
     assert np.array_equal(replay.heatmap_u8, original.heatmap_u8)
+
+
+def test_all_matched_saved_normals_are_exposed_as_excluded_zones(
+    inspection_service: InspectionService,
+) -> None:
+    height, width = 180, 260
+    reference = np.full((height, width, 3), 80, dtype=np.uint8)
+    accepted = reference.copy()
+    accepted[25:58, 25:65] = 185
+    accepted[105:145, 175:225] = 185
+
+    inspection_service.set_reference_frame("multiple-saved-normals", reference)
+    original = inspection_service.inspect_frame(
+        "multiple-saved-normals",
+        accepted,
+        threshold=0.1,
+        include_visuals=False,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None
+    assert len(review["defects"]) == 2
+    inspection_service.accept_all_review_defects_as_normal(original.inspection_id)
+
+    replay = inspection_service.inspect_frame(
+        "multiple-saved-normals",
+        accepted,
+        threshold=0.1,
+        include_visuals=False,
+    )
+
+    assert replay.learned_normal_matches_count == 2
+    assert len(replay.excluded_normal_zones) == 2
 
 
 def test_delete_all_accepted_normals_clears_every_camera(

@@ -1583,9 +1583,7 @@ class InspectionService:
             return heatmap
 
         height, width = heatmap.shape[:2]
-        overlay = heatmap.copy()
         polygons: list[np.ndarray] = []
-        dark_green = (22, 92, 12)  # BGR: saved-normal match marker
         for zone in excluded_zones:
             if zone.get("kind") != "accepted_normal":
                 continue
@@ -1633,7 +1631,6 @@ class InspectionService:
                     dtype=np.int32,
                 )
                 if len(points) >= 3:
-                    cv2.fillPoly(overlay, [points], dark_green)
                     polygons.append(points)
                     continue
             raw_polygon = zone.get("polygon") or []
@@ -1662,16 +1659,22 @@ class InspectionService:
                 ],
                 dtype=np.int32,
             )
-            cv2.fillPoly(overlay, [points], dark_green)
             polygons.append(points)
 
         if not polygons:
             return heatmap
-        result = cv2.addWeighted(overlay, 0.48, heatmap, 0.52, 0.0)
+        result = heatmap.copy()
         for points in polygons:
-            cv2.polylines(result, [points], isClosed=True, color=(5, 40, 0), thickness=8)
-            cv2.polylines(result, [points], isClosed=True, color=(65, 230, 45), thickness=4)
-            cv2.polylines(result, [points], isClosed=True, color=(255, 255, 255), thickness=1)
+            # BGR purple; the match must be visible without obscuring the heatmap
+            # values under the accepted-normal area.
+            cv2.polylines(
+                result,
+                [points],
+                isClosed=True,
+                color=(210, 75, 185),
+                thickness=12,
+                lineType=cv2.LINE_AA,
+            )
         return result
 
     def _decode_image(self, image_bytes: bytes) -> np.ndarray:
