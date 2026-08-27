@@ -29,6 +29,12 @@ export function PreviewImage({
   const requestRef = useRef(0);
 
   useEffect(() => {
+    if (!retainPreviousWhileLoading) {
+      setDisplayedSrc(src);
+    }
+  }, [retainPreviousWhileLoading, src]);
+
+  useEffect(() => {
     const requestId = ++requestRef.current;
     if (!retainPreviousWhileLoading || !src || src === displayedSrc) {
       return;
@@ -66,7 +72,7 @@ export function PreviewImage({
     };
   }, [decoding, displayedSrc, fetchPriority, retainPreviousWhileLoading, src]);
 
-  const effectiveSrc = retainPreviousWhileLoading ? displayedSrc : src;
+  const effectiveSrc = retainPreviousWhileLoading ? (displayedSrc ?? src) : src;
   const failed = Boolean(
     src && failedSrc === src && (!retainPreviousWhileLoading || !effectiveSrc),
   );
