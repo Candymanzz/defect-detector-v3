@@ -26,7 +26,7 @@ from app.api.schemas import (
 )
 from app.runtime import get_application_id
 from app.services.analysis_settings import AnalysisSettings
-from app.services.analysis_settings_presets import expand_pro, expand_simple
+from app.services.analysis_settings_presets import expand_merged, normalize_strengths
 from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8_image_to_shm
 
 
@@ -68,19 +68,16 @@ def load_test_frame_bgr(payload: TestFrameInspectRequest) -> np.ndarray:
 
 
 def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSettings:
-    if payload.simple is not None:
-        overrides = expand_simple(payload.simple.threshold, payload.simple.sensitivity)
-    elif payload.pro is not None:
-        overrides = expand_pro(
-            payload.pro.threshold,
-            payload.pro.noise_tolerance,
-            payload.pro.scratch_sensitivity,
-            payload.pro.edge_suppression,
-            payload.pro.text_handling,
-            payload.pro.preprocess_strength,
-        )
-    else:
-        raise ValueError("simple or pro knobs required")
+    if payload.simple is None:
+        raise ValueError("simple knobs required (threshold + sensitivity)")
+    strengths = normalize_strengths(
+        payload.detailed.model_dump() if payload.detailed is not None else None
+    )
+    overrides = expand_merged(
+        payload.simple.threshold,
+        payload.simple.sensitivity,
+        **strengths,
+    )
     return AnalysisSettings.from_overrides(overrides)
 
 
@@ -179,12 +176,10 @@ def _inspect_shm_sync(
         mode = str(payload.analysis_test_settings.get("mode", "")).strip().lower()
         knobs = payload.analysis_test_settings.get("knobs") or {}
         if mode == "simple":
-            temporary_overrides = expand_simple(knobs["threshold"], knobs["sensitivity"])
-        elif mode == "pro":
-            temporary_overrides = expand_pro(
-                knobs["threshold"], knobs["noise_tolerance"], knobs["scratch_sensitivity"],
-                knobs["edge_suppression"], knobs["text_handling"], knobs["preprocess_strength"],
-            )
+            strengths = normalize_strengths(knobs.get("strengths"))
+            temporary_overrides = expand_merged(knobs["threshold"], knobs["sensitivity"], **strengths)
+        elif mode == "detailed":
+            raise ValueError("use mode=simple with optional strengths in knobs")
     return inspection_service.inspect_frame(
         product_type=payload.product_type,
         frame=frame,

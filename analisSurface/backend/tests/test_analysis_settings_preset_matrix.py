@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.analysis_settings_presets import expand_pro, expand_simple
+from app.services.analysis_settings_presets import expand_merged, expand_simple
 
 # Поля, которые чаще всего крутят при калибровке.
 _KEY_FIELDS = (
@@ -182,74 +182,29 @@ def test_simple_threshold_only_changes_default_threshold() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Pro: каждая ручка двигает только свою группу
+# Силы групп при фиксированной sensitivity
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
-    "knob,value,field,expected",
+    "overrides,field,expected",
     [
-        ("noise_tolerance", 0.0, "min_diff_signal", 40.0),
-        ("noise_tolerance", 0.5, "min_diff_signal", 12.0),
-        ("noise_tolerance", 1.0, "min_diff_signal", 4.0),
-        ("noise_tolerance", 0.0, "min_defect_area", 50),
-        ("noise_tolerance", 1.0, "min_defect_area", 3),
-        ("noise_tolerance", 0.0, "diff_percentile", 99.5),
-        ("noise_tolerance", 1.0, "diff_percentile", 95.0),
-        ("scratch_sensitivity", 0.0, "min_scratch_aspect", 5.0),
-        ("scratch_sensitivity", 0.5, "min_scratch_aspect", 3.0),
-        ("scratch_sensitivity", 1.0, "min_scratch_aspect", 2.0),
-        ("scratch_sensitivity", 0.0, "scratch_score_floor", 0.2),
-        ("scratch_sensitivity", 1.0, "scratch_score_floor", 0.5),
-        ("edge_suppression", 0.0, "edge_suppress_factor", 0.05),
-        ("edge_suppression", 0.5, "edge_suppress_factor", 0.2),
-        ("edge_suppression", 1.0, "edge_suppress_factor", 0.5),
-        ("text_handling", 0.0, "text_min_contrast", 90),
-        ("text_handling", 0.5, "text_min_contrast", 55),
-        ("text_handling", 1.0, "text_min_contrast", 30),
-        ("text_handling", 0.0, "contrast_loss_boost", 1.2),
-        ("text_handling", 1.0, "contrast_loss_boost", 3.0),
-        ("preprocess_strength", 0.0, "enable_clahe", True),
-        ("preprocess_strength", 0.5, "enable_clahe", True),
-        ("preprocess_strength", 1.0, "clahe_clip_limit", 2.0),
-        ("preprocess_strength", 0.0, "clahe_clip_limit", 1.0),
-        ("preprocess_strength", 0.5, "clahe_clip_limit", 1.2),
+        ({"noise_tolerance": 0}, "min_diff_signal", 12.0),
+        ({"noise_tolerance": 100}, "min_diff_signal", 4.0),
+        ({"scratch_sensitivity": 0}, "min_scratch_aspect", 3.0),
+        ({"scratch_sensitivity": 100}, "min_scratch_aspect", 2.0),
     ],
 )
-def test_pro_knob_field_matrix(knob: str, value: float, field: str, expected: object) -> None:
-    knobs = {
-        "threshold": 0.25,
-        "noise_tolerance": 0.5,
-        "scratch_sensitivity": 0.5,
-        "edge_suppression": 0.5,
-        "text_handling": 0.5,
-        "preprocess_strength": 0.5,
+def test_strength_matrix(overrides: dict, field: str, expected: object) -> None:
+    base = {
+        "noise_tolerance": 50,
+        "scratch_sensitivity": 50,
+        "edge_suppression": 50,
+        "text_handling": 50,
+        "preprocess_strength": 50,
     }
-    knobs[knob] = value
-    expanded = expand_pro(
-        knobs["threshold"],
-        knobs["noise_tolerance"],
-        knobs["scratch_sensitivity"],
-        knobs["edge_suppression"],
-        knobs["text_handling"],
-        knobs["preprocess_strength"],
-    )
+    base.update(overrides)
+    expanded = expand_merged(0.25, 1.0, **base)
     assert expanded[field] == expected
-
-
-def test_pro_knob_does_not_move_other_groups() -> None:
-    """noise_tolerance=0 двигает noise, scratch/edge/text/preprocess остаются на defaults."""
-    expanded = expand_pro(0.25, 0.0, 0.5, 0.5, 0.5, 0.5)
-    mid = expand_pro(0.25, 0.5, 0.5, 0.5, 0.5, 0.5)
-    assert expanded["min_diff_signal"] != mid["min_diff_signal"]
-    for field in (
-        "min_scratch_aspect",
-        "scratch_score_floor",
-        "edge_suppress_factor",
-        "text_min_contrast",
-        "enable_clahe",
-        "clahe_clip_limit",
-    ):
-        assert expanded[field] == mid[field], field
 
 
 # ---------------------------------------------------------------------------
@@ -285,8 +240,8 @@ def test_print_simple_sensitivity_table(capsys: pytest.CaptureFixture[str]) -> N
     assert rows[0.5]["min_diff_signal"] == 12.0
 
 
-def test_print_pro_knob_table(capsys: pytest.CaptureFixture[str]) -> None:
-    levels = (0.0, 0.5, 1.0)
+def test_print_strength_table(capsys: pytest.CaptureFixture[str]) -> None:
+    levels = (0, 50, 100)
     groups = {
         "noise_tolerance": ("min_diff_signal", "min_defect_area", "diff_percentile"),
         "scratch_sensitivity": ("min_scratch_aspect", "scratch_score_floor", "scratch_aspect_floor"),
@@ -301,24 +256,24 @@ def test_print_pro_knob_table(capsys: pytest.CaptureFixture[str]) -> None:
         "preprocess_strength": ("enable_clahe", "clahe_clip_limit"),
     }
 
-    lines = ["", "=== pro: одна ручка меняется, остальные = 0.5, threshold=0.25 ==="]
+    lines = ["", "=== strengths: sensitivity=1.0, одна сила меняется, остальные = 50 ==="]
     for knob, fields in groups.items():
         lines.append(f"\n[{knob}]")
-        header = f"{'field':28} | " + " | ".join(f"{v:g}".rjust(8) for v in levels)
+        header = f"{'field':28} | " + " | ".join(f"{v:d}".rjust(8) for v in levels)
         lines.append(header)
         lines.append("-" * len(header))
         for field in fields:
             cells = []
             for value in levels:
                 knobs = {
-                    "noise_tolerance": 0.5,
-                    "scratch_sensitivity": 0.5,
-                    "edge_suppression": 0.5,
-                    "text_handling": 0.5,
-                    "preprocess_strength": 0.5,
+                    "noise_tolerance": 50,
+                    "scratch_sensitivity": 50,
+                    "edge_suppression": 50,
+                    "text_handling": 50,
+                    "preprocess_strength": 50,
                 }
                 knobs[knob] = value
-                expanded = expand_pro(0.25, **knobs)
+                expanded = expand_merged(0.25, 1.0, **knobs)
                 cells.append(str(expanded[field]).rjust(8))
             lines.append(f"{field:28} | " + " | ".join(cells))
     lines.append("")

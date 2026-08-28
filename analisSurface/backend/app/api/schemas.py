@@ -126,6 +126,8 @@ class AnalysisSettingsResponse(BaseModel):
     settings: AnalysisSettingsValues
     defaults: AnalysisSettingsValues
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+    simple_knobs: Optional["SimpleSettingsKnobs"] = None
+    strength_knobs: Optional["DetailedStrengthKnobs"] = None
 
 
 class SimpleSettingsKnobs(BaseModel):
@@ -133,13 +135,18 @@ class SimpleSettingsKnobs(BaseModel):
     sensitivity: float = Field(..., ge=0.0, le=1.0)
 
 
-class ProSettingsKnobs(BaseModel):
-    threshold: float = Field(..., gt=0.0, le=1.0)
-    noise_tolerance: float = Field(..., ge=0.0, le=1.0)
-    scratch_sensitivity: float = Field(..., ge=0.0, le=1.0)
-    edge_suppression: float = Field(..., ge=0.0, le=1.0)
-    text_handling: float = Field(..., ge=0.0, le=1.0)
-    preprocess_strength: float = Field(..., ge=0.0, le=1.0)
+class DetailedStrengthKnobs(BaseModel):
+    """Силы изменения групп (сохраняются отдельно от чувствительности)."""
+
+    noise_tolerance: float = Field(..., ge=0.0, le=100.0)
+    scratch_sensitivity: float = Field(..., ge=0.0, le=100.0)
+    edge_suppression: float = Field(..., ge=0.0, le=100.0)
+    text_handling: float = Field(..., ge=0.0, le=100.0)
+    preprocess_strength: float = Field(..., ge=0.0, le=100.0)
+
+
+# alias для обратной совместимости импортов
+DetailedSensitivityKnobs = DetailedStrengthKnobs
 
 
 class SimpleSettingsResponse(BaseModel):
@@ -150,12 +157,22 @@ class SimpleSettingsResponse(BaseModel):
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
 
 
-class ProSettingsResponse(BaseModel):
+class DetailedSensitivityResponse(BaseModel):
     analysis_profile: str
-    knobs: Optional[ProSettingsKnobs] = None
+    knobs: Optional[DetailedSensitivityKnobs] = None
     settings: AnalysisSettingsValues
     defaults: AnalysisSettingsValues
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
+class StrengthKnobsResponse(BaseModel):
+    """Силы групп (0–100) для product_type — лёгкий ответ без полного settings."""
+
+    analysis_profile: str
+    strengths: DetailedStrengthKnobs
+    saved: bool = Field(
+        description="True если силы явно сохранены в detailed_knobs; False — отдаются defaults (50)."
+    )
 
 
 class DetectorHealthResponse(BaseModel):
@@ -194,7 +211,7 @@ class TestFrameInspectRequest(BaseModel):
     detector_id: Optional[str] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None
     simple: Optional[SimpleSettingsKnobs] = None
-    pro: Optional[ProSettingsKnobs] = None
+    detailed: Optional[DetailedSensitivityKnobs] = None
     heatmap_u8_output_path: Optional[str] = None
     heatmap_max_width: Optional[int] = None
     aligned_image_u8_output_path: Optional[str] = None

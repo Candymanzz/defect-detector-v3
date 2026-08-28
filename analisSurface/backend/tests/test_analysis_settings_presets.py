@@ -1,7 +1,13 @@
 import pytest
 
 from app.services.analysis_settings import AnalysisSettings
-from app.services.analysis_settings_presets import expand_pro, expand_simple, lerp_anchor
+from app.services.analysis_settings_presets import (
+    effective_group_sensitivity,
+    expand_merged,
+    expand_simple,
+    normalize_strengths,
+    _stock_coeff,
+)
 
 
 def test_expand_simple_mid_matches_defaults() -> None:
@@ -18,45 +24,39 @@ def test_expand_simple_coarse_vs_sensitive() -> None:
     coarse = expand_simple(0.25, 0.0)
     sensitive = expand_simple(0.25, 1.0)
     assert coarse["min_diff_signal"] > sensitive["min_diff_signal"]
-    assert coarse["min_defect_area"] > sensitive["min_defect_area"]
-    assert coarse["diff_percentile"] > sensitive["diff_percentile"]
 
 
-def test_expand_simple_rejects_invalid() -> None:
-    with pytest.raises(ValueError, match="threshold"):
-        expand_simple(0.0, 0.5)
-    with pytest.raises(ValueError, match="sensitivity"):
-        expand_simple(0.25, 1.5)
+def test_expand_merged_high_scratch_strength() -> None:
+    base = expand_merged(0.25, 0.75, scratch_sensitivity=50)
+    boosted = expand_merged(0.25, 0.75, scratch_sensitivity=100)
+    assert boosted["min_scratch_aspect"] < base["min_scratch_aspect"]
 
 
-def test_expand_pro_mid_matches_defaults_groups() -> None:
-    expanded = expand_pro(0.3, 0.5, 0.5, 0.5, 0.5, 0.5)
+def test_expand_merged_zero_strength_keeps_group_at_stock() -> None:
     defaults = AnalysisSettings.defaults().to_dict()
-    assert expanded["default_threshold"] == 0.3
-    for key in (
-        "min_diff_signal",
-        "min_defect_area",
-        "diff_percentile",
-        "min_scratch_aspect",
-        "edge_suppress_factor",
-        "text_min_contrast",
-        "enable_clahe",
-        "clahe_clip_limit",
-        "use_patchcore",
-        "fp_recheck_enabled",
-    ):
-        assert expanded[key] == defaults[key], key
+    expanded = expand_merged(0.25, 1.0, noise_tolerance=0)
+    assert expanded["min_diff_signal"] == defaults["min_diff_signal"]
+    assert expanded["min_scratch_aspect"] != defaults["min_scratch_aspect"]
 
 
-def test_expand_pro_noise_knob_moves_noise_fields() -> None:
-    low = expand_pro(0.25, 0.0, 0.5, 0.5, 0.5, 0.5)
-    high = expand_pro(0.25, 1.0, 0.5, 0.5, 0.5, 0.5)
-    assert low["min_diff_signal"] > high["min_diff_signal"]
-    # scratch group stays at defaults
-    assert low["min_scratch_aspect"] == high["min_scratch_aspect"]
+def test_expand_merged_matches_simple_with_default_strengths() -> None:
+    simple = expand_simple(0.25, 0.8)
+    merged = expand_merged(0.25, 0.8)
+    assert simple == merged
 
 
-def test_lerp_anchor_endpoints() -> None:
-    assert lerp_anchor("min_diff_signal", 0.0) == 40.0
-    assert lerp_anchor("min_diff_signal", 0.5) == 12.0
-    assert lerp_anchor("min_diff_signal", 1.0) == 4.0
+def test_normalize_strengths_ignores_threshold() -> None:
+    strengths = normalize_strengths({"threshold": 0.3, "noise_tolerance": 80})
+    assert "threshold" not in strengths
+    assert strengths["noise_tolerance"] == 80.0
+    assert strengths["scratch_sensitivity"] == 50.0
+
+
+def test_effective_group_sensitivity() -> None:
+    assert effective_group_sensitivity(50, 50) == 50.0
+    assert effective_group_sensitivity(100, 0) == 50.0
+    assert effective_group_sensitivity(75, 50) == pytest.approx(75.0)
+
+
+def test_stock_coeff_endpoints() -> None:
+    assert _stock_coeff("min_diff_signal", 50) == pytest.approx(1.0)

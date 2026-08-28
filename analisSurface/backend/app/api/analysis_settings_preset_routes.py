@@ -1,16 +1,21 @@
-"""Упрощённые эндпоинты analysis-settings: simple (2 ручки) и pro (6 ручек)."""
+"""Упрощённые эндпоинты analysis-settings: simple, detailed/strengths."""
 
 from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspection_service
-from app.api.mappers import to_pro_settings_response, to_simple_settings_response
+from app.api.mappers import (
+    to_detailed_sensitivity_response,
+    to_simple_settings_response,
+    to_strength_knobs_response,
+)
 from app.api.schemas import (
-    ProSettingsKnobs,
-    ProSettingsResponse,
+    DetailedSensitivityKnobs,
+    DetailedSensitivityResponse,
     SimpleSettingsKnobs,
     SimpleSettingsResponse,
+    StrengthKnobsResponse,
 )
-from app.services.analysis_settings_presets import expand_pro, expand_simple
+from app.services.analysis_settings_presets import expand_merged, normalize_strengths
 
 
 router = APIRouter()
@@ -37,7 +42,8 @@ async def put_simple_analysis_settings(
 ) -> SimpleSettingsResponse:
     """PUT — развернуть threshold+sensitivity и записать через InspectionService."""
     try:
-        expanded = expand_simple(payload.threshold, payload.sensitivity)
+        strengths = normalize_strengths(inspection_service.get_detailed_knobs(analysis_profile))
+        expanded = expand_merged(payload.threshold, payload.sensitivity, **strengths)
         knobs = payload.model_dump()
         overrides = inspection_service.apply_simple_settings(analysis_profile, expanded, knobs)
     except ValueError as exc:
@@ -46,36 +52,54 @@ async def put_simple_analysis_settings(
 
 
 @router.get(
-    "/analysis-settings/{analysis_profile}/pro",
-    response_model=ProSettingsResponse,
+    "/analysis-settings/{analysis_profile}/strengths",
+    response_model=StrengthKnobsResponse,
 )
-async def get_pro_analysis_settings(analysis_profile: str) -> ProSettingsResponse:
-    """GET — последние pro-knobs (если есть) + эффективные settings."""
-    overrides = inspection_service.get_analysis_settings_overrides(analysis_profile)
-    knobs = inspection_service.get_pro_knobs(analysis_profile)
-    return to_pro_settings_response(analysis_profile, overrides, knobs)
+async def get_strength_knobs(analysis_profile: str) -> StrengthKnobsResponse:
+    """GET — силы групп (0–100). Если не сохранены — defaults 50, saved=false."""
+    return to_strength_knobs_response(analysis_profile)
 
 
 @router.put(
-    "/analysis-settings/{analysis_profile}/pro",
-    response_model=ProSettingsResponse,
+    "/analysis-settings/{analysis_profile}/strengths",
+    response_model=StrengthKnobsResponse,
 )
-async def put_pro_analysis_settings(
+async def put_strength_knobs(
     analysis_profile: str,
-    payload: ProSettingsKnobs,
-) -> ProSettingsResponse:
-    """PUT — развернуть pro-ручки и записать через InspectionService."""
+    payload: DetailedSensitivityKnobs,
+) -> StrengthKnobsResponse:
+    """PUT — сохранить силы групп; пересчитать overrides с текущей simple-чувствительностью."""
     try:
-        expanded = expand_pro(
-            payload.threshold,
-            payload.noise_tolerance,
-            payload.scratch_sensitivity,
-            payload.edge_suppression,
-            payload.text_handling,
-            payload.preprocess_strength,
-        )
         knobs = payload.model_dump()
-        overrides = inspection_service.apply_pro_settings(analysis_profile, expanded, knobs)
+        inspection_service.apply_detailed_settings(analysis_profile, knobs)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return to_pro_settings_response(analysis_profile, overrides, knobs)
+    return to_strength_knobs_response(analysis_profile)
+
+
+@router.get(
+    "/analysis-settings/{analysis_profile}/detailed",
+    response_model=DetailedSensitivityResponse,
+)
+async def get_detailed_analysis_settings(analysis_profile: str) -> DetailedSensitivityResponse:
+    """GET — сохранённые силы (если есть) + эффективные settings."""
+    overrides = inspection_service.get_analysis_settings_overrides(analysis_profile)
+    knobs = inspection_service.get_detailed_knobs(analysis_profile)
+    return to_detailed_sensitivity_response(analysis_profile, overrides, knobs)
+
+
+@router.put(
+    "/analysis-settings/{analysis_profile}/detailed",
+    response_model=DetailedSensitivityResponse,
+)
+async def put_detailed_analysis_settings(
+    analysis_profile: str,
+    payload: DetailedSensitivityKnobs,
+) -> DetailedSensitivityResponse:
+    """PUT — alias для /strengths: сохранить силы групп."""
+    try:
+        knobs = payload.model_dump()
+        overrides = inspection_service.apply_detailed_settings(analysis_profile, knobs)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return to_detailed_sensitivity_response(analysis_profile, overrides, knobs)

@@ -7,8 +7,8 @@ from app.api.schemas import (
     FPZoneScoreResponse,
     InspectResponse,
     InspectWithVisualsResponse,
-    ProSettingsKnobs,
-    ProSettingsResponse,
+    DetailedSensitivityKnobs,
+    DetailedSensitivityResponse,
     RoiSubZonePoint,
     RoiSubZoneResponse,
     RoiSubZoneScoreResponse,
@@ -16,8 +16,10 @@ from app.api.schemas import (
     ShmVisualsResponse,
     SimpleSettingsKnobs,
     SimpleSettingsResponse,
+    StrengthKnobsResponse,
 )
 from app.services.analysis_settings import AnalysisSettings
+from app.services.analysis_settings_presets import normalize_strengths
 from app.services.shm_io import ShmImageOutputInfo
 
 
@@ -29,11 +31,15 @@ def to_analysis_settings_values(settings: AnalysisSettings) -> AnalysisSettingsV
 def to_analysis_settings_response(analysis_profile: str, overrides: dict) -> AnalysisSettingsResponse:
     effective = AnalysisSettings.from_overrides(overrides)
     defaults = AnalysisSettings.defaults()
+    simple_raw = inspection_service.get_simple_knobs(analysis_profile)
+    strength_raw = inspection_service.get_detailed_knobs(analysis_profile)
     return AnalysisSettingsResponse(
         analysis_profile=analysis_profile,
         settings=to_analysis_settings_values(effective),
         defaults=to_analysis_settings_values(defaults),
         overrides=overrides,
+        simple_knobs=SimpleSettingsKnobs(**simple_raw) if simple_raw else None,
+        strength_knobs=DetailedSensitivityKnobs(**normalize_strengths(strength_raw)) if strength_raw else None,
     )
 
 
@@ -53,16 +59,26 @@ def to_simple_settings_response(
     )
 
 
-def to_pro_settings_response(
+def to_strength_knobs_response(analysis_profile: str) -> StrengthKnobsResponse:
+    saved_raw = inspection_service.get_detailed_knobs(analysis_profile)
+    strengths = normalize_strengths(saved_raw)
+    return StrengthKnobsResponse(
+        analysis_profile=analysis_profile,
+        strengths=DetailedSensitivityKnobs(**strengths),
+        saved=saved_raw is not None,
+    )
+
+
+def to_detailed_sensitivity_response(
     analysis_profile: str,
     overrides: dict,
     knobs: dict | None,
-) -> ProSettingsResponse:
+) -> DetailedSensitivityResponse:
     effective = AnalysisSettings.from_overrides(overrides)
     defaults = AnalysisSettings.defaults()
-    return ProSettingsResponse(
+    return DetailedSensitivityResponse(
         analysis_profile=analysis_profile,
-        knobs=ProSettingsKnobs(**knobs) if knobs else None,
+        knobs=DetailedSensitivityKnobs(**knobs) if knobs else None,
         settings=to_analysis_settings_values(effective),
         defaults=to_analysis_settings_values(defaults),
         overrides=overrides,
