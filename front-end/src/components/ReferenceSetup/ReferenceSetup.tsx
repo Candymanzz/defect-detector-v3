@@ -34,10 +34,12 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
     replacementCameraIds,
+    isFullReferenceReplacement,
     referenceName,
     setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleCreateNewReference,
     handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
@@ -85,7 +87,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const primaryReferenceLabel = shouldStartNewReference
     ? "Задать новый эталон"
     : isNewReferenceMode
-      ? "Подтвердить изменения →"
+      ? isFullReferenceReplacement
+        ? "Подтвердить новый эталон →"
+        : "Подтвердить изменения →"
       : "Задать и использовать эталон →";
 
   useEffect(() => {
@@ -256,6 +260,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 className="reference-setup__button reference-setup__refresh"
                 onClick={() => {
                   if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
+                    if (isFullReferenceReplacement) {
+                      void handleCreateNewReference();
+                      return;
+                    }
                     void handleToggleCameraReplacement(selectedCameraId);
                     return;
                   }
@@ -263,7 +271,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 }}
               >
                 {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
-                  ? replacementCameraIds.includes(selectedCameraId)
+                  ? isFullReferenceReplacement
+                    ? "Обновить все кадры ещё раз"
+                    : replacementCameraIds.includes(selectedCameraId)
                     ? `Оставить прежний кадр камеры ${selectedCameraId}`
                     : `Заменить кадр камеры ${selectedCameraId}`
                   : hasAnyStoredReferenceForActiveGroup
@@ -339,7 +349,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   <strong>{isNewReferenceMode ? "Новый эталон" : "В работе"}</strong>
                   <span>
                     {isNewReferenceMode
-                      ? replacementCameraIds.length > 0
+                      ? isFullReferenceReplacement
+                        ? "Создаётся полностью новый эталон. Кадры анализа предыдущего эталона не переносятся."
+                        : replacementCameraIds.length > 0
                         ? `Изменяются камеры: ${replacementCameraIds.join(", ")}. Остальные останутся прежними.`
                         : "Выберите камеры для изменения. Текущие кадры уже отображаются."
                       : activeArchive
@@ -473,7 +485,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   <Button
                     className="reference-setup__button reference-setup__save"
                     disabled={!shouldStartNewReference && !canSendAllReferences}
-                    onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
+                    onClick={shouldStartNewReference ? handleCreateNewReference : handleSendAllReferences}
                   >
                     {primaryReferenceLabel}
                   </Button>

@@ -47,6 +47,7 @@ const pendingReferenceBundles = new Map<
     jointRoiPoints?: InterestPointNorm[];
     name?: string;
     archiveCameraIds?: number[];
+    inheritLearnedCases?: boolean;
   }
 >();
 const listeners = new Set<ReferenceImageListener>();
@@ -102,6 +103,7 @@ export function resolveReferenceBundleImages(messageId: string, accepted: boolea
       pendingBundle.jointRoiPoints,
       pendingBundle.name,
       pendingBundle.archiveCameraIds,
+      pendingBundle.inheritLearnedCases,
     );
   }
 }
@@ -142,6 +144,12 @@ export function stageReferenceArchiveCameraIds(messageId: string, cameraIds: num
   pendingBundle.archiveCameraIds = [...new Set(cameraIds)].sort((left, right) => left - right);
 }
 
+export function stageReferenceLearnedCaseInheritance(messageId: string, inherit: boolean) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) return;
+  pendingBundle.inheritLearnedCases = inherit;
+}
+
 export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,
   fallbackImageUrlsByCameraId: Record<number, string> = {},
@@ -150,6 +158,7 @@ export function commitReferenceBundleImages(
   jointRoiPoints?: InterestPointNorm[],
   name?: string,
   archiveCameraIds?: number[],
+  inheritLearnedCases = true,
 ) {
   const nextReferenceImagesByCameraId = new Map(referenceImagesByCameraId);
   const nextReferenceImageVersion = referenceImageVersion + 1;
@@ -210,7 +219,7 @@ export function commitReferenceBundleImages(
   referenceImageVersion = nextReferenceImageVersion;
 
   // Keep the newly accepted reference selectable as well as the superseded one.
-  archiveCurrentReferenceGroup(archivedCameraIds, name);
+  archiveCurrentReferenceGroup(archivedCameraIds, name, inheritLearnedCases);
   queuePersistReferenceState();
 
   emitReferenceImageChange();
@@ -314,7 +323,7 @@ export function subscribeReferenceImages(listener: ReferenceImageListener) {
   };
 }
 
-function archiveCurrentReferenceGroup(cameraIds: number[], name?: string) {
+function archiveCurrentReferenceGroup(cameraIds: number[], name?: string, inheritLearnedCases = true) {
   const images = cameraIds
     .map((cameraId) => {
       const referenceImage = referenceImagesByCameraId.get(cameraId);
@@ -327,7 +336,7 @@ function archiveCurrentReferenceGroup(cameraIds: number[], name?: string) {
   }
 
   const archive = createArchivedReferenceGroup(images, name);
-  for (const image of images) {
+  for (const image of inheritLearnedCases ? images : []) {
     const sourceArchive = archivedReferenceGroups.find((candidate) =>
       candidate.images.some(
         (candidateImage) =>

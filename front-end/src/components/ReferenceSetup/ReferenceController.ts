@@ -7,6 +7,7 @@ import {
   stageReferenceArchiveCameraIds,
   stageReferenceBundleContours,
   stageReferenceBundleName,
+  stageReferenceLearnedCaseInheritance,
 } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { ServerWsMessage } from "../../shared/ws";
@@ -37,6 +38,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [isNewReferenceMode, setIsNewReferenceMode] = useState(false);
   const [replacementCameraIds, setReplacementCameraIds] = useState<number[]>([]);
   const [referenceName, setReferenceName] = useState("");
+  const [isFullReferenceReplacement, setIsFullReferenceReplacement] = useState(false);
   const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
@@ -72,6 +74,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     submissionCameraIds.length > 0 &&
     submissionCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
     referenceRoi.hasRequiredRoisForCameraIds(submissionCameraIds) &&
+    (!isFullReferenceReplacement || activeCameraIds.every((cameraId) => replacementCameraIds.includes(cameraId))) &&
     status.state === "open",
   );
   useEffect(() => {
@@ -158,6 +161,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
             );
             hasReferenceRef.current = true;
             setIsNewReferenceMode(false);
+            setIsFullReferenceReplacement(false);
             setReplacementCameraIds([]);
             const referenceCommitSync = referenceCommitSyncRef.current;
             if (referenceCommitSync) {
@@ -278,6 +282,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
     if (hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode) {
       setIsNewReferenceMode(true);
+      setIsFullReferenceReplacement(false);
       setReplacementCameraIds([]);
       setReferenceName("");
       setMessage("Выберите одну или несколько камер, кадры которых нужно заменить");
@@ -325,10 +330,36 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     setMessage(`Could not capture latest frames for cameras: ${missingCameraIds.join(", ")}`);
   };
 
+  const handleCreateNewReference = async () => {
+    if (activeCameraIds.length === 0) {
+      setMessage("Список камер группы пуст");
+      return;
+    }
+    setIsNewReferenceMode(true);
+    setIsFullReferenceReplacement(true);
+    setReplacementCameraIds([]);
+    setReferenceName("");
+    setMessage(`Обновление кадров всех камер: ${activeCameraIds.join(", ")}...`);
+    const { loadedCameraIds, snapshotCameraIds, missingCameraIds } = await captureLatestImages(activeCameraIds);
+    const capturedCameraIds = [...new Set([...loadedCameraIds, ...snapshotCameraIds])].sort(
+      (left, right) => left - right,
+    );
+    setReplacementCameraIds(capturedCameraIds);
+    referenceRoi.resetEditedRoisForCameraIds(activeCameraIds);
+    referenceFpZones.resetEditedFpZonesForCameraIds(activeCameraIds);
+    if (capturedCameraIds.length !== activeCameraIds.length) {
+      setMessage(`Не получены новые кадры камер: ${missingCameraIds.join(", ")}`);
+      return;
+    }
+    setMessage("Новые кадры получены. Задайте ROI и подтвердите новый эталон.");
+  };
+
   const handleToggleCameraReplacement = async (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
+    setIsFullReferenceReplacement(false);
     if (!isNewReferenceMode) {
       setIsNewReferenceMode(true);
+      setIsFullReferenceReplacement(false);
       setReferenceName("");
     }
 
@@ -461,6 +492,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         );
         stageReferenceBundleName(messageId, referenceName);
         stageReferenceArchiveCameraIds(messageId, activeCameraIds);
+        stageReferenceLearnedCaseInheritance(messageId, !isFullReferenceReplacement);
         pendingReferenceMessageIdsRef.current.add(messageId);
       }
       setMessage(
@@ -511,10 +543,12 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
     replacementCameraIds,
+    isFullReferenceReplacement,
     referenceName,
     setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleCreateNewReference,
     handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
