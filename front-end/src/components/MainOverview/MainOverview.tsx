@@ -11,6 +11,7 @@ import { GeometryTestSettingsPanel } from "../SettingList/GeometryTestSettingsPa
 import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTestSettingsPanel";
 import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
 import { orchestratorApi } from "../../shared/api";
+import type { InspectionStateResponse } from "../../shared/api/types";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
@@ -62,16 +63,35 @@ export function MainOverview({
   });
   const analysisSettingsRef = useRef<AnalysisSettingsPanelHandle>(null);
   const geometrySettingsRef = useRef<GeometryTestSettingsPanelHandle>(null);
+  const inspectionStateBeforeTestRef = useRef<InspectionStateResponse | null>(null);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
   const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
   const modalInspectionControlState = controller.modalSnapshot
     ? controller.inspectionControlByCameraId[controller.modalSnapshot.cameraId]
     : undefined;
 
-  const exitTestModeAndResume = async () => {
+  const restoreInspectionStateAfterTest = async () => {
     await orchestratorApi.setTestMode(false);
-    const inspectionState = await orchestratorApi.startAllInspections();
+
+    const previousState = inspectionStateBeforeTestRef.current;
+    if (previousState) {
+      // Keep explicitly disabled cameras disabled. Restore disabled cameras first so
+      // they cannot briefly start inspecting while the remaining state is restored.
+      for (const cameraId of previousState.disabledCameraIds) {
+        await orchestratorApi.setInspectionEnabled(cameraId, false);
+      }
+      for (const cameraId of previousState.enabledCameraIds) {
+        await orchestratorApi.setInspectionEnabled(cameraId, true);
+      }
+    }
+
+    const inspectionState = await orchestratorApi.getInspectionStatus();
     window.dispatchEvent(new CustomEvent("inspection-control-changed", { detail: inspectionState }));
+    inspectionStateBeforeTestRef.current = null;
+  };
+
+  const exitTestModeAndResume = async () => {
+    await restoreInspectionStateAfterTest();
     setShowModalAnalysisSettings(false);
     setTestFrameId(undefined);
     setTestAnalyzeState("idle");
@@ -446,6 +466,7 @@ export function MainOverview({
                     setTestAnalyzeState("submitting");
                     setTestAnalyzeMessage(`Копирование кадра ${frameId} на диск для теста…`);
                     setTestFrameId(frameId);
+                    inspectionStateBeforeTestRef.current = await orchestratorApi.getInspectionStatus();
                     // Enter TEST mode first (the server rejects pinning outside it).
                     await onAnalysisSettingsOpen(cameraId);
                     await pinFrameForTest(inspectResult);
@@ -466,11 +487,7 @@ export function MainOverview({
                         : "Не удалось зафиксировать кадр для теста",
                     );
                     try {
-                      await orchestratorApi.setTestMode(false);
-                      const inspectionState = await orchestratorApi.startAllInspections();
-                      window.dispatchEvent(
-                        new CustomEvent("inspection-control-changed", { detail: inspectionState }),
-                      );
+                      await restoreInspectionStateAfterTest();
                     } catch {
                       // leave error message from pin/open failure
                     }
