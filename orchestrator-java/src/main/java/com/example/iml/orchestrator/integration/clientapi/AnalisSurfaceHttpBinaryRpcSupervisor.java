@@ -538,6 +538,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
         if (header.get("simple") instanceof Map<?, ?> simple) {
             body.put("simple", simple);
+        }
+        if (header.get("detailed") instanceof Map<?, ?> detailed) {
+            body.put("detailed", detailed);
         } else if (header.get("pro") instanceof Map<?, ?> pro) {
             body.put("pro", pro);
         }
@@ -564,7 +567,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         boolean hasSimple = body.get("simple") instanceof Map<?, ?>;
         boolean hasPro = body.get("pro") instanceof Map<?, ?>;
         if (!hasSimple && !hasPro) {
-            return "inspect-test-frame: simple or pro knobs required";
+            return "inspect-test-frame: simple knobs required";
         }
         if (hasSimple && hasPro) {
             return "inspect-test-frame: provide either simple or pro knobs, not both";

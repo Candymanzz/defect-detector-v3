@@ -437,8 +437,14 @@ public final class BinaryInspectHeaders {
             return;
         }
         Object simpleDirect = settings.get("simple");
-        if (simpleDirect instanceof Map<?, ?> simpleMap && !(settings.get("pro") instanceof Map<?, ?>)) {
+        Object detailedDirect = settings.get("detailed");
+        if (simpleDirect instanceof Map<?, ?> simpleMap) {
             pyHeader.put("simple", copyStringObjectMap(simpleMap));
+        }
+        if (detailedDirect instanceof Map<?, ?> detailedMap) {
+            pyHeader.put("detailed", copyStringObjectMap(detailedMap));
+        }
+        if (pyHeader.containsKey("simple") || pyHeader.containsKey("detailed")) {
             return;
         }
         Object proDirect = settings.get("pro");

@@ -854,18 +854,27 @@ public final class ClientApiHttpController implements HttpController {
                 ? castStringObjectMap(rawGeometry) : Map.of();
         Map<String, Object> temporaryAnalysis = temporarySettings.get("analysis") instanceof Map<?, ?> rawAnalysis
                 ? castStringObjectMap(rawAnalysis) : Map.of();
-        // Doc contract: top-level simple XOR pro (same as Python /inspect-test-frame).
+        // Top-level simple/detailed (or legacy pro) when temporarySettings.analysis is omitted.
         if (temporaryAnalysis.isEmpty()) {
-            if (body.get("simple") instanceof Map<?, ?> simpleKnobs && !(body.get("pro") instanceof Map<?, ?>)) {
-                Map<String, Object> analysis = new java.util.LinkedHashMap<>();
-                analysis.put("mode", "simple");
-                analysis.put("knobs", castStringObjectMap(simpleKnobs));
+            Map<String, Object> analysis = new java.util.LinkedHashMap<>();
+            if (body.get("simple") instanceof Map<?, ?> simpleKnobs) {
+                analysis.put("simple", castStringObjectMap(simpleKnobs));
+            }
+            if (body.get("detailed") instanceof Map<?, ?> detailedKnobs) {
+                analysis.put("detailed", castStringObjectMap(detailedKnobs));
+            }
+            if (!analysis.isEmpty()) {
                 temporaryAnalysis = Map.copyOf(analysis);
+            } else if (body.get("simple") instanceof Map<?, ?> simpleKnobs && !(body.get("pro") instanceof Map<?, ?>)) {
+                Map<String, Object> legacy = new java.util.LinkedHashMap<>();
+                legacy.put("mode", "simple");
+                legacy.put("knobs", castStringObjectMap(simpleKnobs));
+                temporaryAnalysis = Map.copyOf(legacy);
             } else if (body.get("pro") instanceof Map<?, ?> proKnobs && !(body.get("simple") instanceof Map<?, ?>)) {
-                Map<String, Object> analysis = new java.util.LinkedHashMap<>();
-                analysis.put("mode", "pro");
-                analysis.put("knobs", castStringObjectMap(proKnobs));
-                temporaryAnalysis = Map.copyOf(analysis);
+                Map<String, Object> legacy = new java.util.LinkedHashMap<>();
+                legacy.put("mode", "pro");
+                legacy.put("knobs", castStringObjectMap(proKnobs));
+                temporaryAnalysis = Map.copyOf(legacy);
             }
         }
         var source = com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.parseSource(sourceRaw);

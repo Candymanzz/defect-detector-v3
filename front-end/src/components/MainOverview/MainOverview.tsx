@@ -180,13 +180,10 @@ export function MainOverview({
       const analysis =
         analysisDraft == null
           ? undefined
-          : analysisDraft.mode === "pro"
-            ? { mode: "pro" as const, knobs: analysisDraft.knobs as Record<string, number>, pro: analysisDraft.knobs as Record<string, number> }
-            : {
-                mode: "simple" as const,
-                knobs: analysisDraft.knobs as Record<string, number>,
-                simple: analysisDraft.knobs as Record<string, number>,
-              };
+          : {
+              simple: analysisDraft.simple as Record<string, number>,
+              detailed: analysisDraft.strengths as Record<string, number>,
+            };
       const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {
         geometry: geometrySettingsRef.current?.getDraft(),
         analysis,

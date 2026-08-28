@@ -2,13 +2,19 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Iterator;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -145,6 +151,61 @@ public final class JpegBgrShmWriter {
             Files.deleteIfExists(shmPath);
         } catch (IOException ignored) {
         }
+    }
+
+    /**
+     * Re-encode JPEG at {@code targetWidth}x{@code targetHeight} when decoded size differs.
+     * Geometry/positioning expect the test frame to match the active reference resolution.
+     */
+    public static byte[] ensureJpegSize(byte[] jpegBytes, int targetWidth, int targetHeight) throws IOException {
+        if (jpegBytes == null || jpegBytes.length == 0) {
+            throw new IOException("empty jpeg");
+        }
+        if (targetWidth <= 0 || targetHeight <= 0) {
+            return jpegBytes;
+        }
+        BufferedImage src = ImageIO.read(new ByteArrayInputStream(jpegBytes));
+        if (src == null) {
+            throw new IOException("cannot decode jpeg");
+        }
+        if (src.getWidth() == targetWidth && src.getHeight() == targetHeight) {
+            return jpegBytes;
+        }
+        BufferedImage resized = toType3ByteBgr(src);
+        if (resized.getWidth() != targetWidth || resized.getHeight() != targetHeight) {
+            BufferedImage scaled = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_3BYTE_BGR);
+            Graphics2D graphics = scaled.createGraphics();
+            try {
+                graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                graphics.drawImage(resized, 0, 0, targetWidth, targetHeight, null);
+            } finally {
+                graphics.dispose();
+            }
+            resized = scaled;
+        }
+        return encodeJpegBytes(resized, 0.92f);
+    }
+
+    private static byte[] encodeJpegBytes(BufferedImage image, float quality) throws IOException {
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+        if (!writers.hasNext()) {
+            throw new IOException("no jpeg encoder");
+        }
+        ImageWriter writer = writers.next();
+        float q = Math.min(1f, Math.max(0.05f, quality));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(out)) {
+            writer.setOutput(ios);
+            ImageWriteParam params = writer.getDefaultWriteParam();
+            if (params.canWriteCompressed()) {
+                params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                params.setCompressionQuality(q);
+            }
+            writer.write(null, new IIOImage(image, null, null), params);
+        } finally {
+            writer.dispose();
+        }
+        return out.toByteArray();
     }
 
     private static BufferedImage toType3ByteBgr(BufferedImage src) {

@@ -6,6 +6,8 @@ import type {
   AnalysisPresetResponse,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
+  StrengthKnobs,
+  StrengthKnobsResponse,
   ClientModeResponse,
   TestAnalyzeResponse,
   PinTestFrameRequest,
@@ -332,6 +334,31 @@ export const orchestratorApi = {
     );
   },
 
+  async getStrengthAnalysisSettings(productType: string) {
+    return http.json<StrengthKnobsResponse>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/strengths`,
+    );
+  },
+
+  async setStrengthAnalysisSettings(productType: string, knobs: StrengthKnobs) {
+    return http.json<StrengthKnobsResponse>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/strengths`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getCameraStrengthAnalysisSettings(cameraId: number) {
+    return http.json<StrengthKnobsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/strengths`);
+  },
+
+  async setCameraStrengthAnalysisSettings(cameraId: number, knobs: StrengthKnobs) {
+    return http.json<StrengthKnobsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/strengths`, {
+      method: "PUT",
+      body: knobs,
+    });
+  },
+
+  /** @deprecated используйте getStrengthAnalysisSettings — /pro на Python не поддерживается */
   async getProAnalysisSettings(productType: string) {
     return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
       `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/pro`,
@@ -395,9 +422,10 @@ export const orchestratorApi = {
     temporarySettings?: {
       geometry?: Record<string, number>;
       analysis?: {
-        mode?: "simple" | "pro";
+        mode?: "simple" | "detailed" | "pro";
         knobs?: Record<string, number>;
         simple?: Record<string, number>;
+        detailed?: Record<string, number>;
         pro?: Record<string, number>;
       };
     },
@@ -415,19 +443,22 @@ export const orchestratorApi = {
               mode: analysis.mode,
               knobs: analysis.knobs,
               ...(analysis.simple ? { simple: analysis.simple } : {}),
+              ...(analysis.detailed ? { detailed: analysis.detailed } : {}),
               ...(analysis.pro ? { pro: analysis.pro } : {}),
             }
           : undefined,
       },
     };
-    // Doc contract for /inspect-test-frame: top-level simple XOR pro (orchestrator forwards).
-    if (analysis?.simple && !analysis.pro) {
+    if (analysis?.simple) {
       body.simple = analysis.simple;
-    } else if (analysis?.pro && !analysis.simple) {
+    }
+    if (analysis?.detailed) {
+      body.detailed = analysis.detailed;
+    } else if (analysis?.pro && !analysis.detailed) {
       body.pro = analysis.pro;
     } else if (analysis?.mode === "pro" && analysis.knobs) {
       body.pro = analysis.knobs;
-    } else if (analysis?.knobs) {
+    } else if (!analysis?.simple && analysis?.knobs && analysis.mode !== "detailed") {
       body.simple = analysis.knobs;
     }
     return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {

@@ -11,6 +11,7 @@ import com.example.iml.orchestrator.integration.pipeline.spi.GeometryInspectStag
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
 import com.example.iml.orchestrator.integration.ui.FrameArchiveConfig;
 import com.example.iml.orchestrator.integration.ui.FrameArchiveService;
+import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
@@ -238,9 +239,50 @@ class UiTestAnalyzeServiceTest {
         return FrameArchiveService.open(cfg);
     }
 
+    @Test
+    void submitNormalizesArchiveJpegToReferenceResolution() throws Exception {
+        FrameArchiveService archive = openArchive();
+        writeArchiveFrame(archive, 0, 42L, 8, 6);
+        PipelineReferenceRegistry refs = new PipelineReferenceRegistry();
+        refs.byCamera().put(0, usableRef());
+
+        AtomicReference<PipelineState> lastState = new AtomicReference<>();
+        PythonInspectStage python = (state, cameraId, productType, detectorId, activeReference, pythonCfg,
+                                     pythonPool, pythonSlots, pythonRoundRobin) -> {
+            lastState.set(state);
+            return state;
+        };
+
+        UiTestAnalyzeService service = service(archive, refs, List.of(dummySupervisor()), List.of(dummySupervisor()),
+                passthroughGeometry(), python, decidePass(), noopSidecar());
+
+        UiTestAnalyzeService.Accepted accepted = service.submit(new UiTestAnalyzeService.Request(
+                0, UiTestAnalyzeService.Source.ARCHIVE, 42L, null
+        ));
+        assertEquals(42L, accepted.frameId());
+
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline && lastState.get() == null) {
+            Thread.sleep(20);
+        }
+        assertNotNull(lastState.get());
+        assertEquals(16, YamlScalars.toInt(lastState.get().capture().header().get("width"), 0));
+        assertEquals(12, YamlScalars.toInt(lastState.get().capture().header().get("height"), 0));
+    }
+
     private static void writeArchiveFrame(FrameArchiveService archive, int cameraId, long frameId) throws Exception {
+        writeArchiveFrame(archive, cameraId, frameId, 16, 12);
+    }
+
+    private static void writeArchiveFrame(
+            FrameArchiveService archive,
+            int cameraId,
+            long frameId,
+            int width,
+            int height
+    ) throws Exception {
         Path src = Files.createTempFile("uitest-frame", ".jpg");
-        BufferedImage img = new BufferedImage(16, 12, BufferedImage.TYPE_3BYTE_BGR);
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
         ImageIO.write(img, "jpg", src.toFile());
         boolean ok = archive.saveImmediately(new FrameArchiveService.SaveRequest(
                 cameraId,
