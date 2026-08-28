@@ -70,4 +70,42 @@ class FanOutCoordinatorHealthGateTest {
         assertTrue(gate.healthy());
         fanOut.close();
     }
+
+    @Test
+    void ioInputMonitorAloneDoesNotBlockVisionFault() throws Exception {
+        Path map = tempDir.resolve("register-map.yaml");
+        Files.writeString(map, """
+                version: 1
+                map_id: test
+                signals:
+                  - name: vision_ready
+                    area: W
+                    address: "0.04"
+                    data_type: bool
+                    direction: pc_to_plc
+                  - name: vision_fault
+                    area: W
+                    address: "0.05"
+                    data_type: bool
+                    direction: pc_to_plc
+                """);
+        Map<String, Object> root = Map.of(
+                "plc_fins", Map.of(
+                        "enabled", false,
+                        "register_map_path", map.toString(),
+                        "vision_ready_signal", "vision_ready",
+                        "vision_fault_signal", "vision_fault"
+                )
+        );
+        FanOutCoordinator fanOut = FanOutCoordinator.fromConfig(root, tempDir, null);
+        ServiceHealthGate gate = new ServiceHealthGate();
+        fanOut.setHealthGate(gate);
+        fanOut.onSessionState(ClientWsSessionState.READY);
+
+        gate.markUnhealthy(ServiceHealthGate.IO_INPUT_MONITOR);
+        assertFalse(gate.healthy());
+        assertTrue(gate.healthyForVision());
+        fanOut.refreshPlcLevels();
+        fanOut.close();
+    }
 }

@@ -125,9 +125,10 @@ public final class ChildProcessStartupService {
             }, boot);
             CompletableFuture<ExternalServiceProcess> frontendFuture = CompletableFuture.supplyAsync(() -> {
                 if (!startFrontend) {
+                    log.info("frontend autostart disabled (IML_FRONTEND_AUTOSTART=false)");
                     return null;
                 }
-                return externalProcessLauncher.startIfConfigured(
+                ExternalServiceProcess process = externalProcessLauncher.startIfConfigured(
                         ctx.integration(),
                         ctx.projectRoot(),
                         ctx.windows(),
@@ -137,6 +138,15 @@ public final class ChildProcessStartupService {
                         "frontend",
                         "front-end"
                 );
+                if (process == null) {
+                    log.warn(
+                            "frontend was not started — check integration.frontend_autostart.enabled, "
+                                    + "npm in PATH, front-end/node_modules (see warnings above)"
+                    );
+                } else if (!process.isAlive()) {
+                    log.warn("frontend process exited immediately after start");
+                }
+                return process;
             }, boot);
 
             CompletableFuture.allOf(

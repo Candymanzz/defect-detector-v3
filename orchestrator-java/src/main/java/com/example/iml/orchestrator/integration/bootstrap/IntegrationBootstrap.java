@@ -3,13 +3,12 @@ package com.example.iml.orchestrator.integration.bootstrap;
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.factory.DefaultIntegrationServicePoolFactory;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationLifecycleComposite;
-import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownCoordinator;
+import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationShutdownHook;
 import com.example.iml.orchestrator.integration.bootstrap.service.ChildProcessStartupService;
 import com.example.iml.orchestrator.integration.bootstrap.service.IntegrationPreflightService;
 import com.example.iml.orchestrator.integration.bootstrap.service.LightingBootstrapService;
 import com.example.iml.orchestrator.integration.bootstrap.service.PipelineCameraRuntimeService;
 import com.example.iml.orchestrator.integration.bootstrap.service.UiRuntimeBootstrapService;
-import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -48,6 +47,7 @@ public final class IntegrationBootstrap {
                 return;
             }
             resourcesStarted = true;
+            IntegrationShutdownHook.bind(ctx);
             lighting.assemblePipelineAndEngageLights(ctx);
             ui.bootstrap(ctx);
             cameraRuntime.runBlocking(ctx, poolFactory, lifecycle);
@@ -58,10 +58,8 @@ public final class IntegrationBootstrap {
             }
         } finally {
             if (resourcesStarted) {
-                // Off + kill LightServer здесь и в JVM hook (Ctrl+C), идемпотентно.
-                LightsShutdown.run("bootstrap-finally");
+                IntegrationShutdownHook.run("bootstrap-finally");
                 lifecycle.close();
-                IntegrationShutdownCoordinator.shutdownAll(ctx.toShutdownResources());
             }
         }
     }

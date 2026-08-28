@@ -5,9 +5,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Агрегат здоровья критичных сервисов: unhealthy → PLC vision_fault + gated vision_ready.
+ * Агрегат здоровья критичных сервисов.
+ * {@link #healthyForVision()} — для ПЛК и пайплайна; {@link #IO_INPUT_MONITOR} из него исключён.
  */
 public final class ServiceHealthGate {
+
+    /** Падение IoInputMonitor не даёт vision_fault и не останавливает инспекцию (только restart в watchdog). */
+    public static final String IO_INPUT_MONITOR = "io_input_monitor";
 
     private final Set<String> unhealthy = ConcurrentHashMap.newKeySet();
     private volatile Runnable onChanged;
@@ -18,6 +22,29 @@ public final class ServiceHealthGate {
 
     public boolean healthy() {
         return unhealthy.isEmpty();
+    }
+
+    /** Здоровье для vision_ready / vision_fault и блокировки пайплайна (без io_input_monitor). */
+    public boolean healthyForVision() {
+        for (String key : unhealthy) {
+            if (!IO_INPUT_MONITOR.equals(key)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public Set<String> visionBlockingReasons() {
+        if (unhealthy.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> out = ConcurrentHashMap.newKeySet();
+        for (String key : unhealthy) {
+            if (!IO_INPUT_MONITOR.equals(key)) {
+                out.add(key);
+            }
+        }
+        return Collections.unmodifiableSet(out);
     }
 
     public Set<String> unhealthyReasons() {

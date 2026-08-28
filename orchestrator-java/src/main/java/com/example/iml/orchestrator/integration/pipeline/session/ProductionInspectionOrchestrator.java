@@ -135,6 +135,13 @@ public final class ProductionInspectionOrchestrator {
     ) {
         PerCameraInspectionGate.BeginResult begin = inspectionGate.tryBeginInspection(in.cameraId(), event.sequence());
         if (begin == PerCameraInspectionGate.BeginResult.DISABLED) {
+            if (inspectionGate.suppressSoftStopPreview()) {
+                svc.log().debug(
+                        "integration cam={}: soft-stop preview skipped — TEST mode suppresses DI3 inspect_result",
+                        in.cameraId()
+                );
+                return;
+            }
             if (!inspectionGate.tryBeginPreviewCapture(in.cameraId())) {
                 svc.log().debug(
                         "integration cam={}: stopped preview skipped — capture already in flight or inspection re-enabled",

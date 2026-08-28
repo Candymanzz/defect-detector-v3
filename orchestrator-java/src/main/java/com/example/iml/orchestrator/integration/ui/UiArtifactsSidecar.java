@@ -324,6 +324,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 Path temporaryCurrentJpeg = null;
                 Path cardJpeg = null;
                 Path temporaryCardJpeg = null;
+                Path archiveJpeg = null;
+                Path temporaryArchiveJpeg = null;
                 try {
                     boolean testAnalyze = testAnalyzeFlag(cap);
                     String artifactShmName = frozenFrame.shmName();
@@ -348,6 +350,11 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 30
                         );
                         cardQualPct = Math.min(100, Math.max(5, cardQualPct));
+                        int archiveQualPct = YamlScalars.toInt(
+                                uiCfg == null ? null : uiCfg.get("inspection_archive_jpeg_quality"),
+                                90
+                        );
+                        archiveQualPct = Math.min(100, Math.max(5, archiveQualPct));
 
                         UiHttpServer.InspectionPreviewArtifacts previews =
                                 UiHttpServer.writeInspectionJpegsFromBgrShm(
@@ -359,7 +366,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                         previewMaxW,
                                         qualPct / 100f,
                                         cardPreviewMaxW,
-                                        cardQualPct / 100f
+                                        cardQualPct / 100f,
+                                        archiveQualPct / 100f
                                 );
                         UiHttpServer.ClientPreviewArtifact frameArtifact = previews.frame();
                         if (frameArtifact.path() == null && frameArtifact.error() != null) {
@@ -376,6 +384,28 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         }
                         cardJpeg = cardArtifact.path();
                         temporaryCardJpeg = cardJpeg;
+
+                        // Full-res JPEG for frame-archive (test-analyze pin must match reference size).
+                        UiHttpServer.ClientPreviewArtifact archiveArtifact = previews.archive();
+                        if (archiveArtifact.path() == null && archiveArtifact.error() != null) {
+                            log.warn("ui sidecar cam={} archive jpeg: {}", cameraId, archiveArtifact.error());
+                        } else if (archiveArtifact.path() != null
+                                && archiveArtifact.width() > 0
+                                && archiveArtifact.height() > 0
+                                && Files.isRegularFile(archiveArtifact.path())) {
+                            archiveJpeg = archiveArtifact.path();
+                            temporaryArchiveJpeg = archiveJpeg;
+                            if (archiveArtifact.width() != width || archiveArtifact.height() != height) {
+                                log.warn(
+                                        "ui sidecar cam={} archive jpeg size {}x{} != shm {}x{}",
+                                        cameraId,
+                                        archiveArtifact.width(),
+                                        archiveArtifact.height(),
+                                        width,
+                                        height
+                                );
+                            }
+                        }
                     }
 
                     CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
@@ -484,6 +514,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // test-analyze must never rewrite the rolling archive slot used to pin the source frame.
                     if (!isLatestPublish(cameraId, publishSequence)) {
                         if (!testAnalyze) {
+                            Path toArchive = archiveJpeg != null ? archiveJpeg : (hasCur ? currentJpeg : null);
                             saveFrameArchiveImmediately(
                                     cameraId,
                                     frameId,
@@ -491,7 +522,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                     productType,
                                     detectorId,
                                     decision,
-                                    hasCur ? currentJpeg : null,
+                                    toArchive,
                                     null,
                                     0,
                                     0,
@@ -592,7 +623,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         );
                     }
                     // Snapshot/copy while JPEG and heatmap files are still on disk (before finally).
+                    // Archive stores native-resolution JPEG (not UI preview) so test-analyze pin matches reference.
                     FrameArchiveService archive = frameArchiveService;
+                    Path toArchive = archiveJpeg != null ? archiveJpeg : (hasCur ? currentJpeg : null);
                     boolean archived = !testAnalyze && saveFrameArchiveImmediately(
                             cameraId,
                             frameId,
@@ -600,7 +633,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             productType,
                             detectorId,
                             decision,
-                            hasCur ? currentJpeg : null,
+                            toArchive,
                             hasHm ? heatmapU8 : null,
                             hasHm ? uw : 0,
                             hasHm ? uh : 0,
@@ -648,6 +681,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     }
                     if (temporaryCardJpeg != null) {
                         deleteTemporaryArtifact(temporaryCardJpeg, "temporary inspection card jpeg");
+                    }
+                    if (temporaryArchiveJpeg != null) {
+                        deleteTemporaryArtifact(temporaryArchiveJpeg, "temporary archive jpeg");
                     }
                     deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
                     deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");
@@ -823,19 +859,12 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (cap == null || cap.isEmpty()) {
             return null;
         }
-        boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
         Object explicit = cap.get("ui_preview_shm_name");
         if (explicit != null) {
             String name = String.valueOf(explicit).trim();
             if (!name.isEmpty() && previewShmExists(name, cameraId)) {
-                if (!testAnalyze || !isSharedProductionPosShm(name, cameraId)) {
-                    return name.startsWith("/") ? name : "/" + name.replace("/", "_");
-                }
+                return name.startsWith("/") ? name : "/" + name.replace("/", "_");
             }
-        }
-        if (testAnalyze) {
-            // TEST freeze/heatmap must not fall back to leftover live iml_pos_cam_{id}.
-            return null;
         }
         if (YamlScalars.toBool(cap.get("positioning_aligned"), false)) {
             Object shm = cap.get("shm_name");
@@ -856,12 +885,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             }
         }
         return null;
-    }
-
-    private static boolean isSharedProductionPosShm(String shmName, int cameraId) {
-        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
-        base = base.replace('/', '_');
-        return ("iml_pos_cam_" + cameraId).equals(base);
     }
 
     private static boolean previewShmExists(String shmName, int cameraId) {

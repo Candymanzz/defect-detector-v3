@@ -9,6 +9,7 @@ namespace ImlLauncher
     internal sealed class LaunchOptions
     {
         public bool NoFrontend { get; set; }
+        public bool NoSupervisor { get; set; }
         public string ConfigArg { get; set; }
         public string RepoRoot { get; set; }
     }
@@ -21,10 +22,12 @@ namespace ImlLauncher
         private readonly object _sync = new object();
 
         private Process _orchestrator;
+        private Process _supervisor;
         private Thread _worker;
         private Thread _poller;
         private volatile bool _stopRequested;
         private volatile bool _running;
+        private volatile bool _supervisorStarted;
         private string _fatalError = "";
         private bool _workersHintFromLog;
         private bool _bootDoneFromLog;
@@ -57,6 +60,15 @@ namespace ImlLauncher
         public void RequestStop()
         {
             _stopRequested = true;
+            Process sup;
+            lock (_sync)
+            {
+                sup = _supervisor;
+            }
+            if (sup != null && !sup.HasExited)
+            {
+                StackCleanup.KillProcessTree(sup.Id);
+            }
             Process orch;
             lock (_sync)
             {
@@ -314,12 +326,93 @@ namespace ImlLauncher
                 if (_model.CriticalReady)
                 {
                     SetStep("Система готова");
+                    TryStartSupervisor();
                 }
                 else if (string.IsNullOrEmpty(_fatalError))
                 {
                     SetStep("Поднимаются сервисы…");
                 }
                 Notify();
+            }
+        }
+
+        /** После успешного boot exe — отдельный JVM-supervisor только для crash recovery. */
+        private void TryStartSupervisor()
+        {
+            if (_supervisorStarted || _options.NoSupervisor || _stopRequested)
+            {
+                return;
+            }
+            Process orch;
+            lock (_sync)
+            {
+                orch = _orchestrator;
+            }
+            if (orch == null || orch.HasExited)
+            {
+                return;
+            }
+            try
+            {
+                string root = _options.RepoRoot;
+                string javaHome = ResolveJavaHome();
+                string javaExe = Path.Combine(javaHome, "bin", "java.exe");
+                string jar = Path.Combine(root, "orchestrator-java", "target", "orchestrator-0.1.0-SNAPSHOT.jar");
+                string configRel = string.IsNullOrWhiteSpace(_options.ConfigArg)
+                    ? @"config\config.yaml"
+                    : _options.ConfigArg;
+                string configPath = Path.IsPathRooted(configRel)
+                    ? configRel
+                    : Path.GetFullPath(Path.Combine(root, configRel));
+                if (!File.Exists(jar) || !File.Exists(configPath))
+                {
+                    return;
+                }
+
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.FileName = javaExe;
+                psi.Arguments =
+                    "-cp \"" + jar + "\" com.example.iml.orchestrator.supervisor.StackSupervisorMain \""
+                    + configPath + "\" --attach-pid " + orch.Id;
+                psi.WorkingDirectory = root;
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
+                psi.RedirectStandardOutput = true;
+                psi.RedirectStandardError = true;
+                Environment.SetEnvironmentVariable("JAVA_HOME", javaHome, EnvironmentVariableTarget.Process);
+
+                Process sup = Process.Start(psi);
+                if (sup == null)
+                {
+                    return;
+                }
+                sup.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        System.Diagnostics.Debug.WriteLine("[supervisor] " + e.Data);
+                    }
+                };
+                sup.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        System.Diagnostics.Debug.WriteLine("[supervisor] " + e.Data);
+                    }
+                };
+                sup.BeginOutputReadLine();
+                sup.BeginErrorReadLine();
+                lock (_sync)
+                {
+                    _supervisor = sup;
+                }
+                _supervisorStarted = true;
+                SetStep("Система готова (crash recovery активен)");
+                Notify();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("supervisor start failed: " + ex.Message);
             }
         }
 

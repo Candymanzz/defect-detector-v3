@@ -243,7 +243,10 @@ function LearnFrameAction({ inspectResult, productType }: { inspectResult: Inspe
         learnedReviewId: inspectResult.learned_review_id,
       });
       const acceptedCaseIds = result.accepted_case_ids ?? result.accepted_cases?.map((item) => item.id) ?? [];
-      attachLearnedCasesToActiveReference(inspectResult.camera_id, acceptedCaseIds);
+      const acceptedCases =
+        result.accepted_cases ??
+        acceptedCaseIds.map((id) => ({ id, product_type: productType }));
+      await attachLearnedCasesToActiveReference(inspectResult.camera_id, acceptedCases);
       const count = result.accepted_count ?? result.accepted_case_ids?.length ?? result.accepted_cases?.length ?? 0;
       setState("success");
       setMessage(
