@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Вызовы детектора FastAPI analisSurface по HTTP: те же {@code op}, что ожидает пайплайн,
@@ -87,6 +88,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private final String baseUrl;
     private final int commandTimeoutMs;
     private int restartCount;
+    private volatile Consumer<Boolean> healthListener;
 
     public AnalisSurfaceHttpBinaryRpcSupervisor(String name, String baseUrl, int commandTimeoutMs) {
         this.name = Objects.requireNonNull(name);
@@ -113,6 +115,30 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return restartCount;
     }
 
+    public void setHealthListener(Consumer<Boolean> healthListener) {
+        this.healthListener = healthListener;
+    }
+
+    private void reportHealthy() {
+        Consumer<Boolean> listener = healthListener;
+        if (listener != null) {
+            try {
+                listener.accept(true);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void reportUnhealthy() {
+        Consumer<Boolean> listener = healthListener;
+        if (listener != null) {
+            try {
+                listener.accept(false);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     @Override
     public void start() throws IOException {
         health();
@@ -137,23 +163,34 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 HttpResponse<byte[]> resp = httpGetRaw(path);
                 if (resp.statusCode() / 100 == 2) {
                     Map<String, Object> h = readJson(resp.body());
+                    reportHealthy();
                     return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, h, new byte[0]);
                 }
             } catch (IOException e) {
                 last = e;
             }
         }
+        reportUnhealthy();
         throw last == null ? new IOException("health: no path succeeded") : last;
     }
 
     @Override
     public BinaryProtocol.Message command(Map<String, Object> header) throws IOException {
         try {
-            return commandNoRetry(header);
+            BinaryProtocol.Message response = commandNoRetry(header);
+            reportHealthy();
+            return response;
         } catch (IOException first) {
             LOG.warn("{} command failed; retry once: {}", name, first.getMessage());
-            restart();
-            return commandNoRetry(header);
+            try {
+                restart();
+                BinaryProtocol.Message response = commandNoRetry(header);
+                reportHealthy();
+                return response;
+            } catch (IOException second) {
+                reportUnhealthy();
+                throw second;
+            }
         }
     }
 
