@@ -183,6 +183,25 @@ class ShmFrameRequest(BaseModel):
     test_analyze: bool = False
 
 
+class TestFrameInspectRequest(BaseModel):
+    """Вход /inspect-test-frame: JPEG с диска + ручки UI, без записи analysis_settings."""
+
+    cache_key: str
+    file_path: str
+    image_url: Optional[str] = None
+    product_type: str
+    analysis_profile: Optional[str] = None
+    detector_id: Optional[str] = None
+    alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None
+    simple: Optional[SimpleSettingsKnobs] = None
+    pro: Optional[ProSettingsKnobs] = None
+    heatmap_u8_output_path: Optional[str] = None
+    heatmap_max_width: Optional[int] = None
+    aligned_image_u8_output_path: Optional[str] = None
+    diff_map_u8_output_path: Optional[str] = None
+    segmentation_mask_u8_output_path: Optional[str] = None
+
+
 class ShmVisualsRequest(ShmFrameRequest):
     """Вход /inspect-shm-visuals: кадр + пути output SHM (только запрошенные поля пишутся)."""
 

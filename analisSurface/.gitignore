@@ -16,6 +16,7 @@ backend/app/data/fp_zones.json
 backend/app/data/fp_zone_crops/
 backend/app/data/learning_reviews/
 backend/app/data/accepted_normals/
+backend/app/data/analysis_settings.json
 /LightServer/obj
 /megaOrchestratoraue228-main
 /frontend/node_modules

@@ -706,17 +706,19 @@ class InspectionService:
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
         analysis_profile: Optional[str] = None,
+        settings: Optional[AnalysisSettings] = None,
         temporary_analysis_overrides: Optional[dict[str, object]] = None,
         pre_learning_heatmap: bool = False,
         store_learning_review: bool = True,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         settings_key = (analysis_profile or "").strip() or product_type
-        settings = self.get_analysis_settings(settings_key)
-        if temporary_analysis_overrides:
-            merged_overrides = self.get_analysis_settings_overrides(settings_key)
-            merged_overrides.update(temporary_analysis_overrides)
-            settings = AnalysisSettings.from_overrides(merged_overrides)
+        if settings is None:
+            settings = self.get_analysis_settings(settings_key)
+            if temporary_analysis_overrides:
+                merged_overrides = self.get_analysis_settings_overrides(settings_key)
+                merged_overrides.update(temporary_analysis_overrides)
+                settings = AnalysisSettings.from_overrides(merged_overrides)
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
@@ -829,16 +831,32 @@ class InspectionService:
             display_region = display_mask[y : y + box_height, x : x + box_width]
             display_region[local_mask] = 255
 
-        excluded_normal_zones = [
-            {
+        excluded_normal_zones = []
+        for candidate in learned_filter.candidates:
+            if candidate.matched_case_id is None:
+                continue
+            matched_case = self._accepted_normals.get(candidate.matched_case_id)
+            # Prefer the saved case geometry: it is in the same fixed camera
+            # coordinate space as the heatmap and remains stable when the
+            # detected component jitters a few pixels between frames.
+            polygon_norm = (
+                list(matched_case.polygon_norm)
+                if matched_case is not None and len(matched_case.polygon_norm) >= 3
+                else list(candidate.polygon_norm)
+            )
+            if len(polygon_norm) < 3:
+                continue
+            zone = {
                 "kind": "accepted_normal",
                 "case_id": candidate.matched_case_id,
                 "similarity": candidate.similarity,
-                "polygon": list(candidate.polygon_norm),
+                "polygon": polygon_norm,
             }
-            for candidate in learned_filter.candidates
-            if candidate.matched_case_id is not None and len(candidate.polygon_norm) >= 3
-        ]
+            if matched_case is not None and matched_case.polygon:
+                zone["polygon_px"] = list(matched_case.polygon)
+                zone["coordinate_width"] = matched_case.coordinate_width
+                zone["coordinate_height"] = matched_case.coordinate_height
+            excluded_normal_zones.append(zone)
         fp_zone_by_id = {zone.id: zone for zone in self.get_fp_zones(product_type)}
         for zone_score in fp_recheck["fp_zone_scores"]:
             zone = fp_zone_by_id.get(zone_score.zone_id)
@@ -1567,12 +1585,56 @@ class InspectionService:
             return heatmap
 
         height, width = heatmap.shape[:2]
-        overlay = heatmap.copy()
         polygons: list[np.ndarray] = []
-        dark_green = (22, 92, 12)  # BGR: saved-normal match marker
         for zone in excluded_zones:
             if zone.get("kind") != "accepted_normal":
                 continue
+            pixel_polygon = zone.get("polygon_px") or []
+            coordinate_width = int(zone.get("coordinate_width") or 0)
+            coordinate_height = int(zone.get("coordinate_height") or 0)
+            if (
+                isinstance(pixel_polygon, (list, tuple))
+                and len(pixel_polygon) >= 3
+                and coordinate_width > 0
+                and coordinate_height > 0
+            ):
+                pixel_points: list[tuple[float, float]] = []
+                for point in pixel_polygon:
+                    if isinstance(point, dict):
+                        x_raw, y_raw = point.get("x"), point.get("y")
+                    elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                        x_raw, y_raw = point[0], point[1]
+                    else:
+                        continue
+                    try:
+                        pixel_points.append((float(x_raw), float(y_raw)))
+                    except (TypeError, ValueError):
+                        continue
+                points = np.array(
+                    [
+                        [
+                            int(
+                                round(
+                                    np.clip(x, 0, coordinate_width - 1)
+                                    * (width - 1)
+                                    / max(1, coordinate_width - 1)
+                                )
+                            ),
+                            int(
+                                round(
+                                    np.clip(y, 0, coordinate_height - 1)
+                                    * (height - 1)
+                                    / max(1, coordinate_height - 1)
+                                )
+                            ),
+                        ]
+                        for x, y in pixel_points
+                    ],
+                    dtype=np.int32,
+                )
+                if len(points) >= 3:
+                    polygons.append(points)
+                    continue
             raw_polygon = zone.get("polygon") or []
             normalized_points: list[tuple[float, float]] = []
             for point in raw_polygon:
@@ -1599,16 +1661,22 @@ class InspectionService:
                 ],
                 dtype=np.int32,
             )
-            cv2.fillPoly(overlay, [points], dark_green)
             polygons.append(points)
 
         if not polygons:
             return heatmap
-        result = cv2.addWeighted(overlay, 0.48, heatmap, 0.52, 0.0)
+        result = heatmap.copy()
         for points in polygons:
-            cv2.polylines(result, [points], isClosed=True, color=(5, 40, 0), thickness=8)
-            cv2.polylines(result, [points], isClosed=True, color=(65, 230, 45), thickness=4)
-            cv2.polylines(result, [points], isClosed=True, color=(255, 255, 255), thickness=1)
+            # BGR purple; the match must be visible without obscuring the heatmap
+            # values under the accepted-normal area.
+            cv2.polylines(
+                result,
+                [points],
+                isClosed=True,
+                color=(210, 75, 185),
+                thickness=12,
+                lineType=cv2.LINE_AA,
+            )
         return result
 
     def _decode_image(self, image_bytes: bytes) -> np.ndarray:

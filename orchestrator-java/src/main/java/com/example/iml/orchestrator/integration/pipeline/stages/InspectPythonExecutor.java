@@ -112,26 +112,58 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         BinaryRpcSupervisor python = pythonPool.get(Math.floorMod(pythonRoundRobin.getAndIncrement(), pythonPool.size()));
         try {
             long t0 = System.nanoTime();
-            Map<String, Object> pyHeader = BinaryInspectHeaders.pythonInspectHeader(
-                    cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
-            applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
-            Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
-            if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
-                pyHeader.put("analysis_test_settings", temporaryAnalysis);
-            }
-            if (YamlScalars.toBool(state.capture().header().get("test_analyze"), false)) {
-                pyHeader.put("test_analyze", true);
-                pyHeader.put("skip_learning_review", true);
-            }
-            double inspectScale = YamlScalars.toDouble(
-                    pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
-                    1.0
-            );
-            boolean captureAlreadyDownscaled = state.capture() != null
-                    && state.capture().header() != null
-                    && YamlScalars.toDouble(state.capture().header().get("downscale_scale"), 1.0d) < 0.999d;
-            if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
-                PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
+            Map<String, Object> pyHeader;
+            boolean testAnalyze = YamlScalars.toBool(state.capture().header().get("test_analyze"), false);
+            String testFramePath = String.valueOf(state.capture().header().getOrDefault("test_frame_file_path", "")).trim();
+            if (testAnalyze) {
+                if (testFramePath.isEmpty()) {
+                    throw new IllegalStateException(
+                            "test_analyze requires test_frame_file_path (selected JPEG); refusing inspect-shm fallback"
+                    );
+                }
+                int heatmapMaxWidth = Math.max(
+                        0,
+                        YamlScalars.toInt(pythonCfg == null ? null : pythonCfg.get("heatmap_preview_max_width"), 512)
+                );
+                if (heatmapMaxWidth <= 0) {
+                    heatmapMaxWidth = 512;
+                }
+                pyHeader = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                        cameraId,
+                        productType,
+                        detectorId,
+                        state.capture(),
+                        state.geom(),
+                        activeReference,
+                        heatmapMaxWidth
+                );
+                applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
+                log.info(
+                        "python test-frame inspect cam={} frame={} file_path={} cache_key={} pin_sha={}",
+                        cameraId,
+                        state.capture().header().get("frame_id"),
+                        pyHeader.get("file_path"),
+                        pyHeader.get("cache_key"),
+                        state.capture().header().get("pin_jpeg_sha256")
+                );
+            } else {
+                pyHeader = BinaryInspectHeaders.pythonInspectHeader(
+                        cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
+                applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
+                Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
+                if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
+                    pyHeader.put("analysis_test_settings", temporaryAnalysis);
+                }
+                double inspectScale = YamlScalars.toDouble(
+                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                        1.0
+                );
+                boolean captureAlreadyDownscaled = state.capture() != null
+                        && state.capture().header() != null
+                        && YamlScalars.toDouble(state.capture().header().get("downscale_scale"), 1.0d) < 0.999d;
+                if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
+                    PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
+                }
             }
             pythonSlots.acquire();
             try {

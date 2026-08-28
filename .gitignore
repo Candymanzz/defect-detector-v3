@@ -8,9 +8,15 @@
 /logs/
 .dev-stack.pids.json
 .tmp/
-**/.pytest-tmp-final/
+
+# Local inspection frames (test data, never used by production runtime)
+/analisSurface/backend/app/data/frame/
+
+# Python test artifacts (never used by production runtime)
 **/.pytest_cache/
-**/test_data/*_preview.png
+**/.pytest-tmp-*/
+**/pytest-cache-files-*/
+**/test_data/_timing_probe_*/
 
 # Build outputs (GitHub rejects files > 100 MB)
 **/target/
@@ -42,3 +48,14 @@ camera-worker/build/Release/camera_worker.exe
 /IoInputMonitor/obj
 /LightServer.v3/bin
 /config
+DefectDetector.exe
+hs_err_pid*.log
+**/hs_err_pid*.log
+orchestrator-java/logs/
+**/bin/
+**/obj/
+analisSurface/backend/app/data/analysis_settings.json
+hs_err_pid15060.log
+*.log
+*.gz
+analisSurface/test-analysis.html

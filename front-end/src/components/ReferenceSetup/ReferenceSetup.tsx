@@ -5,7 +5,6 @@ import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
 import { orchestratorApi } from "../../shared/api";
-import type { LearnedNormalCase } from "../../shared/api/types";
 import {
   deleteArchivedReferenceGroup,
   detachLearnedCaseFromReferences,
@@ -13,7 +12,7 @@ import {
   getReferenceImage,
   subscribeReferenceImages,
 } from "../../shared/referenceImages";
-import type { ArchivedReferenceGroup } from "../../shared/referenceImages";
+import type { ArchivedReferenceGroup, StoredLearnedCase } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
 import { useReferenceSetupController } from "./ReferenceController";
 
@@ -34,8 +33,15 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     canSendAllReferences,
     hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
+    replacementCameraIds,
+    isFullReferenceReplacement,
+    isRoiOnlyEditMode,
+    referenceName,
+    setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleCreateNewReference,
+    handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,
@@ -71,11 +77,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const activeArchive = activeGroupArchivedReferences.find(
     (archive) => createArchiveReferenceKey(archive) === activeReferenceKey,
   );
-  const selectedProductType = selectedSlot?.frame?.detector.product_type;
   const learnedNormals = useLearnedNormals(
-    selectedSlot?.cameraId,
-    selectedProductType,
-    selectedSlot ? selectedArchive?.learnedCaseIdsByCameraId[selectedSlot.cameraId] ?? [] : [],
+    selectedSlot && !isFullReferenceReplacement
+      ? (activeArchive ?? selectedArchive)?.learnedCasesByCameraId[selectedSlot.cameraId] ?? []
+      : [],
   );
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
@@ -85,7 +90,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const primaryReferenceLabel = shouldStartNewReference
     ? "Задать новый эталон"
     : isNewReferenceMode
-      ? "Подтвердить новые эталоны →"
+      ? isFullReferenceReplacement
+        ? "Подтвердить новый эталон →"
+        : "Подтвердить изменения →"
       : "Задать и использовать эталон →";
 
   useEffect(() => {
@@ -216,6 +223,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                           : "reference-setup__slot"
                       }
                       data-ready={hasFrame && hasRoi}
+                      data-replacement={replacementCameraIds.includes(slot.cameraId)}
                       type="button"
                       onClick={() => {
                         handleSelectCamera(slot.cameraId);
@@ -231,6 +239,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                         <strong>Камера {slot.cameraId}</strong>
                         <small>{hasFrame ? "Кадр получен" : "Кадр не получен"}</small>
                         <small data-state={hasRoi ? "ready" : "missing"}>{hasRoi ? "ROI задан" : "ROI не задан"}</small>
+                        {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup && (
+                          <small data-state={replacementCameraIds.includes(slot.cameraId) ? "replacement" : "current"}>
+                            {replacementCameraIds.includes(slot.cameraId) ? "Будет заменён" : "Останется прежним"}
+                          </small>
+                        )}
                         <small>
                           Доп. кадров: {slot.cameraId === selectedSlot?.cameraId ? learnedNormals.cases.length : "—"}
                         </small>
@@ -246,12 +259,32 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 })}
               </div>
 
-              <Button
-                className="reference-setup__button reference-setup__refresh"
-                onClick={handleCaptureNewReferenceFrames}
-              >
-                {hasAnyStoredReferenceForActiveGroup ? "＋ Добавить новый кадр" : "↻ Обновить кадры"}
-              </Button>
+              {!isRoiOnlyEditMode && (
+                <Button
+                  className="reference-setup__button reference-setup__refresh"
+                  onClick={() => {
+                    if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
+                      if (isFullReferenceReplacement) {
+                        void handleCreateNewReference();
+                        return;
+                      }
+                      void handleToggleCameraReplacement(selectedCameraId);
+                      return;
+                    }
+                    void handleCaptureNewReferenceFrames();
+                  }}
+                >
+                  {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
+                    ? isFullReferenceReplacement
+                      ? "Обновить все кадры ещё раз"
+                      : replacementCameraIds.includes(selectedCameraId)
+                        ? `Оставить прежний кадр камеры ${selectedCameraId}`
+                        : `Заменить кадр камеры ${selectedCameraId}`
+                    : hasAnyStoredReferenceForActiveGroup
+                      ? "Редактировать текущий эталон"
+                      : "↻ Обновить кадры"}
+                </Button>
+              )}
               <div className="reference-setup__legend">
                 <span>
                   <i data-state="missing" /> Кадр не получен
@@ -321,7 +354,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   <strong>{isNewReferenceMode ? "Новый эталон" : "В работе"}</strong>
                   <span>
                     {isNewReferenceMode
-                      ? "Свежие кадры — контуры нужно задать заново"
+                      ? isFullReferenceReplacement
+                        ? "Создаётся полностью новый эталон. Кадры анализа предыдущего эталона не переносятся."
+                        : isRoiOnlyEditMode
+                          ? "Редактирование ROI текущих кадров. После изменений нажмите «Подтвердить изменения»."
+                        : replacementCameraIds.length > 0
+                        ? `Изменяются камеры: ${replacementCameraIds.join(", ")}. Остальные останутся прежними.`
+                        : "Выберите камеры для изменения. Текущие кадры уже отображаются."
                       : activeArchive
                         ? `Архив от ${formatArchiveTime(activeArchive.createdAtMs)}`
                         : "Текущий эталон"}
@@ -385,7 +424,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                         onClick={() => setSelectedLearnedCaseId(item.id)}
                       >
                         <img
-                          src={orchestratorApi.learnedNormalImageUrl(item.id)}
+                          src={item.imageUrl}
                           alt={`Дополнительный фрагмент ${index + 1}`}
                         />
                       </button>
@@ -427,10 +466,22 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   role={hasSetupError ? "alert" : undefined}
                 >
                   {shouldStartNewReference
-                    ? "Можно задать новые эталоны для любого количества камер. Остальные камеры сохранят старые эталоны."
+                    ? "Откройте редактирование и выберите камеры, которые нужно изменить."
                     : message}
                 </p>
                 <div className="reference-setup__footer-actions">
+                  {!shouldStartNewReference && (
+                    <label className="reference-setup__name-field">
+                      <span>Название эталона</span>
+                      <input
+                        type="text"
+                        value={referenceName}
+                        maxLength={80}
+                        placeholder={`Эталон камер ${activeCameraIds.join(", ")}`}
+                        onChange={(event) => setReferenceName(event.target.value)}
+                      />
+                    </label>
+                  )}
                   <button
                     className="reference-setup__cancel"
                     type="button"
@@ -441,7 +492,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   <Button
                     className="reference-setup__button reference-setup__save"
                     disabled={!shouldStartNewReference && !canSendAllReferences}
-                    onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
+                    onClick={shouldStartNewReference ? handleCreateNewReference : handleSendAllReferences}
                   >
                     {primaryReferenceLabel}
                   </Button>
@@ -490,7 +541,7 @@ function LearnedFramesGallery({
   onClose,
   onSelect,
 }: {
-  cases: LearnedNormalCase[];
+  cases: StoredLearnedCase[];
   selectedId: string;
   onClose: () => void;
   onSelect: (caseId: string) => void;
@@ -527,7 +578,7 @@ function LearnedFramesGallery({
             <button type="button" aria-label="Предыдущий кадр" onClick={() => selectOffset(-1)}>‹</button>
           )}
           <img
-            src={orchestratorApi.learnedNormalImageUrl(selectedCase.id)}
+            src={selectedCase.imageUrl}
             alt={selectedCase.note || `Дополнительный фрагмент ${selectedIndex + 1}`}
           />
           {cases.length > 1 && (
@@ -543,7 +594,7 @@ function LearnedFramesGallery({
               aria-current={item.id === selectedCase.id ? "true" : undefined}
               onClick={() => onSelect(item.id)}
             >
-              <img src={orchestratorApi.learnedNormalImageUrl(item.id)} alt="" />
+              <img src={item.imageUrl} alt="" />
               <span>{index + 1}</span>
             </button>
           ))}
@@ -612,7 +663,8 @@ function ReferenceArchive({
                 alt={`Эталон камер ${archive.cameraIds.join(", ")}`}
               />
               <span>{formatArchiveTime(archive.createdAtMs)}</span>
-              <strong>Камеры {archive.cameraIds.join(", ")}</strong>
+              <strong>{archive.name || `Эталон камер ${archive.cameraIds.join(", ")}`}</strong>
+              <small>Камеры {archive.cameraIds.join(", ")}</small>
               {archive.id === activeArchiveId && <em>В работе</em>}
               <button
                 className="reference-setup__archive-delete"
@@ -698,73 +750,24 @@ function formatArchiveTime(createdAtMs: number) {
   return new Date(createdAtMs).toLocaleTimeString();
 }
 
-function useLearnedNormals(cameraId?: number, productType?: string, allowedCaseIds: string[] = []) {
-  const allowedCaseKey = [...allowedCaseIds].sort().join(",");
-  const requestKey = cameraId !== undefined && productType ? `${cameraId}:${productType}:${allowedCaseKey}` : "";
-  const [result, setResult] = useState<{
-    key: string;
-    cases: LearnedNormalCase[];
-    error: string | null;
-  }>({ key: "", cases: [], error: null });
+function useLearnedNormals(cases: StoredLearnedCase[]) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (cameraId === undefined || !productType) return;
-    let active = true;
-    orchestratorApi
-      .getLearnedNormals(productType, cameraId)
-      .then((payload) => {
-        if (active) {
-          const allowed = new Set(allowedCaseKey ? allowedCaseKey.split(",") : []);
-          setResult({
-            key: requestKey,
-            cases: (payload.cases ?? []).filter((item) => allowed.has(item.id)),
-            error: null,
-          });
-        }
-      })
-      .catch((error) => {
-        if (active) {
-          setResult({
-            key: requestKey,
-            cases: [],
-            error: error instanceof Error ? error.message : "Не удалось загрузить дополнительные кадры",
-          });
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [allowedCaseKey, cameraId, productType, requestKey]);
+  const [error, setError] = useState<string | null>(null);
 
   const remove = async (caseId: string) => {
     setDeletingId(caseId);
     try {
       await orchestratorApi.deleteLearnedNormal(caseId);
       detachLearnedCaseFromReferences(caseId);
-      setResult((current) => ({
-        ...current,
-        cases: current.cases.filter((item) => item.id !== caseId),
-        error: null,
-      }));
+      setError(null);
     } catch (error) {
-      setResult((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : "Не удалось удалить дополнительный кадр",
-      }));
+      setError(error instanceof Error ? error.message : "Не удалось удалить дополнительный кадр");
     } finally {
       setDeletingId(null);
     }
   };
 
-  if (!requestKey) return { cases: [], error: null, loading: false, deletingId, remove };
-  return {
-    cases: result.key === requestKey ? result.cases : [],
-    error: result.key === requestKey ? result.error : null,
-    loading: result.key !== requestKey,
-    deletingId,
-    remove,
-  };
+  return { cases, error, loading: false, deletingId, remove };
 }
 
 function createActiveReferenceKey(cameraIds: number[]) {

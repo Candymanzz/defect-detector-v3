@@ -96,6 +96,72 @@ def _decode(data: bytes, flags: int = cv2.IMREAD_UNCHANGED) -> np.ndarray:
     return image
 
 
+def _pixel_bbox_from_normalized(
+    bbox_norm: tuple[float, float, float, float],
+    width: int,
+    height: int,
+) -> tuple[int, int, int, int]:
+    """Convert a normalized bbox to the pixel convention used by heatmaps."""
+    x, y, box_width, box_height = bbox_norm
+    safe_width = max(1, int(width))
+    safe_height = max(1, int(height))
+    x0 = int(round(np.clip(x, 0.0, 1.0) * (safe_width - 1)))
+    y0 = int(round(np.clip(y, 0.0, 1.0) * (safe_height - 1)))
+    x1 = int(round(np.clip(x + box_width, 0.0, 1.0) * (safe_width - 1)))
+    y1 = int(round(np.clip(y + box_height, 0.0, 1.0) * (safe_height - 1)))
+    return (x0, y0, max(1, x1 - x0 + 1), max(1, y1 - y0 + 1))
+
+
+def _pixel_polygon_from_normalized(
+    polygon_norm: list[tuple[float, float]],
+    width: int,
+    height: int,
+) -> list[tuple[int, int]]:
+    safe_width = max(1, int(width))
+    safe_height = max(1, int(height))
+    return [
+        (
+            int(round(np.clip(x, 0.0, 1.0) * (safe_width - 1))),
+            int(round(np.clip(y, 0.0, 1.0) * (safe_height - 1))),
+        )
+        for x, y in polygon_norm
+    ]
+
+
+def _parse_pixel_bbox(raw_bbox: object) -> Optional[tuple[int, int, int, int]]:
+    if isinstance(raw_bbox, dict):
+        values = [raw_bbox.get(key) for key in ("x", "y", "width", "height")]
+    elif isinstance(raw_bbox, (list, tuple)) and len(raw_bbox) >= 4:
+        values = list(raw_bbox[:4])
+    else:
+        return None
+    try:
+        x, y, width, height = (int(round(float(value))) for value in values)
+    except (TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return (x, y, width, height)
+
+
+def _parse_pixel_polygon(raw_polygon: object) -> list[tuple[int, int]]:
+    if not isinstance(raw_polygon, (list, tuple)):
+        return []
+    points: list[tuple[int, int]] = []
+    for point in raw_polygon:
+        if isinstance(point, dict):
+            x_raw, y_raw = point.get("x"), point.get("y")
+        elif isinstance(point, (list, tuple)) and len(point) >= 2:
+            x_raw, y_raw = point[0], point[1]
+        else:
+            continue
+        try:
+            points.append((int(round(float(x_raw))), int(round(float(y_raw)))))
+        except (TypeError, ValueError):
+            continue
+    return points
+
+
 def _fit_template(image: np.ndarray, *, binary: bool = False) -> np.ndarray:
     """Вписать локальный фрагмент в квадрат, не искажая его пропорции."""
     height, width = image.shape[:2]
@@ -208,6 +274,13 @@ class AcceptedNormalCase:
     appearance_template: np.ndarray = field(repr=False)
     source_crop: Optional[np.ndarray] = field(default=None, repr=False)
     source_frame: Optional[np.ndarray] = field(default=None, repr=False)
+    # Pixel geometry is kept in addition to normalized coordinates.  The
+    # latter is useful for compatibility, but the former is the authoritative
+    # position for fixed-resolution camera frames and heatmap overlays.
+    bbox: Optional[tuple[int, int, int, int]] = None
+    polygon: list[tuple[int, int]] = field(default_factory=list)
+    coordinate_width: int = 0
+    coordinate_height: int = 0
     _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
     _template_cache: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]] = field(
         default=None,
@@ -216,7 +289,7 @@ class AcceptedNormalCase:
     )
 
     def to_public_dict(self) -> dict:
-        return {
+        payload = {
             "id": self.id,
             "product_type": self.product_type,
             "reference_hash": self.reference_hash,
@@ -238,6 +311,17 @@ class AcceptedNormalCase:
             "enabled": self.enabled,
             "template_version": self.template_version,
         }
+        if self.bbox is not None:
+            x, y, width, height = self.bbox
+            payload["bbox"] = {"x": x, "y": y, "width": width, "height": height}
+        if self.polygon:
+            payload["polygon"] = [{"x": x, "y": y} for x, y in self.polygon]
+        if self.coordinate_width > 0 and self.coordinate_height > 0:
+            payload["coordinate_space"] = {
+                "width": self.coordinate_width,
+                "height": self.coordinate_height,
+            }
+        return payload
 
 
 @dataclass
@@ -717,10 +801,26 @@ class AcceptedNormalMemory:
             if case.source_frame is not None:
                 preview = case.source_frame.copy()
                 height, width = preview.shape[:2]
-                polygon = np.array(
-                    [[round(x * width), round(y * height)] for x, y in case.polygon_norm],
-                    dtype=np.int32,
-                )
+                if case.polygon:
+                    scale_x = (
+                        (width - 1) / max(1, case.coordinate_width - 1)
+                        if case.coordinate_width > 0
+                        else 1.0
+                    )
+                    scale_y = (
+                        (height - 1) / max(1, case.coordinate_height - 1)
+                        if case.coordinate_height > 0
+                        else 1.0
+                    )
+                    polygon = np.array(
+                        [[round(x * scale_x), round(y * scale_y)] for x, y in case.polygon],
+                        dtype=np.int32,
+                    )
+                else:
+                    polygon = np.array(
+                        [[round(x * (width - 1)), round(y * (height - 1))] for x, y in case.polygon_norm],
+                        dtype=np.int32,
+                    )
                 if polygon.shape[0] >= 3:
                     tint = preview.copy()
                     cv2.fillPoly(tint, [polygon], (40, 70, 255))
@@ -752,6 +852,21 @@ class AcceptedNormalMemory:
         source_frame: Optional[np.ndarray] = None,
         note: str = "",
     ) -> AcceptedNormalCase:
+        coordinate_height = (
+            int(source_frame.shape[0])
+            if source_frame is not None and source_frame.ndim >= 2
+            else 0
+        )
+        coordinate_width = (
+            int(source_frame.shape[1])
+            if source_frame is not None and source_frame.ndim >= 2
+            else 0
+        )
+        pixel_polygon = _pixel_polygon_from_normalized(
+            candidate.polygon_norm,
+            coordinate_width,
+            coordinate_height,
+        ) if coordinate_width > 0 and coordinate_height > 0 else []
         case = AcceptedNormalCase(
             id=str(uuid.uuid4()),
             product_type=product_type,
@@ -778,6 +893,10 @@ class AcceptedNormalMemory:
             appearance_template=candidate.appearance_template.copy(),
             source_crop=(candidate.source_crop.copy() if candidate.source_crop is not None else None),
             source_frame=(source_frame.copy() if source_frame is not None else None),
+            bbox=tuple(int(value) for value in candidate.bbox),
+            polygon=pixel_polygon,
+            coordinate_width=coordinate_width,
+            coordinate_height=coordinate_height,
         )
         with self._lock:
             self._cases[case.id] = case
@@ -1012,16 +1131,49 @@ class AcceptedNormalMemory:
                 with np.load(arrays_path, allow_pickle=False) as arrays:
                     bbox = payload.get("bbox_norm", {})
                     polygon_payload = payload.get("polygon_norm", [])
+                    bbox_norm = (
+                        float(bbox.get("x", 0.0)),
+                        float(bbox.get("y", 0.0)),
+                        float(bbox.get("width", 0.0)),
+                        float(bbox.get("height", 0.0)),
+                    )
+                    source_frame = (
+                        arrays["source_frame"].copy()
+                        if "source_frame" in arrays.files and arrays["source_frame"].size > 0
+                        else None
+                    )
+                    coordinate_space = payload.get("coordinate_space")
+                    if not isinstance(coordinate_space, dict):
+                        coordinate_space = {}
+                    coordinate_width = int(coordinate_space.get("width", 0))
+                    coordinate_height = int(coordinate_space.get("height", 0))
+                    if source_frame is not None and source_frame.ndim >= 2:
+                        coordinate_width = coordinate_width or int(source_frame.shape[1])
+                        coordinate_height = coordinate_height or int(source_frame.shape[0])
+                    pixel_bbox = _parse_pixel_bbox(payload.get("bbox"))
+                    if pixel_bbox is None and coordinate_width > 0 and coordinate_height > 0:
+                        pixel_bbox = _pixel_bbox_from_normalized(
+                            bbox_norm,
+                            coordinate_width,
+                            coordinate_height,
+                        )
+                    pixel_polygon = _parse_pixel_polygon(payload.get("polygon"))
+                    if not pixel_polygon and coordinate_width > 0 and coordinate_height > 0:
+                        normalized_polygon = [
+                            (float(point.get("x", 0.0)), float(point.get("y", 0.0)))
+                            for point in polygon_payload
+                            if isinstance(point, dict)
+                        ]
+                        pixel_polygon = _pixel_polygon_from_normalized(
+                            normalized_polygon,
+                            coordinate_width,
+                            coordinate_height,
+                        )
                     case = AcceptedNormalCase(
                         id=case_id,
                         product_type=str(payload["product_type"]),
                         reference_hash=str(payload.get("reference_hash", "")),
-                        bbox_norm=(
-                            float(bbox.get("x", 0.0)),
-                            float(bbox.get("y", 0.0)),
-                            float(bbox.get("width", 0.0)),
-                            float(bbox.get("height", 0.0)),
-                        ),
+                        bbox_norm=bbox_norm,
                         polygon_norm=[
                             (float(point.get("x", 0.0)), float(point.get("y", 0.0)))
                             for point in polygon_payload
@@ -1050,11 +1202,11 @@ class AcceptedNormalMemory:
                             if "source_crop" in arrays.files and arrays["source_crop"].size > 0
                             else None
                         ),
-                        source_frame=(
-                            arrays["source_frame"].copy()
-                            if "source_frame" in arrays.files and arrays["source_frame"].size > 0
-                            else None
-                        ),
+                        source_frame=source_frame,
+                        bbox=pixel_bbox,
+                        polygon=pixel_polygon,
+                        coordinate_width=coordinate_width,
+                        coordinate_height=coordinate_height,
                     )
                 self._cases[case.id] = case
             except Exception:

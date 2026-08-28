@@ -30,6 +30,8 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicLong> activeTriggerSequence = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> resumeAfterTriggerSequence = new ConcurrentHashMap<>();
     private final AtomicBoolean systemBlocked = new AtomicBoolean(false);
+    /** TEST mode: soft-stop must not run/publish DI3 preview-only inspect_result (swaps UI frame). */
+    private final AtomicBoolean suppressSoftStopPreview = new AtomicBoolean(false);
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
@@ -206,6 +208,18 @@ public final class PerCameraInspectionGate {
             }
         }
         return Set.copyOf(cancelled);
+    }
+
+    /**
+     * When true, DI3 soft-stop preview-only cycles are skipped (no capture, no inspect_result).
+     * Used in UI TEST mode so live current frames cannot replace the pinned test frame.
+     */
+    public void setSuppressSoftStopPreview(boolean suppress) {
+        suppressSoftStopPreview.set(suppress);
+    }
+
+    public boolean suppressSoftStopPreview() {
+        return suppressSoftStopPreview.get();
     }
 
     public BeginResult tryBeginInspection(int cameraId) {

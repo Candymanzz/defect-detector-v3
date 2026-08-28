@@ -488,12 +488,17 @@ public final class ClientApiHttpController implements HttpController {
                 return;
             }
             // Stop production DI3 cycles; operator uses test-analyze in this mode.
+            // Soft-stop normally keeps preview-only DI3 → inspect_result(current); that swaps the TEST frame.
             if (clientApi.inspectionGate() != null) {
+                clientApi.inspectionGate().setSuppressSoftStopPreview(true);
                 clientApi.inspectionGate().disableAllAndRequestCancel();
             }
         } else {
             if (ws.isTestMode()) {
                 ws.exitTestMode();
+            }
+            if (clientApi.inspectionGate() != null) {
+                clientApi.inspectionGate().setSuppressSoftStopPreview(false);
             }
             var testAnalyzeHolder = clientApi.uiTestAnalyzeHolder();
             var testAnalyze = testAnalyzeHolder == null ? null : testAnalyzeHolder.get();
@@ -849,6 +854,20 @@ public final class ClientApiHttpController implements HttpController {
                 ? castStringObjectMap(rawGeometry) : Map.of();
         Map<String, Object> temporaryAnalysis = temporarySettings.get("analysis") instanceof Map<?, ?> rawAnalysis
                 ? castStringObjectMap(rawAnalysis) : Map.of();
+        // Doc contract: top-level simple XOR pro (same as Python /inspect-test-frame).
+        if (temporaryAnalysis.isEmpty()) {
+            if (body.get("simple") instanceof Map<?, ?> simpleKnobs && !(body.get("pro") instanceof Map<?, ?>)) {
+                Map<String, Object> analysis = new java.util.LinkedHashMap<>();
+                analysis.put("mode", "simple");
+                analysis.put("knobs", castStringObjectMap(simpleKnobs));
+                temporaryAnalysis = Map.copyOf(analysis);
+            } else if (body.get("pro") instanceof Map<?, ?> proKnobs && !(body.get("simple") instanceof Map<?, ?>)) {
+                Map<String, Object> analysis = new java.util.LinkedHashMap<>();
+                analysis.put("mode", "pro");
+                analysis.put("knobs", castStringObjectMap(proKnobs));
+                temporaryAnalysis = Map.copyOf(analysis);
+            }
+        }
         var source = com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.parseSource(sourceRaw);
         return new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request(
                 cameraId, source, frameId, httpPath, pinId, temporaryGeometry, temporaryAnalysis
