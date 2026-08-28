@@ -45,3 +45,4 @@ camera-worker/build/Release/camera_worker.exe
 hs_err_pid15060.log
 *.log
 *.gz
+analisSurface/test-analysis.html
