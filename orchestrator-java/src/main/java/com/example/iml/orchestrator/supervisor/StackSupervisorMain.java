@@ -10,6 +10,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -17,9 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Внешний supervisor: мониторит оркестратор и перезапускает стек после краша.
- * <p>
- * Режим {@code --attach-pid}: не трогает уже запущенный оркестратор (например из DefectDetector.exe),
- * только наблюдает; при падении — cleanup и spawn нового процесса.
+ * После серии неудачных recovery (health не восстанавливается) — перезагрузка Windows.
  */
 public final class StackSupervisorMain {
 
@@ -33,31 +32,51 @@ public final class StackSupervisorMain {
     private final Path orchestratorJar;
     private final Path configPath;
     private final URI healthUri;
+    private final List<URI> stackHealthUris;
     private final long healthIntervalMs;
     private final long restartDelayMs;
     private final int healthFailThreshold;
     private final int maxRestarts;
     private final long initialAttachPid;
+    private final long startupHealthTimeoutMs;
+    private final long stableHealthyMs;
+    private final boolean rebootEnabled;
+    private final int rebootAfterFailures;
+    private final int rebootDelaySec;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
     StackSupervisorMain(
             Path orchestratorJar,
             Path configPath,
             URI healthUri,
+            List<URI> stackHealthUris,
             long healthIntervalMs,
             long restartDelayMs,
             int healthFailThreshold,
             int maxRestarts,
-            long initialAttachPid
+            long initialAttachPid,
+            long startupHealthTimeoutMs,
+            long stableHealthyMs,
+            boolean rebootEnabled,
+            int rebootAfterFailures,
+            int rebootDelaySec
     ) {
         this.orchestratorJar = orchestratorJar;
         this.configPath = configPath;
         this.healthUri = healthUri;
+        this.stackHealthUris = stackHealthUris == null || stackHealthUris.isEmpty()
+                ? List.of(healthUri)
+                : List.copyOf(stackHealthUris);
         this.healthIntervalMs = healthIntervalMs;
         this.restartDelayMs = restartDelayMs;
         this.healthFailThreshold = Math.max(1, healthFailThreshold);
         this.maxRestarts = maxRestarts;
         this.initialAttachPid = initialAttachPid;
+        this.startupHealthTimeoutMs = Math.max(10_000L, startupHealthTimeoutMs);
+        this.stableHealthyMs = Math.max(60_000L, stableHealthyMs);
+        this.rebootEnabled = rebootEnabled;
+        this.rebootAfterFailures = Math.max(1, rebootAfterFailures);
+        this.rebootDelaySec = Math.max(15, rebootDelaySec);
     }
 
     public static void main(String[] args) {
@@ -84,16 +103,27 @@ public final class StackSupervisorMain {
         long restartDelayMs = envLong("IML_SUPERVISOR_RESTART_DELAY_MS", 5000L);
         int healthFailThreshold = envInt("IML_SUPERVISOR_HEALTH_FAIL_THRESHOLD", 3);
         int maxRestarts = envInt("IML_SUPERVISOR_MAX_RESTARTS", 0);
+        long startupHealthTimeoutMs = envLong("IML_SUPERVISOR_STARTUP_HEALTH_TIMEOUT_MS", 180_000L);
+        long stableHealthyMs = envLong("IML_SUPERVISOR_STABLE_HEALTH_MS", 300_000L);
+        boolean rebootEnabled = envBoolean("IML_SUPERVISOR_REBOOT_ENABLED", WindowsRebootEscalation.enabledByDefault());
+        int rebootAfterFailures = envInt("IML_SUPERVISOR_REBOOT_AFTER_FAILURES", 3);
+        int rebootDelaySec = envInt("IML_SUPERVISOR_REBOOT_DELAY_SEC", 90);
 
         StackSupervisorMain supervisor = new StackSupervisorMain(
                 jarPath,
                 configPath,
                 healthUri,
+                resolveStackHealthUris(healthUri),
                 healthIntervalMs,
                 restartDelayMs,
                 healthFailThreshold,
                 maxRestarts,
-                attachPid
+                attachPid,
+                startupHealthTimeoutMs,
+                stableHealthyMs,
+                rebootEnabled,
+                rebootAfterFailures,
+                rebootDelaySec
         );
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             supervisor.stopRequested.set(true);
@@ -106,22 +136,31 @@ public final class StackSupervisorMain {
 
     int runLoop() {
         int restartCount = 0;
+        int failedRecoveryCount = 0;
         long attachPid = initialAttachPid;
         log.info(
-                "stack supervisor started jar={} config={} health={} interval_ms={} restart_delay_ms={} fail_threshold={} max_restarts={} attach_pid={}",
+                "stack supervisor started jar={} config={} health_uris={} interval_ms={} restart_delay_ms={} "
+                        + "fail_threshold={} max_restarts={} attach_pid={} startup_health_timeout_ms={} "
+                        + "stable_health_ms={} reboot_enabled={} reboot_after_failures={} reboot_delay_sec={}",
                 orchestratorJar.toAbsolutePath(),
                 configPath.toAbsolutePath(),
-                healthUri,
+                stackHealthUris,
                 healthIntervalMs,
                 restartDelayMs,
                 healthFailThreshold,
                 maxRestarts == 0 ? "unlimited" : maxRestarts,
-                attachPid > 0 ? attachPid : "none"
+                attachPid > 0 ? attachPid : "none",
+                startupHealthTimeoutMs,
+                stableHealthyMs,
+                rebootEnabled,
+                rebootAfterFailures,
+                rebootDelaySec
         );
 
         while (!stopRequested.get()) {
             if (maxRestarts > 0 && restartCount >= maxRestarts) {
                 log.error("stack supervisor max restarts reached ({})", maxRestarts);
+                maybeRebootWindows(failedRecoveryCount, "max restarts reached");
                 return 3;
             }
             if (restartCount > 0) {
@@ -131,8 +170,9 @@ public final class StackSupervisorMain {
             Process child = null;
             long externalPid = -1L;
             boolean attachedToLauncher = false;
+            boolean recoveryFailed = true;
             try {
-                if (attachPid > 0 && isProcessAlive(attachPid) && probeHealth(healthUri, 3000)) {
+                if (attachPid > 0 && isProcessAlive(attachPid) && probeStackHealth(3000)) {
                     externalPid = attachPid;
                     attachedToLauncher = true;
                     log.info(
@@ -150,29 +190,46 @@ public final class StackSupervisorMain {
                     }
                     cleanupOrphanPorts("pre-start");
                     child = startOrchestrator();
-                }
-
-                MonitorResult result = child != null
-                        ? monitorUntilUnhealthy(child, -1L, false)
-                        : monitorUntilUnhealthy(null, externalPid, true);
-
-                if (stopRequested.get()) {
-                    if (child != null) {
-                        log.info("stack supervisor stopping spawned orchestrator (user request)");
-                        destroyProcessTree(child, false);
+                    if (!awaitStackHealth(startupHealthTimeoutMs)) {
+                        log.error(
+                                "stack supervisor startup health timeout {}ms — services not healthy after restart",
+                                startupHealthTimeoutMs
+                        );
                     } else {
-                        log.info("stack supervisor stop — leaving launcher orchestrator pid={} running", externalPid);
+                        MonitorResult result = monitorUntilUnhealthy(child, -1L);
+                        if (stopRequested.get()) {
+                            log.info("stack supervisor stopping spawned orchestrator (user request)");
+                            destroyProcessTree(child, false);
+                            return 0;
+                        }
+                        recoveryFailed = result.stableHealthyMs() < stableHealthyMs;
+                        log.warn(
+                                "stack supervisor orchestrator unhealthy reason={} pid={} exit={} stable_healthy_ms={}",
+                                result.reason(),
+                                child.pid(),
+                                result.exitCode(),
+                                result.stableHealthyMs()
+                        );
                     }
-                    return 0;
                 }
-                log.warn(
-                        "stack supervisor orchestrator unhealthy reason={} pid={} exit={}",
-                        result.reason(),
-                        child != null ? child.pid() : externalPid,
-                        result.exitCode()
-                );
+
+                if (attachedToLauncher) {
+                    MonitorResult result = monitorUntilUnhealthy(null, externalPid);
+                    if (stopRequested.get()) {
+                        log.info("stack supervisor stop — leaving launcher orchestrator pid={} running", externalPid);
+                        return 0;
+                    }
+                    recoveryFailed = result.stableHealthyMs() < stableHealthyMs;
+                    log.warn(
+                            "stack supervisor attach monitor ended reason={} pid={} stable_healthy_ms={}",
+                            result.reason(),
+                            externalPid,
+                            result.stableHealthyMs()
+                    );
+                }
             } catch (IOException e) {
                 log.error("stack supervisor failed to start orchestrator: {}", e.getMessage());
+                recoveryFailed = true;
             } finally {
                 if (child != null) {
                     destroyProcessTree(child, true);
@@ -181,6 +238,26 @@ public final class StackSupervisorMain {
                 }
                 cleanupOrphanPorts("post-crash");
             }
+
+            if (recoveryFailed) {
+                failedRecoveryCount++;
+                log.warn(
+                        "stack supervisor failed recovery count={}/{} (reboot after {})",
+                        failedRecoveryCount,
+                        rebootAfterFailures,
+                        rebootEnabled ? rebootAfterFailures : "disabled"
+                );
+                if (rebootEnabled && failedRecoveryCount >= rebootAfterFailures) {
+                    boolean rebootScheduled = WindowsRebootEscalation.scheduleReboot(
+                            rebootDelaySec,
+                            failedRecoveryCount + " failed recoveries — stack health not restored"
+                    );
+                    return rebootScheduled ? 4 : 5;
+                }
+            } else {
+                failedRecoveryCount = 0;
+            }
+
             restartCount++;
             if (stopRequested.get()) {
                 return 0;
@@ -188,6 +265,33 @@ public final class StackSupervisorMain {
             sleepQuietly(restartDelayMs);
         }
         return 0;
+    }
+
+    private void maybeRebootWindows(int failedRecoveryCount, String reason) {
+        if (rebootEnabled && failedRecoveryCount >= rebootAfterFailures) {
+            WindowsRebootEscalation.scheduleReboot(rebootDelaySec, reason);
+        }
+    }
+
+    private boolean awaitStackHealth(long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (!stopRequested.get() && System.currentTimeMillis() < deadline) {
+            if (probeStackHealth(3000)) {
+                log.info("stack supervisor startup health OK");
+                return true;
+            }
+            sleepQuietly(Math.min(healthIntervalMs, 2000L));
+        }
+        return false;
+    }
+
+    boolean probeStackHealth(int timeoutMs) {
+        for (URI uri : stackHealthUris) {
+            if (!probeHealth(uri, timeoutMs)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Process startOrchestrator() throws IOException {
@@ -205,36 +309,48 @@ public final class StackSupervisorMain {
         return process;
     }
 
-    private MonitorResult monitorUntilUnhealthy(Process child, long externalPid, boolean attachMode) {
+    private MonitorResult monitorUntilUnhealthy(Process child, long externalPid) {
         int consecutiveHealthFails = 0;
         long nextHealthProbeMs = 0L;
+        long healthySinceMs = -1L;
         while (!stopRequested.get()) {
             boolean alive = child != null ? child.isAlive() : isProcessAlive(externalPid);
             if (!alive) {
                 int exit = child != null ? exitCodeQuiet(child) : -1;
-                return new MonitorResult("process-exited", exit);
+                return new MonitorResult("process-exited", exit, stableHealthyDurationMs(healthySinceMs));
             }
             long now = System.currentTimeMillis();
             if (now >= nextHealthProbeMs) {
                 nextHealthProbeMs = now + healthIntervalMs;
-                if (probeHealth(healthUri, 3000)) {
+                if (probeStackHealth(3000)) {
                     consecutiveHealthFails = 0;
+                    if (healthySinceMs < 0) {
+                        healthySinceMs = now;
+                    }
                 } else {
                     consecutiveHealthFails++;
+                    healthySinceMs = -1L;
                     log.warn(
-                            "stack supervisor health probe failed ({}/{}) url={}",
+                            "stack supervisor health probe failed ({}/{}) uris={}",
                             consecutiveHealthFails,
                             healthFailThreshold,
-                            healthUri
+                            stackHealthUris
                     );
                     if (consecutiveHealthFails >= healthFailThreshold) {
-                        return new MonitorResult("health-timeout", -1);
+                        return new MonitorResult("health-timeout", -1, stableHealthyDurationMs(healthySinceMs));
                     }
                 }
             }
             sleepQuietly(500L);
         }
-        return new MonitorResult("stop-requested", -1);
+        return new MonitorResult("stop-requested", -1, stableHealthyDurationMs(healthySinceMs));
+    }
+
+    private long stableHealthyDurationMs(long healthySinceMs) {
+        if (healthySinceMs < 0) {
+            return 0L;
+        }
+        return Math.max(0L, System.currentTimeMillis() - healthySinceMs);
     }
 
     static boolean isProcessAlive(long pid) {
@@ -319,6 +435,18 @@ public final class StackSupervisorMain {
         } catch (Exception e) {
             handle.destroyForcibly();
         }
+    }
+
+    static List<URI> resolveStackHealthUris(URI orchestratorHealth) {
+        List<URI> uris = new ArrayList<>();
+        uris.add(orchestratorHealth);
+        if (envBoolean("IML_SUPERVISOR_PROBE_PYTHON", true)) {
+            uris.add(URI.create(env("IML_PYTHON_HEALTH_URL", "http://127.0.0.1:8000/detector/health")));
+        }
+        if (envBoolean("IML_SUPERVISOR_PROBE_LIGHT", false)) {
+            uris.add(URI.create(env("IML_LIGHT_HEALTH_URL", "http://127.0.0.1:5080/")));
+        }
+        return uris;
     }
 
     private static int exitCodeQuiet(Process process) {
@@ -418,6 +546,18 @@ public final class StackSupervisorMain {
         }
     }
 
-    record MonitorResult(String reason, int exitCode) {
+    private static boolean envBoolean(String key, boolean defaultValue) {
+        String raw = System.getenv(key);
+        if (raw == null || raw.isBlank()) {
+            return defaultValue;
+        }
+        return switch (raw.trim().toLowerCase()) {
+            case "1", "true", "yes", "on" -> true;
+            case "0", "false", "no", "off" -> false;
+            default -> defaultValue;
+        };
+    }
+
+    record MonitorResult(String reason, int exitCode, long stableHealthyMs) {
     }
 }

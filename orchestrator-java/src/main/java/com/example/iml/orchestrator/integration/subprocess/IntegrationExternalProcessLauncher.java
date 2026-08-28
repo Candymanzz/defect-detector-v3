@@ -87,7 +87,15 @@ public final class IntegrationExternalProcessLauncher {
         }
         try {
             List<String> launchCommand = prepareCommand(resolveCommandPaths(command, projectRoot), isWindows);
-            if (!verifyLaunchCommand(serviceName, launchCommand)) {
+            if ("frontend".equals(serviceName) && !Files.isDirectory(workingDir.resolve("node_modules"))) {
+                log.warn(
+                        "{} autostart skipped — node_modules missing in {} (run: npm install in front-end/)",
+                        serviceName,
+                        workingDir.toAbsolutePath()
+                );
+                return null;
+            }
+            if (!verifyLaunchCommand(serviceName, launchCommand, isWindows)) {
                 return null;
             }
             Map<String, String> extraEnv = prepareChildEnv(launchCommand, isWindows);
@@ -166,7 +174,7 @@ public final class IntegrationExternalProcessLauncher {
         return out;
     }
 
-    private boolean verifyLaunchCommand(String serviceName, List<String> command) {
+    private boolean verifyLaunchCommand(String serviceName, List<String> command, boolean isWindows) {
         if (command == null || command.isEmpty()) {
             return false;
         }
@@ -191,8 +199,52 @@ public final class IntegrationExternalProcessLauncher {
             }
             return true;
         }
+        if (isPathCommand(first, isWindows)) {
+            if (isWindows) {
+                String resolved = resolvePathCommand(first);
+                if (resolved != null) {
+                    return true;
+                }
+                log.warn(
+                        "{} autostart skipped — {} not found in PATH (install Node.js or add to PATH)",
+                        serviceName,
+                        first
+                );
+                return false;
+            }
+            // Linux/macOS: npm/node are resolved via PATH at spawn time.
+            return true;
+        }
         log.warn("{} autostart skipped — executable not found: {}", serviceName, first);
         return false;
+    }
+
+    private static boolean isPathCommand(String first, boolean isWindows) {
+        if (first == null || first.isBlank()) {
+            return false;
+        }
+        String lower = first.toLowerCase();
+        if ("npm".equals(lower) || "npx".equals(lower) || "node".equals(lower)) {
+            return true;
+        }
+        if (!isWindows) {
+            return false;
+        }
+        return lower.endsWith("npm.cmd") || lower.endsWith("npx.cmd") || lower.endsWith("node.exe");
+    }
+
+    private static String resolvePathCommand(String first) {
+        String lower = first.toLowerCase();
+        if ("node".equals(lower) || lower.endsWith("node.exe")) {
+            return resolveWindowsExecutable("node.exe");
+        }
+        if ("npm".equals(lower) || lower.endsWith("npm.cmd")) {
+            return resolveWindowsExecutable("npm.cmd");
+        }
+        if ("npx".equals(lower) || lower.endsWith("npx.cmd")) {
+            return resolveWindowsExecutable("npx.cmd");
+        }
+        return null;
     }
 
     private static String resolveWindowsExecutable(String fileName) {

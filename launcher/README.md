@@ -16,6 +16,11 @@
 (`StackSupervisorMain --attach-pid …`). До запуска exe supervisor не работает и на систему не влияет.
 При закрытии окна / «Остановить систему» supervisor останавливается вместе со стеком.
 
+После **3 неудачных recovery** (health orchestrator + Python не восстанавливается) supervisor
+планирует **перезагрузку Windows** (`shutdown /r`, задержка 90 с). Отключить:
+`DefectDetector.exe --no-supervisor` или env `IML_SUPERVISOR_REBOOT_ENABLED=false`.
+Для reboot нужны права администратора.
+
 Окно лаунчера показывает:
 
 - бренд и общий progress;

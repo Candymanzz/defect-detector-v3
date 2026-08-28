@@ -2,6 +2,8 @@
 # Requires Administrator.
 #
 # NOTE: Рекомендуемый способ — DefectDetector.exe (supervisor стартует сам после boot).
+# После 3 неудачных recovery supervisor может перезагрузить Windows (shutdown /r).
+# Требуются права администратора для reboot. Отключить: IML_SUPERVISOR_REBOOT_ENABLED=false
 # Этот скрипт — только для машин БЕЗ exe, где нужен автозапуск при включении Windows.
 #
 # Usage (PowerShell as Admin):
