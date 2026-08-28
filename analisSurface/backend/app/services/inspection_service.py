@@ -38,6 +38,11 @@ from app.services.learned_normals import (
 logger = logging.getLogger(__name__)
 
 _FP_CROP_MIN = 64
+# Conservative perspective compensation for the fixed, inverted-bucket camera
+# layout.  It is deliberately kept local to the full-frame difference map: FP
+# mini-etalon crops must retain their original score semantics.
+_VERTICAL_COMPENSATION_MAX_GAIN = 1.20
+_VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 
 
 class InspectionService:
@@ -743,7 +748,12 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
-        diff_map = self._compute_advanced_difference(aligned, reference, settings)
+        diff_map = self._compute_advanced_difference(
+            aligned,
+            reference,
+            settings,
+            vertical_compensation=True,
+        )
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
@@ -1827,6 +1837,8 @@ class InspectionService:
         aligned: np.ndarray,
         reference: np.ndarray,
         settings: AnalysisSettings,
+        *,
+        vertical_compensation: bool = False,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -1885,6 +1897,17 @@ class InspectionService:
         robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
         robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
 
+        # The bucket is inverted in the camera view, so the upper part of the
+        # image is farther from the camera and its defects are weaker. Apply a
+        # small smooth gain there. The cap is intentionally conservative to
+        # avoid turning texture/noise into defects; static reference edges are
+        # still suppressed immediately below.
+        if vertical_compensation:
+            row_gain = self._vertical_compensation_gain(robust_gray.shape[0])
+            robust_float = robust_gray.astype(np.float32)
+            robust_float *= row_gain[:, np.newaxis]
+            robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
+
         # Edge suppression on strong static reference edges (lid/border/text bounds):
         # reduce anomaly response in a small tolerance band around those edges.
         edges_ref = cv2.Canny(ref_gray, 80, 160)
@@ -1926,6 +1949,18 @@ class InspectionService:
         # Median blur removes salt-like speckles without erasing thin linear defects.
         robust_gray = cv2.medianBlur(robust_gray, 3)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
+
+    @staticmethod
+    def _vertical_compensation_gain(height: int) -> np.ndarray:
+        """Return a bounded gain that is largest at the top of a full frame."""
+        if height <= 1:
+            return np.ones((max(0, height),), dtype=np.float32)
+        y_norm = np.arange(height, dtype=np.float32) / float(height - 1)
+        active_height = _VERTICAL_COMPENSATION_ACTIVE_HEIGHT
+        far_from_camera = np.clip((active_height - y_norm) / active_height, 0.0, 1.0)
+        # Smooth ramp avoids a visible/algorithmic boundary between bands.
+        far_from_camera = far_from_camera * far_from_camera * (3.0 - 2.0 * far_from_camera)
+        return 1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * far_from_camera
 
     def _refine_alignment_ecc(self, aligned: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """Доточить affine-сдвиг пирамидальным ECC (после грубой гомографии)."""
