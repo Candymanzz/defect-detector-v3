@@ -27,6 +27,18 @@ def test_validate_polygon_inside_parent() -> None:
     assert polygon_area(normalized) > 0.0
 
 
+def test_vertical_compensation_is_smooth_bounded_and_top_weighted() -> None:
+    gain = InspectionService._vertical_compensation_gain(101)
+
+    assert gain[0] == pytest.approx(1.20)
+    assert gain[-1] == pytest.approx(1.0)
+    assert np.all(gain >= 1.0)
+    assert np.all(gain <= 1.20)
+    assert np.all(np.diff(gain) <= 1e-6)
+    # The compensation is already gone before the lowest quarter of the frame.
+    assert gain[75] == pytest.approx(1.0)
+
+
 def test_inspect_identical_frames_passes(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
     inspection_service.set_reference_frame("bench", gray_frame)
     result = inspection_service.inspect_frame("bench", gray_frame.copy(), threshold=0.5)
