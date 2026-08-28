@@ -221,10 +221,10 @@ export function updateModalSnapshotResult(
 
   const nextCameraImageUrl =
     lockedPinImageUrl ??
-    currentSnapshot.cameraImageUrl ??
     resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult) ??
     resolveImmutableInspectionImageUrl(displayInspectResult) ??
-    createWsFrameImageUrl(displayInspectResult);
+    createWsFrameImageUrl(displayInspectResult) ??
+    currentSnapshot.cameraImageUrl;
 
   // Once a TEST pin is locked, never swap the modal image — even if WS carries another http_path.
   const frozenTestImage = currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl;
