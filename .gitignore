@@ -8,54 +8,60 @@
 /logs/
 .dev-stack.pids.json
 .tmp/
+.DS_Store
 
 # Local inspection frames (test data, never used by production runtime)
 /analisSurface/backend/app/data/frame/
 
-# Python test artifacts (never used by production runtime)
+# Python test artifacts
 **/.pytest_cache/
 **/.pytest-tmp-*/
 **/pytest-cache-files-*/
 **/test_data/_timing_probe_*/
+**/__pycache__/
+/iml_detectors/__pycache__/
+/iml_detectors/services/__pycache__/
 
-# Build outputs (GitHub rejects files > 100 MB)
+# Runtime logs (orchestrator, geometry, IoInputMonitor, supervisor)
+**/logs/
+*.log
+*.log.gz
+hs_err_pid*.log
+replay_pid*.log
+
+# Build outputs
 **/target/
+**/bin/
+**/obj/
 LightServer/bin/
 LightServer/obj/
+/LightServer.v3/bin/
+/LightServer.v3/obj/
+/IoInputMonitor/bin/
+/IoInputMonitor/obj/
+camera-worker/build/
+camera-worker/build-mvs/
+camera-worker/build-test/
+
+# Node / frontend
+node_modules/
+front-end/node_modules/
 /frontend/node_modules
+
+# Local config and launcher binary (build locally)
+/config
+DefectDetector.exe
+*.lnk
+
+# Legacy / local-only paths
 /backend/app/api/__pycache__
 /backend/app/services/__pycache__
 /backend/app/__pycache__
-/LightServer.v3/obj
-/LightServer.v3/bin/
-/backend/app/api/__pycache__
-/backend/app/__pycache__
-.DS_Store
 /backend/app/brack
 /backend/app/normal
-/backend/app/services/__pycache__
-/frontend/node_modules
-/iml_detectors/__pycache__
-/iml_detectors/services/__pycache__
 /megaOrchestratoraue228-main
 c_capture/camera_server
 /test-pr-ph
-/LightServer.v3/logs
 defect-detector-v3
-/camera-worker/build/Release
-camera-worker/build/Release/camera_worker.exe
-/IoInputMonitor/bin
-/IoInputMonitor/obj
-/LightServer.v3/bin
-/config
-DefectDetector.exe
-hs_err_pid*.log
-**/hs_err_pid*.log
-orchestrator-java/logs/
-**/bin/
-**/obj/
 analisSurface/backend/app/data/analysis_settings.json
-hs_err_pid15060.log
-*.log
-*.gz
 analisSurface/test-analysis.html

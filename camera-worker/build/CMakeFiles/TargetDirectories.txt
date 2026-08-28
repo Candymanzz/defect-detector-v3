@@ -1,5 +1,0 @@
-D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/camera_worker.dir
-D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/cw_config_tests.dir
-D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/RUN_TESTS.dir
-D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/ALL_BUILD.dir
-D:/visionGay/defect-detector-v3/camera-worker/build/CMakeFiles/ZERO_CHECK.dir
