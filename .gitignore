@@ -9,11 +9,14 @@
 .dev-stack.pids.json
 .tmp/
 
+# Local inspection frames (test data, never used by production runtime)
+/analisSurface/backend/app/data/frame/
+
 # Python test artifacts (never used by production runtime)
-/analisSurface/backend/.pytest_cache/
-/analisSurface/backend/.pytest-tmp-*/
-/analisSurface/backend/pytest-cache-files-*/
-/analisSurface/backend/test_data/_timing_probe_*/
+**/.pytest_cache/
+**/.pytest-tmp-*/
+**/pytest-cache-files-*/
+**/test_data/_timing_probe_*/
 
 # Build outputs (GitHub rejects files > 100 MB)
 **/target/
