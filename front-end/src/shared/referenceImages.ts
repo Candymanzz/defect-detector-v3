@@ -1,4 +1,5 @@
 import { HttpError, orchestratorApi } from "./api";
+import type { LearnedNormalCase } from "./api/types";
 import { isValidJointRoiPolygon } from "../components/ReferenceSetup/referenceRoi";
 import type {
   ClientReferenceBundlePayload,
@@ -19,6 +20,7 @@ export type StoredReferenceImage = {
 };
 export type ArchivedReferenceGroup = {
   id: string;
+  name?: string;
   createdAtMs: number;
   cameraIds: number[];
   jointCameraId: number;
@@ -26,7 +28,9 @@ export type ArchivedReferenceGroup = {
   imageUrlsByCameraId: Record<number, string>;
   images: Array<StoredReferenceImage & { cameraId: number }>;
   learnedCaseIdsByCameraId: Record<number, string[]>;
+  learnedCasesByCameraId: Record<number, StoredLearnedCase[]>;
 };
+export type StoredLearnedCase = LearnedNormalCase & { imageUrl: string };
 
 const referenceImagesByCameraId = new Map<number, StoredReferenceImage>();
 const archivedReferenceGroups: ArchivedReferenceGroup[] = [];
@@ -41,6 +45,8 @@ const pendingReferenceBundles = new Map<
     roiPointsByCameraId?: Record<number, InterestPointNorm[]>;
     jointCameraId?: number;
     jointRoiPoints?: InterestPointNorm[];
+    name?: string;
+    archiveCameraIds?: number[];
   }
 >();
 const listeners = new Set<ReferenceImageListener>();
@@ -52,9 +58,13 @@ const REFERENCE_DB_KEY = "current";
 let persistenceChain: Promise<void> = Promise.resolve();
 
 type PersistedReferenceImage = Omit<StoredReferenceImage, "imageUrl"> & { imageKey: string };
-type PersistedArchivedReferenceGroup = Omit<ArchivedReferenceGroup, "imageUrlsByCameraId" | "images"> & {
+type PersistedArchivedReferenceGroup = Omit<
+  ArchivedReferenceGroup,
+  "imageUrlsByCameraId" | "images" | "learnedCasesByCameraId"
+> & {
   imageKeysByCameraId: Record<number, string>;
   images: Array<PersistedReferenceImage & { cameraId: number }>;
+  learnedCasesByCameraId: Record<number, Array<Omit<StoredLearnedCase, "imageUrl"> & { imageKey: string }>>;
 };
 type PersistedReferenceState = {
   version: 1;
@@ -90,6 +100,8 @@ export function resolveReferenceBundleImages(messageId: string, accepted: boolea
       pendingBundle.roiPointsByCameraId,
       pendingBundle.jointCameraId,
       pendingBundle.jointRoiPoints,
+      pendingBundle.name,
+      pendingBundle.archiveCameraIds,
     );
   }
 }
@@ -115,12 +127,29 @@ export function stageReferenceBundleContours(
   pendingBundle.jointRoiPoints = copyRoiPoints(jointRoiPoints);
 }
 
+export function stageReferenceBundleName(messageId: string, name: string) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) {
+    return;
+  }
+  const normalizedName = name.trim().slice(0, 80);
+  pendingBundle.name = normalizedName || undefined;
+}
+
+export function stageReferenceArchiveCameraIds(messageId: string, cameraIds: number[]) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) return;
+  pendingBundle.archiveCameraIds = [...new Set(cameraIds)].sort((left, right) => left - right);
+}
+
 export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,
   fallbackImageUrlsByCameraId: Record<number, string> = {},
   roiPointsByCameraId?: Record<number, InterestPointNorm[]>,
   jointCameraId?: number,
   jointRoiPoints?: InterestPointNorm[],
+  name?: string,
+  archiveCameraIds?: number[],
 ) {
   const nextReferenceImagesByCameraId = new Map(referenceImagesByCameraId);
   const nextReferenceImageVersion = referenceImageVersion + 1;
@@ -157,7 +186,8 @@ export function commitReferenceBundleImages(
     return;
   }
 
-  archiveCurrentReferenceGroup([...updatedCameraIds]);
+  const archivedCameraIds = archiveCameraIds?.length ? archiveCameraIds : [...updatedCameraIds];
+  archiveCurrentReferenceGroup(archivedCameraIds);
 
   referenceImagesByCameraId.forEach((referenceImage, cameraId) => {
     if (!updatedCameraIds.has(cameraId)) {
@@ -180,7 +210,7 @@ export function commitReferenceBundleImages(
   referenceImageVersion = nextReferenceImageVersion;
 
   // Keep the newly accepted reference selectable as well as the superseded one.
-  archiveCurrentReferenceGroup([...updatedCameraIds]);
+  archiveCurrentReferenceGroup(archivedCameraIds, name);
   queuePersistReferenceState();
 
   emitReferenceImageChange();
@@ -238,7 +268,16 @@ export async function deleteArchivedReferenceGroup(id: string) {
   }
 
   const archive = archivedReferenceGroups[archiveIndex];
-  const learnedCaseIds = [...new Set(Object.values(archive.learnedCaseIdsByCameraId).flat())];
+  const learnedCaseIds = [...new Set(Object.values(archive.learnedCaseIdsByCameraId).flat())].filter(
+    (caseId) =>
+      !archivedReferenceGroups.some(
+        (candidate) =>
+          candidate.id !== archive.id &&
+          Object.values(candidate.learnedCaseIdsByCameraId)
+            .flat()
+            .includes(caseId),
+      ),
+  );
   await Promise.all(
     learnedCaseIds.map(async (caseId) => {
       try {
@@ -249,6 +288,11 @@ export async function deleteArchivedReferenceGroup(id: string) {
     }),
   );
   archivedReferenceGroups.splice(archiveIndex, 1);
+  Object.values(archive.learnedCasesByCameraId).flat().forEach((item) => {
+    if (item.imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(item.imageUrl)) {
+      URL.revokeObjectURL(item.imageUrl);
+    }
+  });
   for (const imageUrl of Object.values(archive.imageUrlsByCameraId)) {
     if (imageUrl.startsWith("blob:") && !isImageUrlInUse(imageUrl)) {
       URL.revokeObjectURL(imageUrl);
@@ -270,7 +314,7 @@ export function subscribeReferenceImages(listener: ReferenceImageListener) {
   };
 }
 
-function archiveCurrentReferenceGroup(cameraIds: number[]) {
+function archiveCurrentReferenceGroup(cameraIds: number[], name?: string) {
   const images = cameraIds
     .map((cameraId) => {
       const referenceImage = referenceImagesByCameraId.get(cameraId);
@@ -282,7 +326,22 @@ function archiveCurrentReferenceGroup(cameraIds: number[]) {
     return;
   }
 
-  const archive = createArchivedReferenceGroup(images);
+  const archive = createArchivedReferenceGroup(images, name);
+  for (const image of images) {
+    const sourceArchive = archivedReferenceGroups.find((candidate) =>
+      candidate.images.some(
+        (candidateImage) =>
+          candidateImage.cameraId === image.cameraId && candidateImage.frame.frame_id === image.frame.frame_id,
+      ),
+    );
+    if (!sourceArchive) continue;
+    archive.learnedCaseIdsByCameraId[image.cameraId] = [
+      ...(sourceArchive.learnedCaseIdsByCameraId[image.cameraId] ?? []),
+    ];
+    archive.learnedCasesByCameraId[image.cameraId] = (
+      sourceArchive.learnedCasesByCameraId[image.cameraId] ?? []
+    ).map((item) => ({ ...item }));
+  }
   if (isDuplicateArchive(archive)) {
     return;
   }
@@ -298,12 +357,18 @@ function archiveCurrentReferenceGroup(cameraIds: number[]) {
         URL.revokeObjectURL(imageUrl);
       }
     }
+    for (const item of Object.values(removedArchive.learnedCasesByCameraId).flat()) {
+      if (item.imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(item.imageUrl)) {
+        URL.revokeObjectURL(item.imageUrl);
+      }
+    }
   }
   markArchivedReferenceGroupsChanged();
 }
 
 function createArchivedReferenceGroup(
   images: Array<StoredReferenceImage & { cameraId: number }>,
+  name?: string,
 ): ArchivedReferenceGroup {
   const sortedImages = [...images].sort((left, right) => left.cameraId - right.cameraId);
   const jointCameraId =
@@ -332,6 +397,7 @@ function createArchivedReferenceGroup(
 
   return {
     id: createArchiveId(sortedImages),
+    name: name?.trim().slice(0, 80) || undefined,
     createdAtMs: Date.now(),
     cameraIds: sortedImages.map((image) => image.cameraId),
     jointCameraId,
@@ -339,12 +405,14 @@ function createArchivedReferenceGroup(
     imageUrlsByCameraId: Object.fromEntries(sortedImages.map((image) => [image.cameraId, image.imageUrl])),
     images: sortedImages.map((image) => ({ cameraId: image.cameraId, ...copyStoredReferenceImage(image) })),
     learnedCaseIdsByCameraId: {},
+    learnedCasesByCameraId: {},
   };
 }
 
 function copyArchivedReferenceGroup(archive: ArchivedReferenceGroup): ArchivedReferenceGroup {
   return {
     id: archive.id,
+    name: archive.name,
     createdAtMs: archive.createdAtMs,
     cameraIds: [...archive.cameraIds],
     jointCameraId: archive.jointCameraId,
@@ -365,6 +433,12 @@ function copyArchivedReferenceGroup(archive: ArchivedReferenceGroup): ArchivedRe
     images: archive.images.map((image) => ({ cameraId: image.cameraId, ...copyStoredReferenceImage(image) })),
     learnedCaseIdsByCameraId: Object.fromEntries(
       Object.entries(archive.learnedCaseIdsByCameraId).map(([cameraId, caseIds]) => [cameraId, [...caseIds]]),
+    ),
+    learnedCasesByCameraId: Object.fromEntries(
+      Object.entries(archive.learnedCasesByCameraId).map(([cameraId, cases]) => [
+        cameraId,
+        cases.map((item) => ({ ...item })),
+      ]),
     ),
   };
 }
@@ -429,6 +503,14 @@ function isImageUrlInUse(imageUrl: string) {
   );
 }
 
+function isLearnedImageUrlInUse(imageUrl: string) {
+  return archivedReferenceGroups.some((archive) =>
+    Object.values(archive.learnedCasesByCameraId)
+      .flat()
+      .some((item) => item.imageUrl === imageUrl),
+  );
+}
+
 function createArchiveId(images: Array<StoredReferenceImage & { cameraId: number }>) {
   const frameKey = images.map((image) => `${image.cameraId}:${image.frame.frame_id}`).join("|");
   return `${Date.now()}-${frameKey}-${Math.random().toString(16).slice(2)}`;
@@ -460,8 +542,8 @@ export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[])
   if (changed) queuePersistReferenceState();
 }
 
-export function attachLearnedCasesToActiveReference(cameraId: number, caseIds: string[]) {
-  if (caseIds.length === 0) return;
+export async function attachLearnedCasesToActiveReference(cameraId: number, cases: LearnedNormalCase[]) {
+  if (cases.length === 0) return;
   const activeImage = referenceImagesByCameraId.get(cameraId);
   if (!activeImage) return;
   const archive = archivedReferenceGroups.find((candidate) =>
@@ -471,9 +553,36 @@ export function attachLearnedCasesToActiveReference(cameraId: number, caseIds: s
   );
   if (!archive) return;
 
+  const storedCases = (
+    await Promise.all(
+      cases.map(async (item): Promise<StoredLearnedCase | null> => {
+        try {
+          const response = await fetch(orchestratorApi.learnedNormalImageUrl(item.id), { cache: "no-store" });
+          if (!response.ok) return null;
+          return { ...item, imageUrl: URL.createObjectURL(await response.blob()) };
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((item): item is StoredLearnedCase => item !== null);
+  if (storedCases.length === 0) return;
+
   archive.learnedCaseIdsByCameraId[cameraId] = [
-    ...new Set([...(archive.learnedCaseIdsByCameraId[cameraId] ?? []), ...caseIds]),
+    ...new Set([...(archive.learnedCaseIdsByCameraId[cameraId] ?? []), ...storedCases.map((item) => item.id)]),
   ];
+  const previousCases = archive.learnedCasesByCameraId[cameraId] ?? [];
+  const nextById = new Map(previousCases.map((item) => [item.id, item]));
+  const replacedImageUrls = new Set<string>();
+  for (const item of storedCases) {
+    const previous = nextById.get(item.id);
+    if (previous) replacedImageUrls.add(previous.imageUrl);
+    nextById.set(item.id, item);
+  }
+  archive.learnedCasesByCameraId[cameraId] = [...nextById.values()];
+  replacedImageUrls.forEach((imageUrl) => {
+    if (imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(imageUrl)) URL.revokeObjectURL(imageUrl);
+  });
   markArchivedReferenceGroupsChanged();
   queuePersistReferenceState();
   emitReferenceImageChange();
@@ -481,6 +590,7 @@ export function attachLearnedCasesToActiveReference(cameraId: number, caseIds: s
 
 export function detachLearnedCaseFromReferences(caseId: string) {
   let changed = false;
+  const removedImageUrls = new Set<string>();
   for (const archive of archivedReferenceGroups) {
     for (const [cameraId, caseIds] of Object.entries(archive.learnedCaseIdsByCameraId)) {
       const nextIds = caseIds.filter((id) => id !== caseId);
@@ -488,8 +598,20 @@ export function detachLearnedCaseFromReferences(caseId: string) {
       archive.learnedCaseIdsByCameraId[Number(cameraId)] = nextIds;
       changed = true;
     }
+    for (const [cameraId, cases] of Object.entries(archive.learnedCasesByCameraId)) {
+      const removed = cases.filter((item) => item.id === caseId);
+      if (removed.length === 0) continue;
+      removed.forEach((item) => removedImageUrls.add(item.imageUrl));
+      archive.learnedCasesByCameraId[Number(cameraId)] = cases.filter((item) => item.id !== caseId);
+      changed = true;
+    }
   }
   if (!changed) return;
+  removedImageUrls.forEach((imageUrl) => {
+    if (imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(imageUrl)) {
+      URL.revokeObjectURL(imageUrl);
+    }
+  });
   markArchivedReferenceGroupsChanged();
   queuePersistReferenceState();
   emitReferenceImageChange();
@@ -522,6 +644,9 @@ async function createPersistedReferenceState(): Promise<PersistedReferenceState>
   const urls = new Set<string>();
   activeImages.forEach((image) => urls.add(image.imageUrl));
   archives.forEach((archive) => Object.values(archive.imageUrlsByCameraId).forEach((url) => urls.add(url)));
+  archives.forEach((archive) =>
+    Object.values(archive.learnedCasesByCameraId).flat().forEach((item) => urls.add(item.imageUrl)),
+  );
   const blobs = await Promise.all(
     [...urls].map(async (url): Promise<[string, Blob] | null> => {
       try {
@@ -538,6 +663,7 @@ async function createPersistedReferenceState(): Promise<PersistedReferenceState>
     activeImages: activeImages.map(({ cameraId, imageUrl, ...image }) => ({ cameraId, imageKey: imageUrl, ...image })),
     archives: archives.map((archive) => ({
       id: archive.id,
+      name: archive.name,
       createdAtMs: archive.createdAtMs,
       cameraIds: archive.cameraIds,
       jointCameraId: archive.jointCameraId,
@@ -545,6 +671,12 @@ async function createPersistedReferenceState(): Promise<PersistedReferenceState>
       imageKeysByCameraId: { ...archive.imageUrlsByCameraId },
       images: archive.images.map(({ cameraId, imageUrl, ...image }) => ({ cameraId, imageKey: imageUrl, ...image })),
       learnedCaseIdsByCameraId: archive.learnedCaseIdsByCameraId,
+      learnedCasesByCameraId: Object.fromEntries(
+        Object.entries(archive.learnedCasesByCameraId).map(([cameraId, cases]) => [
+          cameraId,
+          cases.map(({ imageUrl, ...item }) => ({ ...item, imageKey: imageUrl })),
+        ]),
+      ),
     })),
     blobs: blobs.filter((entry): entry is [string, Blob] => entry !== null),
   };
@@ -572,6 +704,7 @@ async function hydratePersistedReferenceState() {
       if (images.length !== archive.images.length) continue;
       archivedReferenceGroups.push({
         id: archive.id,
+        name: archive.name,
         createdAtMs: archive.createdAtMs,
         cameraIds: [...archive.cameraIds],
         jointCameraId: archive.jointCameraId,
@@ -584,14 +717,66 @@ async function hydratePersistedReferenceState() {
         learnedCaseIdsByCameraId: Object.fromEntries(
           Object.entries(archive.learnedCaseIdsByCameraId ?? {}).map(([cameraId, caseIds]) => [cameraId, [...caseIds]]),
         ),
+        learnedCasesByCameraId: Object.fromEntries(
+          Object.entries(archive.learnedCasesByCameraId ?? {}).map(([cameraId, cases]) => [
+            cameraId,
+            cases.flatMap(({ imageKey, ...item }) => {
+              const imageUrl = resolveUrl(imageKey);
+              return imageUrl ? [{ ...item, imageUrl }] : [];
+            }),
+          ]),
+        ),
       });
     }
     referenceImageVersion += 1;
     markArchivedReferenceGroupsChanged();
     emitReferenceImageChange();
+    if (await migrateLegacyLearnedCases()) {
+      markArchivedReferenceGroupsChanged();
+      queuePersistReferenceState();
+      emitReferenceImageChange();
+    }
   } catch (error) {
     console.warn("Не удалось загрузить локальную библиотеку эталонов", error);
   }
+}
+
+async function migrateLegacyLearnedCases() {
+  let changed = false;
+  for (const archive of archivedReferenceGroups) {
+    for (const [cameraIdText, caseIds] of Object.entries(archive.learnedCaseIdsByCameraId)) {
+      const cameraId = Number(cameraIdText);
+      const existingIds = new Set((archive.learnedCasesByCameraId[cameraId] ?? []).map((item) => item.id));
+      const missingIds = caseIds.filter((id) => !existingIds.has(id));
+      if (missingIds.length === 0) continue;
+      const productType = archive.images.find((image) => image.cameraId === cameraId)?.productType;
+      if (!productType) continue;
+      try {
+        const payload = await orchestratorApi.getLearnedNormals(productType, cameraId);
+        const metadataById = new Map((payload.cases ?? []).map((item) => [item.id, item]));
+        const restored = (
+          await Promise.all(
+            missingIds.map(async (id): Promise<StoredLearnedCase | null> => {
+              const metadata = metadataById.get(id);
+              if (!metadata) return null;
+              const response = await fetch(orchestratorApi.learnedNormalImageUrl(id), { cache: "no-store" });
+              return response.ok ? { ...metadata, imageUrl: URL.createObjectURL(await response.blob()) } : null;
+            }),
+          )
+        ).filter((item): item is StoredLearnedCase => item !== null);
+        if (restored.length > 0) {
+          archive.learnedCasesByCameraId[cameraId] = [
+            ...(archive.learnedCasesByCameraId[cameraId] ?? []),
+            ...restored,
+          ];
+          changed = true;
+        }
+      } catch {
+        // The saved IDs remain available for a later migration when the backend is reachable.
+      }
+    }
+  }
+  return changed;
 }
 
 function restorePersistedReferenceImage(persisted: PersistedReferenceImage, imageUrl: string): StoredReferenceImage {

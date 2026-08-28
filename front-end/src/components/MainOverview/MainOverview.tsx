@@ -157,11 +157,19 @@ export function MainOverview({
         notifyAnalysisSettingsChanged(snapshot.cameraId);
       }
       const analysisDraft = analysisSettingsRef.current?.getDraft();
+      const analysis =
+        analysisDraft == null
+          ? undefined
+          : analysisDraft.mode === "pro"
+            ? { mode: "pro" as const, knobs: analysisDraft.knobs as Record<string, number>, pro: analysisDraft.knobs as Record<string, number> }
+            : {
+                mode: "simple" as const,
+                knobs: analysisDraft.knobs as Record<string, number>,
+                simple: analysisDraft.knobs as Record<string, number>,
+              };
       const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {
         geometry: geometrySettingsRef.current?.getDraft(),
-        analysis: analysisDraft
-          ? { mode: analysisDraft.mode, knobs: analysisDraft.knobs }
-          : undefined,
+        analysis,
       });
       if (
         accepted.pinId !== pinId

@@ -392,17 +392,47 @@ export const orchestratorApi = {
     cameraId: number,
     pinId: string,
     frameId?: string,
-    temporarySettings?: { geometry?: Record<string, number>; analysis?: Record<string, unknown> },
+    temporarySettings?: {
+      geometry?: Record<string, number>;
+      analysis?: {
+        mode?: "simple" | "pro";
+        knobs?: Record<string, number>;
+        simple?: Record<string, number>;
+        pro?: Record<string, number>;
+      };
+    },
   ) {
+    const analysis = temporarySettings?.analysis;
+    const body: Record<string, unknown> = {
+      cameraId,
+      frameId,
+      pinId,
+      source: "pin",
+      temporarySettings: {
+        geometry: temporarySettings?.geometry,
+        analysis: analysis
+          ? {
+              mode: analysis.mode,
+              knobs: analysis.knobs,
+              ...(analysis.simple ? { simple: analysis.simple } : {}),
+              ...(analysis.pro ? { pro: analysis.pro } : {}),
+            }
+          : undefined,
+      },
+    };
+    // Doc contract for /inspect-test-frame: top-level simple XOR pro (orchestrator forwards).
+    if (analysis?.simple && !analysis.pro) {
+      body.simple = analysis.simple;
+    } else if (analysis?.pro && !analysis.simple) {
+      body.pro = analysis.pro;
+    } else if (analysis?.mode === "pro" && analysis.knobs) {
+      body.pro = analysis.knobs;
+    } else if (analysis?.knobs) {
+      body.simple = analysis.knobs;
+    }
     return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
       method: "POST",
-      body: {
-        cameraId,
-        frameId,
-        pinId,
-        temporarySettings,
-        source: "pin",
-      },
+      body,
     });
   },
 

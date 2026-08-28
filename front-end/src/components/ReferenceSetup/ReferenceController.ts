@@ -4,7 +4,9 @@ import { orchestratorApi } from "../../shared/api";
 import {
   getArchivedReferenceGroup,
   getReferenceImage,
+  stageReferenceArchiveCameraIds,
   stageReferenceBundleContours,
+  stageReferenceBundleName,
 } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { ServerWsMessage } from "../../shared/ws";
@@ -34,6 +36,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [isNewReferenceMode, setIsNewReferenceMode] = useState(false);
   const [replacementCameraIds, setReplacementCameraIds] = useState<number[]>([]);
+  const [referenceName, setReferenceName] = useState("");
   const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
@@ -60,12 +63,11 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     refreshLatestImages,
   } = referenceFrames;
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
+  const hasAnyStoredReferenceForActiveGroup = activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
   const submissionCameraIds =
-    isNewReferenceMode && replacementCameraIds.length > 0
+    isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
       ? replacementCameraIds
       : activeCameraIds;
-  const hasAnyStoredReferenceForActiveGroup =
-    activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
   const canSendAllReferences = Boolean(
     submissionCameraIds.length > 0 &&
     submissionCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
@@ -274,11 +276,20 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       return;
     }
 
-    const targetCameraIds = hasAnyStoredReferenceForActiveGroup
-      ? [referenceRoi.selectedCameraId]
-      : activeCameraIds;
+    if (hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode) {
+      setIsNewReferenceMode(true);
+      setReplacementCameraIds([]);
+      setReferenceName("");
+      setMessage("Выберите одну или несколько камер, кадры которых нужно заменить");
+      return;
+    }
+
+    const targetCameraIds = hasAnyStoredReferenceForActiveGroup ? [referenceRoi.selectedCameraId] : activeCameraIds;
     const previouslySelectedCameraIds = replacementCameraIds;
     setIsNewReferenceMode(true);
+    if (!isNewReferenceMode) {
+      setReferenceName("");
+    }
     setMessage(`Capturing latest frames for cameras: ${targetCameraIds.join(", ")}`);
     const { loadedCameraIds, snapshotCameraIds, missingCameraIds } = await captureLatestImages(targetCameraIds);
     const capturedCameraIds = [...loadedCameraIds, ...snapshotCameraIds].sort((left, right) => left - right);
@@ -314,6 +325,38 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     setMessage(`Could not capture latest frames for cameras: ${missingCameraIds.join(", ")}`);
   };
 
+  const handleToggleCameraReplacement = async (cameraId: number) => {
+    referenceRoi.setSelectedCameraId(cameraId);
+    if (!isNewReferenceMode) {
+      setIsNewReferenceMode(true);
+      setReferenceName("");
+    }
+
+    if (replacementCameraIds.includes(cameraId)) {
+      setReplacementCameraIds((currentCameraIds) => currentCameraIds.filter((candidate) => candidate !== cameraId));
+      referenceRoi.resetEditedRoisForCameraIds([cameraId]);
+      referenceFpZones.resetEditedFpZonesForCameraIds([cameraId]);
+      loadStoredReferenceImages([cameraId]);
+      setMessage(`Камера ${cameraId} не будет изменена — останется действующий эталон`);
+      return;
+    }
+
+    setMessage(`Получение нового кадра камеры ${cameraId}...`);
+    const { loadedCameraIds, snapshotCameraIds } = await captureLatestImages([cameraId]);
+    const capturedCameraIds = [...loadedCameraIds, ...snapshotCameraIds];
+    if (capturedCameraIds.length === 0) {
+      setMessage(`Не удалось получить новый кадр камеры ${cameraId}`);
+      return;
+    }
+
+    setReplacementCameraIds((currentCameraIds) =>
+      [...new Set([...currentCameraIds, cameraId])].sort((left, right) => left - right),
+    );
+    referenceRoi.resetEditedRoisForCameraIds([cameraId]);
+    referenceFpZones.resetEditedFpZonesForCameraIds([cameraId]);
+    setMessage(`Камера ${cameraId} выбрана для замены. Можно выбрать другие камеры или подтвердить изменения.`);
+  };
+
   const handleUseArchivedReference = (archiveId: string) => {
     const archive = getArchivedReferenceGroup(archiveId);
     if (!archive) {
@@ -337,6 +380,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         archive.jointCameraId,
         archive.images.find((image) => image.cameraId === archive.jointCameraId)?.jointRoiPoints ?? [],
       );
+      stageReferenceBundleName(messageId, archive.name ?? "");
+      stageReferenceArchiveCameraIds(messageId, archive.cameraIds);
       pendingReferenceMessageIdsRef.current.add(messageId);
       setReferenceSubmission({
         state: "pending",
@@ -414,6 +459,8 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           referenceRoi.getJointCameraIdForCameraIds(groupCameraIds),
           referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
         );
+        stageReferenceBundleName(messageId, referenceName);
+        stageReferenceArchiveCameraIds(messageId, activeCameraIds);
         pendingReferenceMessageIdsRef.current.add(messageId);
       }
       setMessage(
@@ -432,31 +479,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
   const handleSelectCamera = (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
-
-    if (
-      isNewReferenceMode &&
-      hasAnyStoredReferenceForActiveGroup &&
-      !replacementCameraIds.includes(cameraId)
-    ) {
-      setMessage(`Capturing latest frame for camera ${cameraId}`);
-      void captureLatestImages([cameraId]).then(({ loadedCameraIds, snapshotCameraIds }) => {
-        const capturedCameraIds = [...loadedCameraIds, ...snapshotCameraIds];
-        if (capturedCameraIds.length === 0) {
-          setMessage(`Could not capture latest frame for camera ${cameraId}`);
-          return;
-        }
-
-        setReplacementCameraIds((currentCameraIds) =>
-          [...new Set([...currentCameraIds, ...capturedCameraIds])].sort((left, right) => left - right),
-        );
-        referenceRoi.resetEditedRoisForCameraIds(capturedCameraIds);
-        referenceFpZones.resetEditedFpZonesForCameraIds(capturedCameraIds);
-        setMessage(
-          `Camera ${cameraId} added to the new reference. Cameras without a new frame will keep their current references.`,
-        );
-      });
-      return;
-    }
 
     setMessage(
       referenceFrames.framesByCameraId[cameraId]
@@ -489,8 +511,11 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
     replacementCameraIds,
+    referenceName,
+    setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,

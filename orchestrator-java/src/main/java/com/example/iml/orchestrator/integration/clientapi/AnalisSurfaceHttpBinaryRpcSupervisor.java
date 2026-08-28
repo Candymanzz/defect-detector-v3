@@ -11,6 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -169,6 +170,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             case "health" -> health();
             case "set_reference_shm" -> uploadRefShm(header);
             case "inspect_shm" -> inspectShm(header);
+            case "inspect_test_frame" -> inspectTestFrame(header);
             case "replace_fp_zones" -> replaceFpZones(header);
             case "sync_client_reference_bundle" -> syncClientReferenceBundle(header);
             case "set_active_reference_view" -> setActiveReferenceView(header);
@@ -387,6 +389,150 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private BinaryProtocol.Message inspectShm(Map<String, Object> header) throws IOException {
         return inspectShmWithReference(header);
+    }
+
+    /**
+     * UI test-analyze: JPEG on disk + ephemeral knobs → {@code POST /inspect-test-frame}.
+     * Production line keeps {@link #inspectShm}.
+     */
+    private BinaryProtocol.Message inspectTestFrame(Map<String, Object> header) throws IOException {
+        BinaryProtocol.Message referenceResponse = uploadInspectionReference(header);
+        if (referenceResponse != null && referenceResponse.type() == BinaryProtocol.MSG_ERROR) {
+            return referenceResponse;
+        }
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String originalProductType = String.valueOf(header.get("product_type"));
+        String scopedProductType = scopedProductType(originalProductType, cameraId);
+        Object poly = header.get("roi_polygon_norm");
+        if (poly instanceof List<?> list && list.size() >= 3) {
+            List<Map<String, Object>> points = normalizeRoiPoints(list);
+            if (points.size() >= 3) {
+                BinaryProtocol.Message roiResp = ensureRoiPolygon(
+                        originalProductType,
+                        cameraId,
+                        scopedProductType,
+                        points,
+                        header
+                );
+                if (roiResp != null && roiResp.type() == BinaryProtocol.MSG_ERROR) {
+                    return roiResp;
+                }
+            }
+        }
+
+        Map<String, Object> body = testFrameJson(header, scopedProductType);
+        String invalid = validateTestFrameFields(body);
+        if (invalid != null) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of("error", invalid, "op", "inspect_test_frame"),
+                    new byte[0]
+            );
+        }
+        Path jpegPath = Path.of(String.valueOf(body.get("file_path")));
+        if (!Files.isRegularFile(jpegPath)) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of(
+                            "error", "inspect-test-frame: file_path not found: " + jpegPath,
+                            "op", "inspect_test_frame"
+                    ),
+                    new byte[0]
+            );
+        }
+        LOG.info(
+                "inspect-test-frame POST cam={} frame={} cache_key={} file_path={} bytes={} image_url={}",
+                cameraId,
+                header.get("frame_id"),
+                body.get("cache_key"),
+                jpegPath.toAbsolutePath(),
+                Files.size(jpegPath),
+                body.getOrDefault("image_url", "")
+        );
+
+        Object heatmapOut = body.get("heatmap_u8_output_path");
+        BinaryProtocol.Message response;
+        if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
+            synchronized (scopeLock("heatmap:" + String.valueOf(heatmapOut).trim())) {
+                response = postInspectTestFrame(header, body, originalProductType);
+            }
+        } else {
+            response = postInspectTestFrame(header, body, originalProductType);
+        }
+        return response;
+    }
+
+    private BinaryProtocol.Message postInspectTestFrame(
+            Map<String, Object> header,
+            Map<String, Object> body,
+            String originalProductType
+    ) throws IOException {
+        HttpResponse<byte[]> resp = httpPostJson("/inspect-test-frame", body);
+        if (resp.statusCode() / 100 != 2) {
+            return errorMessageToMsg(resp, "inspect-test-frame");
+        }
+        Map<String, Object> json = readJson(resp.body());
+        rememberLearnedReview(header, json);
+        Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
+        pyHeader.put("product_type", originalProductType);
+        Object hm = json.get("heatmap_u8");
+        if (hm instanceof Map<?, ?> hmMap) {
+            pyHeader.put("heatmap_u8_path", hmMap.get("path"));
+            pyHeader.put("heatmap_width", hmMap.get("width"));
+            pyHeader.put("heatmap_height", hmMap.get("height"));
+        }
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
+    }
+
+    private Map<String, Object> testFrameJson(Map<String, Object> header, String scopedProductType) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("cache_key", String.valueOf(header.getOrDefault("cache_key", "")).trim());
+        body.put("file_path", String.valueOf(header.getOrDefault("file_path", "")).trim());
+        body.put("product_type", scopedProductType);
+        copyIfPresent(body, header, "image_url");
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String analysisProfile = resolveAnalysisProfile(header, cameraId);
+        if (analysisProfile != null && !analysisProfile.isBlank()) {
+            body.put("analysis_profile", analysisProfile);
+        }
+        if (header.get("detector_id") != null) {
+            body.put("detector_id", header.get("detector_id"));
+        }
+        copyIfPresent(body, header, "alignment_h_ref_to_cur");
+        if (header.get("simple") instanceof Map<?, ?> simple) {
+            body.put("simple", simple);
+        } else if (header.get("pro") instanceof Map<?, ?> pro) {
+            body.put("pro", pro);
+        }
+        Object heatmapPath = header.get("heatmap_u8_output_path");
+        if (heatmapPath != null && !String.valueOf(heatmapPath).isBlank()) {
+            body.put("heatmap_u8_output_path", String.valueOf(heatmapPath));
+        }
+        copyIfPresent(body, header, "heatmap_max_width");
+        copyIfPresent(body, header, "aligned_image_u8_output_path");
+        copyIfPresent(body, header, "diff_map_u8_output_path");
+        copyIfPresent(body, header, "segmentation_mask_u8_output_path");
+        return body;
+    }
+
+    private static String validateTestFrameFields(Map<String, Object> body) {
+        String cacheKey = String.valueOf(body.getOrDefault("cache_key", "")).trim();
+        String filePath = String.valueOf(body.getOrDefault("file_path", "")).trim();
+        if (cacheKey.isEmpty()) {
+            return "inspect-test-frame: cache_key required";
+        }
+        if (filePath.isEmpty()) {
+            return "inspect-test-frame: file_path required";
+        }
+        boolean hasSimple = body.get("simple") instanceof Map<?, ?>;
+        boolean hasPro = body.get("pro") instanceof Map<?, ?>;
+        if (!hasSimple && !hasPro) {
+            return "inspect-test-frame: simple or pro knobs required";
+        }
+        if (hasSimple && hasPro) {
+            return "inspect-test-frame: provide either simple or pro knobs, not both";
+        }
+        return null;
     }
 
     private BinaryProtocol.Message inspectShmWithReference(Map<String, Object> header) throws IOException {
