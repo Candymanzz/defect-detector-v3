@@ -11,15 +11,15 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Внешний супervisor: запускает orchestrator JAR, мониторит процесс и {@code GET /health},
- * при падении — убивает дерево процессов, чистит порты и перезапускает стек.
+ * Внешний supervisor: мониторит оркестратор и перезапускает стек после краша.
  * <p>
- * Внутренний {@code critical-service-watchdog} не переживает {@code kill -9}/OOM;
- * этот main работает в отдельном JVM-процессе.
+ * Режим {@code --attach-pid}: не трогает уже запущенный оркестратор (например из DefectDetector.exe),
+ * только наблюдает; при падении — cleanup и spawn нового процесса.
  */
 public final class StackSupervisorMain {
 
@@ -27,7 +27,7 @@ public final class StackSupervisorMain {
 
     static final int[] DEV_STACK_PORTS = {
             8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009,
-            8099, 8765, 5173, 5079, 5080, 8088
+            8099, 8765, 5173, 5079, 5080, 8088, 9101
     };
 
     private final Path orchestratorJar;
@@ -37,6 +37,7 @@ public final class StackSupervisorMain {
     private final long restartDelayMs;
     private final int healthFailThreshold;
     private final int maxRestarts;
+    private final long initialAttachPid;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
     StackSupervisorMain(
@@ -46,7 +47,8 @@ public final class StackSupervisorMain {
             long healthIntervalMs,
             long restartDelayMs,
             int healthFailThreshold,
-            int maxRestarts
+            int maxRestarts,
+            long initialAttachPid
     ) {
         this.orchestratorJar = orchestratorJar;
         this.configPath = configPath;
@@ -55,15 +57,19 @@ public final class StackSupervisorMain {
         this.restartDelayMs = restartDelayMs;
         this.healthFailThreshold = Math.max(1, healthFailThreshold);
         this.maxRestarts = maxRestarts;
+        this.initialAttachPid = initialAttachPid;
     }
 
     public static void main(String[] args) {
         if (args.length == 0) {
-            System.err.println("Usage: StackSupervisorMain <config.yaml> [--jar orchestrator.jar]");
+            System.err.println(
+                    "Usage: StackSupervisorMain <config.yaml> [--jar orchestrator.jar] [--attach-pid PID]"
+            );
             System.exit(1);
         }
         Path configPath = Path.of(args[0]);
         Path jarPath = resolveJarPath(args);
+        long attachPid = resolveAttachPid(args);
         if (!Files.isRegularFile(configPath)) {
             System.err.println("Config not found: " + configPath.toAbsolutePath());
             System.exit(1);
@@ -86,7 +92,8 @@ public final class StackSupervisorMain {
                 healthIntervalMs,
                 restartDelayMs,
                 healthFailThreshold,
-                maxRestarts
+                maxRestarts,
+                attachPid
         );
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             supervisor.stopRequested.set(true);
@@ -99,15 +106,17 @@ public final class StackSupervisorMain {
 
     int runLoop() {
         int restartCount = 0;
+        long attachPid = initialAttachPid;
         log.info(
-                "stack supervisor started jar={} config={} health={} interval_ms={} restart_delay_ms={} fail_threshold={} max_restarts={}",
+                "stack supervisor started jar={} config={} health={} interval_ms={} restart_delay_ms={} fail_threshold={} max_restarts={} attach_pid={}",
                 orchestratorJar.toAbsolutePath(),
                 configPath.toAbsolutePath(),
                 healthUri,
                 healthIntervalMs,
                 restartDelayMs,
                 healthFailThreshold,
-                maxRestarts == 0 ? "unlimited" : maxRestarts
+                maxRestarts == 0 ? "unlimited" : maxRestarts,
+                attachPid > 0 ? attachPid : "none"
         );
 
         while (!stopRequested.get()) {
@@ -118,20 +127,48 @@ public final class StackSupervisorMain {
             if (restartCount > 0) {
                 log.warn("stack supervisor restart attempt #{}", restartCount);
             }
-            cleanupOrphanPorts("pre-start");
+
             Process child = null;
+            long externalPid = -1L;
+            boolean attachedToLauncher = false;
             try {
-                child = startOrchestrator();
-                MonitorResult result = monitorUntilUnhealthy(child);
+                if (attachPid > 0 && isProcessAlive(attachPid) && probeHealth(healthUri, 3000)) {
+                    externalPid = attachPid;
+                    attachedToLauncher = true;
+                    log.info(
+                            "stack supervisor attach mode — monitoring launcher orchestrator pid={} (no spawn, no port cleanup)",
+                            externalPid
+                    );
+                    attachPid = -1L;
+                } else {
+                    if (attachPid > 0) {
+                        log.warn(
+                                "stack supervisor attach pid={} unavailable or unhealthy — taking over spawn",
+                                attachPid
+                        );
+                        attachPid = -1L;
+                    }
+                    cleanupOrphanPorts("pre-start");
+                    child = startOrchestrator();
+                }
+
+                MonitorResult result = child != null
+                        ? monitorUntilUnhealthy(child, -1L, false)
+                        : monitorUntilUnhealthy(null, externalPid, true);
+
                 if (stopRequested.get()) {
-                    log.info("stack supervisor stopping orchestrator (user request)");
-                    destroyProcessTree(child, false);
+                    if (child != null) {
+                        log.info("stack supervisor stopping spawned orchestrator (user request)");
+                        destroyProcessTree(child, false);
+                    } else {
+                        log.info("stack supervisor stop — leaving launcher orchestrator pid={} running", externalPid);
+                    }
                     return 0;
                 }
                 log.warn(
                         "stack supervisor orchestrator unhealthy reason={} pid={} exit={}",
                         result.reason(),
-                        child.pid(),
+                        child != null ? child.pid() : externalPid,
                         result.exitCode()
                 );
             } catch (IOException e) {
@@ -139,6 +176,8 @@ public final class StackSupervisorMain {
             } finally {
                 if (child != null) {
                     destroyProcessTree(child, true);
+                } else if (!attachedToLauncher && externalPid > 0) {
+                    destroyProcessTreeByPid(externalPid, true);
                 }
                 cleanupOrphanPorts("post-crash");
             }
@@ -166,12 +205,13 @@ public final class StackSupervisorMain {
         return process;
     }
 
-    private MonitorResult monitorUntilUnhealthy(Process child) {
+    private MonitorResult monitorUntilUnhealthy(Process child, long externalPid, boolean attachMode) {
         int consecutiveHealthFails = 0;
         long nextHealthProbeMs = 0L;
         while (!stopRequested.get()) {
-            if (!child.isAlive()) {
-                int exit = exitCodeQuiet(child);
+            boolean alive = child != null ? child.isAlive() : isProcessAlive(externalPid);
+            if (!alive) {
+                int exit = child != null ? exitCodeQuiet(child) : -1;
                 return new MonitorResult("process-exited", exit);
             }
             long now = System.currentTimeMillis();
@@ -195,6 +235,13 @@ public final class StackSupervisorMain {
             sleepQuietly(500L);
         }
         return new MonitorResult("stop-requested", -1);
+    }
+
+    static boolean isProcessAlive(long pid) {
+        if (pid <= 0) {
+            return false;
+        }
+        return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
     }
 
     static boolean probeHealth(URI uri, int timeoutMs) {
@@ -233,8 +280,19 @@ public final class StackSupervisorMain {
         if (process == null) {
             return;
         }
+        destroyProcessTreeByPid(process.pid(), force);
+    }
+
+    static void destroyProcessTreeByPid(long pid, boolean force) {
+        if (pid <= 0) {
+            return;
+        }
+        Optional<ProcessHandle> handleOpt = ProcessHandle.of(pid);
+        if (handleOpt.isEmpty()) {
+            return;
+        }
+        ProcessHandle handle = handleOpt.get();
         try {
-            ProcessHandle handle = process.toHandle();
             handle.descendants().forEach(child -> {
                 try {
                     if (force) {
@@ -250,12 +308,16 @@ public final class StackSupervisorMain {
             } else {
                 handle.destroy();
             }
-            if (!process.waitFor(force ? 5 : 10, TimeUnit.SECONDS) && force) {
-                process.destroyForcibly();
-                process.waitFor(3, TimeUnit.SECONDS);
+            if (force) {
+                sleepQuietStatic(5000L);
+                if (handle.isAlive()) {
+                    handle.destroyForcibly();
+                }
+            } else {
+                sleepQuietStatic(10000L);
             }
         } catch (Exception e) {
-            process.destroyForcibly();
+            handle.destroyForcibly();
         }
     }
 
@@ -268,6 +330,10 @@ public final class StackSupervisorMain {
     }
 
     private static void sleepQuietly(long ms) {
+        sleepQuietStatic(ms);
+    }
+
+    private static void sleepQuietStatic(long ms) {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
@@ -286,6 +352,26 @@ public final class StackSupervisorMain {
             return Path.of(envJar);
         }
         return Path.of("orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar");
+    }
+
+    private static long resolveAttachPid(String[] args) {
+        for (int i = 1; i < args.length - 1; i++) {
+            if ("--attach-pid".equals(args[i])) {
+                try {
+                    return Long.parseLong(args[i + 1].trim());
+                } catch (NumberFormatException e) {
+                    return -1L;
+                }
+            }
+        }
+        String envPid = System.getenv("IML_SUPERVISOR_ATTACH_PID");
+        if (envPid != null && !envPid.isBlank()) {
+            try {
+                return Long.parseLong(envPid.trim());
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return -1L;
     }
 
     private static String resolveJavaBinary() {

@@ -39,6 +39,12 @@ class StackSupervisorMainTest {
     }
 
     @Test
+    void isProcessAliveReturnsFalseForInvalidPid() {
+        assertFalse(StackSupervisorMain.isProcessAlive(-1));
+        assertFalse(StackSupervisorMain.isProcessAlive(999999999L));
+    }
+
+    @Test
     void destroyProcessTreeTerminatesChild() throws Exception {
         Path script = Files.createTempFile("supervisor-child-", ".sh");
         script.toFile().deleteOnExit();

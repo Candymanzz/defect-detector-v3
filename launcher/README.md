@@ -8,8 +8,13 @@
 ```text
 .\DefectDetector.exe
 .\DefectDetector.exe --no-frontend
+.\DefectDetector.exe --no-supervisor
 .\DefectDetector.exe --config config\config.yaml
 ```
+
+После того как критичные сервисы поднялись, exe **отдельно** запускает crash-recovery supervisor
+(`StackSupervisorMain --attach-pid …`). До запуска exe supervisor не работает и на систему не влияет.
+При закрытии окна / «Остановить систему» supervisor останавливается вместе со стеком.
 
 Окно лаунчера показывает:
 

@@ -1,5 +1,8 @@
-# Register stack supervisor in Windows Task Scheduler (runs at OS boot).
+# Register stack supervisor in Windows Task Scheduler.
 # Requires Administrator.
+#
+# NOTE: Рекомендуемый способ — DefectDetector.exe (supervisor стартует сам после boot).
+# Этот скрипт — только для машин БЕЗ exe, где нужен автозапуск при включении Windows.
 #
 # Usage (PowerShell as Admin):
 #   .\install-windows-autostart.ps1

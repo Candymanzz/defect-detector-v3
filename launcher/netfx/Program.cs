@@ -12,6 +12,7 @@ namespace ImlLauncher
             Application.SetCompatibleTextRenderingDefault(false);
 
             bool noFrontend = HasFlag(args, "--no-frontend") || HasFlag(args, "-NoFrontend");
+            bool noSupervisor = HasFlag(args, "--no-supervisor") || HasFlag(args, "-NoSupervisor");
             string configArg = GetOption(args, "--config") ?? GetOption(args, "-Config");
 
             string repoRoot;
@@ -31,6 +32,7 @@ namespace ImlLauncher
 
             LaunchOptions options = new LaunchOptions();
             options.NoFrontend = noFrontend;
+            options.NoSupervisor = noSupervisor;
             options.ConfigArg = configArg;
             options.RepoRoot = repoRoot;
 
