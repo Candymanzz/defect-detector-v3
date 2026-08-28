@@ -42,3 +42,6 @@ camera-worker/build/Release/camera_worker.exe
 /IoInputMonitor/obj
 /LightServer.v3/bin
 /config
+hs_err_pid15060.log
+*.log
+*.gz

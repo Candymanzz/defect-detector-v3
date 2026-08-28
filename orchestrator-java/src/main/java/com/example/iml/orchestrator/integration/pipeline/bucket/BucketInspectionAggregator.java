@@ -170,8 +170,24 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             InspectionDecision decision,
             BucketFanOutSink fanOut
     ) {
+        recordFrameResult(triggerSequence, cameraId, decision, fanOut, null);
+    }
+
+    /**
+     * @param afterPlcUi UI/артефакты камеры — только после FINS по seq (приоритет ПЛК над UI).
+     */
+    public void recordFrameResult(
+            long triggerSequence,
+            int cameraId,
+            InspectionDecision decision,
+            BucketFanOutSink fanOut,
+            Runnable afterPlcUi
+    ) {
         Integer groupId = groupIdByCamera.get(cameraId);
         if (groupId == null) {
+            if (afterPlcUi != null) {
+                afterPlcUi.run();
+            }
             return;
         }
         if (triggerSequence <= 0L) {
@@ -181,10 +197,16 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                     groupId,
                     decision.frameId()
             );
+            if (afterPlcUi != null) {
+                afterPlcUi.run();
+            }
             return;
         }
         BucketGroup group = groupById.get(groupId);
         if (group == null) {
+            if (afterPlcUi != null) {
+                afterPlcUi.run();
+            }
             return;
         }
         if (fanOut != null) {
@@ -194,9 +216,15 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         BucketState state = buckets.computeIfAbsent(key, ignored -> new BucketState(triggerSequence, groupId, group));
         synchronized (state) {
             if (state.published) {
+                if (afterPlcUi != null) {
+                    afterPlcUi.run();
+                }
                 return;
             }
             state.frameDecisions.put(cameraId, decision);
+            if (afterPlcUi != null) {
+                state.pendingUiByCamera.put(cameraId, afterPlcUi);
+            }
             scheduleTimeoutIfNeeded(state, fanOut);
             if (isBucketComplete(state)) {
                 publishBucket(state, fanOut, false);
@@ -349,6 +377,9 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 seamStrict
         );
 
+        List<Runnable> pendingUi = new ArrayList<>(state.pendingUiByCamera.values());
+        state.pendingUiByCamera.clear();
+
         enqueueSyncedFanOut(
                 new BucketFanOutResult(
                         state.groupId,
@@ -357,20 +388,27 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                         expectedCameraIds,
                         snapshot
                 ),
+                pendingUi,
                 fanOut
         );
     }
 
     /**
      * Одно ведро → сразу в fanOut. Два+ ведра → ждать все groupId одного seq, потом слать пакетом
-     * (reject_line_1 и reject_line_2 синхронно).
+     * (reject_line_1 и reject_line_2 синхронно). UI камер — только после FINS.
      */
-    private void enqueueSyncedFanOut(BucketFanOutResult result, BucketFanOutSink fanOut) {
+    private void enqueueSyncedFanOut(
+            BucketFanOutResult result,
+            List<Runnable> pendingUi,
+            BucketFanOutSink fanOut
+    ) {
         if (fanOut == null) {
+            runPendingUi(pendingUi);
             return;
         }
         if (groups.size() <= 1) {
             fanOut.publishBucket(result);
+            runPendingUi(pendingUi);
             return;
         }
         SequenceBarrier barrier = sequenceBarriers.computeIfAbsent(
@@ -378,18 +416,25 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 seq -> new SequenceBarrier(seq)
         );
         List<BucketFanOutResult> toPublish = null;
+        List<Runnable> uiToFlush = null;
         synchronized (barrier) {
             if (barrier.flushed) {
+                runPendingUi(pendingUi);
                 return;
             }
             barrier.readyByGroup.put(result.groupId(), result);
+            if (pendingUi != null) {
+                barrier.pendingUi.addAll(pendingUi);
+            }
             scheduleSequenceSyncTimeout(barrier, fanOut);
             if (barrier.readyByGroup.size() >= groups.size()) {
                 toPublish = takeBarrierResults(barrier);
+                uiToFlush = new ArrayList<>(barrier.pendingUi);
+                barrier.pendingUi.clear();
             }
         }
         if (toPublish != null) {
-            publishSyncedResults(toPublish, fanOut);
+            publishSyncedResults(toPublish, uiToFlush, fanOut);
         }
     }
 
@@ -410,6 +455,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             return;
         }
         List<BucketFanOutResult> toPublish;
+        List<Runnable> uiToFlush;
         synchronized (barrier) {
             if (barrier.flushed) {
                 return;
@@ -435,8 +481,10 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 );
             }
             toPublish = takeBarrierResults(barrier);
+            uiToFlush = new ArrayList<>(barrier.pendingUi);
+            barrier.pendingUi.clear();
         }
-        publishSyncedResults(toPublish, fanOut);
+        publishSyncedResults(toPublish, uiToFlush, fanOut);
     }
 
     private List<BucketFanOutResult> takeBarrierResults(SequenceBarrier barrier) {
@@ -451,8 +499,13 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 .toList();
     }
 
-    private void publishSyncedResults(List<BucketFanOutResult> results, BucketFanOutSink fanOut) {
+    private void publishSyncedResults(
+            List<BucketFanOutResult> results,
+            List<Runnable> pendingUi,
+            BucketFanOutSink fanOut
+    ) {
         if (fanOut == null || results == null || results.isEmpty()) {
+            runPendingUi(pendingUi);
             return;
         }
         log.info(
@@ -461,8 +514,28 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 results.stream().map(BucketFanOutResult::groupId).toList(),
                 results.stream().map(BucketFanOutResult::overallPass).toList()
         );
+        // Сначала все линии на ПЛК (publishBucket ждёт фронт), потом UI.
         for (BucketFanOutResult result : results) {
             fanOut.publishBucket(result);
+        }
+        runPendingUi(pendingUi);
+    }
+
+    private void runPendingUi(List<Runnable> pendingUi) {
+        if (pendingUi == null || pendingUi.isEmpty()) {
+            return;
+        }
+        for (Runnable ui : pendingUi) {
+            if (ui == null) {
+                continue;
+            }
+            try {
+                ui.run();
+            } catch (RuntimeException e) {
+                if (log != null) {
+                    log.warn("deferred ui after plc failed: {}", e.getMessage());
+                }
+            }
         }
     }
 
@@ -527,6 +600,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         private final int groupId;
         private final BucketGroup group;
         private final Map<Integer, InspectionDecision> frameDecisions = new LinkedHashMap<>();
+        private final Map<Integer, Runnable> pendingUiByCamera = new LinkedHashMap<>();
         private volatile boolean published;
         private volatile ScheduledFuture<?> timeoutFuture;
 
@@ -545,6 +619,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     private static final class SequenceBarrier {
         private final long triggerSequence;
         private final Map<Integer, BucketFanOutResult> readyByGroup = new LinkedHashMap<>();
+        private final List<Runnable> pendingUi = new ArrayList<>();
         private volatile boolean flushed;
         private volatile ScheduledFuture<?> syncTimeoutFuture;
 

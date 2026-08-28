@@ -41,11 +41,11 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private record PulseBitJob(
       PlcSignalDefinition signal,
       boolean activeValue,
-      long resetAtNanos,
+      long pulseMs,
       CompletableFuture<Void> future
   ) implements PlcJob {
-    PulseBitJob(PlcSignalDefinition signal, boolean activeValue, long resetAtNanos) {
-      this(signal, activeValue, resetAtNanos, null);
+    PulseBitJob(PlcSignalDefinition signal, boolean activeValue, long pulseMs) {
+      this(signal, activeValue, pulseMs, null);
     }
   }
 
@@ -122,20 +122,48 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   public void publishBucket(BucketFanOutResult result) {
+    publishBucket(result, false);
+  }
+
+  /**
+   * Вердикт ведра в ПЛК. При {@code awaitEdge=true} ждёт подтверждения записи фронта
+   * (PASS→false или REJECT→true); сброс импульса идёт дальше асинхронно.
+   */
+  public void publishBucket(BucketFanOutResult result, boolean awaitEdge) {
     // ready держится отдельно (sticky HIGH); здесь только вердикт reject.
     Optional<PlcSignalDefinition> signalOpt = registerMap.rejectSignalForGroup(result.groupId());
     if (signalOpt.isEmpty()) {
       log.warn("plc fins: no reject signal for bucket group={}", result.groupId());
       return;
     }
+    CompletableFuture<Void> edge = awaitEdge ? new CompletableFuture<>() : null;
     if (result.overallPass()) {
-      enqueue(new WriteBitJob(signalOpt.get(), false));
-      return;
-    }
-    if (config.pulseMs() > 0) {
-      enqueue(new PulseBitJob(signalOpt.get(), true, System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(config.pulseMs())));
+      if (!enqueue(new WriteBitJob(signalOpt.get(), false, edge)) && edge != null) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
+    } else if (config.pulseMs() > 0) {
+      if (!enqueue(new PulseBitJob(signalOpt.get(), true, config.pulseMs(), edge)) && edge != null) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
     } else {
-      enqueue(new WriteBitJob(signalOpt.get(), true));
+      if (!enqueue(new WriteBitJob(signalOpt.get(), true, edge)) && edge != null) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
+    }
+    if (edge != null) {
+      try {
+        await(edge);
+      } catch (IOException | InterruptedException | TimeoutException e) {
+        log.warn(
+                "plc fins await edge failed seq={} group={}: {}",
+                result.triggerSequence(),
+                result.groupId(),
+                e.getMessage()
+        );
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
+      }
     }
   }
 
@@ -194,12 +222,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
     CompletableFuture<Void> future = new CompletableFuture<>();
     boolean enqueued;
     if (pulse && value && config.pulseMs() > 0) {
-      enqueued = enqueue(new PulseBitJob(
-          signal,
-          true,
-          System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(config.pulseMs()),
-          future
-      ));
+      enqueued = enqueue(new PulseBitJob(signal, true, config.pulseMs(), future));
     } else {
       enqueued = enqueue(new WriteBitJob(signal, value, future));
     }
@@ -333,25 +356,25 @@ public final class PlcFinsPublisher implements AutoCloseable {
     }
     if (job instanceof PulseBitJob pulse) {
       try {
+        // Длительность всегда от момента записи true — не от enqueue.
+        // Иначе второй pulse в очереди (reject_line_2 после reject_line_1) сжимается до ~0 ms.
         writeBit(pulse.signal(), pulse.activeValue());
-        long waitMs = TimeUnit.NANOSECONDS.toMillis(pulse.resetAtNanos() - System.nanoTime());
+        // Фронт уже на ПЛК — отпускаем awaitEdge до sleep/сброса.
+        if (pulse.future() != null) {
+          pulse.future().complete(null);
+        }
+        long waitMs = Math.max(0L, pulse.pulseMs());
         if (waitMs > 0) {
           try {
             Thread.sleep(waitMs);
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            if (pulse.future() != null) {
-              pulse.future().completeExceptionally(e);
-            }
             return;
           }
         }
         writeBit(pulse.signal(), false);
-        if (pulse.future() != null) {
-          pulse.future().complete(null);
-        }
       } catch (Exception e) {
-        if (pulse.future() != null) {
+        if (pulse.future() != null && !pulse.future().isDone()) {
           pulse.future().completeExceptionally(e);
         } else if (e instanceof IOException io) {
           throw io;
