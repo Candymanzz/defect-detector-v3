@@ -35,6 +35,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     isNewReferenceMode,
     replacementCameraIds,
     isFullReferenceReplacement,
+    isRoiOnlyEditMode,
     referenceName,
     setReferenceName,
     referenceSubmission,
@@ -77,7 +78,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     (archive) => createArchiveReferenceKey(archive) === activeReferenceKey,
   );
   const learnedNormals = useLearnedNormals(
-    selectedSlot ? selectedArchive?.learnedCasesByCameraId[selectedSlot.cameraId] ?? [] : [],
+    selectedSlot && !isFullReferenceReplacement
+      ? (activeArchive ?? selectedArchive)?.learnedCasesByCameraId[selectedSlot.cameraId] ?? []
+      : [],
   );
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
@@ -256,30 +259,32 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 })}
               </div>
 
-              <Button
-                className="reference-setup__button reference-setup__refresh"
-                onClick={() => {
-                  if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
-                    if (isFullReferenceReplacement) {
-                      void handleCreateNewReference();
+              {!isRoiOnlyEditMode && (
+                <Button
+                  className="reference-setup__button reference-setup__refresh"
+                  onClick={() => {
+                    if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
+                      if (isFullReferenceReplacement) {
+                        void handleCreateNewReference();
+                        return;
+                      }
+                      void handleToggleCameraReplacement(selectedCameraId);
                       return;
                     }
-                    void handleToggleCameraReplacement(selectedCameraId);
-                    return;
-                  }
-                  void handleCaptureNewReferenceFrames();
-                }}
-              >
-                {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
-                  ? isFullReferenceReplacement
-                    ? "Обновить все кадры ещё раз"
-                    : replacementCameraIds.includes(selectedCameraId)
-                    ? `Оставить прежний кадр камеры ${selectedCameraId}`
-                    : `Заменить кадр камеры ${selectedCameraId}`
-                  : hasAnyStoredReferenceForActiveGroup
-                    ? "Редактировать текущий эталон"
-                    : "↻ Обновить кадры"}
-              </Button>
+                    void handleCaptureNewReferenceFrames();
+                  }}
+                >
+                  {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
+                    ? isFullReferenceReplacement
+                      ? "Обновить все кадры ещё раз"
+                      : replacementCameraIds.includes(selectedCameraId)
+                        ? `Оставить прежний кадр камеры ${selectedCameraId}`
+                        : `Заменить кадр камеры ${selectedCameraId}`
+                    : hasAnyStoredReferenceForActiveGroup
+                      ? "Редактировать текущий эталон"
+                      : "↻ Обновить кадры"}
+                </Button>
+              )}
               <div className="reference-setup__legend">
                 <span>
                   <i data-state="missing" /> Кадр не получен
@@ -351,6 +356,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     {isNewReferenceMode
                       ? isFullReferenceReplacement
                         ? "Создаётся полностью новый эталон. Кадры анализа предыдущего эталона не переносятся."
+                        : isRoiOnlyEditMode
+                          ? "Редактирование ROI текущих кадров. После изменений нажмите «Подтвердить изменения»."
                         : replacementCameraIds.length > 0
                         ? `Изменяются камеры: ${replacementCameraIds.join(", ")}. Остальные останутся прежними.`
                         : "Выберите камеры для изменения. Текущие кадры уже отображаются."

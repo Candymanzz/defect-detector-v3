@@ -39,6 +39,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [replacementCameraIds, setReplacementCameraIds] = useState<number[]>([]);
   const [referenceName, setReferenceName] = useState("");
   const [isFullReferenceReplacement, setIsFullReferenceReplacement] = useState(false);
+  const [isRoiOnlyEditMode, setIsRoiOnlyEditMode] = useState(false);
   const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
@@ -55,8 +56,15 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const cameraGroups = splitCameraGroups(cameraIds);
   const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
   const referenceFrames = useReferenceFrames(cameraIds);
-  const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId, !isNewReferenceMode);
-  const referenceFpZones = useReferenceFpZones(cameraGroups, activeGroupIndex, !isNewReferenceMode);
+  const useStoredReferenceGeometry = !isNewReferenceMode || isRoiOnlyEditMode;
+  const referenceRoi = useReferenceRoi(
+    cameraIds,
+    cameraGroups,
+    activeGroupIndex,
+    initialCameraId,
+    useStoredReferenceGeometry,
+  );
+  const referenceFpZones = useReferenceFpZones(cameraGroups, activeGroupIndex, useStoredReferenceGeometry);
   const {
     captureLatestImages,
     handlePreviewFrame,
@@ -162,6 +170,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
             hasReferenceRef.current = true;
             setIsNewReferenceMode(false);
             setIsFullReferenceReplacement(false);
+            setIsRoiOnlyEditMode(false);
             setReplacementCameraIds([]);
             const referenceCommitSync = referenceCommitSyncRef.current;
             if (referenceCommitSync) {
@@ -283,9 +292,10 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     if (hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode) {
       setIsNewReferenceMode(true);
       setIsFullReferenceReplacement(false);
-      setReplacementCameraIds([]);
+      setIsRoiOnlyEditMode(true);
+      setReplacementCameraIds(activeCameraIds);
       setReferenceName("");
-      setMessage("Выберите одну или несколько камер, кадры которых нужно заменить");
+      setMessage("Измените ROI нужных камер и подтвердите изменения");
       return;
     }
 
@@ -337,6 +347,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     }
     setIsNewReferenceMode(true);
     setIsFullReferenceReplacement(true);
+    setIsRoiOnlyEditMode(false);
     setReplacementCameraIds([]);
     setReferenceName("");
     setMessage(`Обновление кадров всех камер: ${activeCameraIds.join(", ")}...`);
@@ -357,6 +368,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const handleToggleCameraReplacement = async (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
     setIsFullReferenceReplacement(false);
+    setIsRoiOnlyEditMode(false);
     if (!isNewReferenceMode) {
       setIsNewReferenceMode(true);
       setIsFullReferenceReplacement(false);
@@ -544,6 +556,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     isNewReferenceMode,
     replacementCameraIds,
     isFullReferenceReplacement,
+    isRoiOnlyEditMode,
     referenceName,
     setReferenceName,
     referenceSubmission,
