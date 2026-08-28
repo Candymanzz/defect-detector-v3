@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  compareInspectResults,
-  upsertInspectionHistoryItem,
-} from "./MainController";
+import { compareInspectResults, isPreviewFrameNewerOrEqual, upsertInspectionHistoryItem } from "./MainController";
 import type { InspectResultPayload } from "../../shared/ws";
 
 function inspectResult(frameId: string, serverTs: number): InspectResultPayload {
   return {
     camera_id: 0,
     frame_id: frameId,
-    session_state: "ready",
+    session_state: "READY",
     current: {
       camera_id: 0,
       frame_id: frameId,
@@ -23,6 +20,7 @@ function inspectResult(frameId: string, serverTs: number): InspectResultPayload 
       channels: 3,
     },
     heatmap: null,
+    fp_zones: [],
     active_reference_view_index: 0,
     detector: {},
     server_ts_ms: serverTs,
@@ -59,5 +57,14 @@ describe("MainController helpers", () => {
 
     expect(updated).toHaveLength(1);
     expect(updated[0].result).toBe("fail");
+  });
+
+  it("rejects an older preview frame when server timestamps are equal", () => {
+    expect(isPreviewFrameNewerOrEqual({ frame_id: "9", server_ts_ms: 100 }, "10", 100)).toBe(false);
+    expect(isPreviewFrameNewerOrEqual({ frame_id: "11", server_ts_ms: 100 }, "10", 100)).toBe(true);
+  });
+
+  it("allows frame ids to restart when the server timestamp advances", () => {
+    expect(isPreviewFrameNewerOrEqual({ frame_id: "1", server_ts_ms: 101 }, "1000", 100)).toBe(true);
   });
 });

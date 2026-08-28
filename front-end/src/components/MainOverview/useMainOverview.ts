@@ -17,6 +17,7 @@ import {
   FALLBACK_CAMERA_IDS,
   hasDisplayableInspectImage,
   hasImmutableInspectArtifact,
+  isPreviewFrameNewerOrEqual,
   isInspectionCounterReset,
   latestSnapshotToInspectResult,
   loadArchivedInspectionHistory,
@@ -187,49 +188,46 @@ export function useMainOverview(inspectionResetVersion = 0) {
     setModalSnapshot((currentSnapshot) => selectModalInspectionSnapshot(currentSnapshot, frameId));
   }, []);
 
-  const freezeModalTestFrame = useCallback((
-    frameId: string,
-    cameraImageUrl: string,
-    pinHttpPath: string,
-    pinId: string,
-    jpegSha256: string,
-  ) => {
-    setModalSnapshot((current) => {
-      if (!current?.inspectResult) {
-        return current;
-      }
-      if (
-        current.pinnedTestImageUrl
-        && current.pinnedTestImageUrl.startsWith("blob:")
-        && current.pinnedTestImageUrl !== cameraImageUrl
-      ) {
-        URL.revokeObjectURL(current.pinnedTestImageUrl);
-      }
-      return {
-        ...current,
-        cameraImageUrl,
-        pinnedTestImageUrl: cameraImageUrl,
-        pinnedTestHttpPath: pinHttpPath,
-        pinnedTestFrameId: frameId,
-        pinnedTestPinId: pinId,
-        pinnedTestJpegSha256: jpegSha256,
-        inspectResult: {
-          ...current.inspectResult,
-          frame_id: frameId,
-          test_analyze: true,
-          http_path: pinHttpPath,
-          current: {
-            ...current.inspectResult.current,
+  const freezeModalTestFrame = useCallback(
+    (frameId: string, cameraImageUrl: string, pinHttpPath: string, pinId: string, jpegSha256: string) => {
+      setModalSnapshot((current) => {
+        if (!current?.inspectResult) {
+          return current;
+        }
+        if (
+          current.pinnedTestImageUrl &&
+          current.pinnedTestImageUrl.startsWith("blob:") &&
+          current.pinnedTestImageUrl !== cameraImageUrl
+        ) {
+          URL.revokeObjectURL(current.pinnedTestImageUrl);
+        }
+        return {
+          ...current,
+          cameraImageUrl,
+          pinnedTestImageUrl: cameraImageUrl,
+          pinnedTestHttpPath: pinHttpPath,
+          pinnedTestFrameId: frameId,
+          pinnedTestPinId: pinId,
+          pinnedTestJpegSha256: jpegSha256,
+          inspectResult: {
+            ...current.inspectResult,
             frame_id: frameId,
+            test_analyze: true,
             http_path: pinHttpPath,
+            current: {
+              ...current.inspectResult.current,
+              frame_id: frameId,
+              http_path: pinHttpPath,
+            },
           },
-        },
-      };
-    });
-  }, []);
+        };
+      });
+    },
+    [],
+  );
 
   const setPendingTestJob = useCallback((jobId: string) => {
-    setModalSnapshot((current) => current ? { ...current, pendingTestJobId: jobId } : current);
+    setModalSnapshot((current) => (current ? { ...current, pendingTestJobId: jobId } : current));
   }, []);
 
   const closeInspectionModal = useCallback(() => {
@@ -408,9 +406,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
       if (message.type === "server.hello" || message.type === "server.state") {
         const nextHasReference = message.payload.session_state !== "NO_REFERENCE";
         setHasReference(nextHasReference);
-        const hasDisabledInspection = Object.values(inspectionEnabledByCameraIdRef.current).some(
-          (enabled) => !enabled,
-        );
+        const hasDisabledInspection = Object.values(inspectionEnabledByCameraIdRef.current).some((enabled) => !enabled);
         setPreviewImagesEnabled(!nextHasReference || hasDisabledInspection);
         return;
       }
@@ -675,12 +671,12 @@ function applyPreviewFrames(
   const nextFrameIds: Record<number, string> = {};
   for (const previewFrame of frames) {
     const cameraId = previewFrame.camera_id;
-    const previousTimestamp = latestPreviewTimestampByCameraIdRef.current[cameraId] ?? 0;
-    if (previewFrame.server_ts_ms < previousTimestamp) {
+    const previousFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
+    const previousTimestamp = latestPreviewTimestampByCameraIdRef.current[cameraId];
+    if (!isPreviewFrameNewerOrEqual(previewFrame, previousFrameId, previousTimestamp)) {
       continue;
     }
 
-    const previousFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
     if (previousFrameId && compareFrameIds(previewFrame.frame_id, previousFrameId) < 0) {
       resetCameraInspectionOrdering(cameraId);
     }
@@ -954,13 +950,10 @@ function addModalInspectionItem(
     // Test-analyze: always refresh the open modal with the newest geometry/python result.
     if (inspectResult.test_analyze) {
       if (
-        currentSnapshot.pinnedTestPinId
-        && (
-          inspectResult.test_pin_id !== currentSnapshot.pinnedTestPinId
-          || inspectResult.pin_jpeg_sha256 !== currentSnapshot.pinnedTestJpegSha256
-          || (currentSnapshot.pendingTestJobId
-            && inspectResult.test_analyze_job_id !== currentSnapshot.pendingTestJobId)
-        )
+        currentSnapshot.pinnedTestPinId &&
+        (inspectResult.test_pin_id !== currentSnapshot.pinnedTestPinId ||
+          inspectResult.pin_jpeg_sha256 !== currentSnapshot.pinnedTestJpegSha256 ||
+          (currentSnapshot.pendingTestJobId && inspectResult.test_analyze_job_id !== currentSnapshot.pendingTestJobId))
       ) {
         return currentSnapshot;
       }
