@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import router
+from app.request_logging import log_http_exchange
 from app.runtime import get_application_id
 
 LOG = logging.getLogger("uvicorn.error")
@@ -75,6 +76,11 @@ async def add_application_id_to_json(request: Request, call_next) -> Response:
         headers={k: v for k, v in response.headers.items() if k.lower() != "content-length"},
         media_type="application/json",
     )
+
+
+@app.middleware("http")
+async def log_all_http_requests(request: Request, call_next) -> Response:
+    return await log_http_exchange(request, call_next)
 
 
 @app.get("/health")
