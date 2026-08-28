@@ -141,15 +141,15 @@ def test_local_inspection_multipart_flow_returns_visuals_and_review() -> None:
         cv2.IMREAD_COLOR,
     )
     assert decoded_heatmap is not None
-    # Accepted normal regions are intentionally marked dark green on the color
-    # heatmap while the underlying score/gray heatmap remains unchanged.
+    # Accepted normal regions are outlined in purple on the color heatmap while
+    # the underlying score/gray heatmap remains unchanged.
     assert replay_payload["excluded_normal_zones"]
     assert not np.array_equal(decoded_heatmap, original_heatmap)
     heatmap_i16 = decoded_heatmap.astype(np.int16)
-    green_pixels = (heatmap_i16[:, :, 1] > heatmap_i16[:, :, 0] + 20) & (
-        heatmap_i16[:, :, 1] > heatmap_i16[:, :, 2] + 20
+    purple_pixels = (heatmap_i16[:, :, 0] > heatmap_i16[:, :, 1] + 20) & (
+        heatmap_i16[:, :, 2] > heatmap_i16[:, :, 1] + 20
     )
-    assert np.any(green_pixels)
+    assert np.any(purple_pixels)
 
     for case in inspection_service.list_accepted_normal_cases(product_type=product_type):
         inspection_service.delete_accepted_normal_case(case["id"])

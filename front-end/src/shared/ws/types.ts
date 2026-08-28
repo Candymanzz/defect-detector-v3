@@ -308,6 +308,10 @@ export type ExcludedNormalZone = {
   case_id?: string | null;
   similarity?: number | null;
   polygon: Array<{ x: number; y: number } | [number, number]>;
+  /** Saved pixel geometry in the source camera coordinate space. */
+  polygon_px?: Array<{ x: number; y: number } | [number, number]>;
+  coordinate_width?: number;
+  coordinate_height?: number;
 };
 
 export type InspectionAction = "ACCEPT" | "REJECT" | "CAPTURE";

@@ -407,6 +407,9 @@ export type AcceptLearnedNormalsResponse = {
 export type LearnedNormalCase = {
   id: string;
   product_type: string;
+  bbox?: { x: number; y: number; width: number; height: number };
+  polygon?: Array<{ x: number; y: number }>;
+  coordinate_space?: { width: number; height: number };
   source_inspection_id?: string;
   source_defect_id?: string;
   created_at?: string;
