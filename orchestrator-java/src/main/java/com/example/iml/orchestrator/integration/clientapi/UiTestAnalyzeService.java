@@ -242,7 +242,13 @@ public final class UiTestAnalyzeService {
         if (request.source() == Source.CURRENT) {
             throw new AnalyzeException(400, "current source is not allowed for test pin; use archive");
         }
+        ReferenceSnapshot pinRef = referenceRegistry.get(request.cameraId());
+        if (pinRef == null || !pinRef.isUsable()) {
+            throw new AnalyzeException(409, "no usable reference for camera " + request.cameraId()
+                    + " — test pin requires reference resolution");
+        }
         // Prefer native SHM for the latest inspection frame; fall back to archive JPEG.
+        // Always normalize to reference WxH so UI pin and Python see the same size as the эталон.
         ResolvedFrame resolved = resolveTestFrame(request.cameraId(), request.frameId(), null);
         if (resolved.frameId() != request.frameId()) {
             throw new AnalyzeException(
@@ -301,6 +307,8 @@ public final class UiTestAnalyzeService {
         ResolvedFrame resolved;
         try {
             resolved = normalizeResolvedFrame(request.cameraId(), resolveJpeg(request));
+        } catch (AnalyzeException e) {
+            throw e;
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to normalize test frame to reference resolution: " + e.getMessage());
         }
@@ -768,6 +776,8 @@ public final class UiTestAnalyzeService {
         ResolvedFrame resolved = loadArchiveWithNativeFallback(cameraId, frameId, previewHttpPathHint);
         try {
             return normalizeResolvedFrame(cameraId, resolved);
+        } catch (AnalyzeException e) {
+            throw e;
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to normalize test frame to reference resolution: " + e.getMessage());
         }
@@ -791,35 +801,49 @@ public final class UiTestAnalyzeService {
         return loadArchive(cameraId, frameId);
     }
 
-    private ResolvedFrame normalizeResolvedFrame(int cameraId, ResolvedFrame resolved) throws IOException {
-        int[] ref = referenceDimensions(cameraId);
-        if (ref == null) {
-            return resolved;
-        }
+    /**
+     * Force test JPEG to active reference WxH. Live inspect uses SHM at capture size (and may
+     * apply inspect_scale); test-analyze must not silently keep a mismatched archive/preview size.
+     */
+    private ResolvedFrame normalizeResolvedFrame(int cameraId, ResolvedFrame resolved)
+            throws IOException, AnalyzeException {
+        int[] ref = requireReferenceDimensions(cameraId);
+        int[] src = JpegBgrShmWriter.jpegDimensions(resolved.jpegBytes());
         byte[] normalized = JpegBgrShmWriter.ensureJpegSize(resolved.jpegBytes(), ref[0], ref[1]);
-        if (normalized == resolved.jpegBytes()) {
-            return resolved;
-        }
+        boolean resized = normalized != resolved.jpegBytes();
         log.info(
-                "ui test-analyze normalized jpeg cam={} frame={} to reference {}x{} bytes={}",
+                "ui test-analyze jpeg size cam={} frame={} archive={}x{} reference={}x{} resized={} bytes={}->{}",
                 cameraId,
                 resolved.frameId(),
+                src[0],
+                src[1],
                 ref[0],
                 ref[1],
+                resized,
+                resolved.jpegBytes().length,
                 normalized.length
         );
+        if (!resized) {
+            return resolved;
+        }
         return new ResolvedFrame(normalized, resolved.frameId(), resolved.previewHttpPath());
     }
 
-    private int[] referenceDimensions(int cameraId) {
+    private int[] requireReferenceDimensions(int cameraId) throws AnalyzeException {
         ReferenceSnapshot ref = referenceRegistry.get(cameraId);
         if (ref == null || ref.header() == null) {
-            return null;
+            throw new AnalyzeException(
+                    409,
+                    "no reference for camera " + cameraId + " — cannot match test frame to reference resolution"
+            );
         }
         int width = YamlScalars.toInt(ref.header().get("width"), 0);
         int height = YamlScalars.toInt(ref.header().get("height"), 0);
         if (width <= 0 || height <= 0) {
-            return null;
+            throw new AnalyzeException(
+                    409,
+                    "reference for camera " + cameraId + " has invalid size " + width + "x" + height
+            );
         }
         return new int[] {width, height};
     }

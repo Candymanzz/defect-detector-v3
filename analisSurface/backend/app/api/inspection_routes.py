@@ -265,6 +265,23 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
 
 def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
     frame = load_test_frame_bgr(payload)
+    reference = inspection_service.get_reference(payload.product_type)
+    if reference is not None and frame.shape[:2] != reference.shape[:2]:
+        # Test path must match эталон resolution (archive/preview JPEG can differ).
+        logger.warning(
+            "test-frame resize to reference %sx%s (was %sx%s) product_type=%s cache_key=%s",
+            reference.shape[1],
+            reference.shape[0],
+            frame.shape[1],
+            frame.shape[0],
+            payload.product_type,
+            payload.cache_key,
+        )
+        frame = cv2.resize(
+            frame,
+            (reference.shape[1], reference.shape[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
     settings = _settings_from_test_knobs(payload)
     include_visuals = any(
         (

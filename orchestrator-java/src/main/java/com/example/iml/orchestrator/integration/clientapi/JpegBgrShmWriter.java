@@ -153,6 +153,18 @@ public final class JpegBgrShmWriter {
         }
     }
 
+    /** Decode JPEG width/height without re-encoding. */
+    public static int[] jpegDimensions(byte[] jpegBytes) throws IOException {
+        if (jpegBytes == null || jpegBytes.length == 0) {
+            throw new IOException("empty jpeg");
+        }
+        BufferedImage src = ImageIO.read(new ByteArrayInputStream(jpegBytes));
+        if (src == null) {
+            throw new IOException("cannot decode jpeg");
+        }
+        return new int[] {src.getWidth(), src.getHeight()};
+    }
+
     /**
      * Re-encode JPEG at {@code targetWidth}x{@code targetHeight} when decoded size differs.
      * Geometry/positioning expect the test frame to match the active reference resolution.
@@ -162,7 +174,7 @@ public final class JpegBgrShmWriter {
             throw new IOException("empty jpeg");
         }
         if (targetWidth <= 0 || targetHeight <= 0) {
-            return jpegBytes;
+            throw new IOException("invalid target size " + targetWidth + "x" + targetHeight);
         }
         BufferedImage src = ImageIO.read(new ByteArrayInputStream(jpegBytes));
         if (src == null) {
@@ -183,7 +195,16 @@ public final class JpegBgrShmWriter {
             }
             resized = scaled;
         }
-        return encodeJpegBytes(resized, 0.92f);
+        byte[] out = encodeJpegBytes(resized, 0.92f);
+        int[] verified = jpegDimensions(out);
+        if (verified[0] != targetWidth || verified[1] != targetHeight) {
+            throw new IOException(
+                    "jpeg resize verification failed: got "
+                            + verified[0] + "x" + verified[1]
+                            + " expected " + targetWidth + "x" + targetHeight
+            );
+        }
+        return out;
     }
 
     private static byte[] encodeJpegBytes(BufferedImage image, float quality) throws IOException {

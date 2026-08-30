@@ -11,6 +11,7 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JpegBgrShmWriterTest {
 
@@ -29,6 +30,19 @@ class JpegBgrShmWriterTest {
         BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(out));
         assertEquals(32, decoded.getWidth());
         assertEquals(24, decoded.getHeight());
+    }
+
+    @Test
+    void jpegDimensionsReadsEncodedSize() throws IOException {
+        byte[] jpeg = encodeJpeg(40, 30);
+        int[] dims = JpegBgrShmWriter.jpegDimensions(jpeg);
+        assertEquals(40, dims[0]);
+        assertEquals(30, dims[1]);
+    }
+
+    @Test
+    void ensureJpegSizeRejectsInvalidTarget() {
+        assertThrows(IOException.class, () -> JpegBgrShmWriter.ensureJpegSize(encodeJpeg(8, 6), 0, 10));
     }
 
     private static byte[] encodeJpeg(int width, int height) throws IOException {

@@ -98,3 +98,36 @@ def test_inspect_test_frame_does_not_persist_knobs(tmp_path: Path) -> None:
     after = inspection_service.get_analysis_settings_overrides("local-test")
     assert after == before
     assert inspection_service.get_simple_knobs("local-test") is None
+
+
+def test_inspect_test_frame_resizes_to_reference_resolution(tmp_path: Path) -> None:
+    reset_test_frame_bgr_cache()
+    reference = np.full((96, 128, 3), 30, dtype=np.uint8)
+    inspection_service.set_reference_frame("resize-test", reference)
+    small = tmp_path / "small.jpg"
+    assert cv2.imwrite(str(small), np.full((24, 32, 3), 200, dtype=np.uint8))
+
+    seen: dict[str, tuple[int, int]] = {}
+    original = inspection_service.inspect_frame
+
+    def wrapping_inspect_frame(**kwargs):
+        seen["shape"] = kwargs["frame"].shape[:2]
+        return original(**kwargs)
+
+    inspection_service.inspect_frame = wrapping_inspect_frame  # type: ignore[method-assign]
+    try:
+        response = client.post(
+            "/inspect-test-frame",
+            json={
+                "cache_key": "0:99",
+                "file_path": str(small),
+                "product_type": "resize-test",
+                "analysis_profile": "resize-test",
+                "simple": {"threshold": 0.25, "sensitivity": 0.5},
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert seen["shape"] == (96, 128)
+    finally:
+        inspection_service.inspect_frame = original  # type: ignore[method-assign]
+        inspection_service.clear_inspection_context()
