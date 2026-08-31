@@ -11,11 +11,13 @@ const FALLBACK_PROFILE = "reference-product";
 const DEFAULT_SIMPLE: SimpleAnalysisKnobs = { threshold: 0.25, sensitivity: 0.5 };
 const DEFAULT_PRO: ProAnalysisKnobs = {
   threshold: 0.25,
-  noise_tolerance: 0.5,
-  scratch_sensitivity: 0.5,
-  edge_suppression: 0.5,
-  text_handling: 0.5,
-  preprocess_strength: 0.5,
+  // Detailed/pro strength knobs are percentages in the Python API (0–100).
+  // Threshold remains a unit interval value (0–1), just like in simple mode.
+  noise_tolerance: 50,
+  scratch_sensitivity: 50,
+  edge_suppression: 50,
+  text_handling: 50,
+  preprocess_strength: 50,
 };
 
 const SIMPLE_FIELDS = [
@@ -268,6 +270,15 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       <div className="analysis-presets__fields">
         {fields.map((field) => {
           const value = values[field.name as keyof typeof values];
+          // Simple threshold/sensitivity are stored as 0–1, while detailed
+          // strength knobs returned by /pro are stored as 0–100 percentages.
+          const isProStrength = mode === "pro" && field.name !== "threshold";
+          const valueScale = isProStrength ? 1 : 100;
+          const minValue = isProStrength ? 0 : field.name === "threshold" ? 0.01 : 0;
+          const maxValue = isProStrength ? 100 : 1;
+          const sliderStep = isProStrength ? 0.1 : 0.001;
+          const minimumPercent = minValue * valueScale;
+          const maximumPercent = maxValue * valueScale;
           const updateValue = (next: number) => {
             if (mode === "simple") {
               userEditedSimpleRef.current = true;
@@ -277,9 +288,10 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
               setPro((current) => ({ ...current, [field.name]: next }));
             }
           };
-          const minimumPercent = field.name === "threshold" ? 1 : 0;
           const updatePercent = (percent: number) => {
-            updateValue(Math.min(100, Math.max(minimumPercent, percent)) / 100);
+            updateValue(
+              Math.min(maximumPercent, Math.max(minimumPercent, percent)) / valueScale,
+            );
           };
           return (
             <label className="analysis-presets__field" key={field.name}>
@@ -293,7 +305,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     max="100"
                     step="0.1"
                     inputMode="decimal"
-                    value={(Number(value) * 100).toFixed(1)}
+                    value={(Number(value) * valueScale).toFixed(1)}
                     disabled={busy}
                     onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       const percent = event.target.valueAsNumber;
@@ -306,16 +318,16 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     <button
                       type="button"
                       aria-label={`Увеличить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) >= 1}
-                      onClick={() => updatePercent(Number(value) * 100 + 0.1)}
+                      disabled={busy || Number(value) >= maxValue}
+                      onClick={() => updatePercent(Number(value) * valueScale + 0.1)}
                     >
                       ▲
                     </button>
                     <button
                       type="button"
                       aria-label={`Уменьшить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) * 100 <= minimumPercent}
-                      onClick={() => updatePercent(Number(value) * 100 - 0.1)}
+                      disabled={busy || Number(value) * valueScale <= minimumPercent}
+                      onClick={() => updatePercent(Number(value) * valueScale - 0.1)}
                     >
                       ▼
                     </button>
@@ -323,7 +335,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                 </span>
               </span>
               <input
-                type="range" min={field.name === "threshold" ? 0.01 : 0} max="1" step="0.001"
+                type="range" min={minValue} max={maxValue} step={sliderStep}
                 value={value} disabled={busy}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => updateValue(Number(event.target.value))}
               />
