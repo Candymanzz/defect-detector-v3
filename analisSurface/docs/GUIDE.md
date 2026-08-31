@@ -238,7 +238,8 @@ analisSurface/
 | `PUT` | `/analysis-settings/{product_type}` | Частичное обновление |
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс к defaults |
 | `GET/PUT` | `/analysis-settings/{product_type}/simple` | 2 ручки: threshold + sensitivity |
-| `GET/PUT` | `/analysis-settings/{product_type}/pro` | 6 ручек: threshold + 5 групп |
+| `GET/PUT` | `/analysis-settings/{product_type}/strengths` | 5 сил групп (0–100) |
+| `GET/PUT` | `/analysis-settings/{product_type}/detailed` | alias strengths + полный settings в ответе |
 
 Ключевые параметры (кратко):
 
@@ -329,6 +330,7 @@ POST /upload-ref  →  POST /inspect
 ## Связанные документы
 
 - [ANALYSIS_SETTINGS.md](./ANALYSIS_SETTINGS.md) — все параметры алгоритма
-- [ANALYSIS_SETTINGS_SIMPLE_PRO.md](./ANALYSIS_SETTINGS_SIMPLE_PRO.md) — упрощённые эндпоинты simple/pro
-- [ANALYSIS_SETTINGS_UI.md](./ANALYSIS_SETTINGS_UI.md) — названия и подсказки для фронта
+- [ANALYSIS_SETTINGS_SIMPLE_PRO.md](./ANALYSIS_SETTINGS_SIMPLE_PRO.md) — упрощённые эндпоинты simple/strengths
+- [ANALYSIS_SETTINGS_INTEGRATION.md](./ANALYSIS_SETTINGS_INTEGRATION.md) — стыковка оркестратора и Python
+- [ANALYSIS_SETTINGS_FRONTEND.md](./ANALYSIS_SETTINGS_FRONTEND.md) — гайд для React
 - [README.md](../README.md) — запуск, камера, оркестратор

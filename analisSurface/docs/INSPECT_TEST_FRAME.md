@@ -8,7 +8,7 @@
 
 Связанные документы:
 
-- ручки simple/pro: [ANALYSIS_SETTINGS_SIMPLE_PRO.md](ANALYSIS_SETTINGS_SIMPLE_PRO.md)
+- ручки simple/detailed: [ANALYSIS_SETTINGS_SIMPLE_PRO.md](ANALYSIS_SETTINGS_SIMPLE_PRO.md)
 - полный пайплайн инспекции: [GUIDE.md](GUIDE.md)
 
 ---
@@ -22,7 +22,7 @@
 | Python тянет произвольный URL | **только локальный** `file_path` (без SSRF) |
 | отдельный `/inspect-shm` + `/inspect-shm-visuals` | один вызов: score + опциональный heatmap |
 
-**Не путать** с `PUT /analysis-settings/.../simple|pro` — тот **сохраняет** knobs.  
+**Не путать** с `PUT /analysis-settings/.../simple|detailed` — тот **сохраняет** knobs.  
 `/inspect-test-frame` knobs **не сохраняет**.
 
 ---
@@ -44,7 +44,7 @@
 | `detector_id` | string \| null | нет | Пробрасывается в ответ |
 | `alignment_h_ref_to_cur` | `number[]` или `number[][]` | нет | 3×3 гомография ref→cur от java-geometry (9 float или 3×3) |
 | `simple` | object | один из двух | Быстрые ручки (см. ниже) |
-| `pro` | object | один из двух | Расширенные ручки |
+| `detailed` | object | один из двух | Детальные чувствительности (0–100) |
 | `heatmap_u8_output_path` | string \| null | нет | Куда писать gray heatmap u8 (SHM/файл). Если задан — пишется |
 | `heatmap_max_width` | int \| null | нет | Ужать heatmap по ширине перед записью |
 | `aligned_image_u8_output_path` | string \| null | нет | Опциональный визуал |
@@ -53,7 +53,7 @@
 
 **Правила knobs**
 
-- нужен **ровно один** блок: либо `simple`, либо `pro`;
+- нужен **ровно один** блок: либо `simple`, либо `detailed`;
 - оба сразу → `400`;
 - ни одного → `400`.
 
@@ -68,20 +68,20 @@
 | `threshold` | `(0, 1]` |
 | `sensitivity` | `[0, 1]` |
 
-#### `pro`
+#### `detailed`
 
 ```json
 {
   "threshold": 0.25,
-  "noise_tolerance": 0.5,
-  "scratch_sensitivity": 0.5,
-  "edge_suppression": 0.5,
-  "text_handling": 0.5,
-  "preprocess_strength": 0.5
+  "noise_tolerance": 50,
+  "scratch_sensitivity": 50,
+  "edge_suppression": 50,
+  "text_handling": 50,
+  "preprocess_strength": 50
 }
 ```
 
-Все поля ∈ `[0, 1]`, кроме `threshold` ∈ `(0, 1]`.
+Чувствительности ∈ `[0, 100]`, `50` = сток. `threshold` ∈ `(0, 1]`.
 
 ### Response
 
@@ -175,7 +175,7 @@ Content-Type: application/json
 | `product_type` | scoped product (как в `/inspect-shm`) |
 | `analysis_profile` | YAML профиль камеры |
 | `alignment_h_ref_to_cur` | из ответа geometry (`homographyRefToCurrent`) |
-| `simple` / `pro` | knobs с UI **как есть** (не писать в runtime/disk) |
+| `simple` / `detailed` | knobs с UI **как есть** (не писать в runtime/disk) |
 | `heatmap_u8_output_path` | путь в `iml_shm` (как для UI heatmap) |
 
 ### Чего не делать
@@ -196,7 +196,7 @@ body.put("image_url", frameArchive.frameArtifactHttpPath(cameraId, frameId, "fra
 body.put("product_type", scopedProductType);
 body.put("analysis_profile", analysisProfile);
 body.put("alignment_h_ref_to_cur", homographyFromGeometry); // optional
-body.put("simple", simpleKnobs); // XOR pro
+body.put("simple", simpleKnobs); // XOR detailed
 body.put("heatmap_u8_output_path", heatmapShmPath.toString());
 body.put("heatmap_max_width", 512);
 // POST /inspect-test-frame → score + heatmap_u8.path/width/height
@@ -213,7 +213,7 @@ body.put("heatmap_max_width", 512);
 | Действие | Поведение |
 |----------|-----------|
 | **Проверить** / debounce слайдеров | только inspect: knobs + кадр, **без** PUT настроек |
-| **Сохранить** | PUT simple/pro (и geometry runtime), как сейчас |
+| **Сохранить** | PUT simple/detailed (и geometry runtime), как сейчас |
 | Выбор кадра в истории | `frameId` / `httpPath` синхронизировать с выбраннымinspect |
 
 ### Что отправлять на оркестратор (типичный test-analyze)
@@ -229,7 +229,7 @@ body.put("heatmap_max_width", 512);
   // analysis knobs с панелей:
   simple?: { threshold: number; sensitivity: number };
   // XOR
-  pro?: {
+  detailed?: {
     threshold: number;
     noise_tolerance: number;
     scratch_sensitivity: number;
@@ -268,7 +268,7 @@ body.put("heatmap_max_width", 512);
 | | `/inspect-shm*` | `/inspect-test-frame` |
 |--|-----------------|------------------------|
 | Источник кадра | BGR в SHM | JPEG с диска + кэш |
-| Settings | диск / `analysis_test_settings` merge | только `simple`/`pro` в теле |
+| Settings | диск / `analysis_test_settings` merge | только `simple`/`detailed` в теле |
 | Пишет analysis_settings | нет (temporary) / да (если до этого PUT) | **никогда** |
 | Learning review | зависит от флагов | всегда off |
 | Heatmap | отдельный visuals-путь | в том же запросе |
@@ -294,5 +294,5 @@ body.put("heatmap_max_width", 512);
 - [ ] `testFrameId` / `httpPath` = выбранный кадр
 - [ ] Check/sliders → inspect only
 - [ ] Save → persist
-- [ ] Knobs snake_case, simple XOR pro
+- [ ] Knobs snake_case, simple XOR detailed
 - [ ] Кадр в UI не прыгает на live/current
