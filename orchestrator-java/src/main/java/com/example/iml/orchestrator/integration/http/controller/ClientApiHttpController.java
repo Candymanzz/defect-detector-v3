@@ -488,12 +488,17 @@ public final class ClientApiHttpController implements HttpController {
                 return;
             }
             // Stop production DI3 cycles; operator uses test-analyze in this mode.
+            // Soft-stop normally keeps preview-only DI3 → inspect_result(current); that swaps the TEST frame.
             if (clientApi.inspectionGate() != null) {
+                clientApi.inspectionGate().setSuppressSoftStopPreview(true);
                 clientApi.inspectionGate().disableAllAndRequestCancel();
             }
         } else {
             if (ws.isTestMode()) {
                 ws.exitTestMode();
+            }
+            if (clientApi.inspectionGate() != null) {
+                clientApi.inspectionGate().setSuppressSoftStopPreview(false);
             }
             var testAnalyzeHolder = clientApi.uiTestAnalyzeHolder();
             var testAnalyze = testAnalyzeHolder == null ? null : testAnalyzeHolder.get();
@@ -849,6 +854,29 @@ public final class ClientApiHttpController implements HttpController {
                 ? castStringObjectMap(rawGeometry) : Map.of();
         Map<String, Object> temporaryAnalysis = temporarySettings.get("analysis") instanceof Map<?, ?> rawAnalysis
                 ? castStringObjectMap(rawAnalysis) : Map.of();
+        // Top-level simple/detailed (or legacy pro) when temporarySettings.analysis is omitted.
+        if (temporaryAnalysis.isEmpty()) {
+            Map<String, Object> analysis = new java.util.LinkedHashMap<>();
+            if (body.get("simple") instanceof Map<?, ?> simpleKnobs) {
+                analysis.put("simple", castStringObjectMap(simpleKnobs));
+            }
+            if (body.get("detailed") instanceof Map<?, ?> detailedKnobs) {
+                analysis.put("detailed", castStringObjectMap(detailedKnobs));
+            }
+            if (!analysis.isEmpty()) {
+                temporaryAnalysis = Map.copyOf(analysis);
+            } else if (body.get("simple") instanceof Map<?, ?> simpleKnobs && !(body.get("pro") instanceof Map<?, ?>)) {
+                Map<String, Object> legacy = new java.util.LinkedHashMap<>();
+                legacy.put("mode", "simple");
+                legacy.put("knobs", castStringObjectMap(simpleKnobs));
+                temporaryAnalysis = Map.copyOf(legacy);
+            } else if (body.get("pro") instanceof Map<?, ?> proKnobs && !(body.get("simple") instanceof Map<?, ?>)) {
+                Map<String, Object> legacy = new java.util.LinkedHashMap<>();
+                legacy.put("mode", "pro");
+                legacy.put("knobs", castStringObjectMap(proKnobs));
+                temporaryAnalysis = Map.copyOf(legacy);
+            }
+        }
         var source = com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.parseSource(sourceRaw);
         return new com.example.iml.orchestrator.integration.clientapi.UiTestAnalyzeService.Request(
                 cameraId, source, frameId, httpPath, pinId, temporaryGeometry, temporaryAnalysis

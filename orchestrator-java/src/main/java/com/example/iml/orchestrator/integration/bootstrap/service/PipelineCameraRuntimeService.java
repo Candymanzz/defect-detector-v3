@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
+import com.example.iml.orchestrator.integration.health.CriticalServiceInspectionPause;
 import com.example.iml.orchestrator.integration.health.CriticalServiceWatchdog;
 import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
@@ -125,6 +126,7 @@ public final class PipelineCameraRuntimeService {
         createStageExecutors(ctx, poolFactory);
 
         TriggerRuntimeBootstrapService.TriggerWireResult triggerWire = triggers.wire(ctx);
+        CriticalServiceInspectionPause.wire(log, ctx, healthGate, fanOut);
         if (livePreview != null && ctx.lineCaptureCoordinator() != null) {
             livePreview.setLineCaptureCoordinator(ctx.lineCaptureCoordinator());
         }

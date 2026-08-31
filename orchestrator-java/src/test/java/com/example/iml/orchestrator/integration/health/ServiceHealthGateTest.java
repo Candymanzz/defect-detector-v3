@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.health;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,5 +28,18 @@ class ServiceHealthGateTest {
         gate.markHealthy("io_input_monitor");
         assertTrue(gate.healthy());
         assertEquals(2, changes.get());
+    }
+
+    @Test
+    void ioInputMonitorDoesNotBlockVision() {
+        ServiceHealthGate gate = new ServiceHealthGate();
+        gate.markUnhealthy(ServiceHealthGate.IO_INPUT_MONITOR);
+        assertFalse(gate.healthy());
+        assertTrue(gate.healthyForVision());
+        assertTrue(gate.visionBlockingReasons().isEmpty());
+
+        gate.markUnhealthy("analis_surface");
+        assertFalse(gate.healthyForVision());
+        assertEquals(Set.of("analis_surface"), gate.visionBlockingReasons());
     }
 }

@@ -353,6 +353,21 @@ export type ProAnalysisKnobs = {
   preprocess_strength: number;
 };
 
+/** Силы групп алгоритма (0–100), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
+export type StrengthKnobs = {
+  noise_tolerance: number;
+  scratch_sensitivity: number;
+  edge_suppression: number;
+  text_handling: number;
+  preprocess_strength: number;
+};
+
+export type StrengthKnobsResponse = {
+  analysis_profile: string;
+  saved: boolean;
+  strengths: StrengthKnobs;
+};
+
 export type ClientModeResponse = {
   ok: boolean;
   session_state: string;

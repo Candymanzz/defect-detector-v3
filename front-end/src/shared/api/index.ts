@@ -7,6 +7,8 @@ export type {
   AnalysisPresetResponse,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
+  StrengthKnobs,
+  StrengthKnobsResponse,
   ClientModeResponse,
   TestAnalyzeResponse,
   PinTestFrameRequest,

@@ -67,6 +67,20 @@ export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResult
   return undefined;
 }
 
+export function isPreviewFrameNewerOrEqual(
+  frame: Pick<PreviewFramePayload, "frame_id" | "server_ts_ms">,
+  previousFrameId: string | undefined,
+  previousTimestamp: number | undefined,
+) {
+  if (previousTimestamp === undefined) {
+    return true;
+  }
+  if (frame.server_ts_ms !== previousTimestamp) {
+    return frame.server_ts_ms > previousTimestamp;
+  }
+  return previousFrameId === undefined || compareFrameIds(frame.frame_id, previousFrameId) >= 0;
+}
+
 export function createInspectionControlStates(inspectionStatus: {
   enabledCameraIds: number[];
   disabledCameraIds: number[];
@@ -100,10 +114,7 @@ export function resolveCardInspectImageUrl(
     if (archiveUrl) {
       return archiveUrl;
     }
-    if (
-      artifactInspectResult?.artifact_bundle_id &&
-      artifactInspectResult.frame_id === inspectResult.frame_id
-    ) {
+    if (artifactInspectResult?.artifact_bundle_id && artifactInspectResult.frame_id === inspectResult.frame_id) {
       return orchestratorApi.url(
         `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
       );
@@ -126,10 +137,7 @@ export function resolveCardInspectImageUrl(
     return archiveUrl;
   }
 
-  if (
-    artifactInspectResult?.artifact_bundle_id &&
-    artifactInspectResult.frame_id === inspectResult.frame_id
-  ) {
+  if (artifactInspectResult?.artifact_bundle_id && artifactInspectResult.frame_id === inspectResult.frame_id) {
     return orchestratorApi.url(
       `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
     );
@@ -197,16 +205,12 @@ export function updateModalSnapshotResult(
 
   const lockedPinPath = currentSnapshot.pinnedTestHttpPath;
   const lockedPinImageUrl = currentSnapshot.pinnedTestImageUrl;
-  if (
-    (displayInspectResult.test_analyze || currentSnapshot.pinnedTestHttpPath)
-    && lockedPinPath
-  ) {
+  if ((displayInspectResult.test_analyze || currentSnapshot.pinnedTestHttpPath) && lockedPinPath) {
     displayInspectResult = {
       ...displayInspectResult,
       http_path: lockedPinPath,
       // Keep the production learning review — test-analyze must not erase it.
-      learned_review_id:
-        currentSnapshot.inspectResult?.learned_review_id ?? displayInspectResult.learned_review_id,
+      learned_review_id: currentSnapshot.inspectResult?.learned_review_id ?? displayInspectResult.learned_review_id,
       current: {
         ...displayInspectResult.current,
         http_path: lockedPinPath,
@@ -215,11 +219,12 @@ export function updateModalSnapshotResult(
     };
   }
 
-  const nextCameraImageUrl = lockedPinImageUrl
-    ?? currentSnapshot.cameraImageUrl
-    ?? resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult)
-    ?? resolveImmutableInspectionImageUrl(displayInspectResult)
-    ?? createWsFrameImageUrl(displayInspectResult);
+  const nextCameraImageUrl =
+    lockedPinImageUrl ??
+    resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult) ??
+    resolveImmutableInspectionImageUrl(displayInspectResult) ??
+    createWsFrameImageUrl(displayInspectResult) ??
+    currentSnapshot.cameraImageUrl;
 
   // Once a TEST pin is locked, never swap the modal image — even if WS carries another http_path.
   const frozenTestImage = currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl;
@@ -234,10 +239,7 @@ export function updateModalSnapshotResult(
 }
 
 /** While TEST settings are open, keep showing the durable pin JPEG — not artifact/current re-encodes. */
-function resolvePinnedTestFrameImageUrl(
-  currentSnapshot: ModalInspectionSnapshot,
-  inspectResult: InspectResultPayload,
-) {
+function resolvePinnedTestFrameImageUrl(currentSnapshot: ModalInspectionSnapshot, inspectResult: InspectResultPayload) {
   const candidatePaths = [
     inspectResult.http_path,
     inspectResult.current?.http_path,
@@ -250,8 +252,8 @@ function resolvePinnedTestFrameImageUrl(
     }
   }
   if (
-    (inspectResult.test_analyze || currentSnapshot.inspectResult?.test_analyze)
-    && currentSnapshot.cameraImageUrl?.includes("/api/client/inspection/test-pin/")
+    (inspectResult.test_analyze || currentSnapshot.inspectResult?.test_analyze) &&
+    currentSnapshot.cameraImageUrl?.includes("/api/client/inspection/test-pin/")
   ) {
     return currentSnapshot.cameraImageUrl;
   }
@@ -274,9 +276,9 @@ export function hasDisplayableInspectImage(inspectResult: InspectResultPayload) 
 export function hasImmutableInspectArtifact(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
   return Boolean(
-    inspectResult.artifact_bundle_id
-      || imagePath.includes("/api/frame-archive/")
-      || imagePath.includes("/api/client/inspection/test-pin/"),
+    inspectResult.artifact_bundle_id ||
+    imagePath.includes("/api/frame-archive/") ||
+    imagePath.includes("/api/client/inspection/test-pin/"),
   );
 }
 
@@ -312,9 +314,7 @@ export type ArchivedInspectionHistoryLoadResult = {
   failedCameraIds: number[];
 };
 
-export async function loadArchivedInspectionHistory(
-  cameraIds: number[],
-): Promise<ArchivedInspectionHistoryLoadResult> {
+export async function loadArchivedInspectionHistory(cameraIds: number[]): Promise<ArchivedInspectionHistoryLoadResult> {
   const histories = await Promise.all(
     cameraIds.map(async (cameraId) => {
       try {
@@ -369,10 +369,7 @@ async function enrichArchivedFrameHeatmapSize(frame: FrameArchiveHistoryFrame): 
   }
 }
 
-export function archivedFrameToInspectResult(
-  cameraId: number,
-  frame: FrameArchiveHistoryFrame,
-): InspectResultPayload {
+export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchiveHistoryFrame): InspectResultPayload {
   const frameHttpPath = frame.frame_url;
   return {
     camera_id: cameraId,

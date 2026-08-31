@@ -1,12 +1,15 @@
 package com.example.iml.orchestrator.integration.pipeline;
 
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPositioningExecutor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -339,6 +342,80 @@ public final class BinaryInspectHeaders {
     ) {
         Map<String, Object> pyHeader = pythonInspectHeader(
                 cameraId, productType, detectorId, capture, geomResp, pythonCfg, includeVisuals);
+        attachReferenceAndRoi(pyHeader, activeReference);
+        return pyHeader;
+    }
+
+    /**
+     * UI «Проверить»: {@code POST /inspect-test-frame} — JPEG с диска + ephemeral simple/pro.
+     * Не использует SHM-кадр и не пишет analysis_settings.
+     */
+    public static Map<String, Object> pythonTestFrameInspectHeader(
+            int cameraId,
+            String productType,
+            String detectorId,
+            BinaryProtocol.Message capture,
+            BinaryProtocol.Message geomResp,
+            ReferenceSnapshot activeReference,
+            int heatmapMaxWidth
+    ) {
+        Map<String, Object> cap = capture == null || capture.header() == null ? Map.of() : capture.header();
+        Map<String, Object> pyHeader = new HashMap<>();
+        pyHeader.put("op", "inspect_test_frame");
+        pyHeader.put("camera_id", cameraId);
+        pyHeader.put("frame_id", cap.get("frame_id"));
+        pyHeader.put("product_type", productType);
+        pyHeader.put("detector_id", detectorId);
+        pyHeader.put("test_analyze", true);
+        pyHeader.put("skip_learning_review", true);
+
+        String filePath = String.valueOf(cap.getOrDefault("test_frame_file_path", "")).trim();
+        pyHeader.put("file_path", filePath);
+        String cacheKey = String.valueOf(cap.getOrDefault("test_frame_cache_key", "")).trim();
+        if (cacheKey.isEmpty()) {
+            cacheKey = cameraId + ":" + String.valueOf(cap.getOrDefault("frame_id", ""));
+        }
+        pyHeader.put("cache_key", cacheKey);
+        Object imageUrl = cap.get("test_frame_image_url");
+        if (imageUrl == null || String.valueOf(imageUrl).isBlank()) {
+            imageUrl = cap.get("http_path");
+        }
+        if (imageUrl != null && !String.valueOf(imageUrl).isBlank()) {
+            pyHeader.put("image_url", String.valueOf(imageUrl).trim());
+        }
+
+        // JPEG is the original archive/pin frame — send real H, never identity from HEADER_ALIGNED.
+        Object homography = null;
+        if (geomResp != null && geomResp.header() != null) {
+            homography = geomResp.header().get("homographyRefToCurrent");
+        }
+        if (homography == null) {
+            homography = cap.get("positioning_homography_ref_to_cur");
+        }
+        if (homography != null) {
+            pyHeader.put("alignment_h_ref_to_cur", homography);
+        }
+
+        putEphemeralTestKnobs(pyHeader, cap);
+
+        String job = String.valueOf(cap.getOrDefault("test_analyze_job_id", String.valueOf(cap.get("frame_id"))));
+        String suffix = job.replace("-", "");
+        if (suffix.length() > 12) {
+            suffix = suffix.substring(0, 12);
+        }
+        pyHeader.put(
+                "heatmap_u8_output_path",
+                FrameJpegWriter.imlShmFilePath("iml_ui_heatmap_test_cam_" + cameraId + "_" + suffix).toString()
+        );
+        if (heatmapMaxWidth > 0) {
+            pyHeader.put("heatmap_max_width", heatmapMaxWidth);
+        }
+
+        attachReferenceAndRoi(pyHeader, activeReference);
+        return pyHeader;
+    }
+
+    private static void attachReferenceAndRoi(Map<String, Object> pyHeader, ReferenceSnapshot activeReference) {
         if (activeReference != null && activeReference.header() != null) {
             pyHeader.put("reference_shm_name", activeReference.header().get("shm_name"));
             pyHeader.put("reference_shm_offset", activeReference.header().get("shm_offset"));
@@ -350,7 +427,63 @@ public final class BinaryInspectHeaders {
         if (poly != null) {
             pyHeader.put("roi_polygon_norm", poly);
         }
-        return pyHeader;
+    }
+
+    @SuppressWarnings("unchecked")
+    static void putEphemeralTestKnobs(Map<String, Object> pyHeader, Map<String, Object> captureHeader) {
+        Object temporary = captureHeader.get("analysis_test_settings");
+        if (!(temporary instanceof Map<?, ?> settings) || settings.isEmpty()) {
+            pyHeader.put("simple", Map.of("threshold", 0.25, "sensitivity", 0.5));
+            return;
+        }
+        Object simpleDirect = settings.get("simple");
+        Object detailedDirect = settings.get("detailed");
+        if (simpleDirect instanceof Map<?, ?> simpleMap) {
+            pyHeader.put("simple", copyStringObjectMap(simpleMap));
+        }
+        if (detailedDirect instanceof Map<?, ?> detailedMap) {
+            pyHeader.put("detailed", copyStringObjectMap(detailedMap));
+        }
+        if (pyHeader.containsKey("simple") || pyHeader.containsKey("detailed")) {
+            return;
+        }
+        Object proDirect = settings.get("pro");
+        if (proDirect instanceof Map<?, ?> proMap && !(settings.get("simple") instanceof Map<?, ?>)) {
+            pyHeader.put("pro", copyStringObjectMap(proMap));
+            return;
+        }
+        Object modeObj = settings.get("mode");
+        String mode = String.valueOf(modeObj == null ? "simple" : modeObj).trim().toLowerCase(Locale.ROOT);
+        Object knobsObj = settings.get("knobs");
+        Map<String, Object> knobs = knobsObj instanceof Map<?, ?> raw
+                ? copyStringObjectMap(raw)
+                : Map.of();
+        if ("pro".equals(mode)) {
+            pyHeader.put("pro", knobs.isEmpty()
+                    ? Map.of(
+                    "threshold", 0.25,
+                    "noise_tolerance", 0.5,
+                    "scratch_sensitivity", 0.5,
+                    "edge_suppression", 0.5,
+                    "text_handling", 0.5,
+                    "preprocess_strength", 0.5
+            )
+                    : knobs);
+        } else {
+            pyHeader.put("simple", knobs.isEmpty()
+                    ? Map.of("threshold", 0.25, "sensitivity", 0.5)
+                    : knobs);
+        }
+    }
+
+    private static Map<String, Object> copyStringObjectMap(Map<?, ?> raw) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        raw.forEach((key, value) -> {
+            if (key != null && value != null) {
+                out.put(String.valueOf(key), value);
+            }
+        });
+        return out;
     }
 
     @SuppressWarnings("unchecked")

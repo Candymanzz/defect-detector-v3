@@ -64,7 +64,9 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
 
     public record InspectionPreviewArtifacts(
             ClientPreviewArtifact frame,
-            ClientPreviewArtifact card
+            ClientPreviewArtifact card,
+            /** Native SHM resolution (no downscale) for frame-archive / test-analyze pin. */
+            ClientPreviewArtifact archive
     ) {
     }
 
@@ -343,19 +345,23 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             int frameMaxWidth,
             float frameQuality,
             int cardMaxWidth,
-            float cardQuality
+            float cardQuality,
+            float archiveQuality
     ) {
         final BufferedImage source;
         try {
             source = readBgrImageFromShm(shmName, width, height, stride, shmOffset, -1);
         } catch (Exception e) {
             ClientPreviewArtifact failed = previewJpegFailed(e.getMessage());
-            return new InspectionPreviewArtifacts(failed, failed);
+            return new InspectionPreviewArtifacts(failed, failed, failed);
         }
 
+        // frameMaxWidth/cardMaxWidth downscale for live UI; archive maxWidth=0 keeps SHM size
+        // so test-analyze pin matches reference geometry.
         return new InspectionPreviewArtifacts(
                 writePreviewJpeg(source, frameMaxWidth, frameQuality, -1),
-                writePreviewJpeg(source, cardMaxWidth, cardQuality, -1)
+                writePreviewJpeg(source, cardMaxWidth, cardQuality, -1),
+                writePreviewJpeg(source, 0, archiveQuality, -1)
         );
     }
 

@@ -88,6 +88,12 @@ public final class ExternalServiceProcess implements AutoCloseable {
         if (closing.get()) {
             return;
         }
+        int exitCode = -1;
+        try {
+            exitCode = process.exitValue();
+        } catch (IllegalThreadStateException ignored) {
+        }
+        log.warn("external service {} pid={} exited unexpectedly code={}", name, pid(), exitCode);
         Runnable listener = unexpectedExitListener;
         if (listener == null) {
             return;

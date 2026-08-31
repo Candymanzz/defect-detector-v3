@@ -1311,6 +1311,44 @@ button.reference-setup__object-row {
   flex-wrap: wrap;
 }
 
+.reference-setup__slot[data-replacement="true"] {
+  border-color: #f59e0b;
+  box-shadow: inset 0 0 0 1px rgb(245 158 11 / 45%);
+}
+
+.reference-setup__camera-copy small[data-state="replacement"] {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.reference-setup__camera-copy small[data-state="current"] {
+  color: var(--text-muted, #9ca3af);
+}
+
+.reference-setup__name-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: min(20rem, 100%);
+}
+
+.reference-setup__name-field span {
+  font-size: 0.8rem;
+  color: var(--text-muted, #9ca3af);
+}
+
+.reference-setup__name-field input {
+  width: 100%;
+  border: 1px solid var(--border-color, #475569);
+  border-radius: 0.45rem;
+  background: var(--surface-color, #111827);
+  color: inherit;
+  padding: 0.55rem 0.7rem;
+}
+
+.reference-setup__archive-tile small {
+  color: var(--text-muted, #9ca3af);
+}
+
 .reference-setup__cancel {
   min-height: 40px;
   padding: 9px 18px;

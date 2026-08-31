@@ -242,8 +242,14 @@ public final class UiTestAnalyzeService {
         if (request.source() == Source.CURRENT) {
             throw new AnalyzeException(400, "current source is not allowed for test pin; use archive");
         }
-        // Ignore httpPath / artifact / current — TEST pin must be the archived frame the operator selected.
-        ResolvedFrame resolved = loadArchive(request.cameraId(), request.frameId());
+        ReferenceSnapshot pinRef = referenceRegistry.get(request.cameraId());
+        if (pinRef == null || !pinRef.isUsable()) {
+            throw new AnalyzeException(409, "no usable reference for camera " + request.cameraId()
+                    + " — test pin requires reference resolution");
+        }
+        // Prefer native SHM for the latest inspection frame; fall back to archive JPEG.
+        // Always normalize to reference WxH so UI pin and Python see the same size as the эталон.
+        ResolvedFrame resolved = resolveTestFrame(request.cameraId(), request.frameId(), null);
         if (resolved.frameId() != request.frameId()) {
             throw new AnalyzeException(
                     409,
@@ -298,7 +304,14 @@ public final class UiTestAnalyzeService {
 
     public Accepted submit(Request request) throws AnalyzeException {
         validate(request);
-        ResolvedFrame resolved = resolveJpeg(request);
+        ResolvedFrame resolved;
+        try {
+            resolved = normalizeResolvedFrame(request.cameraId(), resolveJpeg(request));
+        } catch (AnalyzeException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new AnalyzeException(500, "failed to normalize test frame to reference resolution: " + e.getMessage());
+        }
         if (request.source() == Source.PIN
                 && request.frameId() != null
                 && request.frameId().longValue() != resolved.frameId()) {
@@ -397,7 +410,12 @@ public final class UiTestAnalyzeService {
     ) {
         Path shmPath = null;
         Path isolatedShmPath = null;
+        Path jobJpegPath = null;
         try {
+            // Exact selected bytes for Python /inspect-test-frame — do not re-resolve pin/archive later
+            // (pin can be overwritten when the operator picks another history frame).
+            jobJpegPath = pinStore.materializeJobJpeg(jobId, jpegBytes);
+            String pinSha = sha256Hex(jpegBytes);
             String shmBase = "iml_uitest_cam" + cameraId + "_" + jobId.substring(0, Math.min(8, jobId.length()));
             JpegBgrShmWriter.WrittenFrame written = JpegBgrShmWriter.write(jpegBytes, cameraId, frameId, shmBase);
             shmPath = written.shmPath();
@@ -409,11 +427,25 @@ public final class UiTestAnalyzeService {
             }
             captureHeader.put("test_geometry_overrides", temporaryGeometry == null ? Map.of() : temporaryGeometry);
             captureHeader.put("analysis_test_settings", temporaryAnalysis == null ? Map.of() : temporaryAnalysis);
-            String pinSha = sha256Hex(jpegBytes);
             captureHeader.put("pin_jpeg_sha256", pinSha);
             if (previewHttpPath != null && !previewHttpPath.isBlank()) {
                 captureHeader.put("http_path", previewHttpPath);
             }
+            captureHeader.put("test_frame_file_path", jobJpegPath.toString());
+            captureHeader.put("test_frame_cache_key", cameraId + ":" + frameId);
+            if (previewHttpPath != null && !previewHttpPath.isBlank()) {
+                captureHeader.put("test_frame_image_url", previewHttpPath);
+            }
+            log.info(
+                    "ui test-analyze job jpeg jobId={} cam={} frame={} pinId={} bytes={} sha={} file_path={}",
+                    jobId,
+                    cameraId,
+                    frameId,
+                    pinId,
+                    jpegBytes.length,
+                    pinSha,
+                    jobJpegPath
+            );
             BinaryProtocol.Message capture = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_RESPONSE,
                     Map.copyOf(captureHeader),
@@ -499,12 +531,26 @@ public final class UiTestAnalyzeService {
             log.warn("ui test-analyze failed jobId={} cam={} frame={}: {}", jobId, cameraId, frameId, e.getMessage());
             JpegBgrShmWriter.deleteQuietly(shmPath);
             JpegBgrShmWriter.deleteQuietly(isolatedShmPath);
+            if (jobJpegPath != null) {
+                pinStore.deleteJobJpeg(jobId);
+            }
             shmPath = null;
             isolatedShmPath = null;
+            jobJpegPath = null;
         } finally {
             // Async UI sidecar still reads SHM for JPEG/heatmap; delay cleanup.
             scheduleShmDelete(shmPath);
             scheduleShmDelete(isolatedShmPath);
+            if (jobJpegPath != null) {
+                final String jobToDelete = jobId;
+                java.util.concurrent.CompletableFuture.runAsync(
+                        () -> pinStore.deleteJobJpeg(jobToDelete),
+                        java.util.concurrent.CompletableFuture.delayedExecutor(
+                                90L,
+                                java.util.concurrent.TimeUnit.SECONDS
+                        )
+                );
+            }
         }
     }
 
@@ -577,12 +623,18 @@ public final class UiTestAnalyzeService {
     }
 
     ResolvedFrame resolveJpeg(Request request) throws AnalyzeException {
+        ResolvedFrame resolved;
         if (request.source() == Source.PIN) {
-            return loadPin(request.pinId(), request.cameraId());
+            resolved = loadPin(request.pinId(), request.cameraId());
+        } else if (request.source() == Source.CURRENT) {
+            resolved = loadCurrentJpeg(request.cameraId(), request.frameId());
+        } else {
+            resolved = resolveJpegFromPathOrArchive(request);
         }
-        if (request.source() == Source.CURRENT) {
-            return loadCurrentJpeg(request.cameraId(), request.frameId());
-        }
+        return resolved;
+    }
+
+    private ResolvedFrame resolveJpegFromPathOrArchive(Request request) throws AnalyzeException {
         String path = request.httpPath() == null ? "" : request.httpPath().trim();
         if (!path.isEmpty()) {
             Matcher archive = ARCHIVE_PATH.matcher(path);
@@ -592,7 +644,7 @@ public final class UiTestAnalyzeService {
                 if (cam != request.cameraId()) {
                     throw new AnalyzeException(400, "httpPath cameraId mismatch");
                 }
-                return loadArchive(cam, fid);
+                return loadArchiveWithNativeFallback(cam, fid, path);
             }
             Matcher artifact = ARTIFACT_PATH.matcher(path);
             if (artifact.matches()) {
@@ -614,7 +666,7 @@ public final class UiTestAnalyzeService {
             if (request.frameId() == null) {
                 throw new AnalyzeException(400, "frameId required");
             }
-            return loadArchive(request.cameraId(), request.frameId());
+            return loadArchiveWithNativeFallback(request.cameraId(), request.frameId(), null);
         }
         throw new AnalyzeException(400, "cannot resolve frame reference");
     }
@@ -647,16 +699,28 @@ public final class UiTestAnalyzeService {
         }
         try {
             byte[] bytes = Files.readAllBytes(pin.jpegPath());
+            String actualSha = sha256Hex(bytes);
+            if (pin.jpegSha256() != null && !pin.jpegSha256().isBlank() && !pin.jpegSha256().equalsIgnoreCase(actualSha)) {
+                throw new AnalyzeException(
+                        409,
+                        "pinned JPEG sha mismatch pinId=" + pinId
+                                + " expected=" + pin.jpegSha256()
+                                + " actual=" + actualSha
+                );
+            }
             String pinUrl = pin.previewHttpPath();
             log.info(
-                    "ui test-analyze loadPin cam={} frame={} bytes={} sha={} http_path={}",
+                    "ui test-analyze loadPin cam={} frame={} pinId={} bytes={} sha={} http_path={}",
                     cameraId,
                     pin.frameId(),
+                    pinId,
                     bytes.length,
-                    sha256Hex(bytes),
+                    actualSha,
                     pinUrl
             );
             return new ResolvedFrame(bytes, pin.frameId(), pinUrl);
+        } catch (AnalyzeException e) {
+            throw e;
         } catch (IOException e) {
             throw new AnalyzeException(500, "failed to read pinned test frame: " + e.getMessage());
         }
@@ -705,6 +769,140 @@ public final class UiTestAnalyzeService {
             throw e;
         } catch (IOException e) {
             throw new AnalyzeException(404, "artifact frame not found: " + e.getMessage());
+        }
+    }
+
+    private ResolvedFrame resolveTestFrame(int cameraId, long frameId, String previewHttpPathHint) throws AnalyzeException {
+        ResolvedFrame resolved = loadArchiveWithNativeFallback(cameraId, frameId, previewHttpPathHint);
+        try {
+            return normalizeResolvedFrame(cameraId, resolved);
+        } catch (AnalyzeException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new AnalyzeException(500, "failed to normalize test frame to reference resolution: " + e.getMessage());
+        }
+    }
+
+    private ResolvedFrame loadArchiveWithNativeFallback(
+            int cameraId,
+            long frameId,
+            String previewHttpPath
+    ) throws AnalyzeException {
+        String archiveHttpPath = previewHttpPath;
+        if ((archiveHttpPath == null || archiveHttpPath.isBlank())
+                && frameArchive != null
+                && frameArchive.enabled()) {
+            archiveHttpPath = frameArchive.frameArtifactHttpPath(cameraId, frameId, "frame.jpg");
+        }
+        Optional<ResolvedFrame> nativeFrame = tryLoadLatestNativeJpeg(cameraId, frameId, archiveHttpPath);
+        if (nativeFrame.isPresent()) {
+            return nativeFrame.get();
+        }
+        return loadArchive(cameraId, frameId);
+    }
+
+    /**
+     * Force test JPEG to active reference WxH. Live inspect uses SHM at capture size (and may
+     * apply inspect_scale); test-analyze must not silently keep a mismatched archive/preview size.
+     */
+    private ResolvedFrame normalizeResolvedFrame(int cameraId, ResolvedFrame resolved)
+            throws IOException, AnalyzeException {
+        int[] ref = requireReferenceDimensions(cameraId);
+        int[] src = JpegBgrShmWriter.jpegDimensions(resolved.jpegBytes());
+        byte[] normalized = JpegBgrShmWriter.ensureJpegSize(resolved.jpegBytes(), ref[0], ref[1]);
+        boolean resized = normalized != resolved.jpegBytes();
+        log.info(
+                "ui test-analyze jpeg size cam={} frame={} archive={}x{} reference={}x{} resized={} bytes={}->{}",
+                cameraId,
+                resolved.frameId(),
+                src[0],
+                src[1],
+                ref[0],
+                ref[1],
+                resized,
+                resolved.jpegBytes().length,
+                normalized.length
+        );
+        if (!resized) {
+            return resolved;
+        }
+        return new ResolvedFrame(normalized, resolved.frameId(), resolved.previewHttpPath());
+    }
+
+    private int[] requireReferenceDimensions(int cameraId) throws AnalyzeException {
+        ReferenceSnapshot ref = referenceRegistry.get(cameraId);
+        if (ref == null || ref.header() == null) {
+            throw new AnalyzeException(
+                    409,
+                    "no reference for camera " + cameraId + " — cannot match test frame to reference resolution"
+            );
+        }
+        int width = YamlScalars.toInt(ref.header().get("width"), 0);
+        int height = YamlScalars.toInt(ref.header().get("height"), 0);
+        if (width <= 0 || height <= 0) {
+            throw new AnalyzeException(
+                    409,
+                    "reference for camera " + cameraId + " has invalid size " + width + "x" + height
+            );
+        }
+        return new int[] {width, height};
+    }
+
+    private Optional<ResolvedFrame> tryLoadLatestNativeJpeg(int cameraId, long frameId, String previewHttpPath) {
+        UiHttpServer ui = uiServerSupplier.get();
+        if (ui == null) {
+            return Optional.empty();
+        }
+        CameraPreviewStore.Latest latest = ui.latest(cameraId).orElse(null);
+        if (latest == null || latest.frameId() != frameId) {
+            return Optional.empty();
+        }
+        String shmName = latest.shmName();
+        int width = latest.captureWidth();
+        int height = latest.captureHeight();
+        if (shmName == null || shmName.isBlank() || width <= 0 || height <= 0) {
+            return Optional.empty();
+        }
+        UiHttpServer.ClientPreviewArtifact artifact = UiHttpServer.writeCurrentJpegFromBgrShm(
+                shmName,
+                width,
+                height,
+                width * 3,
+                0L,
+                0,
+                0.9f,
+                cameraId
+        );
+        if (artifact.path() == null || artifact.error() != null || !Files.isRegularFile(artifact.path())) {
+            if (artifact.error() != null) {
+                log.debug(
+                        "ui test-analyze native shm jpeg failed cam={} frame={} shm={}: {}",
+                        cameraId,
+                        frameId,
+                        shmName,
+                        artifact.error()
+                );
+            }
+            return Optional.empty();
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(artifact.path());
+            String httpPath = previewHttpPath == null || previewHttpPath.isBlank()
+                    ? "/api/camera/" + cameraId + "/current.jpg"
+                    : previewHttpPath;
+            log.info(
+                    "ui test-analyze native shm jpeg cam={} frame={} shm={} size={}x{} bytes={}",
+                    cameraId,
+                    frameId,
+                    shmName,
+                    artifact.width(),
+                    artifact.height(),
+                    bytes.length
+            );
+            return Optional.of(new ResolvedFrame(bytes, frameId, httpPath));
+        } catch (IOException e) {
+            log.debug("ui test-analyze native shm jpeg read failed cam={} frame={}: {}", cameraId, frameId, e.getMessage());
+            return Optional.empty();
         }
     }
 

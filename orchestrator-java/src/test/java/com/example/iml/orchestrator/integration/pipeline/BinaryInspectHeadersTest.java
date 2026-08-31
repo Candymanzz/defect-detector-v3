@@ -235,6 +235,83 @@ class BinaryInspectHeadersTest {
         }
     }
 
+    @Test
+    void pythonTestFrameInspectHeaderUsesJpegPathAndEphemeralSimpleKnobs() {
+        Map<String, Object> cap = new HashMap<>();
+        cap.put("frame_id", 42L);
+        cap.put("test_analyze", true);
+        cap.put("test_analyze_job_id", "abc123def456");
+        cap.put("test_frame_file_path", "/tmp/iml-test-pins/x/frame.jpg");
+        cap.put("test_frame_cache_key", "0:42");
+        cap.put("test_frame_image_url", "/api/client/inspection/test-pin/x/frame.jpg");
+        cap.put("analysis_test_settings", Map.of(
+                "mode", "simple",
+                "knobs", Map.of("threshold", 0.3, "sensitivity", 0.7)
+        ));
+        cap.put("positioning_aligned", true);
+        BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE, Map.copyOf(cap), new byte[0]);
+        BinaryProtocol.Message geom = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of("homographyRefToCurrent", List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.1)),
+                new byte[0]
+        );
+
+        Map<String, Object> header = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                0, "bench", "v1", captureMsg, geom, null, 512);
+
+        assertEquals("inspect_test_frame", header.get("op"));
+        assertEquals("/tmp/iml-test-pins/x/frame.jpg", header.get("file_path"));
+        assertEquals("0:42", header.get("cache_key"));
+        assertEquals(List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.1), header.get("alignment_h_ref_to_cur"));
+        assertTrue(header.get("simple") instanceof Map<?, ?>);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> simple = (Map<String, Object>) header.get("simple");
+        assertEquals(0.3, simple.get("threshold"));
+        assertEquals(0.7, simple.get("sensitivity"));
+        assertFalse(header.containsKey("pro"));
+        assertNotNull(header.get("heatmap_u8_output_path"));
+        assertEquals(512, header.get("heatmap_max_width"));
+    }
+
+    @Test
+    void pythonTestFrameInspectHeaderForwardsSimpleAndDetailedKnobsTogether() {
+        Map<String, Object> cap = new HashMap<>();
+        cap.put("frame_id", 42L);
+        cap.put("test_analyze", true);
+        cap.put("test_analyze_job_id", "abc123def456");
+        cap.put("test_frame_file_path", "/tmp/iml-test-pins/x/frame.jpg");
+        cap.put("test_frame_cache_key", "0:42");
+        cap.put("analysis_test_settings", Map.of(
+                "simple", Map.of("threshold", 0.3, "sensitivity", 0.7),
+                "detailed", Map.of(
+                        "noise_tolerance", 50,
+                        "scratch_sensitivity", 80,
+                        "edge_suppression", 50,
+                        "text_handling", 50,
+                        "preprocess_strength", 100
+                )
+        ));
+        BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE, Map.copyOf(cap), new byte[0]);
+        BinaryProtocol.Message geom = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of("homographyRefToCurrent", List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)),
+                new byte[0]
+        );
+
+        Map<String, Object> header = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                0, "bench", "v1", captureMsg, geom, null, 512);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> simple = (Map<String, Object>) header.get("simple");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> detailed = (Map<String, Object>) header.get("detailed");
+        assertEquals(0.3, simple.get("threshold"));
+        assertEquals(80, detailed.get("scratch_sensitivity"));
+        assertFalse(header.containsKey("pro"));
+    }
+
     private static void assertTrueMapsEqual(Object expected, Object actual) {
         if (!(expected instanceof Map<?, ?> expectedMap) || !(actual instanceof Map<?, ?> actualMap)) {
             throw new AssertionError("expected map values");

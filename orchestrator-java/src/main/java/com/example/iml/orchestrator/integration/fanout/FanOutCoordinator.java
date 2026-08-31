@@ -106,11 +106,22 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
+        ServiceHealthGate gate = healthGate;
+        if (gate != null && !gate.healthyForVision()) {
+            log.warn(
+                    "inspect bucket publish skipped seq={} group={} — services unhealthy {}",
+                    result.triggerSequence(),
+                    result.groupId(),
+                    gate.visionBlockingReasons()
+            );
+            return;
+        }
+        // Приоритет ПЛК: сначала FINS (ждём фронт бита), потом UI bucket.
         // Эталон задан → FINS reject по линии ведра (group 0 → line1, group 1 → line2).
         // Агрегатор шлёт оба ведра одного seq пакетом — здесь просто запись в очередь FINS.
         if (inspectionEnabled()) {
             if (plcPublisher != null) {
-                plcPublisher.publishBucket(result);
+                plcPublisher.publishBucket(result, true);
             }
         } else {
             log.debug(
@@ -149,19 +160,20 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                 && lastSessionState != ClientWsSessionState.NO_REFERENCE
                 && lastSessionState != ClientWsSessionState.TEST;
         ServiceHealthGate gate = healthGate;
-        boolean healthy = gate == null || gate.healthy();
+        boolean healthy = gate == null || gate.healthyForVision();
         boolean ready = referenceActive && healthy;
         boolean fault = !healthy;
         signalVisionReady(ready);
         signalVisionFault(fault);
         log.info(
-                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} unhealthy={})",
+                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} vision_blocking={} io_input_only={})",
                 lastSessionState == null ? "null" : lastSessionState.name(),
                 ready,
                 fault,
                 referenceActive,
                 healthy,
-                gate == null ? "[]" : gate.unhealthyReasons()
+                gate == null ? "[]" : gate.visionBlockingReasons(),
+                gate != null && !gate.healthy() && gate.healthyForVision()
         );
     }
 
