@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import router
-from app.file_logging import init_file_logging, log_http_request, log_http_response
+from app.file_logging import init_file_logging, log_error, log_http_request, log_http_response
 from app.runtime import get_application_id
 
 LOG = logging.getLogger("uvicorn.error")
@@ -47,6 +47,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         request.url.path,
         exc.errors(),
         body_text,
+    )
+    log_error(
+        "validation_422",
+        f"{request.method} {request.url.path}",
+        extra={"detail": exc.errors(), "body": body_text},
     )
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
