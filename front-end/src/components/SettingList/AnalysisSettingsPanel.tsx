@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
-import type { ProAnalysisKnobs, SimpleAnalysisKnobs } from "../../shared/api";
+import type { ProAnalysisKnobs, SimpleAnalysisKnobs, StrengthKnobs } from "../../shared/api";
 import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
@@ -44,7 +44,7 @@ type Props = {
 };
 export type AnalysisSettingsPanelHandle = {
   save: () => Promise<void>;
-  getDraft: () => { mode: Mode; knobs: SimpleAnalysisKnobs | ProAnalysisKnobs };
+  getDraft: () => { simple: SimpleAnalysisKnobs; strengths: StrengthKnobs };
 };
 type Mode = "simple" | "pro";
 
@@ -87,10 +87,17 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     hydratedRef.current = false;
     userEditedSimpleRef.current = false;
     userEditedProRef.current = false;
-    loadSimple(selectedCameraId, profile)
-      .then((response) => {
+    Promise.all([loadSimple(selectedCameraId, profile), loadPro(selectedCameraId, profile)])
+      .then(([simpleResponse, proResponse]) => {
         if (!active) return;
-        setSimple(response.knobs ?? { threshold: response.settings.default_threshold, sensitivity: 0.5 });
+        setSimple(simpleResponse.knobs ?? {
+          threshold: simpleResponse.settings.default_threshold,
+          sensitivity: 0.5,
+        });
+        setPro(proResponse.knobs ?? {
+          ...DEFAULT_PRO,
+          threshold: proResponse.settings.default_threshold,
+        });
         hydratedRef.current = true;
         setStatus({
           kind: "success",
@@ -100,18 +107,6 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
     return () => { active = false; };
   }, [profile, refreshVersion, selectedCameraId]);
-
-  useEffect(() => {
-    if (!unlocked || refreshVersion === 0) return;
-    let active = true;
-    loadPro(selectedCameraId, profile)
-      .then((response) => {
-        if (!active) return;
-        setPro(response.knobs ?? { ...DEFAULT_PRO, threshold: response.settings.default_threshold });
-      })
-      .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
-    return () => { active = false; };
-  }, [profile, refreshVersion, selectedCameraId, unlocked]);
 
   useEffect(() => {
     if (hideSaveAction || !hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
@@ -195,15 +190,16 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     previewRequestIdRef.current += 1;
     setStatus({ kind: "saving", text: "Сохранение…" });
     try {
-      if (mode === "simple") {
-        const response = await saveSimple(selectedCameraId, simple);
-        if (response?.knobs) setSimple(response.knobs);
-        userEditedSimpleRef.current = false;
-      } else {
-        const response = await savePro(selectedCameraId, pro);
-        if (response?.knobs) setPro(response.knobs);
-        userEditedProRef.current = false;
-      }
+      const draft = createAnalysisDraft(mode, simple, pro);
+      const simpleResponse = await saveSimple(selectedCameraId, draft.simple);
+      const strengthsResponse = await saveStrengths(selectedCameraId, draft.strengths);
+      setSimple(simpleResponse?.knobs ?? draft.simple);
+      setPro({
+        threshold: draft.simple.threshold,
+        ...(strengthsResponse?.strengths ?? draft.strengths),
+      });
+      userEditedSimpleRef.current = false;
+      userEditedProRef.current = false;
       if (!hideSaveAction) {
         if (selectedCameraId !== null && testFrameId && testPinId) {
           await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId);
@@ -224,7 +220,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
 
   useImperativeHandle(ref, () => ({
     save: persist,
-    getDraft: () => ({ mode, knobs: mode === "simple" ? simple : pro }),
+    getDraft: () => createAnalysisDraft(mode, simple, pro),
   }));
 
   const openPro = () => {
@@ -389,6 +385,27 @@ function loadPro(cameraId: number | null, profile: string) {
 function savePro(cameraId: number | null, knobs: ProAnalysisKnobs) {
   return cameraId === null ? saveAllCamerasPro(knobs) : orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs);
 }
+function saveStrengths(cameraId: number | null, knobs: StrengthKnobs) {
+  return cameraId === null
+    ? saveAllCamerasStrengths(knobs)
+    : orchestratorApi.setCameraStrengthAnalysisSettings(cameraId, knobs);
+}
+
+function createAnalysisDraft(mode: Mode, simple: SimpleAnalysisKnobs, pro: ProAnalysisKnobs) {
+  return {
+    simple: {
+      threshold: mode === "pro" ? pro.threshold : simple.threshold,
+      sensitivity: simple.sensitivity,
+    },
+    strengths: {
+      noise_tolerance: pro.noise_tolerance,
+      scratch_sensitivity: pro.scratch_sensitivity,
+      edge_suppression: pro.edge_suppression,
+      text_handling: pro.text_handling,
+      preprocess_strength: pro.preprocess_strength,
+    },
+  } satisfies { simple: SimpleAnalysisKnobs; strengths: StrengthKnobs };
+}
 
 async function loadAllCamerasSimple(fallbackProfile: string) {
   const cameras = (await orchestratorApi.listCameras()).cameras;
@@ -422,6 +439,17 @@ async function saveAllCamerasPro(knobs: ProAnalysisKnobs) {
   }
   const responses = await Promise.all(
     cameras.map((cameraId) => orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs)),
+  );
+  return responses[0];
+}
+
+async function saveAllCamerasStrengths(knobs: StrengthKnobs) {
+  const cameras = (await orchestratorApi.listCameras()).cameras;
+  if (cameras.length === 0) {
+    throw new Error("Список камер пуст — настройки не сохранены");
+  }
+  const responses = await Promise.all(
+    cameras.map((cameraId) => orchestratorApi.setCameraStrengthAnalysisSettings(cameraId, knobs)),
   );
   return responses[0];
 }
