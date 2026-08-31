@@ -45,6 +45,28 @@ def test_simple_settings_validation() -> None:
     assert response.status_code == 422
 
 
+def test_legacy_pro_endpoint_roundtrips_new_strengths() -> None:
+    profile = "test-legacy-pro-preset"
+    body = {
+        "threshold": 0.31,
+        "noise_tolerance": 20,
+        "scratch_sensitivity": 80,
+        "edge_suppression": 45,
+        "text_handling": 60,
+        "preprocess_strength": 75,
+    }
+
+    put_response = client.put(f"/analysis-settings/{profile}/pro", json=body)
+    assert put_response.status_code == 200, put_response.text
+    assert put_response.json()["knobs"] == body
+
+    get_response = client.get(f"/analysis-settings/{profile}/pro")
+    assert get_response.status_code == 200
+    assert get_response.json()["knobs"] == body
+
+    client.delete(f"/analysis-settings/{profile}")
+
+
 def test_detailed_settings_put_get_roundtrip() -> None:
     profile = "test-detailed-preset"
     body = {

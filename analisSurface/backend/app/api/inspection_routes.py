@@ -68,16 +68,28 @@ def load_test_frame_bgr(payload: TestFrameInspectRequest) -> np.ndarray:
 
 
 def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSettings:
-    if payload.simple is None:
-        raise ValueError("simple knobs required (threshold + sensitivity)")
-    strengths = normalize_strengths(
-        payload.detailed.model_dump() if payload.detailed is not None else None
-    )
-    overrides = expand_merged(
-        payload.simple.threshold,
-        payload.simple.sensitivity,
-        **strengths,
-    )
+    profile = payload.analysis_profile or payload.product_type
+    if payload.simple is not None:
+        strengths = normalize_strengths(
+            payload.detailed.model_dump() if payload.detailed is not None else None
+        )
+        overrides = expand_merged(
+            payload.simple.threshold,
+            payload.simple.sensitivity,
+            **strengths,
+        )
+    elif payload.pro is not None:
+        current_simple = inspection_service.get_simple_knobs(profile) or {}
+        sensitivity = float(current_simple.get("sensitivity", 0.5))
+        pro = payload.pro.model_dump()
+        threshold = float(pro.pop("threshold"))
+        overrides = expand_merged(
+            threshold,
+            sensitivity,
+            **normalize_strengths(pro),
+        )
+    else:
+        raise ValueError("simple or pro knobs required")
     return AnalysisSettings.from_overrides(overrides)
 
 
@@ -178,8 +190,22 @@ def _inspect_shm_sync(
         if mode == "simple":
             strengths = normalize_strengths(knobs.get("strengths"))
             temporary_overrides = expand_merged(knobs["threshold"], knobs["sensitivity"], **strengths)
-        elif mode == "detailed":
-            raise ValueError("use mode=simple with optional strengths in knobs")
+        elif mode in {"pro", "detailed"}:
+            # `pro` is the UI compatibility name; `detailed` is accepted for
+            # callers using the new endpoint terminology. Both use the saved
+            # simple sensitivity as the global anchor when it is omitted.
+            profile = payload.analysis_profile or payload.product_type
+            pro = knobs.get("pro") if isinstance(knobs.get("pro"), dict) else knobs
+            current_simple = inspection_service.get_simple_knobs(profile) or {}
+            sensitivity = float(current_simple.get("sensitivity", 0.5))
+            threshold = float(pro.get("threshold", current_simple.get("threshold", 0.25)))
+            strengths = dict(pro)
+            strengths.pop("threshold", None)
+            temporary_overrides = expand_merged(
+                threshold,
+                sensitivity,
+                **normalize_strengths(strengths),
+            )
     return inspection_service.inspect_frame(
         product_type=payload.product_type,
         frame=frame,

@@ -149,6 +149,12 @@ class DetailedStrengthKnobs(BaseModel):
 DetailedSensitivityKnobs = DetailedStrengthKnobs
 
 
+class ProSettingsKnobs(DetailedStrengthKnobs):
+    """Legacy pro payload: threshold plus detailed group strengths."""
+
+    threshold: float = Field(..., gt=0.0, le=1.0)
+
+
 class SimpleSettingsResponse(BaseModel):
     analysis_profile: str
     knobs: Optional[SimpleSettingsKnobs] = None
@@ -160,6 +166,16 @@ class SimpleSettingsResponse(BaseModel):
 class DetailedSensitivityResponse(BaseModel):
     analysis_profile: str
     knobs: Optional[DetailedSensitivityKnobs] = None
+    settings: AnalysisSettingsValues
+    defaults: AnalysisSettingsValues
+    overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
+class ProSettingsResponse(BaseModel):
+    """Backward-compatible response for clients still using the /pro endpoint."""
+
+    analysis_profile: str
+    knobs: Optional[ProSettingsKnobs] = None
     settings: AnalysisSettingsValues
     defaults: AnalysisSettingsValues
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
@@ -212,6 +228,9 @@ class TestFrameInspectRequest(BaseModel):
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None
     simple: Optional[SimpleSettingsKnobs] = None
     detailed: Optional[DetailedSensitivityKnobs] = None
+    # Kept for the current UI/orchestrator contract while detailed remains the
+    # canonical name for persisted strength groups.
+    pro: Optional[ProSettingsKnobs] = None
     heatmap_u8_output_path: Optional[str] = None
     heatmap_max_width: Optional[int] = None
     aligned_image_u8_output_path: Optional[str] = None

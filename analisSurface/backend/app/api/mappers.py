@@ -9,6 +9,8 @@ from app.api.schemas import (
     InspectWithVisualsResponse,
     DetailedSensitivityKnobs,
     DetailedSensitivityResponse,
+    ProSettingsKnobs,
+    ProSettingsResponse,
     RoiSubZonePoint,
     RoiSubZoneResponse,
     RoiSubZoneScoreResponse,
@@ -79,6 +81,29 @@ def to_detailed_sensitivity_response(
     return DetailedSensitivityResponse(
         analysis_profile=analysis_profile,
         knobs=DetailedSensitivityKnobs(**knobs) if knobs else None,
+        settings=to_analysis_settings_values(effective),
+        defaults=to_analysis_settings_values(defaults),
+        overrides=overrides,
+    )
+
+
+def to_pro_settings_response(
+    analysis_profile: str,
+    overrides: dict,
+    simple_knobs: dict[str, object] | None,
+    strength_knobs: dict[str, object] | None,
+) -> ProSettingsResponse:
+    """Build the legacy /pro shape from the new simple + strength stores."""
+    effective = AnalysisSettings.from_overrides(overrides)
+    defaults = AnalysisSettings.defaults()
+    simple = simple_knobs or {}
+    strengths = normalize_strengths(strength_knobs)
+    return ProSettingsResponse(
+        analysis_profile=analysis_profile,
+        knobs=ProSettingsKnobs(
+            threshold=float(simple.get("threshold", effective.default_threshold)),
+            **strengths,
+        ),
         settings=to_analysis_settings_values(effective),
         defaults=to_analysis_settings_values(defaults),
         overrides=overrides,
