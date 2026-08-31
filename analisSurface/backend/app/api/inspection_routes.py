@@ -185,17 +185,28 @@ def _inspect_shm_sync(
     frame = _copy_shm_bgr_frame(payload)
     temporary_overrides = None
     if payload.analysis_test_settings:
-        mode = str(payload.analysis_test_settings.get("mode", "")).strip().lower()
-        knobs = payload.analysis_test_settings.get("knobs") or {}
+        test_settings = payload.analysis_test_settings
+        mode = str(test_settings.get("mode", "")).strip().lower()
+        raw_knobs = test_settings.get("knobs")
+        knobs = raw_knobs if isinstance(raw_knobs, dict) else {}
         if mode == "simple":
-            strengths = normalize_strengths(knobs.get("strengths"))
-            temporary_overrides = expand_merged(knobs["threshold"], knobs["sensitivity"], **strengths)
+            simple = test_settings.get("simple")
+            simple = simple if isinstance(simple, dict) else knobs
+            strengths = normalize_strengths(simple.get("strengths"))
+            temporary_overrides = expand_merged(simple["threshold"], simple["sensitivity"], **strengths)
         elif mode in {"pro", "detailed"}:
             # `pro` is the UI compatibility name; `detailed` is accepted for
             # callers using the new endpoint terminology. Both use the saved
             # simple sensitivity as the global anchor when it is omitted.
             profile = payload.analysis_profile or payload.product_type
-            pro = knobs.get("pro") if isinstance(knobs.get("pro"), dict) else knobs
+            direct_pro = test_settings.get("pro")
+            pro = (
+                direct_pro
+                if isinstance(direct_pro, dict)
+                else knobs.get("pro")
+                if isinstance(knobs.get("pro"), dict)
+                else knobs
+            )
             current_simple = inspection_service.get_simple_knobs(profile) or {}
             sensitivity = float(current_simple.get("sensitivity", 0.5))
             threshold = float(pro.get("threshold", current_simple.get("threshold", 0.25)))
