@@ -12,6 +12,7 @@ frontend/dist/
 /backend/app/brack
 *.jpg
 c_capture/camera_server
+backend/logs/
 backend/app/data/fp_zones.json
 backend/app/data/fp_zone_crops/
 backend/app/data/learning_reviews/

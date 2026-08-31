@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -13,6 +14,7 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
+from app.file_logging import log_analysis_stage
 from app.services.analysis_settings import AnalysisSettings
 from app.services.inspection_geometry import (
     combine_region_masks,
@@ -717,7 +719,19 @@ class InspectionService:
         store_learning_review: bool = True,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
+        pipeline_started = time.perf_counter()
         settings_key = (analysis_profile or "").strip() or product_type
+        log_analysis_stage(
+            "start",
+            "pipeline started",
+            product_type=product_type,
+            extra={
+                "analysis_profile": settings_key,
+                "threshold": threshold,
+                "include_visuals": include_visuals,
+                "store_learning_review": store_learning_review,
+            },
+        )
         if settings is None:
             settings = self.get_analysis_settings(settings_key)
             if temporary_analysis_overrides:
@@ -741,6 +755,19 @@ class InspectionService:
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
+            log_analysis_stage(
+                "roi_mask",
+                "ROI polygon applied",
+                product_type=product_type,
+                extra={"points": len(polygon)},
+            )
+        else:
+            log_analysis_stage(
+                "roi_mask",
+                "no ROI polygon configured",
+                product_type=product_type,
+                skipped=True,
+            )
 
         self._last_aligned[product_type] = aligned.copy()
         inspection_threshold = (
@@ -754,9 +781,24 @@ class InspectionService:
             settings,
             vertical_compensation=True,
         )
+        log_analysis_stage(
+            "diff_map",
+            "difference map computed",
+            product_type=product_type,
+            extra={"shape": f"{diff_map.shape[1]}x{diff_map.shape[0]}"},
+        )
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
+        log_analysis_stage(
+            "anomaly_detection",
+            "initial anomaly score computed",
+            product_type=product_type,
+            extra={
+                "raw_score": round(float(anomaly_score), 4),
+                "mask_pixels": int(np.count_nonzero(segmentation_mask)),
+            },
+        )
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
@@ -769,6 +811,19 @@ class InspectionService:
             if include_visuals and pre_learning_heatmap
             else None
         )
+        if pre_learning_heatmap_u8 is not None:
+            log_analysis_stage(
+                "pre_learning_heatmap",
+                "pre-learning heatmap built",
+                product_type=product_type,
+            )
+        else:
+            log_analysis_stage(
+                "pre_learning_heatmap",
+                "pre-learning heatmap not requested",
+                product_type=product_type,
+                skipped=True,
+            )
 
         # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
@@ -799,6 +854,22 @@ class InspectionService:
                     learned_diff_map = np.zeros_like(learned_diff_map)
                     segmentation_mask = np.zeros_like(segmentation_mask)
                     learned_score = 0.0
+            log_analysis_stage(
+                "learned_normals",
+                "accepted normals matched and score recalculated",
+                product_type=product_type,
+                extra={
+                    "matched_cases": len(learned_filter.matched_case_ids),
+                    "learned_score": round(float(learned_score), 4),
+                },
+            )
+        else:
+            log_analysis_stage(
+                "learned_normals",
+                "no accepted-normal matches",
+                product_type=product_type,
+                skipped=True,
+            )
 
         # 6. FP-зоны: дырка в основном score + отдельная проверка vs мини-эталон.
         fp_recheck = self._recheck_fp_zones(
@@ -814,6 +885,17 @@ class InspectionService:
         )
         filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
+        fp_skipped = not self.get_fp_zones(product_type) or not settings.fp_recheck_enabled
+        log_analysis_stage(
+            "fp_recheck",
+            "FP zone recheck finished" if not fp_skipped else "FP recheck disabled or no zones",
+            product_type=product_type,
+            skipped=fp_skipped,
+            extra={
+                "rechecked_zones": len(fp_recheck["rechecked_zone_ids"]),
+                "fp_zone_scores": len(fp_recheck["fp_zone_scores"]),
+            },
+        )
 
         # 8. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
         sub_zones = self.get_roi_sub_zones(product_type)
@@ -824,6 +906,18 @@ class InspectionService:
             settings=settings,
             polygon=polygon,
             sub_zones=sub_zones,
+        )
+        log_analysis_stage(
+            "regional_scoring",
+            "regional verdict computed",
+            product_type=product_type,
+            extra={
+                "status": status,
+                "main_roi_score": round(float(main_roi_score), 4),
+                "anomaly_score": round(float(anomaly_score), 4),
+                "sub_zones": len(sub_zone_scores),
+                "threshold": inspection_threshold,
+            },
         )
 
         candidate_source = extract_defect_candidates(
@@ -918,6 +1012,19 @@ class InspectionService:
             # Exclusion polygons are a visual annotation only; they do not
             # participate in the frozen pre-learning heatmap energy.
             heatmap = self._draw_excluded_normal_overlay(heatmap, excluded_normal_zones)
+            log_analysis_stage(
+                "visuals",
+                "heatmap and overlays built",
+                product_type=product_type,
+                extra={"excluded_zones": len(excluded_normal_zones)},
+            )
+        else:
+            log_analysis_stage(
+                "visuals",
+                "visual output not requested",
+                product_type=product_type,
+                skipped=not include_visuals,
+            )
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
         # TEST/UI re-runs must not invent a new review id for the same frameId.
@@ -940,6 +1047,37 @@ class InspectionService:
             except Exception:
                 inspection_id = None
                 logger.exception("failed to save inspection history product_type=%s", product_type)
+                log_analysis_stage(
+                    "learning_review",
+                    "failed to save inspection history",
+                    product_type=product_type,
+                    skipped=True,
+                )
+            else:
+                log_analysis_stage(
+                    "learning_review",
+                    "inspection history saved",
+                    product_type=product_type,
+                    extra={"inspection_id": inspection_id, "status": status},
+                )
+        else:
+            log_analysis_stage(
+                "learning_review",
+                "history storage disabled for this run",
+                product_type=product_type,
+                skipped=True,
+            )
+
+        log_analysis_stage(
+            "complete",
+            "pipeline finished",
+            product_type=product_type,
+            extra={
+                "status": status,
+                "anomaly_score": round(float(anomaly_score), 4),
+                "duration_ms": round((time.perf_counter() - pipeline_started) * 1000.0, 1),
+            },
+        )
 
         return InspectionResult(
             product_type=product_type,
@@ -1734,7 +1872,19 @@ class InspectionService:
         """
         if self._is_identity_homography(alignment_h_ref_to_cur):
             if current.shape[:2] != reference.shape[:2]:
+                log_analysis_stage(
+                    "alignment",
+                    "identity homography from orchestrator, resized to reference",
+                    product_type=product_type,
+                    extra={"method": "identity_h_resize"},
+                )
                 return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            log_analysis_stage(
+                "alignment",
+                "identity homography from orchestrator, frame kept as-is",
+                product_type=product_type,
+                extra={"method": "identity_h"},
+            )
             return current
 
         geometry_aligned = self._align_with_geometry_homography(
@@ -1743,12 +1893,25 @@ class InspectionService:
             alignment_h_ref_to_cur,
         )
         if geometry_aligned is not None:
+            log_analysis_stage(
+                "alignment",
+                "geometry homography from orchestrator with ECC refine",
+                product_type=product_type,
+                extra={"method": "geometry_h_ecc"},
+            )
             return self._refine_alignment_ecc(geometry_aligned, reference)
 
         cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
         kp_ref, des_ref = self._get_ref_orb(product_type, reference)
         kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
+            log_analysis_stage(
+                "alignment",
+                "ORB descriptors insufficient, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "orb_keypoints_ref": len(kp_ref), "orb_keypoints_cur": len(kp_cur)},
+            )
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         # Lowe ratio test: оставляем только однозначные дескрипторные соответствия.
@@ -1762,6 +1925,13 @@ class InspectionService:
                 good_matches.append(m)
 
         if len(good_matches) < 8:
+            log_analysis_stage(
+                "alignment",
+                "ORB matches insufficient, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "good_matches": len(good_matches)},
+            )
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         src_pts = np.float32([kp_cur[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -1769,10 +1939,23 @@ class InspectionService:
 
         homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 1.0)
         if homography is None or mask is None:
+            log_analysis_stage(
+                "alignment",
+                "ORB homography failed, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "good_matches": len(good_matches)},
+            )
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
+        log_analysis_stage(
+            "alignment",
+            "ORB homography with ECC refine",
+            product_type=product_type,
+            extra={"method": "orb_h_ecc", "good_matches": len(good_matches)},
+        )
         return self._refine_alignment_ecc(aligned, reference)
 
     @staticmethod
