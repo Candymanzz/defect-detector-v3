@@ -27,6 +27,7 @@ from app.services.inspection_geometry import (
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
 from app.services.learned_normals import (
     AcceptedNormalMemory,
+    DefectCandidate,
     InspectionReviewStore,
     decode_review_arrays,
     extract_defect_candidates,
@@ -739,8 +740,10 @@ class InspectionService:
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
+        roi_mask = np.full(reference.shape[:2], 255, dtype=np.uint8)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
+            roi_mask = polygon_mask_from_norm_points(reference.shape[1], reference.shape[0], polygon)
 
         self._last_aligned[product_type] = aligned.copy()
         inspection_threshold = (
@@ -754,21 +757,15 @@ class InspectionService:
             settings,
             vertical_compensation=True,
         )
+        diff_map = cv2.bitwise_and(diff_map, diff_map, mask=roi_mask)
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
+        segmentation_mask = cv2.bitwise_and(segmentation_mask, segmentation_mask, mask=roi_mask)
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
         raw_segmentation_mask = segmentation_mask.copy()
-        # Freeze the local multipart heatmap before accepted normals, FP
-        # mini-etalon checks and regional scoring. This is the source/formula
-        # used by the pre-learning pipeline in 29c9cfa.
-        pre_learning_heatmap_u8 = (
-            self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
-            if include_visuals and pre_learning_heatmap
-            else None
-        )
 
         # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
@@ -782,9 +779,15 @@ class InspectionService:
         )
         learned_score = raw_score
         learned_diff_map = learned_filter.filtered_diff_map
-        segmentation_mask = learned_filter.filtered_mask
+        learned_diff_map = cv2.bitwise_and(learned_diff_map, learned_diff_map, mask=roi_mask)
+        segmentation_mask = cv2.bitwise_and(
+            learned_filter.filtered_mask,
+            learned_filter.filtered_mask,
+            mask=roi_mask,
+        )
         if learned_filter.matched_case_ids:
             learned_score, segmentation_mask = self._run_anomaly_model(learned_diff_map, settings)
+            segmentation_mask = cv2.bitwise_and(segmentation_mask, segmentation_mask, mask=roi_mask)
             if learned_filter.all_important_candidates_matched:
                 residual_candidates = extract_defect_candidates(
                     aligned,
@@ -813,7 +816,12 @@ class InspectionService:
             inspection_threshold,
         )
         filtered_diff_map = fp_recheck["filtered_diff_map"]
-        segmentation_mask = fp_recheck["filtered_mask"]
+        filtered_diff_map = cv2.bitwise_and(filtered_diff_map, filtered_diff_map, mask=roi_mask)
+        segmentation_mask = cv2.bitwise_and(
+            fp_recheck["filtered_mask"],
+            fp_recheck["filtered_mask"],
+            mask=roi_mask,
+        )
 
         # 8. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
         sub_zones = self.get_roi_sub_zones(product_type)
@@ -834,35 +842,69 @@ class InspectionService:
         # Сохраняем в review только значимые области: они и отображаются, и
         # принимаются групповой кнопкой как допустимая норма.
         review_candidates = filter_review_candidates(candidate_source)
-        display_mask = np.zeros_like(segmentation_mask)
-        for candidate in review_candidates:
-            x, y, box_width, box_height = candidate.bbox
-            local_mask = candidate.mask.astype(bool)
-            display_region = display_mask[y : y + box_height, x : x + box_width]
-            display_region[local_mask] = 255
 
         excluded_normal_zones = []
-        for candidate in learned_filter.candidates:
-            if candidate.matched_case_id is None:
+        immediately_suppressed_ids = {
+            candidate.id for candidate in learned_filter.suppressed_candidates
+        }
+        learned_exclusion_candidates = [
+            candidate
+            for candidate in learned_filter.candidates
+            if candidate.matched_case_id is not None
+            or candidate.id in immediately_suppressed_ids
+        ]
+        for candidate in learned_exclusion_candidates:
+            # A marker is a promise to the operator: this candidate has no
+            # pixels left in the final diff/mask used by regional scoring.
+            if not self._candidate_was_fully_excluded(
+                candidate,
+                filtered_diff_map,
+                segmentation_mask,
+            ):
                 continue
-            matched_case = self._accepted_normals.get(candidate.matched_case_id)
+            matched_case = (
+                self._accepted_normals.get(candidate.matched_case_id)
+                if candidate.matched_case_id is not None
+                else None
+            )
             # Prefer the saved case geometry: it is in the same fixed camera
             # coordinate space as the heatmap and remains stable when the
             # detected component jitters a few pixels between frames.
-            polygon_norm = (
+            saved_polygon_norm = (
                 list(matched_case.polygon_norm)
                 if matched_case is not None and len(matched_case.polygon_norm) >= 3
-                else list(candidate.polygon_norm)
+                else []
             )
-            if len(polygon_norm) < 3:
+            candidate_polygon_norm = list(candidate.polygon_norm)
+            uses_saved_geometry = self._polygon_was_fully_excluded(
+                saved_polygon_norm,
+                filtered_diff_map,
+                segmentation_mask,
+                roi_mask=roi_mask,
+            )
+            if uses_saved_geometry:
+                polygon_norm = saved_polygon_norm
+            elif self._polygon_was_fully_excluded(
+                candidate_polygon_norm,
+                filtered_diff_map,
+                segmentation_mask,
+                roi_mask=roi_mask,
+            ):
+                polygon_norm = candidate_polygon_norm
+            else:
                 continue
             zone = {
-                "kind": "accepted_normal",
+                "kind": (
+                    "accepted_normal"
+                    if candidate.matched_case_id is not None
+                    else "accepted_normal_cleanup"
+                ),
                 "case_id": candidate.matched_case_id,
                 "similarity": candidate.similarity,
                 "polygon": polygon_norm,
+                "excluded_from_score": True,
             }
-            if matched_case is not None and matched_case.polygon:
+            if uses_saved_geometry and matched_case is not None and matched_case.polygon:
                 zone["polygon_px"] = list(matched_case.polygon)
                 zone["coordinate_width"] = matched_case.coordinate_width
                 zone["coordinate_height"] = matched_case.coordinate_height
@@ -875,6 +917,12 @@ class InspectionService:
                 or not zone_score.applied_fp_etalon
                 or zone_score.note != "matched FP mini-etalon"
                 or len(zone.points_norm_ref) < 3
+                or not self._polygon_was_fully_excluded(
+                    zone.points_norm_ref,
+                    filtered_diff_map,
+                    segmentation_mask,
+                    roi_mask=roi_mask,
+                )
             ):
                 continue
             excluded_normal_zones.append(
@@ -883,30 +931,28 @@ class InspectionService:
                     "case_id": zone.id,
                     "similarity": None,
                     "polygon": list(zone.points_norm_ref),
+                    "excluded_from_score": True,
                 }
             )
 
-        # Heatmap повторяет реализацию до появления дообучения: для отображения
-        # используются исходные diff и mask, а не результат вычитания норм.
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
-        heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
+        # Render the same post-exclusion signal that produced the final score.
+        # Excluded regions are sent separately and hatched by the UI, so their
+        # old energy cannot hide a remaining real defect on the heatmap.
+        heatmap_mask = segmentation_mask
         heatmap_u8 = None
         if include_visuals:
-            heatmap_u8 = (
-                pre_learning_heatmap_u8
-                if pre_learning_heatmap_u8 is not None
-                else self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
-            )
+            heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
         elif include_heatmap_u8:
             try:
-                heatmap_u8 = self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
+                heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
         if include_visuals and pre_learning_heatmap:
             heatmap = self._colorize_heatmap_29c9cfa(heatmap_u8)
         else:
-            heatmap = self._colorize_heatmap(heatmap_u8, raw_segmentation_mask) if include_visuals else None
+            heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
             if not pre_learning_heatmap:
                 heatmap = self._draw_fp_zone_overlay(
@@ -915,9 +961,10 @@ class InspectionService:
                     fp_recheck["fp_zone_scores"],
                 )
                 heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
-            # Exclusion polygons are a visual annotation only; they do not
-            # participate in the frozen pre-learning heatmap energy.
+            # Exclusion polygons are visual annotations over the final heatmap.
             heatmap = self._draw_excluded_normal_overlay(heatmap, excluded_normal_zones)
+            # Overlay layers must not reintroduce pixels outside the configured ROI.
+            heatmap = cv2.bitwise_and(heatmap, heatmap, mask=roi_mask)
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
         # TEST/UI re-runs must not invent a new review id for the same frameId.
@@ -1581,11 +1628,66 @@ class InspectionService:
         return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)
 
     @staticmethod
+    def _candidate_was_fully_excluded(
+        candidate: DefectCandidate,
+        final_diff_map: np.ndarray,
+        final_mask: np.ndarray,
+    ) -> bool:
+        """Confirm that candidate pixels cannot contribute to the final score."""
+        x, y, box_width, box_height = candidate.bbox
+        if box_width <= 0 or box_height <= 0:
+            return False
+        local_candidate_mask = candidate.mask.astype(bool)
+        if local_candidate_mask.shape != (box_height, box_width) or not np.any(local_candidate_mask):
+            return False
+        diff_region = final_diff_map[y : y + box_height, x : x + box_width]
+        mask_region = final_mask[y : y + box_height, x : x + box_width]
+        if diff_region.shape[:2] != local_candidate_mask.shape:
+            return False
+        diff_gray = diff_region if diff_region.ndim == 2 else cv2.cvtColor(diff_region, cv2.COLOR_BGR2GRAY)
+        mask_gray = mask_region if mask_region.ndim == 2 else cv2.cvtColor(mask_region, cv2.COLOR_BGR2GRAY)
+        return not bool(np.any(diff_gray[local_candidate_mask])) and not bool(
+            np.any(mask_gray[local_candidate_mask])
+        )
+
+    @staticmethod
+    def _polygon_was_fully_excluded(
+        polygon: list[Tuple[float, float]],
+        final_diff_map: np.ndarray,
+        final_mask: np.ndarray,
+        *,
+        roi_mask: Optional[np.ndarray] = None,
+    ) -> bool:
+        """Confirm that every pixel advertised by an overlay is score-free."""
+        if len(polygon) < 3 or final_diff_map.shape[:2] != final_mask.shape[:2]:
+            return False
+        height, width = final_diff_map.shape[:2]
+        region = polygon_mask_from_norm_points(width, height, polygon) > 0
+        if not np.any(region):
+            return False
+        if roi_mask is not None and (
+            roi_mask.shape[:2] != region.shape
+            or np.any(region & (roi_mask == 0))
+        ):
+            return False
+        diff_gray = (
+            final_diff_map
+            if final_diff_map.ndim == 2
+            else cv2.cvtColor(final_diff_map, cv2.COLOR_BGR2GRAY)
+        )
+        mask_gray = (
+            final_mask
+            if final_mask.ndim == 2
+            else cv2.cvtColor(final_mask, cv2.COLOR_BGR2GRAY)
+        )
+        return not bool(np.any(diff_gray[region])) and not bool(np.any(mask_gray[region]))
+
+    @staticmethod
     def _draw_excluded_normal_overlay(
         heatmap: np.ndarray,
         excluded_zones: list[dict],
     ) -> np.ndarray:
-        """Mark saved-normal matches directly on the local color heatmap.
+        """Hatch regions that were actually removed from the final score.
 
         This modifies only the color heatmap returned by the local multipart
         ``/inspect`` endpoint. The gray SHM heatmap and inspection score stay
@@ -1597,7 +1699,7 @@ class InspectionService:
         height, width = heatmap.shape[:2]
         polygons: list[np.ndarray] = []
         for zone in excluded_zones:
-            if zone.get("kind") != "accepted_normal":
+            if zone.get("excluded_from_score") is not True:
                 continue
             pixel_polygon = zone.get("polygon_px") or []
             coordinate_width = int(zone.get("coordinate_width") or 0)
@@ -1677,14 +1779,30 @@ class InspectionService:
             return heatmap
         result = heatmap.copy()
         for points in polygons:
-            # BGR purple; the match must be visible without obscuring the heatmap
-            # values under the accepted-normal area.
+            # Sparse diagonal hatching keeps the underlying heatmap readable,
+            # while the thinner outline remains visible at production scale.
+            polygon_mask = np.zeros((height, width), dtype=np.uint8)
+            cv2.fillPoly(polygon_mask, [points], 255)
+            hatch = np.zeros_like(result)
+            for offset in range(-height, width, 18):
+                cv2.line(
+                    hatch,
+                    (offset, 0),
+                    (offset + height, height - 1),
+                    color=(210, 75, 185),
+                    thickness=2,
+                    lineType=cv2.LINE_AA,
+                )
+            hatch_pixels = (polygon_mask > 0) & np.any(hatch > 0, axis=2)
+            if np.any(hatch_pixels):
+                blended = cv2.addWeighted(result, 0.35, hatch, 0.65, 0.0)
+                result[hatch_pixels] = blended[hatch_pixels]
             cv2.polylines(
                 result,
                 [points],
                 isClosed=True,
                 color=(210, 75, 185),
-                thickness=12,
+                thickness=5,
                 lineType=cv2.LINE_AA,
             )
         return result
@@ -2155,8 +2273,17 @@ class InspectionService:
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
-        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
-        return cv2.max(mask_gray, gated_diff)
+        # Diff often contains hard 0/255 transitions. A small visual-only blur
+        # creates the green/yellow shoulder around a strong red core without
+        # changing the mask or the score calculation.
+        visual_diff = cv2.GaussianBlur(diff_gray, (0, 0), sigmaX=2.0, sigmaY=2.0)
+        gated_diff = np.where(gate > 0, visual_diff, 0).astype(np.uint8)
+        # The segmentation mask is binary (usually 255). Using it directly
+        # makes every detected component a red peak and destroys the green /
+        # yellow intensity gradient. Keep only a low floor from the mask and
+        # let the measured diff energy drive the displayed color.
+        mask_floor = np.where(mask_gray > 0, 64, 0).astype(np.uint8)
+        return cv2.max(mask_floor, gated_diff)
 
     def _build_pre_learning_heatmap_gray(
         self,

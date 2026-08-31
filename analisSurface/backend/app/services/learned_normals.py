@@ -330,6 +330,9 @@ class LearnedFilterResult:
     filtered_mask: np.ndarray
     candidates: list[DefectCandidate]
     matched_case_ids: list[str]
+    # Candidates immediately removed from both diff and mask. The caller
+    # combines them with matched candidates and verifies the final score maps.
+    suppressed_candidates: list[DefectCandidate]
     matched_candidates_count: int = 0
     all_important_candidates_matched: bool = False
     original_max_candidate_impact: float = 0.0
@@ -966,6 +969,7 @@ class AcceptedNormalMemory:
         filtered_diff = diff_map.copy()
         filtered_mask = segmentation_mask.copy()
         matched_case_ids: list[str] = []
+        suppressed_candidates: list[DefectCandidate] = []
         for candidate in candidates:
             best_case, best_similarity = self._best_matching_case(candidate, cases)
             if best_case is None:
@@ -973,13 +977,15 @@ class AcceptedNormalMemory:
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
             matched_candidate_ids.add(candidate.id)
-            self._apply_crop_cascade(
+            fully_suppressed = self._apply_crop_cascade(
                 candidate,
                 best_case,
                 aligned,
                 filtered_diff,
                 filtered_mask,
             )
+            if fully_suppressed:
+                suppressed_candidates.append(candidate)
             matched_case_ids.append(best_case.id)
 
         # После вычитания нормы слабые остатки нельзя ранжировать заново как
@@ -995,12 +1001,14 @@ class AcceptedNormalMemory:
                 if candidate.id in matched_candidate_ids:
                     continue
                 self._suppress_candidate(filtered_diff, filtered_mask, candidate)
+                suppressed_candidates.append(candidate)
 
         return LearnedFilterResult(
             filtered_diff_map=filtered_diff,
             filtered_mask=filtered_mask,
             candidates=candidates,
             matched_case_ids=list(dict.fromkeys(matched_case_ids)),
+            suppressed_candidates=suppressed_candidates,
             matched_candidates_count=len(matched_case_ids),
             all_important_candidates_matched=bool(important_candidate_ids)
             and important_candidate_ids.issubset(matched_candidate_ids),
@@ -1028,7 +1036,8 @@ class AcceptedNormalMemory:
         aligned: np.ndarray,
         filtered_diff: np.ndarray,
         filtered_mask: np.ndarray,
-    ) -> None:
+    ) -> bool:
+        """Apply a saved normal and report whether its candidate was fully removed."""
         x, y, box_width, box_height = candidate.bbox
         # Широкий блик: кроп vs мини-эталон в RGB, чтобы новый дефект поверх
         # знакомого засвета остался в остатке. Тонкие царапины гасятся по форме.
@@ -1060,8 +1069,12 @@ class AcceptedNormalMemory:
             color_residual = np.clip(color_residual - 12, 0, 255).astype(np.uint8)
             residual_bgr = cv2.cvtColor(color_residual, cv2.COLOR_GRAY2BGR)
             filtered_diff[y : y + box_height, x : x + box_width] = residual_bgr
-            return
+            # An identical broad normal produces an empty residual and is a
+            # true exclusion. A new defect inside it remains score-bearing and
+            # must not be presented to the operator as an excluded whole zone.
+            return not bool(np.any(color_residual))
         AcceptedNormalMemory._suppress_candidate(filtered_diff, filtered_mask, candidate)
+        return True
 
     @staticmethod
     def _suppress_candidate(

@@ -8,6 +8,7 @@ import pytest
 from app.services.analysis_settings_presets import expand_simple
 from app.services.inspection_geometry import (
     polygon_area,
+    polygon_mask_from_norm_points,
     validate_polygon_inside_parent,
     validate_polygon_points,
 )
@@ -189,11 +190,16 @@ def test_accept_all_keeps_new_important_defect_rejected(
         "accept-all-new-defect",
         new_frame,
         threshold=0.1,
-        include_visuals=False,
+        include_visuals=True,
         alignment_h_ref_to_cur=identity,
     )
 
     assert result.learned_normal_matches_count >= 1 or result.rechecked_zones_count >= 1
+    assert result.heatmap_u8 is not None
+    assert int(np.count_nonzero(result.heatmap_u8[35:80, 30:85])) == 0
+    assert int(np.count_nonzero(result.heatmap_u8[95:135, 205:265])) > 0
+    assert result.excluded_normal_zones
+    assert all(zone["excluded_from_score"] is True for zone in result.excluded_normal_zones)
     assert result.status == "БРАК"
 
 
@@ -317,6 +323,38 @@ def test_heatmap_stays_localized_to_defect_instead_of_filling_roi(
     assert heat[2:8, 2:12].max() < 16
 
 
+def test_heatmap_and_score_are_zero_outside_roi(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("heatmap-roi-boundary", gray_frame)
+    inspection_service.set_roi_polygon(
+        "heatmap-roi-boundary",
+        [(0.20, 0.20), (0.80, 0.20), (0.80, 0.80), (0.20, 0.80)],
+    )
+    defective = gray_frame.copy()
+    defective[4:12, 4:16] = 255  # outside ROI: must never enter heatmap/score
+    defective[28:40, 30:48] = 255  # inside ROI: remains visible
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+    result = inspection_service.inspect_frame(
+        "heatmap-roi-boundary",
+        defective,
+        threshold=0.1,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.heatmap_u8 is not None
+    roi_mask = polygon_mask_from_norm_points(
+        gray_frame.shape[1],
+        gray_frame.shape[0],
+        [(0.20, 0.20), (0.80, 0.20), (0.80, 0.80), (0.20, 0.80)],
+    ) > 0
+    assert int(result.heatmap_u8[~roi_mask].max()) == 0
+    assert int(result.heatmap_u8[32:38, 34:44].max()) > 0
+
+
 def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
     service = InspectionService.__new__(InspectionService)
     mask = np.zeros((32, 40, 3), dtype=np.uint8)
@@ -326,6 +364,34 @@ def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
     heat = service._build_heatmap_gray(mask, residual)
 
     assert heat.max() == 0
+
+
+def test_heatmap_preserves_diff_intensity_instead_of_binary_red_mask() -> None:
+    service = InspectionService.__new__(InspectionService)
+    mask = np.zeros((20, 30, 3), dtype=np.uint8)
+    mask[5:15, 8:22] = 255
+    diff = np.zeros_like(mask)
+    diff[5:15, 8:15] = 70
+    diff[5:15, 15:22] = 190
+
+    heat = service._build_heatmap_gray(mask, diff)
+
+    assert 55 <= int(heat[10, 10]) <= 80
+    assert 120 <= int(heat[10, 20]) <= 200
+    assert int(heat.max()) < 255
+
+
+def test_heatmap_adds_visual_gradient_around_hard_defect_edges() -> None:
+    service = InspectionService.__new__(InspectionService)
+    mask = np.zeros((31, 31, 3), dtype=np.uint8)
+    mask[12:19, 12:19] = 255
+    diff = np.zeros_like(mask)
+    diff[12:19, 12:19] = 255
+
+    heat = service._build_heatmap_gray(mask, diff)
+
+    assert int(heat[15, 15]) > int(heat[15, 10])
+    assert 0 < int(heat[15, 10]) < 255
 
 
 def test_pre_learning_heatmap_keeps_full_residual_energy() -> None:
@@ -380,7 +446,7 @@ def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
     assert score > 0.25
 
 
-def test_excluded_normal_overlay_draws_all_purple_outlines_without_fill(
+def test_excluded_normal_overlay_draws_thin_outline_and_sparse_hatching(
 ) -> None:
     heatmap = np.zeros((100, 120, 3), dtype=np.uint8)
     result = InspectionService._draw_excluded_normal_overlay(
@@ -388,22 +454,31 @@ def test_excluded_normal_overlay_draws_all_purple_outlines_without_fill(
         [
             {
                 "kind": "accepted_normal",
+                "excluded_from_score": True,
                 "polygon": [(0.25, 0.25), (0.75, 0.25), (0.75, 0.75), (0.25, 0.75)],
             },
             {
-                "kind": "accepted_normal",
+                "kind": "fp_zone",
+                "excluded_from_score": True,
                 "polygon": [(0.05, 0.05), (0.15, 0.05), (0.15, 0.15), (0.05, 0.15)],
+            },
+            {
+                "kind": "accepted_normal",
+                "excluded_from_score": False,
+                "polygon": [(0.80, 0.80), (0.95, 0.80), (0.95, 0.95), (0.80, 0.95)],
             },
         ],
     )
 
-    center_bgr = result[50, 60]
     outline_bgr = result[25, 60].astype(np.int16)
-    assert np.array_equal(center_bgr, heatmap[50, 60])
     assert outline_bgr[0] > outline_bgr[1] + 40
     assert outline_bgr[2] > outline_bgr[1] + 40
     assert np.any(result[5:20, 5:20] != heatmap[5:20, 5:20])
     assert np.array_equal(result[30, 5], heatmap[30, 5])
+    interior_changed = np.any(result[32:70, 35:85] != heatmap[32:70, 35:85], axis=2)
+    assert np.any(interior_changed)
+    assert np.any(~interior_changed)
+    assert np.array_equal(result[82:95, 98:115], heatmap[82:95, 98:115])
 
 
 def test_activity_score_stays_below_ceiling_on_full_strong_mask() -> None:
@@ -502,7 +577,7 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     assert without_exception.status == "БРАК"
 
 
-def test_local_pre_learning_heatmap_is_not_changed_by_accepted_normal(
+def test_local_heatmap_uses_post_exclusion_signal(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,
 ) -> None:
@@ -537,7 +612,10 @@ def test_local_pre_learning_heatmap_is_not_changed_by_accepted_normal(
 
     assert replay.anomaly_score < replay.threshold
     assert replay.learned_normal_matches_count == 1
-    assert np.array_equal(replay.heatmap_u8, original.heatmap_u8)
+    assert int(np.count_nonzero(original.heatmap_u8)) > 0
+    assert int(np.count_nonzero(replay.heatmap_u8)) == 0
+    assert replay.excluded_normal_zones
+    assert all(zone["excluded_from_score"] is True for zone in replay.excluded_normal_zones)
 
 
 def test_all_matched_saved_normals_are_exposed_as_excluded_zones(
@@ -570,6 +648,7 @@ def test_all_matched_saved_normals_are_exposed_as_excluded_zones(
 
     assert replay.learned_normal_matches_count == 2
     assert len(replay.excluded_normal_zones) == 2
+    assert all(zone["excluded_from_score"] is True for zone in replay.excluded_normal_zones)
 
 
 def test_delete_all_accepted_normals_clears_every_camera(
@@ -1156,6 +1235,11 @@ def test_new_colored_scratch_inside_accepted_broad_area_remains_a_defect(
     )
     assert glare_only.learned_normal_matches_count == 1 or glare_only.rechecked_zones_count >= 1
     assert glare_only.status == "ГОДЕН"
+    assert glare_only.excluded_normal_zones
+    assert all(
+        zone["excluded_from_score"] is True
+        for zone in glare_only.excluded_normal_zones
+    )
 
     glare_and_scratch = accepted_glare.copy()
     cv2.line(glare_and_scratch, (70, 48), (72, 136), (0, 0, 255), 4, cv2.LINE_AA)
@@ -1163,11 +1247,17 @@ def test_new_colored_scratch_inside_accepted_broad_area_remains_a_defect(
         "glare-with-scratch",
         glare_and_scratch,
         threshold=0.1,
-        include_visuals=False,
+        include_visuals=True,
         alignment_h_ref_to_cur=identity,
     )
 
     assert result.learned_normal_matches_count == 1 or result.rechecked_zones_count >= 1
+    assert result.heatmap_u8 is not None
+    assert int(np.count_nonzero(result.heatmap_u8[45:140, 65:78])) > 0
+    assert not any(
+        zone["kind"] == "accepted_normal"
+        for zone in result.excluded_normal_zones
+    )
     assert result.status == "БРАК"
     review = inspection_service.get_learning_review(result.inspection_id)
     assert review is not None
