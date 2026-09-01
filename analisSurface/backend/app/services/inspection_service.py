@@ -734,6 +734,7 @@ class InspectionService:
         settings: Optional[AnalysisSettings] = None,
         temporary_analysis_overrides: Optional[dict[str, object]] = None,
         pre_learning_heatmap: bool = False,
+        inspect_scale_after_align: Optional[float] = None,
         store_learning_review: bool = True,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
@@ -768,6 +769,14 @@ class InspectionService:
             product_type,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
+
+        if inspect_scale_after_align is not None and inspect_scale_after_align < 0.999:
+            aligned, reference = self._downscale_aligned_pair(
+                aligned,
+                reference,
+                inspect_scale_after_align,
+                product_type=product_type,
+            )
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
@@ -2008,6 +2017,42 @@ class InspectionService:
             extra={"method": "orb_h_ecc", "good_matches": len(good_matches)},
         )
         return self._refine_alignment_ecc(aligned, reference)
+
+    @staticmethod
+    def _downscale_aligned_pair(
+        aligned: np.ndarray,
+        reference: np.ndarray,
+        scale: float,
+        *,
+        product_type: str,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Downscale after full-res alignment — mirrors production inspect_scale path."""
+        safe_scale = max(0.1, min(1.0, float(scale)))
+        if safe_scale >= 0.999:
+            return aligned, reference
+        out_w = max(1, round(reference.shape[1] * safe_scale))
+        out_h = max(1, round(reference.shape[0] * safe_scale))
+        if aligned.shape[1] == out_w and aligned.shape[0] == out_h:
+            log_analysis_stage(
+                "inspect_scale",
+                "aligned pair already at inspect scale",
+                product_type=product_type,
+                extra={"scale": round(safe_scale, 4), "shape": f"{out_w}x{out_h}"},
+            )
+            return aligned, reference
+        log_analysis_stage(
+            "inspect_scale",
+            "aligned pair downscaled after alignment",
+            product_type=product_type,
+            extra={
+                "scale": round(safe_scale, 4),
+                "from": f"{reference.shape[1]}x{reference.shape[0]}",
+                "to": f"{out_w}x{out_h}",
+            },
+        )
+        aligned_out = cv2.resize(aligned, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+        reference_out = cv2.resize(reference, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+        return aligned_out, reference_out
 
     @staticmethod
     def _use_fixed_frame(current: np.ndarray, reference: np.ndarray) -> np.ndarray:

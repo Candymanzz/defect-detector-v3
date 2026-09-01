@@ -207,3 +207,33 @@ def test_inspect_test_frame_resizes_to_reference_resolution(tmp_path: Path) -> N
     finally:
         inspection_service.inspect_frame = original  # type: ignore[method-assign]
         inspection_service.clear_inspection_context()
+
+
+def test_inspect_test_frame_passes_inspect_scale(tmp_path: Path, monkeypatch) -> None:
+    reset_test_frame_bgr_cache()
+    jpeg = tmp_path / "frame.jpg"
+    frame = np.full((1024, 1224, 3), 40, dtype=np.uint8)
+    assert cv2.imwrite(str(jpeg), frame)
+    inspection_service.set_reference_frame("scale-test", frame.copy())
+
+    captured: dict[str, object] = {}
+    original = inspection_service.inspect_frame
+
+    def wrapping_inspect_frame(**kwargs):
+        captured.update(kwargs)
+        return original(**kwargs)
+
+    monkeypatch.setattr(inspection_service, "inspect_frame", wrapping_inspect_frame)
+    response = client.post(
+        "/inspect-test-frame",
+        json={
+            "cache_key": "2:100",
+            "file_path": str(jpeg),
+            "product_type": "scale-test",
+            "analysis_profile": "scale-test",
+            "simple": {"threshold": 0.25, "sensitivity": 0.5},
+            "inspect_scale": 0.5,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert captured.get("inspect_scale_after_align") == 0.5

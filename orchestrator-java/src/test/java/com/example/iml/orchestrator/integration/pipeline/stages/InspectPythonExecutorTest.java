@@ -186,6 +186,86 @@ class InspectPythonExecutorTest {
         assertEquals(1, ((Number) ((Map<?, ?>) algorithmParams.get("main_roi")).get("x")).intValue());
     }
 
+    @Test
+    void testAnalyzeForwardsInspectScaleToPython() {
+        AtomicReference<Map<String, Object>> sentHeader = new AtomicReference<>();
+        BinaryRpcSupervisor python = new BinaryRpcSupervisor() {
+            @Override
+            public BinaryProtocol.Message command(Map<String, Object> header) {
+                sentHeader.set(header);
+                return new BinaryProtocol.Message(
+                        BinaryProtocol.MSG_RESPONSE,
+                        Map.of("ok", true, "status", "PASS", "anomaly_score", 0.02),
+                        new byte[0]
+                );
+            }
+
+            @Override
+            public BinaryProtocol.Message commandNoRetry(Map<String, Object> header) {
+                return command(header);
+            }
+
+            @Override
+            public BinaryProtocol.Message health() {
+                return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, Map.of("status", "ok"), new byte[0]);
+            }
+
+            @Override
+            public void start() {
+            }
+
+            @Override
+            public void restart() {
+            }
+
+            @Override
+            public int restartCount() {
+                return 0;
+            }
+
+            @Override
+            public String supervisorLabel() {
+                return "python-test";
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+
+        BinaryProtocol.Message capture = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of(
+                        "frame_id", 42L,
+                        "test_analyze", true,
+                        "test_frame_file_path", "/tmp/frame.jpg",
+                        "test_frame_cache_key", "2:42",
+                        "shm_name", "cam_shm",
+                        "width", 1224,
+                        "height", 1024,
+                        "stride", 3672
+                ),
+                new byte[0]
+        );
+        PipelineState state = new PipelineState(capture, null, null, 5L, 0L, 7L);
+
+        PipelineState result = executor.apply(
+                state,
+                2,
+                "bench",
+                "detector-1",
+                reference(),
+                Map.of("inspect_scale", 0.5),
+                List.of(python),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(BinaryProtocol.MSG_RESPONSE, result.py().type());
+        assertEquals("inspect_test_frame", sentHeader.get().get("op"));
+        assertEquals(0.5, ((Number) sentHeader.get().get("inspect_scale")).doubleValue(), 1e-9);
+    }
+
     private static PipelineState stateWithCapture() {
         BinaryProtocol.Message capture = new BinaryProtocol.Message(
                 BinaryProtocol.MSG_RESPONSE,

@@ -549,6 +549,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             body.put("heatmap_u8_output_path", String.valueOf(heatmapPath));
         }
         copyIfPresent(body, header, "heatmap_max_width");
+        copyIfPresent(body, header, "inspect_scale");
         copyIfPresent(body, header, "aligned_image_u8_output_path");
         copyIfPresent(body, header, "diff_map_u8_output_path");
         copyIfPresent(body, header, "segmentation_mask_u8_output_path");

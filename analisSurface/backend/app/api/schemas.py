@@ -233,6 +233,8 @@ class TestFrameInspectRequest(BaseModel):
     pro: Optional[ProSettingsKnobs] = None
     heatmap_u8_output_path: Optional[str] = None
     heatmap_max_width: Optional[int] = None
+    # Match production inspect_shm when orchestrator uses python_detector.inspect_scale.
+    inspect_scale: Optional[float] = None
     aligned_image_u8_output_path: Optional[str] = None
     diff_map_u8_output_path: Optional[str] = None
     segmentation_mask_u8_output_path: Optional[str] = None

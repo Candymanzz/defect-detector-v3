@@ -322,6 +322,9 @@ def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
             payload.segmentation_mask_u8_output_path,
         )
     )
+    inspect_scale = payload.inspect_scale
+    if inspect_scale is not None and (not 0.0 < inspect_scale <= 1.0):
+        raise ValueError("inspect_scale must be in (0, 1]")
     return inspection_service.inspect_frame(
         product_type=payload.product_type,
         frame=frame,
@@ -331,6 +334,7 @@ def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
         analysis_profile=payload.analysis_profile,
         settings=settings,
+        inspect_scale_after_align=inspect_scale,
         store_learning_review=False,
     )
 

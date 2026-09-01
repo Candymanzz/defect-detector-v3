@@ -138,6 +138,13 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                         heatmapMaxWidth
                 );
                 applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
+                double testInspectScale = YamlScalars.toDouble(
+                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                        1.0
+                );
+                if (testInspectScale < 0.999d) {
+                    pyHeader.put("inspect_scale", testInspectScale);
+                }
                 log.info(
                         "python test-frame inspect cam={} frame={} file_path={} cache_key={} pin_sha={}",
                         cameraId,
