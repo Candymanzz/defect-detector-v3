@@ -161,7 +161,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         this.immediatePrefire = immediatePrefire;
         this.hardwareLineTrigger = hardwareLineTrigger;
         this.lineCaptureExecutor = Executors.newFixedThreadPool(
-                Math.max(1, this.expectedParties),
+                this.expectedParties,
                 r -> {
                     Thread t = new Thread(r, "line-capture");
                     t.setDaemon(true);
@@ -277,8 +277,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             LOG.warn("line prefire trigger_only failed seq={}: {}", triggerSequence, e.getMessage());
             return;
         }
-        Map<Integer, WorkerProcessSupervisor> latchWorkers = activeWorkers;
-        lineCaptureExecutor.submit(() -> latchRoundAsync(round, triggerSequence, triggerEpochMs, latchWorkers));
+        lineCaptureExecutor.submit(() -> latchRoundAsync(round, triggerSequence, triggerEpochMs, activeWorkers));
     }
 
     private Map<Integer, WorkerProcessSupervisor> filterWorkers(Collection<Integer> cameraIds) {

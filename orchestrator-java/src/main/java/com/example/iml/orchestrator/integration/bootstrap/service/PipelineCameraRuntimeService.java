@@ -48,9 +48,9 @@ public final class PipelineCameraRuntimeService {
     }
 
     /**
-     * @return {@code false} если workers не стартовали (early return из try)
+     *
      */
-    public boolean runBlocking(
+    public void runBlocking(
             IntegrationRuntimeContext ctx,
             IntegrationServicePoolFactory poolFactory,
             IntegrationLifecycleComposite lifecycle
@@ -91,7 +91,7 @@ public final class PipelineCameraRuntimeService {
         );
 
         if (!workers.startWorkers(ctx)) {
-            return false;
+            return;
         }
         workers.attachStreamService(ctx);
 
@@ -135,7 +135,6 @@ public final class PipelineCameraRuntimeService {
         lifecycle.start();
 
         runCameraTasks(ctx, triggerWire, stopSignal);
-        return true;
     }
 
     /** DI4=1 (или {@code shutdown_port}) → LightsShutdown + остановка оркестратора. */

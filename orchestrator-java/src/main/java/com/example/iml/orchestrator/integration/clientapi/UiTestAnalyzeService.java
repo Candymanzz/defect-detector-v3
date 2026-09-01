@@ -201,17 +201,7 @@ public final class UiTestAnalyzeService {
             String shmBase = "iml_uitest_cam" + cameraId + "_" + jobId.substring(0, Math.min(8, jobId.length()));
             JpegBgrShmWriter.WrittenFrame written = JpegBgrShmWriter.write(jpegBytes, cameraId, frameId, shmBase);
             shmPath = written.shmPath();
-            Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
-            captureHeader.put("test_analyze", true);
-            if (previewHttpPath != null && !previewHttpPath.isBlank()) {
-                captureHeader.put("http_path", previewHttpPath);
-            }
-            BinaryProtocol.Message capture = new BinaryProtocol.Message(
-                    BinaryProtocol.MSG_RESPONSE,
-                    Map.copyOf(captureHeader),
-                    new byte[0]
-            );
-            PipelineState state = new PipelineState(capture, null, null, 0L, 0L, 0L);
+            PipelineState state = getPipelineState(previewHttpPath, written);
             String productType = ref.productType() == null ? "" : ref.productType();
             String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
 
@@ -284,6 +274,21 @@ public final class UiTestAnalyzeService {
         }
     }
 
+    private static PipelineState getPipelineState(String previewHttpPath, JpegBgrShmWriter.WrittenFrame written) {
+        Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
+        captureHeader.put("test_analyze", true);
+        if (previewHttpPath != null && !previewHttpPath.isBlank()) {
+            captureHeader.put("http_path", previewHttpPath);
+        }
+        BinaryProtocol.Message capture = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.copyOf(captureHeader),
+                new byte[0]
+        );
+        PipelineState state = new PipelineState(capture, null, null, 0L, 0L, 0L);
+        return state;
+    }
+
     private record ResolvedFrame(byte[] jpegBytes, long frameId, String previewHttpPath) {
     }
 
@@ -345,8 +350,6 @@ public final class UiTestAnalyzeService {
             long frameId = frameIdHint != null ? frameIdHint : Math.abs(bundleId.hashCode());
             String httpPath = "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
             return new ResolvedFrame(bytes, frameId, httpPath);
-        } catch (AnalyzeException e) {
-            throw e;
         } catch (IOException e) {
             throw new AnalyzeException(404, "artifact frame not found: " + e.getMessage());
         }

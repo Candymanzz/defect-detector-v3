@@ -302,7 +302,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> findInterestPolygonNorm(Object polysObj, int index) {
         if (!(polysObj instanceof List<?> polys)) {
             return null;
@@ -685,7 +684,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return body;
     }
 
-    @SuppressWarnings("unchecked")
     private static void appendAlgorithmParams(Map<String, Object> body, Map<String, Object> header) {
         Map<String, Object> params = new LinkedHashMap<>();
         Object explicit = header.get("algorithm_params");
@@ -802,7 +800,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
         String productType = String.valueOf(header.getOrDefault("product_type", ""));
         LearnedReviewIndex.remember(
-                YamlScalars.toInt(header.get("phase_id"), extractScopeId(productType, "phase", 0)),
+                YamlScalars.toInt(header.get("phase_id"), extractScopeId(productType)),
                 cameraId,
                 frameId,
                 scopedProductType(productType, cameraId),
@@ -896,7 +894,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private void logHttpFailure(String path, Map<String, Object> requestBody, HttpResponse<byte[]> resp) {
         String req = safeJson(requestBody, 3000);
-        String body = safeResponseBody(resp.body(), 3000);
+        String body = safeResponseBody(resp.body());
         LOG.warn(
                 "{} HTTP POST {} failed status={} request={} response={}",
                 name,
@@ -915,11 +913,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
     }
 
-    private static String safeResponseBody(byte[] body, int maxLen) {
+    private static String safeResponseBody(byte[] body) {
         if (body == null || body.length == 0) {
             return "";
         }
-        return truncate(new String(body, StandardCharsets.UTF_8), maxLen);
+        return truncate(new String(body, StandardCharsets.UTF_8), 3000);
     }
 
     private static String truncate(String value, int maxLen) {
@@ -959,7 +957,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private static String scopedProductType(String productType, int cameraId) {
-        int phaseId = extractScopeId(productType, "phase", 0);
+        int phaseId = extractScopeId(productType);
         return scopedProductType(productType, phaseId, cameraId);
     }
 
@@ -972,14 +970,14 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return base + "#phase=" + Math.max(0, phaseId) + "#cam=" + cameraId;
     }
 
-    private static int extractScopeId(String productType, String key, int fallback) {
+    private static int extractScopeId(String productType) {
         if (productType == null) {
-            return fallback;
+            return 0;
         }
         java.util.regex.Matcher matcher = java.util.regex.Pattern
-                .compile("#" + java.util.regex.Pattern.quote(key) + "=(\\d+)")
+                .compile("#" + java.util.regex.Pattern.quote("phase") + "=(\\d+)")
                 .matcher(productType);
-        return matcher.find() ? Integer.parseInt(matcher.group(1)) : fallback;
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : 0;
     }
 
     private static String resolveAnalysisProfile(Map<String, Object> header, int cameraId) {
