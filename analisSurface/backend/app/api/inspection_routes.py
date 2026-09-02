@@ -26,7 +26,7 @@ from app.api.schemas import (
 )
 from app.runtime import get_application_id
 from app.services.analysis_settings import AnalysisSettings
-from app.services.analysis_settings_presets import expand_pro, expand_simple
+from app.services.analysis_settings_presets import expand_merged, normalize_strengths
 from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8_image_to_shm
 
 
@@ -68,16 +68,25 @@ def load_test_frame_bgr(payload: TestFrameInspectRequest) -> np.ndarray:
 
 
 def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSettings:
+    profile = payload.analysis_profile or payload.product_type
     if payload.simple is not None:
-        overrides = expand_simple(payload.simple.threshold, payload.simple.sensitivity)
+        strengths = normalize_strengths(
+            payload.detailed.model_dump() if payload.detailed is not None else None
+        )
+        overrides = expand_merged(
+            payload.simple.threshold,
+            payload.simple.sensitivity,
+            **strengths,
+        )
     elif payload.pro is not None:
-        overrides = expand_pro(
-            payload.pro.threshold,
-            payload.pro.noise_tolerance,
-            payload.pro.scratch_sensitivity,
-            payload.pro.edge_suppression,
-            payload.pro.text_handling,
-            payload.pro.preprocess_strength,
+        current_simple = inspection_service.get_simple_knobs(profile) or {}
+        sensitivity = float(current_simple.get("sensitivity", 0.5))
+        pro = payload.pro.model_dump()
+        threshold = float(pro.pop("threshold"))
+        overrides = expand_merged(
+            threshold,
+            sensitivity,
+            **normalize_strengths(pro),
         )
     else:
         raise ValueError("simple or pro knobs required")
@@ -176,14 +185,37 @@ def _inspect_shm_sync(
     frame = _copy_shm_bgr_frame(payload)
     temporary_overrides = None
     if payload.analysis_test_settings:
-        mode = str(payload.analysis_test_settings.get("mode", "")).strip().lower()
-        knobs = payload.analysis_test_settings.get("knobs") or {}
+        test_settings = payload.analysis_test_settings
+        mode = str(test_settings.get("mode", "")).strip().lower()
+        raw_knobs = test_settings.get("knobs")
+        knobs = raw_knobs if isinstance(raw_knobs, dict) else {}
         if mode == "simple":
-            temporary_overrides = expand_simple(knobs["threshold"], knobs["sensitivity"])
-        elif mode == "pro":
-            temporary_overrides = expand_pro(
-                knobs["threshold"], knobs["noise_tolerance"], knobs["scratch_sensitivity"],
-                knobs["edge_suppression"], knobs["text_handling"], knobs["preprocess_strength"],
+            simple = test_settings.get("simple")
+            simple = simple if isinstance(simple, dict) else knobs
+            strengths = normalize_strengths(simple.get("strengths"))
+            temporary_overrides = expand_merged(simple["threshold"], simple["sensitivity"], **strengths)
+        elif mode in {"pro", "detailed"}:
+            # `pro` is the UI compatibility name; `detailed` is accepted for
+            # callers using the new endpoint terminology. Both use the saved
+            # simple sensitivity as the global anchor when it is omitted.
+            profile = payload.analysis_profile or payload.product_type
+            direct_pro = test_settings.get("pro")
+            pro = (
+                direct_pro
+                if isinstance(direct_pro, dict)
+                else knobs.get("pro")
+                if isinstance(knobs.get("pro"), dict)
+                else knobs
+            )
+            current_simple = inspection_service.get_simple_knobs(profile) or {}
+            sensitivity = float(current_simple.get("sensitivity", 0.5))
+            threshold = float(pro.get("threshold", current_simple.get("threshold", 0.25)))
+            strengths = dict(pro)
+            strengths.pop("threshold", None)
+            temporary_overrides = expand_merged(
+                threshold,
+                sensitivity,
+                **normalize_strengths(strengths),
             )
     return inspection_service.inspect_frame(
         product_type=payload.product_type,
@@ -290,6 +322,9 @@ def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
             payload.segmentation_mask_u8_output_path,
         )
     )
+    inspect_scale = payload.inspect_scale
+    if inspect_scale is not None and (not 0.0 < inspect_scale <= 1.0):
+        raise ValueError("inspect_scale must be in (0, 1]")
     return inspection_service.inspect_frame(
         product_type=payload.product_type,
         frame=frame,
@@ -299,6 +334,7 @@ def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
         analysis_profile=payload.analysis_profile,
         settings=settings,
+        inspect_scale_after_align=inspect_scale,
         store_learning_review=False,
     )
 

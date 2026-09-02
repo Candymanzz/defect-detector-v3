@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -13,7 +14,9 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
+from app.file_logging import log_analysis_stage
 from app.services.analysis_settings import AnalysisSettings
+from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
 from app.services.inspection_geometry import (
     combine_region_masks,
     mask_to_polygon,
@@ -27,7 +30,6 @@ from app.services.inspection_geometry import (
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
 from app.services.learned_normals import (
     AcceptedNormalMemory,
-    DefectCandidate,
     InspectionReviewStore,
     decode_review_arrays,
     extract_defect_candidates,
@@ -69,7 +71,7 @@ class InspectionService:
         self._analysis_settings_file = Path(__file__).resolve().parent.parent / "data" / "analysis_settings.json"
         self._analysis_settings_overrides: Dict[str, dict[str, object]] = {}
         self._analysis_settings_simple_knobs: Dict[str, dict[str, object]] = {}
-        self._analysis_settings_pro_knobs: Dict[str, dict[str, object]] = {}
+        self._analysis_settings_detailed_knobs: Dict[str, dict[str, object]] = {}
         self._analysis_settings_lock = threading.Lock()
         self._analysis_settings_mtime_ns = -1
         self._orb = cv2.ORB_create(nfeatures=1800)
@@ -462,14 +464,14 @@ class InspectionService:
         self._analysis_settings_overrides[analysis_profile] = current
         # Полный API сбивает abstract-режим: knobs больше не соответствуют overrides.
         self._analysis_settings_simple_knobs.pop(analysis_profile, None)
-        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
+        self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
         return dict(current)
 
     def reset_analysis_settings(self, analysis_profile: str) -> dict[str, object]:
         self._analysis_settings_overrides.pop(analysis_profile, None)
         self._analysis_settings_simple_knobs.pop(analysis_profile, None)
-        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
+        self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
         return {}
 
@@ -477,9 +479,9 @@ class InspectionService:
         self._reload_analysis_settings_if_stale()
         return self._resolve_analysis_settings_knobs(self._analysis_settings_simple_knobs, analysis_profile)
 
-    def get_pro_knobs(self, analysis_profile: str) -> dict[str, object] | None:
+    def get_detailed_knobs(self, analysis_profile: str) -> dict[str, object] | None:
         self._reload_analysis_settings_if_stale()
-        return self._resolve_analysis_settings_knobs(self._analysis_settings_pro_knobs, analysis_profile)
+        return self._resolve_analysis_settings_knobs(self._analysis_settings_detailed_knobs, analysis_profile)
 
     def _resolve_analysis_settings_knobs(
         self,
@@ -499,33 +501,50 @@ class InspectionService:
                 return dict(knobs)
         return None
 
+    def get_strengths_for_profile(self, analysis_profile: str) -> dict[str, float]:
+        return normalize_strengths(self.get_detailed_knobs(analysis_profile))
+
+    def expand_settings_for_profile(
+        self,
+        analysis_profile: str,
+        *,
+        threshold: float | None = None,
+        sensitivity: float | None = None,
+    ) -> dict[str, object]:
+        simple = self.get_simple_knobs(analysis_profile)
+        thr = float(threshold if threshold is not None else (simple or {}).get("threshold", 0.25))
+        sens = float(sensitivity if sensitivity is not None else (simple or {}).get("sensitivity", 0.5))
+        strengths = self.get_strengths_for_profile(analysis_profile)
+        return expand_merged(thr, sens, **strengths)
+
     def apply_simple_settings(
         self,
         analysis_profile: str,
         overrides: dict[str, object],
         knobs: dict[str, object],
     ) -> dict[str, object]:
-        """Полная замена overrides из simple-пресета + сохранение knobs."""
+        """Сохранить simple-knobs и пересчитать overrides (силы detailed сохраняются)."""
         AnalysisSettings.from_overrides(overrides)
         self._analysis_settings_overrides[analysis_profile] = dict(overrides)
         self._analysis_settings_simple_knobs[analysis_profile] = dict(knobs)
-        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
+        if analysis_profile not in self._analysis_settings_detailed_knobs:
+            self._analysis_settings_detailed_knobs[analysis_profile] = dict(DEFAULT_STRENGTHS)
         self._save_analysis_settings()
         return dict(overrides)
 
-    def apply_pro_settings(
+    def apply_detailed_settings(
         self,
         analysis_profile: str,
-        overrides: dict[str, object],
-        knobs: dict[str, object],
+        strength_knobs: dict[str, object],
     ) -> dict[str, object]:
-        """Полная замена overrides из pro-пресета + сохранение knobs."""
-        AnalysisSettings.from_overrides(overrides)
-        self._analysis_settings_overrides[analysis_profile] = dict(overrides)
-        self._analysis_settings_pro_knobs[analysis_profile] = dict(knobs)
-        self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+        """Сохранить силы групп и пересчитать overrides с текущей simple-чувствительностью."""
+        normalized = self._normalize_detailed_knobs(strength_knobs)
+        self._analysis_settings_detailed_knobs[analysis_profile] = normalized
+        expanded = self.expand_settings_for_profile(analysis_profile)
+        AnalysisSettings.from_overrides(expanded)
+        self._analysis_settings_overrides[analysis_profile] = dict(expanded)
         self._save_analysis_settings()
-        return dict(overrides)
+        return dict(expanded)
 
     def add_fp_zone(
         self,
@@ -715,10 +734,23 @@ class InspectionService:
         settings: Optional[AnalysisSettings] = None,
         temporary_analysis_overrides: Optional[dict[str, object]] = None,
         pre_learning_heatmap: bool = False,
+        inspect_scale_after_align: Optional[float] = None,
         store_learning_review: bool = True,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
+        pipeline_started = time.perf_counter()
         settings_key = (analysis_profile or "").strip() or product_type
+        log_analysis_stage(
+            "start",
+            "pipeline started",
+            product_type=product_type,
+            extra={
+                "analysis_profile": settings_key,
+                "threshold": threshold,
+                "include_visuals": include_visuals,
+                "store_learning_review": store_learning_review,
+            },
+        )
         if settings is None:
             settings = self.get_analysis_settings(settings_key)
             if temporary_analysis_overrides:
@@ -738,12 +770,31 @@ class InspectionService:
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
 
+        if inspect_scale_after_align is not None and inspect_scale_after_align < 0.999:
+            aligned, reference = self._downscale_aligned_pair(
+                aligned,
+                reference,
+                inspect_scale_after_align,
+                product_type=product_type,
+            )
+
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
-        roi_mask = np.full(reference.shape[:2], 255, dtype=np.uint8)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
-            roi_mask = polygon_mask_from_norm_points(reference.shape[1], reference.shape[0], polygon)
+            log_analysis_stage(
+                "roi_mask",
+                "ROI polygon applied",
+                product_type=product_type,
+                extra={"points": len(polygon)},
+            )
+        else:
+            log_analysis_stage(
+                "roi_mask",
+                "no ROI polygon configured",
+                product_type=product_type,
+                skipped=True,
+            )
 
         self._last_aligned[product_type] = aligned.copy()
         inspection_threshold = (
@@ -757,15 +808,49 @@ class InspectionService:
             settings,
             vertical_compensation=True,
         )
-        diff_map = cv2.bitwise_and(diff_map, diff_map, mask=roi_mask)
+        log_analysis_stage(
+            "diff_map",
+            "difference map computed",
+            product_type=product_type,
+            extra={"shape": f"{diff_map.shape[1]}x{diff_map.shape[0]}"},
+        )
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
-        segmentation_mask = cv2.bitwise_and(segmentation_mask, segmentation_mask, mask=roi_mask)
+        log_analysis_stage(
+            "anomaly_detection",
+            "initial anomaly score computed",
+            product_type=product_type,
+            extra={
+                "raw_score": round(float(anomaly_score), 4),
+                "mask_pixels": int(np.count_nonzero(segmentation_mask)),
+            },
+        )
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
         raw_segmentation_mask = segmentation_mask.copy()
+        # Freeze the local multipart heatmap before accepted normals, FP
+        # mini-etalon checks and regional scoring. This is the source/formula
+        # used by the pre-learning pipeline in 29c9cfa.
+        pre_learning_heatmap_u8 = (
+            self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
+            if include_visuals and pre_learning_heatmap
+            else None
+        )
+        if pre_learning_heatmap_u8 is not None:
+            log_analysis_stage(
+                "pre_learning_heatmap",
+                "pre-learning heatmap built",
+                product_type=product_type,
+            )
+        else:
+            log_analysis_stage(
+                "pre_learning_heatmap",
+                "pre-learning heatmap not requested",
+                product_type=product_type,
+                skipped=True,
+            )
 
         # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
@@ -779,15 +864,9 @@ class InspectionService:
         )
         learned_score = raw_score
         learned_diff_map = learned_filter.filtered_diff_map
-        learned_diff_map = cv2.bitwise_and(learned_diff_map, learned_diff_map, mask=roi_mask)
-        segmentation_mask = cv2.bitwise_and(
-            learned_filter.filtered_mask,
-            learned_filter.filtered_mask,
-            mask=roi_mask,
-        )
+        segmentation_mask = learned_filter.filtered_mask
         if learned_filter.matched_case_ids:
             learned_score, segmentation_mask = self._run_anomaly_model(learned_diff_map, settings)
-            segmentation_mask = cv2.bitwise_and(segmentation_mask, segmentation_mask, mask=roi_mask)
             if learned_filter.all_important_candidates_matched:
                 residual_candidates = extract_defect_candidates(
                     aligned,
@@ -802,6 +881,22 @@ class InspectionService:
                     learned_diff_map = np.zeros_like(learned_diff_map)
                     segmentation_mask = np.zeros_like(segmentation_mask)
                     learned_score = 0.0
+            log_analysis_stage(
+                "learned_normals",
+                "accepted normals matched and score recalculated",
+                product_type=product_type,
+                extra={
+                    "matched_cases": len(learned_filter.matched_case_ids),
+                    "learned_score": round(float(learned_score), 4),
+                },
+            )
+        else:
+            log_analysis_stage(
+                "learned_normals",
+                "no accepted-normal matches",
+                product_type=product_type,
+                skipped=True,
+            )
 
         # 6. FP-зоны: дырка в основном score + отдельная проверка vs мини-эталон.
         fp_recheck = self._recheck_fp_zones(
@@ -816,11 +911,17 @@ class InspectionService:
             inspection_threshold,
         )
         filtered_diff_map = fp_recheck["filtered_diff_map"]
-        filtered_diff_map = cv2.bitwise_and(filtered_diff_map, filtered_diff_map, mask=roi_mask)
-        segmentation_mask = cv2.bitwise_and(
-            fp_recheck["filtered_mask"],
-            fp_recheck["filtered_mask"],
-            mask=roi_mask,
+        segmentation_mask = fp_recheck["filtered_mask"]
+        fp_skipped = not self.get_fp_zones(product_type) or not settings.fp_recheck_enabled
+        log_analysis_stage(
+            "fp_recheck",
+            "FP zone recheck finished" if not fp_skipped else "FP recheck disabled or no zones",
+            product_type=product_type,
+            skipped=fp_skipped,
+            extra={
+                "rechecked_zones": len(fp_recheck["rechecked_zone_ids"]),
+                "fp_zone_scores": len(fp_recheck["fp_zone_scores"]),
+            },
         )
 
         # 8. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
@@ -833,6 +934,18 @@ class InspectionService:
             polygon=polygon,
             sub_zones=sub_zones,
         )
+        log_analysis_stage(
+            "regional_scoring",
+            "regional verdict computed",
+            product_type=product_type,
+            extra={
+                "status": status,
+                "main_roi_score": round(float(main_roi_score), 4),
+                "anomaly_score": round(float(anomaly_score), 4),
+                "sub_zones": len(sub_zone_scores),
+                "threshold": inspection_threshold,
+            },
+        )
 
         candidate_source = extract_defect_candidates(
             aligned,
@@ -842,69 +955,35 @@ class InspectionService:
         # Сохраняем в review только значимые области: они и отображаются, и
         # принимаются групповой кнопкой как допустимая норма.
         review_candidates = filter_review_candidates(candidate_source)
+        display_mask = np.zeros_like(segmentation_mask)
+        for candidate in review_candidates:
+            x, y, box_width, box_height = candidate.bbox
+            local_mask = candidate.mask.astype(bool)
+            display_region = display_mask[y : y + box_height, x : x + box_width]
+            display_region[local_mask] = 255
 
         excluded_normal_zones = []
-        immediately_suppressed_ids = {
-            candidate.id for candidate in learned_filter.suppressed_candidates
-        }
-        learned_exclusion_candidates = [
-            candidate
-            for candidate in learned_filter.candidates
-            if candidate.matched_case_id is not None
-            or candidate.id in immediately_suppressed_ids
-        ]
-        for candidate in learned_exclusion_candidates:
-            # A marker is a promise to the operator: this candidate has no
-            # pixels left in the final diff/mask used by regional scoring.
-            if not self._candidate_was_fully_excluded(
-                candidate,
-                filtered_diff_map,
-                segmentation_mask,
-            ):
+        for candidate in learned_filter.candidates:
+            if candidate.matched_case_id is None:
                 continue
-            matched_case = (
-                self._accepted_normals.get(candidate.matched_case_id)
-                if candidate.matched_case_id is not None
-                else None
-            )
+            matched_case = self._accepted_normals.get(candidate.matched_case_id)
             # Prefer the saved case geometry: it is in the same fixed camera
             # coordinate space as the heatmap and remains stable when the
             # detected component jitters a few pixels between frames.
-            saved_polygon_norm = (
+            polygon_norm = (
                 list(matched_case.polygon_norm)
                 if matched_case is not None and len(matched_case.polygon_norm) >= 3
-                else []
+                else list(candidate.polygon_norm)
             )
-            candidate_polygon_norm = list(candidate.polygon_norm)
-            uses_saved_geometry = self._polygon_was_fully_excluded(
-                saved_polygon_norm,
-                filtered_diff_map,
-                segmentation_mask,
-                roi_mask=roi_mask,
-            )
-            if uses_saved_geometry:
-                polygon_norm = saved_polygon_norm
-            elif self._polygon_was_fully_excluded(
-                candidate_polygon_norm,
-                filtered_diff_map,
-                segmentation_mask,
-                roi_mask=roi_mask,
-            ):
-                polygon_norm = candidate_polygon_norm
-            else:
+            if len(polygon_norm) < 3:
                 continue
             zone = {
-                "kind": (
-                    "accepted_normal"
-                    if candidate.matched_case_id is not None
-                    else "accepted_normal_cleanup"
-                ),
+                "kind": "accepted_normal",
                 "case_id": candidate.matched_case_id,
                 "similarity": candidate.similarity,
                 "polygon": polygon_norm,
-                "excluded_from_score": True,
             }
-            if uses_saved_geometry and matched_case is not None and matched_case.polygon:
+            if matched_case is not None and matched_case.polygon:
                 zone["polygon_px"] = list(matched_case.polygon)
                 zone["coordinate_width"] = matched_case.coordinate_width
                 zone["coordinate_height"] = matched_case.coordinate_height
@@ -917,12 +996,6 @@ class InspectionService:
                 or not zone_score.applied_fp_etalon
                 or zone_score.note != "matched FP mini-etalon"
                 or len(zone.points_norm_ref) < 3
-                or not self._polygon_was_fully_excluded(
-                    zone.points_norm_ref,
-                    filtered_diff_map,
-                    segmentation_mask,
-                    roi_mask=roi_mask,
-                )
             ):
                 continue
             excluded_normal_zones.append(
@@ -931,28 +1004,30 @@ class InspectionService:
                     "case_id": zone.id,
                     "similarity": None,
                     "polygon": list(zone.points_norm_ref),
-                    "excluded_from_score": True,
                 }
             )
 
+        # Heatmap повторяет реализацию до появления дообучения: для отображения
+        # используются исходные diff и mask, а не результат вычитания норм.
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
-        # Render the same post-exclusion signal that produced the final score.
-        # Excluded regions are sent separately and hatched by the UI, so their
-        # old energy cannot hide a remaining real defect on the heatmap.
-        heatmap_mask = segmentation_mask
+        heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
-            heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+            heatmap_u8 = (
+                pre_learning_heatmap_u8
+                if pre_learning_heatmap_u8 is not None
+                else self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+            )
         elif include_heatmap_u8:
             try:
-                heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
+                heatmap_u8 = self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
         if include_visuals and pre_learning_heatmap:
             heatmap = self._colorize_heatmap_29c9cfa(heatmap_u8)
         else:
-            heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
+            heatmap = self._colorize_heatmap(heatmap_u8, raw_segmentation_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
             if not pre_learning_heatmap:
                 heatmap = self._draw_fp_zone_overlay(
@@ -961,10 +1036,22 @@ class InspectionService:
                     fp_recheck["fp_zone_scores"],
                 )
                 heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
-            # Exclusion polygons are visual annotations over the final heatmap.
+            # Exclusion polygons are a visual annotation only; they do not
+            # participate in the frozen pre-learning heatmap energy.
             heatmap = self._draw_excluded_normal_overlay(heatmap, excluded_normal_zones)
-            # Overlay layers must not reintroduce pixels outside the configured ROI.
-            heatmap = cv2.bitwise_and(heatmap, heatmap, mask=roi_mask)
+            log_analysis_stage(
+                "visuals",
+                "heatmap and overlays built",
+                product_type=product_type,
+                extra={"excluded_zones": len(excluded_normal_zones)},
+            )
+        else:
+            log_analysis_stage(
+                "visuals",
+                "visual output not requested",
+                product_type=product_type,
+                skipped=not include_visuals,
+            )
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
         # TEST/UI re-runs must not invent a new review id for the same frameId.
@@ -987,6 +1074,37 @@ class InspectionService:
             except Exception:
                 inspection_id = None
                 logger.exception("failed to save inspection history product_type=%s", product_type)
+                log_analysis_stage(
+                    "learning_review",
+                    "failed to save inspection history",
+                    product_type=product_type,
+                    skipped=True,
+                )
+            else:
+                log_analysis_stage(
+                    "learning_review",
+                    "inspection history saved",
+                    product_type=product_type,
+                    extra={"inspection_id": inspection_id, "status": status},
+                )
+        else:
+            log_analysis_stage(
+                "learning_review",
+                "history storage disabled for this run",
+                product_type=product_type,
+                skipped=True,
+            )
+
+        log_analysis_stage(
+            "complete",
+            "pipeline finished",
+            product_type=product_type,
+            extra={
+                "status": status,
+                "anomaly_score": round(float(anomaly_score), 4),
+                "duration_ms": round((time.perf_counter() - pipeline_started) * 1000.0, 1),
+            },
+        )
 
         return InspectionResult(
             product_type=product_type,
@@ -1055,10 +1173,33 @@ class InspectionService:
         status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
         return main_roi_score, sub_zone_scores, anomaly_score, status
 
+    @staticmethod
+    def _migrate_legacy_pro_knobs(raw: dict[str, object]) -> dict[str, object]:
+        """pro_knobs (0–1) → detailed strengths (0–100), без threshold/sensitivity."""
+        migrated: dict[str, object] = {}
+        for key in (
+            "noise_tolerance",
+            "scratch_sensitivity",
+            "edge_suppression",
+            "text_handling",
+            "preprocess_strength",
+        ):
+            if key in raw:
+                value = float(raw[key])
+                migrated[key] = value * 100.0 if value <= 1.0 else value
+            else:
+                migrated[key] = 50.0
+        return migrated
+
+    @staticmethod
+    def _normalize_detailed_knobs(raw: dict[str, object]) -> dict[str, object]:
+        normalized = normalize_strengths(raw)
+        return {key: int(round(value)) for key, value in normalized.items()}
+
     def _load_analysis_settings(self) -> None:
         self._analysis_settings_overrides = {}
         self._analysis_settings_simple_knobs = {}
-        self._analysis_settings_pro_knobs = {}
+        self._analysis_settings_detailed_knobs = {}
         if not self._analysis_settings_file.exists():
             return
         try:
@@ -1083,13 +1224,21 @@ class InspectionService:
                 simple_knobs = entry.get("simple_knobs")
                 if isinstance(simple_knobs, dict) and simple_knobs:
                     self._analysis_settings_simple_knobs[analysis_profile] = dict(simple_knobs)
-                pro_knobs = entry.get("pro_knobs")
-                if isinstance(pro_knobs, dict) and pro_knobs:
-                    self._analysis_settings_pro_knobs[analysis_profile] = dict(pro_knobs)
+                detailed_knobs = entry.get("detailed_knobs")
+                if isinstance(detailed_knobs, dict) and detailed_knobs:
+                    self._analysis_settings_detailed_knobs[analysis_profile] = self._normalize_detailed_knobs(
+                        detailed_knobs
+                    )
+                else:
+                    pro_knobs = entry.get("pro_knobs")
+                    if isinstance(pro_knobs, dict) and pro_knobs:
+                        self._analysis_settings_detailed_knobs[analysis_profile] = self._migrate_legacy_pro_knobs(
+                            pro_knobs
+                        )
         except Exception:
             self._analysis_settings_overrides = {}
             self._analysis_settings_simple_knobs = {}
-            self._analysis_settings_pro_knobs = {}
+            self._analysis_settings_detailed_knobs = {}
 
     def _analysis_settings_file_mtime_ns(self) -> int:
         try:
@@ -1115,7 +1264,7 @@ class InspectionService:
     def _save_analysis_settings(self) -> None:
         self._analysis_settings_file.parent.mkdir(parents=True, exist_ok=True)
         profiles = set(self._analysis_settings_overrides) | set(self._analysis_settings_simple_knobs) | set(
-            self._analysis_settings_pro_knobs
+            self._analysis_settings_detailed_knobs
         )
         entries = []
         for analysis_profile in sorted(profiles):
@@ -1126,9 +1275,11 @@ class InspectionService:
             simple_knobs = self._analysis_settings_simple_knobs.get(analysis_profile)
             if simple_knobs is not None:
                 entry["simple_knobs"] = simple_knobs
-            pro_knobs = self._analysis_settings_pro_knobs.get(analysis_profile)
-            if pro_knobs is not None:
-                entry["pro_knobs"] = pro_knobs
+            detailed_knobs = self._analysis_settings_detailed_knobs.get(analysis_profile)
+            if detailed_knobs is not None:
+                entry["detailed_knobs"] = {
+                    key: int(round(float(value))) for key, value in detailed_knobs.items()
+                }
             entries.append(entry)
         self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
         self._stamp_analysis_settings_mtime()
@@ -1628,66 +1779,11 @@ class InspectionService:
         return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)
 
     @staticmethod
-    def _candidate_was_fully_excluded(
-        candidate: DefectCandidate,
-        final_diff_map: np.ndarray,
-        final_mask: np.ndarray,
-    ) -> bool:
-        """Confirm that candidate pixels cannot contribute to the final score."""
-        x, y, box_width, box_height = candidate.bbox
-        if box_width <= 0 or box_height <= 0:
-            return False
-        local_candidate_mask = candidate.mask.astype(bool)
-        if local_candidate_mask.shape != (box_height, box_width) or not np.any(local_candidate_mask):
-            return False
-        diff_region = final_diff_map[y : y + box_height, x : x + box_width]
-        mask_region = final_mask[y : y + box_height, x : x + box_width]
-        if diff_region.shape[:2] != local_candidate_mask.shape:
-            return False
-        diff_gray = diff_region if diff_region.ndim == 2 else cv2.cvtColor(diff_region, cv2.COLOR_BGR2GRAY)
-        mask_gray = mask_region if mask_region.ndim == 2 else cv2.cvtColor(mask_region, cv2.COLOR_BGR2GRAY)
-        return not bool(np.any(diff_gray[local_candidate_mask])) and not bool(
-            np.any(mask_gray[local_candidate_mask])
-        )
-
-    @staticmethod
-    def _polygon_was_fully_excluded(
-        polygon: list[Tuple[float, float]],
-        final_diff_map: np.ndarray,
-        final_mask: np.ndarray,
-        *,
-        roi_mask: Optional[np.ndarray] = None,
-    ) -> bool:
-        """Confirm that every pixel advertised by an overlay is score-free."""
-        if len(polygon) < 3 or final_diff_map.shape[:2] != final_mask.shape[:2]:
-            return False
-        height, width = final_diff_map.shape[:2]
-        region = polygon_mask_from_norm_points(width, height, polygon) > 0
-        if not np.any(region):
-            return False
-        if roi_mask is not None and (
-            roi_mask.shape[:2] != region.shape
-            or np.any(region & (roi_mask == 0))
-        ):
-            return False
-        diff_gray = (
-            final_diff_map
-            if final_diff_map.ndim == 2
-            else cv2.cvtColor(final_diff_map, cv2.COLOR_BGR2GRAY)
-        )
-        mask_gray = (
-            final_mask
-            if final_mask.ndim == 2
-            else cv2.cvtColor(final_mask, cv2.COLOR_BGR2GRAY)
-        )
-        return not bool(np.any(diff_gray[region])) and not bool(np.any(mask_gray[region]))
-
-    @staticmethod
     def _draw_excluded_normal_overlay(
         heatmap: np.ndarray,
         excluded_zones: list[dict],
     ) -> np.ndarray:
-        """Hatch regions that were actually removed from the final score.
+        """Mark saved-normal matches directly on the local color heatmap.
 
         This modifies only the color heatmap returned by the local multipart
         ``/inspect`` endpoint. The gray SHM heatmap and inspection score stay
@@ -1699,7 +1795,7 @@ class InspectionService:
         height, width = heatmap.shape[:2]
         polygons: list[np.ndarray] = []
         for zone in excluded_zones:
-            if zone.get("excluded_from_score") is not True:
+            if zone.get("kind") != "accepted_normal":
                 continue
             pixel_polygon = zone.get("polygon_px") or []
             coordinate_width = int(zone.get("coordinate_width") or 0)
@@ -1779,30 +1875,14 @@ class InspectionService:
             return heatmap
         result = heatmap.copy()
         for points in polygons:
-            # Sparse diagonal hatching keeps the underlying heatmap readable,
-            # while the thinner outline remains visible at production scale.
-            polygon_mask = np.zeros((height, width), dtype=np.uint8)
-            cv2.fillPoly(polygon_mask, [points], 255)
-            hatch = np.zeros_like(result)
-            for offset in range(-height, width, 18):
-                cv2.line(
-                    hatch,
-                    (offset, 0),
-                    (offset + height, height - 1),
-                    color=(210, 75, 185),
-                    thickness=2,
-                    lineType=cv2.LINE_AA,
-                )
-            hatch_pixels = (polygon_mask > 0) & np.any(hatch > 0, axis=2)
-            if np.any(hatch_pixels):
-                blended = cv2.addWeighted(result, 0.35, hatch, 0.65, 0.0)
-                result[hatch_pixels] = blended[hatch_pixels]
+            # BGR purple; the match must be visible without obscuring the heatmap
+            # values under the accepted-normal area.
             cv2.polylines(
                 result,
                 [points],
                 isClosed=True,
                 color=(210, 75, 185),
-                thickness=5,
+                thickness=12,
                 lineType=cv2.LINE_AA,
             )
         return result
@@ -1852,7 +1932,19 @@ class InspectionService:
         """
         if self._is_identity_homography(alignment_h_ref_to_cur):
             if current.shape[:2] != reference.shape[:2]:
+                log_analysis_stage(
+                    "alignment",
+                    "identity homography from orchestrator, resized to reference",
+                    product_type=product_type,
+                    extra={"method": "identity_h_resize"},
+                )
                 return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            log_analysis_stage(
+                "alignment",
+                "identity homography from orchestrator, frame kept as-is",
+                product_type=product_type,
+                extra={"method": "identity_h"},
+            )
             return current
 
         geometry_aligned = self._align_with_geometry_homography(
@@ -1861,12 +1953,25 @@ class InspectionService:
             alignment_h_ref_to_cur,
         )
         if geometry_aligned is not None:
+            log_analysis_stage(
+                "alignment",
+                "geometry homography from orchestrator with ECC refine",
+                product_type=product_type,
+                extra={"method": "geometry_h_ecc"},
+            )
             return self._refine_alignment_ecc(geometry_aligned, reference)
 
         cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
         kp_ref, des_ref = self._get_ref_orb(product_type, reference)
         kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
+            log_analysis_stage(
+                "alignment",
+                "ORB descriptors insufficient, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "orb_keypoints_ref": len(kp_ref), "orb_keypoints_cur": len(kp_cur)},
+            )
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         # Lowe ratio test: оставляем только однозначные дескрипторные соответствия.
@@ -1880,6 +1985,13 @@ class InspectionService:
                 good_matches.append(m)
 
         if len(good_matches) < 8:
+            log_analysis_stage(
+                "alignment",
+                "ORB matches insufficient, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "good_matches": len(good_matches)},
+            )
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         src_pts = np.float32([kp_cur[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -1887,11 +1999,60 @@ class InspectionService:
 
         homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 1.0)
         if homography is None or mask is None:
+            log_analysis_stage(
+                "alignment",
+                "ORB homography failed, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "good_matches": len(good_matches)},
+            )
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
+        log_analysis_stage(
+            "alignment",
+            "ORB homography with ECC refine",
+            product_type=product_type,
+            extra={"method": "orb_h_ecc", "good_matches": len(good_matches)},
+        )
         return self._refine_alignment_ecc(aligned, reference)
+
+    @staticmethod
+    def _downscale_aligned_pair(
+        aligned: np.ndarray,
+        reference: np.ndarray,
+        scale: float,
+        *,
+        product_type: str,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Downscale after full-res alignment — mirrors production inspect_scale path."""
+        safe_scale = max(0.1, min(1.0, float(scale)))
+        if safe_scale >= 0.999:
+            return aligned, reference
+        out_w = max(1, round(reference.shape[1] * safe_scale))
+        out_h = max(1, round(reference.shape[0] * safe_scale))
+        if aligned.shape[1] == out_w and aligned.shape[0] == out_h:
+            log_analysis_stage(
+                "inspect_scale",
+                "aligned pair already at inspect scale",
+                product_type=product_type,
+                extra={"scale": round(safe_scale, 4), "shape": f"{out_w}x{out_h}"},
+            )
+            return aligned, reference
+        log_analysis_stage(
+            "inspect_scale",
+            "aligned pair downscaled after alignment",
+            product_type=product_type,
+            extra={
+                "scale": round(safe_scale, 4),
+                "from": f"{reference.shape[1]}x{reference.shape[0]}",
+                "to": f"{out_w}x{out_h}",
+            },
+        )
+        aligned_out = cv2.resize(aligned, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+        reference_out = cv2.resize(reference, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+        return aligned_out, reference_out
 
     @staticmethod
     def _use_fixed_frame(current: np.ndarray, reference: np.ndarray) -> np.ndarray:
@@ -2273,17 +2434,8 @@ class InspectionService:
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
-        # Diff often contains hard 0/255 transitions. A small visual-only blur
-        # creates the green/yellow shoulder around a strong red core without
-        # changing the mask or the score calculation.
-        visual_diff = cv2.GaussianBlur(diff_gray, (0, 0), sigmaX=2.0, sigmaY=2.0)
-        gated_diff = np.where(gate > 0, visual_diff, 0).astype(np.uint8)
-        # The segmentation mask is binary (usually 255). Using it directly
-        # makes every detected component a red peak and destroys the green /
-        # yellow intensity gradient. Keep only a low floor from the mask and
-        # let the measured diff energy drive the displayed color.
-        mask_floor = np.where(mask_gray > 0, 64, 0).astype(np.uint8)
-        return cv2.max(mask_floor, gated_diff)
+        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
+        return cv2.max(mask_gray, gated_diff)
 
     def _build_pre_learning_heatmap_gray(
         self,

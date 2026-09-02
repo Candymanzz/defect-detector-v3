@@ -345,7 +345,9 @@ export type SimpleAnalysisKnobs = {
 };
 
 export type ProAnalysisKnobs = {
+  /** Threshold is a unit interval; detailed strengths below are percentages. */
   threshold: number;
+  /** Detailed strength values use the backend's 0–100 scale. */
   noise_tolerance: number;
   scratch_sensitivity: number;
   edge_suppression: number;

@@ -78,6 +78,8 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const inspectionAcceptedFromFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateFrameRef = useRef<number | null>(null);
+  const pendingTestJobIdRef = useRef<string | null | undefined>(undefined);
+  const earlyTestResultsByJobIdRef = useRef(new Map<string, InspectResultPayload>());
 
   const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
     delete latestInspectResultByCameraIdRef.current[cameraId];
@@ -226,8 +228,22 @@ export function useMainOverview(inspectionResetVersion = 0) {
     [],
   );
 
-  const setPendingTestJob = useCallback((jobId: string) => {
-    setModalSnapshot((current) => (current ? { ...current, pendingTestJobId: jobId } : current));
+  const setPendingTestJob = useCallback((jobId: string | null | undefined) => {
+    pendingTestJobIdRef.current = jobId;
+    setModalSnapshot((current) => (current ? { ...current, pendingTestJobId: jobId ?? undefined } : current));
+    if (jobId === null) {
+      earlyTestResultsByJobIdRef.current.clear();
+      return;
+    }
+    if (jobId === undefined) {
+      earlyTestResultsByJobIdRef.current.clear();
+      return;
+    }
+    const earlyResult = earlyTestResultsByJobIdRef.current.get(jobId);
+    earlyTestResultsByJobIdRef.current.clear();
+    if (earlyResult) {
+      addModalInspectionItem(setModalSnapshot, earlyResult, jobId, earlyTestResultsByJobIdRef.current);
+    }
   }, []);
 
   const closeInspectionModal = useCallback(() => {
@@ -477,7 +493,12 @@ export function useMainOverview(inspectionResetVersion = 0) {
         setHasReference(true);
         addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
         addInspectionStatsItem(setInspectionStatsByCameraId, inspectResult);
-        addModalInspectionItem(setModalSnapshot, inspectResult);
+        addModalInspectionItem(
+          setModalSnapshot,
+          inspectResult,
+          pendingTestJobIdRef.current,
+          earlyTestResultsByJobIdRef.current,
+        );
         latestInspectResultByCameraIdRef.current[cameraId] = inspectResult;
         setInspectResultsByCameraId((previousResults) => ({
           ...previousResults,
@@ -548,7 +569,12 @@ export function useMainOverview(inspectionResetVersion = 0) {
       setHasReference(true);
       addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
       addInspectionStatsItem(setInspectionStatsByCameraId, inspectResult);
-      addModalInspectionItem(setModalSnapshot, inspectResult);
+      addModalInspectionItem(
+        setModalSnapshot,
+        inspectResult,
+        pendingTestJobIdRef.current,
+        earlyTestResultsByJobIdRef.current,
+      );
 
       const previousLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
       if (
@@ -917,11 +943,26 @@ function addInspectionHistoryItem(
 function addModalInspectionItem(
   setModalSnapshot: Dispatch<SetStateAction<ModalInspectionSnapshot | null>>,
   inspectResult: InspectResultPayload,
+  pendingTestJobId: string | null | undefined,
+  earlyTestResultsByJobId: Map<string, InspectResultPayload>,
 ) {
   const result = resolveInspectionResultState(inspectResult);
   // test-analyze must always refresh the open modal, even when stage statuses are SKIPPED/UNKNOWN.
   if (!result && !inspectResult.test_analyze) {
     return;
+  }
+
+  if (inspectResult.test_analyze) {
+    const resultJobId = inspectResult.test_analyze_job_id;
+    if (pendingTestJobId === null) {
+      if (resultJobId) {
+        earlyTestResultsByJobId.set(resultJobId, inspectResult);
+      }
+      return;
+    }
+    if (pendingTestJobId && resultJobId !== pendingTestJobId) {
+      return;
+    }
   }
 
   setModalSnapshot((currentSnapshot) => {
@@ -952,8 +993,7 @@ function addModalInspectionItem(
       if (
         currentSnapshot.pinnedTestPinId &&
         (inspectResult.test_pin_id !== currentSnapshot.pinnedTestPinId ||
-          inspectResult.pin_jpeg_sha256 !== currentSnapshot.pinnedTestJpegSha256 ||
-          (currentSnapshot.pendingTestJobId && inspectResult.test_analyze_job_id !== currentSnapshot.pendingTestJobId))
+          inspectResult.pin_jpeg_sha256 !== currentSnapshot.pinnedTestJpegSha256)
       ) {
         return currentSnapshot;
       }

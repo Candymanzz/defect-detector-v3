@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
-import type { ProAnalysisKnobs, SimpleAnalysisKnobs } from "../../shared/api";
+import type { ProAnalysisKnobs, SimpleAnalysisKnobs, StrengthKnobs } from "../../shared/api";
 import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
@@ -11,11 +11,13 @@ const FALLBACK_PROFILE = "reference-product";
 const DEFAULT_SIMPLE: SimpleAnalysisKnobs = { threshold: 0.25, sensitivity: 0.5 };
 const DEFAULT_PRO: ProAnalysisKnobs = {
   threshold: 0.25,
-  noise_tolerance: 0.5,
-  scratch_sensitivity: 0.5,
-  edge_suppression: 0.5,
-  text_handling: 0.5,
-  preprocess_strength: 0.5,
+  // Detailed/pro strength knobs are percentages in the Python API (0–100).
+  // Threshold remains a unit interval value (0–1), just like in simple mode.
+  noise_tolerance: 50,
+  scratch_sensitivity: 50,
+  edge_suppression: 50,
+  text_handling: 50,
+  preprocess_strength: 50,
 };
 
 const SIMPLE_FIELDS = [
@@ -42,7 +44,7 @@ type Props = {
 };
 export type AnalysisSettingsPanelHandle = {
   save: () => Promise<void>;
-  getDraft: () => { mode: Mode; knobs: SimpleAnalysisKnobs | ProAnalysisKnobs };
+  getDraft: () => { simple: SimpleAnalysisKnobs; strengths: StrengthKnobs };
 };
 type Mode = "simple" | "pro";
 
@@ -85,10 +87,17 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     hydratedRef.current = false;
     userEditedSimpleRef.current = false;
     userEditedProRef.current = false;
-    loadSimple(selectedCameraId, profile)
-      .then((response) => {
+    Promise.all([loadSimple(selectedCameraId, profile), loadPro(selectedCameraId, profile)])
+      .then(([simpleResponse, proResponse]) => {
         if (!active) return;
-        setSimple(response.knobs ?? { threshold: response.settings.default_threshold, sensitivity: 0.5 });
+        setSimple(simpleResponse.knobs ?? {
+          threshold: simpleResponse.settings.default_threshold,
+          sensitivity: 0.5,
+        });
+        setPro(proResponse.knobs ?? {
+          ...DEFAULT_PRO,
+          threshold: proResponse.settings.default_threshold,
+        });
         hydratedRef.current = true;
         setStatus({
           kind: "success",
@@ -98,18 +107,6 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
     return () => { active = false; };
   }, [profile, refreshVersion, selectedCameraId]);
-
-  useEffect(() => {
-    if (!unlocked || refreshVersion === 0) return;
-    let active = true;
-    loadPro(selectedCameraId, profile)
-      .then((response) => {
-        if (!active) return;
-        setPro(response.knobs ?? { ...DEFAULT_PRO, threshold: response.settings.default_threshold });
-      })
-      .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
-    return () => { active = false; };
-  }, [profile, refreshVersion, selectedCameraId, unlocked]);
 
   useEffect(() => {
     if (hideSaveAction || !hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
@@ -193,15 +190,16 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     previewRequestIdRef.current += 1;
     setStatus({ kind: "saving", text: "Сохранение…" });
     try {
-      if (mode === "simple") {
-        const response = await saveSimple(selectedCameraId, simple);
-        if (response?.knobs) setSimple(response.knobs);
-        userEditedSimpleRef.current = false;
-      } else {
-        const response = await savePro(selectedCameraId, pro);
-        if (response?.knobs) setPro(response.knobs);
-        userEditedProRef.current = false;
-      }
+      const draft = createAnalysisDraft(mode, simple, pro);
+      const simpleResponse = await saveSimple(selectedCameraId, draft.simple);
+      const strengthsResponse = await saveStrengths(selectedCameraId, draft.strengths);
+      setSimple(simpleResponse?.knobs ?? draft.simple);
+      setPro({
+        threshold: draft.simple.threshold,
+        ...(strengthsResponse?.strengths ?? draft.strengths),
+      });
+      userEditedSimpleRef.current = false;
+      userEditedProRef.current = false;
       if (!hideSaveAction) {
         if (selectedCameraId !== null && testFrameId && testPinId) {
           await orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId);
@@ -222,7 +220,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
 
   useImperativeHandle(ref, () => ({
     save: persist,
-    getDraft: () => ({ mode, knobs: mode === "simple" ? simple : pro }),
+    getDraft: () => createAnalysisDraft(mode, simple, pro),
   }));
 
   const openPro = () => {
@@ -268,6 +266,15 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       <div className="analysis-presets__fields">
         {fields.map((field) => {
           const value = values[field.name as keyof typeof values];
+          // Simple threshold/sensitivity are stored as 0–1, while detailed
+          // strength knobs returned by /pro are stored as 0–100 percentages.
+          const isProStrength = mode === "pro" && field.name !== "threshold";
+          const valueScale = isProStrength ? 1 : 100;
+          const minValue = isProStrength ? 0 : field.name === "threshold" ? 0.01 : 0;
+          const maxValue = isProStrength ? 100 : 1;
+          const sliderStep = isProStrength ? 0.1 : 0.001;
+          const minimumPercent = minValue * valueScale;
+          const maximumPercent = maxValue * valueScale;
           const updateValue = (next: number) => {
             if (mode === "simple") {
               userEditedSimpleRef.current = true;
@@ -277,9 +284,10 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
               setPro((current) => ({ ...current, [field.name]: next }));
             }
           };
-          const minimumPercent = field.name === "threshold" ? 1 : 0;
           const updatePercent = (percent: number) => {
-            updateValue(Math.min(100, Math.max(minimumPercent, percent)) / 100);
+            updateValue(
+              Math.min(maximumPercent, Math.max(minimumPercent, percent)) / valueScale,
+            );
           };
           return (
             <label className="analysis-presets__field" key={field.name}>
@@ -293,7 +301,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     max="100"
                     step="0.1"
                     inputMode="decimal"
-                    value={(Number(value) * 100).toFixed(1)}
+                    value={(Number(value) * valueScale).toFixed(1)}
                     disabled={busy}
                     onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       const percent = event.target.valueAsNumber;
@@ -306,16 +314,16 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     <button
                       type="button"
                       aria-label={`Увеличить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) >= 1}
-                      onClick={() => updatePercent(Number(value) * 100 + 0.1)}
+                      disabled={busy || Number(value) >= maxValue}
+                      onClick={() => updatePercent(Number(value) * valueScale + 0.1)}
                     >
                       ▲
                     </button>
                     <button
                       type="button"
                       aria-label={`Уменьшить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) * 100 <= minimumPercent}
-                      onClick={() => updatePercent(Number(value) * 100 - 0.1)}
+                      disabled={busy || Number(value) * valueScale <= minimumPercent}
+                      onClick={() => updatePercent(Number(value) * valueScale - 0.1)}
                     >
                       ▼
                     </button>
@@ -323,7 +331,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                 </span>
               </span>
               <input
-                type="range" min={field.name === "threshold" ? 0.01 : 0} max="1" step="0.001"
+                type="range" min={minValue} max={maxValue} step={sliderStep}
                 value={value} disabled={busy}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => updateValue(Number(event.target.value))}
               />
@@ -377,6 +385,27 @@ function loadPro(cameraId: number | null, profile: string) {
 function savePro(cameraId: number | null, knobs: ProAnalysisKnobs) {
   return cameraId === null ? saveAllCamerasPro(knobs) : orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs);
 }
+function saveStrengths(cameraId: number | null, knobs: StrengthKnobs) {
+  return cameraId === null
+    ? saveAllCamerasStrengths(knobs)
+    : orchestratorApi.setCameraStrengthAnalysisSettings(cameraId, knobs);
+}
+
+function createAnalysisDraft(mode: Mode, simple: SimpleAnalysisKnobs, pro: ProAnalysisKnobs) {
+  return {
+    simple: {
+      threshold: mode === "pro" ? pro.threshold : simple.threshold,
+      sensitivity: simple.sensitivity,
+    },
+    strengths: {
+      noise_tolerance: pro.noise_tolerance,
+      scratch_sensitivity: pro.scratch_sensitivity,
+      edge_suppression: pro.edge_suppression,
+      text_handling: pro.text_handling,
+      preprocess_strength: pro.preprocess_strength,
+    },
+  } satisfies { simple: SimpleAnalysisKnobs; strengths: StrengthKnobs };
+}
 
 async function loadAllCamerasSimple(fallbackProfile: string) {
   const cameras = (await orchestratorApi.listCameras()).cameras;
@@ -410,6 +439,17 @@ async function saveAllCamerasPro(knobs: ProAnalysisKnobs) {
   }
   const responses = await Promise.all(
     cameras.map((cameraId) => orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs)),
+  );
+  return responses[0];
+}
+
+async function saveAllCamerasStrengths(knobs: StrengthKnobs) {
+  const cameras = (await orchestratorApi.listCameras()).cameras;
+  if (cameras.length === 0) {
+    throw new Error("Список камер пуст — настройки не сохранены");
+  }
+  const responses = await Promise.all(
+    cameras.map((cameraId) => orchestratorApi.setCameraStrengthAnalysisSettings(cameraId, knobs)),
   );
   return responses[0];
 }

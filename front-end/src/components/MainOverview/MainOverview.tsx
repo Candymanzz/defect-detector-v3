@@ -184,6 +184,7 @@ export function MainOverview({
               simple: analysisDraft.simple as Record<string, number>,
               detailed: analysisDraft.strengths as Record<string, number>,
             };
+      controller.setPendingTestJob(null);
       const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {
         geometry: geometrySettingsRef.current?.getDraft(),
         analysis,
@@ -207,6 +208,7 @@ export function MainOverview({
       setTestAnalyzeState("awaiting");
       setTestAnalyzeMessage(`Проверка кадра ${frameId} запущена, ожидание результата…`);
     } catch (error) {
+      controller.setPendingTestJob(undefined);
       setTestAnalyzeState("error");
       setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось запустить повторную инспекцию");
     }

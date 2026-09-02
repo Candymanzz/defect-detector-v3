@@ -58,3 +58,6 @@ python_detector:
   # UI heatmap is written at this width after the full-resolution inspection decision is calculated.
   ui_heatmap_max_width: 512
   include_visuals: false
+  # Файловые логи analisSurface (backend/logs/...): requests, responses, analysis, errors, slow.
+  # Читает Python при старте из config/config.yaml (без изменений Java). false — отключить на длительных прогонах.
+  file_logging: true

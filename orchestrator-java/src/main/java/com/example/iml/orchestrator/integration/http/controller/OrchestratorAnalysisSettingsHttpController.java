@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  * <p>
  * {@code /api/orchestrator/analysis-settings/camera/{cameraId}[/simple|/pro]} resolves
  * {@code cameraId} to configured {@code analysis_profile} before proxying, preserving
- * optional mode suffix ({@code /simple}, {@code /pro}).
+ * optional mode suffix ({@code /simple}, {@code /detailed}, {@code /strengths}, legacy {@code /pro}).
  */
 public final class OrchestratorAnalysisSettingsHttpController implements HttpController {
 

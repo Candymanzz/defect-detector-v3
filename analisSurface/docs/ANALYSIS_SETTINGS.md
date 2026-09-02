@@ -16,15 +16,18 @@
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс overrides для продукта |
 | `GET` | `/analysis-settings/{product_type}/simple` | Последние simple-knobs + эффективные settings |
 | `PUT` | `/analysis-settings/{product_type}/simple` | Быстрая настройка: `threshold` + `sensitivity` |
-| `GET` | `/analysis-settings/{product_type}/pro` | Последние pro-knobs + эффективные settings |
-| `PUT` | `/analysis-settings/{product_type}/pro` | Pro-настройка: `threshold` + 5 абстрактных ручек |
+| `GET` | `/analysis-settings/{product_type}/strengths` | **Силы групп** (0–100), лёгкий ответ |
+| `PUT` | `/analysis-settings/{product_type}/strengths` | Сохранить силы групп |
+| `GET` | `/analysis-settings/{product_type}/detailed` | Силы + полные settings (расширенный ответ) |
+| `PUT` | `/analysis-settings/{product_type}/detailed` | Alias для `/strengths` |
 
 После `PUT` / `DELETE` настройки сохраняются в файл:
 
 `backend/app/data/analysis_settings.json`
 
-Документация для инженеров по `/simple` и `/pro`: **[ANALYSIS_SETTINGS_SIMPLE_PRO.md](ANALYSIS_SETTINGS_SIMPLE_PRO.md)**.  
-Подписи и пояснения для UI: **[ANALYSIS_SETTINGS_UI.md](ANALYSIS_SETTINGS_UI.md)**.
+Документация для инженеров: **[ANALYSIS_SETTINGS_SIMPLE_PRO.md](ANALYSIS_SETTINGS_SIMPLE_PRO.md)**.  
+Стыковка с оркестратором и фронтом: **[ANALYSIS_SETTINGS_INTEGRATION.md](ANALYSIS_SETTINGS_INTEGRATION.md)**.  
+Подписи для UI: **[ANALYSIS_SETTINGS_UI.md](ANALYSIS_SETTINGS_UI.md)**.
 
 ---
 
@@ -32,13 +35,41 @@
 
 ```json
 {
-  "product_type": "your-product",
+  "analysis_profile": "your-product",
   "settings": { "...": "эффективные значения (defaults + overrides)" },
   "defaults": { "...": "заводские значения" },
   "overrides": { "...": "только изменённые поля" },
+  "simple_knobs": { "threshold": 0.25, "sensitivity": 0.5 },
+  "strength_knobs": {
+    "noise_tolerance": 50,
+    "scratch_sensitivity": 50,
+    "edge_suppression": 50,
+    "text_handling": 50,
+    "preprocess_strength": 50
+  },
   "detector_id": "..."
 }
 ```
+
+`simple_knobs` и `strength_knobs` — `null`, если для профиля ещё не сохраняли через `/simple` и `/strengths`.
+
+### Формат `/strengths`
+
+```json
+{
+  "analysis_profile": "your-product",
+  "saved": true,
+  "strengths": {
+    "noise_tolerance": 50,
+    "scratch_sensitivity": 80,
+    "edge_suppression": 50,
+    "text_handling": 50,
+    "preprocess_strength": 100
+  }
+}
+```
+
+Если силы не сохраняли: `saved: false`, все поля `50`.
 
 Поле `detector_id` добавляется middleware приложения ко всем JSON-ответам.
 
