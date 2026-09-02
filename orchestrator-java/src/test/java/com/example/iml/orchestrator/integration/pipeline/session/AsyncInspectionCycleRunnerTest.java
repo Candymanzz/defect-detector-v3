@@ -361,7 +361,10 @@ class AsyncInspectionCycleRunnerTest {
                     com.example.iml.orchestrator.integration.lighting.LightTriggerClient lightClient,
                     ExecutorService captureStageExecutor,
                     long triggerSequence,
-                    String debugLogSuffix
+                    String debugLogSuffix,
+                    int phaseId,
+                    long parentCycleId,
+                    long rawTriggerSequence
             ) {
                 captureCalled.set(true);
                 PipelineState state = new PipelineState(captureMsg, null, null, 1L, 0L, 0L);
@@ -378,7 +381,10 @@ class AsyncInspectionCycleRunnerTest {
                     com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor worker,
                     com.example.iml.orchestrator.integration.lighting.LightTriggerClient lightClient,
                     long triggerSequence,
-                    String debugLogSuffix
+                    String debugLogSuffix,
+                    int phaseId,
+                    long parentCycleId,
+                    long rawTriggerSequence
             ) {
                 captureCalled.set(true);
                 return new PipelineState(captureMsg, null, null, 1L, 0L, 0L);

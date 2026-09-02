@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.trigger;
 
+import com.example.iml.orchestrator.integration.diagnostics.TwoPhaseCaptureDiagnostics;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -30,6 +31,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     private final int captureTriggerStaggerMs;
     private final ScheduledExecutorService staggerScheduler;
     private volatile LineTriggerListener lineTriggerListener;
+    private volatile TwoPhaseCaptureDiagnostics twoPhaseCaptureDiagnostics;
 
     public InspectionTriggerBus(Collection<Integer> cameraIds) {
         this(cameraIds, 0);
@@ -55,6 +57,10 @@ public final class InspectionTriggerBus implements AutoCloseable {
 
     public void setLineTriggerListener(LineTriggerListener lineTriggerListener) {
         this.lineTriggerListener = lineTriggerListener;
+    }
+
+    public void setTwoPhaseCaptureDiagnostics(TwoPhaseCaptureDiagnostics twoPhaseCaptureDiagnostics) {
+        this.twoPhaseCaptureDiagnostics = twoPhaseCaptureDiagnostics;
     }
 
     /** Публикует событие; broadcast — во все очереди; неизвестная камера — false. */
@@ -204,6 +210,10 @@ public final class InspectionTriggerBus implements AutoCloseable {
     ) {
         List<Integer> targets = resolveTargetCameras(cameraIds);
         lastDispatchedSequence.set(seq);
+        TwoPhaseCaptureDiagnostics phaseCaptureDiagnostics = twoPhaseCaptureDiagnostics;
+        if (phaseCaptureDiagnostics != null) {
+            phaseCaptureDiagnostics.onTriggerDispatched(phaseId, parentCycleId, rawTriggerSequence, targets.size());
+        }
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
             LOG.info(
                     "sync_diag channel=inspect event=line_dispatch trigger_sequence={} cameras={} stagger_ms=0 mode=simultaneous",

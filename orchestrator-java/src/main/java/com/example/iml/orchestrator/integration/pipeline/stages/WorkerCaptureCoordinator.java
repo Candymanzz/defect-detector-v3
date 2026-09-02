@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureC
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.diagnostics.CaptureSyncDiagnostics;
+import com.example.iml.orchestrator.integration.diagnostics.TwoPhaseCaptureDiagnostics;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -33,6 +34,7 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
     private final boolean captureWithoutReference;
     private volatile CameraStreamService cameraStreamService;
     private volatile LineSynchronizedCaptureCoordinator lineCaptureCoordinator;
+    private volatile TwoPhaseCaptureDiagnostics twoPhaseCaptureDiagnostics;
 
     public WorkerCaptureCoordinator(
             Logger log,
@@ -60,13 +62,8 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
         this.lineCaptureCoordinator = lineCaptureCoordinator;
     }
 
-    @Override
-    public void saveReferenceCapture(
-            Path projectRoot,
-            IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
-            BinaryProtocol.Message referenceCapture
-    ) {
-        jpegWriter.saveCapturedFrame(projectRoot, saveCaptures, referenceCapture.header(), "ref");
+    public void setTwoPhaseCaptureDiagnostics(TwoPhaseCaptureDiagnostics twoPhaseCaptureDiagnostics) {
+        this.twoPhaseCaptureDiagnostics = twoPhaseCaptureDiagnostics;
     }
 
     @Override
@@ -80,7 +77,10 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             LightTriggerClient lightClient,
             ExecutorService captureStageExecutor,
             long triggerSequence,
-            String debugLogSuffix
+            String debugLogSuffix,
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
     ) {
         LineSynchronizedCaptureCoordinator lineCapture = lineCaptureCoordinator;
         if (lineCapture != null && lineCapture.isEnabled() && triggerSequence > 0L) {
@@ -94,7 +94,10 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                             worker,
                             lightClient,
                             triggerSequence,
-                            debugLogSuffix
+                            debugLogSuffix,
+                            phaseId,
+                            parentCycleId,
+                            rawTriggerSequence
                     ),
                     Runnable::run
             );
@@ -109,7 +112,10 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                         worker,
                         lightClient,
                         triggerSequence,
-                        debugLogSuffix
+                        debugLogSuffix,
+                        phaseId,
+                        parentCycleId,
+                        rawTriggerSequence
                 ),
                 captureStageExecutor
         );
@@ -125,7 +131,10 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             WorkerProcessSupervisor worker,
             LightTriggerClient lightClient,
             long triggerSequence,
-            String debugLogSuffix
+            String debugLogSuffix,
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
     ) {
         try {
             if (activeReference == null || activeReference.header() == null) {
@@ -145,8 +154,17 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                     : -1L;
             final BinaryProtocol.Message[] captureHolder = new BinaryProtocol.Message[1];
             LineSynchronizedCaptureCoordinator lineCapture = lineCaptureCoordinator;
+            TwoPhaseCaptureDiagnostics phaseCaptureDiagnostics = twoPhaseCaptureDiagnostics;
             lightClient.runCaptureWithLighting(cameraId, refFrameId, "capture", flashLeadMs, () -> {
                 try {
+                    if (phaseCaptureDiagnostics != null) {
+                        phaseCaptureDiagnostics.onWaitFrameStart(
+                                cameraId,
+                                phaseId,
+                                parentCycleId,
+                                rawTriggerSequence
+                        );
+                    }
                     if (lineCapture != null && lineCapture.isEnabled() && triggerSequence > 0L) {
                         captureHolder[0] = lineCapture.captureForLine(triggerSequence, cameraId, worker);
                     } else {
@@ -179,12 +197,19 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                 String detail = capture == null || capture.header() == null
                         ? "null capture response"
                         : String.valueOf(capture.header().getOrDefault("error", capture.header()));
-                CaptureSyncDiagnostics.logInspectCaptureFail(
-                        log,
-                        cameraId,
-                        detail,
-                        YamlScalars.nanosToMs(System.nanoTime() - t0)
-                );
+                long orchMs = YamlScalars.nanosToMs(System.nanoTime() - t0);
+                if (phaseCaptureDiagnostics != null) {
+                    phaseCaptureDiagnostics.onCaptureFail(
+                            cameraId,
+                            phaseId,
+                            parentCycleId,
+                            rawTriggerSequence,
+                            detail,
+                            orchMs
+                    );
+                } else {
+                    CaptureSyncDiagnostics.logInspectCaptureFail(log, cameraId, detail, orchMs);
+                }
                 log.warn(
                         "worker cam={} capture unusable after line/sync+fallback ({}); geometry/python will be skipped",
                         cameraId,
@@ -194,14 +219,27 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                 Map<String, Object> header = capture.header();
                 long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
                 long orchMs = YamlScalars.nanosToMs(System.nanoTime() - t0);
-                CaptureSyncDiagnostics.logInspectCapture(
-                        log,
-                        cameraId,
-                        frameId,
-                        orchMs,
-                        YamlScalars.toLong(header.get("capture_started_ns"), 0L),
-                        YamlScalars.toLong(header.get("capture_latency_ns"), 0L)
-                );
+                long workerLatencyNs = YamlScalars.toLong(header.get("capture_latency_ns"), 0L);
+                if (phaseCaptureDiagnostics != null) {
+                    phaseCaptureDiagnostics.onCaptureOk(
+                            cameraId,
+                            phaseId,
+                            parentCycleId,
+                            rawTriggerSequence,
+                            frameId,
+                            orchMs,
+                            workerLatencyNs / 1_000_000L
+                    );
+                } else {
+                    CaptureSyncDiagnostics.logInspectCapture(
+                            log,
+                            cameraId,
+                            frameId,
+                            orchMs,
+                            YamlScalars.toLong(header.get("capture_started_ns"), 0L),
+                            workerLatencyNs
+                    );
+                }
             }
             jpegWriter.saveCapturedFrame(projectRoot, saveCaptures, capture.header(), "cap");
             if (log.isDebugEnabled()) {
@@ -217,6 +255,15 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void saveReferenceCapture(
+            Path projectRoot,
+            IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
+            BinaryProtocol.Message referenceCapture
+    ) {
+        jpegWriter.saveCapturedFrame(projectRoot, saveCaptures, referenceCapture.header(), "ref");
     }
 
     private static boolean hasUsableCaptureHeader(BinaryProtocol.Message capture) {

@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.bootstrap.config.SimultaneousLin
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.diagnostics.TwoPhaseCaptureDiagnostics;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashConfig;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
@@ -113,6 +114,10 @@ public final class TriggerRuntimeBootstrapService {
                 ctx.manualLineDirection()
         );
         ctx.setTriggerRuntime(triggerRuntime);
+
+        TwoPhaseCaptureDiagnostics phaseCaptureDiagnostics = new TwoPhaseCaptureDiagnostics(log);
+        triggerRuntime.bus().setTwoPhaseCaptureDiagnostics(phaseCaptureDiagnostics);
+        ctx.captureCoordinator().setTwoPhaseCaptureDiagnostics(phaseCaptureDiagnostics);
 
         wireIntervalFlash(ctx);
 

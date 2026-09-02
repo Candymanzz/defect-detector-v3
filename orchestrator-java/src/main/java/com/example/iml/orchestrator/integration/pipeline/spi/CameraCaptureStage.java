@@ -51,7 +51,7 @@ public interface CameraCaptureStage {
         return referenceHeader;
     }
 
-    CompletableFuture<PipelineState> scheduleCapture(
+    default CompletableFuture<PipelineState> scheduleCapture(
             Path projectRoot,
             IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
             int cameraId,
@@ -62,7 +62,66 @@ public interface CameraCaptureStage {
             ExecutorService captureStageExecutor,
             long triggerSequence,
             String debugLogSuffix
+    ) {
+        return scheduleCapture(
+                projectRoot,
+                saveCaptures,
+                cameraId,
+                activeReference,
+                flashLeadMs,
+                worker,
+                lightClient,
+                captureStageExecutor,
+                triggerSequence,
+                debugLogSuffix,
+                0,
+                triggerSequence,
+                triggerSequence
+        );
+    }
+
+    CompletableFuture<PipelineState> scheduleCapture(
+            Path projectRoot,
+            IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
+            int cameraId,
+            ReferenceSnapshot activeReference,
+            int flashLeadMs,
+            WorkerProcessSupervisor worker,
+            LightTriggerClient lightClient,
+            ExecutorService captureStageExecutor,
+            long triggerSequence,
+            String debugLogSuffix,
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
     );
+
+    default PipelineState runCaptureSync(
+            Path projectRoot,
+            IntegrationFeatureConfig.SaveCapturesConfig saveCaptures,
+            int cameraId,
+            ReferenceSnapshot activeReference,
+            int flashLeadMs,
+            WorkerProcessSupervisor worker,
+            LightTriggerClient lightClient,
+            long triggerSequence,
+            String debugLogSuffix
+    ) {
+        return runCaptureSync(
+                projectRoot,
+                saveCaptures,
+                cameraId,
+                activeReference,
+                flashLeadMs,
+                worker,
+                lightClient,
+                triggerSequence,
+                debugLogSuffix,
+                0,
+                triggerSequence,
+                triggerSequence
+        );
+    }
 
     PipelineState runCaptureSync(
             Path projectRoot,
@@ -73,6 +132,9 @@ public interface CameraCaptureStage {
             WorkerProcessSupervisor worker,
             LightTriggerClient lightClient,
             long triggerSequence,
-            String debugLogSuffix
+            String debugLogSuffix,
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
     );
 }

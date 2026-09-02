@@ -50,7 +50,10 @@ public final class AsyncInspectionCycleRunner {
                 in.lightClient(),
                 in.captureStageExecutor(),
                 in.triggerSequence(),
-                "current capture"
+                "current capture",
+                in.phaseId(),
+                in.parentCycleId(),
+                in.rawTriggerSequence()
         );
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
             captureFuture.cancel(true);
@@ -301,7 +304,10 @@ public final class AsyncInspectionCycleRunner {
                 in.lightClient(),
                 in.captureStageExecutor(),
                 in.triggerSequence(),
-                "capture without reference"
+                "capture without reference",
+                in.phaseId(),
+                in.parentCycleId(),
+                in.rawTriggerSequence()
         );
         PipelineState state;
         try {
