@@ -65,3 +65,4 @@ c_capture/camera_server
 defect-detector-v3
 analisSurface/backend/app/data/analysis_settings.json
 analisSurface/test-analysis.html
+/.pdf_pages

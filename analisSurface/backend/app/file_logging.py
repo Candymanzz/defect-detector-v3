@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from app.detector_settings import is_file_logging_enabled
+
 _LOGS_ROOT = Path(__file__).resolve().parent.parent / "logs"
 _MAX_BODY_CHARS = 4000
 _SLOW_REQUEST_MS = 1000.0
@@ -20,11 +22,12 @@ _SKIP_PATHS = frozenset({"/health", "/detector/health"})
 
 
 def _enabled() -> bool:
-    return os.environ.get("ANALIS_SURFACE_DISABLE_FILE_LOG", "").strip().lower() not in {
-        "1",
-        "true",
-        "yes",
-    }
+    return is_file_logging_enabled()
+
+
+def file_logging_enabled() -> bool:
+    """Публичная проверка: писать ли файловые логи и буферизовать HTTP в middleware."""
+    return _enabled()
 
 
 def _log_health_checks() -> bool:
