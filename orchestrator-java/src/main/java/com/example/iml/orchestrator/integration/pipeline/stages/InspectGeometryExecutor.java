@@ -82,16 +82,8 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             Semaphore geometrySlots,
             AtomicInteger geometryRoundRobin
     ) {
-        if (geometryDisabledCameras.contains(cameraId)) {
-            log.info("integration cam={}: geometry skipped (geometry_enabled=false)", cameraId);
-            return withSkippedGeometryPass(state, cameraId, "geometry disabled for camera");
-        }
         if (activeReference == null || activeReference.header() == null) {
             return withSkippedGeometryPass(state, cameraId, "geometry skipped: no reference snapshot");
-        }
-        if (BinaryInspectHeaders.isClientReferenceWithoutJointRoi(activeReference)) {
-            log.info("integration cam={}: geometry skipped (client reference without joint ROI)", cameraId);
-            return withSkippedGeometryPass(state, cameraId, "geometry skipped: no joint ROI from client");
         }
         if (positioningExecutor != null) {
             state = positioningExecutor.apply(state, cameraId, productType, activeReference, geometryCfg, pythonCfg);
@@ -106,6 +98,14 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                     state.pythonMs(),
                     0L
             );
+        }
+        if (geometryDisabledCameras.contains(cameraId)) {
+            log.info("integration cam={}: geometry skipped (geometry_enabled=false)", cameraId);
+            return withSkippedGeometryPass(state, cameraId, "geometry disabled for camera");
+        }
+        if (BinaryInspectHeaders.isClientReferenceWithoutJointRoi(activeReference)) {
+            log.info("integration cam={}: geometry skipped (client reference without joint ROI)", cameraId);
+            return withSkippedGeometryPass(state, cameraId, "geometry skipped: no joint ROI from client");
         }
         if (geometryPool.isEmpty()) {
             return state;

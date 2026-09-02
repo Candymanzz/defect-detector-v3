@@ -97,8 +97,8 @@ public final class ConfiguredCameras {
     }
 
     /**
-     * Камеры с {@code geometry_enabled: false} — geometry/positioning не вызываются
-     * (торцевые ракурсы без видимого стыка).
+     * Камеры с {@code geometry_enabled: false} — geometry не вызывается (торцевые ракурсы без стыка).
+     * Позиционирование при этом всё равно выполняется, если включено {@code java_positioning}.
      */
     @SuppressWarnings("unchecked")
     public static Set<Integer> geometryDisabledCameraIds(Map<String, Object> root) {

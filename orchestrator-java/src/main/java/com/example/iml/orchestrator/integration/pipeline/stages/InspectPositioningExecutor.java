@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.capture.LineFramePinService;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -81,6 +82,10 @@ public final class InspectPositioningExecutor {
                     activeReference,
                     geometryCfg,
                     positioningCfg
+            );
+            BinaryInspectHeaders.applyPositioningProfileOverrides(
+                    header,
+                    resolvePositioningProfileOverrides(cameraId, productType)
             );
             BinaryInspectHeaders.applyMainRoiFromPolygon(header, state.capture(), activeReference);
             if (positioningSlots != null) {
@@ -259,5 +264,19 @@ public final class InspectPositioningExecutor {
         if (value != null) {
             target.put(key, value);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> resolvePositioningProfileOverrides(int cameraId, String productType) {
+        Object rawProfiles = positioningCfg.get("profiles");
+        if (!(rawProfiles instanceof Map<?, ?> profiles) || profiles.isEmpty()) {
+            return Map.of();
+        }
+        String profileKey = CameraAnalysisProfiles.resolve(cameraId, productType);
+        Object profile = profiles.get(profileKey);
+        if (!(profile instanceof Map<?, ?> overrides)) {
+            return Map.of();
+        }
+        return Map.copyOf((Map<String, Object>) overrides);
     }
 }

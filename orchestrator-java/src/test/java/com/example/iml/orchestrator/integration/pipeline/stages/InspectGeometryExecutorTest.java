@@ -70,8 +70,8 @@ class InspectGeometryExecutorTest {
     }
 
     @Test
-    void skipsDisabledCameraWithoutCallingPool() {
-        AtomicInteger calls = new AtomicInteger();
+    void skipsDisabledCameraWithoutCallingGeometryPool() {
+        AtomicInteger geometryCalls = new AtomicInteger();
         InspectGeometryExecutor disabledExecutor = new InspectGeometryExecutor(
                 LogManager.getLogger(getClass()),
                 null,
@@ -87,15 +87,50 @@ class InspectGeometryExecutorTest {
                 reference(),
                 Map.of(),
                 Map.of(),
-                List.of(countingSupervisor(calls)),
+                List.of(countingSupervisor(geometryCalls)),
                 new Semaphore(1),
                 new AtomicInteger(0)
         );
 
-        assertEquals(0, calls.get());
+        assertEquals(0, geometryCalls.get());
         assertEquals("SKIPPED", result.geom().header().get("status"));
         assertEquals(true, result.geom().header().get("overallPass"));
         assertEquals(false, result.geom().header().get("jointCamera"));
+    }
+
+    @Test
+    void runsPositioningForGeometryDisabledCamera() {
+        AtomicInteger positioningCalls = new AtomicInteger();
+        InspectPositioningExecutor positioning = new InspectPositioningExecutor(
+                LogManager.getLogger(getClass()),
+                List.of(countingSupervisor(positioningCalls)),
+                new Semaphore(1),
+                new AtomicInteger(),
+                Map.of("enabled", true)
+        );
+        InspectGeometryExecutor withPositioning = new InspectGeometryExecutor(
+                LogManager.getLogger(getClass()),
+                null,
+                null,
+                positioning,
+                Set.of(2)
+        );
+
+        PipelineState result = withPositioning.apply(
+                stateWithCapture(),
+                2,
+                "bench",
+                reference(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(1, positioningCalls.get());
+        assertEquals("SKIPPED", result.geom().header().get("status"));
+        assertEquals(true, result.geom().header().get("overallPass"));
     }
 
     @Test

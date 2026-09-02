@@ -3,6 +3,7 @@ package com.example.iml.positioning.wire;
 import com.example.iml.positioning.dto.NormPoint;
 import com.example.iml.positioning.dto.PositioningRequest;
 import com.example.iml.positioning.dto.PositioningResponse;
+import com.example.iml.positioning.dto.PositioningTuning;
 import com.example.iml.positioning.dto.RoiRect;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ public final class PositioningHeaderMapper {
         if (h.containsKey("writeAligned")) {
             writeAligned = bool(h.get("writeAligned"), writeAligned);
         }
+        PositioningTuning defaults = PositioningTuning.defaults();
         return new PositioningRequest(
                 roiOrDefault(h.get("mainRoi")),
                 polygonNormOrNull(h),
@@ -31,7 +33,15 @@ public final class PositioningHeaderMapper {
                 num(h.get("maxShiftMm"), 0.5),
                 num(h.get("maxRotationDeg"), 1.0),
                 output,
-                writeAligned
+                writeAligned,
+                new PositioningTuning(
+                        numOrNull(h.get("alignFailAbsdiff"), h.get("align_fail_absdiff"), defaults.alignFailAbsdiff()),
+                        numOrNull(h.get("alignFailAbsdiffHard"), h.get("align_fail_absdiff_hard"), defaults.alignFailAbsdiffHard()),
+                        numOrNull(h.get("alignFailResidualPx"), h.get("align_fail_residual_px"), defaults.alignFailResidualPx()),
+                        numOrNull(h.get("eccSkipNcc"), h.get("ecc_skip_ncc"), defaults.eccSkipNcc()),
+                        numOrNull(h.get("eccSkipAbsdiff"), h.get("ecc_skip_absdiff"), defaults.eccSkipAbsdiff()),
+                        numOrNull(h.get("eccSkipResidualPx"), h.get("ecc_skip_residual_px"), defaults.eccSkipResidualPx())
+                )
         );
     }
 
@@ -153,6 +163,16 @@ public final class PositioningHeaderMapper {
             return fallback;
         }
         return Double.parseDouble(String.valueOf(o));
+    }
+
+    private static double numOrNull(Object primary, Object secondary, double fallback) {
+        if (primary != null) {
+            return num(primary, fallback);
+        }
+        if (secondary != null) {
+            return num(secondary, fallback);
+        }
+        return fallback;
     }
 
     public static boolean bool(Object o, boolean fallback) {
