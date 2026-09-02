@@ -1024,10 +1024,21 @@ class InspectionService:
                 heatmap_u8 = self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
+
+        # The difference pipeline intentionally uses local blur/morphology and
+        # therefore can leave a small halo just outside the ROI boundary. Keep
+        # that numerical tolerance for scoring, but never expose it in the UI
+        # heatmap. This is applied to both the regular and pre-learning paths.
+        heatmap_visual_mask = raw_segmentation_mask
+        if polygon is not None and heatmap_u8 is not None:
+            roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], polygon) > 0
+            heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
+            heatmap_visual_mask = raw_segmentation_mask.copy()
+            heatmap_visual_mask[~roi_mask] = 0
         if include_visuals and pre_learning_heatmap:
             heatmap = self._colorize_heatmap_29c9cfa(heatmap_u8)
         else:
-            heatmap = self._colorize_heatmap(heatmap_u8, raw_segmentation_mask) if include_visuals else None
+            heatmap = self._colorize_heatmap(heatmap_u8, heatmap_visual_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
             if not pre_learning_heatmap:
                 heatmap = self._draw_fp_zone_overlay(

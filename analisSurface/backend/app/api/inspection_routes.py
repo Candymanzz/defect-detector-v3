@@ -27,6 +27,7 @@ from app.api.schemas import (
 from app.runtime import get_application_id
 from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import expand_merged, normalize_strengths
+from app.services.inspection_geometry import polygon_mask_from_norm_points
 from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8_image_to_shm
 
 
@@ -115,6 +116,13 @@ def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[s
     if heatmap_u8 is not None and max_width > 0 and heatmap_u8.shape[1] > max_width:
         target_height = max(1, round(heatmap_u8.shape[0] * max_width / heatmap_u8.shape[1]))
         heatmap_u8 = cv2.resize(heatmap_u8, (max_width, target_height), interpolation=cv2.INTER_AREA)
+    # Re-apply the ROI after optional downscaling. INTER_AREA can otherwise
+    # blend a few non-zero boundary pixels into the area outside the ROI.
+    if heatmap_u8 is not None:
+        roi_polygon = inspection_service.get_roi_polygon(payload.product_type)
+        if roi_polygon is not None:
+            roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], roi_polygon) > 0
+            heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
     requested = {
         "aligned_image": (payload.aligned_image_u8_output_path, result.aligned_image),
         "diff_map": (payload.diff_map_u8_output_path, result.diff_map),
