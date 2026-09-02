@@ -313,7 +313,6 @@ export function MainOverview({
             cameraIds={cameraGroup.map((camera) => camera.cameraId)}
             historyByCameraId={controller.inspectionHistoryByCameraId}
             archiveHistoryState={controller.archiveHistoryState}
-            archiveHistoryMessage={controller.archiveHistoryMessage}
             onLoadArchivedHistory={(ids) => void controller.loadArchivedHistory(ids)}
             onCameraOpen={(item) => {
               const camera = cameraCards.find((candidate) => candidate.cameraId === item.inspectResult.camera_id);
