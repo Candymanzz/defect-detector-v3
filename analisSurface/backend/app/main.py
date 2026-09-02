@@ -8,7 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes import router
-from app.file_logging import init_file_logging, log_error, log_http_request, log_http_response
+from app.file_logging import (
+    file_logging_enabled,
+    init_file_logging,
+    log_error,
+    log_http_request,
+    log_http_response,
+)
 from app.runtime import get_application_id
 
 LOG = logging.getLogger("uvicorn.error")
@@ -58,6 +64,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.middleware("http")
 async def http_file_logging(request: Request, call_next) -> Response:
+    if not file_logging_enabled():
+        return await call_next(request)
+
     started = time.perf_counter()
     method = request.method
     path = request.url.path
