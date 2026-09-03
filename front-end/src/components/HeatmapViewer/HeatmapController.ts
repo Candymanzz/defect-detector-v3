@@ -152,7 +152,7 @@ export function drawExcludedNormalZones(
   context.lineCap = "round";
   context.lineJoin = "round";
   for (const zone of zones) {
-    if (zone.kind !== "accepted_normal") {
+    if (zone.excluded_from_score !== true) {
       continue;
     }
     const points = pixelPolygon(zone, heatmap.width, heatmap.height)
@@ -161,9 +161,23 @@ export function drawExcludedNormalZones(
       continue;
     }
 
+    context.save();
+    drawPolygon(context, points);
+    context.clip();
+    context.strokeStyle = "rgba(185, 75, 210, 0.72)";
+    context.lineWidth = 2;
+    const spacing = 18;
+    for (let offset = -heatmap.height; offset < heatmap.width; offset += spacing) {
+      context.beginPath();
+      context.moveTo(offset, 0);
+      context.lineTo(offset + heatmap.height, heatmap.height);
+      context.stroke();
+    }
+    context.restore();
+
     drawPolygon(context, points);
     context.strokeStyle = "rgb(185, 75, 210)";
-    context.lineWidth = 12;
+    context.lineWidth = 5;
     context.stroke();
   }
   context.restore();

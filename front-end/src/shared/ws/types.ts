@@ -305,6 +305,8 @@ export type InspectResultPayload = {
 
 export type ExcludedNormalZone = {
   kind: string;
+  /** True only when backend confirmed that this region cannot affect final score. */
+  excluded_from_score?: boolean;
   case_id?: string | null;
   similarity?: number | null;
   polygon: Array<{ x: number; y: number } | [number, number]>;

@@ -184,12 +184,34 @@ def _copy_shm_bgr_frame(payload: ShmFrameRequest) -> np.ndarray:
         return np.copy(bgr_frame)
 
 
+def _sync_request_roi(product_type: str, raw_polygon: list[dict[str, float]] | None) -> None:
+    """Install the camera ROI carried by this request before inspecting it.
+
+    ROI is otherwise kept only in the Python process memory. Reapplying the
+    polygon per request makes the inspection self-contained and prevents a
+    stale orchestrator cache or a Python restart from silently enabling
+    full-frame analysis for one camera.
+    """
+    if raw_polygon is None:
+        return
+    points: list[tuple[float, float]] = []
+    for point in raw_polygon:
+        try:
+            points.append((float(point["x"]), float(point["y"])))
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("roi_polygon_norm points must contain numeric x and y")
+    if len(points) < 3:
+        raise ValueError("roi_polygon_norm must contain at least 3 points")
+    inspection_service.set_roi_polygon(product_type=product_type, points=points)
+
+
 def _inspect_shm_sync(
     payload: ShmFrameRequest,
     *,
     include_visuals: bool,
     include_heatmap_u8: bool,
 ):
+    _sync_request_roi(payload.product_type, payload.roi_polygon_norm)
     frame = _copy_shm_bgr_frame(payload)
     temporary_overrides = None
     if payload.analysis_test_settings:
@@ -304,6 +326,7 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
 
 
 def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
+    _sync_request_roi(payload.product_type, payload.roi_polygon_norm)
     frame = load_test_frame_bgr(payload)
     reference = inspection_service.get_reference(payload.product_type)
     if reference is not None and frame.shape[:2] != reference.shape[:2]:

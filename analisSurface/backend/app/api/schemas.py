@@ -212,6 +212,9 @@ class ShmFrameRequest(BaseModel):
     analysis_profile: Optional[str] = None
     analysis_test_settings: Optional[dict] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None  # 3x3 от geometry
+    # Carry the camera-scoped ROI with each request so a Python restart cannot
+    # silently fall back to full-frame processing.
+    roi_polygon_norm: Optional[list[dict[str, float]]] = None
     skip_learning_review: bool = False
     test_analyze: bool = False
 
@@ -226,6 +229,8 @@ class TestFrameInspectRequest(BaseModel):
     analysis_profile: Optional[str] = None
     detector_id: Optional[str] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None
+    # Same per-camera ROI contract as ShmFrameRequest for UI test inspections.
+    roi_polygon_norm: Optional[list[dict[str, float]]] = None
     simple: Optional[SimpleSettingsKnobs] = None
     detailed: Optional[DetailedSensitivityKnobs] = None
     # Kept for the current UI/orchestrator contract while detailed remains the
