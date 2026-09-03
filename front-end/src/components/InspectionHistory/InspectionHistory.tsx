@@ -10,7 +10,6 @@ type InspectionHistoryProps = {
   cameraIds: number[];
   historyByCameraId: Record<number, InspectionHistoryItem[]>;
   archiveHistoryState?: "idle" | "loading" | "loaded" | "error";
-  archiveHistoryMessage?: string | null;
   onLoadArchivedHistory?: (cameraIds: number[]) => void;
   onCameraOpen?: (item: InspectionHistoryItem) => void;
 };
@@ -28,7 +27,6 @@ export function InspectionHistory({
   cameraIds,
   historyByCameraId,
   archiveHistoryState = "idle",
-  archiveHistoryMessage = null,
   onLoadArchivedHistory,
   onCameraOpen,
 }: InspectionHistoryProps) {
@@ -62,7 +60,7 @@ export function InspectionHistory({
         aria-label="Последние инспекции"
       >
         <header className="inspection-history__header">
-          <span>Последние инспекции</span>
+          <span>Последние инспекции ({items.length})</span>
           {onLoadArchivedHistory && (
             <button
               className="inspection-history__archive-btn"
@@ -74,17 +72,6 @@ export function InspectionHistory({
             </button>
           )}
         </header>
-        {archiveHistoryMessage && (
-          <p
-            className={
-              archiveHistoryState === "error"
-                ? "inspection-history__archive-status inspection-history__archive-status--error"
-                : "inspection-history__archive-status"
-            }
-          >
-            {archiveHistoryMessage}
-          </p>
-        )}
         <div className="inspection-history__tiles">
           {items.map((item) => (
             <button

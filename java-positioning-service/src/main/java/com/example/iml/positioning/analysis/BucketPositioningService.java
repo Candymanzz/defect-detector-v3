@@ -3,6 +3,7 @@ package com.example.iml.positioning.analysis;
 import com.example.iml.positioning.dto.NormPoint;
 import com.example.iml.positioning.dto.PositioningRequest;
 import com.example.iml.positioning.dto.PositioningResponse;
+import com.example.iml.positioning.dto.PositioningTuning;
 import com.example.iml.positioning.dto.RoiRect;
 import com.example.iml.positioning.shm.ShmMatWriter;
 import org.apache.logging.log4j.LogManager;
@@ -398,7 +399,8 @@ public final class BucketPositioningService {
             // --- 3) Pyramid ECC affine with WARP_INVERSE_MAP (optional refine) ---
             long tEcc0 = System.nanoTime();
             QualityScore qBeforeEcc = qOrb;
-            boolean skipEcc = shouldSkipEcc(qBeforeEcc);
+            PositioningTuning tuning = request.tuning() == null ? PositioningTuning.defaults() : request.tuning();
+            boolean skipEcc = shouldSkipEcc(qBeforeEcc, tuning);
             diag.put("ecc_skipped", skipEcc);
             if (skipEcc) {
                 stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
@@ -539,9 +541,9 @@ public final class BucketPositioningService {
             double finalResidual = Math.hypot(qFinal.residualShiftX(), qFinal.residualShiftY());
             // Residual metric can lie on striped texture; absdiff is the hard floor.
             boolean stillMisaligned = Double.isFinite(qFinal.meanAbsDiff())
-                    && (qFinal.meanAbsDiff() >= ALIGN_FAIL_ABSDiff_HARD
-                    || (qFinal.meanAbsDiff() >= ALIGN_FAIL_ABSDiff
-                            && finalResidual >= ALIGN_FAIL_RESIDUAL_PX));
+                    && (qFinal.meanAbsDiff() >= tuning.alignFailAbsdiffHard()
+                    || (qFinal.meanAbsDiff() >= tuning.alignFailAbsdiff()
+                            && finalResidual >= tuning.alignFailResidualPx()));
             diag.put("align_quality_ok", !stillMisaligned);
             if (stillMisaligned) {
                 log.warn(
@@ -1108,14 +1110,15 @@ public final class BucketPositioningService {
         }
     }
 
-    private static boolean shouldSkipEcc(QualityScore q) {
+    private static boolean shouldSkipEcc(QualityScore q, PositioningTuning tuning) {
         if (q == null) {
             return false;
         }
+        PositioningTuning t = tuning == null ? PositioningTuning.defaults() : tuning;
         double residual = Math.hypot(q.residualShiftX(), q.residualShiftY());
-        return Double.isFinite(q.ncc()) && q.ncc() >= ECC_SKIP_NCC
-                && Double.isFinite(q.meanAbsDiff()) && q.meanAbsDiff() <= ECC_SKIP_ABSDiff
-                && residual <= ECC_SKIP_RESIDUAL_PX;
+        return Double.isFinite(q.ncc()) && q.ncc() >= t.eccSkipNcc()
+                && Double.isFinite(q.meanAbsDiff()) && q.meanAbsDiff() <= t.eccSkipAbsdiff()
+                && residual <= t.eccSkipResidualPx();
     }
 
     private static boolean isEccTransformPlausible(EccResult ecc, double maxTranslationPx) {

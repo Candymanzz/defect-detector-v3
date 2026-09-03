@@ -151,6 +151,43 @@ public final class BinaryInspectHeaders {
         return pHeader;
     }
 
+    /** Profile overrides from {@code java_positioning.profiles.<analysis_profile>} (snake_case or camelCase). */
+    public static void applyPositioningProfileOverrides(Map<String, Object> header, Map<String, Object> overrides) {
+        if (header == null || overrides == null || overrides.isEmpty()) {
+            return;
+        }
+        putPositioningTuning(header, overrides, "align_fail_absdiff", "alignFailAbsdiff");
+        putPositioningTuning(header, overrides, "align_fail_absdiff_hard", "alignFailAbsdiffHard");
+        putPositioningTuning(header, overrides, "align_fail_residual_px", "alignFailResidualPx");
+        putPositioningTuning(header, overrides, "ecc_skip_ncc", "eccSkipNcc");
+        putPositioningTuning(header, overrides, "ecc_skip_absdiff", "eccSkipAbsdiff");
+        putPositioningTuning(header, overrides, "ecc_skip_residual_px", "eccSkipResidualPx");
+        putPositioningTuning(header, overrides, "max_shift_mm", "maxShiftMm");
+        putPositioningTuning(header, overrides, "max_rotation_deg", "maxRotationDeg");
+        Object mainRoi = overrides.get("main_roi");
+        if (mainRoi == null) {
+            mainRoi = overrides.get("mainRoi");
+        }
+        if (mainRoi != null) {
+            header.put("mainRoi", mainRoi);
+        }
+    }
+
+    private static void putPositioningTuning(
+            Map<String, Object> header,
+            Map<String, Object> overrides,
+            String snakeKey,
+            String camelKey
+    ) {
+        Object value = overrides.get(snakeKey);
+        if (value == null) {
+            value = overrides.get(camelKey);
+        }
+        if (value != null) {
+            header.put(camelKey, value);
+        }
+    }
+
     private static void putCaptureAndReferenceShm(
             Map<String, Object> header,
             int cameraId,

@@ -1,3 +1,4 @@
+
 @echo off
 cd /d "%~dp0"
 if exist "%~dp0DefectDetector.exe" (

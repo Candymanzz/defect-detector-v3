@@ -60,4 +60,4 @@ python_detector:
   include_visuals: false
   # Файловые логи analisSurface (backend/logs/...): requests, responses, analysis, errors, slow.
   # Читает Python при старте из config/config.yaml (без изменений Java). false — отключить на длительных прогонах.
-  file_logging: true
+  file_logging: false
