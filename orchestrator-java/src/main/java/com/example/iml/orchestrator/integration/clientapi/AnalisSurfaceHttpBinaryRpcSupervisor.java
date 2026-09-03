@@ -536,6 +536,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             body.put("detector_id", header.get("detector_id"));
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
+        copyIfPresent(body, header, "roi_polygon_norm");
         if (header.get("simple") instanceof Map<?, ?> simple) {
             body.put("simple", simple);
         }
@@ -867,6 +868,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             body.put("detector_id", header.get("detector_id"));
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
+        copyIfPresent(body, header, "roi_polygon_norm");
         if (YamlScalars.toBool(header.get("test_analyze"), false)
                 || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
             body.put("skip_learning_review", true);
