@@ -112,6 +112,10 @@ public final class ChildProcessStartupService {
                 if (!inspectionTriggerConfig.usesIoInputMonitor()) {
                     return null;
                 }
+                // Снять сирот после прошлого Ctrl+C / crash до bind COM + HTTP 9101.
+                ExternalServiceProcess.killOrphansMatchingCommand("IoInputMonitor", log);
+                ExternalServiceProcess.killOrphansMatchingCommand("io-input-monitor", log);
+                ExternalServiceProcess.killListenersOnPort(9101, log);
                 return externalProcessLauncher.startIfConfigured(
                         ctx.integration(),
                         ctx.projectRoot(),
