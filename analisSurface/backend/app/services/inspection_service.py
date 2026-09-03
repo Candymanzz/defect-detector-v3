@@ -47,6 +47,17 @@ _FP_CROP_MIN = 64
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 
+# A moved bucket can briefly receive a broad shadow around its physical top.
+# Buckets are inverted in the camera view, therefore that handling area is at
+# the bottom of the configured ROI.  Suppression is intentionally bounded and
+# only affects differences which still preserve the reference's local detail.
+_BOTTOM_SHADOW_START = 0.68
+_BOTTOM_SHADOW_MAX_SUPPRESSION = 0.30
+_BOTTOM_SHADOW_MIN_SHIFT = 6.0
+_BOTTOM_SHADOW_FULL_SHIFT = 22.0
+_BOTTOM_SHADOW_DETAIL_SCALE = 18.0
+_BOTTOM_SHADOW_GRADIENT_SCALE = 32.0
+
 
 class InspectionService:
     """Ядро инспекции: выравнивание, diff, детекция аномалий, FP мини-эталоны, вердикт.
@@ -780,7 +791,13 @@ class InspectionService:
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
+        analysis_roi_mask = None
         if polygon is not None:
+            analysis_roi_mask = polygon_mask_from_norm_points(
+                reference.shape[1],
+                reference.shape[0],
+                polygon,
+            )
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
             log_analysis_stage(
                 "roi_mask",
@@ -807,6 +824,8 @@ class InspectionService:
             reference,
             settings,
             vertical_compensation=True,
+            bottom_shadow_suppression=True,
+            roi_mask=analysis_roi_mask,
         )
         log_analysis_stage(
             "diff_map",
@@ -2129,6 +2148,8 @@ class InspectionService:
         settings: AnalysisSettings,
         *,
         vertical_compensation: bool = False,
+        bottom_shadow_suppression: bool = False,
+        roi_mask: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2139,6 +2160,10 @@ class InspectionService:
         # against local min/max envelope of reference.
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
+        # Preserve the pre-CLAHE signal for illumination classification. CLAHE
+        # is useful for defects, but may turn a smooth shadow into local texture.
+        illumination_ref_gray = ref_gray.copy()
+        illumination_cur_gray = cur_gray.copy()
 
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
@@ -2187,6 +2212,15 @@ class InspectionService:
         robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
         robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
 
+        shadow_confidence = None
+        if bottom_shadow_suppression:
+            robust_gray, shadow_confidence = self._suppress_smooth_bottom_shadow(
+                robust_gray,
+                illumination_ref_gray,
+                illumination_cur_gray,
+                roi_mask=roi_mask,
+            )
+
         # The bucket is inverted in the camera view, so the upper part of the
         # image is farther from the camera and its defects are weaker. Apply a
         # small smooth gain there. The cap is intentionally conservative to
@@ -2233,12 +2267,141 @@ class InspectionService:
         )
         if np.any(contrast_loss_zone):
             robust_float = robust_gray.astype(np.float32)
-            robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
+            if shadow_confidence is not None:
+                # A broad illumination change can lower gradient magnitude and
+                # otherwise trigger the missing-text boost. Keep the boost for
+                # structural changes, while fading it only for likely shadows.
+                boost = settings.contrast_loss_boost - (
+                    (settings.contrast_loss_boost - 1.0)
+                    * shadow_confidence[contrast_loss_zone]
+                )
+                robust_float[contrast_loss_zone] *= boost
+            else:
+                robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
             robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
 
         # Median blur removes salt-like speckles without erasing thin linear defects.
         robust_gray = cv2.medianBlur(robust_gray, 3)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
+
+    @staticmethod
+    def _suppress_smooth_bottom_shadow(
+        robust_gray: np.ndarray,
+        reference_gray: np.ndarray,
+        current_gray: np.ndarray,
+        *,
+        roi_mask: Optional[np.ndarray] = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Reduce broad bottom-ROI illumination shifts while preserving defects.
+
+        A likely shadow has a sizeable low-frequency brightness shift but keeps
+        local detail and gradient structure close to the reference. The result
+        is a confidence map, not a hard mask, and suppression is capped at 30%.
+        """
+        height, width = robust_gray.shape[:2]
+        if height == 0 or width == 0:
+            return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+
+        if roi_mask is None:
+            active_mask = np.ones((height, width), dtype=bool)
+            first_row, last_row = 0, height - 1
+        else:
+            if roi_mask.shape[:2] != (height, width):
+                roi_mask = cv2.resize(
+                    roi_mask,
+                    (width, height),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+            active_mask = roi_mask > 0
+            active_rows = np.flatnonzero(np.any(active_mask, axis=1))
+            if active_rows.size == 0:
+                return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+            first_row, last_row = int(active_rows[0]), int(active_rows[-1])
+
+        roi_height = max(1, last_row - first_row)
+        first_weighted_row = int(
+            np.ceil(first_row + _BOTTOM_SHADOW_START * roi_height)
+        )
+
+        # Work only around the lower ROI band. On production frames this avoids
+        # running several full-frame Gaussian/Sobel passes for an area whose
+        # confidence is guaranteed to be zero.
+        bottom_active = active_mask[first_weighted_row : last_row + 1]
+        active_columns = np.flatnonzero(np.any(bottom_active, axis=0))
+        if active_columns.size == 0:
+            return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+
+        kernel_size = int(round(min(height, width) * 0.08))
+        kernel_size = min(81, max(7, kernel_size | 1))
+        margin = kernel_size // 2 + 4
+        crop_y0 = max(0, first_weighted_row - margin)
+        crop_y1 = min(height, last_row + 1)
+        crop_x0 = max(0, int(active_columns[0]) - margin)
+        crop_x1 = min(width, int(active_columns[-1]) + margin + 1)
+
+        ref_float = reference_gray[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
+        cur_float = current_gray[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
+        local_active_mask = active_mask[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
+        y_norm = (
+            np.arange(crop_y0, crop_y1, dtype=np.float32) - float(first_row)
+        ) / float(roi_height)
+        bottom_weight = np.clip(
+            (y_norm - _BOTTOM_SHADOW_START) / (1.0 - _BOTTOM_SHADOW_START),
+            0.0,
+            1.0,
+        )
+        bottom_weight = bottom_weight * bottom_weight * (3.0 - 2.0 * bottom_weight)
+        bottom_weight = bottom_weight[:, np.newaxis] * local_active_mask
+
+        # Kernel scales with image size, so the classification follows broad
+        # light fields rather than scratches or printed details.
+        low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
+        low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
+
+        illumination_shift = np.abs(low_cur - low_ref)
+        illumination_confidence = np.clip(
+            (illumination_shift - _BOTTOM_SHADOW_MIN_SHIFT)
+            / (_BOTTOM_SHADOW_FULL_SHIFT - _BOTTOM_SHADOW_MIN_SHIFT),
+            0.0,
+            1.0,
+        )
+        illumination_confidence = illumination_confidence * illumination_confidence * (
+            3.0 - 2.0 * illumination_confidence
+        )
+
+        ref_detail = ref_float - low_ref
+        cur_detail = cur_float - low_cur
+        detail_delta = np.abs(cur_detail - ref_detail)
+        detail_confidence = np.exp(
+            -np.square(detail_delta / _BOTTOM_SHADOW_DETAIL_SCALE)
+        )
+
+        ref_grad_x = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
+        ref_grad_y = cv2.Sobel(ref_float, cv2.CV_32F, 0, 1, ksize=3)
+        cur_grad_x = cv2.Sobel(cur_float, cv2.CV_32F, 1, 0, ksize=3)
+        cur_grad_y = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
+        gradient_delta = cv2.magnitude(cur_grad_x - ref_grad_x, cur_grad_y - ref_grad_y)
+        gradient_confidence = np.exp(
+            -np.square(gradient_delta / _BOTTOM_SHADOW_GRADIENT_SCALE)
+        )
+
+        local_confidence = (
+            bottom_weight
+            * illumination_confidence
+            * detail_confidence
+            * gradient_confidence
+        ).astype(np.float32)
+        # Avoid a noisy on/off suppression boundary around individual pixels.
+        local_confidence = cv2.GaussianBlur(local_confidence, (9, 9), 0)
+        local_confidence *= local_active_mask
+        shadow_confidence = np.zeros((height, width), dtype=np.float32)
+        shadow_confidence[crop_y0:crop_y1, crop_x0:crop_x1] = local_confidence
+
+        corrected = robust_gray.astype(np.float32)
+        corrected[crop_y0:crop_y1, crop_x0:crop_x1] *= (
+            1.0 - _BOTTOM_SHADOW_MAX_SUPPRESSION * local_confidence
+        )
+        return np.clip(corrected, 0.0, 255.0).astype(np.uint8), shadow_confidence
 
     @staticmethod
     def _vertical_compensation_gain(height: int) -> np.ndarray:

@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
+from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import expand_simple
 from app.services.inspection_geometry import (
     polygon_area,
@@ -38,6 +39,90 @@ def test_vertical_compensation_is_smooth_bounded_and_top_weighted() -> None:
     assert np.all(np.diff(gain) <= 1e-6)
     # The compensation is already gone before the lowest quarter of the frame.
     assert gain[75] == pytest.approx(1.0)
+
+
+def test_bottom_shadow_filter_reduces_smooth_illumination_shift() -> None:
+    service = InspectionService.__new__(InspectionService)
+    height, width = 240, 320
+    x = np.linspace(70, 180, width, dtype=np.float32)
+    gray = np.tile(x, (height, 1))
+    # Keep realistic surface structure so the filter must distinguish light
+    # from content instead of relying on a featureless synthetic image.
+    for column in range(24, width, 42):
+        cv2.line(gray, (column, 15), (column, height - 15), 25, 1)
+    reference = np.stack([gray, gray, gray], axis=-1).astype(np.uint8)
+
+    ramp = np.clip((np.arange(height, dtype=np.float32) - 150.0) / 70.0, 0.0, 1.0)
+    shadowed_gray = gray * (1.0 - 0.18 * ramp[:, np.newaxis])
+    shadowed = np.stack([shadowed_gray, shadowed_gray, shadowed_gray], axis=-1).astype(np.uint8)
+    settings = AnalysisSettings.defaults()
+    settings.enable_clahe = False
+
+    baseline = service._compute_advanced_difference(shadowed, reference, settings)
+    filtered = service._compute_advanced_difference(
+        shadowed,
+        reference,
+        settings,
+        bottom_shadow_suppression=True,
+    )
+
+    baseline_gray = cv2.cvtColor(baseline, cv2.COLOR_BGR2GRAY)
+    filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+    assert float(np.mean(filtered_gray[190:230])) < float(np.mean(baseline_gray[190:230])) * 0.86
+    # The top of the image is outside the handling band and remains bit-exact.
+    assert np.array_equal(filtered_gray[:150], baseline_gray[:150])
+
+
+def test_bottom_shadow_filter_preserves_local_defect_edges() -> None:
+    service = InspectionService.__new__(InspectionService)
+    height, width = 240, 320
+    gray = np.full((height, width), 145, dtype=np.uint8)
+    cv2.line(gray, (15, 205), (305, 205), 125, 2)
+    reference = np.stack([gray, gray, gray], axis=-1)
+
+    ramp = np.clip((np.arange(height, dtype=np.float32) - 150.0) / 70.0, 0.0, 1.0)
+    shadowed_gray = gray.astype(np.float32) * (1.0 - 0.18 * ramp[:, np.newaxis])
+    current = np.stack([shadowed_gray, shadowed_gray, shadowed_gray], axis=-1).astype(np.uint8)
+    cv2.rectangle(current, (142, 190), (178, 218), (235, 235, 235), 3)
+    settings = AnalysisSettings.defaults()
+    settings.enable_clahe = False
+
+    baseline = service._compute_advanced_difference(current, reference, settings)
+    filtered = service._compute_advanced_difference(
+        current,
+        reference,
+        settings,
+        bottom_shadow_suppression=True,
+    )
+    baseline_gray = cv2.cvtColor(baseline, cv2.COLOR_BGR2GRAY)
+    filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+
+    defect = np.zeros((height, width), dtype=bool)
+    defect[185:224, 137:183] = True
+    assert int(filtered_gray[defect].max()) >= int(baseline_gray[defect].max()) * 0.90
+    assert float(np.percentile(filtered_gray[defect], 90)) >= float(
+        np.percentile(baseline_gray[defect], 90)
+    ) * 0.90
+
+
+def test_bottom_shadow_filter_uses_roi_relative_position() -> None:
+    service = InspectionService.__new__(InspectionService)
+    image = np.full((200, 240), 30, dtype=np.uint8)
+    reference = np.full_like(image, 120)
+    current = np.full_like(image, 100)
+    roi_mask = np.zeros_like(image)
+    roi_mask[20:141, 30:211] = 255
+
+    _, confidence = service._suppress_smooth_bottom_shadow(
+        image,
+        reference,
+        current,
+        roi_mask=roi_mask,
+    )
+
+    assert float(confidence[80, 120]) == pytest.approx(0.0)
+    assert float(confidence[138, 120]) > 0.5
+    assert int(np.count_nonzero(confidence[141:])) == 0
 
 
 def test_inspect_identical_frames_passes(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
