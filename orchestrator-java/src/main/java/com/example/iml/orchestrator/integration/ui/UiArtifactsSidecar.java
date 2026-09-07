@@ -214,15 +214,55 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
         Map<String, Object> cap = new LinkedHashMap<>(capture.header());
         copyDisplayOnlyInspectionMetadata(cap, pyResp);
+        ClientWebSocketServer ws = clientWebSocketServer;
+        long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
+        boolean testAnalyze = testAnalyzeFlag(cap);
+        // Frontend must only pull frames after java-positioning writes the aligned buffer.
+        if (!testAnalyze && !shouldPublishUiFrameJpeg(activeReference, cap)) {
+            if (ws != null) {
+                try {
+                    ws.notifyInspectResult(
+                            cameraId,
+                            productType,
+                            detectorId,
+                            inspectionId,
+                            decision,
+                            cap,
+                            null,
+                            0,
+                            0,
+                            null,
+                            null,
+                            false,
+                            null
+                    );
+                } catch (Exception e) {
+                    log.debug("client_ws inspect_result (withheld frame) cam={}: {}", cameraId, e.getMessage());
+                }
+            }
+            HeatmapArtifact unusedHeatmap = resolveHeatmapArtifact(
+                    pyResp == null ? null : pyResp.header(),
+                    null,
+                    YamlScalars.toInt(cap.get("width"), 1224),
+                    YamlScalars.toInt(cap.get("height"), 1024)
+            );
+            deleteTemporaryArtifact(unusedHeatmap.path(), "withheld ui frame heatmap");
+            LineFramePinService.releasePinnedCapture(capture.header());
+            log.info(
+                    "ui frame withheld cam={} frame={} status={} — publish only after positioning_aligned",
+                    cameraId,
+                    frameId,
+                    cap.get("positioning_status")
+            );
+            return;
+        }
         // Prefer positioned buffer for UI JPEG / cards (analysis already remapped shm_name).
         String previewShm = resolveUiPreviewShmName(cap, cameraId);
         if (previewShm != null) {
             cap.put("shm_name", previewShm);
             cap.put("shm_offset", 0L);
         }
-        ClientWebSocketServer ws = clientWebSocketServer;
         String shmName = String.valueOf(cap.get("shm_name"));
-        long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
         int width = YamlScalars.toInt(cap.get("width"), 1224);
         int height = YamlScalars.toInt(cap.get("height"), 1024);
         int stride = YamlScalars.toInt(cap.get("stride"), width * 3);
@@ -327,7 +367,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 Path archiveJpeg = null;
                 Path temporaryArchiveJpeg = null;
                 try {
-                    boolean testAnalyze = testAnalyzeFlag(cap);
                     String artifactShmName = frozenFrame.shmName();
                     int currentJpegW = 0;
                     int currentJpegH = 0;
@@ -850,6 +889,28 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return;
         }
         deleteTemporaryArtifact(frozenFrame.path(), label);
+    }
+
+    /**
+     * When positioning ran for this cycle, the UI may publish a JPEG only after
+     * {@link InspectPositioningExecutor#HEADER_ALIGNED} — i.e. after java-positioning
+     * wrote {@code iml_pos_cam_*}. Without a reference (or with positioning disabled)
+     * raw capture preview remains allowed for setup / capture-only modes.
+     */
+    static boolean shouldPublishUiFrameJpeg(ReferenceSnapshot activeReference, Map<String, Object> cap) {
+        if (activeReference == null || activeReference.header() == null) {
+            return true;
+        }
+        if (cap == null || cap.isEmpty()) {
+            return true;
+        }
+        boolean positioningAttempted = cap.containsKey("positioning_ms")
+                || cap.containsKey("positioning_status")
+                || cap.containsKey(InspectPositioningExecutor.HEADER_ALIGNED);
+        if (!positioningAttempted) {
+            return true;
+        }
+        return YamlScalars.toBool(cap.get(InspectPositioningExecutor.HEADER_ALIGNED), false);
     }
 
     /**

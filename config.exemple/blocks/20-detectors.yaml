@@ -49,6 +49,7 @@ java_geometry:
 # Нормализация позы изделия к эталону перед geometry / analisSurface.
 # Позиционирование только выравнивает кадр — брак не ставит (fail_on_reject=false).
 # Вердикт — у geometry / python. При неудачном align идём дальше с исходным кадром.
+# UI JPEG / current.jpg: без эталона — сырой кадр; с эталоном — только после positioning_aligned.
 java_positioning:
   enabled: true
   fail_on_reject: false
