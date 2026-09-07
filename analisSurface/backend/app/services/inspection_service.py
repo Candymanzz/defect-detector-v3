@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
-from app.file_logging import log_analysis_stage
+from app.file_logging import log_analysis_stage, log_illumination_detection
 from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
 from app.services.inspection_geometry import (
@@ -49,14 +49,23 @@ _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 
 # A moved bucket can briefly receive a broad shadow around its physical top.
 # Buckets are inverted in the camera view, therefore that handling area is at
-# the bottom of the configured ROI.  Suppression is intentionally bounded and
-# only affects differences which still preserve the reference's local detail.
-_BOTTOM_SHADOW_START = 0.68
+# the bottom of the configured ROI. Illumination classification is allowed on
+# the lower 71% of the ROI (a small rounding margin above the required 70%)
+# and only affects differences which still preserve the reference's local
+# detail and gradient structure.
+_BOTTOM_SHADOW_START = 0.29
+_BOTTOM_SHADOW_MIN_SPATIAL_WEIGHT = 0.35
 _BOTTOM_SHADOW_MAX_SUPPRESSION = 0.30
+_BOTTOM_SHADOW_BROAD_MAX_SUPPRESSION = 0.75
+_BOTTOM_SHADOW_BROAD_MIN_ROI_RATIO = 0.08
+_BOTTOM_SHADOW_BROAD_MIN_COLUMN_COVERAGE = 0.70
+_BOTTOM_SHADOW_HARD_IGNORE_CONFIDENCE = 0.55
 _BOTTOM_SHADOW_MIN_SHIFT = 6.0
 _BOTTOM_SHADOW_FULL_SHIFT = 22.0
 _BOTTOM_SHADOW_DETAIL_SCALE = 18.0
 _BOTTOM_SHADOW_GRADIENT_SCALE = 32.0
+_BOTTOM_SHADOW_DETECTION_CONFIDENCE = 0.20
+_BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO = 0.002
 
 
 class InspectionService:
@@ -807,6 +816,7 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
+        illumination_diagnostics: dict[str, object] = {}
         diff_map = self._compute_advanced_difference(
             aligned,
             reference,
@@ -814,7 +824,9 @@ class InspectionService:
             vertical_compensation=True,
             bottom_shadow_suppression=True,
             roi_mask=analysis_roi_mask,
+            illumination_diagnostics=illumination_diagnostics,
         )
+        log_illumination_detection(product_type, illumination_diagnostics)
         log_analysis_stage(
             "diff_map",
             "difference map computed",
@@ -2146,6 +2158,7 @@ class InspectionService:
         vertical_compensation: bool = False,
         bottom_shadow_suppression: bool = False,
         roi_mask: Optional[np.ndarray] = None,
+        illumination_diagnostics: Optional[dict[str, object]] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2215,6 +2228,7 @@ class InspectionService:
                 illumination_ref_gray,
                 illumination_cur_gray,
                 roi_mask=roi_mask,
+                diagnostics=illumination_diagnostics,
             )
 
         # The bucket is inverted in the camera view, so the upper part of the
@@ -2287,14 +2301,37 @@ class InspectionService:
         current_gray: np.ndarray,
         *,
         roi_mask: Optional[np.ndarray] = None,
+        diagnostics: Optional[dict[str, object]] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Reduce broad bottom-ROI illumination shifts while preserving defects.
+        """Reduce broad illumination shifts over at least the lower 70% of the ROI.
 
         A likely shadow has a sizeable low-frequency brightness shift but keeps
         local detail and gradient structure close to the reference. The result
-        is a confidence map, not a hard mask, and suppression is capped at 30%.
+        is a confidence map, not a hard mask. Negative shifts are classified as
+        shadows and positive shifts as glare for diagnostics.
         """
         height, width = robust_gray.shape[:2]
+        if diagnostics is not None:
+            diagnostics.clear()
+            diagnostics.update(
+                {
+                    "enabled": True,
+                    "eligible_height_percent": 0.0,
+                    "eligible_roi_percent": 0.0,
+                    "shadow_detected": False,
+                    "glare_detected": False,
+                    "shadow_roi_percent": 0.0,
+                    "glare_roi_percent": 0.0,
+                    "confidence_max": 0.0,
+                    "confidence_mean": 0.0,
+                    "broad_illumination": False,
+                    "detected_column_percent": 0.0,
+                    "max_applied_suppression_percent": 0.0,
+                    "hard_ignored_roi_percent": 0.0,
+                    "mean_suppression_percent": 0.0,
+                    "diff_energy_reduction_percent": 0.0,
+                }
+            )
         if height == 0 or width == 0:
             return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
 
@@ -2347,6 +2384,12 @@ class InspectionService:
             1.0,
         )
         bottom_weight = bottom_weight * bottom_weight * (3.0 - 2.0 * bottom_weight)
+        bottom_weight = np.where(
+            y_norm >= _BOTTOM_SHADOW_START,
+            _BOTTOM_SHADOW_MIN_SPATIAL_WEIGHT
+            + (1.0 - _BOTTOM_SHADOW_MIN_SPATIAL_WEIGHT) * bottom_weight,
+            0.0,
+        )
         bottom_weight = bottom_weight[:, np.newaxis] * local_active_mask
 
         # Kernel scales with image size, so the classification follows broad
@@ -2393,10 +2436,92 @@ class InspectionService:
         shadow_confidence = np.zeros((height, width), dtype=np.float32)
         shadow_confidence[crop_y0:crop_y1, crop_x0:crop_x1] = local_confidence
 
-        corrected = robust_gray.astype(np.float32)
-        corrected[crop_y0:crop_y1, crop_x0:crop_x1] *= (
-            1.0 - _BOTTOM_SHADOW_MAX_SUPPRESSION * local_confidence
+        detected_mask = (
+            local_confidence >= _BOTTOM_SHADOW_DETECTION_CONFIDENCE
+        ) & (local_active_mask > 0)
+        active_pixels = max(1, int(np.count_nonzero(active_mask)))
+        detected_roi_ratio = float(np.count_nonzero(detected_mask)) / active_pixels
+        active_local_columns = np.any(local_active_mask > 0, axis=0)
+        detected_columns = np.any(detected_mask, axis=0)
+        detected_column_ratio = float(np.count_nonzero(detected_columns)) / max(
+            1,
+            int(np.count_nonzero(active_local_columns)),
         )
+        broad_illumination = (
+            detected_roi_ratio >= _BOTTOM_SHADOW_BROAD_MIN_ROI_RATIO
+            and detected_column_ratio >= _BOTTOM_SHADOW_BROAD_MIN_COLUMN_COVERAGE
+        )
+        suppression_cap = (
+            _BOTTOM_SHADOW_BROAD_MAX_SUPPRESSION
+            if broad_illumination
+            else _BOTTOM_SHADOW_MAX_SUPPRESSION
+        )
+
+        corrected = robust_gray.astype(np.float32)
+        corrected_crop = corrected[crop_y0:crop_y1, crop_x0:crop_x1]
+        energy_before = float(np.sum(corrected_crop[local_active_mask > 0]))
+        corrected_crop *= (
+            1.0 - suppression_cap * local_confidence
+        )
+        hard_ignore_mask = (
+            broad_illumination
+            & (local_confidence >= _BOTTOM_SHADOW_HARD_IGNORE_CONFIDENCE)
+        )
+        corrected_crop[hard_ignore_mask] = 0.0
+        if diagnostics is not None:
+            eligible_mask = (bottom_weight > 0) & (local_active_mask > 0)
+            eligible_pixels = int(np.count_nonzero(eligible_mask))
+            signed_shift = low_cur - low_ref
+            shadow_mask = detected_mask & (signed_shift <= -_BOTTOM_SHADOW_MIN_SHIFT)
+            glare_mask = detected_mask & (signed_shift >= _BOTTOM_SHADOW_MIN_SHIFT)
+            shadow_pixels = int(np.count_nonzero(shadow_mask))
+            glare_pixels = int(np.count_nonzero(glare_mask))
+            shadow_ratio = shadow_pixels / active_pixels
+            glare_ratio = glare_pixels / active_pixels
+            energy_after = float(np.sum(corrected_crop[local_active_mask > 0]))
+            diagnostics.update(
+                {
+                    "eligible_height_percent": round(
+                        100.0
+                        * max(0, last_row - first_weighted_row + 1)
+                        / max(1, last_row - first_row + 1),
+                        3,
+                    ),
+                    "eligible_roi_percent": round(100.0 * eligible_pixels / active_pixels, 3),
+                    "shadow_detected": shadow_ratio >= _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO,
+                    "glare_detected": glare_ratio >= _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO,
+                    "shadow_roi_percent": round(100.0 * shadow_ratio, 3),
+                    "glare_roi_percent": round(100.0 * glare_ratio, 3),
+                    "confidence_max": round(float(np.max(local_confidence)), 4),
+                    "confidence_mean": round(
+                        float(np.mean(local_confidence[eligible_mask]))
+                        if eligible_pixels
+                        else 0.0,
+                        4,
+                    ),
+                    "broad_illumination": broad_illumination,
+                    "detected_column_percent": round(100.0 * detected_column_ratio, 3),
+                    "max_applied_suppression_percent": round(100.0 * suppression_cap, 1),
+                    "hard_ignored_roi_percent": round(
+                        100.0 * float(np.count_nonzero(hard_ignore_mask)) / active_pixels,
+                        3,
+                    ),
+                    "mean_suppression_percent": round(
+                        100.0
+                        * suppression_cap
+                        * (
+                            float(np.mean(local_confidence[eligible_mask]))
+                            if eligible_pixels
+                            else 0.0
+                        ),
+                        3,
+                    ),
+                    "diff_energy_reduction_percent": round(
+                        100.0 * max(0.0, energy_before - energy_after) / max(1.0, energy_before),
+                        3,
+                    ),
+                }
+            )
         return np.clip(corrected, 0.0, 255.0).astype(np.uint8), shadow_confidence
 
     @staticmethod
