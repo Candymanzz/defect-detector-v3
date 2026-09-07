@@ -127,6 +127,13 @@ export type GeometryInspectResponse = {
   jointWidthBottomMm?: number;
   jointTaperMm?: number;
   jointVisibility?: number;
+  jointRimSkewDeg?: number;
+  jointGapLeftMm?: number;
+  jointGapRightMm?: number;
+  jointGapAsymmetryMm?: number;
+  rimSkewPass?: boolean;
+  maxJointRimSkewDeg?: number;
+  maxJointGapAsymmetryMm?: number;
   wrinklesScore?: number;
   homographyRefToCurrent?: number[] | number[][];
   debugImageBase64?: string;
@@ -257,6 +264,7 @@ export type FrameArchiveHistoryFrame = {
   heatmap_height?: number;
   result_url: string;
   learned_review_id?: string;
+  geometry?: GeometryInspectResponse;
 };
 
 export type FrameArchiveHistoryResponse = {

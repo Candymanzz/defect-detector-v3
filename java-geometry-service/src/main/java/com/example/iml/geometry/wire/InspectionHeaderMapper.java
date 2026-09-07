@@ -34,7 +34,9 @@ public final class InspectionHeaderMapper {
                 num(h.get("maxJointParallelismDeg"), 5.0),
                 num(h.get("maxJointTaperMm"), 0.8),
                 true,
-                segmentationSensitivity(h)
+                segmentationSensitivity(h),
+                num(h.get("maxJointRimSkewDeg"), 2.5),
+                num(h.get("maxJointGapAsymmetryMm"), 0.8)
         );
     }
 
@@ -59,7 +61,9 @@ public final class InspectionHeaderMapper {
                 num(h.get("maxJointParallelismDeg"), 5.0),
                 num(h.get("maxJointTaperMm"), 0.8),
                 true,
-                segmentationSensitivity(h)
+                segmentationSensitivity(h),
+                num(h.get("maxJointRimSkewDeg"), 2.5),
+                num(h.get("maxJointGapAsymmetryMm"), 0.8)
         );
     }
 

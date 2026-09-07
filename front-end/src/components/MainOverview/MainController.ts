@@ -410,6 +410,7 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
     anomaly_score: frame.anomaly_score,
     python_status: frame.python_status,
     geometry_status: frame.geometry_status,
+    geometry: frame.geometry,
     fp_zones: [],
     server_ts_ms: frame.saved_at_ms,
   };

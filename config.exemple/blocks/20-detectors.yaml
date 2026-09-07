@@ -14,9 +14,13 @@ java_geometry:
   joint_max_width_mm: 3.0
   # Ракурс снизу даёт сходимость кромок в кадре — допуск шире, чем для фронтального вида.
   # Параллельность двух кромок шва (горизонтальный/наклонный — ось из joint ROI).
-  max_joint_parallelism_deg: 5.0
+  # База для верхней линии; низ (ракурс/сходимость) — шире в profiles bench-lan6..10.
+  max_joint_parallelism_deg: 2.5
   # |widthStart − widthEnd| вдоль оси шва; перспектива даёт клин, реальный брак — больше порога.
   max_joint_taper_mm: 0.8
+  # Перекос этикетки к жёлтому ободу (main ROI): угол клина зазора и |gapL−gapR|.
+  max_joint_rim_skew_deg: 2.5
+  max_joint_gap_asymmetry_mm: 0.8
   # Если на соседних камерах шов почти не виден — ужесточённые пороги на уровне ведра
   # (только как доп. проверка, когда jointPass=false; при jointPass=true игнорируются).
   joint_sibling_min_visibility: 0.25
@@ -29,6 +33,18 @@ java_geometry:
   joint_seam_segmentation_sensitivity: 0.5
   # Порог морщин (геометрия: смещение + стык + морщины в переданном ROI).
   max_wrinkles_score: 0.45
+  # Нижняя группа: ракурс даёт ~2.5–3.2° «параллельности» на годном шве — не брак смещения.
+  profiles:
+    bench-lan6:
+      max_joint_parallelism_deg: 5.0
+    bench-lan7:
+      max_joint_parallelism_deg: 5.0
+    bench-lan8:
+      max_joint_parallelism_deg: 5.0
+    bench-lan9:
+      max_joint_parallelism_deg: 5.0
+    bench-lan10:
+      max_joint_parallelism_deg: 5.0
 
 # Нормализация позы изделия к эталону перед geometry / analisSurface.
 # Позиционирование только выравнивает кадр — брак не ставит (fail_on_reject=false).

@@ -310,7 +310,8 @@ class BucketInspectionAggregatorTest {
                 parallelismDeg,
                 widthMm,
                 visibility,
-                jointPass
+                jointPass,
+                Map.of()
         );
     }
 }

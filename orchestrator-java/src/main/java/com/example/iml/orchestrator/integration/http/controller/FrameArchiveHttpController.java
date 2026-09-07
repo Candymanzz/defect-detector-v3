@@ -230,6 +230,9 @@ public final class FrameArchiveHttpController implements HttpController {
             if (frame.learnedReviewId() != null && !frame.learnedReviewId().isBlank()) {
                 item.put("learned_review_id", frame.learnedReviewId());
             }
+            if (frame.geometry() != null && !frame.geometry().isEmpty()) {
+                item.set("geometry", JSON.valueToTree(frame.geometry()));
+            }
         }
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }

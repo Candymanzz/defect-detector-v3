@@ -1,11 +1,12 @@
-# Remove stack supervisor from Windows Task Scheduler and stop running stack.
+# Remove Defect Detector autostart (Task Scheduler + Startup shortcut) and stop stack.
 #
 # Usage (PowerShell as Admin):
 #   .\uninstall-windows-autostart.ps1
-#   .\uninstall-windows-autostart.ps1 -TaskName IML-StackSupervisor
+#   .\uninstall-windows-autostart.ps1 -TaskName IML-DefectDetector
 
 param(
-    [string]$TaskName = "IML-StackSupervisor"
+    [string]$TaskName = "IML-DefectDetector",
+    [string]$LegacyTaskName = "IML-StackSupervisor"
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,18 +23,32 @@ function Write-Step([string]$Text) {
     Write-Host "==> $Text" -ForegroundColor Cyan
 }
 
+function Remove-TaskIfExists([string]$Name) {
+    $task = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+    if ($task) {
+        Stop-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $Name -Confirm:$false
+        Write-Host "Task '$Name' removed." -ForegroundColor Green
+    } else {
+        Write-Host "Task '$Name' not found." -ForegroundColor Yellow
+    }
+}
+
 if (-not (Test-Administrator)) {
     throw "Run PowerShell as Administrator."
 }
 
-Write-Step "Stop scheduled task '$TaskName'"
-$task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($task) {
-    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-    Write-Host "Task removed." -ForegroundColor Green
+Write-Step "Remove scheduled tasks"
+Remove-TaskIfExists $TaskName
+Remove-TaskIfExists $LegacyTaskName
+
+Write-Step "Remove Startup shortcut"
+$ShortcutPath = Join-Path ([Environment]::GetFolderPath("Startup")) "DefectDetector.lnk"
+if (Test-Path $ShortcutPath) {
+    Remove-Item $ShortcutPath -Force
+    Write-Host "Removed $ShortcutPath" -ForegroundColor Green
 } else {
-    Write-Host "Task '$TaskName' not found (already removed)." -ForegroundColor Yellow
+    Write-Host "Startup shortcut not found." -ForegroundColor Yellow
 }
 
 Write-Step "Stop dev stack processes"

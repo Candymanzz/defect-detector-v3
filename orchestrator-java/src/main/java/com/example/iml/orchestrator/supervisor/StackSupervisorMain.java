@@ -101,7 +101,7 @@ public final class StackSupervisorMain {
         URI healthUri = URI.create(env("IML_ORCHESTRATOR_HEALTH_URL", "http://127.0.0.1:8099/health"));
         long healthIntervalMs = envLong("IML_SUPERVISOR_HEALTH_INTERVAL_MS", 5000L);
         long restartDelayMs = envLong("IML_SUPERVISOR_RESTART_DELAY_MS", 5000L);
-        int healthFailThreshold = envInt("IML_SUPERVISOR_HEALTH_FAIL_THRESHOLD", 3);
+        int healthFailThreshold = envInt("IML_SUPERVISOR_HEALTH_FAIL_THRESHOLD", 6);
         int maxRestarts = envInt("IML_SUPERVISOR_MAX_RESTARTS", 0);
         long startupHealthTimeoutMs = envLong("IML_SUPERVISOR_STARTUP_HEALTH_TIMEOUT_MS", 180_000L);
         long stableHealthyMs = envLong("IML_SUPERVISOR_STABLE_HEALTH_MS", 300_000L);
@@ -171,12 +171,14 @@ public final class StackSupervisorMain {
             long externalPid = -1L;
             boolean attachedToLauncher = false;
             boolean recoveryFailed = true;
+            boolean skipPortCleanup = false;
             try {
-                if (attachPid > 0 && isProcessAlive(attachPid) && probeStackHealth(3000)) {
+                if (attachPid > 0 && isProcessAlive(attachPid) && probeStackHealth(healthProbeTimeoutMs())) {
                     externalPid = attachPid;
                     attachedToLauncher = true;
                     log.info(
-                            "stack supervisor attach mode — monitoring launcher orchestrator pid={} (no spawn, no port cleanup)",
+                            "stack supervisor attach mode — monitoring launcher orchestrator pid={} "
+                                    + "(no spawn; port cleanup only if process exits)",
                             externalPid
                     );
                     attachPid = -1L;
@@ -196,7 +198,7 @@ public final class StackSupervisorMain {
                                 startupHealthTimeoutMs
                         );
                     } else {
-                        MonitorResult result = monitorUntilUnhealthy(child, -1L);
+                        MonitorResult result = monitorUntilUnhealthy(child, -1L, false);
                         if (stopRequested.get()) {
                             log.info("stack supervisor stopping spawned orchestrator (user request)");
                             destroyProcessTree(child, false);
@@ -214,9 +216,12 @@ public final class StackSupervisorMain {
                 }
 
                 if (attachedToLauncher) {
-                    MonitorResult result = monitorUntilUnhealthy(null, externalPid);
+                    // Attach: health blips (e.g. MJPEG stream load) must NOT kill the launcher stack.
+                    // Only process exit triggers takeover + port cleanup.
+                    MonitorResult result = monitorUntilUnhealthy(null, externalPid, true);
                     if (stopRequested.get()) {
                         log.info("stack supervisor stop — leaving launcher orchestrator pid={} running", externalPid);
+                        skipPortCleanup = true;
                         return 0;
                     }
                     recoveryFailed = result.stableHealthyMs() < stableHealthyMs;
@@ -236,7 +241,9 @@ public final class StackSupervisorMain {
                 } else if (!attachedToLauncher && externalPid > 0) {
                     destroyProcessTreeByPid(externalPid, true);
                 }
-                cleanupOrphanPorts("post-crash");
+                if (!skipPortCleanup) {
+                    cleanupOrphanPorts("post-crash");
+                }
             }
 
             if (recoveryFailed) {
@@ -276,7 +283,7 @@ public final class StackSupervisorMain {
     private boolean awaitStackHealth(long timeoutMs) {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (!stopRequested.get() && System.currentTimeMillis() < deadline) {
-            if (probeStackHealth(3000)) {
+            if (probeStackHealth(healthProbeTimeoutMs())) {
                 log.info("stack supervisor startup health OK");
                 return true;
             }
@@ -294,6 +301,11 @@ public final class StackSupervisorMain {
         return true;
     }
 
+    /** Per-URI connect/read timeout; stream/JPEG load can briefly stall the JVM. */
+    static int healthProbeTimeoutMs() {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(1000L, envLong("IML_SUPERVISOR_HEALTH_PROBE_TIMEOUT_MS", 8000L)));
+    }
+
     private Process startOrchestrator() throws IOException {
         List<String> command = List.of(
                 resolveJavaBinary(),
@@ -309,10 +321,15 @@ public final class StackSupervisorMain {
         return process;
     }
 
-    private MonitorResult monitorUntilUnhealthy(Process child, long externalPid) {
+    /**
+     * @param attachMode when true, health failures only warn; monitor ends on process exit / stop.
+     *                   Prevents MJPEG/stream load from tearing down a live launcher-owned stack.
+     */
+    private MonitorResult monitorUntilUnhealthy(Process child, long externalPid, boolean attachMode) {
         int consecutiveHealthFails = 0;
         long nextHealthProbeMs = 0L;
         long healthySinceMs = -1L;
+        int probeTimeoutMs = healthProbeTimeoutMs();
         while (!stopRequested.get()) {
             boolean alive = child != null ? child.isAlive() : isProcessAlive(externalPid);
             if (!alive) {
@@ -322,7 +339,7 @@ public final class StackSupervisorMain {
             long now = System.currentTimeMillis();
             if (now >= nextHealthProbeMs) {
                 nextHealthProbeMs = now + healthIntervalMs;
-                if (probeStackHealth(3000)) {
+                if (probeStackHealth(probeTimeoutMs)) {
                     consecutiveHealthFails = 0;
                     if (healthySinceMs < 0) {
                         healthySinceMs = now;
@@ -330,14 +347,22 @@ public final class StackSupervisorMain {
                 } else {
                     consecutiveHealthFails++;
                     healthySinceMs = -1L;
-                    log.warn(
-                            "stack supervisor health probe failed ({}/{}) uris={}",
-                            consecutiveHealthFails,
-                            healthFailThreshold,
-                            stackHealthUris
-                    );
-                    if (consecutiveHealthFails >= healthFailThreshold) {
-                        return new MonitorResult("health-timeout", -1, stableHealthyDurationMs(healthySinceMs));
+                    if (attachMode) {
+                        log.warn(
+                                "stack supervisor attach health probe failed ({}) uris={} — process still alive, not killing",
+                                consecutiveHealthFails,
+                                stackHealthUris
+                        );
+                    } else {
+                        log.warn(
+                                "stack supervisor health probe failed ({}/{}) uris={}",
+                                consecutiveHealthFails,
+                                healthFailThreshold,
+                                stackHealthUris
+                        );
+                        if (consecutiveHealthFails >= healthFailThreshold) {
+                            return new MonitorResult("health-timeout", -1, stableHealthyDurationMs(healthySinceMs));
+                        }
                     }
                 }
             }

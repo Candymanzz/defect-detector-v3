@@ -162,6 +162,28 @@ public final class ExternalServiceProcess implements AutoCloseable {
     }
 
     /**
+     * Убивает сиротские процессы, в чьей командной строке есть {@code commandSubstring}
+     * (напр. {@code IoInputMonitor} после Ctrl+C / crash — COM и HTTP иначе остаются заняты).
+     * Не трогает текущий JVM-процесс оркестратора.
+     */
+    public static void killOrphansMatchingCommand(String commandSubstring, org.apache.logging.log4j.Logger logger) {
+        if (commandSubstring == null || commandSubstring.isBlank()) {
+            return;
+        }
+        try {
+            if (isWindows()) {
+                killWindowsOrphansMatching(commandSubstring.trim(), logger);
+            } else {
+                killUnixOrphansMatching(commandSubstring.trim(), logger);
+            }
+        } catch (Exception e) {
+            if (logger != null) {
+                logger.warn("killOrphansMatchingCommand {}: {}", commandSubstring, e.getMessage());
+            }
+        }
+    }
+
+    /**
      * Запасной путь: убить всё, что слушает порт (сиротский LightServer после Ctrl+C).
      */
     public static void killListenersOnPort(int port, org.apache.logging.log4j.Logger logger) {
@@ -179,6 +201,79 @@ public final class ExternalServiceProcess implements AutoCloseable {
                 logger.warn("killListenersOnPort {}: {}", port, e.getMessage());
             }
         }
+    }
+
+    private static void killWindowsOrphansMatching(String needle, org.apache.logging.log4j.Logger logger) throws Exception {
+        long selfPid = ProcessHandle.current().pid();
+        String ps = "$needle='" + needle.replace("'", "''") + "'; "
+                + "Get-CimInstance Win32_Process | "
+                + "Where-Object { $_.CommandLine -and $_.CommandLine -like ('*'+$needle+'*') "
+                + "-and $_.ProcessId -ne " + selfPid + " } | "
+                + "ForEach-Object { $_.ProcessId }";
+        Process proc = new ProcessBuilder(
+                "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps
+        ).redirectErrorStream(true).start();
+        String out = new String(proc.getInputStream().readAllBytes()).trim();
+        proc.waitFor(8, TimeUnit.SECONDS);
+        if (out.isEmpty()) {
+            return;
+        }
+        for (String line : out.split("\\R")) {
+            String pidStr = line.trim();
+            if (pidStr.isEmpty()) {
+                continue;
+            }
+            long pid;
+            try {
+                pid = Long.parseLong(pidStr);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (pid <= 0 || pid == selfPid) {
+                continue;
+            }
+            if (logger != null) {
+                logger.info("killing orphan process pid={} matching '{}'", pid, needle);
+            }
+            taskkillWindows(pid, true);
+        }
+    }
+
+    private static void killUnixOrphansMatching(String needle, org.apache.logging.log4j.Logger logger) throws Exception {
+        long selfPid = ProcessHandle.current().pid();
+        Process proc = new ProcessBuilder(
+                "sh", "-c",
+                "pgrep -af " + shellQuote(needle) + " || true"
+        ).redirectErrorStream(true).start();
+        String out = new String(proc.getInputStream().readAllBytes()).trim();
+        proc.waitFor(5, TimeUnit.SECONDS);
+        if (out.isEmpty()) {
+            return;
+        }
+        for (String line : out.split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || !trimmed.contains(needle)) {
+                continue;
+            }
+            String[] parts = trimmed.split("\\s+", 2);
+            long pid;
+            try {
+                pid = Long.parseLong(parts[0]);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (pid <= 0 || pid == selfPid) {
+                continue;
+            }
+            if (logger != null) {
+                logger.info("killing orphan process pid={} matching '{}'", pid, needle);
+            }
+            new ProcessBuilder("kill", "-9", String.valueOf(pid)).start().waitFor(2, TimeUnit.SECONDS);
+        }
+    }
+
+    private static String shellQuote(String value) {
+        return "'" + value.replace("'", "'\\''") + "'";
     }
 
     private static void killWindowsPortListeners(int port, org.apache.logging.log4j.Logger logger) throws Exception {

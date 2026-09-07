@@ -1,3 +1,5 @@
+import type { GeometryInspectResponse } from "../api/types";
+
 export type WsConnectionState = "idle" | "connecting" | "open" | "reconnecting" | "error" | "closed";
 export type WsProtocolVersion = 1;
 export type WsMessageId = string;
@@ -294,6 +296,8 @@ export type InspectResultPayload = {
   anomaly_score?: number;
   python_status?: InspectionStageStatus | string;
   geometry_status?: InspectionStageStatus | string;
+  /** Compact geometry metrics for this frame (WS/archive); preferred over /api/geometry/.../latest. */
+  geometry?: GeometryInspectResponse;
   fp_zones: FpZoneNorm[];
   excluded_normal_zones?: ExcludedNormalZone[];
   fp_coordinate_space?: {

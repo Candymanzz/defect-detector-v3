@@ -1,5 +1,7 @@
 package com.example.iml.orchestrator.integration.pipeline;
 
+import java.util.Map;
+
 /** Решение по кадру после geometry и python. */
 public record InspectionDecision(
         int cameraId,
@@ -13,8 +15,14 @@ public record InspectionDecision(
         double jointParallelismDeg,
         double jointWidthMm,
         double jointVisibility,
-        boolean jointPass
+        boolean jointPass,
+        /** Компактный geometry header для UI (WS/archive); может быть пустым. */
+        Map<String, Object> geometry
 ) {
+    public InspectionDecision {
+        geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
+    }
+
     public static InspectionDecision captureOnly(int cameraId, long frameId) {
         return new InspectionDecision(
                 cameraId,
@@ -28,7 +36,8 @@ public record InspectionDecision(
                 0.0,
                 0.0,
                 0.0,
-                true
+                true,
+                Map.of()
         );
     }
 
@@ -54,7 +63,8 @@ public record InspectionDecision(
                 0.0,
                 0.0,
                 0.0,
-                true
+                true,
+                Map.of()
         );
     }
 }

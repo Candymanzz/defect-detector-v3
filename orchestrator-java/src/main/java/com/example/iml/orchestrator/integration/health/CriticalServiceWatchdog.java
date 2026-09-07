@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +35,12 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     private static final long POLL_MS = 2000L;
     /** Повторный restart упавших сервисов, если первая попытка не удалась. */
     private static final long RECOVERY_RETRY_MS = 10_000L;
+    /** HTTP direction latch IoInputMonitor (config direction_http.port, default 9101). */
+    private static final int IO_INPUT_HTTP_PORT = 9101;
+    /** Пауза после close/kill — Windows часто ещё держит COM/handle. */
+    private static final long IO_COM_RELEASE_MS = 1200L;
+    /** Процесс должен прожить grace, иначе рестарт считается неудачным (анти-storm). */
+    private static final long IO_ALIVE_GRACE_MS = 1500L;
 
     private final Logger log;
     private final ServiceHealthGate healthGate;
@@ -45,6 +52,8 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean restarting = new AtomicBoolean(false);
     private final List<WatchedExternal> watched = new ArrayList<>();
+    private final ConcurrentHashMap<String, Long> restartNotBeforeMs = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> consecutiveRestartFailures = new ConcurrentHashMap<>();
     private volatile long lastRecoveryAttemptMs = 0L;
 
     private CriticalServiceWatchdog(
@@ -382,11 +391,20 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     }
 
     private void attemptServiceRestart(String name, BooleanSupplier restart) {
+        if (!mayAttemptRestart(name)) {
+            return;
+        }
         if (!restarting.compareAndSet(false, true)) {
             return;
         }
         try {
-            boolean ok = restart.getAsBoolean();
+            boolean ok = false;
+            try {
+                ok = restart.getAsBoolean();
+            } catch (Exception e) {
+                log.warn("pipeline recovery restart error name={}: {}", name, e.getMessage());
+            }
+            onRestartOutcome(name, ok);
             if (ok) {
                 healthGate.markHealthy(name);
                 reattachAfterRestart(name);
@@ -398,8 +416,6 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             } else {
                 log.warn("pipeline recovery restart failed name={}", name);
             }
-        } catch (Exception e) {
-            log.warn("pipeline recovery restart error name={}: {}", name, e.getMessage());
         } finally {
             restarting.set(false);
         }
@@ -551,6 +567,9 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             return;
         }
         healthGate.markUnhealthy(name);
+        if (!mayAttemptRestart(name)) {
+            return;
+        }
         log.warn("critical service dead name={} — vision_fault; attempting restart", name);
         if (!restarting.compareAndSet(false, true)) {
             return;
@@ -562,6 +581,7 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             } catch (Exception e) {
                 log.warn("critical service restart failed name={}: {}", name, e.getMessage());
             }
+            onRestartOutcome(name, ok);
             if (ok) {
                 healthGate.markHealthy(name);
                 log.info("critical service restarted name={} — clearing fault if all healthy", name);
@@ -576,6 +596,37 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         } finally {
             restarting.set(false);
         }
+    }
+
+    private boolean mayAttemptRestart(String name) {
+        long notBefore = restartNotBeforeMs.getOrDefault(name, 0L);
+        long now = System.currentTimeMillis();
+        if (now < notBefore) {
+            log.debug(
+                    "critical service restart deferred name={} wait_ms={}",
+                    name,
+                    notBefore - now
+            );
+            return false;
+        }
+        return true;
+    }
+
+    private void onRestartOutcome(String name, boolean ok) {
+        if (ok) {
+            consecutiveRestartFailures.remove(name);
+            restartNotBeforeMs.remove(name);
+            return;
+        }
+        int failures = consecutiveRestartFailures.merge(name, 1, Integer::sum);
+        long delayMs = Math.min(30_000L, 2_000L * (1L << Math.min(failures - 1, 4)));
+        restartNotBeforeMs.put(name, System.currentTimeMillis() + delayMs);
+        log.warn(
+                "critical service backoff name={} failures={} next_retry_ms={}",
+                name,
+                failures,
+                delayMs
+        );
     }
 
     private void reattachAfterRestart(String name) {
@@ -602,6 +653,11 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         if (old != null) {
             old.close();
         }
+        // Сироты после crash/Ctrl+C держат COM и HTTP 9101 → мгновенный рестарт падает в loop.
+        ExternalServiceProcess.killOrphansMatchingCommand("IoInputMonitor", log);
+        ExternalServiceProcess.killOrphansMatchingCommand("io-input-monitor", log);
+        ExternalServiceProcess.killListenersOnPort(IO_INPUT_HTTP_PORT, log);
+        sleepQuiet(IO_COM_RELEASE_MS);
         ExternalServiceProcess next = externalLauncher.startIfConfigured(
                 ctx.integration(),
                 ctx.projectRoot(),
@@ -613,7 +669,36 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 "."
         );
         ctx.setIoInputMonitorProcess(next);
-        return next != null && next.isAlive();
+        if (next == null || !next.isAlive()) {
+            return false;
+        }
+        if (!waitProcessAlive(next, IO_ALIVE_GRACE_MS)) {
+            log.warn("io_input_monitor exited during grace_ms={} — treating restart as failed", IO_ALIVE_GRACE_MS);
+            return false;
+        }
+        return true;
+    }
+
+    private static void sleepQuiet(long ms) {
+        if (ms <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static boolean waitProcessAlive(ExternalServiceProcess process, long graceMs) {
+        long deadline = System.currentTimeMillis() + Math.max(0L, graceMs);
+        while (System.currentTimeMillis() < deadline) {
+            if (!process.isAlive()) {
+                return false;
+            }
+            sleepQuiet(100L);
+        }
+        return process.isAlive();
     }
 
     private boolean restartLightServer() {

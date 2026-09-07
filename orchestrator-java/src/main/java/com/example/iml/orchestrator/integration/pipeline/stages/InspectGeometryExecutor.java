@@ -134,12 +134,14 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             long t0 = System.nanoTime();
             Map<String, Object> gHeader = BinaryInspectHeaders.geometryInspectHeader(
                     cameraId, state.capture(), activeReference, geometryCfg, pythonCfg);
+            String analysisProfile = CameraAnalysisProfiles.resolve(cameraId, productType);
+            BinaryInspectHeaders.applyGeometryProfileOverrides(
+                    gHeader,
+                    BinaryInspectHeaders.resolveGeometryProfileOverrides(geometryCfg, analysisProfile)
+            );
             if (geometryRuntimeConfig != null) {
                 // UI пишет geometry-runtime под analysis_profile камеры, не под product_type эталона.
-                geometryRuntimeConfig.applyToGeometryHeader(
-                        gHeader,
-                        CameraAnalysisProfiles.resolve(cameraId, productType)
-                );
+                geometryRuntimeConfig.applyToGeometryHeader(gHeader, analysisProfile);
             }
             BinaryInspectHeaders.applyMainRoiFromPolygon(gHeader, state.capture(), activeReference);
             BinaryInspectHeaders.syncWrinklesRoiFromMainRoi(gHeader);
@@ -152,6 +154,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             geometrySlots.acquire();
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);
+                geomResp = applyPoseQcFromPositioning(geomResp, state.capture(), gHeader);
                 if (log.isDebugEnabled()) {
                     log.debug("{} cam={} frame={} => {}", geometry.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), geomResp.header());
                 }
@@ -198,6 +201,65 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                 state.pythonMs(),
                 0L
         );
+    }
+
+    /**
+     * После успешного positioning geometry получает pose_locked и пишет shift=0.
+     * QC смещения/поворота — по метрикам positioning против {@code java_geometry.max_shift_mm}.
+     */
+    static BinaryProtocol.Message applyPoseQcFromPositioning(
+            BinaryProtocol.Message geomResp,
+            BinaryProtocol.Message capture,
+            Map<String, Object> geometryHeader
+    ) {
+        if (geomResp == null
+                || geomResp.type() != BinaryProtocol.MSG_RESPONSE
+                || capture == null
+                || capture.header() == null
+                || geometryHeader == null) {
+            return geomResp;
+        }
+        if (!YamlScalars.toBool(capture.header().get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
+            return geomResp;
+        }
+        if ("SKIPPED".equals(String.valueOf(geomResp.header().getOrDefault("status", "")))) {
+            return geomResp;
+        }
+
+        double shiftX = YamlScalars.toDouble(capture.header().get("positioning_shift_x_mm"), 0.0);
+        double shiftY = YamlScalars.toDouble(capture.header().get("positioning_shift_y_mm"), 0.0);
+        double rotationDeg = YamlScalars.toDouble(capture.header().get("positioning_rotation_deg"), 0.0);
+        double maxShiftMm = YamlScalars.toDouble(geometryHeader.get("maxShiftMm"), 0.5);
+        double maxRotationDeg = YamlScalars.toDouble(geometryHeader.get("maxRotationDeg"), 1.0);
+
+        boolean alignmentPass = Math.abs(shiftX) <= maxShiftMm
+                && Math.abs(shiftY) <= maxShiftMm
+                && Math.abs(rotationDeg) <= maxRotationDeg;
+
+        Map<String, Object> header = new java.util.LinkedHashMap<>(geomResp.header());
+        header.put("shiftXmm", shiftX);
+        header.put("shiftYmm", shiftY);
+        header.put("rotationDeg", rotationDeg);
+        header.put("deviationRadiusMm", Math.hypot(shiftX, shiftY));
+        header.put("alignmentPass", alignmentPass);
+        header.put("poseQcFromPositioning", true);
+
+        boolean jointPass = !header.containsKey("jointPass") || YamlScalars.toBool(header.get("jointPass"), true);
+        boolean wrinklesPass = !header.containsKey("wrinklesPass") || YamlScalars.toBool(header.get("wrinklesPass"), true);
+        boolean concentricityPass = !header.containsKey("concentricityPass")
+                || YamlScalars.toBool(header.get("concentricityPass"), true);
+        boolean rimSkewPass = !header.containsKey("rimSkewPass") || YamlScalars.toBool(header.get("rimSkewPass"), true);
+        boolean overallPass = alignmentPass && jointPass && wrinklesPass && concentricityPass && rimSkewPass;
+        header.put("overallPass", overallPass);
+        if (!overallPass) {
+            header.put("status", "FAIL");
+            if (!alignmentPass) {
+                header.put("error", "pose shift/rotation exceeds geometry limits after positioning");
+            }
+        } else if (!"FAIL".equals(String.valueOf(header.getOrDefault("status", "")))) {
+            header.put("status", "PASS");
+        }
+        return new BinaryProtocol.Message(geomResp.type(), header, geomResp.payload());
     }
 
     private static boolean hasValidCaptureFrame(PipelineState state) {
