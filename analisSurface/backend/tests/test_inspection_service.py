@@ -94,8 +94,16 @@ def test_bottom_shadow_filter_preserves_local_defect_edges() -> None:
         settings,
         bottom_shadow_suppression=True,
     )
+    settings.illumination_tolerance = 1.0
+    strongly_filtered = service._compute_advanced_difference(
+        current,
+        reference,
+        settings,
+        bottom_shadow_suppression=True,
+    )
     baseline_gray = cv2.cvtColor(baseline, cv2.COLOR_BGR2GRAY)
     filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+    strongly_filtered_gray = cv2.cvtColor(strongly_filtered, cv2.COLOR_BGR2GRAY)
 
     defect = np.zeros((height, width), dtype=bool)
     defect[185:224, 137:183] = True
@@ -103,9 +111,14 @@ def test_bottom_shadow_filter_preserves_local_defect_edges() -> None:
     assert float(np.percentile(filtered_gray[defect], 90)) >= float(
         np.percentile(baseline_gray[defect], 90)
     ) * 0.90
+    # Even the strongest illumination protection keeps the high-frequency
+    # edges of a real local defect instead of treating them as smooth light.
+    assert float(np.percentile(strongly_filtered_gray[defect], 90)) >= float(
+        np.percentile(baseline_gray[defect], 90)
+    ) * 0.85
 
 
-def test_bottom_shadow_filter_uses_roi_relative_position() -> None:
+def test_illumination_filter_covers_entire_roi_and_respects_mask() -> None:
     service = InspectionService.__new__(InspectionService)
     image = np.full((200, 240), 30, dtype=np.uint8)
     reference = np.full_like(image, 120)
@@ -122,12 +135,16 @@ def test_bottom_shadow_filter_uses_roi_relative_position() -> None:
         diagnostics=diagnostics,
     )
 
-    assert float(confidence[45, 120]) == pytest.approx(0.0)
-    assert float(confidence[80, 120]) > 0.0
+    # The same smooth shift is eligible at the top, middle, and bottom of ROI.
+    assert float(confidence[45, 120]) > 0.5
+    assert float(confidence[80, 120]) > 0.5
     assert float(confidence[138, 120]) > 0.5
+    # Outside the configured rectangle there is no confidence at all.
+    assert float(confidence[10, 120]) == pytest.approx(0.0)
+    assert float(confidence[80, 20]) == pytest.approx(0.0)
     assert int(np.count_nonzero(confidence[141:])) == 0
-    assert float(diagnostics["eligible_height_percent"]) >= 70.0
-    assert float(diagnostics["eligible_roi_percent"]) >= 70.0
+    assert float(diagnostics["eligible_height_percent"]) == pytest.approx(100.0)
+    assert float(diagnostics["eligible_roi_percent"]) == pytest.approx(100.0)
 
 
 @pytest.mark.parametrize(
@@ -140,7 +157,7 @@ def test_bottom_shadow_filter_classifies_shadow_and_glare(
 ) -> None:
     service = InspectionService.__new__(InspectionService)
     robust = np.full((160, 220), 40, dtype=np.uint8)
-    robust[:50] = 0  # The illumination field is confined to the handled 70% band.
+    robust[:50] = 0  # Keep the synthetic signal focused on the illuminated area.
     reference = np.full_like(robust, 120)
     current = np.full_like(robust, current_level)
     diagnostics: dict[str, object] = {}
@@ -184,7 +201,7 @@ def test_bottom_shadow_filter_keeps_local_light_patch_conservative() -> None:
 def test_broad_illumination_is_removed_from_score_signal() -> None:
     service = InspectionService.__new__(InspectionService)
     robust = np.full((160, 220), 40, dtype=np.uint8)
-    robust[:50] = 0  # The illumination field is confined to the handled 70% band.
+    robust[:50] = 0  # Keep the synthetic signal focused on the illuminated area.
     reference = np.full_like(robust, 120)
     current = np.full_like(robust, 85)
     diagnostics: dict[str, object] = {}
@@ -202,6 +219,39 @@ def test_broad_illumination_is_removed_from_score_signal() -> None:
         AnalysisSettings.defaults(),
     )
     assert score == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("current_level", [108, 132])
+def test_illumination_tolerance_changes_shadow_and_glare_suppression(
+    current_level: int,
+) -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 32, dtype=np.uint8)
+    robust[:50] = 0
+    reference = np.full_like(robust, 120)
+    current = np.full_like(robust, current_level)
+    low_diagnostics: dict[str, object] = {}
+    high_diagnostics: dict[str, object] = {}
+
+    low, _ = service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        illumination_tolerance=0.0,
+        diagnostics=low_diagnostics,
+    )
+    high, _ = service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        illumination_tolerance=1.0,
+        diagnostics=high_diagnostics,
+    )
+
+    assert np.array_equal(low, robust)
+    assert float(np.mean(high[80:])) < float(np.mean(low[80:])) * 0.5
+    assert high_diagnostics["tolerance_percent"] == 100.0
+    assert float(high_diagnostics["diff_energy_reduction_percent"]) > 25.0
 
 
 def test_inspect_identical_frames_passes(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:

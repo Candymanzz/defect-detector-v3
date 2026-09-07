@@ -47,14 +47,9 @@ _FP_CROP_MIN = 64
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 
-# A moved bucket can briefly receive a broad shadow around its physical top.
-# Buckets are inverted in the camera view, therefore that handling area is at
-# the bottom of the configured ROI. Illumination classification is allowed on
-# the lower 71% of the ROI (a small rounding margin above the required 70%)
-# and only affects differences which still preserve the reference's local
-# detail and gradient structure.
-_BOTTOM_SHADOW_START = 0.29
-_BOTTOM_SHADOW_MIN_SPATIAL_WEIGHT = 0.35
+# Illumination classification runs over the complete active ROI. It only
+# affects differences which preserve the reference's local detail and gradient
+# structure, so a real local defect is not treated as a smooth light field.
 _BOTTOM_SHADOW_MAX_SUPPRESSION = 0.30
 _BOTTOM_SHADOW_BROAD_MAX_SUPPRESSION = 0.75
 _BOTTOM_SHADOW_BROAD_MIN_ROI_RATIO = 0.08
@@ -66,6 +61,59 @@ _BOTTOM_SHADOW_DETAIL_SCALE = 18.0
 _BOTTOM_SHADOW_GRADIENT_SCALE = 32.0
 _BOTTOM_SHADOW_DETECTION_CONFIDENCE = 0.20
 _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO = 0.002
+
+
+def _piecewise_illumination_value(
+    tolerance: float,
+    low: float,
+    middle: float,
+    high: float,
+) -> float:
+    """Interpolate a control while keeping 50% exactly backward-compatible."""
+    value = max(0.0, min(1.0, float(tolerance)))
+    if value <= 0.5:
+        return low + (middle - low) * (value * 2.0)
+    return middle + (high - middle) * ((value - 0.5) * 2.0)
+
+
+def _illumination_filter_parameters(tolerance: float) -> dict[str, float]:
+    """Translate the public 0..1 control into safe detector thresholds."""
+    return {
+        "min_shift": _piecewise_illumination_value(
+            tolerance, 12.0, _BOTTOM_SHADOW_MIN_SHIFT, 3.0
+        ),
+        "full_shift": _piecewise_illumination_value(
+            tolerance, 32.0, _BOTTOM_SHADOW_FULL_SHIFT, 14.0
+        ),
+        "detail_scale": _piecewise_illumination_value(
+            tolerance, 10.0, _BOTTOM_SHADOW_DETAIL_SCALE, 28.0
+        ),
+        "gradient_scale": _piecewise_illumination_value(
+            tolerance, 18.0, _BOTTOM_SHADOW_GRADIENT_SCALE, 48.0
+        ),
+        "detection_confidence": _piecewise_illumination_value(
+            tolerance, 0.35, _BOTTOM_SHADOW_DETECTION_CONFIDENCE, 0.10
+        ),
+        "detection_min_roi_ratio": _piecewise_illumination_value(
+            tolerance, 0.01, _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO, 0.0005
+        ),
+        "broad_min_roi_ratio": _piecewise_illumination_value(
+            tolerance, 0.18, _BOTTOM_SHADOW_BROAD_MIN_ROI_RATIO, 0.03
+        ),
+        "broad_min_column_coverage": _piecewise_illumination_value(
+            tolerance, 0.90, _BOTTOM_SHADOW_BROAD_MIN_COLUMN_COVERAGE, 0.45
+        ),
+        # A threshold above 1.0 at zero disables hard exclusion completely.
+        "hard_ignore_confidence": _piecewise_illumination_value(
+            tolerance, 1.01, _BOTTOM_SHADOW_HARD_IGNORE_CONFIDENCE, 0.35
+        ),
+        "local_max_suppression": _piecewise_illumination_value(
+            tolerance, 0.0, _BOTTOM_SHADOW_MAX_SUPPRESSION, 0.60
+        ),
+        "broad_max_suppression": _piecewise_illumination_value(
+            tolerance, 0.0, _BOTTOM_SHADOW_BROAD_MAX_SUPPRESSION, 0.95
+        ),
+    }
 
 
 class InspectionService:
@@ -1220,6 +1268,7 @@ class InspectionService:
             "edge_suppression",
             "text_handling",
             "preprocess_strength",
+            "illumination_tolerance",
         ):
             if key in raw:
                 value = float(raw[key])
@@ -2229,6 +2278,7 @@ class InspectionService:
                 illumination_cur_gray,
                 roi_mask=roi_mask,
                 diagnostics=illumination_diagnostics,
+                illumination_tolerance=settings.illumination_tolerance,
             )
 
         # The bucket is inverted in the camera view, so the upper part of the
@@ -2302,8 +2352,9 @@ class InspectionService:
         *,
         roi_mask: Optional[np.ndarray] = None,
         diagnostics: Optional[dict[str, object]] = None,
+        illumination_tolerance: float = 0.5,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Reduce broad illumination shifts over at least the lower 70% of the ROI.
+        """Reduce broad illumination shifts across the complete active ROI.
 
         A likely shadow has a sizeable low-frequency brightness shift but keeps
         local detail and gradient structure close to the reference. The result
@@ -2311,11 +2362,14 @@ class InspectionService:
         shadows and positive shifts as glare for diagnostics.
         """
         height, width = robust_gray.shape[:2]
+        tolerance = max(0.0, min(1.0, float(illumination_tolerance)))
+        parameters = _illumination_filter_parameters(tolerance)
         if diagnostics is not None:
             diagnostics.clear()
             diagnostics.update(
                 {
                     "enabled": True,
+                    "tolerance_percent": round(tolerance * 100.0, 1),
                     "eligible_height_percent": 0.0,
                     "eligible_roi_percent": 0.0,
                     "shadow_detected": False,
@@ -2352,15 +2406,13 @@ class InspectionService:
             first_row, last_row = int(active_rows[0]), int(active_rows[-1])
 
         roi_height = max(1, last_row - first_row)
-        first_weighted_row = int(
-            np.ceil(first_row + _BOTTOM_SHADOW_START * roi_height)
-        )
+        # Do not tie the detector to a physical image direction: the bucket or
+        # camera can be mounted differently while the configured ROI remains
+        # the authoritative inspection area.
+        first_weighted_row = first_row
 
-        # Work only around the lower ROI band. On production frames this avoids
-        # running several full-frame Gaussian/Sobel passes for an area whose
-        # confidence is guaranteed to be zero.
-        bottom_active = active_mask[first_weighted_row : last_row + 1]
-        active_columns = np.flatnonzero(np.any(bottom_active, axis=0))
+        active_roi = active_mask[first_weighted_row : last_row + 1]
+        active_columns = np.flatnonzero(np.any(active_roi, axis=0))
         if active_columns.size == 0:
             return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
 
@@ -2375,22 +2427,9 @@ class InspectionService:
         ref_float = reference_gray[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
         cur_float = current_gray[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
         local_active_mask = active_mask[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
-        y_norm = (
-            np.arange(crop_y0, crop_y1, dtype=np.float32) - float(first_row)
-        ) / float(roi_height)
-        bottom_weight = np.clip(
-            (y_norm - _BOTTOM_SHADOW_START) / (1.0 - _BOTTOM_SHADOW_START),
-            0.0,
-            1.0,
-        )
-        bottom_weight = bottom_weight * bottom_weight * (3.0 - 2.0 * bottom_weight)
-        bottom_weight = np.where(
-            y_norm >= _BOTTOM_SHADOW_START,
-            _BOTTOM_SHADOW_MIN_SPATIAL_WEIGHT
-            + (1.0 - _BOTTOM_SHADOW_MIN_SPATIAL_WEIGHT) * bottom_weight,
-            0.0,
-        )
-        bottom_weight = bottom_weight[:, np.newaxis] * local_active_mask
+        # Every ROI pixel gets equal spatial weight. The mask still guarantees
+        # that pixels outside the polygon cannot be suppressed or scored.
+        illumination_weight = local_active_mask
 
         # Kernel scales with image size, so the classification follows broad
         # light fields rather than scratches or printed details.
@@ -2399,8 +2438,8 @@ class InspectionService:
 
         illumination_shift = np.abs(low_cur - low_ref)
         illumination_confidence = np.clip(
-            (illumination_shift - _BOTTOM_SHADOW_MIN_SHIFT)
-            / (_BOTTOM_SHADOW_FULL_SHIFT - _BOTTOM_SHADOW_MIN_SHIFT),
+            (illumination_shift - parameters["min_shift"])
+            / (parameters["full_shift"] - parameters["min_shift"]),
             0.0,
             1.0,
         )
@@ -2412,7 +2451,7 @@ class InspectionService:
         cur_detail = cur_float - low_cur
         detail_delta = np.abs(cur_detail - ref_detail)
         detail_confidence = np.exp(
-            -np.square(detail_delta / _BOTTOM_SHADOW_DETAIL_SCALE)
+            -np.square(detail_delta / parameters["detail_scale"])
         )
 
         ref_grad_x = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
@@ -2421,15 +2460,18 @@ class InspectionService:
         cur_grad_y = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
         gradient_delta = cv2.magnitude(cur_grad_x - ref_grad_x, cur_grad_y - ref_grad_y)
         gradient_confidence = np.exp(
-            -np.square(gradient_delta / _BOTTOM_SHADOW_GRADIENT_SCALE)
+            -np.square(gradient_delta / parameters["gradient_scale"])
         )
 
         local_confidence = (
-            bottom_weight
+            illumination_weight
             * illumination_confidence
             * detail_confidence
             * gradient_confidence
         ).astype(np.float32)
+        # The left edge of the public control is a true off position. Ramp to
+        # the established confidence by 50%, then only tune thresholds/caps.
+        local_confidence *= min(1.0, tolerance * 2.0)
         # Avoid a noisy on/off suppression boundary around individual pixels.
         local_confidence = cv2.GaussianBlur(local_confidence, (9, 9), 0)
         local_confidence *= local_active_mask
@@ -2437,7 +2479,7 @@ class InspectionService:
         shadow_confidence[crop_y0:crop_y1, crop_x0:crop_x1] = local_confidence
 
         detected_mask = (
-            local_confidence >= _BOTTOM_SHADOW_DETECTION_CONFIDENCE
+            local_confidence >= parameters["detection_confidence"]
         ) & (local_active_mask > 0)
         active_pixels = max(1, int(np.count_nonzero(active_mask)))
         detected_roi_ratio = float(np.count_nonzero(detected_mask)) / active_pixels
@@ -2448,13 +2490,13 @@ class InspectionService:
             int(np.count_nonzero(active_local_columns)),
         )
         broad_illumination = (
-            detected_roi_ratio >= _BOTTOM_SHADOW_BROAD_MIN_ROI_RATIO
-            and detected_column_ratio >= _BOTTOM_SHADOW_BROAD_MIN_COLUMN_COVERAGE
+            detected_roi_ratio >= parameters["broad_min_roi_ratio"]
+            and detected_column_ratio >= parameters["broad_min_column_coverage"]
         )
         suppression_cap = (
-            _BOTTOM_SHADOW_BROAD_MAX_SUPPRESSION
+            parameters["broad_max_suppression"]
             if broad_illumination
-            else _BOTTOM_SHADOW_MAX_SUPPRESSION
+            else parameters["local_max_suppression"]
         )
 
         corrected = robust_gray.astype(np.float32)
@@ -2465,15 +2507,15 @@ class InspectionService:
         )
         hard_ignore_mask = (
             broad_illumination
-            & (local_confidence >= _BOTTOM_SHADOW_HARD_IGNORE_CONFIDENCE)
+            & (local_confidence >= parameters["hard_ignore_confidence"])
         )
         corrected_crop[hard_ignore_mask] = 0.0
         if diagnostics is not None:
-            eligible_mask = (bottom_weight > 0) & (local_active_mask > 0)
+            eligible_mask = (illumination_weight > 0) & (local_active_mask > 0)
             eligible_pixels = int(np.count_nonzero(eligible_mask))
             signed_shift = low_cur - low_ref
-            shadow_mask = detected_mask & (signed_shift <= -_BOTTOM_SHADOW_MIN_SHIFT)
-            glare_mask = detected_mask & (signed_shift >= _BOTTOM_SHADOW_MIN_SHIFT)
+            shadow_mask = detected_mask & (signed_shift <= -parameters["min_shift"])
+            glare_mask = detected_mask & (signed_shift >= parameters["min_shift"])
             shadow_pixels = int(np.count_nonzero(shadow_mask))
             glare_pixels = int(np.count_nonzero(glare_mask))
             shadow_ratio = shadow_pixels / active_pixels
@@ -2488,8 +2530,8 @@ class InspectionService:
                         3,
                     ),
                     "eligible_roi_percent": round(100.0 * eligible_pixels / active_pixels, 3),
-                    "shadow_detected": shadow_ratio >= _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO,
-                    "glare_detected": glare_ratio >= _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO,
+                    "shadow_detected": shadow_ratio >= parameters["detection_min_roi_ratio"],
+                    "glare_detected": glare_ratio >= parameters["detection_min_roi_ratio"],
                     "shadow_roi_percent": round(100.0 * shadow_ratio, 3),
                     "glare_roi_percent": round(100.0 * glare_ratio, 3),
                     "confidence_max": round(float(np.max(local_confidence)), 4),

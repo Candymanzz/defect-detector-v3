@@ -54,6 +54,7 @@ def test_legacy_pro_endpoint_roundtrips_new_strengths() -> None:
         "edge_suppression": 45,
         "text_handling": 60,
         "preprocess_strength": 75,
+        "illumination_tolerance": 85,
     }
 
     put_response = client.put(f"/analysis-settings/{profile}/pro", json=body)
@@ -75,6 +76,7 @@ def test_detailed_settings_put_get_roundtrip() -> None:
         "edge_suppression": 50,
         "text_handling": 50,
         "preprocess_strength": 50,
+        "illumination_tolerance": 70,
     }
 
     client.put(
@@ -86,6 +88,7 @@ def test_detailed_settings_put_get_roundtrip() -> None:
     payload = put_response.json()
     assert payload["knobs"] == body
     assert payload["settings"]["min_diff_signal"] == 12.0
+    assert payload["settings"]["illumination_tolerance"] == 0.7
 
     get_response = client.get(f"/analysis-settings/{profile}/detailed")
     assert get_response.status_code == 200
@@ -111,6 +114,7 @@ def test_strength_knobs_get_defaults_when_not_saved() -> None:
         "edge_suppression": 50.0,
         "text_handling": 50.0,
         "preprocess_strength": 50.0,
+        "illumination_tolerance": 50.0,
     }
 
 
@@ -122,6 +126,7 @@ def test_strength_knobs_put_get_roundtrip() -> None:
         "edge_suppression": 50,
         "text_handling": 25,
         "preprocess_strength": 100,
+        "illumination_tolerance": 90,
     }
     client.put(
         f"/analysis-settings/{profile}/simple",

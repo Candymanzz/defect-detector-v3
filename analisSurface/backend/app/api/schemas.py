@@ -96,6 +96,7 @@ class AnalysisSettingsValues(BaseModel):
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    illumination_tolerance: float = 0.5
     enable_internal_alignment: bool = False
 
 
@@ -118,6 +119,7 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     clahe_clip_limit: Optional[float] = None
     fp_recheck_enabled: Optional[bool] = None
     fp_trigger_diff_q90: Optional[float] = None
+    illumination_tolerance: Optional[float] = None
     enable_internal_alignment: Optional[bool] = None
 
 
@@ -143,6 +145,7 @@ class DetailedStrengthKnobs(BaseModel):
     edge_suppression: float = Field(..., ge=0.0, le=100.0)
     text_handling: float = Field(..., ge=0.0, le=100.0)
     preprocess_strength: float = Field(..., ge=0.0, le=100.0)
+    illumination_tolerance: float = Field(50.0, ge=0.0, le=100.0)
 
 
 # alias для обратной совместимости импортов

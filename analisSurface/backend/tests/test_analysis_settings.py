@@ -8,6 +8,7 @@ def test_defaults_are_valid() -> None:
     settings.validate()
     assert settings.default_threshold == 0.25
     assert settings.use_patchcore is True
+    assert settings.illumination_tolerance == 0.5
 
 
 def test_from_overrides_applies_known_fields() -> None:
@@ -31,6 +32,8 @@ def test_from_overrides_applies_known_fields() -> None:
         ("default_threshold", 1.5, "default_threshold"),
         ("diff_percentile", 40.0, "diff_percentile"),
         ("text_min_contrast", 300, "text_min_contrast"),
+        ("illumination_tolerance", -0.1, "illumination_tolerance"),
+        ("illumination_tolerance", 1.1, "illumination_tolerance"),
     ],
 )
 def test_validate_rejects_invalid_values(field: str, value: float, match: str) -> None:

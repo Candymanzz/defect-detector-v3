@@ -26,6 +26,10 @@ class AnalysisSettings:
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    # 0 disables illumination suppression, 0.5 preserves the established
+    # conservative behavior, 1.0 makes the shadow/glare filter most tolerant.
+    illumination_tolerance: float = 0.5
+
     @classmethod
     def defaults(cls) -> "AnalysisSettings":
         return cls()
@@ -84,6 +88,8 @@ class AnalysisSettings:
             raise ValueError("clahe_clip_limit must be > 0")
         if self.fp_trigger_diff_q90 < 0.0:
             raise ValueError("fp_trigger_diff_q90 must be >= 0")
+        if not 0.0 <= self.illumination_tolerance <= 1.0:
+            raise ValueError("illumination_tolerance must be in [0, 1]")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
