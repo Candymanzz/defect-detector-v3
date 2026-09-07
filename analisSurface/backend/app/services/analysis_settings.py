@@ -7,6 +7,8 @@ class AnalysisSettings:
     """Параметры алгоритма на product_type; подробности — docs/ANALYSIS_SETTINGS.md."""
 
     default_threshold: float = 0.25
+    # Legacy compatibility field. The PatchCore runtime was removed; old
+    # persisted settings may still contain this key and are safely ignored.
     use_patchcore: bool = True
     min_defect_area: int = 6
     min_scratch_aspect: float = 3.0

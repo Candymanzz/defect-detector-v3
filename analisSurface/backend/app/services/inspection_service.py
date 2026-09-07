@@ -105,22 +105,10 @@ class InspectionService:
             session_wipe=session_wipe,
         )
 
-        self._anomaly_engine = None
-        self._load_anomalib_engine()
         self._load_fp_zones()
         self._load_roi_sub_zones()
         self._load_analysis_settings()
         self._stamp_analysis_settings_mtime()
-
-    def _load_anomalib_engine(self) -> None:
-        try:
-            from anomalib.deploy import OpenVINOInferencer  # type: ignore
-
-            self._anomaly_engine = OpenVINOInferencer(
-                path="models/patchcore/openvino/model.xml" # model path
-            )
-        except Exception:
-            self._anomaly_engine = None
 
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
@@ -982,7 +970,12 @@ class InspectionService:
             display_region[local_mask] = 255
 
         excluded_normal_zones = []
-        for candidate in learned_filter.candidates:
+        # Only annotate candidates that were fully removed from the score maps.
+        # A matched normal can still leave a meaningful residual (for example a
+        # new scratch inside a previously accepted broad glare area); that
+        # candidate must remain a normal defect and must not receive an
+        # "excluded" outline.
+        for candidate in learned_filter.suppressed_candidates:
             if candidate.matched_case_id is None:
                 continue
             matched_case = self._accepted_normals.get(candidate.matched_case_id)
@@ -1001,6 +994,7 @@ class InspectionService:
                 "case_id": candidate.matched_case_id,
                 "similarity": candidate.similarity,
                 "polygon": polygon_norm,
+                "excluded_from_score": True,
             }
             if matched_case is not None and matched_case.polygon:
                 zone["polygon_px"] = list(matched_case.polygon)
@@ -1023,6 +1017,7 @@ class InspectionService:
                     "case_id": zone.id,
                     "similarity": None,
                     "polygon": list(zone.points_norm_ref),
+                    "excluded_from_score": True,
                 }
             )
 
@@ -1817,7 +1812,8 @@ class InspectionService:
 
         This modifies only the color heatmap returned by the local multipart
         ``/inspect`` endpoint. The gray SHM heatmap and inspection score stay
-        unchanged.
+        unchanged. Every zone marked as excluded from the score is rendered,
+        including matched FP mini-etalon zones.
         """
         if not excluded_zones:
             return heatmap
@@ -1825,7 +1821,7 @@ class InspectionService:
         height, width = heatmap.shape[:2]
         polygons: list[np.ndarray] = []
         for zone in excluded_zones:
-            if zone.get("kind") != "accepted_normal":
+            if zone.get("excluded_from_score") is not True:
                 continue
             pixel_polygon = zone.get("polygon_px") or []
             coordinate_width = int(zone.get("coordinate_width") or 0)
@@ -2579,21 +2575,6 @@ class InspectionService:
             heuristic_score = max(heuristic_score, settings.scratch_score_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
-        if settings.use_patchcore and self._anomaly_engine is not None:
-            try:
-                prediction = self._anomaly_engine.predict(image=diff_map)
-                model_score = float(prediction.pred_score)
-                mask = prediction.pred_mask.astype(np.uint8) * 255
-                if len(mask.shape) == 2:
-                    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-                # Merge model mask with heuristic mask so thin scratches seen in diff_map
-                # are not lost when model mask is conservative on textured surfaces.
-                merged_mask = cv2.bitwise_or(mask, heuristic_mask)
-                # Use the larger score to avoid missing obvious defects when model score is conservative.
-                return max(model_score, heuristic_score), merged_mask
-            except Exception:
-                pass
-
         return heuristic_score, heuristic_mask
 
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
@@ -2607,9 +2588,22 @@ class InspectionService:
             return mask_gray
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
-        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
-        return cv2.max(mask_gray, gated_diff)
+        mask_binary = mask_gray > 0
+
+        # Keep the measured diff intensity as the primary signal. A binary
+        # segmentation mask is only a weak floor; using it at full strength
+        # would turn every detected component into a saturated 255 blob.
+        mask_floor = (mask_gray.astype(np.float32) * 0.25).astype(np.uint8)
+        core = np.maximum(diff_gray, mask_floor)
+        core[~mask_binary] = 0
+
+        # Add a small, soft edge halo for visual continuity without extending
+        # the scored mask itself. This makes hard-edged components readable
+        # while preserving the original diff contrast inside them.
+        halo = cv2.GaussianBlur(mask_gray, (0, 0), sigmaX=3.0)
+        halo = (halo.astype(np.float32) * 0.5).astype(np.uint8)
+        halo[mask_binary] = 0
+        return np.maximum(core, halo).astype(np.uint8)
 
     def _build_pre_learning_heatmap_gray(
         self,
