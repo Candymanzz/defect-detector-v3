@@ -104,7 +104,7 @@ public final class StackSupervisorMain {
         int healthFailThreshold = envInt("IML_SUPERVISOR_HEALTH_FAIL_THRESHOLD", 6);
         int maxRestarts = envInt("IML_SUPERVISOR_MAX_RESTARTS", 0);
         long startupHealthTimeoutMs = envLong("IML_SUPERVISOR_STARTUP_HEALTH_TIMEOUT_MS", 180_000L);
-        long stableHealthyMs = envLong("IML_SUPERVISOR_STABLE_HEALTH_MS", 300_000L);
+        long stableHealthyMs = envLong("IML_SUPERVISOR_STABLE_HEALTH_MS", 120_000L);
         boolean rebootEnabled = envBoolean("IML_SUPERVISOR_REBOOT_ENABLED", WindowsRebootEscalation.enabledByDefault());
         int rebootAfterFailures = envInt("IML_SUPERVISOR_REBOOT_AFTER_FAILURES", 3);
         int rebootDelaySec = envInt("IML_SUPERVISOR_REBOOT_DELAY_SEC", 90);
