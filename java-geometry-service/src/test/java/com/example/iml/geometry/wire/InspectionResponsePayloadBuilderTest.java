@@ -28,9 +28,14 @@ class InspectionResponsePayloadBuilderTest {
                 0.2,
                 0.8,
                 0.07,
+                1.5,
+                0.2,
+                1.1,
+                0.9,
                 true,
                 true,
                 false,
+                true,
                 true,
                 true,
                 "debug-b64",
@@ -49,6 +54,9 @@ class InspectionResponsePayloadBuilderTest {
         assertEquals(1.6, header.get("jointWidthBottomMm"));
         assertEquals(0.2, header.get("jointTaperMm"));
         assertEquals(0.8, header.get("jointVisibility"));
+        assertEquals(1.5, header.get("jointRimSkewDeg"));
+        assertEquals(0.9, header.get("jointGapAsymmetryMm"));
+        assertEquals(true, header.get("rimSkewPass"));
         assertFalse(header.containsKey("debugImageBase64"));
     }
 
@@ -56,7 +64,8 @@ class InspectionResponsePayloadBuilderTest {
     void includeDebugAddsDebugImage() {
         InspectionResponse response = new InspectionResponse(
                 0, 0, 0, new double[9], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                true, true, true, true, true,
+                0, 0, 0, 0,
+                true, true, true, true, true, true,
                 "img",
                 "PASS"
         );

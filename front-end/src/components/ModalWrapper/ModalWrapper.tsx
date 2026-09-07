@@ -84,6 +84,7 @@ export function ModalWrapper({
     cameraId,
     inspectResult?.frame_id,
     inspectResult?.geometry_status,
+    inspectResult?.geometry,
     inspectResult?.server_ts_ms,
     inspectResult?.test_analyze,
   );
@@ -423,6 +424,7 @@ function useGeometrySnapshot(
   cameraId: number | undefined,
   frameId: string | undefined,
   geometryStatus: string | undefined,
+  embeddedGeometry: GeometryInspectResponse | null | undefined,
   serverTsMs: number | undefined,
   testAnalyze: boolean | undefined,
 ): GeometrySnapshotState {
@@ -447,6 +449,16 @@ function useGeometrySnapshot(
       return;
     }
 
+    // Prefer frame-bound geometry from WS/archive — works for history, not only latest.
+    if (embeddedGeometry && typeof embeddedGeometry === "object") {
+      setState({
+        geometry: embeddedGeometry,
+        loading: false,
+        error: null,
+      });
+      return;
+    }
+
     const controller = new AbortController();
     window.queueMicrotask(() => {
       if (!controller.signal.aborted) {
@@ -465,7 +477,9 @@ function useGeometrySnapshot(
           setState({
             geometry: null,
             loading: false,
-            error: testAnalyze ? "Нет свежего снимка геометрии для тестового кадра" : null,
+            error: testAnalyze
+              ? "Нет свежего снимка геометрии для тестового кадра"
+              : "Нет снимка геометрии для этого кадра (только текущий анализ в кэше)",
           });
           return;
         }
@@ -493,7 +507,7 @@ function useGeometrySnapshot(
       });
 
     return () => controller.abort();
-  }, [isOpen, cameraId, frameId, geometryStatus, serverTsMs, testAnalyze]);
+  }, [isOpen, cameraId, frameId, geometryStatus, embeddedGeometry, serverTsMs, testAnalyze]);
 
   if (!isOpen || cameraId === undefined) {
     return EMPTY_GEOMETRY_SNAPSHOT;

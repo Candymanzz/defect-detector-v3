@@ -69,6 +69,14 @@ public final class BinaryInspectHeaders {
                 "maxJointTaperMm",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_taper_mm"), 0.8)
         );
+        gHeader.put(
+                "maxJointRimSkewDeg",
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_rim_skew_deg"), 2.5)
+        );
+        gHeader.put(
+                "maxJointGapAsymmetryMm",
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_gap_asymmetry_mm"), 0.8)
+        );
         // Без ROI стыка сегментацию не включаем — иначе test-analyze/настройки ломаются «пустым» стыком.
         gHeader.put("jointSeamSegmentationEnabled", hasJoint);
         gHeader.put(
@@ -149,6 +157,59 @@ public final class BinaryInspectHeaders {
         pHeader.put("write_aligned", YamlScalars.toBool(positioningCfg == null ? null : positioningCfg.get("write_aligned"), true));
         pHeader.put("output_shm_name", "iml_pos_cam_" + cameraId);
         return pHeader;
+    }
+
+    /** Profile overrides from {@code java_geometry.profiles.<analysis_profile>}. */
+    public static void applyGeometryProfileOverrides(Map<String, Object> header, Map<String, Object> overrides) {
+        if (header == null || overrides == null || overrides.isEmpty()) {
+            return;
+        }
+        putGeometryTuning(header, overrides, "max_shift_mm", "maxShiftMm");
+        putGeometryTuning(header, overrides, "max_rotation_deg", "maxRotationDeg");
+        putGeometryTuning(header, overrides, "max_joint_defect_mm", "maxJointDefectMm");
+        putGeometryTuning(header, overrides, "joint_min_width_mm", "jointMinWidthMm");
+        putGeometryTuning(header, overrides, "joint_max_width_mm", "jointMaxWidthMm");
+        putGeometryTuning(header, overrides, "max_joint_parallelism_deg", "maxJointParallelismDeg");
+        putGeometryTuning(header, overrides, "max_joint_taper_mm", "maxJointTaperMm");
+        putGeometryTuning(header, overrides, "max_joint_rim_skew_deg", "maxJointRimSkewDeg");
+        putGeometryTuning(header, overrides, "max_joint_gap_asymmetry_mm", "maxJointGapAsymmetryMm");
+        putGeometryTuning(header, overrides, "joint_seam_segmentation_sensitivity", "jointSeamSegmentationSensitivity");
+        putGeometryTuning(header, overrides, "max_wrinkles_score", "maxWrinklesScore");
+        putGeometryTuning(header, overrides, "pixels_to_mm", "pixelsToMm");
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> resolveGeometryProfileOverrides(
+            Map<String, Object> geometryCfg,
+            String analysisProfile
+    ) {
+        if (geometryCfg == null || analysisProfile == null || analysisProfile.isBlank()) {
+            return Map.of();
+        }
+        Object rawProfiles = geometryCfg.get("profiles");
+        if (!(rawProfiles instanceof Map<?, ?> profiles) || profiles.isEmpty()) {
+            return Map.of();
+        }
+        Object profile = profiles.get(analysisProfile.trim());
+        if (!(profile instanceof Map<?, ?> overrides) || overrides.isEmpty()) {
+            return Map.of();
+        }
+        return Map.copyOf((Map<String, Object>) overrides);
+    }
+
+    private static void putGeometryTuning(
+            Map<String, Object> header,
+            Map<String, Object> overrides,
+            String snakeKey,
+            String camelKey
+    ) {
+        Object value = overrides.get(snakeKey);
+        if (value == null) {
+            value = overrides.get(camelKey);
+        }
+        if (value != null) {
+            header.put(camelKey, value);
+        }
     }
 
     /** Profile overrides from {@code java_positioning.profiles.<analysis_profile>} (snake_case or camelCase). */

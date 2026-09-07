@@ -7,7 +7,7 @@
 
 plc_fins:
   enabled: true
-  host: "169.254.220.231"
+  host: "169.254.220.232"
   port: 9600
   dest_node: 231
   src_node: 254

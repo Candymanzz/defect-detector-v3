@@ -35,10 +35,15 @@ public final class InspectionResponsePayloadBuilder {
         payload.put("jointTaperMm", response.jointTaperMm());
         payload.put("jointVisibility", response.jointVisibility());
         payload.put("wrinklesScore", response.wrinklesScore());
+        payload.put("jointRimSkewDeg", response.jointRimSkewDeg());
+        payload.put("jointGapLeftMm", response.jointGapLeftMm());
+        payload.put("jointGapRightMm", response.jointGapRightMm());
+        payload.put("jointGapAsymmetryMm", response.jointGapAsymmetryMm());
         payload.put("alignmentPass", response.alignmentPass());
         payload.put("concentricityPass", response.concentricityPass());
         payload.put("jointPass", response.jointPass());
         payload.put("wrinklesPass", response.wrinklesPass());
+        payload.put("rimSkewPass", response.rimSkewPass());
         payload.put("overallPass", response.overallPass());
         payload.put("status", response.status());
         if (request != null) {
@@ -46,6 +51,8 @@ public final class InspectionResponsePayloadBuilder {
             payload.put("maxRotationDeg", request.maxRotationDeg());
             payload.put("maxConcentricityMm", request.maxConcentricityMm());
             payload.put("pixelsToMm", request.pixelsToMm());
+            payload.put("maxJointRimSkewDeg", request.maxJointRimSkewDeg());
+            payload.put("maxJointGapAsymmetryMm", request.maxJointGapAsymmetryMm());
         }
         if (request != null && request.jointRoi() != null) {
             boolean visibilityOnly = request.jointVisibilityOnly();

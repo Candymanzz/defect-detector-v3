@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.pipeline.decision;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.pipeline.GeometryUiPayload;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
@@ -62,7 +63,8 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
                 jointParallelismDeg,
                 jointWidthMm,
                 jointVisibility,
-                jointPass
+                jointPass,
+                GeometryUiPayload.fromGeomResponse(geomResp)
         );
         if (log != null) {
             log.info(

@@ -165,6 +165,10 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             JointResult joint = inspectJoint(alignedCurrent, request);
             recordStage("joint", tJoint0);
 
+            long tRim0 = System.nanoTime();
+            LabelRimSkewAnalyzer.Result rimSkew = inspectRimSkew(alignedCurrent, mainRect, request);
+            recordStage("rim_skew", tRim0);
+
             long tWrinkles0 = System.nanoTime();
             WrinklesResult wrinkles = inspectWrinkles(
                     reference,
@@ -203,7 +207,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             // After upstream positioning, surface QC belongs to python — geometry absdiff
             // wrinkles are too light-sensitive and caused false rejects on matched frames.
             boolean wrinklesPass = poseLocked || wrinkles.score <= request.maxWrinklesScore();
-            boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass;
+            boolean rimSkewPass = evaluateRimSkewPass(request, rimSkew);
+            boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass && rimSkewPass;
 
             return new InspectionResponse(
                     alignment.shiftXmm,
@@ -220,10 +225,15 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     joint.taperMm,
                     joint.visibility,
                     wrinkles.score,
+                    rimSkew.skewDeg(),
+                    rimSkew.gapLeftMm(),
+                    rimSkew.gapRightMm(),
+                    rimSkew.gapAsymmetryMm(),
                     alignmentPass,
                     concentricityPass,
                     jointPass,
                     wrinklesPass,
+                    rimSkewPass,
                     overallPass,
                     debugBase64,
                     overallPass ? "PASS" : "FAIL"
@@ -755,6 +765,29 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
+    private LabelRimSkewAnalyzer.Result inspectRimSkew(Mat current, Rect mainRect, InspectionRequest request) {
+        Mat roiMat = new Mat(current, mainRect);
+        Mat mask = null;
+        try {
+            List<NormPoint> poly = request.mainRoiPolygonNorm();
+            if (poly != null && poly.size() >= 3) {
+                mask = RoiPolygonMask.maskForRect(poly, mainRect, current.cols(), current.rows());
+            }
+            return LabelRimSkewAnalyzer.analyze(roiMat, mask, request.pixelsToMm());
+        } finally {
+            release(roiMat, mask);
+        }
+    }
+
+    private static boolean evaluateRimSkewPass(InspectionRequest request, LabelRimSkewAnalyzer.Result rim) {
+        if (rim == null || !rim.active()) {
+            return true;
+        }
+        boolean skewOk = rim.skewDeg() <= request.maxJointRimSkewDeg();
+        boolean asymOk = rim.gapAsymmetryMm() <= request.maxJointGapAsymmetryMm();
+        return skewOk && asymOk;
+    }
+
     private static boolean evaluateJointPass(InspectionRequest request, JointResult joint) {
         if (request.jointRoi() == null) {
             return true;
@@ -778,10 +811,13 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         // (narrow real seams / Canny thin pairs with good parity).
         double maxParallelismDeg = request.maxJointParallelismDeg();
         if (request.jointSeamSegmentationEnabled()) {
-            // Sensitivity mainly gates parallelism from fitLine edges:
-            // 0 → 2× tolerance, 0.5 → base, 1 → 0.4× (stricter rejects).
+            // Sensitivity scales parallelism tolerance:
+            // 0 → 2×, 0.5 → 1× (base), 1 → 0.4× (stricter rejects).
             double s = clamp01(request.jointSeamSegmentationSensitivity());
-            maxParallelismDeg *= 2.0 - 1.6 * s;
+            double scale = s <= 0.5
+                    ? (2.0 - 2.0 * s)
+                    : (1.0 - 1.2 * (s - 0.5));
+            maxParallelismDeg *= scale;
         }
         boolean parallelismOk = joint.parallelismDeg <= maxParallelismDeg;
         boolean maxWidthOk = joint.widthMm <= request.jointMaxWidthMm();
@@ -861,7 +897,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 maxJointParallelismDeg,
                 maxJointTaperMm,
                 false,
-                0.5
+                0.5,
+                9999.0,
+                9999.0
         );
         return evaluateJointPass(request, joint);
     }

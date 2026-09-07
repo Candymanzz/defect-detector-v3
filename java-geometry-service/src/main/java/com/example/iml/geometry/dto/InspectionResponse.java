@@ -16,10 +16,16 @@ public record InspectionResponse(
         double jointTaperMm,
         double jointVisibility,
         double wrinklesScore,
+        /** Label↔rim skew (deg); 0 when inactive. */
+        double jointRimSkewDeg,
+        double jointGapLeftMm,
+        double jointGapRightMm,
+        double jointGapAsymmetryMm,
         boolean alignmentPass,
         boolean concentricityPass,
         boolean jointPass,
         boolean wrinklesPass,
+        boolean rimSkewPass,
         boolean overallPass,
         String debugImageBase64,
         String status

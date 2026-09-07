@@ -36,6 +36,10 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Локальный HTTP для превью current/heatmap и (при наличии {@link GeometrySnapshotCache}) geometry.
@@ -71,6 +75,7 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     }
 
     private final HttpServer httpServer;
+    private final ExecutorService httpExecutor;
     private final HttpApplicationContext httpContext;
     private final Map<Integer, Latest> latestByCamera = new ConcurrentHashMap<>();
     private final HeatmapArtifactRegistry heatmapArtifacts = new HeatmapArtifactRegistry();
@@ -151,7 +156,18 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         HttpFrontController frontController = new HttpFrontController(httpContext);
         OrchestratorApiDocumentationHandlers.register(httpServer);
         httpServer.createContext("/", exchange -> frontController.dispatch(exchange));
-        httpServer.setExecutor(null);
+        // Cached pool so long-lived MJPEG streams do not starve /health and other short requests.
+        this.httpExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+            private final AtomicInteger n = new AtomicInteger();
+
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r, "ui-http-" + n.incrementAndGet());
+                t.setDaemon(true);
+                return t;
+            }
+        });
+        httpServer.setExecutor(httpExecutor);
         httpServer.start();
     }
 
@@ -288,6 +304,9 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     @Override
     public void close() {
         httpServer.stop(0);
+        if (httpExecutor != null) {
+            httpExecutor.shutdownNow();
+        }
     }
 
     private static Path resolveImlShmPath(String fileNameInShmDir) {

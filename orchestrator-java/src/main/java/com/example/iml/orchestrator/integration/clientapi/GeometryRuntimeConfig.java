@@ -36,6 +36,8 @@ public final class GeometryRuntimeConfig {
             "jointMaxWidthMm",
             "maxJointParallelismDeg",
             "maxJointTaperMm",
+            "maxJointRimSkewDeg",
+            "maxJointGapAsymmetryMm",
             "jointSeamSegmentationEnabled",
             "jointSeamSegmentationSensitivity",
             "maxWrinklesScore",
@@ -163,6 +165,8 @@ public final class GeometryRuntimeConfig {
         putIfPresent(overrides, algorithmParams, "maxRotationDeg", "max_rotation_deg");
         putIfPresent(overrides, algorithmParams, "maxConcentricityMm", "max_concentricity_mm");
         putIfPresent(overrides, algorithmParams, "maxWrinklesScore", "max_wrinkles_score");
+        putIfPresent(overrides, algorithmParams, "maxJointRimSkewDeg", "max_joint_rim_skew_deg");
+        putIfPresent(overrides, algorithmParams, "maxJointGapAsymmetryMm", "max_joint_gap_asymmetry_mm");
         boolean injectJoint = overrides.containsKey("jointRoi")
                 || overrides.containsKey("jointRoiPolygonNorm");
         if (injectJoint) {
@@ -232,6 +236,14 @@ public final class GeometryRuntimeConfig {
         m.put(
                 "maxJointTaperMm",
                 YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_taper_mm"), 0.8)
+        );
+        m.put(
+                "maxJointRimSkewDeg",
+                YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_rim_skew_deg"), 2.5)
+        );
+        m.put(
+                "maxJointGapAsymmetryMm",
+                YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_gap_asymmetry_mm"), 0.8)
         );
         m.put("jointSeamSegmentationEnabled", false);
         m.put(
@@ -343,6 +355,8 @@ public final class GeometryRuntimeConfig {
             case "joint_max_width_mm" -> "jointMaxWidthMm";
             case "max_joint_parallelism_deg" -> "maxJointParallelismDeg";
             case "max_joint_taper_mm" -> "maxJointTaperMm";
+            case "max_joint_rim_skew_deg" -> "maxJointRimSkewDeg";
+            case "max_joint_gap_asymmetry_mm" -> "maxJointGapAsymmetryMm";
             case "joint_seam_segmentation_enabled" -> "jointSeamSegmentationEnabled";
             case "joint_seam_segmentation_sensitivity" -> "jointSeamSegmentationSensitivity";
             case "joint_threshold", "jointThreshold" -> "jointThreshold";
