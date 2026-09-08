@@ -565,7 +565,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                     null,
                                     0,
                                     0,
-                                    cap
+                                    cap,
+                                    activeReference
                             );
                         }
                         return;
@@ -661,8 +662,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 decision
                         );
                     }
-                    // Snapshot/copy while JPEG and heatmap files are still on disk (before finally).
-                    // Archive stores native-resolution JPEG (not UI preview) so test-analyze pin matches reference.
+                    // Archive stores reference-resolution JPEG — same bytes test-analyze pin reads from disk.
                     FrameArchiveService archive = frameArchiveService;
                     Path toArchive = archiveJpeg != null ? archiveJpeg : (hasCur ? currentJpeg : null);
                     boolean archived = !testAnalyze && saveFrameArchiveImmediately(
@@ -676,7 +676,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             hasHm ? heatmapU8 : null,
                             hasHm ? uw : 0,
                             hasHm ? uh : 0,
-                            cap
+                            cap,
+                            activeReference
                     );
                     if (ws != null && (hasCur || hasHm)) {
                         try {
@@ -793,11 +794,18 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Path heatmapU8,
             int heatmapWidth,
             int heatmapHeight,
-            Map<String, Object> cap
+            Map<String, Object> cap,
+            ReferenceSnapshot activeReference
     ) {
         FrameArchiveService archive = frameArchiveService;
         if (archive == null || !archive.enabled() || frameJpeg == null) {
             return false;
+        }
+        int frameWidth = 0;
+        int frameHeight = 0;
+        if (activeReference != null && activeReference.header() != null) {
+            frameWidth = YamlScalars.toInt(activeReference.header().get("width"), 0);
+            frameHeight = YamlScalars.toInt(activeReference.header().get("height"), 0);
         }
         return archive.saveImmediately(new FrameArchiveService.SaveRequest(
                 cameraId,
@@ -810,7 +818,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 heatmapU8,
                 heatmapWidth,
                 heatmapHeight,
-                resolveLearnedReviewIdForArchive(cameraId, frameId, cap)
+                resolveLearnedReviewIdForArchive(cameraId, frameId, cap),
+                frameWidth,
+                frameHeight
         ));
     }
 

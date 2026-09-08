@@ -247,9 +247,19 @@ public final class UiTestAnalyzeService {
             throw new AnalyzeException(409, "no usable reference for camera " + request.cameraId()
                     + " — test pin requires reference resolution");
         }
-        // Prefer native SHM for the latest inspection frame; fall back to archive JPEG.
+        // Always load the archived JPEG the operator selected — same bytes as the modal archive viewer.
         // Always normalize to reference WxH so UI pin and Python see the same size as the эталон.
-        ResolvedFrame resolved = resolveTestFrame(request.cameraId(), request.frameId(), null);
+        ResolvedFrame resolved;
+        try {
+            resolved = normalizeResolvedFrame(
+                    request.cameraId(),
+                    loadArchive(request.cameraId(), request.frameId())
+            );
+        } catch (AnalyzeException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new AnalyzeException(500, "failed to normalize test frame to reference resolution: " + e.getMessage());
+        }
         if (resolved.frameId() != request.frameId()) {
             throw new AnalyzeException(
                     409,

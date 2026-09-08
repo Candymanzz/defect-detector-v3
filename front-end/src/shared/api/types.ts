@@ -259,6 +259,8 @@ export type FrameArchiveHistoryFrame = {
   saved_at_ms: number;
   has_heatmap: boolean;
   frame_url: string;
+  frame_width?: number;
+  frame_height?: number;
   heatmap_url?: string;
   heatmap_width?: number;
   heatmap_height?: number;
