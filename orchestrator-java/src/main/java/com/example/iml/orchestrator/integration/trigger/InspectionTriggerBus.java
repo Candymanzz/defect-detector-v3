@@ -61,7 +61,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
 
     /**
      * Гейт line-dispatch: при {@code false} новые триггеры не попадают в очереди камер
-     * (например, пока io_input_monitor или analis_surface нездоровы).
+     * (например, пока analis_surface или geometry нездоровы; io_input_monitor не блокирует).
      */
     public void setDispatchAllowed(BooleanSupplier dispatchAllowed) {
         this.dispatchAllowed = dispatchAllowed == null ? () -> true : dispatchAllowed;

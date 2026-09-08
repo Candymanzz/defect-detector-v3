@@ -32,7 +32,7 @@ public final class CriticalServiceInspectionPause {
             return pause;
         }
         triggerRuntime.bus().setDispatchAllowed(healthGate::healthyForVision);
-        healthGate.setOnChanged(() -> pause.onHealthChanged(log, ctx, healthGate, fanOut));
+        healthGate.addOnChanged(() -> pause.onHealthChanged(log, ctx, healthGate, fanOut));
         return pause;
     }
 

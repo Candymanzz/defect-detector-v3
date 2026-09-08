@@ -27,8 +27,8 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
- * Демон-поток recovery: death → vision_fault + пауза пайплайна; периодически перезапускает
- * io_input_monitor, analis_surface, geometry/positioning и восстанавливает health.
+ * Демон-поток recovery: death vision-blocking сервиса → vision_fault + пауза пайплайна;
+ * io_input_monitor перезапускается без vision_fault. Также analis_surface, geometry/positioning.
  */
 public final class CriticalServiceWatchdog implements IntegrationComponent {
 
@@ -570,7 +570,11 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         if (!mayAttemptRestart(name)) {
             return;
         }
-        log.warn("critical service dead name={} — vision_fault; attempting restart", name);
+        if (ServiceHealthGate.affectsVisionPlc(name)) {
+            log.warn("critical service dead name={} — vision_fault; attempting restart", name);
+        } else {
+            log.warn("critical service dead name={} — no vision_fault (io_input); attempting restart", name);
+        }
         if (!restarting.compareAndSet(false, true)) {
             return;
         }
@@ -591,7 +595,11 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                     attachAnalisSurfaceExitHandlers();
                 }
             } else {
-                log.error("critical service restart unsuccessful name={} — vision_fault stays", name);
+                if (ServiceHealthGate.affectsVisionPlc(name)) {
+                    log.error("critical service restart unsuccessful name={} — vision_fault stays", name);
+                } else {
+                    log.error("critical service restart unsuccessful name={} — io_input stays down", name);
+                }
             }
         } finally {
             restarting.set(false);

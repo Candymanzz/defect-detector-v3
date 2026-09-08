@@ -77,7 +77,7 @@ public final class PerCameraInspectionGate {
         return inspectionEnabled.containsKey(cameraId);
     }
 
-    /** Блокировка новых циклов при vision_fault (io_input / python / geometry и т.п.). */
+    /** Блокировка новых циклов при vision_fault (analis_surface / geometry / workers и т.п.). */
     public void setSystemBlocked(boolean blocked) {
         systemBlocked.set(blocked);
     }

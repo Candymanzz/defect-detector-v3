@@ -147,7 +147,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     public void setHealthGate(ServiceHealthGate healthGate) {
         this.healthGate = healthGate;
         if (healthGate != null) {
-            healthGate.setOnChanged(this::refreshPlcLevels);
+            healthGate.addOnChanged(this::refreshPlcLevels);
         }
         refreshPlcLevels();
     }
