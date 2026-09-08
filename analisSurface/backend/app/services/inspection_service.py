@@ -49,10 +49,11 @@ _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 
 # A moved bucket can briefly receive a broad shadow around its physical top.
 # Buckets are inverted in the camera view, therefore that handling area is at
-# the bottom of the configured ROI. Illumination classification is allowed on
-# the lower 71% of the ROI (a small rounding margin above the required 70%)
-# and only affects differences which still preserve the reference's local
-# detail and gradient structure.
+# the bottom of the configured ROI. Shadow classification is allowed on the
+# lower 71% of the ROI (a small rounding margin above the required 70%) and
+# only affects differences which still preserve the reference's local detail
+# and gradient structure. Brightening is deliberately not handled here:
+# highlights and glare must remain visible to the normal inspection pipeline.
 _BOTTOM_SHADOW_START = 0.29
 _BOTTOM_SHADOW_MIN_SPATIAL_WEIGHT = 0.35
 _BOTTOM_SHADOW_MAX_SUPPRESSION = 0.30
@@ -2303,12 +2304,12 @@ class InspectionService:
         roi_mask: Optional[np.ndarray] = None,
         diagnostics: Optional[dict[str, object]] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Reduce broad illumination shifts over at least the lower 70% of the ROI.
+        """Reduce broad darkening (shadows) over at least the lower 70% of the ROI.
 
-        A likely shadow has a sizeable low-frequency brightness shift but keeps
-        local detail and gradient structure close to the reference. The result
-        is a confidence map, not a hard mask. Negative shifts are classified as
-        shadows and positive shifts as glare for diagnostics.
+        A likely shadow has a sizeable low-frequency darkening but keeps local
+        detail and gradient structure close to the reference. The result is a
+        confidence map, not a hard mask. Positive brightness shifts are not
+        suppressed and are intentionally left to the normal defect pipeline.
         """
         height, width = robust_gray.shape[:2]
         if diagnostics is not None:
@@ -2397,7 +2398,10 @@ class InspectionService:
         low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
         low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
 
-        illumination_shift = np.abs(low_cur - low_ref)
+        # Only darkening is eligible for shadow suppression. Using an absolute
+        # difference here would make a bright highlight look like a shadow and
+        # would silently remove real bright defects from the score.
+        illumination_shift = np.maximum(low_ref - low_cur, 0.0)
         illumination_confidence = np.clip(
             (illumination_shift - _BOTTOM_SHADOW_MIN_SHIFT)
             / (_BOTTOM_SHADOW_FULL_SHIFT - _BOTTOM_SHADOW_MIN_SHIFT),
@@ -2471,13 +2475,8 @@ class InspectionService:
         if diagnostics is not None:
             eligible_mask = (bottom_weight > 0) & (local_active_mask > 0)
             eligible_pixels = int(np.count_nonzero(eligible_mask))
-            signed_shift = low_cur - low_ref
-            shadow_mask = detected_mask & (signed_shift <= -_BOTTOM_SHADOW_MIN_SHIFT)
-            glare_mask = detected_mask & (signed_shift >= _BOTTOM_SHADOW_MIN_SHIFT)
-            shadow_pixels = int(np.count_nonzero(shadow_mask))
-            glare_pixels = int(np.count_nonzero(glare_mask))
+            shadow_pixels = int(np.count_nonzero(detected_mask))
             shadow_ratio = shadow_pixels / active_pixels
-            glare_ratio = glare_pixels / active_pixels
             energy_after = float(np.sum(corrected_crop[local_active_mask > 0]))
             diagnostics.update(
                 {
@@ -2489,9 +2488,11 @@ class InspectionService:
                     ),
                     "eligible_roi_percent": round(100.0 * eligible_pixels / active_pixels, 3),
                     "shadow_detected": shadow_ratio >= _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO,
-                    "glare_detected": glare_ratio >= _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO,
+                    # Kept in the diagnostics schema for log/API compatibility;
+                    # glare handling is intentionally disabled in this branch.
+                    "glare_detected": False,
                     "shadow_roi_percent": round(100.0 * shadow_ratio, 3),
-                    "glare_roi_percent": round(100.0 * glare_ratio, 3),
+                    "glare_roi_percent": 0.0,
                     "confidence_max": round(float(np.max(local_confidence)), 4),
                     "confidence_mean": round(
                         float(np.mean(local_confidence[eligible_mask]))
@@ -2501,7 +2502,10 @@ class InspectionService:
                     ),
                     "broad_illumination": broad_illumination,
                     "detected_column_percent": round(100.0 * detected_column_ratio, 3),
-                    "max_applied_suppression_percent": round(100.0 * suppression_cap, 1),
+                    "max_applied_suppression_percent": round(
+                        100.0 * suppression_cap if shadow_pixels else 0.0,
+                        1,
+                    ),
                     "hard_ignored_roi_percent": round(
                         100.0 * float(np.count_nonzero(hard_ignore_mask)) / active_pixels,
                         3,

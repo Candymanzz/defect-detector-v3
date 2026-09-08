@@ -216,19 +216,15 @@ def log_illumination_detection(
     product_type: str,
     diagnostics: Mapping[str, Any],
 ) -> None:
-    """Persist one compact shadow/glare decision for every inspected frame."""
+    """Persist one compact shadow decision for every inspected frame."""
     shadow_detected = bool(diagnostics.get("shadow_detected", False))
-    glare_detected = bool(diagnostics.get("glare_detected", False))
-    if shadow_detected and glare_detected:
-        classification = "mixed"
-    elif shadow_detected:
-        classification = "shadow"
-    elif glare_detected:
-        classification = "glare"
-    else:
-        classification = "none"
+    classification = "shadow" if shadow_detected else "none"
     payload = dict(diagnostics)
     payload["classification"] = classification
+    # Keep the old keys readable for log consumers, but never report or act on
+    # brightening as a supported correction in the shadow-only branch.
+    payload["glare_detected"] = False
+    payload["glare_roi_percent"] = 0.0
     _append(
         "illumination",
         [

@@ -130,19 +130,12 @@ def test_bottom_shadow_filter_uses_roi_relative_position() -> None:
     assert float(diagnostics["eligible_roi_percent"]) >= 70.0
 
 
-@pytest.mark.parametrize(
-    "current_level,expected_kind",
-    [(85, "shadow"), (155, "glare")],
-)
-def test_bottom_shadow_filter_classifies_shadow_and_glare(
-    current_level: int,
-    expected_kind: str,
-) -> None:
+def test_bottom_shadow_filter_classifies_shadow_only() -> None:
     service = InspectionService.__new__(InspectionService)
     robust = np.full((160, 220), 40, dtype=np.uint8)
     robust[:50] = 0  # The illumination field is confined to the handled 70% band.
     reference = np.full_like(robust, 120)
-    current = np.full_like(robust, current_level)
+    current = np.full_like(robust, 85)
     diagnostics: dict[str, object] = {}
 
     corrected, _ = service._suppress_smooth_bottom_shadow(
@@ -154,12 +147,32 @@ def test_bottom_shadow_filter_classifies_shadow_and_glare(
 
     assert float(diagnostics["eligible_height_percent"]) >= 70.0
     assert float(diagnostics["eligible_roi_percent"]) >= 70.0
-    assert diagnostics[f"{expected_kind}_detected"] is True
-    other_kind = "glare" if expected_kind == "shadow" else "shadow"
-    assert diagnostics[f"{other_kind}_detected"] is False
+    assert diagnostics["shadow_detected"] is True
+    assert diagnostics["glare_detected"] is False
     assert diagnostics["broad_illumination"] is True
     assert float(diagnostics["max_applied_suppression_percent"]) == pytest.approx(75.0)
     assert float(np.mean(corrected[80:])) < float(np.mean(robust[80:]))
+
+
+def test_bottom_shadow_filter_ignores_brightening() -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 40, dtype=np.uint8)
+    reference = np.full_like(robust, 120)
+    current = np.full_like(robust, 155)
+    diagnostics: dict[str, object] = {}
+
+    corrected, _ = service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    assert diagnostics["shadow_detected"] is False
+    assert diagnostics["glare_detected"] is False
+    assert diagnostics["broad_illumination"] is False
+    assert float(diagnostics["max_applied_suppression_percent"]) == pytest.approx(0.0)
+    assert np.array_equal(corrected, robust)
 
 
 def test_bottom_shadow_filter_keeps_local_light_patch_conservative() -> None:
@@ -178,7 +191,8 @@ def test_bottom_shadow_filter_keeps_local_light_patch_conservative() -> None:
     )
 
     assert diagnostics["broad_illumination"] is False
-    assert float(diagnostics["max_applied_suppression_percent"]) == pytest.approx(30.0)
+    assert float(diagnostics["max_applied_suppression_percent"]) == pytest.approx(0.0)
+    assert float(diagnostics["mean_suppression_percent"]) == pytest.approx(0.0)
 
 
 def test_broad_illumination_is_removed_from_score_signal() -> None:
