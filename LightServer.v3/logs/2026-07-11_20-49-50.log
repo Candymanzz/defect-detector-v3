@@ -1,0 +1,371 @@
+﻿--- LightServer log started 2026-07-11 20:49:50 ---
+2026-07-11 20:49:50.856 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-11_20-49-50.log
+2026-07-11 20:49:50.971 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-11 20:49:50.971 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-11 20:49:50.971 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-11 20:49:50.978 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-11 20:49:51.068 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:49:51.071 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:49:51.072 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:49:51.072 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:02.232 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:02.234 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:02.234 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:02.234 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:02.268 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:02.721 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:02.721 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:02.722 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:02.722 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:02.723 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:03.145 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:03.145 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.145 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.145 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.146 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:03.571 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:03.571 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.571 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.572 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.572 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:03.998 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:03.998 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.998 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.998 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:03.999 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:04.423 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:04.424 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:04.424 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:04.424 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:04.424 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:04.849 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:04.850 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:04.850 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:04.850 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:04.850 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:05.276 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:05.276 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:05.277 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:05.277 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:05.277 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:05.702 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:05.703 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:05.703 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:05.703 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:05.703 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:06.127 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:06.127 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.127 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.127 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.128 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:06.552 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:06.552 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.552 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.552 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.553 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:06.981 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:06.981 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.981 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.981 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:06.981 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:07.407 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:07.407 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:07.407 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:07.407 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:07.408 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:07.833 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:07.834 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:07.834 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:07.834 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:07.834 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:08.260 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:08.260 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:08.261 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:08.261 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:08.261 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:08.688 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:08.688 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:08.689 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:08.689 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:08.689 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:09.115 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:09.115 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.115 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.115 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.116 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:09.541 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:09.541 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.541 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.541 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.542 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:09.968 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:09.968 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.968 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.968 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:09.968 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:10.397 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:10.398 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:10.398 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:10.398 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:10.398 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:10.820 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:10.821 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:10.821 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:10.821 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:10.821 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:11.245 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:11.246 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:11.246 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:11.246 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:11.246 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:11.670 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:11.670 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:11.670 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:11.670 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:11.671 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:12.097 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:12.097 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.097 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.097 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.098 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:12.520 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:12.520 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.520 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.520 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.520 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:12.945 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:12.945 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.945 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.945 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:12.945 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:13.374 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:13.375 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:13.375 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:13.375 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:13.375 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:13.798 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:13.803 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:13.803 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:13.803 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:13.803 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:14.223 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:14.224 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:14.224 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:14.224 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:14.224 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:14.649 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:14.649 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:14.650 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:14.650 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:14.650 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:15.077 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:15.077 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.077 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.077 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.078 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:15.504 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:15.504 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.504 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.504 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.505 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:15.930 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:15.930 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.930 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.930 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:15.930 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:16.356 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:16.362 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:16.363 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:16.363 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:16.363 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:16.781 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:16.781 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:16.782 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:16.782 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:16.782 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:17.208 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:17.208 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:17.208 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:17.209 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:17.209 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:17.635 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:17.635 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:17.635 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:17.635 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:17.636 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:18.065 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:18.065 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.065 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.065 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.065 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:18.493 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:18.493 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.493 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.493 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.493 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:18.919 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:18.919 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.919 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.919 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:18.919 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:19.344 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:19.345 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:19.345 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:19.345 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:19.345 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:19.772 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:19.772 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:19.773 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:19.773 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:19.773 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:20.202 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:20.202 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:20.202 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:20.203 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:20.203 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:20.628 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:20.628 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:20.628 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:20.628 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:20.629 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:21.055 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:21.055 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.055 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.055 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.055 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:21.485 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:21.485 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.485 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.485 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.485 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:21.912 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:50:21.912 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.912 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.912 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:50:21.912 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":false,"skipped":"COM1 не найден в EnumDevices. Видно: []"}],"readyDevices":[],"skippedPorts":{"COM1":"COM1 не найден в EnumDevices. Видно: []"},"channelOrder":"","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-11 20:50:22.336 [Warning] LightServer.Services.LightControlService: SerialLight:DisableSdkLock=true — SDK/COM без lock (эксперимент, возможны гонки и сбои)
+2026-07-11 20:50:23.104 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[1,2],"brightness":[204,204]}
+2026-07-11 20:50:23.839 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[204,204]}
+2026-07-11 20:50:24.583 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":0,"channels":[1,2],"brightness":[204,204]}
+2026-07-11 20:50:25.308 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[204,204]}
+2026-07-11 20:50:26.048 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":1,"channels":[1,2],"brightness":[204,204]}
+2026-07-11 20:50:26.757 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[204,204]}
+2026-07-11 20:50:27.496 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":3,"channels":[1,2],"brightness":[204,204]}
+2026-07-11 20:50:28.203 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[204,204]}
+2026-07-11 20:50:28.236 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":204}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[204],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-11 20:50:28.244 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":204}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[204],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-11 20:51:27.770 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

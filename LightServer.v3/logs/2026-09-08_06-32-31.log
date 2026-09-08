@@ -1,0 +1,16 @@
+﻿--- LightServer log started 2026-09-08 06:32:31 ---
+2026-09-08 06:32:31.686 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-09-08_06-32-31.log
+2026-09-08 06:32:31.900 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-09-08 06:32:31.900 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-09-08 06:32:31.900 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-09-08 06:32:31.900 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-09-08 06:32:32.508 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-09-08 06:32:32.620 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-1@169.254.220.23 channels=[1,2,3,4] mode=bank-direct
+2026-09-08 06:32:32.664 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-2@169.254.220.22 channels=[1,2,3,4] mode=bank-direct
+2026-09-08 06:32:32.710 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-3@169.254.220.24 channels=[1,2,3,4] mode=bank-direct
+2026-09-08 06:32:32.759 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-4@169.254.220.25 channels=[1,2,3,4] mode=bank-direct
+2026-09-08 06:32:32.759 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank готов: 4/4 (169.254.220.23, 169.254.220.22, 169.254.220.24, 169.254.220.25)
+2026-09-08 06:32:34.408 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM2:0]
+2026-09-08 06:32:35.351 [Information] LightServer.Services.IsolatedComPortLight: COM2: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM2 (DA8782414)
+2026-09-08 06:32:35.352 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM2
+2026-09-08 06:32:35.352 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM2)

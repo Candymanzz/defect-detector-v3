@@ -1,0 +1,118 @@
+﻿--- LightServer log started 2026-07-23 23:02:57 ---
+2026-07-23 23:02:57.664 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 0, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-23_23-02-57.log
+2026-07-23 23:02:57.667 [Warning] LightServer: COM-устройства не настроены — задайте config/blocks/51-light-hardware.yaml или ComLightDevices в appsettings.json (D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\)
+2026-07-23 23:02:57.737 [Information] LightServer.Services.ComLightBankService: ComLightBank: COM-устройства не заданы — банк пропущен (только Ethernet/MV-LE).
+2026-07-23 23:02:57.781 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-23 23:02:57.781 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-23 23:02:57.781 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-23 23:02:57.781 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-23 23:02:58.424 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-07-23 23:02:58.470 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-1@169.254.220.23 channels=[1,2,3,4] mode=bank-direct
+2026-07-23 23:02:58.501 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-2@169.254.220.22 channels=[1,2,3,4] mode=bank-direct
+2026-07-23 23:02:58.531 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-3@169.254.220.2 channels=[1,2,3,4] mode=bank-direct
+2026-07-23 23:02:58.564 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-4@169.254.220.1 channels=[1,2,3,4] mode=bank-direct
+2026-07-23 23:02:58.564 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank готов: 4/4 (169.254.220.23, 169.254.220.22, 169.254.220.2, 169.254.220.1)
+2026-07-23 23:03:09.115 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[140,140,255,255]
+2026-07-23 23:03:09.131 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.146 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[140,140,140,140]
+2026-07-23 23:03:09.147 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.159 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[140,140,255,255]
+2026-07-23 23:03:09.159 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.167 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[140,140,140,140]
+2026-07-23 23:03:09.167 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.176 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[140,140,255,255]
+2026-07-23 23:03:09.177 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.185 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[140,140,140,140]
+2026-07-23 23:03:09.186 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.194 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[140,140,255,255]
+2026-07-23 23:03:09.194 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.202 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[140,140,140,140]
+2026-07-23 23:03:09.202 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.210 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[140,140,140,140]
+2026-07-23 23:03:09.210 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.218 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[140,140,140,140]
+2026-07-23 23:03:09.219 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.228 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[140,140,140,140]
+2026-07-23 23:03:09.228 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.236 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[140,140,140,140]
+2026-07-23 23:03:09.236 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.244 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[140,140,140,140]
+2026-07-23 23:03:09.244 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.252 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[140,140,140,140]
+2026-07-23 23:03:09.252 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.260 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[140,140,140,140]
+2026-07-23 23:03:09.260 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.268 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[140,140,140,140]
+2026-07-23 23:03:09.268 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.275 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"ready":4,"transport":"ethernet-gige","skipped":{},"error":null}
+2026-07-23 23:03:09.284 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[140,140,140,140]
+2026-07-23 23:03:09.284 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.293 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[140,140,140,140]
+2026-07-23 23:03:09.293 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.301 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[140,140,140,140]
+2026-07-23 23:03:09.301 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.309 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[140,140,140,140]
+2026-07-23 23:03:09.309 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.316 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[140,140,140,140]
+2026-07-23 23:03:09.317 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.324 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[140,140,140,140]
+2026-07-23 23:03:09.325 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:09.333 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[140,140,140,140]
+2026-07-23 23:03:09.334 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[1,2],"brightness":[140,140]}
+2026-07-23 23:03:09.343 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[140,140,140,140]
+2026-07-23 23:03:09.343 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":140,"rightPower":140}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[3,4],"brightness":[140,140]}
+2026-07-23 23:03:35.507 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...
+2026-07-23 23:03:35.547 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-23 23:03:35.549 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}

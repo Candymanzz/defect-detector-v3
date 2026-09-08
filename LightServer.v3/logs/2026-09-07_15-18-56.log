@@ -1,0 +1,261 @@
+﻿--- LightServer log started 2026-09-07 15:18:56 ---
+2026-09-07 15:18:57.054 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-09-07_15-18-56.log
+2026-09-07 15:18:57.216 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-09-07 15:18:57.216 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-09-07 15:18:57.216 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-09-07 15:18:57.217 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-09-07 15:18:57.939 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-09-07 15:18:59.006 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-1@169.254.220.23: Open 0x80000214
+2026-09-07 15:18:59.655 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM2:0]
+2026-09-07 15:19:00.056 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-2@169.254.220.22: Open 0x80000214
+2026-09-07 15:19:00.429 [Information] LightServer.Services.IsolatedComPortLight: COM2: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM2 (DA8782414)
+2026-09-07 15:19:00.429 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM2
+2026-09-07 15:19:00.430 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM2)
+2026-09-07 15:19:01.107 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-3@169.254.220.24: Open 0x80000214
+2026-09-07 15:19:02.162 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-4@169.254.220.25: Open 0x80000214
+2026-09-07 15:19:10.901 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.24","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:12.729 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.25","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:12.736 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":255}
+  << Response: {"success":false,"error":"cameraNumber 3: device_id 'COM2' не найден в devices."}
+2026-09-07 15:19:14.545 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.24","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:16.353 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.25","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:18.150 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.22","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:19.948 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":7,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.23","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:20.154 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[255,255]
+2026-09-07 15:19:20.155 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":8,"power":255}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM2","channels":[2],"brightness":[255]}
+2026-09-07 15:19:21.979 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.22","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:23.777 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.23","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:25.576 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.22","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:27.382 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.23","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:29.198 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.24","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:30.989 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.25","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:30.992 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":255}
+  << Response: {"success":false,"error":"cameraNumber 3: device_id 'COM2' не найден в devices."}
+2026-09-07 15:19:32.818 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.24","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:34.625 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.25","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:36.415 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.22","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:38.209 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":7,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.23","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:19:38.395 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[255,255]
+2026-09-07 15:19:38.395 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":8,"power":255}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM2","channels":[2],"brightness":[255]}
+2026-09-07 15:19:38.403 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:38.809 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:39.213 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:39.629 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:40.030 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:40.433 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:40.835 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:41.251 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:41.653 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:42.056 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:42.472 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:42.888 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:43.290 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:43.705 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:44.107 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:44.524 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:44.937 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:45.352 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:45.768 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:46.182 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:46.598 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:47.000 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:47.414 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:47.818 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:48.220 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:48.624 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:49.029 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:49.434 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:49.838 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:50.242 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:50.650 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:51.059 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:51.469 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:51.879 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:52.291 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:52.702 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:53.111 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:53.520 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:53.930 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:54.340 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:54.746 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:55.156 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:55.567 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:55.979 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:56.389 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:56.797 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:57.205 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:57.616 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:19:58.024 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.23":"mv-le-1@169.254.220.23: Open 0x80000214","169.254.220.22":"mv-le-2@169.254.220.22: Open 0x80000214","169.254.220.24":"mv-le-3@169.254.220.24: Open 0x80000214","169.254.220.25":"mv-le-4@169.254.220.25: Open 0x80000214"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:20:00.248 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.24","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:20:02.061 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.25","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:20:02.062 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":255}
+  << Response: {"success":false,"error":"cameraNumber 3: device_id 'COM2' не найден в devices."}
+2026-09-07 15:20:03.873 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.24","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:20:05.686 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.25","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:20:07.491 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.22","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:20:09.311 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":7,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.23","channels":[2,4],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:20:09.439 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[255,255]
+2026-09-07 15:20:09.439 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":8,"power":255}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM2","channels":[2],"brightness":[255]}
+2026-09-07 15:20:11.254 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.22","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:20:13.068 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.23","channels":[1,3],"brightness":[255,255],"error":"Open: 0x80000214"}
+2026-09-07 15:23:10.915 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-07 15:23:11.329 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"error":"Ethernet bank: ни одно MV-LE не открыто."}

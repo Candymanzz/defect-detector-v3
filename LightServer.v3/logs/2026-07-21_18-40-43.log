@@ -1,0 +1,1186 @@
+﻿--- LightServer log started 2026-07-21 18:40:43 ---
+2026-07-21 18:40:43.580 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 0, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-21_18-40-43.log
+2026-07-21 18:40:43.583 [Warning] LightServer: COM-устройства не настроены — задайте config/blocks/51-light-hardware.yaml или ComLightDevices в appsettings.json (D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\)
+2026-07-21 18:40:43.663 [Information] LightServer.Services.ComLightBankService: ComLightBank: COM-устройства не заданы — банк пропущен (только Ethernet/MV-LE).
+2026-07-21 18:40:43.708 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-21 18:40:43.708 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-21 18:40:43.708 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-21 18:40:43.708 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-21 18:40:44.464 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-07-21 18:40:44.516 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-1@169.254.220.23 channels=[1,2,3,4] mode=bank-direct
+2026-07-21 18:40:44.549 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-2@169.254.220.22 channels=[1,2,3,4] mode=bank-direct
+2026-07-21 18:40:44.584 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-3@169.254.220.2 channels=[1,2,3,4] mode=bank-direct
+2026-07-21 18:40:44.618 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-4@169.254.220.1 channels=[1,2,3,4] mode=bank-direct
+2026-07-21 18:40:44.618 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank готов: 4/4 (169.254.220.23, 169.254.220.22, 169.254.220.2, 169.254.220.1)
+2026-07-21 18:40:54.974 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"ready":4,"transport":"ethernet-gige","skipped":{},"error":null}
+2026-07-21 18:40:55.024 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[204,204,255,255]
+2026-07-21 18:40:55.029 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[204,204]}
+2026-07-21 18:40:55.039 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[204,204,204,204]
+2026-07-21 18:40:55.040 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[204,204]}
+2026-07-21 18:40:55.049 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[204,204,255,255]
+2026-07-21 18:40:55.049 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[1,2],"brightness":[204,204]}
+2026-07-21 18:40:55.056 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[204,204,204,204]
+2026-07-21 18:40:55.057 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[3,4],"brightness":[204,204]}
+2026-07-21 18:40:55.067 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[204,204,255,255]
+2026-07-21 18:40:55.067 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[1,2],"brightness":[204,204]}
+2026-07-21 18:40:55.075 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.2 powers=[204,204,204,204]
+2026-07-21 18:40:55.075 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.2","channels":[3,4],"brightness":[204,204]}
+2026-07-21 18:40:55.086 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[204,204,255,255]
+2026-07-21 18:40:55.086 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[1,2],"brightness":[204,204]}
+2026-07-21 18:40:55.093 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[204,204,204,204]
+2026-07-21 18:40:55.094 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[3,4],"brightness":[204,204]}
+2026-07-21 18:41:33.674 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:33.677 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:41:38.658 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:41:38.658 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:41:38.658 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:41:38.658 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:41:38.658 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:38.658 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:38.658 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:38.658 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:38.680 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:38.680 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:38.681 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:38.681 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:38.682 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:38.682 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:41:42.757 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:41:42.757 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:42.757 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:41:42.757 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:41:42.757 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:42.757 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:42.757 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:41:42.757 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:42.781 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:42.782 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:42.782 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:42.782 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:42.782 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:42.782 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:41:43.626 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:43.626 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:41:48.634 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:41:48.634 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:41:48.634 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:41:48.634 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:41:48.635 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:48.635 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:48.634 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:48.635 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:48.654 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:48.655 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:48.656 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:48.656 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:48.656 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:48.657 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:41:52.838 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:41:52.838 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:41:52.838 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:52.838 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:52.838 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:41:52.839 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:52.838 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:41:52.839 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:52.859 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:52.859 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:52.859 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:52.859 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:52.860 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:52.860 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:41:53.681 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:53.681 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:41:58.700 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:41:58.700 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:41:58.700 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:41:58.700 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:41:58.700 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:58.700 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:58.700 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:58.700 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:41:58.719 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:58.721 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:58.721 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:58.722 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:41:58.722 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:41:58.722 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:02.964 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:02.964 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:02.964 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:02.964 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:02.964 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:02.964 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:02.964 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:02.964 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:02.984 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:02.984 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:02.984 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:02.985 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:02.985 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:02.985 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:03.787 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:03.788 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:08.798 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:08.798 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:08.798 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:08.798 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:08.798 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:08.798 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:08.798 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:08.798 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:08.818 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:08.818 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:08.819 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:08.819 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:08.819 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:08.820 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:13.071 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:13.071 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:13.071 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:13.071 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:13.071 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:13.071 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:13.071 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:13.071 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:13.090 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:13.091 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:13.092 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:13.092 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:13.092 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:13.092 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:13.914 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:13.915 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:18.934 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:18.934 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:18.934 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:18.934 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:18.934 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:18.934 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:18.934 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:18.934 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:18.954 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:18.954 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:18.955 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:18.955 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:18.955 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:18.955 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:23.202 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:23.202 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:23.202 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:23.202 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:23.202 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:23.202 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:23.202 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:23.202 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:23.221 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:23.221 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:23.223 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:23.223 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:23.223 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:23.223 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:24.014 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:24.015 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:29.033 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:29.033 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:29.033 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:29.033 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:29.033 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:29.033 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:29.033 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:29.033 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:29.053 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:29.054 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:29.054 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:29.055 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:29.055 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:29.055 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:33.298 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:33.298 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:33.298 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:33.298 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:33.298 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:33.298 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:33.298 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:33.298 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:33.317 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:33.319 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:33.319 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:33.319 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:33.319 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:33.320 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:34.143 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:34.143 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:39.154 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:39.154 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:39.154 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:39.154 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:39.154 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:39.154 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:39.154 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:39.154 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:39.174 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:39.174 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:39.175 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:39.175 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:39.175 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:39.175 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:43.413 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:43.413 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:43.413 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:43.413 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:43.413 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:43.413 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:43.413 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:43.413 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:43.432 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:43.433 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:43.434 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:43.434 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:43.434 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:43.434 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:44.251 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:44.251 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:49.275 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:49.275 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:49.275 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:49.275 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:49.275 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:49.275 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:49.275 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:49.275 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:49.295 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:49.296 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:49.296 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:49.297 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:49.297 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:49.297 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:53.492 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:53.492 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:53.492 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:53.492 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:53.492 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:53.492 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:53.492 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:53.492 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:53.512 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:53.512 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:53.513 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:53.513 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:53.513 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:53.513 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:54.340 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:54.341 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:42:59.354 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:42:59.354 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:42:59.354 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:42:59.354 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:42:59.354 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:59.354 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:59.354 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:59.354 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:42:59.374 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:59.374 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:59.375 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:59.375 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:42:59.375 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:42:59.375 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:03.616 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:03.616 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:03.616 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:03.616 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:03.616 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:03.616 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:03.616 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:03.616 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:03.636 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:03.636 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:03.636 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:03.637 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:03.637 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:03.638 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:04.458 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:04.458 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:09.471 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:09.471 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:09.471 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:09.471 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:09.471 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:09.471 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:09.471 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:09.471 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:09.491 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:09.491 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:09.493 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:09.493 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:09.493 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:09.493 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:13.708 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:13.708 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:13.708 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:13.708 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:13.708 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:13.708 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:13.708 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:13.708 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:13.727 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:13.728 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:13.728 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:13.729 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:13.729 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:13.729 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:14.555 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:14.556 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:19.560 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:19.560 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:19.560 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:19.560 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:19.560 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:19.561 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:19.561 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:19.561 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:19.581 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:19.581 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:19.581 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:19.581 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:19.581 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:19.581 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:23.824 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:23.824 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:23.824 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:23.824 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:23.824 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:23.824 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:23.824 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:23.824 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:23.843 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:23.845 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:23.845 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:23.845 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:23.846 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:23.846 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:24.671 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:24.671 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:29.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:29.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:29.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:29.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:29.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:29.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:29.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:29.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:29.712 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:29.712 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:29.713 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:29.713 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:29.713 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:29.714 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:33.945 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:33.945 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:33.945 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:33.945 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:33.945 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:33.945 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:33.945 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:33.945 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:33.965 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:33.965 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:33.966 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:33.966 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:33.966 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:33.966 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:34.779 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:34.779 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:39.794 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:39.794 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:39.794 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:39.794 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:39.794 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:39.794 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:39.794 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:39.794 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:39.812 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:39.813 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:39.814 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:39.815 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:39.815 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:39.815 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:44.063 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:44.063 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:44.063 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:44.063 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:44.063 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:44.063 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:44.063 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:44.063 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:44.083 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:44.083 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:44.084 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:44.084 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:44.084 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:44.084 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:44.891 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:44.891 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:49.900 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:49.900 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:49.900 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:49.900 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:49.900 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:49.900 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:49.900 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:49.900 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:49.919 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:49.919 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:49.920 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:49.920 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:49.920 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:49.921 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:54.157 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:43:54.157 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:43:54.157 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:43:54.157 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:43:54.157 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:54.157 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:54.157 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:54.157 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:43:54.178 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:54.178 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:54.179 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:54.179 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:43:54.179 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:54.179 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:43:54.996 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:43:54.996 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:00.000 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:00.000 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:00.000 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:00.000 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:00.000 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:00.000 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:00.000 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:00.000 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:00.018 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:00.020 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:00.021 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:00.021 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:00.021 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:00.021 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:04.262 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:04.262 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:04.262 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:04.262 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:04.262 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:04.262 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:04.262 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:04.262 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:04.283 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:04.283 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:04.283 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:04.283 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:04.283 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:04.283 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:05.119 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:05.119 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:10.136 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:10.136 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:10.136 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:10.136 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:10.136 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:10.136 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:10.136 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:10.136 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:10.155 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:10.157 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:10.157 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:10.157 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:10.157 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:10.157 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:14.399 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:14.399 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:14.399 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:14.399 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:14.399 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:14.399 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:14.399 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:14.399 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:14.419 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:14.420 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:14.420 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:14.420 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:14.421 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:14.421 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:15.227 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:15.227 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:20.244 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:20.244 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:20.244 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:20.244 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:20.244 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:20.244 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:20.244 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:20.244 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:20.264 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:20.265 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:20.265 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:20.265 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:20.265 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:20.265 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:24.505 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:24.505 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:24.505 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:24.505 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:24.505 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:24.505 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:24.506 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:24.506 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:24.524 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:24.525 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:24.526 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:24.527 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:24.527 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:24.527 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:25.337 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:25.337 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:30.347 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:30.347 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:30.347 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:30.347 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:30.347 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:30.347 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:30.347 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:30.347 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:30.367 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:30.368 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:30.368 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:30.368 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:30.368 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:30.368 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:34.594 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:34.594 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:34.594 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:34.594 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:34.594 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:34.594 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:34.594 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:34.594 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:34.614 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:34.614 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:34.615 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:34.615 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:34.615 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:34.615 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:35.433 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:35.433 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:40.443 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:40.443 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:40.443 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:40.443 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:40.443 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:40.443 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:40.443 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:40.443 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:40.463 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:40.463 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:40.464 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:40.465 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:40.465 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:40.465 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:44.703 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:44.703 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:44.703 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:44.703 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:44.703 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:44.703 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:44.703 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:44.703 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:44.722 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:44.723 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:44.723 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:44.725 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:44.725 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:44.725 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:45.557 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:45.558 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:50.573 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:50.573 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:50.573 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:50.573 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:50.573 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:50.573 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:50.573 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:50.573 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:50.593 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:50.593 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:50.593 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:50.593 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:50.594 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:50.594 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:54.848 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:44:54.848 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:44:54.848 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:54.848 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:44:54.848 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:44:54.848 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:54.848 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:54.848 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:44:54.869 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:54.869 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:54.870 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:54.870 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:44:54.870 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:54.870 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:44:55.664 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:44:55.665 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:00.669 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:00.669 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:00.669 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:00.669 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:00.669 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:00.669 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:00.669 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:00.669 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:00.689 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:00.689 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:00.689 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:00.691 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:00.691 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:00.691 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:04.928 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:04.928 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:04.928 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:04.928 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:04.928 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:04.928 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:04.928 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:04.928 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:04.948 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:04.948 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:04.949 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:04.949 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:04.949 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:04.949 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:05.773 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:05.773 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:10.787 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:10.787 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:10.787 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:10.787 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:10.787 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:10.787 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:10.787 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:10.787 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:10.806 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:10.806 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:10.808 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:10.808 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:10.808 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:10.808 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:15.035 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:15.035 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:15.035 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:15.035 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:15.035 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:15.035 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:15.035 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:15.035 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:15.056 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:15.056 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:15.056 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:15.057 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:15.057 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:15.057 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:15.893 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:15.893 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:20.899 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:20.899 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:20.899 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:20.899 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:20.899 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:20.899 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:20.899 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:20.899 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:20.920 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:20.920 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:20.920 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:20.920 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:20.920 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:20.921 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:25.141 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:25.141 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:25.141 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:25.141 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:25.141 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:25.141 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:25.141 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:25.141 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:25.161 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:25.161 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:25.162 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:25.162 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:25.162 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:25.162 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:25.981 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:25.982 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:30.998 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:30.998 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:30.998 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:30.998 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:30.998 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:30.998 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:30.998 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:30.998 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:31.019 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:31.019 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:31.019 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:31.021 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:31.021 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:31.021 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:35.256 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:35.256 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:35.256 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:35.256 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:35.256 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:35.256 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:35.256 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:35.256 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:35.277 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:35.277 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:35.277 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:35.277 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:35.277 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:35.277 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:36.074 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:36.074 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:41.076 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:41.076 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:41.076 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:41.076 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:41.076 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:41.076 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:41.076 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:41.076 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:41.097 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:41.097 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:41.097 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:41.097 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:41.098 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:41.098 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:45.342 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:45.342 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:45.342 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:45.342 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:45.342 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:45.342 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:45.342 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:45.342 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:45.362 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:45.363 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:45.363 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:45.364 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:45.364 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:45.364 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:46.200 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:46.200 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:51.214 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:51.214 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:51.214 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:51.214 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:51.214 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:51.214 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:51.214 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:51.214 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:51.234 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:51.235 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:51.235 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:51.236 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:51.236 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:51.236 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:55.442 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:45:55.442 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:45:55.442 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:45:55.442 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:55.442 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:45:55.442 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:55.442 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:55.442 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:45:55.462 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:55.462 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:55.463 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:55.463 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:45:55.463 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:55.463 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:45:56.292 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:45:56.293 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:01.303 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:01.303 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:01.303 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:01.303 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:01.303 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:01.303 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:01.303 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:01.303 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:01.323 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:01.323 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:01.324 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:01.324 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:01.324 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:01.324 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:05.547 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:05.547 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:05.547 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:05.547 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:05.547 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:05.547 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:05.547 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:05.547 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:05.567 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:05.567 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:05.567 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:05.568 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:05.568 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:05.568 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:06.385 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:06.385 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:11.402 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:11.402 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:11.402 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:11.402 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:11.402 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:11.402 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:11.402 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:11.402 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:11.422 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:11.422 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:11.423 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:11.423 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:11.423 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:11.423 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:15.640 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:15.640 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:15.640 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:15.640 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:15.640 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:15.640 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:15.640 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:15.640 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:15.659 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:15.660 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:15.661 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:15.661 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:15.661 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:15.661 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:16.480 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:16.480 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:21.488 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:21.488 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:21.488 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:21.488 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:21.488 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:21.488 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:21.488 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:21.488 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:21.507 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:21.508 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:21.509 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:21.509 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:21.509 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:21.509 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:25.783 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:25.783 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:25.783 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:25.783 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:25.783 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:25.783 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:25.783 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:25.783 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:25.803 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:25.803 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:25.804 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:25.804 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:25.804 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:25.805 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:26.596 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:26.597 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:31.607 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:31.607 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:31.607 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:31.607 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:31.607 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:31.607 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:31.607 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:31.607 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:31.627 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:31.627 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:31.628 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:31.629 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:31.629 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:31.629 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:35.866 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:35.866 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:35.866 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:35.866 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:35.866 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:35.866 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:35.866 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:35.866 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:35.886 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:35.886 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:35.887 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:35.887 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:35.887 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:35.887 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:36.688 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:36.688 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:41.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:41.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:41.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:41.692 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:41.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:41.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:41.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:41.692 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:41.712 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:41.712 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:41.712 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:41.712 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:41.712 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:41.712 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:45.972 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:45.972 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:45.972 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:45.972 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:45.973 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:45.973 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:45.972 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:45.973 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:45.993 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:45.993 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:45.993 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:45.994 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:45.994 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:45.994 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:46.810 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:46.810 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
+2026-07-21 18:46:51.818 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[204,204,204,204]
+2026-07-21 18:46:51.818 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,204,204]
+2026-07-21 18:46:51.818 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[204,204,204,204]
+2026-07-21 18:46:51.818 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 18:46:51.818 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:51.818 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:51.818 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:51.818 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 18:46:51.838 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:51.838 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:51.839 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:51.839 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 18:46:51.839 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-21 18:46:51.839 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-21 19:06:06.809 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

@@ -1,0 +1,255 @@
+﻿--- LightServer log started 2026-07-16 15:54:32 ---
+2026-07-16 15:54:32.444 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-16_15-54-32.log
+2026-07-16 15:54:32.631 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-16 15:54:32.631 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-16 15:54:32.632 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-16 15:54:32.632 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\
+2026-07-16 15:54:34.361 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM1:0]
+2026-07-16 15:54:35.040 [Information] LightServer.Services.IsolatedComPortLight: COM1: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM1 (DA8782414)
+2026-07-16 15:54:35.040 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM1
+2026-07-16 15:54:35.040 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM1)
+2026-07-16 15:54:37.623 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"partial":false,"configPath":"D:\\visionGay\\defect-detector-v3\\config\\blocks\\51-light-hardware.yaml","loadedFromYaml":true,"devices":[{"id":"com1","comPort":"COM1","channels":[1,2],"ready":true,"skipped":null}],"readyDevices":[{"id":"com1","comPort":"COM1","channels":[1,2]}],"skippedPorts":{},"channelOrder":"COM1:1, COM1:2","configuredChannelOrder":"COM1:1, COM1:2","usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"},"note":"brightness применяется только к подключённым COM (readyDevices)"}}
+2026-07-16 15:54:37.647 [Warning] LightServer.Services.LightControlService: SerialLight:DisableSdkLock=true — SDK/COM без lock (эксперимент, возможны гонки и сбои)
+2026-07-16 15:54:38.540 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[1,2],"brightness":[204,204]}
+2026-07-16 15:54:39.380 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[204,204]}
+2026-07-16 15:54:40.212 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":0,"channels":[1,2],"brightness":[204,204]}
+2026-07-16 15:54:41.039 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[204,204]}
+2026-07-16 15:54:41.871 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":1,"channels":[1,2],"brightness":[204,204]}
+2026-07-16 15:54:42.702 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[204,204]}
+2026-07-16 15:54:43.535 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[1,2],"brightness":[204,204]}
+2026-07-16 15:54:44.363 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[204,204]}
+2026-07-16 15:54:46.674 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":204}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[204],"error":"Prime channels failed on ch3."}
+2026-07-16 15:54:47.593 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":10,"power":204}
+  << Response: {"success":true,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[204]}
+2026-07-16 15:55:53.960 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":1,"channels":[1,2],"brightness":[41,41]}
+2026-07-16 15:55:54.791 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[41,41]}
+2026-07-16 15:55:55.624 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":0,"channels":[1,2],"brightness":[41,41]}
+2026-07-16 15:55:56.459 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[41,41]}
+2026-07-16 15:55:57.282 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":0,"channels":[1,2],"brightness":[41,41]}
+2026-07-16 15:55:58.113 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[41,41]}
+2026-07-16 15:55:58.927 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[1,2],"brightness":[41,41]}
+2026-07-16 15:55:59.742 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":41,"rightPower":41}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[41,41]}
+2026-07-16 15:56:08.209 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":9,"power":41}
+  << Response: {"success":true,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[41]}
+2026-07-16 15:56:11.395 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":41}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[41],"error":"Hold On failed: no broadcast selector on device. Try FlashSyncMode Auto/Deferred or configure All channel in MVS."}
+2026-07-16 15:58:48.902 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":1,"channels":[1,2],"brightness":[130,130]}
+2026-07-16 15:58:49.732 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[130,130]}
+2026-07-16 15:58:50.567 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":1,"channels":[1,2],"brightness":[130,130]}
+2026-07-16 15:58:51.404 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[130,130]}
+2026-07-16 15:58:52.238 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":1,"channels":[1,2],"brightness":[130,130]}
+2026-07-16 15:58:53.070 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[130,130]}
+2026-07-16 15:58:53.907 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[1,2],"brightness":[130,130]}
+2026-07-16 15:58:54.718 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":130,"rightPower":130}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[130,130]}
+2026-07-16 15:59:07.412 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":130}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[130],"error":"Prime channels failed on ch1."}
+2026-07-16 15:59:12.110 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":130}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[130],"error":"Hold On failed: no broadcast selector on device. Try FlashSyncMode Auto/Deferred or configure All channel in MVS."}
+2026-07-16 15:59:18.910 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[1,2],"brightness":[255,255]}
+2026-07-16 15:59:19.734 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[255,255]}
+2026-07-16 15:59:20.568 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":0,"channels":[1,2],"brightness":[255,255]}
+2026-07-16 15:59:21.398 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[255,255]}
+2026-07-16 15:59:22.233 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":0,"channels":[1,2],"brightness":[255,255]}
+2026-07-16 15:59:23.063 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[255,255]}
+2026-07-16 15:59:23.895 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":3,"channels":[1,2],"brightness":[255,255]}
+2026-07-16 15:59:24.725 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":255,"rightPower":255}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[255,255]}
+2026-07-16 15:59:31.495 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":255}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[255],"error":"Open: 0x800000ff"}
+2026-07-16 15:59:46.698 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":255}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[255],"error":"Open: 0x800000ff"}
+2026-07-16 16:00:23.669 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:00:24.510 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:00:25.350 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":1,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:00:26.172 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:00:27.000 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":0,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:00:27.816 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:00:28.631 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":3,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:00:29.454 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:00:48.283 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":163}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[163],"error":"Prime channels failed on ch1."}
+2026-07-16 16:00:53.697 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":163}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[163],"error":"Hold On failed: no broadcast selector on device. Try FlashSyncMode Auto/Deferred or configure All channel in MVS."}
+2026-07-16 16:04:40.997 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[1,2],"brightness":[196,196]}
+2026-07-16 16:04:41.826 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[196,196]}
+2026-07-16 16:04:42.659 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":0,"channels":[1,2],"brightness":[196,196]}
+2026-07-16 16:04:43.503 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[196,196]}
+2026-07-16 16:04:44.336 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":1,"channels":[1,2],"brightness":[196,196]}
+2026-07-16 16:04:45.169 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[196,196]}
+2026-07-16 16:04:46.003 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[1,2],"brightness":[196,196]}
+2026-07-16 16:04:46.827 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":196,"rightPower":196}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":3,"channels":[3,4],"brightness":[196,196]}
+2026-07-16 16:04:53.781 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":196}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[196],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-16 16:04:53.782 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":196}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[196],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-16 16:05:17.058 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":1,"channels":[1,2],"brightness":[153,153]}
+2026-07-16 16:05:17.904 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[153,153]}
+2026-07-16 16:05:18.729 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":1,"channels":[1,2],"brightness":[153,153]}
+2026-07-16 16:05:19.557 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[153,153]}
+2026-07-16 16:05:20.374 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":0,"channels":[1,2],"brightness":[153,153]}
+2026-07-16 16:05:21.209 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[153,153]}
+2026-07-16 16:05:22.042 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[1,2],"brightness":[153,153]}
+2026-07-16 16:05:22.870 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":153,"rightPower":153}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[153,153]}
+2026-07-16 16:05:22.871 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":153}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[153],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-16 16:05:22.873 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":153}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[153],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-16 16:05:53.766 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":1,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:05:54.600 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.14","deviceIndex":2,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:05:55.439 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":3,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":1,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:05:56.273 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.11","deviceIndex":2,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:05:57.109 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":1,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:05:57.939 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":2,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:05:58.751 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":3,"channels":[1,2],"brightness":[163,163]}
+2026-07-16 16:05:59.577 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":163,"rightPower":163}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[163,163]}
+2026-07-16 16:05:59.578 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":163}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[163],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-16 16:05:59.579 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":163}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[163],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-16 16:06:48.329 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

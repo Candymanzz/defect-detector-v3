@@ -1,0 +1,17 @@
+﻿--- LightServer log started 2026-08-11 12:33:05 ---
+2026-08-11 12:33:05.450 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-08-11_12-33-05.log
+2026-08-11 12:33:05.621 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-08-11 12:33:05.622 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-08-11 12:33:05.622 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-08-11 12:33:05.622 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-08-11 12:33:06.248 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-08-11 12:33:06.255 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-1@169.254.220.4 не найден
+2026-08-11 12:33:06.256 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-2@169.254.220.3 не найден
+2026-08-11 12:33:06.341 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-3@169.254.220.2 channels=[1,2,3,4] mode=bank-direct
+2026-08-11 12:33:06.386 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-4@169.254.220.1 channels=[1,2,3,4] mode=bank-direct
+2026-08-11 12:33:06.386 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank готов: 2/4 (169.254.220.2, 169.254.220.1)
+2026-08-11 12:33:11.401 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-08-11 12:33:11.401 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-08-11 12:33:11.402 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM2 не найден в EnumDevices. Видно: []
+2026-08-11 12:33:11.403 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM2 не найден в EnumDevices. Видно: []
+2026-08-11 12:33:17.087 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

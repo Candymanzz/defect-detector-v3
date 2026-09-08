@@ -1,0 +1,9 @@
+﻿--- LightServer log started 2026-06-30 10:22:28 ---
+2026-06-30 10:22:28.397 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 3, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-06-30_10-22-28.log
+2026-06-30 10:22:28.502 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-06-30 10:22:28.502 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-06-30 10:22:28.502 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-06-30 10:22:28.502 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-06-30 10:22:39.993 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM3:0]
+2026-06-30 10:22:39.995 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: [MV-VC3704H-128G60 @ COM3 (DA8813549)]
+2026-06-30 10:22:39.999 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: [MV-VC3704H-128G60 @ COM3 (DA8813549)]

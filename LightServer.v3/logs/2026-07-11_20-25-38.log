@@ -1,0 +1,74 @@
+﻿--- LightServer log started 2026-07-11 20:25:38 ---
+2026-07-11 20:25:38.666 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-11_20-25-38.log
+2026-07-11 20:25:38.717 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting starting
+2026-07-11 20:25:38.783 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://localhost:5080
+2026-07-11 20:25:38.783 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-11 20:25:38.791 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Development
+2026-07-11 20:25:38.791 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\
+2026-07-11 20:25:38.792 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting started
+2026-07-11 20:25:38.883 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:25:38.886 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:25:38.887 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:25:38.887 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:26:14.906 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/ - - -
+2026-07-11 20:26:14.946 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/ - 404 0 - 49.1240ms
+2026-07-11 20:26:14.946 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:5080/, Response status code: 404
+2026-07-11 20:26:32.602 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/ - - -
+2026-07-11 20:26:32.603 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/ - 404 0 - 1.1480ms
+2026-07-11 20:26:32.603 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:5080/, Response status code: 404
+2026-07-11 20:27:01.896 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/ - - -
+2026-07-11 20:27:01.897 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/ - 404 0 - 1.5643ms
+2026-07-11 20:27:01.897 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:5080/, Response status code: 404
+2026-07-11 20:27:14.544 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swager - - -
+2026-07-11 20:27:14.544 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swager - 404 0 - 0.2993ms
+2026-07-11 20:27:14.544 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:5080/swager, Response status code: 404
+2026-07-11 20:27:20.453 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger - - -
+2026-07-11 20:27:20.454 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger - 301 0 - 0.7323ms
+2026-07-11 20:27:20.462 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/index.html - - -
+2026-07-11 20:27:20.524 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/index.html - 200 - text/html;charset=utf-8 61.9949ms
+2026-07-11 20:27:20.531 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/swagger-ui.css - - -
+2026-07-11 20:27:20.531 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/index.css - - -
+2026-07-11 20:27:20.533 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/swagger-ui-bundle.js - - -
+2026-07-11 20:27:20.533 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/index.js - - -
+2026-07-11 20:27:20.534 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/swagger-ui-standalone-preset.js - - -
+2026-07-11 20:27:20.534 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/index.js - 200 - application/javascript;charset=utf-8 0.6041ms
+2026-07-11 20:27:20.545 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/index.css - 200 152 text/css 13.9367ms
+2026-07-11 20:27:20.545 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/swagger-ui.css - 200 26479 text/css 14.0897ms
+2026-07-11 20:27:20.556 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/swagger-ui-bundle.js - 200 418181 text/javascript 22.6623ms
+2026-07-11 20:27:20.556 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/swagger-ui-standalone-preset.js - 200 76613 text/javascript 22.1050ms
+2026-07-11 20:27:20.721 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/v1/swagger.json - - -
+2026-07-11 20:27:20.732 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET http://localhost:5080/swagger/favicon-32x32.png - - -
+2026-07-11 20:27:20.734 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/favicon-32x32.png - 200 628 image/png 1.4629ms
+2026-07-11 20:27:20.853 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET http://localhost:5080/swagger/v1/swagger.json - 200 - application/json;charset=utf-8 132.3614ms
+2026-07-11 20:27:43.623 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 POST http://localhost:5080/api/camera-flash/pair - application/json 60
+2026-07-11 20:27:43.629 [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware: Executing endpoint 'LightServer.Controllers.CameraFlashController.SetPair (LightServer)'
+2026-07-11 20:27:43.644 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker: Route matched with {action = "SetPair", controller = "CameraFlash"}. Executing controller action with signature Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object] SetPair(LightServer.Models.CameraPairFlashRequest) on controller LightServer.Controllers.CameraFlashController (LightServer).
+2026-07-11 20:27:43.646 [Warning] LightServer.Services.LightControlService: SerialLight:DisableSdkLock=true — SDK/COM без lock (эксперимент, возможны гонки и сбои)
+2026-07-11 20:27:43.683 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ObjectResultExecutor: Executing BadRequestObjectResult, writing value of type '<>f__AnonymousType0`2[[System.Boolean, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-11 20:27:43.696 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker: Executed action LightServer.Controllers.CameraFlashController.SetPair (LightServer) in 45.5839ms
+2026-07-11 20:27:43.696 [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware: Executed endpoint 'LightServer.Controllers.CameraFlashController.SetPair (LightServer)'
+2026-07-11 20:27:43.697 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+  "cameraNumber": 0,
+  "leftPower": 0,
+  "rightPower": 0
+}
+  << Response: {"success":false,"error":"cameraNumber 0 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-11 20:27:43.697 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 POST http://localhost:5080/api/camera-flash/pair - 400 - application/json;+charset=utf-8 74.5774ms
+2026-07-11 20:28:23.200 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 POST http://localhost:5080/api/camera-flash/pair - application/json 62
+2026-07-11 20:28:23.202 [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware: Executing endpoint 'LightServer.Controllers.CameraFlashController.SetPair (LightServer)'
+2026-07-11 20:28:23.202 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker: Route matched with {action = "SetPair", controller = "CameraFlash"}. Executing controller action with signature Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object] SetPair(LightServer.Models.CameraPairFlashRequest) on controller LightServer.Controllers.CameraFlashController (LightServer).
+2026-07-11 20:28:23.871 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ObjectResultExecutor: Executing BadRequestObjectResult, writing value of type '<>f__AnonymousType4`8[[System.Boolean, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32[], System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32[], System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-11 20:28:23.878 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker: Executed action LightServer.Controllers.CameraFlashController.SetPair (LightServer) in 675.3394ms
+2026-07-11 20:28:23.878 [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware: Executed endpoint 'LightServer.Controllers.CameraFlashController.SetPair (LightServer)'
+2026-07-11 20:28:23.878 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+  "cameraNumber": 5,
+  "leftPower": 10,
+  "rightPower": 10
+}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.100","channels":[1,2],"brightness":[10,10],"error":"Устройство не найдено по ipAddress='192.168.1.100'."}
+2026-07-11 20:28:23.878 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 POST http://localhost:5080/api/camera-flash/pair - 400 - application/json;+charset=utf-8 677.6327ms
+2026-07-11 20:32:04.761 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...
+2026-07-11 20:32:04.762 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopping
+2026-07-11 20:32:04.839 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopped

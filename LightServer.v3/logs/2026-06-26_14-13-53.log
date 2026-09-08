@@ -1,0 +1,168 @@
+﻿--- LightServer log started 2026-06-26 14:13:53 ---
+2026-06-26 14:13:53.334 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 3, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-06-26_14-13-53.log
+2026-06-26 14:13:53.441 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-06-26 14:13:53.441 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-06-26 14:13:53.441 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-06-26 14:13:53.449 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-06-26 14:14:01.287 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:01.699 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:01.985 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=2, map=[COM2:0, COM3:1]
+2026-06-26 14:14:01.988 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]
+2026-06-26 14:14:01.988 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]
+2026-06-26 14:14:02.110 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:02.519 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:02.928 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:03.341 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:03.754 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:04.167 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:04.577 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:04.990 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:05.404 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:05.814 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:06.227 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:06.638 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:07.049 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:07.462 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:07.875 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:08.286 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:08.700 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:09.112 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:09.522 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:09.928 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:10.341 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:10.754 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:11.164 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:11.574 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:11.985 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:12.394 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:12.807 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:13.220 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:13.632 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:14.042 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:14.454 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:14.862 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:15.276 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:15.690 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:16.100 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:16.512 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:16.922 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:17.337 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:17.746 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:18.158 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:18.572 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:18.982 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:19.396 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:19.807 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:20.219 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:20.631 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:21.041 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"devices":[{"comPort":"COM1","channels":[1,2]},{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:14:28.228 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=2, map=[COM2:0, COM3:1]
+2026-06-26 14:14:28.229 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]
+2026-06-26 14:14:28.229 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]
+2026-06-26 14:14:28.231 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"Off"}
+  << Response: {"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]","state":"off","brightness":null,"results":[]}
+2026-06-26 14:14:35.340 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=2, map=[COM2:0, COM3:1]
+2026-06-26 14:14:35.340 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]
+2026-06-26 14:14:35.341 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]
+2026-06-26 14:14:35.341 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"Off"}
+  << Response: {"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM2 (DA8782414); MV-VC3704H-128G60 @ COM3 (DA8813549)]","state":"off","brightness":null,"results":[]}

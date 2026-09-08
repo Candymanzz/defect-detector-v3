@@ -1,0 +1,353 @@
+﻿--- LightServer log started 2026-09-07 12:13:15 ---
+2026-09-07 12:13:16.083 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-09-07_12-13-15.log
+2026-09-07 12:13:16.261 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-09-07 12:13:16.261 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-09-07 12:13:16.262 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-09-07 12:13:16.262 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-09-07 12:13:16.864 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-09-07 12:13:16.941 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-1@169.254.220.23 channels=[1,2,3,4] mode=bank-direct
+2026-09-07 12:13:16.995 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-2@169.254.220.22 channels=[1,2,3,4] mode=bank-direct
+2026-09-07 12:13:17.049 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-3@169.254.218.2 channels=[1,2,3,4] mode=bank-direct
+2026-09-07 12:13:17.093 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-4@169.254.218.1 channels=[1,2,3,4] mode=bank-direct
+2026-09-07 12:13:17.094 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank готов: 4/4 (169.254.220.23, 169.254.220.22, 169.254.218.2, 169.254.218.1)
+2026-09-07 12:13:21.765 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:13:21.768 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:21.769 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:21.770 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:28.010 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.2 powers=[255,112,255,112]
+2026-09-07 12:13:28.025 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.218.2","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:28.045 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.1 powers=[255,112,255,112]
+2026-09-07 12:13:28.045 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.218.1","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:28.054 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":112}
+  << Response: {"success":false,"error":"cameraNumber 3: device_id 'COM2' не найден в devices."}
+2026-09-07 12:13:28.067 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.2 powers=[112,112,112,112]
+2026-09-07 12:13:28.067 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.218.2","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:28.074 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.1 powers=[112,112,112,112]
+2026-09-07 12:13:28.074 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.218.1","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:28.084 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[255,112,255,112]
+2026-09-07 12:13:28.084 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:28.094 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[255,112,255,112]
+2026-09-07 12:13:28.094 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:33.020 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:13:33.021 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:33.022 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:33.025 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":8,"power":112}
+  << Response: {"success":false,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[2],"brightness":[112],"error":"COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:13:33.032 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[112,112,112,112]
+2026-09-07 12:13:33.033 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":9,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":9,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:33.039 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[112,112,112,112]
+2026-09-07 12:13:33.039 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":10,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":10,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:33.046 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[112,112,112,112]
+2026-09-07 12:13:33.046 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":10,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":10,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:33.053 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[112,112,112,112]
+2026-09-07 12:13:33.053 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":9,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":9,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:37.982 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:13:37.983 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:37.983 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:37.983 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":8,"power":112}
+  << Response: {"success":false,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[2],"brightness":[112],"error":"COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:13:37.991 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[112,112,112,112]
+2026-09-07 12:13:37.991 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:37.999 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[112,112,112,112]
+2026-09-07 12:13:37.999 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:38.007 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.1 powers=[112,112,112,112]
+2026-09-07 12:13:38.007 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.218.1","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:38.015 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.2 powers=[112,112,112,112]
+2026-09-07 12:13:38.015 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.218.2","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:38.017 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":112}
+  << Response: {"success":false,"error":"cameraNumber 3: device_id 'COM2' не найден в devices."}
+2026-09-07 12:13:38.025 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.1 powers=[112,112,112,112]
+2026-09-07 12:13:38.025 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.218.1","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:38.033 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.2 powers=[112,112,112,112]
+2026-09-07 12:13:38.033 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.218.2","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:42.980 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:13:42.980 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:42.980 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:42.980 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:42.985 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-09-07 12:13:47.941 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:13:47.942 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:47.942 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:47.942 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:47.942 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-09-07 12:13:52.858 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:13:52.858 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:52.859 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:52.859 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:52.859 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-09-07 12:13:57.748 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:13:57.748 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:57.749 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:57.749 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:13:57.749 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-09-07 12:13:58.561 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.2 powers=[112,112,112,112]
+2026-09-07 12:13:58.561 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.218.2","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:58.569 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.1 powers=[112,112,112,112]
+2026-09-07 12:13:58.569 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.218.1","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:58.571 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":112}
+  << Response: {"success":false,"error":"cameraNumber 3: device_id 'COM2' не найден в devices."}
+2026-09-07 12:13:58.583 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.2 powers=[112,112,112,112]
+2026-09-07 12:13:58.583 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":4,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":4,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.218.2","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:58.591 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.218.1 powers=[112,112,112,112]
+2026-09-07 12:13:58.591 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.218.1","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:13:58.598 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[112,112,112,112]
+2026-09-07 12:13:58.599 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:13:58.607 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[112,112,112,112]
+2026-09-07 12:13:58.607 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[2,4],"brightness":[112,112]}
+2026-09-07 12:14:02.670 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:02.670 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:02.670 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:02.670 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:02.671 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-09-07 12:14:07.617 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:07.617 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:07.617 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:07.617 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":8,"power":112}
+  << Response: {"success":false,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[2],"brightness":[112],"error":"COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:14:07.625 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.22 powers=[112,112,112,112]
+2026-09-07 12:14:07.625 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":9,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":9,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.22","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:14:07.634 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[112,112,112,112]
+2026-09-07 12:14:07.634 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":10,"leftPower":112,"rightPower":112}
+  << Response: {"success":true,"cameraNumber":10,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,3],"brightness":[112,112]}
+2026-09-07 12:14:12.517 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:12.517 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:12.517 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:12.517 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:12.517 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-09-07 12:14:30.870 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:30.870 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:30.870 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:30.870 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:30.871 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=4 err=0; com ok=False applied=0 err=1 brightnessCsv=-
+2026-09-07 12:14:30.874 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.218.2: bank-off","169.254.218.1: bank-off"],"errors":["COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:14:35.818 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:35.819 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:35.819 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:35.819 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:35.819 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=4 err=0; com ok=False applied=0 err=1 brightnessCsv=-
+2026-09-07 12:14:35.819 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.218.2: bank-off","169.254.218.1: bank-off"],"errors":["COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:14:35.823 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[112,112,112,112]
+2026-09-07 12:14:35.823 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[112,112,112,112]
+2026-09-07 12:14:35.823 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.2 brightness=[112,112,112,112]
+2026-09-07 12:14:35.823 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.1 brightness=[112,112,112,112]
+2026-09-07 12:14:35.823 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:35.823 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.2 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:35.823 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:35.823 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.1 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:35.846 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:35.846 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.218.1 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:35.846 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:36.353 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.218.2 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:41.254 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:41.254 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:41.254 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:41.254 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:41.254 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: eth ready=4 ok=4 err=0; com ok=False applied=0 err=1 brightnessCsv=100,100
+2026-09-07 12:14:41.254 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"on"}
+  << Response: {"success":false,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.218.2: bank-seq-on:LightBrightness","169.254.218.1: bank-seq-on:LightBrightness"],"errors":["COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:14:46.163 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:46.163 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:46.163 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:46.163 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:46.163 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=-
+2026-09-07 12:14:46.163 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.218.1: bank-off"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail)","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail); COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:14:46.165 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[112,112,112,112]
+2026-09-07 12:14:46.165 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.1 brightness=[112,112,112,112]
+2026-09-07 12:14:46.165 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[112,112,112,112]
+2026-09-07 12:14:46.165 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.2 brightness=[112,112,112,112]
+2026-09-07 12:14:46.165 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:46.165 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.2 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:46.165 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.1 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:46.165 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:46.185 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:46.185 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:46.186 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.218.1 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:51.160 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:51.161 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:51.161 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:51.161 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:51.161 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=100,100
+2026-09-07 12:14:51.161 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"on"}
+  << Response: {"success":false,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.218.1: bank-seq-on:LightBrightness"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1; COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:14:56.031 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:14:56.032 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:56.032 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:56.032 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:14:56.032 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=-
+2026-09-07 12:14:56.032 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.218.1: bank-off"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail)","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail); COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:14:56.034 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.2 brightness=[112,112,112,112]
+2026-09-07 12:14:56.034 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[112,112,112,112]
+2026-09-07 12:14:56.034 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[112,112,112,112]
+2026-09-07 12:14:56.034 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.1 brightness=[112,112,112,112]
+2026-09-07 12:14:56.034 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.2 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:56.034 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.1 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:56.034 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:56.034 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:14:56.054 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.218.1 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:56.054 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:14:56.054 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:00.973 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:15:00.974 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:00.974 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:00.974 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:00.974 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=100,100
+2026-09-07 12:15:00.974 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"on"}
+  << Response: {"success":false,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.218.1: bank-seq-on:LightBrightness"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1; COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:15:05.881 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:15:05.881 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:05.881 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:05.882 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:05.882 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=-
+2026-09-07 12:15:05.882 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.218.1: bank-off"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail)","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail); COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:15:05.884 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[112,112,112,112]
+2026-09-07 12:15:05.884 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.2 brightness=[112,112,112,112]
+2026-09-07 12:15:05.884 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[112,112,112,112]
+2026-09-07 12:15:05.884 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.1 brightness=[112,112,112,112]
+2026-09-07 12:15:05.884 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:05.884 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.1 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:05.884 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.2 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:05.884 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:05.904 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:05.904 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.218.1 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:05.904 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:10.794 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:15:10.794 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:10.794 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:10.794 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:10.794 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=100,100
+2026-09-07 12:15:10.795 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"on"}
+  << Response: {"success":false,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.218.1: bank-seq-on:LightBrightness"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1; COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:15:15.746 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:15:15.746 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:15.746 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:15.746 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:15.746 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=-
+2026-09-07 12:15:15.746 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.218.1: bank-off"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail)","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail); COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:15:15.748 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[112,112,112,112]
+2026-09-07 12:15:15.748 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[112,112,112,112]
+2026-09-07 12:15:15.748 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.2 brightness=[112,112,112,112]
+2026-09-07 12:15:15.748 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.1 brightness=[112,112,112,112]
+2026-09-07 12:15:15.748 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:15.748 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.1 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:15.748 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:15.748 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.2 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:15.770 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.218.1 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:15.770 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:15.770 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:20.713 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:15:20.714 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:20.714 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:20.714 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:20.714 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=100,100
+2026-09-07 12:15:20.714 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"on"}
+  << Response: {"success":false,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.218.1: bank-seq-on:LightBrightness"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1; COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:15:25.650 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:15:25.650 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:25.651 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:25.651 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:25.651 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=-
+2026-09-07 12:15:25.651 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.218.1: bank-off"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail)","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: off ch1 (bank-off-fail); COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:15:25.654 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[112,112,112,112]
+2026-09-07 12:15:25.654 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.1 brightness=[112,112,112,112]
+2026-09-07 12:15:25.654 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[112,112,112,112]
+2026-09-07 12:15:25.654 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.218.2 brightness=[112,112,112,112]
+2026-09-07 12:15:25.654 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:25.654 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.1 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:25.654 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:25.654 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.218.2 forceOffFirst=True brightness=[112,112,112,112]
+2026-09-07 12:15:25.674 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.218.1 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:25.675 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:25.675 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[112,112,112,112]
+2026-09-07 12:15:30.567 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-09-07 12:15:30.567 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:30.568 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:30.568 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-09-07 12:15:30.568 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: eth ready=4 ok=3 err=1; com ok=False applied=0 err=1 brightnessCsv=100,100
+2026-09-07 12:15:30.568 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"on"}
+  << Response: {"success":false,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.218.1: bank-seq-on:LightBrightness"],"errors":["169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1","COM1 не найден в EnumDevices. Видно: []"],"skipped":{},"com":{"success":false,"message":null,"error":"COM1 не найден в EnumDevices. Видно: []","applied":[],"errors":["COM1 не найден в EnumDevices. Видно: []"]},"error":"169.254.218.2: mv-le-3@169.254.218.2: bank-on-fail ch1; COM1 не найден в EnumDevices. Видно: []"}
+2026-09-07 12:15:30.787 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

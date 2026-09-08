@@ -1,0 +1,30 @@
+﻿--- LightServer log started 2026-07-11 20:35:33 ---
+2026-07-11 20:35:34.088 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-11_20-35-33.log
+2026-07-11 20:35:34.143 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting starting
+2026-07-11 20:35:34.215 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://localhost:5080
+2026-07-11 20:35:34.215 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-11 20:35:34.222 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Development
+2026-07-11 20:35:34.222 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\
+2026-07-11 20:35:34.223 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting started
+2026-07-11 20:35:34.305 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:35:34.308 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:35:34.309 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:35:34.309 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:35:44.418 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 POST http://localhost:5080/api/camera-flash/pair - application/json 62
+2026-07-11 20:35:44.459 [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware: Executing endpoint 'LightServer.Controllers.CameraFlashController.SetPair (LightServer)'
+2026-07-11 20:35:44.472 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker: Route matched with {action = "SetPair", controller = "CameraFlash"}. Executing controller action with signature Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object] SetPair(LightServer.Models.CameraPairFlashRequest) on controller LightServer.Controllers.CameraFlashController (LightServer).
+2026-07-11 20:35:44.473 [Warning] LightServer.Services.LightControlService: SerialLight:DisableSdkLock=true — SDK/COM без lock (эксперимент, возможны гонки и сбои)
+2026-07-11 20:35:45.264 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ObjectResultExecutor: Executing OkObjectResult, writing value of type '<>f__AnonymousType3`8[[System.Boolean, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Nullable`1[[System.Int32, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32[], System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32[], System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-11 20:35:45.288 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker: Executed action LightServer.Controllers.CameraFlashController.SetPair (LightServer) in 810.4325ms
+2026-07-11 20:35:45.288 [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware: Executed endpoint 'LightServer.Controllers.CameraFlashController.SetPair (LightServer)'
+2026-07-11 20:35:45.290 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {
+  "cameraNumber": 5,
+  "leftPower": 10,
+  "rightPower": 10
+}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.8","deviceIndex":0,"channels":[1,2],"brightness":[10,10]}
+2026-07-11 20:35:45.291 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 POST http://localhost:5080/api/camera-flash/pair - 200 - application/json;+charset=utf-8 874.0993ms
+2026-07-11 20:36:22.173 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...
+2026-07-11 20:36:22.174 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopping
+2026-07-11 20:36:22.297 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopped

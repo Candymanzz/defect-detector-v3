@@ -1,0 +1,15 @@
+﻿--- LightServer log started 2026-07-11 20:18:19 ---
+2026-07-11 20:18:19.489 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-11_20-18-19.log
+2026-07-11 20:18:19.545 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting starting
+2026-07-11 20:18:19.776 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://localhost:5080
+2026-07-11 20:18:19.776 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-11 20:18:19.776 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Development
+2026-07-11 20:18:19.776 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\
+2026-07-11 20:18:19.777 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting started
+2026-07-11 20:18:20.120 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-11 20:18:20.123 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:18:20.124 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:18:20.124 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []
+2026-07-11 20:19:11.370 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...
+2026-07-11 20:19:11.370 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopping
+2026-07-11 20:19:11.462 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopped

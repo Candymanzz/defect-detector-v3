@@ -1,0 +1,240 @@
+﻿--- LightServer log started 2026-07-27 13:55:43 ---
+2026-07-27 13:55:43.854 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-27_13-55-43.log
+2026-07-27 13:55:43.970 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-27 13:55:43.970 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-27 13:55:43.970 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-27 13:55:43.970 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-27 13:55:44.599 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-07-27 13:55:44.648 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-1@169.254.220.23 channels=[1,2,3,4] mode=bank-direct
+2026-07-27 13:55:44.683 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-2@169.254.220.22 channels=[1,2,3,4] mode=bank-direct
+2026-07-27 13:55:44.715 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-3@169.254.220.2 channels=[1,2,3,4] mode=bank-direct
+2026-07-27 13:55:44.747 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-4@169.254.220.1 channels=[1,2,3,4] mode=bank-direct
+2026-07-27 13:55:44.748 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank готов: 4/4 (169.254.220.23, 169.254.220.22, 169.254.220.2, 169.254.220.1)
+2026-07-27 13:55:46.287 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM1:0]
+2026-07-27 13:55:46.897 [Information] LightServer.Services.IsolatedComPortLight: COM1: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM1 (DA8782414)
+2026-07-27 13:55:46.898 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM1
+2026-07-27 13:55:46.898 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM1)
+2026-07-27 13:55:55.269 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[227,227,255,255]
+2026-07-27 13:55:55.284 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":227,"rightPower":227}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[227,227]}
+2026-07-27 13:55:55.301 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[227,227,227,227]
+2026-07-27 13:55:55.302 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":227,"rightPower":227}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[227,227]}
+2026-07-27 13:55:55.310 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":227}
+  << Response: {"success":false,"error":"cameraNumber 3 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.318 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":4,"power":227}
+  << Response: {"success":false,"error":"cameraNumber 4 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.320 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 5 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.323 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 6 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.324 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 7 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.326 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":8,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 8 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.328 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 9 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.330 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 10 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.337 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:55:55.337 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[204,204]}
+2026-07-27 13:55:55.345 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:55:55.345 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":227,"rightPower":227}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[227,227]}
+2026-07-27 13:55:55.348 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":0}
+  << Response: {"success":false,"error":"cameraNumber 3 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.349 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":4,"power":227}
+  << Response: {"success":false,"error":"cameraNumber 4 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.351 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 5 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.353 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 6 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.356 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 7 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.358 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":8,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 8 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.359 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":212,"rightPower":212}
+  << Response: {"success":false,"error":"cameraNumber 9 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.361 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":189,"rightPower":189}
+  << Response: {"success":false,"error":"cameraNumber 10 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.368 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"ready":4,"transport":"ethernet-gige","skipped":{},"error":null}
+2026-07-27 13:55:55.374 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:55:55.374 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[204,204]}
+2026-07-27 13:55:55.381 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:55:55.381 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":227,"rightPower":227}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[227,227]}
+2026-07-27 13:55:55.383 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":0}
+  << Response: {"success":false,"error":"cameraNumber 3 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.384 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":4,"power":227}
+  << Response: {"success":false,"error":"cameraNumber 4 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.386 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 5 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.387 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 6 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.389 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 7 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.391 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":8,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 8 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.396 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":212,"rightPower":212}
+  << Response: {"success":false,"error":"cameraNumber 9 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.398 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":189,"rightPower":189}
+  << Response: {"success":false,"error":"cameraNumber 10 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:55:55.415 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,227,227]
+2026-07-27 13:55:55.415 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[255,255,255,255]
+2026-07-27 13:55:55.415 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[255,255,255,255]
+2026-07-27 13:55:55.415 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[255,255,255,255]
+2026-07-27 13:55:55.416 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,227,227]
+2026-07-27 13:55:55.416 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:55:55.416 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:55:55.416 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:55:55.444 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:55:55.444 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:55:55.444 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:55:55.444 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,227,227]
+2026-07-27 13:55:55.449 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-27 13:55:55.453 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-27 13:56:44.358 [Information] LightServer.Services.IsolatedComPortLight: COM1: Off bank-off
+2026-07-27 13:56:44.366 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"message":"Все подключённые COM выключены.","error":null,"state":"off","brightness":null,"results":[{"comPort":"COM1","success":true,"skipped":false,"message":"bank-off","error":null,"lightControllerSource":"Off","channels":[1,2],"brightness":null}]}
+2026-07-27 13:56:56.540 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness live 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:56:56.540 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[204,204]}
+2026-07-27 13:56:56.547 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness live 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:56:56.548 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":227,"rightPower":227}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[227,227]}
+2026-07-27 13:56:56.550 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":0}
+  << Response: {"success":false,"error":"cameraNumber 3 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.552 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":4,"power":227}
+  << Response: {"success":false,"error":"cameraNumber 4 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.553 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 5 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.555 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 6 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.557 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 7 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.559 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":8,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 8 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.560 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":212,"rightPower":212}
+  << Response: {"success":false,"error":"cameraNumber 9 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.563 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":189,"rightPower":189}
+  << Response: {"success":false,"error":"cameraNumber 10 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:56.565 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[255,255,255,255]
+2026-07-27 13:56:56.565 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,227,227]
+2026-07-27 13:56:56.565 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[255,255,255,255]
+2026-07-27 13:56:56.565 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,227,227]
+2026-07-27 13:56:56.565 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:56:56.565 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:56:56.566 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[255,255,255,255]
+2026-07-27 13:56:56.566 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:56:56.584 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:56:56.585 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:56:56.585 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:56:56.587 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,227,227]
+2026-07-27 13:56:56.587 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-27 13:56:56.587 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-27 13:56:58.260 [Information] LightServer.Services.IsolatedComPortLight: COM1: Off bank-off
+2026-07-27 13:56:58.260 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"message":"Все подключённые COM выключены.","error":null,"state":"off","brightness":null,"results":[{"comPort":"COM1","success":true,"skipped":false,"message":"bank-off","error":null,"lightControllerSource":"Off","channels":[1,2],"brightness":null}]}
+2026-07-27 13:56:59.092 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness live 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:56:59.092 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[1,2],"brightness":[204,204]}
+2026-07-27 13:56:59.100 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness live 169.254.220.23 powers=[204,204,227,227]
+2026-07-27 13:56:59.100 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":227,"rightPower":227}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.23","channels":[3,4],"brightness":[227,227]}
+2026-07-27 13:56:59.103 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":3,"power":0}
+  << Response: {"success":false,"error":"cameraNumber 3 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.105 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":4,"power":227}
+  << Response: {"success":false,"error":"cameraNumber 4 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.106 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 5 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.108 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 6 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.111 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":227,"rightPower":227}
+  << Response: {"success":false,"error":"cameraNumber 7 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.113 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":8,"leftPower":255,"rightPower":255}
+  << Response: {"success":false,"error":"cameraNumber 8 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.114 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":212,"rightPower":212}
+  << Response: {"success":false,"error":"cameraNumber 9 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.115 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":189,"rightPower":189}
+  << Response: {"success":false,"error":"cameraNumber 10 не найден в camera_routes (config/blocks/51-light-hardware.yaml)."}
+2026-07-27 13:56:59.117 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.23 brightness=[204,204,227,227]
+2026-07-27 13:56:59.117 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.2 brightness=[255,255,255,255]
+2026-07-27 13:56:59.117 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.22 brightness=[255,255,255,255]
+2026-07-27 13:56:59.117 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[255,255,255,255]
+2026-07-27 13:56:59.117 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.23 forceOffFirst=True brightness=[204,204,227,227]
+2026-07-27 13:56:59.117 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.2 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:56:59.117 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.22 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:56:59.117 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[255,255,255,255]
+2026-07-27 13:56:59.137 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:56:59.137 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.2 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:56:59.138 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.22 mode=bank-seq-on:LightBrightness readBack=[255,255,255,255]
+2026-07-27 13:56:59.139 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.23 mode=bank-seq-on:LightBrightness readBack=[204,204,227,227]
+2026-07-27 13:56:59.139 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-27 13:56:59.139 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-seq-on:LightBrightness","169.254.220.22: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{},"error":null}
+2026-07-27 13:57:09.133 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...
+2026-07-27 13:57:09.156 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=4 ok=4 err=0 brightnessIps=0
+2026-07-27 13:57:09.156 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":4,"applied":["169.254.220.23: bank-off","169.254.220.22: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off"],"errors":[],"skipped":{},"error":null}
