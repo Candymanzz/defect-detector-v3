@@ -1,0 +1,16 @@
+﻿--- LightServer log started 2026-09-04 02:52:49 ---
+2026-09-04 02:52:49.460 [Information] LightServer: Content root: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\, ComLightDevices: 1, файл лога: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\logs\2026-09-04_02-52-49.log
+2026-09-04 02:52:49.521 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting starting
+2026-09-04 02:52:49.744 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://localhost:5080
+2026-09-04 02:52:49.744 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-09-04 02:52:49.744 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Development
+2026-09-04 02:52:49.744 [Information] Microsoft.Hosting.Lifetime: Content root path: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\bin\Debug\net10.0\
+2026-09-04 02:52:49.745 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting started
+2026-09-04 02:52:49.800 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=0, targets=4
+2026-09-04 02:52:49.803 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-1@169.254.220.23 не найден
+2026-09-04 02:52:49.803 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-2@169.254.220.22 не найден
+2026-09-04 02:52:49.804 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-3@169.254.220.2 не найден
+2026-09-04 02:52:49.804 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-4@169.254.220.1 не найден
+2026-09-04 02:52:52.957 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...
+2026-09-04 02:52:52.958 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopping
+2026-09-04 02:52:53.077 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting stopped

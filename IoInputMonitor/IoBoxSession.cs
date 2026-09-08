@@ -17,8 +17,16 @@ internal sealed class IoBoxSession : IDisposable
     /// <summary>DO съёмки (capture.output_ports). Только [5].</summary>
     public int[] Line0OutputPorts { get; set; } = [5];
 
-    public IoBoxSession(string comPort) =>
+    /// <summary>
+    /// При COM busy — убить чужой процесс с IoInputMonitor.dll и повторить Open.
+    /// </summary>
+    public bool StealComOnBusy { get; }
+
+    public IoBoxSession(string comPort, bool stealComOnBusy = true)
+    {
         ComPort = NormalizeComPort(comPort);
+        StealComOnBusy = stealComOnBusy;
+    }
 
     public void Open()
     {
@@ -28,6 +36,7 @@ internal sealed class IoBoxSession : IDisposable
 
         const int maxAttempts = 8;
         InvalidOperationException? last = null;
+        bool stoleOnce = false;
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
@@ -38,6 +47,15 @@ internal sealed class IoBoxSession : IDisposable
             catch (InvalidOperationException ex) when (IsTransientComOpenFailure(ex) && attempt < maxAttempts)
             {
                 last = ex;
+                if (StealComOnBusy && !stoleOnce)
+                {
+                    stoleOnce = true;
+                    int killed = IoSiblingProcessKiller.KillOtherInstances(
+                        msg => Console.Error.WriteLine($"[{Timestamp()}] {msg}"));
+                    if (killed > 0)
+                        Thread.Sleep(IoSiblingProcessKiller.PostKillReleaseMs);
+                }
+
                 int delayMs = Math.Min(2000, 250 * attempt);
                 Thread.Sleep(delayMs);
             }
@@ -45,6 +63,8 @@ internal sealed class IoBoxSession : IDisposable
 
         throw last ?? new InvalidOperationException($"MV_IO_Open failed for {ComPort}.");
     }
+
+    private static string Timestamp() => DateTime.Now.ToString("HH:mm:ss.fff");
 
     private void OpenOnce()
     {
