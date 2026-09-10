@@ -371,6 +371,10 @@ async function enrichArchivedFrameHeatmapSize(frame: FrameArchiveHistoryFrame): 
 
 export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchiveHistoryFrame): InspectResultPayload {
   const frameHttpPath = frame.frame_url;
+  const frameWidth = frame.frame_width ?? 0;
+  const frameHeight = frame.frame_height ?? 0;
+  const heatmapWidth = frame.heatmap_width ?? 0;
+  const heatmapHeight = frame.heatmap_height ?? 0;
   return {
     camera_id: cameraId,
     frame_id: frame.frame_id,
@@ -380,9 +384,9 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
       camera_id: cameraId,
       frame_id: frame.frame_id,
       shm_name: "",
-      width: 0,
-      height: 0,
-      stride: 0,
+      width: frameWidth,
+      height: frameHeight,
+      stride: frameWidth > 0 ? frameWidth * 3 : 0,
       shm_offset: 0,
       pixel_format: "bgr_u8",
       channels: 3,
@@ -391,10 +395,10 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
     http_path: frameHttpPath,
     learned_review_id: frame.learned_review_id,
     heatmap:
-      frame.has_heatmap && (frame.heatmap_width ?? 0) > 0 && (frame.heatmap_height ?? 0) > 0
+      frame.has_heatmap && heatmapWidth > 0 && heatmapHeight > 0
         ? {
-            width: frame.heatmap_width!,
-            height: frame.heatmap_height!,
+            width: heatmapWidth,
+            height: heatmapHeight,
             pixel_format: "gray_u8",
             channels: 1,
             http_path: frame.heatmap_url,
@@ -412,6 +416,10 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
     geometry_status: frame.geometry_status,
     geometry: frame.geometry,
     fp_zones: [],
+    fp_coordinate_space:
+      heatmapWidth > 0 && heatmapHeight > 0
+        ? { heatmap_width: heatmapWidth, heatmap_height: heatmapHeight }
+        : undefined,
     server_ts_ms: frame.saved_at_ms,
   };
 }

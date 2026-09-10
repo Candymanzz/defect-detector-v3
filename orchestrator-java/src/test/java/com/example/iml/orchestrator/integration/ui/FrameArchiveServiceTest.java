@@ -10,6 +10,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FrameArchiveServiceTest {
@@ -104,6 +105,47 @@ class FrameArchiveServiceTest {
             assertFalse(Files.exists(tempDir.resolve("camera_0/f_0000002")));
             assertTrue(Files.isRegularFile(tempDir.resolve("camera_0/f_0000003/frame.jpg")));
             assertTrue(Files.isRegularFile(tempDir.resolve("camera_0/f_0000004/frame.jpg")));
+        } finally {
+            archive.close();
+        }
+    }
+
+    @Test
+    void normalizesFrameToReferenceResolutionOnSave() throws Exception {
+        FrameArchiveConfig config = new FrameArchiveConfig(true, tempDir, 5, 10);
+        FrameArchiveService archive = FrameArchiveService.open(config);
+        try {
+            Path src = Files.createTempFile("archive-src", ".jpg");
+            BufferedImage img = new BufferedImage(8, 6, BufferedImage.TYPE_3BYTE_BGR);
+            ImageIO.write(img, "jpg", src.toFile());
+            assertTrue(archive.saveImmediately(new FrameArchiveService.SaveRequest(
+                    0,
+                    11L,
+                    11L,
+                    "product",
+                    "detector",
+                    null,
+                    src,
+                    null,
+                    0,
+                    0,
+                    null,
+                    16,
+                    12
+            )));
+            Files.deleteIfExists(src);
+
+            Path stored = tempDir.resolve("camera_0/f_0000011/frame.jpg");
+            assertTrue(Files.isRegularFile(stored));
+            BufferedImage decoded = ImageIO.read(stored.toFile());
+            assertNotNull(decoded);
+            assertEquals(16, decoded.getWidth());
+            assertEquals(12, decoded.getHeight());
+
+            var history = archive.listHistory(0);
+            assertEquals(1, history.size());
+            assertEquals(16, history.get(0).frameWidth());
+            assertEquals(12, history.get(0).frameHeight());
         } finally {
             archive.close();
         }
