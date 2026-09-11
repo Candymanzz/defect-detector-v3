@@ -424,10 +424,10 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
         <span class="muted">score ${Number(item.score).toFixed(3)} · площадь ${Number(item.area)} · q90 ${Number(item.diff_q90).toFixed(1)}</span>
       </div>`).join('')
       : '<div class="muted">На этом кадре нет контуров для дообучения.</div>';
-    const pending = currentReview.defects.filter(item => !item.manually_accepted && !item.accepted_as_normal);
-    document.getElementById('acceptButton').disabled = pending.length === 0;
+    // Повторное дообучение разрешено для уже принятых контуров.
+    document.getElementById('acceptButton').disabled = currentReview.defects.length === 0;
     const acceptAllButton = document.getElementById('acceptAllButton');
-    if(acceptAllButton) acceptAllButton.disabled = pending.length === 0;
+    if(acceptAllButton) acceptAllButton.disabled = currentReview.defects.length === 0;
   }
 
   async function acceptAll() {

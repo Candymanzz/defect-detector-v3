@@ -255,13 +255,9 @@ class InspectionService:
         review = self._learning_reviews.get(inspection_id)
         if review is None:
             raise KeyError("inspection")
-        if defect_id in review.accepted_defect_ids:
-            raise ValueError("Defect is already accepted as normal")
         candidate = next((item for item in review.defects if item.id == defect_id), None)
         if candidate is None:
             raise KeyError("defect")
-        if candidate.matched_case_id is not None:
-            raise ValueError("Defect is already recognized as an accepted normal")
 
         aligned, _, _ = decode_review_arrays(review)
         accepted_case = self._accepted_normals.add_from_candidate(
@@ -299,21 +295,22 @@ class InspectionService:
         inspection_id: str,
         note: str = "",
     ) -> dict:
-        """Одной операцией запомнить все ещё не принятые дефекты review."""
+        """Одной операцией добавить все дефекты review как новые примеры нормы."""
         review = self._learning_reviews.get(inspection_id)
         if review is None:
             raise KeyError("inspection")
 
-        candidates = [
-            candidate
-            for candidate in review.defects
-            if candidate.id not in review.accepted_defect_ids
-            and candidate.matched_case_id is None
-        ]
+        # Повторное обучение разрешено: каждый вызов создаёт новые cases,
+        # даже если этот review или его дефекты уже принимались ранее.
+        candidates = list(review.defects)
         if not candidates:
-            raise ValueError("All review defects are already accepted as normal")
+            raise ValueError("Learning review has no defects")
 
         accepted_cases = []
+        previous_states = [
+            (candidate.matched_case_id, candidate.similarity, candidate.id in review.accepted_defect_ids)
+            for candidate in candidates
+        ]
         aligned, _, _ = decode_review_arrays(review)
         try:
             for candidate in candidates:
@@ -330,11 +327,13 @@ class InspectionService:
                 review.accepted_defect_ids.add(candidate.id)
                 accepted_cases.append(accepted_case)
         except Exception:
-            for candidate, accepted_case in zip(candidates, accepted_cases):
+            for candidate, accepted_case, previous in zip(candidates, accepted_cases, previous_states):
                 self._accepted_normals.delete(accepted_case.id)
-                candidate.matched_case_id = None
-                candidate.similarity = None
-                review.accepted_defect_ids.discard(candidate.id)
+                candidate.matched_case_id, candidate.similarity, was_accepted = previous
+                if was_accepted:
+                    review.accepted_defect_ids.add(candidate.id)
+                else:
+                    review.accepted_defect_ids.discard(candidate.id)
             raise
 
         self._learning_reviews.put(review)
@@ -954,7 +953,17 @@ class InspectionService:
                 product_type=product_type,
                 extra={
                     "matched_cases": len(learned_filter.matched_case_ids),
+                    "matched_candidates": learned_filter.matched_candidates_count,
+                    "suppressed_candidates": len(learned_filter.suppressed_candidates),
+                    "all_important_candidates_matched": learned_filter.all_important_candidates_matched,
+                    "raw_score": round(float(raw_score), 4),
                     "learned_score": round(float(learned_score), 4),
+                    "raw_mask_pixels": int(np.count_nonzero(raw_segmentation_mask)),
+                    "filtered_mask_pixels": int(np.count_nonzero(segmentation_mask)),
+                    "raw_diff_nonzero": int(np.count_nonzero(np.any(diff_map != 0, axis=2))),
+                    "filtered_diff_nonzero": int(
+                        np.count_nonzero(np.any(learned_diff_map != 0, axis=2))
+                    ),
                 },
             )
         else:

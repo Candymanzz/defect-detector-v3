@@ -329,8 +329,9 @@ def test_accept_all_review_defects_saves_score_driving_candidates(
     )
     assert replay.status == "ГОДЕН"
     assert replay.learned_normal_matches_count == 2 or replay.rechecked_zones_count >= 1
-    with pytest.raises(ValueError, match="already accepted"):
-        inspection_service.accept_all_review_defects_as_normal(result.inspection_id)
+    repeated = inspection_service.accept_all_review_defects_as_normal(result.inspection_id)
+    assert repeated["accepted_count"] == 2
+    assert len(repeated["accepted_cases"]) == 2
 
 
 def test_accept_all_review_defects_handles_mixed_shapes_and_sizes(
@@ -761,6 +762,14 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     assert accepted["original_status"] == "БРАК"
     assert inspection_service.get_learning_review(original.inspection_id)["original_status"] == "БРАК"
 
+    repeated = inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+        note="repeat",
+    )
+    assert repeated["accepted_case"]["id"] != accepted["accepted_case"]["id"]
+    assert len(inspection_service.list_accepted_normal_cases()) == 2
+
     future = inspection_service.inspect_frame(
         "bench",
         acceptable,
@@ -776,6 +785,7 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     assert preview is not None
     assert preview[1] == "image/png"
     assert inspection_service.delete_accepted_normal_case(case_id) is True
+    assert inspection_service.delete_accepted_normal_case(repeated["accepted_case"]["id"]) is True
     assert inspection_service.list_accepted_normal_cases() == []
     review_after_delete = inspection_service.get_learning_review(original.inspection_id)
     assert review_after_delete is not None
