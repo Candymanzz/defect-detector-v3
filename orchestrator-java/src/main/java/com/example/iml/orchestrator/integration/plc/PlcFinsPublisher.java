@@ -127,7 +127,8 @@ public final class PlcFinsPublisher implements AutoCloseable {
 
   /**
    * Вердикт ведра в ПЛК. При {@code awaitEdge=true} ждёт подтверждения записи фронта
-   * (PASS→false или REJECT→true); сброс импульса идёт дальше асинхронно.
+   * (PASS→false или REJECT→true). При браке reject держится HIGH до первого PASS по этой линии
+   * (серия браков не отпускает линию по таймеру {@code pulse_ms}).
    */
   public void publishBucket(BucketFanOutResult result, boolean awaitEdge) {
     // ready держится отдельно (sticky HIGH); здесь только вердикт reject.
@@ -136,17 +137,20 @@ public final class PlcFinsPublisher implements AutoCloseable {
       log.warn("plc fins: no reject signal for bucket group={}", result.groupId());
       return;
     }
+    PlcSignalDefinition signal = signalOpt.get();
     CompletableFuture<Void> edge = awaitEdge ? new CompletableFuture<>() : null;
     if (result.overallPass()) {
-      if (!enqueue(new WriteBitJob(signalOpt.get(), false, edge)) && edge != null) {
-        edge.completeExceptionally(new IOException("plc fins queue full"));
-      }
-    } else if (config.pulseMs() > 0) {
-      if (!enqueue(new PulseBitJob(signalOpt.get(), true, config.pulseMs(), edge)) && edge != null) {
+      if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     } else {
-      if (!enqueue(new WriteBitJob(signalOpt.get(), true, edge)) && edge != null) {
+      // Не PulseBitJob: при непрерывном браке линия reject остаётся true до годного ведра.
+      Boolean last = lastSignalValues.get(signal.name());
+      if (Boolean.TRUE.equals(last)) {
+        if (edge != null) {
+          edge.complete(null);
+        }
+      } else if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     }
