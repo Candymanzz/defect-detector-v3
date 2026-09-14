@@ -33,6 +33,8 @@ import java.util.concurrent.TimeoutException;
  */
 public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink, PlcFinsApi {
     private static final Logger log = LogManager.getLogger(FanOutCoordinator.class);
+    /** DM D4405 / register-map {@code handle_material_mode}: 0=сталь, 1=пластик. */
+    private static final String HANDLE_MATERIAL_MODE_KEY = "handle_material_mode";
 
     private final PlcFinsPublisher plcPublisher;
     private final ClientWebSocketServer clientWsServer;
@@ -40,6 +42,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     private final PlcRegisterMap registerMap;
     private volatile ServiceHealthGate healthGate;
     private volatile ClientWsSessionState lastSessionState = ClientWsSessionState.NO_REFERENCE;
+    /** Кэш D4405: удержание reject до PASS только при пластиковой ручке. */
+    private volatile boolean plasticHandleMode;
 
     private FanOutCoordinator(
             PlcFinsPublisher plcPublisher,
@@ -101,7 +105,12 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         if (clientWsServer == null) {
             log.warn("inspection result client_ws unavailable — bucket verdict will not be sent to UI");
         }
-        return new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
+        FanOutCoordinator coordinator =
+                new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
+        if (plcPublisher != null) {
+            coordinator.syncHandleMaterialModeFromPlc();
+        }
+        return coordinator;
     }
 
     @Override
@@ -121,7 +130,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         // Агрегатор шлёт оба ведра одного seq пакетом — здесь просто запись в очередь FINS.
         if (inspectionEnabled()) {
             if (plcPublisher != null) {
-                plcPublisher.publishBucket(result, true);
+                plcPublisher.publishBucket(result, true, plasticHandleMode);
             }
         } else {
             log.debug(
@@ -308,6 +317,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             int rawWord = raw[def.wordAddress() - start] & 0xFFFF;
             states.add(toState(def, rawWord));
         }
+        updatePlasticHandleModeFromStates(states);
         return states;
     }
 
@@ -354,7 +364,29 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         for (PlcTimeoutDefinition def : defs) {
             states.add(toState(def, next[def.wordAddress() - start] & 0xFFFF));
         }
+        updatePlasticHandleModeFromStates(states);
         return states;
+    }
+
+    private void syncHandleMaterialModeFromPlc() {
+        try {
+            readTimeouts();
+        } catch (Exception e) {
+            log.debug("plc handle_material_mode initial read failed: {}", e.getMessage());
+        }
+    }
+
+    private void updatePlasticHandleModeFromStates(List<PlcTimeoutState> states) {
+        if (states == null || states.isEmpty()) {
+            return;
+        }
+        for (PlcTimeoutState state : states) {
+            if (HANDLE_MATERIAL_MODE_KEY.equals(state.name())
+                    || "D4405".equalsIgnoreCase(state.address())) {
+                plasticHandleMode = state.valueUnits() != 0;
+                return;
+            }
+        }
     }
 
     public String metricsSummary() {
