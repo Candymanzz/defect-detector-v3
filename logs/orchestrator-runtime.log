@@ -39528,3 +39528,315 @@
 2026-09-15 01:59:21.802 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - fanout metrics: plc.dropped=0 reject=fins client_ws=enabled
 2026-09-15 01:59:22.808 WARN  [main] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=write_bit area=W address=0.4 sid=7
 2026-09-15 01:59:22.875 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - iml_shm cleanup dir=C:\Users\Administrator\AppData\Local\iml_shm deleted=10 freed_mb=35 orchestrator_only=true
+2026-09-15 03:14:54.348 INFO  [main] c.e.i.o.c.StartupConfigurationReporter - ???????????: ????? ? ???????? ?????? 1 (D:\App\defect-detector-v3\config\config.yaml) — ?????: 10
+2026-09-15 03:14:54.350 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   control_pipe: \\.\pipe\iml-orchestrator
+2026-09-15 03:14:54.351 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   control_pipe_linux: /tmp/iml-orchestrator.sock
+2026-09-15 03:14:54.351 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   client.url: ws://127.0.0.1:8765
+2026-09-15 03:14:54.351 INFO  [main] c.e.i.o.c.StartupConfigurationReporter -   client_ws: enabled=true host=127.0.0.1 port=8765 path=/
+2026-09-15 03:14:54.354 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - configured cameras: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+2026-09-15 03:14:54.361 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - camera_worker config=D:\App\defect-detector-v3\config\config.json
+2026-09-15 03:14:54.434 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=D:\App\defect-detector-v3\config\data\geometry_runtime_settings.json profiles=11
+2026-09-15 03:14:54.434 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=11
+2026-09-15 03:14:54.454 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-0 pid=14944 command=[D:\App\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
+2026-09-15 03:14:54.454 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service io-input-monitor pid=13472 command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll]
+2026-09-15 03:14:54.456 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service frontend pid=12196 command=[npm.cmd, run, dev]
+2026-09-15 03:14:54.458 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - started frontend command=[npm.cmd, run, dev] cwd=D:\App\defect-detector-v3\front-end
+2026-09-15 03:14:54.458 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - started io-input-monitor command=[dotnet, exec, IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll] cwd=D:\App\defect-detector-v3
+2026-09-15 03:14:54.462 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service light-server pid=20264 command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080]
+2026-09-15 03:14:54.463 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - started light-server (LightServer.v3) command=[dotnet, exec, LightServer.v3/bin/Release/net10.0/LightServer.dll, --urls, http://127.0.0.1:5080] contentRoot=D:\App\defect-detector-v3\LightServer.v3\bin\Release\net10.0
+2026-09-15 03:14:54.465 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-0 supervisor started
+2026-09-15 03:14:54.468 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-0 supervisor started
+2026-09-15 03:14:55.896 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-0 health => {status=ok, service=java-positioning-service}
+2026-09-15 03:14:55.899 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-0 health => {status=ok, service=java-geometry-service}
+2026-09-15 03:14:55.900 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-1 supervisor started
+2026-09-15 03:14:55.902 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-1 supervisor started
+2026-09-15 03:14:57.196 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-1 health => {status=ok, service=java-positioning-service}
+2026-09-15 03:14:57.198 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-2 supervisor started
+2026-09-15 03:14:57.225 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-1 health => {status=ok, service=java-geometry-service}
+2026-09-15 03:14:57.228 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-2 supervisor started
+2026-09-15 03:14:58.342 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-2 health => {service=java-positioning-service, status=ok}
+2026-09-15 03:14:58.344 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-3 supervisor started
+2026-09-15 03:14:58.391 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-2 health => {service=java-geometry-service, status=ok}
+2026-09-15 03:14:58.394 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-3 supervisor started
+2026-09-15 03:14:59.461 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-3 health => {status=ok, service=java-positioning-service}
+2026-09-15 03:14:59.463 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-4 supervisor started
+2026-09-15 03:14:59.515 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-3 health => {service=java-geometry-service, status=ok}
+2026-09-15 03:14:59.518 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-4 supervisor started
+2026-09-15 03:15:00.599 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-4 health => {status=ok, service=java-positioning-service}
+2026-09-15 03:15:00.601 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-5 supervisor started
+2026-09-15 03:15:00.647 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-4 health => {service=java-geometry-service, status=ok}
+2026-09-15 03:15:00.649 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-5 supervisor started
+2026-09-15 03:15:01.804 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-5 health => {status=ok, service=java-geometry-service}
+2026-09-15 03:15:01.807 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-6 supervisor started
+2026-09-15 03:15:01.809 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-5 health => {service=java-positioning-service, status=ok}
+2026-09-15 03:15:01.812 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-6 supervisor started
+2026-09-15 03:15:01.937 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - analisSurface ready index=0 url=http://127.0.0.1:8000 command=[D:\App\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000] cwd=D:\App\defect-detector-v3\analisSurface\backend
+2026-09-15 03:15:01.963 INFO  [svc-boot] c.e.i.o.i.s.ExternalServiceProcess - started external service analis-surface-1 pid=17048 command=[D:\App\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8001]
+2026-09-15 03:15:02.962 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-6 health => {service=java-positioning-service, status=ok}
+2026-09-15 03:15:02.964 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-7 supervisor started
+2026-09-15 03:15:02.972 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-6 health => {service=java-geometry-service, status=ok}
+2026-09-15 03:15:02.975 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-7 supervisor started
+2026-09-15 03:15:04.124 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-7 health => {service=java-geometry-service, status=ok}
+2026-09-15 03:15:04.126 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-8 supervisor started
+2026-09-15 03:15:04.130 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-7 health => {status=ok, service=java-positioning-service}
+2026-09-15 03:15:04.138 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-8 supervisor started
+2026-09-15 03:15:05.317 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-8 health => {status=ok, service=java-geometry-service}
+2026-09-15 03:15:05.320 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-geometry-9 supervisor started
+2026-09-15 03:15:05.330 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-8 health => {service=java-positioning-service, status=ok}
+2026-09-15 03:15:05.332 INFO  [svc-boot] c.e.i.o.i.s.ServiceProcessSupervisor - java-positioning-9 supervisor started
+2026-09-15 03:15:06.474 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-geometry-9 health => {service=java-geometry-service, status=ok}
+2026-09-15 03:15:06.504 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - java-positioning-9 health => {service=java-positioning-service, status=ok}
+2026-09-15 03:15:06.504 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - positioning pool size=10 command=[java, -jar, java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar]
+2026-09-15 03:15:08.584 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - analisSurface ready index=1 url=http://127.0.0.1:8001 command=[D:\App\defect-detector-v3\analisSurface\backend\.venv\Scripts\python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8001] cwd=D:\App\defect-detector-v3\analisSurface\backend
+2026-09-15 03:15:08.584 INFO  [svc-boot] c.e.i.o.i.b.IntegrationBootstrap - analisSurface pool ready size=2 ports=8000..8001
+2026-09-15 03:15:08.595 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-0->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.600 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-1->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.603 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-2->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.607 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-3->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.610 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-4->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.614 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-5->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.617 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-6->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.621 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-7->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.624 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-8->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.628 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-9->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.631 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-10->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.635 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-11->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.638 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-12->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.642 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-13->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.645 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-14->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.648 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-15->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.652 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-16->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.655 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-17->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.658 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-18->srv0 health => {status=ok, service=analisSurface, detector_id=python-detector-c3984f7ddc59} base_url=http://127.0.0.1:8000
+2026-09-15 03:15:08.662 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - analis-surface-http-19->srv1 health => {status=ok, service=analisSurface, detector_id=python-detector-8360176de11e} base_url=http://127.0.0.1:8001
+2026-09-15 03:15:08.662 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - python detector transport=http servers=2 clients=20 autostart=true urls=[http://127.0.0.1:8000, http://127.0.0.1:8001]
+2026-09-15 03:15:08.662 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - child services boot parallel done in 14220 ms (geometry=10 positioning=10)
+2026-09-15 03:15:08.664 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - geometry disabled for cameras=[7, 2]
+2026-09-15 03:15:08.667 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=D:\App\defect-detector-v3\config\data\light_brightness_settings.json default=100 endpoints=10
+2026-09-15 03:15:08.670 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light_servers: on=http://127.0.0.1:5080/api/com/light off=http://127.0.0.1:5080/api/com/light brightness_pair=http://127.0.0.1:5080/api/camera-flash/pair brightness_single=http://127.0.0.1:5080/api/camera-flash/single bank=http://127.0.0.1:5080/api/camera-flash/bank cameras=10 default_brightness_percent=80 hold_mode=true
+2026-09-15 03:15:08.670 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=0 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.670 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=1 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.670 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=2 mode=SINGLE brightness_percent=80
+2026-09-15 03:15:08.670 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=3 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.671 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=4 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.671 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=5 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.671 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=6 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.671 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=7 mode=SINGLE brightness_percent=80
+2026-09-15 03:15:08.671 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=8 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.671 INFO  [main] c.e.i.o.i.l.LightTriggerClient -   light camera id=9 mode=PAIR brightness_percent=80
+2026-09-15 03:15:08.672 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 100%
+2026-09-15 03:15:08.672 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 100%
+2026-09-15 03:15:08.672 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-2 brightness 80% -> 100%
+2026-09-15 03:15:08.672 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 100%
+2026-09-15 03:15:08.672 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-4 brightness 80% -> 100%
+2026-09-15 03:15:08.672 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-5 brightness 80% -> 100%
+2026-09-15 03:15:08.672 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-6 brightness 80% -> 100%
+2026-09-15 03:15:08.673 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-7 brightness 80% -> 100%
+2026-09-15 03:15:08.673 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-8 brightness 80% -> 100%
+2026-09-15 03:15:08.673 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-9 brightness 80% -> 100%
+2026-09-15 03:15:08.757 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-0 -> {"success":true,"cameraNumber":1,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.10","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:08.771 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-1 -> {"success":true,"cameraNumber":2,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.11","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.141 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-single camera-2 -> {"success":true,"cameraNumber":3,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[1],"brightness":[255]}
+2026-09-15 03:15:09.151 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-3 -> {"success":true,"cameraNumber":4,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.10","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.161 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-4 -> {"success":true,"cameraNumber":5,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.11","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.173 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-5 -> {"success":true,"cameraNumber":6,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.9","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.186 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-6 -> {"success":true,"cameraNumber":7,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.5","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.406 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-single camera-7 -> {"success":true,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[2],"brightness":[255]}
+2026-09-15 03:15:09.416 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-8 -> {"success":true,"cameraNumber":9,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.9","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.427 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-9 -> {"success":true,"cameraNumber":10,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.5","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.436 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-0 -> {"success":true,"cameraNumber":1,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.10","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.447 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-1 -> {"success":true,"cameraNumber":2,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.11","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.660 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-single camera-2 -> {"success":true,"cameraNumber":3,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[1],"brightness":[255]}
+2026-09-15 03:15:09.670 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-3 -> {"success":true,"cameraNumber":4,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.10","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.680 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-4 -> {"success":true,"cameraNumber":5,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.11","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.691 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-5 -> {"success":true,"cameraNumber":6,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.9","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.701 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-6 -> {"success":true,"cameraNumber":7,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.5","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.883 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-single camera-7 -> {"success":true,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[2],"brightness":[255]}
+2026-09-15 03:15:09.893 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-8 -> {"success":true,"cameraNumber":9,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.9","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.903 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-9 -> {"success":true,"cameraNumber":10,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.5","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:09.903 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - light persisted brightness applied default=100 endpoints=10
+2026-09-15 03:15:09.904 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - waiting for LightServer COM bank (GET /api/com/light)...
+2026-09-15 03:15:09.921 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-0 -> {"success":true,"cameraNumber":1,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.10","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:09.931 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-1 -> {"success":true,"cameraNumber":2,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.11","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:10.153 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-single camera-2 -> {"success":true,"cameraNumber":3,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[1],"brightness":[255]}
+2026-09-15 03:15:10.163 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-3 -> {"success":true,"cameraNumber":4,"deviceId":"mv-le-3","route":"ethernet-bank-brightness","ipAddress":"169.254.220.10","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:10.173 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-4 -> {"success":true,"cameraNumber":5,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.11","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:10.184 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-5 -> {"success":true,"cameraNumber":6,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.9","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:10.194 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-6 -> {"success":true,"cameraNumber":7,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.5","channels":[2,4],"brightness":[255,255]}
+2026-09-15 03:15:10.341 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-single camera-7 -> {"success":true,"cameraNumber":8,"deviceId":"com1","route":"com-bank","comPort":"COM1","channels":[2],"brightness":[255]}
+2026-09-15 03:15:10.351 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-8 -> {"success":true,"cameraNumber":9,"deviceId":"mv-le-2","route":"ethernet-bank-brightness","ipAddress":"169.254.220.9","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:10.362 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness-pair camera-9 -> {"success":true,"cameraNumber":10,"deviceId":"mv-le-1","route":"ethernet-bank-brightness","ipAddress":"169.254.220.5","channels":[1,3],"brightness":[255,255]}
+2026-09-15 03:15:10.840 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light constant-mode bank-On -> {"success":true,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.5: bank-seq-on:LightBrightness","169.254.220.9: bank-seq-on:LightBrightness","169.254.220.10: bank-seq-on:LightBrightness","169.254.220.11: bank-seq-on:LightBrightness","COM1: bank-seq-on"],"errors":[],"skipped":{},"com":{"success":true,"message":"???????????? COM ????????, ??????? %: 100,100.","error":null,"applied":["COM1: bank-seq-on"],"errors":[]},"error":null}
+2026-09-15 03:15:10.841 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light flash mode changed to constant
+2026-09-15 03:15:10.841 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - light_servers hold_mode=true — ?????????? ?????????, ??? On/Off ?? ?????? ????
+2026-09-15 03:15:10.841 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration.reference_source=client — ?????? ?????? ????? client.reference_bundle (WebSocket)
+2026-09-15 03:15:10.843 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=D:\App\defect-detector-v3\config\data\camera_runtime_settings.json cameras=10
+2026-09-15 03:15:10.846 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=D:\frame max_frames_per_camera=20
+2026-09-15 03:15:10.890 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui http started on 127.0.0.1:8099 (front controller)
+2026-09-15 03:15:10.908 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - client_api enabled (same port as ui_http): kopcheni_proxy=true kopcheni_base_url=http://127.0.0.1:8000
+2026-09-15 03:15:10.908 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui visuals use analisSurface HTTP (analis-surface-http-0->srv0) async_enabled=true store_heatmap_u8=true
+2026-09-15 03:15:10.908 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui artifact publisher started parallelism=4 queue_size=8
+2026-09-15 03:15:10.910 INFO  [WebSocketSelector-81] c.e.i.o.i.b.IntegrationBootstrap - client_ws listening ws://127.0.0.1:8765/ replace_session=true read_idle_timeout_ms=90000 ping_interval_ms=20000
+2026-09-15 03:15:10.911 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - ui test-analyze endpoint ready: POST /api/client/inspection/test-analyze
+2026-09-15 03:15:10.911 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - iml_shm ttl janitor started interval_s=15 max_age_s=45
+2026-09-15 03:15:10.913 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - timing_stages_log enabled jsonl=D:\App\defect-detector-v3\logs\pipeline-stages.jsonl (????? .txt ? ??? ?? ??????? ??????)
+2026-09-15 03:15:10.924 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=169.254.220.231:9600 map=D:\App\defect-detector-v3\plk\register-map.yaml pulse_ms=80 timeouts=6
+2026-09-15 03:15:10.924 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-09-15 03:15:10.926 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-09-15 03:15:10.927 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-09-15 03:15:10.927 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration parallel settings: camera_parallelism=10 geometry_pool_size=10
+2026-09-15 03:15:10.931 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=0 ipc_mode=STDIO
+2026-09-15 03:15:10.960 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=1 ipc_mode=STDIO
+2026-09-15 03:15:10.992 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=2 ipc_mode=STDIO
+2026-09-15 03:15:11.024 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=3 ipc_mode=STDIO
+2026-09-15 03:15:11.055 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=4 ipc_mode=STDIO
+2026-09-15 03:15:11.086 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=5 ipc_mode=STDIO
+2026-09-15 03:15:11.117 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=6 ipc_mode=STDIO
+2026-09-15 03:15:11.149 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=7 ipc_mode=STDIO
+2026-09-15 03:15:11.179 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=8 ipc_mode=STDIO
+2026-09-15 03:15:11.210 INFO  [camera-worker-boot] c.e.i.o.i.c.WorkerProcessSupervisor - worker supervisor started camera=9 ipc_mode=STDIO
+2026-09-15 03:15:11.272 INFO  [WebSocketWorker-68] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.hello session_state=NO_REFERENCE
+2026-09-15 03:15:11.298 INFO  [WebSocketWorker-68] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_enable
+2026-09-15 03:15:11.942 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=write_bit area=W address=0.4 sid=1
+2026-09-15 03:15:11.943 WARN  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins worker error: FINS timeout host=169.254.220.231:9600
+2026-09-15 03:15:12.949 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=write_bit area=W address=0.5 sid=2
+2026-09-15 03:15:12.949 WARN  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins worker error: FINS timeout host=169.254.220.231:9600
+2026-09-15 03:15:13.475 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=1 health type=2 header={status=ok, service=camera-worker, camera_id=1, detector=v1, ip=169.254.98.219, shm_name=/iml_cam_1_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.477 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=0 health type=2 header={status=ok, service=camera-worker, camera_id=0, detector=v1, ip=169.254.105.1, shm_name=/iml_cam_0_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.529 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=2 health type=2 header={status=ok, service=camera-worker, camera_id=2, detector=v1, ip=169.254.220.2, shm_name=/iml_cam_2_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.561 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=3 health type=2 header={status=ok, service=camera-worker, camera_id=3, detector=v1, ip=169.254.220.1, shm_name=/iml_cam_3_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.603 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=4 health type=2 header={status=ok, service=camera-worker, camera_id=4, detector=v1, ip=169.254.220.3, shm_name=/iml_cam_4_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.635 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=5 health type=2 header={status=ok, service=camera-worker, camera_id=5, detector=v1, ip=169.254.220.4, shm_name=/iml_cam_5_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.689 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=6 health type=2 header={status=ok, service=camera-worker, camera_id=6, detector=v1, ip=169.254.79.219, shm_name=/iml_cam_6_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.689 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=7 health type=2 header={status=ok, service=camera-worker, camera_id=7, detector=v1, ip=169.254.103.219, shm_name=/iml_cam_7_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.718 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=8 health type=2 header={status=ok, service=camera-worker, camera_id=8, detector=v1, ip=169.254.83.219, shm_name=/iml_cam_8_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.720 INFO  [camera-worker-boot] c.e.i.o.i.b.IntegrationBootstrap - worker cam=9 health type=2 header={status=ok, service=camera-worker, camera_id=9, detector=v1, ip=169.254.101.219, shm_name=/iml_cam_9_frame, ring_slots=8, capture_total=0, capture_dropped=0, latency_ns_min=0, latency_ns_avg=0, latency_ns_max=0, last_frame_id=0, last_slot_index=-1, capture_source=hik, capture_backend_ready=true, capture_backend_info=hik_mvs, frame_timeout_ms=15000, fps=0.0, detection=analisSurface}
+2026-09-15 03:15:13.720 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - camera workers boot done in 2793 ms started=10/10 stagger_ms=20
+2026-09-15 03:15:13.721 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - camera persisted settings: capture_trigger_mode skipped (hardware_line_trigger=true; worker keeps line0 from config.json)
+2026-09-15 03:15:13.756 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=0 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.756 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=0 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:13.789 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=1 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.789 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=1 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:13.824 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=2 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.824 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=2 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:13.858 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=3 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.858 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=3 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:13.892 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=4 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.892 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=4 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:13.926 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=5 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.926 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=5 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:13.951 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=write_bit area=W address=0.4 sid=3
+2026-09-15 03:15:13.951 WARN  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins worker error: FINS timeout host=169.254.220.231:9600
+2026-09-15 03:15:13.962 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=6 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.962 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=6 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:13.997 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=7 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:13.997 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=7 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:14.032 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=8 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:14.032 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:14.067 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red] persisted=false
+2026-09-15 03:15:14.067 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[gain_db, balance_ratio_blue, black_level, exposure_us, gamma, frame_timeout_ms, balance_ratio_red]
+2026-09-15 03:15:14.069 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - client_stream ready default_max_fps=20 cap=30
+2026-09-15 03:15:14.072 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - critical service watchdog started poll_ms=2000
+2026-09-15 03:15:14.074 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - pipeline settings: queue_size=40 python_parallelism=20 inspection_cycle_parallelism=20
+2026-09-15 03:15:14.074 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection_trigger di3_only=true — ?????? ?? ?????? DI3, ??????????? ?? ???????? DI2
+2026-09-15 03:15:14.074 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection_trigger DI2?DI3: ?????? ?? DI3? ?????? ??? DI2=1
+2026-09-15 03:15:14.089 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection bucket enabled groups=[BucketGroup[phaseId=0, id=0, cameraIds=[0, 1, 2, 3, 4]], BucketGroup[phaseId=0, id=1, cameraIds=[5, 6, 7, 8, 9]], BucketGroup[phaseId=1, id=2, cameraIds=[0, 1, 2, 3, 4]], BucketGroup[phaseId=1, id=3, cameraIds=[5, 6, 7, 8, 9]]] cameras=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9] timeout_ms=3500 line_broadcast_interval_ms=3500
+2026-09-15 03:15:14.090 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
+2026-09-15 03:15:14.091 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)
+2026-09-15 03:15:14.091 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - gige topology: switches=5 cameras_per_switch=2 ftd_per_link=2 switch_buffer_kb=448 — ????????: 1 ?????(?) wait_frame (?96 ??: 2 ?????; >96 ??: GevSCFTD + 1 ?????); ??????????: DI3?Line0 (hardware, ??? ?????? ? ???? ????????????? ??????)
+2026-09-15 03:15:14.091 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - hardware_line_trigger: ?????????? ?? DI3?Line0, Java ?????? wait_frame (??? trigger_only/settle/barrier)
+2026-09-15 03:15:14.091 WARN  [main] c.e.i.o.i.b.IntegrationBootstrap - hardware_line_trigger ??????? ?????????? ???????? DI3?Line0 ???? ?????; ??? ??? wait_frame ????? timeout (0x80000007)
+2026-09-15 03:15:14.099 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger listening 0.0.0.0:9100 payload_format=json di=1/2/3 shutdown_di=4 trigger_edge=RISING require_direction=true require_work=false di3_only=true direction_latch=false direction_latch_on_work=false direction_arm_next_di3=false direction_invert=false direction_wait_ms=5000 direction_poll_ms=1 capture_delay_ms=0 debounce_ms=20 stub_work=false two_phase=true expected_delay_ms=700 tolerance_ms=150
+2026-09-15 03:15:14.101 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - interval_flash enabled — DI2? ? On, DI2? ? Off (??????? ???????????); hold_mode=true
+2026-09-15 03:15:14.103 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection_trigger external io_input 0.0.0.0:9100 di=1/2/3 shutdown_di=4 trigger_edge=RISING di3_only=true direction_latch_on_work=false direction_arm_next_di3=false require_direction=true require_work=false direction_invert=false direction_wait_ms=5000 direction_poll_ms=1 debounce_ms=20 stub_work=false
+2026-09-15 03:15:14.103 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection_trigger DI4=1 ? safe shutdown (lights Off, stop orchestrator + child services)
+2026-09-15 03:15:14.104 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - integration capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.104 INFO  [main] c.e.i.o.i.b.IntegrationBootstrap - inspection gate per-camera in-flight enabled timeout_ms=3500 cameras=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=0: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=3: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=1: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=5: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=7: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=4: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=9: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=8: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=2: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.106 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - worker cam=6: capture_without_reference enabled — trigger capture without client.reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=2: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=7: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=8: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=1: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=5: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=0: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=4: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=6: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=9: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.108 INFO  [camera-flow] c.e.i.o.i.b.IntegrationBootstrap - integration cam=3: waiting for external trigger — capture without reference, full inspection after reference_bundle
+2026-09-15 03:15:14.472 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger skip DI3?: ??????????? ??? ?? ????????????? (??? DI2=1), source=di2
+2026-09-15 03:15:14.966 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=write_bit area=W address=0.5 sid=4
+2026-09-15 03:15:14.966 WARN  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins worker error: FINS timeout host=169.254.220.231:9600
+2026-09-15 03:15:15.976 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=read_words area=DM address=D4400..4405 sid=5
+2026-09-15 03:15:16.993 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=read_words area=DM address=D4400..4405 sid=6
+2026-09-15 03:15:17.014 INFO  [WebSocketWorker-68] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_disable
+2026-09-15 03:15:17.014 INFO  [WebSocketWorker-68] c.e.i.o.i.b.IntegrationBootstrap - client_ws preview images disabled
+2026-09-15 03:15:17.031 INFO  [WebSocketSelector-81] c.e.i.o.i.b.IntegrationBootstrap - client_ws closed code=1006 reason= remote=true
+2026-09-15 03:15:17.136 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.hello session_state=NO_REFERENCE
+2026-09-15 03:15:17.162 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_enable
+2026-09-15 03:15:17.163 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws preview images enabled
+2026-09-15 03:15:18.157 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=read_words area=DM address=D4400..4405 sid=7
+2026-09-15 03:15:19.175 WARN  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response timeout host=169.254.220.231:9600 op=read_words area=DM address=D4400..4405 sid=8
+2026-09-15 03:15:19.194 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.preview_images_disable
+2026-09-15 03:15:19.195 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws preview images disabled
+2026-09-15 03:15:19.935 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger skip DI3?: ??????????? ??? ?? ????????????? (??? DI2=1), source=di2
+2026-09-15 03:15:20.078 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger skip DI3?: ??????????? ??? ?? ????????????? (??? DI2=1), source=di2
+2026-09-15 03:16:03.514 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_start
+2026-09-15 03:16:03.526 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream started camera=0 fps=20 interval_ms=50 (ws notify after first frame)
+2026-09-15 03:16:03.758 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_started camera_id=0 max_fps=20
+2026-09-15 03:16:03.758 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream ws stream_started camera=0 after first published frame
+2026-09-15 03:16:13.570 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=0 fps=19.80 avg_encode_ms=30.63
+2026-09-15 03:16:23.620 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=0 fps=20.10 avg_encode_ms=30.03
+2026-09-15 03:16:33.659 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=0 fps=20.10 avg_encode_ms=30.02
+2026-09-15 03:16:36.186 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_stop
+2026-09-15 03:16:36.220 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream stopped camera=0
+2026-09-15 03:16:36.221 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_stopped camera_id=0
+2026-09-15 03:16:36.223 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_start
+2026-09-15 03:16:36.226 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream started camera=1 fps=20 interval_ms=50 (ws notify after first frame)
+2026-09-15 03:16:36.414 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_started camera_id=1 max_fps=20
+2026-09-15 03:16:36.414 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream ws stream_started camera=1 after first published frame
+2026-09-15 03:16:39.380 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_stop
+2026-09-15 03:16:39.460 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream stopped camera=1
+2026-09-15 03:16:39.461 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_stopped camera_id=1
+2026-09-15 03:16:39.466 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_start
+2026-09-15 03:16:39.468 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream started camera=2 fps=20 interval_ms=50 (ws notify after first frame)
+2026-09-15 03:16:39.663 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_started camera_id=2 max_fps=20
+2026-09-15 03:16:39.663 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream ws stream_started camera=2 after first published frame
+2026-09-15 03:16:49.502 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=19.80 avg_encode_ms=30.00
+2026-09-15 03:16:59.503 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.00 avg_encode_ms=29.87
+2026-09-15 03:17:03.325 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger skip DI3?: ??????????? ??? ?? ????????????? (??? DI2=1), source=di2
+2026-09-15 03:17:04.021 INFO  [io-input-trigger] c.e.i.o.i.b.IntegrationBootstrap - io_input_trigger skip DI3?: ??????????? ??? ?? ????????????? (??? DI2=1), source=di2
+2026-09-15 03:17:09.549 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.10 avg_encode_ms=30.09
+2026-09-15 03:17:19.553 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.00 avg_encode_ms=29.46
+2026-09-15 03:17:29.561 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.00 avg_encode_ms=29.46
+2026-09-15 03:17:39.607 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.10 avg_encode_ms=29.41
+2026-09-15 03:17:49.611 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.00 avg_encode_ms=29.34
+2026-09-15 03:17:59.652 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.10 avg_encode_ms=29.73
+2026-09-15 03:18:09.658 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=2 fps=20.00 avg_encode_ms=30.33
+2026-09-15 03:18:17.473 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_stop
+2026-09-15 03:18:17.537 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream stopped camera=2
+2026-09-15 03:18:17.537 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_stopped camera_id=2
+2026-09-15 03:18:17.541 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_start
+2026-09-15 03:18:17.543 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream started camera=3 fps=20 interval_ms=50 (ws notify after first frame)
+2026-09-15 03:18:17.740 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_started camera_id=3 max_fps=20
+2026-09-15 03:18:17.740 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream ws stream_started camera=3 after first published frame
+2026-09-15 03:18:27.584 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=3 fps=19.80 avg_encode_ms=30.01
+2026-09-15 03:18:35.746 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_stop
+2026-09-15 03:18:35.780 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream stopped camera=3
+2026-09-15 03:18:35.780 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_stopped camera_id=3
+2026-09-15 03:18:35.785 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_start
+2026-09-15 03:18:35.787 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream started camera=4 fps=20 interval_ms=50 (ws notify after first frame)
+2026-09-15 03:18:35.983 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_started camera_id=4 max_fps=20
+2026-09-15 03:18:35.983 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream ws stream_started camera=4 after first published frame
+2026-09-15 03:18:45.818 INFO  [client-stream] c.e.i.o.i.b.IntegrationBootstrap - client_stream_stats camera=4 fps=19.80 avg_encode_ms=30.07
+2026-09-15 03:18:49.164 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws inbound type=client.stream_stop
+2026-09-15 03:18:49.370 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_stream stopped camera=4
+2026-09-15 03:18:49.370 INFO  [WebSocketWorker-69] c.e.i.o.i.b.IntegrationBootstrap - client_ws sent type=server.stream_stopped camera_id=4
