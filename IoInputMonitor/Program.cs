@@ -306,7 +306,10 @@ internal static class Program
             ? options.DebounceMs
             : (options.EdgeMode == IoInputEdgeMode.Both ? 80 : 0);
         var edgeTracker = new IoDiEdgeTracker(softwareRefractoryMs);
-        var capturePulseScheduler = new IoCapturePulseScheduler();
+        int maxDi3PerDi2 = options.Capture.Enabled
+            ? options.Capture.EffectiveMaxDi3CapturesPerDi2Window()
+            : 1;
+        var capturePulseScheduler = new IoCapturePulseScheduler(maxDi3PerDi2);
         object consoleLock = new();
         using var doExecutor = new IoDoExecutor();
         Console.WriteLine(
@@ -466,11 +469,11 @@ internal static class Program
             {
                 if (!capturePulseScheduler.TryBegin())
                 {
-                    // Импульс уже в полёте — слот FireDo не отпускаем (bounce DI3 иначе даст 2-й FireDo).
+                    captureGate?.ReleaseCaptureFireSlot();
                     lock (consoleLock)
                     {
                         Console.WriteLine(
-                            $"[{Timestamp()}] {options.Capture.FormatOutputPorts()}: НЕ отправляется — импульс уже в полёте (SkipBusy)");
+                            $"[{Timestamp()}] {options.Capture.FormatOutputPorts()}: НЕ отправляется — лимит параллельных импульсов (SkipBusy)");
                     }
                 }
                 else
@@ -581,7 +584,7 @@ internal static class Program
             case IoCaptureDecision.SkipAlreadyFired:
                 Console.WriteLine(
                     $"[{Timestamp()}] {capture.FormatOutputPorts()}: НЕ отправляется — DI{capture.TriggerPort}↑ холостой " +
-                    $"(уже сняли при DI{capture.DirectionPort}=1)");
+                    $"(лимит DI3 на окно DI{capture.DirectionPort}=1)");
                 break;
             case IoCaptureDecision.SkipBusy:
                 Console.WriteLine(
