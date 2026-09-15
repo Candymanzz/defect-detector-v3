@@ -115,7 +115,7 @@ integration:
       bind_port: 9100
       # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер, DI4=shutdown
       format: io_input
-      debounce_ms: 0
+      debounce_ms: 20
       # allowed_remote_hosts: ["127.0.0.1"]
     io_input:
       work_port: 1
@@ -131,7 +131,7 @@ integration:
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
-      debounce_ms: 0
+      debounce_ms: 20
       require_direction: true
       require_work: false
       external_hardware_capture: true

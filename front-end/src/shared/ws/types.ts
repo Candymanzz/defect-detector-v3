@@ -382,6 +382,8 @@ export type ReferenceViewSlot = {
 
 export type ClientReferenceBundlePayload = {
   product_type: string;
+  phase_id?: number;
+  group_id?: number;
   joint_view_index: number;
   heatmap_width: number;
   heatmap_height: number;
@@ -391,6 +393,8 @@ export type ClientReferenceBundlePayload = {
 
 export type ClientFpZonesUpdatePayload = {
   protocol_version: WsProtocolVersion;
+  phase_id: number;
+  group_id: number;
   heatmap_width: number;
   heatmap_height: number;
   fp_zones: FpZoneNorm[];

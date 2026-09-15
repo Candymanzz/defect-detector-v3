@@ -4,7 +4,9 @@ import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,10 +16,14 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class ClientWsReferenceContext {
 
+    private record ReferenceScope(int phaseId, int groupId) {
+    }
+
     private record FpZonesOverride(int heatmapWidth, int heatmapHeight, List<FpZoneNorm> zones) {
     }
 
     private final AtomicReference<ReferenceBundleSnapshot> bundle = new AtomicReference<>();
+    private final Map<ReferenceScope, ReferenceBundleSnapshot> bundlesByScope = new ConcurrentHashMap<>();
     private final AtomicReference<FpZonesOverride> fpOverride = new AtomicReference<>();
     private final AtomicBoolean dirty = new AtomicBoolean(false);
     private final AtomicBoolean bundleCommitted = new AtomicBoolean(false);
@@ -25,6 +31,7 @@ public final class ClientWsReferenceContext {
 
     public void applyBundle(ReferenceBundleSnapshot snapshot) {
         bundle.set(snapshot);
+        bundlesByScope.put(new ReferenceScope(snapshot.phaseId(), snapshot.groupId()), snapshot);
         fpOverride.set(null);
         dirty.set(false);
         bundleCommitted.set(true);
@@ -33,6 +40,7 @@ public final class ClientWsReferenceContext {
 
     public void clear() {
         bundle.set(null);
+        bundlesByScope.clear();
         fpOverride.set(null);
         dirty.set(false);
         bundleCommitted.set(false);
@@ -41,6 +49,10 @@ public final class ClientWsReferenceContext {
 
     public Optional<ReferenceBundleSnapshot> snapshot() {
         return Optional.ofNullable(bundle.get());
+    }
+
+    public Optional<ReferenceBundleSnapshot> snapshot(int phaseId, int groupId) {
+        return Optional.ofNullable(bundlesByScope.get(new ReferenceScope(phaseId, groupId)));
     }
 
     public boolean hasCommittedBundle() {

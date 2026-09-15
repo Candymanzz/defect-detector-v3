@@ -23,8 +23,8 @@ public final class ReferenceBundleLifecycleService {
             JsonNode requestRoot
     ) throws ClientWsKopcheniSyncException {
         ctx.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
-        ctx.referenceContext().applyBundle(snap);
         applyBundleToPipeline(ctx, snap);
+        ctx.referenceContext().applyBundle(snap);
         transitionToOperational(ctx, conn, requestRoot);
         ctx.log().info(
                 "client_ws reference bundle accepted product_type={} joint_view_index={} fp_zones={}",
@@ -37,8 +37,8 @@ public final class ReferenceBundleLifecycleService {
     public static void applyFromDraft(ClientWsApplicationContext ctx, WebSocket conn, ReferenceBundleSnapshot snap)
             throws ClientWsKopcheniSyncException {
         ctx.kopcheniBroadcaster().broadcast(AnalisSurfaceClientWsSync.syncClientReferenceBundle(snap, 0));
-        ctx.referenceContext().applyBundle(snap);
         applyBundleToPipeline(ctx, snap);
+        ctx.referenceContext().applyBundle(snap);
         if (ctx.sessionState() == ClientWsSessionState.TEST) {
             if (conn != null && conn.isOpen()) {
                 ctx.outbound().sendSessionState(conn, ClientWsSessionState.TEST);
@@ -61,7 +61,8 @@ public final class ReferenceBundleLifecycleService {
         );
     }
 
-    private static void applyBundleToPipeline(ClientWsApplicationContext ctx, ReferenceBundleSnapshot snap) {
+    private static void applyBundleToPipeline(ClientWsApplicationContext ctx, ReferenceBundleSnapshot snap)
+            throws ClientWsKopcheniSyncException {
         if (ctx.pipelineReferences() == null || snap.views().isEmpty()) {
             return;
         }
@@ -74,7 +75,10 @@ public final class ReferenceBundleLifecycleService {
                     ctx.captureStage()
             );
         } catch (Exception e) {
-            ctx.log().warn("pipeline reference from client bundle failed: {}", e.getMessage());
+            throw new ClientWsKopcheniSyncException(
+                    "pipeline reference from client bundle failed: " + e.getMessage(),
+                    e
+            );
         }
     }
 

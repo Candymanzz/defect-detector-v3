@@ -26,6 +26,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     cameraSlots,
     cameraGroups,
     activeGroupIndex,
+    activeReferenceGroup,
     setActiveGroupIndex,
     jointCameraId,
     hasJointRoi,
@@ -55,11 +56,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const activeCameraIds = cameraSlots.map((slot) => slot.cameraId);
   const activeGroupKey = createCameraGroupKey(activeCameraIds);
   const activeGroupArchivedReferences = archivedReferences.filter(
-    (archive) => createCameraGroupKey(archive.cameraIds) === activeGroupKey,
+    (archive) =>
+      createCameraGroupKey(archive.cameraIds) === activeGroupKey &&
+      (archive.bundle.phase_id ?? 0) === (activeReferenceGroup?.phaseId ?? 0) &&
+      (archive.bundle.group_id ?? -1) === (activeReferenceGroup?.groupId ?? -1),
   );
   const activeReferenceKey = useSyncExternalStore(
     subscribeReferenceImages,
-    () => createActiveReferenceKey(activeCameraIds),
+    () => createActiveReferenceKey(activeCameraIds, activeReferenceGroup?.phaseId, activeReferenceGroup?.groupId),
     () => "",
   );
   const selectedArchive =
@@ -154,7 +158,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               >
                 {cameraGroups.map((groupCameraIds, groupIndex) => (
                   <button
-                    key={groupCameraIds.join("-")}
+                    key={`${groupIndex}:${groupCameraIds.join("-")}`}
                     aria-selected={groupIndex === activeGroupIndex}
                     className={
                       groupIndex === activeGroupIndex
@@ -166,12 +170,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     onClick={() => setActiveGroupIndex(groupIndex)}
                   >
                     Группа {groupIndex + 1}
-                    <span>Камеры {groupCameraIds.join(", ")}</span>
+                    <span>
+                      Съёмка {Math.floor(groupIndex / 2) + 1} · камеры {groupCameraIds.join(", ")}
+                    </span>
                   </button>
                 ))}
               </div>
 
-              <h3>Камеры группы {activeGroupIndex + 1}</h3>
+              <h3>Камеры группы {activeGroupIndex + 1} · съёмка {Math.floor(activeGroupIndex / 2) + 1}</h3>
               <div className="reference-setup__camera-list">
                 {cameraSlots.map((slot) => {
                   const hasFrame = Boolean(slot.frame);
@@ -637,10 +643,10 @@ function useLearnedNormals(cameraId?: number, productType?: string) {
   };
 }
 
-function createActiveReferenceKey(cameraIds: number[]) {
+function createActiveReferenceKey(cameraIds: number[], phaseId?: number, groupId?: number) {
   return cameraIds
     .map((cameraId) => {
-      const referenceImage = getReferenceImage(cameraId);
+      const referenceImage = getReferenceImage(cameraId, phaseId, groupId);
       return referenceImage ? createReferenceImageKey(cameraId, referenceImage) : "";
     })
     .filter(Boolean)

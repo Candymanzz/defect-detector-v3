@@ -9,6 +9,7 @@ import type {
   CameraImageUrlsById,
   InspectionControlState,
   InspectionHistoryItem,
+  InspectionProduct,
   MainOverviewData,
   ModalInspectionSnapshot,
   SelectedCamera,
@@ -29,6 +30,22 @@ export const FALLBACK_CAMERA_IDS = Array.from(
   { length: CAMERAS_PER_OBJECT * FALLBACK_OBJECT_COUNT },
   (_, index) => index,
 );
+
+export function createDefaultInspectionProducts(cameraIds: number[]): InspectionProduct[] {
+  const cameraGroups = chunkItems(cameraIds, CAMERAS_PER_OBJECT).slice(0, FALLBACK_OBJECT_COUNT);
+  return [0, 1].flatMap((phaseId) =>
+    cameraGroups.map((groupCameraIds, cameraSetIndex) => {
+        const groupId = cameraSetIndex + phaseId * FALLBACK_OBJECT_COUNT;
+        return {
+          key: `${phaseId}:${groupId}`,
+          phaseId,
+          groupId,
+          cameraIds: groupCameraIds,
+          resultsByCameraId: {},
+        };
+      }),
+  );
+}
 export async function loadMainOverviewData(): Promise<MainOverviewData> {
   const backendCameraIds = await loadBackendCameraIds();
 
@@ -156,7 +173,7 @@ export function createModalInspectionSnapshot(
     : undefined;
   const matchingPreviewImageUrl =
     snapshotResult && previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
-  const referenceImage = getReferenceImage(camera.cameraId);
+  const referenceImage = getReferenceImage(camera.cameraId, productContext?.phaseId, productContext?.groupId);
 
   return {
     ...camera,
@@ -551,4 +568,11 @@ function createCameraCardData(
 
 function getObjectName(index: number) {
   return `Объект ${Math.floor(index / CAMERAS_PER_OBJECT) + 1}`;
+}
+
+function chunkItems<T>(items: T[], chunkSize: number) {
+  return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
+    const startIndex = groupIndex * chunkSize;
+    return items.slice(startIndex, startIndex + chunkSize);
+  });
 }

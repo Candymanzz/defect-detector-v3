@@ -241,9 +241,10 @@
   },
   "integration": {
     "geometry_pool_size": 10,
-    "python_parallelism": 10,
-    "python_server_pool_size": 1,
-    "stage_queue_size": 20,
+    "python_parallelism": 20,
+    "inspection_cycle_parallelism": 20,
+    "python_server_pool_size": 2,
+    "stage_queue_size": 40,
     "worker_command_timeout_ms": 30000,
     "worker_startup_stagger_ms": 20,
     "service_command_timeout_ms": 15000,

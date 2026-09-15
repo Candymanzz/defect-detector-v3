@@ -56,6 +56,8 @@ public final class ReferenceBundleWsHandler implements WsMessageHandler {
         int scaledH = Math.max(1, (int) Math.round(baseH * inspectScale));
         return new ReferenceBundleSnapshot(
                 snapshot.productType(),
+                snapshot.phaseId(),
+                snapshot.groupId(),
                 snapshot.views(),
                 snapshot.jointViewIndex(),
                 scaledW,

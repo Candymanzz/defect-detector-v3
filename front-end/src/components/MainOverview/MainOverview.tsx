@@ -11,14 +11,12 @@ import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTes
 import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
 import { orchestratorApi } from "../../shared/api";
 import { StatusCard } from "../../shared/ui/StatusCard";
-import { createCameraCards, createSelectedCamera } from "./MainController";
+import { createCameraCards, createDefaultInspectionProducts, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
 import { useMainOverview } from "./useMainOverview";
 import type { CameraCardData, InspectionProduct, InspectionStats } from "./type";
 import "./MainOverview.css";
 import "../SettingList/TestSettingsPanels.css";
-
-const CAMERAS_PER_OVERVIEW = 5;
 
 type MainOverviewProps = {
   inspectionResetVersion: number;
@@ -53,25 +51,15 @@ export function MainOverview({
   const geometrySettingsRef = useRef<GeometryTestSettingsPanelHandle>(null);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
   const cameraCardById = new Map(cameraCards.map((camera) => [camera.cameraId, camera]));
-  const configuredProducts = controller.inspectionProducts.map((product, index) => ({
+  const products = controller.inspectionProducts.length
+    ? orderProductsForGrid(controller.inspectionProducts)
+    : orderProductsForGrid(createDefaultInspectionProducts(controller.cameraIds));
+  const cameraCardGroups: Array<InspectionProduct & { productNumber: number; cameras: CameraCardData[] }> =
+    products.map((product, index) => ({
     ...product,
     productNumber: index + 1,
     cameras: product.cameraIds.map((cameraId) => cameraCardById.get(cameraId)).filter((camera) => camera != null),
   }));
-  const cameraCardGroups: Array<InspectionProduct & { productNumber: number; cameras: CameraCardData[] }> =
-    configuredProducts.length
-    ? orderProductsForGrid(configuredProducts)
-    : chunkItems(cameraCards, CAMERAS_PER_OVERVIEW).map((cameras, index) => ({
-        key: `fallback:${index}`,
-        productNumber: index + 1,
-        phaseId: 0,
-        groupId: index,
-        cameraIds: cameras.map((camera) => camera.cameraId),
-        resultsByCameraId: {},
-        overallPass: undefined,
-        triggerSequence: undefined,
-        cameras,
-      }));
   const modalInspectionControlState = controller.modalSnapshot
     ? controller.inspectionControlByCameraId[controller.modalSnapshot.cameraId]
     : undefined;
@@ -158,16 +146,20 @@ export function MainOverview({
             <strong className={cameraGroup.overallPass === false ? "is-fail" : cameraGroup.overallPass === true ? "is-pass" : ""}>
               {cameraGroup.overallPass === false ? "● БРАК" : cameraGroup.overallPass === true ? "● ГОДЕН" : "Ожидание"}
             </strong>
-            <div className="camera-overview__inspection">
-              <span>Последняя инспекция</span>
-              <b>{cameraGroup.triggerSequence == null ? "—" : `#${cameraGroup.triggerSequence}`}</b>
-            </div>
+            {cameraGroup.triggerSequence != null && (
+              <div className="camera-overview__inspection">
+                <span>Последняя инспекция</span>
+                <b>#{cameraGroup.triggerSequence}</b>
+              </div>
+            )}
           </header>
           <div className="camera-grid">
             {cameraGroup.cameras.map((camera) => {
               const inspectionControlState = controller.inspectionControlByCameraId[camera.cameraId];
-              const inspectResult =
-                cameraGroup.resultsByCameraId[camera.cameraId] ?? controller.inspectResultsByCameraId[camera.cameraId];
+              // A camera participates in two phases. Only a completed bucket result
+              // belongs to this exact product; the camera-wide latest result may be
+              // from the other phase and must not appear here prematurely.
+              const inspectResult = cameraGroup.resultsByCameraId[camera.cameraId];
               const artifactCandidate = controller.inspectArtifactResultsByCameraId[camera.cameraId];
               const artifactInspectResult =
                 artifactCandidate &&
@@ -200,7 +192,7 @@ export function MainOverview({
                   objectName={camera.objectName}
                   imageUrl={inspectImageUrl ?? camera.imageUrl}
                   currentFrameId={controller.previewFrameIdsByCameraId[camera.cameraId]}
-                  inspectionFrameId={inspectResult?.frame_id}
+                  inspectionFrameId={inspectionResultState ? inspectResult?.frame_id : undefined}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
                   isInspectionEnabled={isInspectionEnabled}
                   isInspectionActionDisabled={!controller.hasReference || isInspectionActionPending}
@@ -249,6 +241,8 @@ export function MainOverview({
         <ModalWrapper
           isOpen
           cameraId={controller.modalSnapshot.cameraId}
+          phaseId={controller.modalSnapshot.phaseId}
+          groupId={controller.modalSnapshot.groupId}
           cameraImageUrl={controller.modalSnapshot.cameraImageUrl}
           inspectHeatmapUrl={controller.modalSnapshot.heatmapUrl}
           referenceImageUrl={controller.modalSnapshot.referenceImageUrl}
@@ -415,13 +409,6 @@ export function MainOverview({
   );
 }
 
-function chunkItems<T>(items: T[], chunkSize: number) {
-  return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
-    const startIndex = groupIndex * chunkSize;
-    return items.slice(startIndex, startIndex + chunkSize);
-  });
-}
-
 function formatCameraRange(cameraIds: number[]) {
   if (cameraIds.length === 0) {
     return "—";
@@ -430,14 +417,12 @@ function formatCameraRange(cameraIds: number[]) {
   return sorted.length === 1 ? String(sorted[0]) : `${sorted[0]}–${sorted[sorted.length - 1]}`;
 }
 
-function orderProductsForGrid<T extends InspectionProduct & { productNumber: number }>(products: T[]) {
+function orderProductsForGrid<T extends InspectionProduct>(products: T[]) {
   if (products.length <= 2) {
     return products;
   }
   return [...products].sort((left, right) => {
-    const leftFirstCamera = Math.min(...left.cameraIds);
-    const rightFirstCamera = Math.min(...right.cameraIds);
-    return leftFirstCamera - rightFirstCamera || left.phaseId - right.phaseId || left.groupId - right.groupId;
+    return left.phaseId - right.phaseId || left.groupId - right.groupId;
   });
 }
 

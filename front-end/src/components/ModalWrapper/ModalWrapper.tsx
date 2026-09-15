@@ -16,6 +16,8 @@ type ModalWrapperProps = {
   isOpen: boolean;
   title: string;
   cameraId?: number;
+  phaseId?: number;
+  groupId?: number;
   cameraImageUrl?: string;
   inspectHeatmapUrl?: string;
   inspectResult?: InspectResultPayload;
@@ -59,6 +61,8 @@ export function ModalWrapper({
   isOpen,
   title,
   cameraId,
+  phaseId,
+  groupId,
   cameraImageUrl,
   inspectHeatmapUrl,
   inspectResult,
@@ -183,6 +187,8 @@ export function ModalWrapper({
         {cameraId !== undefined && referenceImageUrl && (
           <FpZonesRuntimePanel
             cameraId={cameraId}
+            phaseId={phaseId}
+            groupId={groupId}
             disabled={fpZonesStatus.state === "saving" || fpZonesStatus.state === "loading"}
             heatmapSize={resolveFpZonesHeatmapSize(inspectResult)}
             imageUrl={referenceImageUrl}
@@ -267,6 +273,8 @@ function LearnFrameAction({ inspectResult, productType }: { inspectResult: Inspe
 
 function FpZonesRuntimePanel({
   cameraId,
+  phaseId,
+  groupId,
   imageUrl,
   productType,
   roiPoints,
@@ -278,6 +286,8 @@ function FpZonesRuntimePanel({
   onStatusChange,
 }: {
   cameraId: number;
+  phaseId?: number;
+  groupId?: number;
   imageUrl: string;
   productType?: string;
   roiPoints?: InterestPointNorm[];
@@ -334,6 +344,8 @@ function FpZonesRuntimePanel({
     try {
       onStatusChange({ state: "saving", text: "Сохранение FP zones..." });
       const messageId = orchestratorWs.sendFpZonesUpdate({
+        phase_id: phaseId ?? 0,
+        group_id: groupId ?? -1,
         heatmap_width: heatmapSize.width,
         heatmap_height: heatmapSize.height,
         fp_zones: fpZones,
@@ -341,7 +353,7 @@ function FpZonesRuntimePanel({
 
       waitForFpZonesAck(messageId)
         .then(() => {
-          updateReferenceFpZones([cameraId], fpZones);
+          updateReferenceFpZones([cameraId], fpZones, phaseId, groupId);
           onStatusChange({ state: "success", text: "FP zones обновлены" });
         })
         .catch((error: unknown) => {
