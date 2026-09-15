@@ -4,7 +4,7 @@ cameras:
   - id: 0
     enabled: true
     inspection_enabled: true
-    ip: "169.254.222.4"
+    ip: "169.254.105.1"
     gige_transfer_slot: 1
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -15,7 +15,7 @@ cameras:
   - id: 1
     enabled: true
     inspection_enabled: true
-    ip: "169.254.146.5"
+    ip: "169.254.98.219"
     gige_transfer_slot: 0
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -28,7 +28,7 @@ cameras:
     inspection_enabled: true
     # Торцевой ракурс: стык/геометрия не видны — только python/поверхность.
     geometry_enabled: false
-    ip: "169.254.220.9"
+    ip: "169.254.220.2"
     gige_transfer_slot: 0
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -39,7 +39,7 @@ cameras:
   - id: 3
     enabled: true
     inspection_enabled: true
-    ip: "169.254.222.3"
+    ip: "169.254.220.1"
     gige_transfer_slot: 0
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -50,7 +50,7 @@ cameras:
   - id: 4
     enabled: true
     inspection_enabled: true
-    ip: "169.254.146.6"
+    ip: "169.254.220.3"
     gige_transfer_slot: 1
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -61,7 +61,7 @@ cameras:
   - id: 5
     enabled: true
     inspection_enabled: true
-    ip: "169.254.6.7"
+    ip: "169.254.220.4"
     gige_transfer_slot: 1
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -72,7 +72,7 @@ cameras:
   - id: 6
     enabled: true
     inspection_enabled: true
-    ip: "169.254.218.1"
+    ip: "169.254.79.219"
     gige_transfer_slot: 1
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -85,7 +85,7 @@ cameras:
     inspection_enabled: true
     # Торцевой ракурс: стык/геометрия не видны — только python/поверхность.
     geometry_enabled: false
-    ip: "169.254.218.2"
+    ip: "169.254.103.219"
     gige_transfer_slot: 0
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -96,7 +96,7 @@ cameras:
   - id: 8
     enabled: true
     inspection_enabled: true
-    ip: "169.254.220.10"
+    ip: "169.254.83.219"
     gige_transfer_slot: 1
     exposure_us: 3000
     capture_trigger_mode: "line0"
@@ -107,7 +107,7 @@ cameras:
   - id: 9
     enabled: true
     inspection_enabled: true
-    ip: "169.254.6.8"
+    ip: "169.254.101.219"
     gige_transfer_slot: 0
     exposure_us: 3000
     capture_trigger_mode: "line0"

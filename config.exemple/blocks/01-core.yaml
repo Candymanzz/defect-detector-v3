@@ -81,7 +81,9 @@ integration:
   light_server_startup_delay_ms: 0
   # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).
   inspection_cycle_timeout_ms: 3500
-  # Две фазы одного parent cycle; camera_ids можно повторять между фазами.
+  # 4 bucket-группы (как в UI эталона): phase 0 → group 0,1; phase 1 → group 2,3.
+  # Одни и те же camera_ids в обеих фазах — норма; группы различаются phase_id + group_id.
+  # Без inspection_trigger.two_phase.enabled второй DI3 не даст phase 1 (в логе останутся только group 0 и 1).
   inspection_bucket:
     enabled: true
     phases:

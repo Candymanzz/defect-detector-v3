@@ -1,5 +1,6 @@
-## Главный конфиг-агрегатор.
-## camera-worker по-прежнему читает config/config.json.
+## Главный конфиг-агрегатор (оркестратор: config/config.yaml).
+## camera-worker читает config/config.json — держите inspection_bucket.phases и two_phase в sync с blocks/01-core.yaml.
+## 4 группы инспекции: phase 0 → bucket 0,1; phase 1 → bucket 2,3 (см. integration.inspection_bucket в 01-core.yaml).
 imports:
   - "blocks/01-core.yaml"
   - "blocks/10-cameras.yaml"
