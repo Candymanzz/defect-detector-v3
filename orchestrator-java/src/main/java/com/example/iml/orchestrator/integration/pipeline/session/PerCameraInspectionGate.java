@@ -1,6 +1,8 @@
 package com.example.iml.orchestrator.integration.pipeline.session;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -12,9 +14,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Per-camera inspection gate: at most one in-flight cycle per camera, optional disable without stopping capture.
+ * Per-camera inspection gate: optional disable without stopping capture.
+ * Для two-phase на одном {@code parentCycleId} фаза N+1 блокируется, пока на камере идёт фаза N
+ * (второй DI3 может прийти через ~80 ms, пока ещё тянется wait_frame первой пачки).
  */
 public final class PerCameraInspectionGate {
+
+    private static final Logger LOG = LogManager.getLogger(PerCameraInspectionGate.class);
 
     private record PhaseKey(long parentCycleId, int phaseId) {
     }
@@ -210,7 +216,14 @@ public final class PerCameraInspectionGate {
             }
             Set<PhaseKey> phases = inFlightPhases.get(cameraId);
             PhaseKey phaseKey = new PhaseKey(Math.max(0L, parentCycleId), Math.max(0, phaseId));
-            if (phases == null || !phases.add(phaseKey)) {
+            if (phases == null) {
+                return BeginResult.IN_FLIGHT;
+            }
+            if (phases.contains(phaseKey)) {
+                return BeginResult.IN_FLIGHT;
+            }
+            awaitPriorPhaseCapture(cameraId, parentCycleId, phaseId, flight, phases);
+            if (!phases.add(phaseKey)) {
                 return BeginResult.IN_FLIGHT;
             }
             flight.set(true);
@@ -356,6 +369,43 @@ public final class PerCameraInspectionGate {
             }
             finishIfIdle(cameraId, flight);
         }
+    }
+
+    private void awaitPriorPhaseCapture(
+            int cameraId,
+            long parentCycleId,
+            int phaseId,
+            AtomicBoolean flight,
+            Set<PhaseKey> phases
+    ) {
+        if (phaseId <= 0) {
+            return;
+        }
+        PhaseKey prior = new PhaseKey(Math.max(0L, parentCycleId), phaseId - 1);
+        if (!phases.contains(prior)) {
+            return;
+        }
+        LOG.info(
+                "sync_diag channel=inspect event=phase_capture_wait cam={} parent_cycle={} phase={} waiting_for_phase={}",
+                cameraId,
+                parentCycleId,
+                phaseId,
+                phaseId - 1
+        );
+        while (phases.contains(prior)) {
+            try {
+                flight.wait();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        LOG.info(
+                "sync_diag channel=inspect event=phase_capture_wait_done cam={} parent_cycle={} phase={}",
+                cameraId,
+                parentCycleId,
+                phaseId
+        );
     }
 
     private void finishIfIdle(int cameraId, AtomicBoolean flight) {
