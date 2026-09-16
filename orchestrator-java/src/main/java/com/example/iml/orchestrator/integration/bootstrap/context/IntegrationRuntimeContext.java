@@ -119,6 +119,7 @@ public final class IntegrationRuntimeContext {
     private InspectionTriggerStrategy sharedTriggerStrategy;
 
     private ExecutorService cameraExecutor;
+    private ExecutorService inspectionCycleExecutor;
     private ExecutorService captureStageExecutor;
     private ExecutorService pythonStageExecutor;
     private ExecutorService geometryStageExecutor;
@@ -569,6 +570,14 @@ public final class IntegrationRuntimeContext {
         this.cameraExecutor = cameraExecutor;
     }
 
+    public ExecutorService inspectionCycleExecutor() {
+        return inspectionCycleExecutor;
+    }
+
+    public void setInspectionCycleExecutor(ExecutorService inspectionCycleExecutor) {
+        this.inspectionCycleExecutor = inspectionCycleExecutor;
+    }
+
     public ExecutorService captureStageExecutor() {
         return captureStageExecutor;
     }
@@ -648,6 +657,7 @@ public final class IntegrationRuntimeContext {
         return new IntegrationShutdownCoordinator.ShutdownResources(
                 pipelineStagesLog,
                 cameraExecutor,
+                inspectionCycleExecutor,
                 captureStageExecutor,
                 pythonStageExecutor,
                 geometryStageExecutor,

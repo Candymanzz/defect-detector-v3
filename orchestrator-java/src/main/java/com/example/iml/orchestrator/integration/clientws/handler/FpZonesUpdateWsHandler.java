@@ -47,6 +47,12 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
         }
         int normalizedHw = normalizeDimForInspectScale(hw, app.cfg().inspectScale());
         int normalizedHh = normalizeDimForInspectScale(hh, app.cfg().inspectScale());
+        int phaseId = payload.path("phase_id").asInt(-1);
+        int groupId = payload.path("group_id").asInt(-1);
+        if (phaseId < 0 || groupId < 0) {
+            app.outbound().sendError(ctx.connection(), "invalid_reference_scope", "phase_id and group_id are required");
+            return;
+        }
         List<FpZoneNorm> zones;
         try {
             zones = ReferenceBundleParser.parseFpZonesPayload(payload.path("fp_zones"));
@@ -54,10 +60,10 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
             app.outbound().sendError(ctx.connection(), e.code(), e.getMessage());
             return;
         }
-        ReferenceBundleSnapshot snapshot = app.referenceContext().snapshot().orElse(null);
+        ReferenceBundleSnapshot snapshot = app.referenceContext().snapshot(phaseId, groupId).orElse(null);
         String productType = snapshot == null ? "" : snapshot.productType();
         if (productType.isEmpty()) {
-            app.outbound().sendError(ctx.connection(), "no_reference", "missing product_type context");
+            app.outbound().sendError(ctx.connection(), "no_reference", "missing reference for requested phase/group");
             return;
         }
         try {
@@ -68,7 +74,7 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
                         .toList();
                 app.kopcheniBroadcaster().broadcast(
                         AnalisSurfaceClientWsSync.replaceFpZones(
-                                scopedProductType(productType, cameraId),
+                                scopedProductType(productType, snapshot.phaseId(), cameraId),
                                 normalizedHw,
                                 normalizedHh,
                                 cameraZones
@@ -80,7 +86,9 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
             app.outbound().sendError(ctx.connection(), "kopcheni_sync_failed", WsTextUtil.truncate(e.getMessage(), 400));
             return;
         }
-        app.referenceContext().applyFpZonesHotUpdate(normalizedHw, normalizedHh, zones);
+        app.referenceContext().snapshot()
+                .filter(latest -> latest.phaseId() == phaseId && latest.groupId() == groupId)
+                .ifPresent(ignored -> app.referenceContext().applyFpZonesHotUpdate(normalizedHw, normalizedHh, zones));
         app.outbound().sendFpZonesAck(ctx.connection(), ctx.envelope(), true);
     }
 
@@ -94,15 +102,12 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
         return Math.max(1, (int) Math.round(dim * inspectScale));
     }
 
-    private static String scopedProductType(String productType, int cameraId) {
+    private static String scopedProductType(String productType, int phaseId, int cameraId) {
         String normalized = productType == null ? "" : productType.trim();
         if (normalized.isEmpty() || cameraId < 0) {
             return normalized;
         }
-        String suffix = "#cam=" + cameraId;
-        if (normalized.endsWith(suffix)) {
-            return normalized;
-        }
-        return normalized + suffix;
+        String base = normalized.replaceAll("#phase=\\d+", "").replaceAll("#cam=\\d+", "");
+        return base + "#phase=" + Math.max(0, phaseId) + "#cam=" + cameraId;
     }
 }

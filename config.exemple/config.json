@@ -29,7 +29,7 @@
       "id": 0,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.222.4",
+      "ip": "169.254.105.1",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan1",
       "exposure_us": 3000,
@@ -42,7 +42,7 @@
       "id": 1,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.146.5",
+      "ip": "169.254.98.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan2",
       "exposure_us": 3000,
@@ -56,7 +56,7 @@
       "enabled": true,
       "inspection_enabled": true,
       "geometry_enabled": false,
-      "ip": "169.254.220.9",
+      "ip": "169.254.220.2",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan3",
       "exposure_us": 3000,
@@ -69,7 +69,7 @@
       "id": 3,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.222.3",
+      "ip": "169.254.220.1",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan4",
       "exposure_us": 3000,
@@ -82,7 +82,7 @@
       "id": 4,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.146.6",
+      "ip": "169.254.220.3",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan5",
       "exposure_us": 3000,
@@ -95,7 +95,7 @@
       "id": 5,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.6.7",
+      "ip": "169.254.220.4",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan6",
       "exposure_us": 3000,
@@ -108,7 +108,7 @@
       "id": 6,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.218.1",
+      "ip": "169.254.79.219",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan7",
       "exposure_us": 3000,
@@ -122,7 +122,7 @@
       "enabled": true,
       "inspection_enabled": true,
       "geometry_enabled": false,
-      "ip": "169.254.218.2",
+      "ip": "169.254.103.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan8",
       "exposure_us": 3000,
@@ -135,7 +135,7 @@
       "id": 8,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.220.10",
+      "ip": "169.254.83.219",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan9",
       "exposure_us": 3000,
@@ -148,7 +148,7 @@
       "id": 9,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.6.8",
+      "ip": "169.254.101.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan10",
       "exposure_us": 3000,
@@ -243,9 +243,10 @@
   },
   "integration": {
     "geometry_pool_size": 10,
-    "python_parallelism": 10,
-    "python_server_pool_size": 1,
-    "stage_queue_size": 20,
+    "python_parallelism": 20,
+    "inspection_cycle_parallelism": 20,
+    "python_server_pool_size": 2,
+    "stage_queue_size": 40,
     "worker_command_timeout_ms": 30000,
     "worker_startup_stagger_ms": 20,
     "service_command_timeout_ms": 15000,
@@ -257,9 +258,56 @@
     "inspection_cycle_timeout_ms": 3500,
     "inspection_bucket": {
       "enabled": true,
-      "mode": "ten_cameras",
+      "phases": [
+        {
+          "id": 0,
+          "groups": [
+            { "id": 0, "camera_ids": [0, 1, 2, 3, 4] },
+            { "id": 1, "camera_ids": [5, 6, 7, 8, 9] }
+          ]
+        },
+        {
+          "id": 1,
+          "groups": [
+            { "id": 2, "camera_ids": [0, 1, 2, 3, 4] },
+            { "id": 3, "camera_ids": [5, 6, 7, 8, 9] }
+          ]
+        }
+      ],
       "timeout_ms": 3500,
       "line_broadcast_interval_ms": 3500
+    },
+    "inspection_trigger": {
+      "two_phase": {
+        "enabled": true,
+        "expected_delay_ms": 700,
+        "tolerance_ms": 150
+      },
+      "udp": {
+        "enabled": true,
+        "bind_host": "0.0.0.0",
+        "bind_port": 9100,
+        "format": "io_input",
+        "debounce_ms": 20
+      },
+      "io_input": {
+        "work_port": 1,
+        "direction_port": 2,
+        "trigger_port": 3,
+        "shutdown_port": 4,
+        "direction_latch_on_work": false,
+        "di3_only": true,
+        "repeat_di3_capture": true,
+        "direction_latch": false,
+        "capture_delay_ms": 0,
+        "trigger_edge": "rising",
+        "payload_format": "json",
+        "debounce_ms": 20,
+        "require_direction": true,
+        "require_work": false,
+        "external_hardware_capture": true,
+        "direction_poll_ms": 1
+      }
     },
     "continuous_inspection": {
       "enabled": false,

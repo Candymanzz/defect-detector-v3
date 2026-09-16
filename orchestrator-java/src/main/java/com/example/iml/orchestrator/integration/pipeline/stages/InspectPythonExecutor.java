@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -44,6 +45,25 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             List<? extends BinaryRpcSupervisor> pythonPool,
             Semaphore pythonSlots,
             AtomicInteger pythonRoundRobin
+    ) {
+        return apply(
+                state, cameraId, productType, detectorId, activeReference, pythonCfg,
+                pythonPool, pythonSlots, pythonRoundRobin, -1
+        );
+    }
+
+    @Override
+    public PipelineState apply(
+            PipelineState state,
+            int cameraId,
+            String productType,
+            String detectorId,
+            ReferenceSnapshot activeReference,
+            Map<String, Object> pythonCfg,
+            List<? extends BinaryRpcSupervisor> pythonPool,
+            Semaphore pythonSlots,
+            AtomicInteger pythonRoundRobin,
+            int phaseId
     ) {
         if (pythonPool.isEmpty()) {
             return state;
@@ -109,7 +129,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     state.geometryMs()
             );
         }
-        BinaryRpcSupervisor python = pythonPool.get(Math.floorMod(pythonRoundRobin.getAndIncrement(), pythonPool.size()));
+        BinaryRpcSupervisor python = selectPython(pythonPool, pythonRoundRobin, phaseId);
         try {
             long t0 = System.nanoTime();
             Map<String, Object> pyHeader;
@@ -194,23 +214,34 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         }
     }
 
-    /**
-     * Knobs UI и geometry-runtime живут под YAML {@code analysis_profile} камеры,
-     * а {@code product_type} может быть типом эталона — не подменять одно другим.
-     */
-    void applyAnalysisProfileAndRuntimeOverrides(
-            Map<String, Object> pyHeader,
-            int cameraId,
-            String productType,
-            Map<String, Object> pythonCfg
+    static BinaryRpcSupervisor selectPython(
+            List<? extends BinaryRpcSupervisor> pythonPool,
+            AtomicInteger roundRobin,
+            int phaseId
     ) {
-        String analysisProfile = CameraAnalysisProfiles.resolve(cameraId, productType);
-        if (analysisProfile != null && !analysisProfile.isBlank()) {
-            pyHeader.put("analysis_profile", analysisProfile);
+        if (phaseId < 0) {
+            return pythonPool.get(Math.floorMod(roundRobin.getAndIncrement(), pythonPool.size()));
         }
-        if (inspectionRuntimeConfig != null) {
-            inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
+        List<String> serverUrls = pythonPool.stream()
+                .filter(AnalisSurfaceHttpBinaryRpcSupervisor.class::isInstance)
+                .map(AnalisSurfaceHttpBinaryRpcSupervisor.class::cast)
+                .map(AnalisSurfaceHttpBinaryRpcSupervisor::baseUrl)
+                .distinct()
+                .toList();
+        if (serverUrls.size() < 2) {
+            return pythonPool.get(Math.floorMod(roundRobin.getAndIncrement(), pythonPool.size()));
         }
+        String targetUrl = serverUrls.get(Math.floorMod(phaseId, serverUrls.size()));
+        List<? extends BinaryRpcSupervisor> phasePool = pythonPool.stream()
+                .filter(p -> p instanceof AnalisSurfaceHttpBinaryRpcSupervisor http
+                        && targetUrl.equals(http.baseUrl()))
+                .toList();
+        if (phasePool.isEmpty()) {
+            return pythonPool.get(Math.floorMod(roundRobin.getAndIncrement(), pythonPool.size()));
+        }
+        int ticket = roundRobin.getAndIncrement();
+        int clientIndex = Math.floorDiv(Math.floorMod(ticket, Integer.MAX_VALUE), serverUrls.size());
+        return phasePool.get(Math.floorMod(clientIndex, phasePool.size()));
     }
 
     private static boolean hasValidCaptureFrame(PipelineState state) {

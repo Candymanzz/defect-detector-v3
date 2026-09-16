@@ -8,8 +8,21 @@ public record InspectionTriggerEvent(
         long sequence,
         Instant receivedAt,
         String source,
-        boolean broadcast
+        boolean broadcast,
+        int phaseId,
+        long parentCycleId,
+        long rawTriggerSequence
 ) {
+    public InspectionTriggerEvent(
+            int cameraId,
+            long sequence,
+            Instant receivedAt,
+            String source,
+            boolean broadcast
+    ) {
+        this(cameraId, sequence, receivedAt, source, broadcast, 0, sequence, sequence);
+    }
+
     public static InspectionTriggerEvent forCamera(int cameraId, String source) {
         return new InspectionTriggerEvent(cameraId, 0L, Instant.now(), source, false);
     }
@@ -20,5 +33,22 @@ public record InspectionTriggerEvent(
 
     public static InspectionTriggerEvent of(int cameraId, String source) {
         return forCamera(cameraId, source);
+    }
+
+    public InspectionTriggerEvent withTriggerIdentity(
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
+    ) {
+        return new InspectionTriggerEvent(
+                cameraId,
+                sequence,
+                receivedAt,
+                source,
+                broadcast,
+                phaseId,
+                parentCycleId,
+                rawTriggerSequence
+        );
     }
 }

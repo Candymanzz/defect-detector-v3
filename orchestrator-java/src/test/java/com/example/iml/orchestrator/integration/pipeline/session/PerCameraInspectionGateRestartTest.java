@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,13 +37,38 @@ final class PerCameraInspectionGateRestartTest {
     }
 
     @Test
-    void suppressSoftStopPreviewIsOffByDefaultAndToggleable() {
-        PerCameraInspectionGate gate = gate(false);
-        assertFalse(gate.suppressSoftStopPreview());
-        gate.setSuppressSoftStopPreview(true);
-        assertTrue(gate.suppressSoftStopPreview());
-        gate.setSuppressSoftStopPreview(false);
-        assertFalse(gate.suppressSoftStopPreview());
+    void phaseOneBlocksUntilPhaseZeroCaptureEnds() throws Exception {
+        PerCameraInspectionGate gate = gate(true);
+
+        assertEquals(
+                PerCameraInspectionGate.BeginResult.STARTED,
+                gate.tryBeginInspection(0, 55L, 0, 100L)
+        );
+
+        CountDownLatch phaseOneStarted = new CountDownLatch(1);
+        Thread phaseOne = new Thread(() -> {
+            assertEquals(
+                    PerCameraInspectionGate.BeginResult.STARTED,
+                    gate.tryBeginInspection(0, 55L, 1, 101L)
+            );
+            phaseOneStarted.countDown();
+        }, "phase-one-begin");
+        phaseOne.start();
+
+        assertFalse(phaseOneStarted.await(80, TimeUnit.MILLISECONDS));
+
+        gate.endInspection(0, 55L, 0);
+        assertTrue(phaseOneStarted.await(2, TimeUnit.SECONDS));
+        phaseOne.join(TimeUnit.SECONDS.toMillis(2));
+
+        assertEquals(
+                PerCameraInspectionGate.BeginResult.IN_FLIGHT,
+                gate.tryBeginInspection(0, 55L, 1, 101L)
+        );
+
+        gate.endInspection(0, 55L, 1);
+        assertFalse(gate.isInspectionInFlight(0));
+        assertTrue(gate.awaitAllIdle(10));
     }
 
     private static PerCameraInspectionGate gate(boolean enabled) {

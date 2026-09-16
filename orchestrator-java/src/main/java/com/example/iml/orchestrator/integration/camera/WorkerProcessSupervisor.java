@@ -63,8 +63,8 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
 
     @Override
     public BinaryProtocol.Message command(Map<String, Object> header) throws IOException {
-        IOException lastError = null;
-        for (int attempt = 1; attempt <= 3; attempt++) {
+        IOException lastError;
+        for (int attempt = 1; true; attempt++) {
             ensureAlive();
             try {
                 BinaryProtocol.Message response = commandNoRetry(header);

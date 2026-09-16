@@ -25,6 +25,8 @@ public final class AnalisSurfaceClientWsSync {
         Map<String, Object> h = new LinkedHashMap<>();
         h.put("op", "sync_client_reference_bundle");
         h.put("product_type", snap.productType());
+        h.put("phase_id", snap.phaseId());
+        h.put("group_id", snap.groupId());
         h.put("heatmap_width", snap.heatmapWidth());
         h.put("heatmap_height", snap.heatmapHeight());
         h.put("active_reference_view_index", Math.max(0, Math.min(3, activeReferenceViewIndex)));

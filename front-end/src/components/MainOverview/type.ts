@@ -15,6 +15,17 @@ export type MainOverviewData = {
   cameraIds: number[];
 };
 
+export type InspectionProduct = {
+  key: string;
+  phaseId: number;
+  groupId: number;
+  cameraIds: number[];
+  triggerSequence?: number;
+  overallPass?: boolean;
+  serverTsMs?: number;
+  resultsByCameraId: Record<number, InspectResultPayload>;
+};
+
 export type InspectionControlState = {
   isEnabled: boolean;
   state: "idle" | "starting" | "stopping" | "error";
@@ -49,6 +60,9 @@ export type InspectionStatsGroup = {
 };
 
 export type ModalInspectionSnapshot = SelectedCamera & {
+  productKey?: string;
+  phaseId?: number;
+  groupId?: number;
   initialFrameId?: string;
   inspectResult?: InspectResultPayload;
   cameraImageUrl?: string;

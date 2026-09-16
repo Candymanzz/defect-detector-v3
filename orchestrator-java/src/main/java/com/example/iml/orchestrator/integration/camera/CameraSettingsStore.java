@@ -62,9 +62,7 @@ public final class CameraSettingsStore {
         }
         synchronized (lock) {
             Map<String, Object> current = byCamera.computeIfAbsent(cameraId, ignored -> new LinkedHashMap<>());
-            for (Map.Entry<String, Object> entry : patch.entrySet()) {
-                current.put(entry.getKey(), entry.getValue());
-            }
+            current.putAll(patch);
             persistLocked();
         }
     }

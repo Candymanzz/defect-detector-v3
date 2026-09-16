@@ -552,23 +552,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // Archive the frame JPEG immediately so a superseded publish still persists history.
                     // test-analyze must never rewrite the rolling archive slot used to pin the source frame.
                     if (!isLatestPublish(cameraId, publishSequence)) {
-                        if (!testAnalyze) {
-                            Path toArchive = archiveJpeg != null ? archiveJpeg : (hasCur ? currentJpeg : null);
-                            saveFrameArchiveImmediately(
-                                    cameraId,
-                                    frameId,
-                                    inspectionId,
-                                    productType,
-                                    detectorId,
-                                    decision,
-                                    toArchive,
-                                    null,
-                                    0,
-                                    0,
-                                    cap,
-                                    activeReference
-                            );
-                        }
+                        saveFrameArchiveImmediately(
+                                cameraId,
+                                frameId,
+                                inspectionId,
+                                cap,
+                                productType,
+                                detectorId,
+                                decision,
+                                hasCur ? currentJpeg : null,
+                                null,
+                                0,
+                                0
+                        );
                         return;
                     }
 
@@ -669,6 +665,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             cameraId,
                             frameId,
                             inspectionId,
+                            cap,
                             productType,
                             detectorId,
                             decision,
@@ -787,6 +784,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             int cameraId,
             long frameId,
             long inspectionId,
+            Map<String, Object> captureHeader,
             String productType,
             String detectorId,
             InspectionDecision decision,
@@ -811,6 +809,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 cameraId,
                 frameId,
                 inspectionId,
+                YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("phase_id"), 0),
+                YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("group_id"), -1),
                 productType,
                 detectorId,
                 decision,

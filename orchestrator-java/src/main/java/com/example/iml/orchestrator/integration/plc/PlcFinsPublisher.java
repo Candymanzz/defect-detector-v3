@@ -15,6 +15,9 @@ import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,11 +44,10 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private record PulseBitJob(
       PlcSignalDefinition signal,
       boolean activeValue,
-      long pulseMs,
       CompletableFuture<Void> future
   ) implements PlcJob {
-    PulseBitJob(PlcSignalDefinition signal, boolean activeValue, long pulseMs) {
-      this(signal, activeValue, pulseMs, null);
+    PulseBitJob(PlcSignalDefinition signal, boolean activeValue) {
+      this(signal, activeValue, null);
     }
   }
 
@@ -73,6 +75,8 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private final OmronFinsClient client;
   private final BlockingQueue<PlcJob> queue;
   private final Thread worker;
+  private final ExecutorService pulseExecutor;
+  private final ConcurrentHashMap<String, Object> signalLocks = new ConcurrentHashMap<>();
   private final AtomicBoolean running = new AtomicBoolean(true);
   private final AtomicLong droppedJobs = new AtomicLong();
   private final java.util.concurrent.ConcurrentHashMap<String, Boolean> lastSignalValues =
@@ -91,6 +95,15 @@ public final class PlcFinsPublisher implements AutoCloseable {
     this.queue = new ArrayBlockingQueue<>(config.queueSize());
     this.worker = new Thread(this::runLoop, "plc-fins-publisher");
     this.worker.setDaemon(true);
+    int pulseThreads = Math.max(1, config.pulseThreads());
+    this.pulseExecutor = Executors.newFixedThreadPool(
+        pulseThreads,
+        runnable -> {
+          Thread thread = new Thread(runnable, "plc-fins-pulse");
+          thread.setDaemon(true);
+          return thread;
+        }
+    );
     this.worker.start();
   }
 
@@ -142,22 +155,11 @@ public final class PlcFinsPublisher implements AutoCloseable {
     PlcSignalDefinition signal = signalOpt.get();
     CompletableFuture<Void> edge = awaitEdge ? new CompletableFuture<>() : null;
     if (result.overallPass()) {
-      if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
-        edge.completeExceptionally(new IOException("plc fins queue full"));
-      }
-    } else if (holdRejectUntilPass && config.pulseMs() > 0) {
-      Boolean last = lastSignalValues.get(signal.name());
-      if (Boolean.TRUE.equals(last)) {
-        if (edge != null) {
-          edge.complete(null);
-        }
-      } else if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
-        edge.completeExceptionally(new IOException("plc fins queue full"));
-      }
-    } else if (config.pulseMs() > 0) {
-      if (!enqueue(new PulseBitJob(signal, true, config.pulseMs(), edge)) && edge != null) {
-        edge.completeExceptionally(new IOException("plc fins queue full"));
-      }
+      enqueue(new WriteBitJob(signalOpt.get(), false));
+      return;
+    }
+    if (config.pulseMs() > 0) {
+      enqueue(new PulseBitJob(signalOpt.get(), true));
     } else {
       if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
@@ -235,7 +237,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
     CompletableFuture<Void> future = new CompletableFuture<>();
     boolean enqueued;
     if (pulse && value && config.pulseMs() > 0) {
-      enqueued = enqueue(new PulseBitJob(signal, true, config.pulseMs(), future));
+      enqueued = enqueue(new PulseBitJob(signal, true, future));
     } else {
       enqueued = enqueue(new WriteBitJob(signal, value, future));
     }
@@ -354,7 +356,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private void processJob(PlcJob job) throws IOException {
     if (job instanceof WriteBitJob write) {
       try {
-        writeBit(write.signal(), write.value());
+        writeBitUnderSignalLock(write.signal(), write.value());
         if (write.future() != null) {
           write.future().complete(null);
         }
@@ -368,33 +370,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
       return;
     }
     if (job instanceof PulseBitJob pulse) {
-      try {
-        // Длительность всегда от момента записи true — не от enqueue.
-        // Иначе второй pulse в очереди (reject_line_2 после reject_line_1) сжимается до ~0 ms.
-        writeBit(pulse.signal(), pulse.activeValue());
-        // Фронт уже на ПЛК — отпускаем awaitEdge до sleep/сброса.
-        if (pulse.future() != null) {
-          pulse.future().complete(null);
-        }
-        long waitMs = Math.max(0L, pulse.pulseMs());
-        if (waitMs > 0) {
-          try {
-            Thread.sleep(waitMs);
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return;
-          }
-        }
-        writeBit(pulse.signal(), false);
-      } catch (Exception e) {
-        if (pulse.future() != null && !pulse.future().isDone()) {
-          pulse.future().completeExceptionally(e);
-        } else if (e instanceof IOException io) {
-          throw io;
-        } else {
-          throw new IOException(e);
-        }
-      }
+      pulseExecutor.submit(() -> runPulse(pulse));
       return;
     }
     if (job instanceof ReadWordsJob read) {
@@ -415,6 +391,44 @@ public final class PlcFinsPublisher implements AutoCloseable {
     }
   }
 
+  private Object lockForSignal(String signalName) {
+    return signalLocks.computeIfAbsent(signalName, ignored -> new Object());
+  }
+
+  private void writeBitUnderSignalLock(PlcSignalDefinition signal, boolean value) throws IOException {
+    synchronized (lockForSignal(signal.name())) {
+      writeBit(signal, value);
+    }
+  }
+
+  private void runPulse(PulseBitJob pulse) {
+    PlcSignalDefinition signal = pulse.signal();
+    synchronized (lockForSignal(signal.name())) {
+      try {
+        writeBit(signal, pulse.activeValue());
+        int pulseMs = config.pulseMs();
+        if (pulseMs > 0) {
+          Thread.sleep(pulseMs);
+        }
+        writeBit(signal, false);
+        if (pulse.future() != null) {
+          pulse.future().complete(null);
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        if (pulse.future() != null) {
+          pulse.future().completeExceptionally(e);
+        }
+      } catch (Exception e) {
+        if (pulse.future() != null) {
+          pulse.future().completeExceptionally(e);
+        } else {
+          log.warn("plc fins pulse failed signal={}: {}", signal.name(), e.getMessage());
+        }
+      }
+    }
+  }
+
   private void writeBit(PlcSignalDefinition signal, boolean value) throws IOException {
     client.signals().writeBit(signal.area(), signal.address(), value, signal.name());
     lastSignalValues.put(signal.name(), value);
@@ -432,8 +446,16 @@ public final class PlcFinsPublisher implements AutoCloseable {
   public void close() {
     running.set(false);
     worker.interrupt();
+    pulseExecutor.shutdownNow();
     try {
       worker.join(1000L);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    try {
+      if (!pulseExecutor.awaitTermination(1500L, TimeUnit.MILLISECONDS)) {
+        log.debug("plc fins pulse executor still running at close");
+      }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }

@@ -65,6 +65,10 @@ class PlcRegisterMapLoaderTest {
     assertEquals(5, loaded.require("vision_fault").address().bit());
     assertEquals(6, loaded.require("reject_line_1").address().bit());
     assertEquals(7, loaded.require("reject_line_2").address().bit());
+    assertEquals(8, loaded.require("reject_line_3").address().bit());
+    assertEquals(9, loaded.require("reject_line_4").address().bit());
+    assertEquals("reject_line_3", loaded.rejectSignalForGroup(2).orElseThrow().name());
+    assertEquals("reject_line_4", loaded.rejectSignalForGroup(3).orElseThrow().name());
     assertEquals(240, loaded.require("alarm_reset").address().word());
     assertEquals(0, loaded.require("alarm_reset").address().bit());
     assertTrue(loaded.require("alarm_reset").writable());

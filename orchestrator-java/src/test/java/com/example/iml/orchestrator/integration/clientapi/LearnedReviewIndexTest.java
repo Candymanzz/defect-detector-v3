@@ -19,8 +19,9 @@ class LearnedReviewIndexTest {
 
     @Test
     void scopedProductTypeAppendsCameraOnce() {
-        assertEquals("bucket#cam=2", LearnedReviewIndex.scopedProductType("bucket", 2));
-        assertEquals("bucket#cam=2", LearnedReviewIndex.scopedProductType("bucket#cam=2", 9));
+        assertEquals("bucket#phase=0#cam=2", LearnedReviewIndex.scopedProductType("bucket", 2));
+        assertEquals("bucket#phase=0#cam=9", LearnedReviewIndex.scopedProductType("bucket#cam=2", 9));
+        assertEquals("bucket#phase=1#cam=2", LearnedReviewIndex.scopedProductType("bucket#phase=1#cam=9", 1, 2));
         assertEquals("bucket", LearnedReviewIndex.scopedProductType("bucket", null));
     }
 }

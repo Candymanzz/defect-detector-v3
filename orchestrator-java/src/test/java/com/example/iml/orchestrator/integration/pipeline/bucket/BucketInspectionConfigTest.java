@@ -111,6 +111,47 @@ class BucketInspectionConfigTest {
     }
 
     @Test
+    void parsesPhasesAndAllowsCameraReuseAcrossPhases() {
+        BucketInspectionConfig config = BucketInspectionConfig.parse(
+                Map.of("inspection_bucket", Map.of(
+                        "enabled", true,
+                        "phases", List.of(
+                                Map.of("id", 0, "groups", List.of(
+                                        Map.of("id", 0, "camera_ids", List.of(0, 1)),
+                                        Map.of("id", 1, "camera_ids", List.of(2, 3))
+                                )),
+                                Map.of("id", 1, "groups", List.of(
+                                        Map.of("id", 2, "camera_ids", List.of(0, 1)),
+                                        Map.of("id", 3, "camera_ids", List.of(2, 3))
+                                ))
+                        )
+                )),
+                Set.of(0, 1, 2, 3)
+        );
+
+        assertEquals(4, config.groups().size());
+        assertEquals(new BucketGroup(1, 2, List.of(0, 1)), config.groups().get(2));
+        assertEquals(List.of(0, 1, 2, 3), config.allCameraIds());
+    }
+
+    @Test
+    void rejectsCameraReuseWithinOnePhase() {
+        assertThrows(
+                IllegalStateException.class,
+                () -> BucketInspectionConfig.parse(
+                        Map.of("inspection_bucket", Map.of(
+                                "enabled", true,
+                                "phases", List.of(Map.of("id", 0, "groups", List.of(
+                                        Map.of("id", 0, "camera_ids", List.of(0, 1)),
+                                        Map.of("id", 1, "camera_ids", List.of(1, 2))
+                                )))
+                        )),
+                        Set.of(0, 1, 2)
+                )
+        );
+    }
+
+    @Test
     void failsWhenNotEnoughCamerasForPresetMode() {
         assertThrows(
                 IllegalStateException.class,

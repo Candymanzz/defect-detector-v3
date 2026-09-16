@@ -56,11 +56,11 @@ class PipelineReferenceRegistryTest {
         assertEquals(2, cam0.header().get("joint_camera_id"));
         assertEquals(7, cam7.header().get("joint_camera_id"));
 
-        assertEquals("/iml_ref_cam0", cam0.header().get("shm_name"));
-        assertEquals("/iml_ref_cam7", cam7.header().get("shm_name"));
+        assertEquals("/iml_ref_phase0_cam0", cam0.header().get("shm_name"));
+        assertEquals("/iml_ref_phase0_cam7", cam7.header().get("shm_name"));
         assertEquals(0L, ((Number) cam0.header().get("shm_offset")).longValue());
-        assertTrue(Files.isRegularFile(FrameJpegWriter.imlShmFilePath("iml_ref_cam0")));
-        assertTrue(Files.isRegularFile(FrameJpegWriter.imlShmFilePath("iml_ref_cam7")));
+        assertTrue(Files.isRegularFile(FrameJpegWriter.imlShmFilePath("iml_ref_phase0_cam0")));
+        assertTrue(Files.isRegularFile(FrameJpegWriter.imlShmFilePath("iml_ref_phase0_cam7")));
 
         assertNotNull(cam3.header().get("interest_polygon_norm"));
         assertNotNull(cam3.header().get("joint_roi_norm"));
@@ -71,6 +71,26 @@ class PipelineReferenceRegistryTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> jointNormBucketB = (Map<String, Object>) cam7.header().get("joint_roi_norm");
         assertNotSame(jointNormBucketA, jointNormBucketB);
+    }
+
+    @Test
+    void phaseOneDoesNotOverwritePhaseZeroForSameCamera() throws Exception {
+        PipelineReferenceRegistry registry = new PipelineReferenceRegistry();
+        ReferenceBundleSnapshot phase0 = bucketSnapshot(0, 2, "phase0");
+        ReferenceBundleSnapshot legacyPhase1 = bucketSnapshot(0, 2, "phase1");
+        ReferenceBundleSnapshot phase1 = new ReferenceBundleSnapshot(
+                legacyPhase1.productType(), 1, 2, legacyPhase1.views(), legacyPhase1.jointViewIndex(),
+                legacyPhase1.heatmapWidth(), legacyPhase1.heatmapHeight(), legacyPhase1.fpZones(),
+                legacyPhase1.acceptedAtEpochMs()
+        );
+
+        registry.applyClientBundle(LogManager.getLogger(getClass()), phase0, id -> "det-" + id, List.of(), null);
+        registry.applyClientBundle(LogManager.getLogger(getClass()), phase1, id -> "det-" + id, List.of(), null);
+
+        assertEquals("/iml_ref_phase0_cam0", registry.get(0, 0).header().get("shm_name"));
+        assertEquals("/iml_ref_phase1_cam0", registry.get(1, 0).header().get("shm_name"));
+        assertEquals(registry.get(0, 0), registry.get(0));
+        assertEquals("product-0#phase=1#cam=0", registry.get(1, 0).productType());
     }
 
     private static ReferenceBundleSnapshot bucketSnapshot(int firstCameraId, int jointCameraId, String shmPrefix)

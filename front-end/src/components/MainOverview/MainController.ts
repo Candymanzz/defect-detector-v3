@@ -9,6 +9,7 @@ import type {
   CameraImageUrlsById,
   InspectionControlState,
   InspectionHistoryItem,
+  InspectionProduct,
   MainOverviewData,
   ModalInspectionSnapshot,
   SelectedCamera,
@@ -29,6 +30,22 @@ export const FALLBACK_CAMERA_IDS = Array.from(
   { length: CAMERAS_PER_OBJECT * FALLBACK_OBJECT_COUNT },
   (_, index) => index,
 );
+
+export function createDefaultInspectionProducts(cameraIds: number[]): InspectionProduct[] {
+  const cameraGroups = chunkItems(cameraIds, CAMERAS_PER_OBJECT).slice(0, FALLBACK_OBJECT_COUNT);
+  return [0, 1].flatMap((phaseId) =>
+    cameraGroups.map((groupCameraIds, cameraSetIndex) => {
+        const groupId = cameraSetIndex + phaseId * FALLBACK_OBJECT_COUNT;
+        return {
+          key: `${phaseId}:${groupId}`,
+          phaseId,
+          groupId,
+          cameraIds: groupCameraIds,
+          resultsByCameraId: {},
+        };
+      }),
+  );
+}
 export async function loadMainOverviewData(): Promise<MainOverviewData> {
   const backendCameraIds = await loadBackendCameraIds();
 
@@ -148,6 +165,7 @@ export function resolveCardInspectImageUrl(
 
 export function createModalInspectionSnapshot(
   camera: SelectedCamera,
+  productContext: { productKey: string; phaseId: number; groupId: number } | undefined,
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
   previewFrameId: string | undefined,
@@ -163,10 +181,11 @@ export function createModalInspectionSnapshot(
     : undefined;
   const matchingPreviewImageUrl =
     snapshotResult && previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
-  const referenceImage = getReferenceImage(camera.cameraId);
+  const referenceImage = getReferenceImage(camera.cameraId, productContext?.phaseId, productContext?.groupId);
 
   return {
     ...camera,
+    ...productContext,
     initialFrameId: snapshotResult?.frame_id,
     inspectResult: snapshotResult,
     cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl,
@@ -314,11 +333,15 @@ export type ArchivedInspectionHistoryLoadResult = {
   failedCameraIds: number[];
 };
 
-export async function loadArchivedInspectionHistory(cameraIds: number[]): Promise<ArchivedInspectionHistoryLoadResult> {
+export async function loadArchivedInspectionHistory(
+  cameraIds: number[],
+  phaseId?: number,
+  groupId?: number,
+): Promise<ArchivedInspectionHistoryLoadResult> {
   const histories = await Promise.all(
     cameraIds.map(async (cameraId) => {
       try {
-        const response = await orchestratorApi.getFrameArchiveHistory(cameraId);
+        const response = await orchestratorApi.getFrameArchiveHistory(cameraId, phaseId, groupId);
         setInspectionHistoryLimit(response.max_frames_per_camera);
         const frames = await Promise.all(response.frames.map((frame) => enrichArchivedFrameHeatmapSize(frame)));
         return {
@@ -377,6 +400,8 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
   const heatmapHeight = frame.heatmap_height ?? 0;
   return {
     camera_id: cameraId,
+    phase_id: frame.phase_id ?? 0,
+    group_id: frame.group_id ?? -1,
     frame_id: frame.frame_id,
     inspection_id: frame.inspection_id,
     session_state: "READY",
@@ -617,4 +642,11 @@ function createCameraCardData(
 
 function getObjectName(index: number) {
   return `Объект ${Math.floor(index / CAMERAS_PER_OBJECT) + 1}`;
+}
+
+function chunkItems<T>(items: T[], chunkSize: number) {
+  return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
+    const startIndex = groupIndex * chunkSize;
+    return items.slice(startIndex, startIndex + chunkSize);
+  });
 }

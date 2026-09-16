@@ -69,9 +69,9 @@ public final class KopcheniHttpProxy {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            sendJsonError(ex, 502, "kopcheni proxy interrupted");
+            sendJsonError(ex, "kopcheni proxy interrupted");
         } catch (Exception e) {
-            sendJsonError(ex, 502, "kopcheni proxy: " + e.getMessage());
+            sendJsonError(ex, "kopcheni proxy: " + e.getMessage());
         }
     }
 
@@ -90,12 +90,12 @@ public final class KopcheniHttpProxy {
         }
     }
 
-    private static void sendJsonError(HttpExchange ex, int code, String msg) throws IOException {
+    private static void sendJsonError(HttpExchange ex, String msg) throws IOException {
         ex.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         String json = "{\"error\":\"" + msg.replace("\"", "'") + "\"}";
         byte[] b = json.getBytes(StandardCharsets.UTF_8);
-        ex.sendResponseHeaders(code, b.length);
+        ex.sendResponseHeaders(502, b.length);
         try (var os = ex.getResponseBody()) {
             os.write(b);
         }

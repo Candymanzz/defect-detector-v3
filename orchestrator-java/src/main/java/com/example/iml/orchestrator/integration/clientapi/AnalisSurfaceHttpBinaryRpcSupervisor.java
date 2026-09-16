@@ -270,7 +270,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             );
         }
         int cameraId = YamlScalars.toInt(view.get("camera_id"), YamlScalars.toInt(header.get("camera_id"), -1));
-        String scopedProductType = scopedProductType(productType, cameraId);
+        int phaseId = YamlScalars.toInt(header.get("phase_id"), 0);
+        String scopedProductType = scopedProductType(productType, phaseId, cameraId);
         Map<String, Object> refHdr = new LinkedHashMap<>(view);
         refHdr.put("product_type", scopedProductType);
         refHdr.put("camera_id", cameraId);
@@ -344,7 +345,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> findInterestPolygonNorm(Object polysObj, int index) {
         if (!(polysObj instanceof List<?> polys)) {
             return null;
@@ -884,7 +884,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return body;
     }
 
-    @SuppressWarnings("unchecked")
     private static void appendAlgorithmParams(Map<String, Object> body, Map<String, Object> header) {
         Map<String, Object> params = new LinkedHashMap<>();
         Object explicit = header.get("algorithm_params");
@@ -1008,6 +1007,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         long frameId = YamlScalars.toLong(header.get("frame_id"), -1L);
         String productType = String.valueOf(header.getOrDefault("product_type", ""));
         LearnedReviewIndex.remember(
+                YamlScalars.toInt(header.get("phase_id"), extractScopeId(productType)),
                 cameraId,
                 frameId,
                 scopedProductType(productType, cameraId),
@@ -1101,7 +1101,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private void logHttpFailure(String path, Map<String, Object> requestBody, HttpResponse<byte[]> resp) {
         String req = safeJson(requestBody, 3000);
-        String body = safeResponseBody(resp.body(), 3000);
+        String body = safeResponseBody(resp.body());
         LOG.warn(
                 "{} HTTP POST {} failed status={} request={} response={}",
                 name,
@@ -1120,11 +1120,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
     }
 
-    private static String safeResponseBody(byte[] body, int maxLen) {
+    private static String safeResponseBody(byte[] body) {
         if (body == null || body.length == 0) {
             return "";
         }
-        return truncate(new String(body, StandardCharsets.UTF_8), maxLen);
+        return truncate(new String(body, StandardCharsets.UTF_8), 3000);
     }
 
     private static String truncate(String value, int maxLen) {
@@ -1160,23 +1160,31 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private static String runtimeKey(String productType, int cameraId) {
-        String normalizedProductType = productType == null ? "" : productType.trim();
-        if (normalizedProductType.contains("#cam=")) {
-            return normalizedProductType;
-        }
-        return normalizedProductType + "#cam=" + cameraId;
+        return scopedProductType(productType, cameraId);
     }
 
     private static String scopedProductType(String productType, int cameraId) {
+        int phaseId = extractScopeId(productType);
+        return scopedProductType(productType, phaseId, cameraId);
+    }
+
+    private static String scopedProductType(String productType, int phaseId, int cameraId) {
         String normalized = productType == null ? "" : productType.trim();
         if (normalized.isEmpty() || cameraId < 0) {
             return normalized;
         }
-        String suffix = "#cam=" + cameraId;
-        if (normalized.endsWith(suffix)) {
-            return normalized;
+        String base = normalized.replaceAll("#phase=\\d+", "").replaceAll("#cam=\\d+", "");
+        return base + "#phase=" + Math.max(0, phaseId) + "#cam=" + cameraId;
+    }
+
+    private static int extractScopeId(String productType) {
+        if (productType == null) {
+            return 0;
         }
-        return normalized + suffix;
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("#" + java.util.regex.Pattern.quote("phase") + "=(\\d+)")
+                .matcher(productType);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : 0;
     }
 
     private static String resolveAnalysisProfile(Map<String, Object> header, int cameraId) {

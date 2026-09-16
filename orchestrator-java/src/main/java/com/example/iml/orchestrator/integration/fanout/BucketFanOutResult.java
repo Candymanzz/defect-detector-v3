@@ -11,6 +11,32 @@ public record BucketFanOutResult(
         long triggerSequence,
         boolean overallPass,
         List<Integer> bucketCameraIds,
-        Map<Integer, InspectionDecision> frameDecisions
+        Map<Integer, InspectionDecision> frameDecisions,
+        long parentCycleId,
+        int phaseId,
+        long rawTriggerSequence
 ) {
+    public BucketFanOutResult(
+            int groupId,
+            long triggerSequence,
+            boolean overallPass,
+            List<Integer> bucketCameraIds,
+            Map<Integer, InspectionDecision> frameDecisions
+    ) {
+        this(
+                groupId,
+                triggerSequence,
+                overallPass,
+                bucketCameraIds,
+                frameDecisions,
+                triggerSequence,
+                0,
+                triggerSequence
+        );
+    }
+
+    public BucketFanOutResult {
+        bucketCameraIds = bucketCameraIds.stream().sorted().toList();
+        frameDecisions = Map.copyOf(frameDecisions);
+    }
 }

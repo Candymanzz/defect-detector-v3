@@ -8,7 +8,9 @@ public class IoCaptureGateTests
         bool requireDirection = true,
         bool directionLatch = true,
         bool disarmOnWorkLow = false,
-        int workPort = 1) =>
+        int workPort = 1,
+        bool repeatDi3Capture = false,
+        int maxDi3CapturesPerDi2Window = 0) =>
         new(new IoCaptureOptions
         {
             Enabled = true,
@@ -18,7 +20,9 @@ public class IoCaptureGateTests
             DisarmOnWorkLow = disarmOnWorkLow,
             RequireDirection = requireDirection,
             DirectionLatch = directionLatch,
-            InitialDirection = "forward"
+            InitialDirection = "forward",
+            RepeatDi3Capture = repeatDi3Capture,
+            MaxDi3CapturesPerDi2Window = maxDi3CapturesPerDi2Window
         });
 
     [Fact]
@@ -145,17 +149,25 @@ public class IoCaptureGateTests
     }
 
     [Fact]
-    public void Di2High_SecondDi3IsIdle()
+    public void Di2High_SecondDi3IsIdleWhenSingleCapturePerWindow()
     {
         var gate = CreateGate(directionLatch: false);
         Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
-        // DI2 ещё 1 — повторный DI3 холостой.
         Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
-        // DI2↓ открывает новое окно на следующем DI2↑.
         gate.Evaluate(2, false, risingEdge: false);
         Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+    }
+
+    [Fact]
+    public void Di2High_AllowsTwoDi3WhenRepeatEnabled()
+    {
+        var gate = CreateGate(directionLatch: false, repeatDi3Capture: true);
+        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
     }
 
     [Fact]

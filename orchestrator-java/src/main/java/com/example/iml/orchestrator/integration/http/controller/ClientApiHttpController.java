@@ -555,14 +555,16 @@ public final class ClientApiHttpController implements HttpController {
         Long frameId = parseLongId(first(body, "frameId", "frame_id"));
         String productType = stringId(first(body, "productType", "product_type"));
         Integer cameraId = parseIntId(first(body, "cameraId", "camera_id"));
+        Integer phaseId = parseIntId(first(body, "phaseId", "phase_id"));
+        int resolvedPhaseId = phaseId == null ? 0 : Math.max(0, phaseId);
         String learnedReviewId = stringId(first(body, "learnedReviewId", "learned_review_id"));
         if (learnedReviewId == null && (frameId == null || productType == null)) {
             HttpResponses.sendJsonError(ctx, 400, "body.frameId and body.productType required");
             return;
         }
         if (learnedReviewId == null) {
-            String scoped = LearnedReviewIndex.scopedProductType(productType, cameraId);
-            learnedReviewId = LearnedReviewIndex.lookup(cameraId, frameId, scoped);
+            String scoped = LearnedReviewIndex.scopedProductType(productType, resolvedPhaseId, cameraId);
+            learnedReviewId = LearnedReviewIndex.lookup(resolvedPhaseId, cameraId, frameId, scoped);
             if (learnedReviewId == null) {
                 learnedReviewId = LearnedReviewIndex.lookup(cameraId, frameId, productType);
             }
@@ -591,6 +593,7 @@ public final class ClientApiHttpController implements HttpController {
 
     private String rewriteLearningQuery(String query) {
         Integer cameraId = null;
+        int phaseId = 0;
         String productType = null;
         StringBuilder kept = new StringBuilder();
         for (String part : query.split("&")) {
@@ -604,6 +607,11 @@ public final class ClientApiHttpController implements HttpController {
                 cameraId = parseIntId(value);
                 continue;
             }
+            if ("phaseId".equals(key) || "phase_id".equals(key)) {
+                Integer parsed = parseIntId(value);
+                phaseId = parsed == null ? 0 : Math.max(0, parsed);
+                continue;
+            }
             if ("productType".equals(key) || "product_type".equals(key)) {
                 productType = value;
                 continue;
@@ -614,7 +622,7 @@ public final class ClientApiHttpController implements HttpController {
             kept.append(part);
         }
         if (productType != null && !productType.isBlank()) {
-            String scoped = LearnedReviewIndex.scopedProductType(productType, cameraId);
+            String scoped = LearnedReviewIndex.scopedProductType(productType, phaseId, cameraId);
             if (!kept.isEmpty()) {
                 kept.append('&');
             }

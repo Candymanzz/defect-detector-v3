@@ -216,6 +216,9 @@ public final class WsOutboundMessenger {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("group_id", result.groupId());
         payload.put("trigger_sequence", result.triggerSequence());
+        payload.put("parent_cycle_id", result.parentCycleId());
+        payload.put("phase_id", result.phaseId());
+        payload.put("raw_trigger_sequence", result.rawTriggerSequence());
         payload.put("overall_pass", result.overallPass());
         ArrayNode cameraIds = JSON.createArrayNode();
         for (Integer cameraId : result.bucketCameraIds()) {
@@ -223,7 +226,9 @@ public final class WsOutboundMessenger {
         }
         payload.set("bucket_camera_ids", cameraIds);
         ArrayNode frames = JSON.createArrayNode();
-        for (Map.Entry<Integer, InspectionDecision> entry : result.frameDecisions().entrySet()) {
+        for (Map.Entry<Integer, InspectionDecision> entry : result.frameDecisions().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .toList()) {
             InspectionDecision decision = entry.getValue();
             if (decision == null) {
                 continue;
@@ -508,6 +513,8 @@ public final class WsOutboundMessenger {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("camera_id", cameraId);
         payload.put("frame_id", Long.toString(frameIdLong));
+        payload.put("phase_id", YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("phase_id"), 0));
+        payload.put("group_id", YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("group_id"), -1));
         payload.put("session_state", sessionState.get().name());
         payload.set("current", current);
         if (httpPath != null && !httpPath.isBlank()) {

@@ -429,39 +429,7 @@ public final class UiTestAnalyzeService {
             String shmBase = "iml_uitest_cam" + cameraId + "_" + jobId.substring(0, Math.min(8, jobId.length()));
             JpegBgrShmWriter.WrittenFrame written = JpegBgrShmWriter.write(jpegBytes, cameraId, frameId, shmBase);
             shmPath = written.shmPath();
-            Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
-            captureHeader.put("test_analyze", true);
-            captureHeader.put("test_analyze_job_id", jobId);
-            if (pinId != null && !pinId.isBlank()) {
-                captureHeader.put("test_pin_id", pinId);
-            }
-            captureHeader.put("test_geometry_overrides", temporaryGeometry == null ? Map.of() : temporaryGeometry);
-            captureHeader.put("analysis_test_settings", temporaryAnalysis == null ? Map.of() : temporaryAnalysis);
-            captureHeader.put("pin_jpeg_sha256", pinSha);
-            if (previewHttpPath != null && !previewHttpPath.isBlank()) {
-                captureHeader.put("http_path", previewHttpPath);
-            }
-            captureHeader.put("test_frame_file_path", jobJpegPath.toString());
-            captureHeader.put("test_frame_cache_key", cameraId + ":" + frameId);
-            if (previewHttpPath != null && !previewHttpPath.isBlank()) {
-                captureHeader.put("test_frame_image_url", previewHttpPath);
-            }
-            log.info(
-                    "ui test-analyze job jpeg jobId={} cam={} frame={} pinId={} bytes={} sha={} file_path={}",
-                    jobId,
-                    cameraId,
-                    frameId,
-                    pinId,
-                    jpegBytes.length,
-                    pinSha,
-                    jobJpegPath
-            );
-            BinaryProtocol.Message capture = new BinaryProtocol.Message(
-                    BinaryProtocol.MSG_RESPONSE,
-                    Map.copyOf(captureHeader),
-                    new byte[0]
-            );
-            PipelineState state = new PipelineState(capture, null, null, 0L, 0L, 0L);
+            PipelineState state = getPipelineState(previewHttpPath, written);
             String productType = ref.productType() == null ? "" : ref.productType();
             String detectorId = detectorByCamera.getOrDefault(cameraId, "v1");
 
@@ -564,69 +532,19 @@ public final class UiTestAnalyzeService {
         }
     }
 
-    private record IsolatedCapture(
-            PipelineState state,
-            Path shmPath,
-            String sourceShmName,
-            String isolatedShmName
-    ) {
-    }
-
-    /**
-     * Copy whatever buffer geometry left in the capture header into a job-unique SHM.
-     * Production positioning still uses {@code iml_pos_cam_{id}}; TEST python/sidecar must not.
-     */
-    private IsolatedCapture isolateTestCaptureShm(PipelineState state, int cameraId, String jobId) throws IOException {
-        Map<String, Object> header = new java.util.LinkedHashMap<>(state.capture().header());
-        String sourceName = String.valueOf(header.getOrDefault("shm_name", "")).trim();
-        int width = YamlScalars.toInt(header.get("width"), 0);
-        int height = YamlScalars.toInt(header.get("height"), 0);
-        int stride = YamlScalars.toInt(header.get("stride"), width * 3);
-        long offset = YamlScalars.toLong(header.get("shm_offset"), 0L);
-        if (sourceName.isEmpty() || width <= 0 || height <= 0 || stride < width * 3) {
-            throw new IOException("cannot isolate test capture: invalid shm geometry");
+    private static PipelineState getPipelineState(String previewHttpPath, JpegBgrShmWriter.WrittenFrame written) {
+        Map<String, Object> captureHeader = new java.util.LinkedHashMap<>(written.captureHeader());
+        captureHeader.put("test_analyze", true);
+        if (previewHttpPath != null && !previewHttpPath.isBlank()) {
+            captureHeader.put("http_path", previewHttpPath);
         }
-        long frameBytes = Math.multiplyExact((long) stride, (long) height);
-        String suffix = jobId.replace("-", "");
-        if (suffix.length() > 12) {
-            suffix = suffix.substring(0, 12);
-        }
-        String destBase = "iml_uitest_iso_cam" + cameraId + "_" + suffix;
-        Path isolatedPath = JpegBgrShmWriter.snapshotNamedBuffer(sourceName, destBase, offset, frameBytes);
-        String isolatedName = "/" + destBase;
-        header.put("original_shm_name", sourceName);
-        header.put("shm_name", isolatedName);
-        header.put("shm_offset", 0L);
-        header.put("ui_preview_shm_name", isolatedName);
         BinaryProtocol.Message capture = new BinaryProtocol.Message(
-                state.capture().type(),
-                Map.copyOf(header),
-                state.capture().payload() == null ? new byte[0] : state.capture().payload()
+                BinaryProtocol.MSG_RESPONSE,
+                Map.copyOf(captureHeader),
+                new byte[0]
         );
-        return new IsolatedCapture(
-                new PipelineState(capture, state.py(), state.geom(), state.captureMs(), state.pythonMs(), state.geometryMs()),
-                isolatedPath,
-                sourceName,
-                isolatedName
-        );
-    }
-
-    private static void scheduleShmDelete(Path toDelete) {
-        if (toDelete == null) {
-            return;
-        }
-        java.util.concurrent.CompletableFuture.runAsync(
-                () -> JpegBgrShmWriter.deleteQuietly(toDelete),
-                java.util.concurrent.CompletableFuture.delayedExecutor(
-                        90L,
-                        java.util.concurrent.TimeUnit.SECONDS
-                )
-        );
-    }
-
-    private boolean isSuperseded(int cameraId, long generation) {
-        AtomicLong latest = jobGenerationByCamera.get(cameraId);
-        return latest != null && latest.get() != generation;
+        PipelineState state = new PipelineState(capture, null, null, 0L, 0L, 0L);
+        return state;
     }
 
     private record ResolvedFrame(byte[] jpegBytes, long frameId, String previewHttpPath) {
@@ -775,8 +693,6 @@ public final class UiTestAnalyzeService {
             long frameId = identity.frameId();
             String httpPath = "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
             return new ResolvedFrame(bytes, frameId, httpPath);
-        } catch (AnalyzeException e) {
-            throw e;
         } catch (IOException e) {
             throw new AnalyzeException(404, "artifact frame not found: " + e.getMessage());
         }

@@ -114,7 +114,7 @@ function InspectionResultCard({
 }) {
   const result = item.inspectResult;
   const imageUrl = resolveInspectionImageUrl(result);
-  const referenceImageUrl = getReferenceImage(result.camera_id)?.imageUrl;
+  const referenceImageUrl = getReferenceImage(result.camera_id, result.phase_id, result.group_id)?.imageUrl;
   const comparisonImageUrl = referenceImageUrl ?? imageUrl;
   const heatmap = resolveInspectionHeatmap(result);
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {

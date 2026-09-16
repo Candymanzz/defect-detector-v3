@@ -4,7 +4,9 @@ import com.example.iml.orchestrator.integration.pipeline.bucket.BucketGroup;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerBus;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
+import com.example.iml.orchestrator.integration.trigger.TwoPhaseTriggerCorrelator;
 import com.example.iml.orchestrator.integration.trigger.config.IoInputDiscreteConfig;
+import com.example.iml.orchestrator.integration.trigger.config.TwoPhaseTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.gpio.LineDiscreteTriggerEvaluator;
 import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
@@ -16,6 +18,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -33,6 +36,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private final Logger log;
     private final UdpTriggerConfig udpConfig;
     private final IoInputDiscreteConfig ioInputConfig;
+    private final TwoPhaseTriggerConfig twoPhaseConfig;
+    private final TwoPhaseTriggerCorrelator twoPhaseCorrelator;
     private final InspectionTriggerBus bus;
     private final Runnable onLineWorkChanged;
     private final LineDiscreteTriggerEvaluator evaluator;
@@ -95,9 +100,33 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             List<BucketGroup> bucketGroups,
             ManualLineDirectionService manualLineDirection
     ) {
+        this(
+                log,
+                udpConfig,
+                ioInputConfig,
+                TwoPhaseTriggerConfig.defaults(),
+                bus,
+                onLineWorkChanged,
+                bucketGroups,
+                manualLineDirection
+        );
+    }
+
+    public IoInputMonitorUdpTriggerTransport(
+            Logger log,
+            UdpTriggerConfig udpConfig,
+            IoInputDiscreteConfig ioInputConfig,
+            TwoPhaseTriggerConfig twoPhaseConfig,
+            InspectionTriggerBus bus,
+            Runnable onLineWorkChanged,
+            List<BucketGroup> bucketGroups,
+            ManualLineDirectionService manualLineDirection
+    ) {
         this.log = log;
         this.udpConfig = udpConfig;
         this.ioInputConfig = ioInputConfig;
+        this.twoPhaseConfig = twoPhaseConfig == null ? TwoPhaseTriggerConfig.defaults() : twoPhaseConfig;
+        this.twoPhaseCorrelator = new TwoPhaseTriggerCorrelator(this.twoPhaseConfig);
         this.bus = bus;
         this.onLineWorkChanged = onLineWorkChanged == null ? () -> { } : onLineWorkChanged;
         this.bucketGroups = bucketGroups == null ? List.of() : List.copyOf(bucketGroups);
@@ -175,7 +204,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             socket = new DatagramSocket(new InetSocketAddress(bindAddress, udpConfig.bindPort()));
             socket.setReuseAddress(true);
             log.info(
-                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} shutdown_di={} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={}",
+                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} shutdown_di={} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={} two_phase={} expected_delay_ms={} tolerance_ms={}",
                     udpConfig.bindHost(),
                     udpConfig.bindPort(),
                     ioInputConfig.payloadFormat(),
@@ -195,7 +224,10 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     ioInputConfig.directionPollMs(),
                     ioInputConfig.captureDelayMs(),
                     ioInputConfig.debounceMs(),
-                    ioInputConfig.stubWorkActive()
+                    ioInputConfig.stubWorkActive(),
+                    twoPhaseConfig.enabled(),
+                    twoPhaseConfig.expectedDelayMs(),
+                    twoPhaseConfig.toleranceMs()
             );
             byte[] buffer = new byte[2048];
             while (running.get() && !socket.isClosed()) {
@@ -339,6 +371,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             if (ioInputConfig.directionLatch() && directionLatched) {
                 if (previousRaw != active) {
                     captureFiredThisDi2Window = false;
+                    twoPhaseCorrelator.resetDirectionWindow();
                     log.info(
                             "io_input_trigger DI2 idle {} -> {} (направление зафиксировано={})",
                             previousRaw ? 1 : 0,
@@ -366,6 +399,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             directionActive = mapped;
             if (previousMapped != mapped) {
                 captureFiredThisDi2Window = false;
+                twoPhaseCorrelator.resetDirectionWindow();
             }
             if (ioInputConfig.directionLatch() && mapped) {
                 directionLatched = true;
@@ -428,7 +462,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                                 "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
                                 directionSourceLabel()
                         );
-                    } else if (directionActive && captureFiredThisDi2Window) {
+                    } else if (!twoPhaseConfig.enabled() && directionActive && captureFiredThisDi2Window) {
                         log.info(
                                 "io_input_trigger skip DI3↑: холостой (уже сняли при DI2=1), source={}",
                                 directionSourceLabel()
@@ -691,7 +725,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (captureFiredThisPulse) {
             return;
         }
-        if (directionActive && captureFiredThisDi2Window) {
+        if (!twoPhaseConfig.enabled() && directionActive && captureFiredThisDi2Window) {
             log.info("io_input_trigger skip: холостой DI3 (уже сняли при DI2=1)");
             return;
         }
@@ -719,7 +753,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
-            if (directionActive) {
+            if (directionActive && !twoPhaseConfig.enabled()) {
                 captureFiredThisDi2Window = true;
             }
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
@@ -736,11 +770,23 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     private int publishLineCapture(List<Integer> targetCameras) {
-        if (ioInputConfig.externalHardwareCapture()) {
-            return bus.dispatchLineBroadcastWithoutPrefire("io_input", targetCameras);
+        return publishLineCapture(targetCameras, Instant.now());
+    }
+
+    int publishLineCapture(List<Integer> targetCameras, Instant receivedAt) {
+        long rawSequence = ioInputConfig.externalHardwareCapture()
+                ? bus.reserveLineBroadcastSequence("io_input")
+                : bus.prefireLineBroadcast("io_input", targetCameras);
+        TwoPhaseTriggerCorrelator.PhaseAssignment phase =
+                twoPhaseCorrelator.correlate(rawSequence, receivedAt);
+        if (phase == null) {
+            log.info(
+                    "io_input_trigger discard DI3 raw_sequence={}: already accepted two pulses in current DI2=1 window",
+                    rawSequence
+            );
+            return 0;
         }
-        long seq = bus.prefireLineBroadcast("io_input", targetCameras);
-        return bus.dispatchLineBroadcast("io_input", seq, targetCameras);
+        return bus.dispatchLineBroadcast("io_input", rawSequence, receivedAt, targetCameras, phase);
     }
 
     /**
@@ -811,7 +857,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             lastFireMs = now;
         }
         long triggerReceivedMs = System.currentTimeMillis();
-        int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
+        int published = twoPhaseConfig.enabled()
+                ? publishLineCapture(null)
+                : bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
         if (published > 0) {
             captureFiredThisPulse = true;
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
@@ -863,7 +911,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             }
             lastFireMs = now;
         }
-        int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
+        int published = twoPhaseConfig.enabled()
+                ? publishLineCapture(null)
+                : bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
         if (published > 0) {
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
             log.info("io_input_trigger line broadcast cameras={} dispatch_ms={}", published, dispatchMs);

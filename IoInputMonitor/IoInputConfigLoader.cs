@@ -184,6 +184,10 @@ public static class IoInputConfigLoader
             WorkPort = raw.WorkPort is >= 1 and <= 8 ? raw.WorkPort.Value : 1,
             DisarmOnWorkLow = raw.DisarmOnWorkLow ?? true,
             InitialDirection = string.IsNullOrWhiteSpace(raw.InitialDirection) ? "forward" : raw.InitialDirection.Trim(),
+            RepeatDi3Capture = raw.RepeatDi3Capture ?? false,
+            MaxDi3CapturesPerDi2Window = raw.MaxDi3CapturesPerDi2Window is >= 1 and <= 8
+                ? raw.MaxDi3CapturesPerDi2Window.Value
+                : 0,
             DirectionHttp = ParseDirectionHttp(raw.DirectionHttp)
         };
     }
@@ -405,6 +409,10 @@ public static class IoInputConfigLoader
         public bool? DisarmOnWorkLow { get; set; }
 
         public string? InitialDirection { get; set; }
+
+        public bool? RepeatDi3Capture { get; set; }
+
+        public int? MaxDi3CapturesPerDi2Window { get; set; }
 
         public IoDirectionHttpYaml? DirectionHttp { get; set; }
     }

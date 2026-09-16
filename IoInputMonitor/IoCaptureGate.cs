@@ -40,8 +40,9 @@ internal sealed class IoCaptureGate
     private bool _directionLatched;
     private bool _triggerActive;
     private bool _captureFiredThisPulse;
-    /// <summary>Один кадр на окно DI2=1: повторный DI3↑ при том же DI2=1 — холостой.</summary>
-    private bool _captureFiredThisDi2Window;
+    /// <summary>Сколько DI3↑ уже дали FireDo в текущем окне DI2=1.</summary>
+    private int _di3CapturesThisDi2Window;
+    private readonly int _maxDi3CapturesPerDi2Window;
 
     public IoCaptureGate(IoCaptureOptions options)
     {
@@ -52,6 +53,7 @@ internal sealed class IoCaptureGate
         _directionInvert = options.DirectionInvert;
         _requireDirection = options.RequireDirection;
         _directionLatch = options.DirectionLatch;
+        _maxDi3CapturesPerDi2Window = options.EffectiveMaxDi3CapturesPerDi2Window();
         _selectedDirection = ParseDirection(options.InitialDirection) ?? IoLineDirection.Forward;
     }
 
@@ -134,9 +136,9 @@ internal sealed class IoCaptureGate
                 _directionKnown = true;
                 bool nowHigh = MapDirection(active);
 
-                // Новое окно DI2=1 / конец окна — снова разрешаем один DI3.
+                // Новое окно DI2=1 / конец окна — снова принимаем DI3 (до max на окно).
                 if (prevHigh != nowHigh)
-                    _captureFiredThisDi2Window = false;
+                    _di3CapturesThisDi2Window = 0;
 
                 // После latch все смены DI2 — холостые (направление уже зафиксировано).
                 if (_directionLatch && _directionLatched)
@@ -164,16 +166,15 @@ internal sealed class IoCaptureGate
                 {
                     decision = IoCaptureDecision.SkipAlreadyFired;
                 }
-                else if (di2High && _captureFiredThisDi2Window)
+                else if (di2High && _di3CapturesThisDi2Window >= _maxDi3CapturesPerDi2Window)
                 {
-                    // DI2 ещё 1, а DI3 пришёл повторно — холостой проход.
                     decision = IoCaptureDecision.SkipAlreadyFired;
                 }
                 else
                 {
                     _captureFiredThisPulse = true;
                     if (di2High)
-                        _captureFiredThisDi2Window = true;
+                        _di3CapturesThisDi2Window++;
                     decision = IoCaptureDecision.FireDo;
                 }
             }
@@ -185,7 +186,7 @@ internal sealed class IoCaptureGate
 
             // DI3 Rising-only (короткий photoeye): Falling в Evaluate не приходит —
             // без сброса _triggerActive залипает HIGH и следующие DI3↑ = None (нет DO5).
-            // Окно DI2 (_captureFiredThisDi2Window) НЕ сбрасываем — иначе повторный DI3 при DI2=1 снова стреляет.
+            // Счётчик DI3 на окне DI2 (_di3CapturesThisDi2Window) НЕ сбрасываем здесь.
             if (risingEdge && active)
             {
                 _triggerActive = false;
@@ -204,7 +205,7 @@ internal sealed class IoCaptureGate
         _directionArmed = false;
         _directionLatched = false;
         _captureFiredThisPulse = false;
-        _captureFiredThisDi2Window = false;
+        _di3CapturesThisDi2Window = 0;
         return IoCaptureDecision.DirectionDisarmed;
     }
 
@@ -220,7 +221,8 @@ internal sealed class IoCaptureGate
         lock (_lock)
         {
             _captureFiredThisPulse = false;
-            _captureFiredThisDi2Window = false;
+            if (_di3CapturesThisDi2Window > 0)
+                _di3CapturesThisDi2Window--;
         }
     }
 
@@ -377,6 +379,24 @@ public sealed class IoCaptureOptions
 
     /// <summary>Начальный UI-ход (отображение); на DO не влияет.</summary>
     public string InitialDirection { get; set; } = "forward";
+
+    /// <summary>
+    /// Два DI3↑ при одном DI2=1 (two-phase на линии). Эквивалент max_di3_captures_per_di2_window=2.
+    /// </summary>
+    public bool RepeatDi3Capture { get; set; }
+
+    /// <summary>
+    /// Сколько DI3↑ дают FireDo+UDP, пока DI2=1. 0 — из RepeatDi3Capture (2) или 1.
+    /// </summary>
+    public int MaxDi3CapturesPerDi2Window { get; set; }
+
+    public int EffectiveMaxDi3CapturesPerDi2Window()
+    {
+        if (MaxDi3CapturesPerDi2Window > 0)
+            return Math.Clamp(MaxDi3CapturesPerDi2Window, 1, 8);
+
+        return RepeatDi3Capture ? 2 : 1;
+    }
 
     public IoDirectionHttpOptions DirectionHttp { get; set; } = new();
 }

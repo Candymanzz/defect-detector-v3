@@ -77,7 +77,7 @@ export function StatusCard({
 
       <div className="camera-card__frame-ids">
         <span>№ предпросмотра: {currentFrameId ?? "-"}</span>
-        <span>№ инспекции: {inspectionFrameId ?? "-"}</span>
+        {inspectionFrameId != null && <span>№ инспекции: {inspectionFrameId}</span>}
       </div>
 
       <div className="camera-card__footer">

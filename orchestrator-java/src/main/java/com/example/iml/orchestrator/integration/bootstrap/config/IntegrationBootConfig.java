@@ -27,7 +27,8 @@ public record IntegrationBootConfig(
         int pythonServerPoolSize,
         List<String> pythonCommand,
         List<String> geometryCommand,
-        int stageQueueSize
+        int stageQueueSize,
+        int inspectionCycleParallelism
 ) {
 
     public static IntegrationBootConfig load(Map<String, Object> integration, int cameraCount, boolean isWindows) {
@@ -55,6 +56,13 @@ public record IntegrationBootConfig(
                 YamlScalars.toInt(integration == null ? null : integration.get("python_server_pool_size"), pythonParallelism)
         );
         int stageQueueSize = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("stage_queue_size"), cameraParallelism * 2));
+        int inspectionCycleParallelism = Math.max(
+                1,
+                YamlScalars.toInt(
+                        integration == null ? null : integration.get("inspection_cycle_parallelism"),
+                        cameraParallelism
+                )
+        );
         return new IntegrationBootConfig(
                 workerIpcMode,
                 workerPipeTemplate,
@@ -72,7 +80,8 @@ public record IntegrationBootConfig(
                 pythonServerPoolSize,
                 List.of(),
                 List.of(),
-                stageQueueSize
+                stageQueueSize,
+                inspectionCycleParallelism
         );
     }
 
@@ -95,7 +104,8 @@ public record IntegrationBootConfig(
                 pythonServerPoolSize,
                 pythonCommand,
                 geometryCommand,
-                stageQueueSize
+                stageQueueSize,
+                inspectionCycleParallelism
         );
     }
 }

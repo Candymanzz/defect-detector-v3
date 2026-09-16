@@ -12,6 +12,8 @@ import com.example.iml.orchestrator.integration.stream.CameraStreamServiceHolder
 import com.example.iml.orchestrator.integration.ui.CameraPreviewStore;
 import com.example.iml.orchestrator.integration.ui.FrameArchiveService;
 import com.example.iml.orchestrator.integration.ui.GeometrySnapshotCache;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketGroup;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 
 /**
  * Зависимости HTTP-слоя (DI для контроллеров).
@@ -29,7 +31,8 @@ public record HttpApplicationContext(
         CameraSettingsStore cameraSettingsStore,
         FrameArchiveService frameArchiveService,
         java.util.List<Integer> configuredCameraIds,
-        java.util.Map<Integer, String> analysisProfileByCamera
+        java.util.Map<Integer, String> analysisProfileByCamera,
+        java.util.List<BucketGroup> inspectionBucketGroups
 ) {
     public boolean geometryEnabled() {
         return geometrySnapshotCache != null;
@@ -101,6 +104,12 @@ public record HttpApplicationContext(
         PythonDetectorConfig py = PythonDetectorConfig.fromRootYaml(rootYaml);
         String base = py.configured() ? py.baseUrl() : "";
         LightServersConfig lightCfg = LightServersConfig.fromRootYaml(rootYaml);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> integration = rootYaml.get("integration") instanceof java.util.Map<?, ?> map
+                ? (java.util.Map<String, Object>) map
+                : java.util.Map.of();
+        java.util.List<Integer> cameraIds = ConfiguredCameras.enabledIds(rootYaml);
+        BucketInspectionConfig bucketConfig = BucketInspectionConfig.parse(integration, cameraIds);
         return new HttpApplicationContext(
                 previewStore,
                 geometryCache,
@@ -113,8 +122,9 @@ public record HttpApplicationContext(
                 new CameraWorkersHolder(),
                 cameraSettingsStore,
                 frameArchiveService,
-                ConfiguredCameras.enabledIds(rootYaml),
-                ConfiguredCameras.analysisProfileByCameraId(rootYaml)
+                cameraIds,
+                ConfiguredCameras.analysisProfileByCameraId(rootYaml),
+                bucketConfig.groups()
         );
     }
 }

@@ -38,8 +38,9 @@ io_input:
     pulse_duration_ms: 50
     pulse_repeat: 1
     pulse_repeat_gap_ms: 100
-    # Съёмка только при DI2=1: DI3↑ → DO5; без DI2 — skip.
+    # Пока DI2=1: два DI3↑ → два UDP + два DO5 (two-phase, ~80 ms между импульсами).
     repeat_di3_capture: true
+    # Явно: max_di3_captures_per_di2_window: 2  (если repeat_di3_capture: false)
     require_direction: true
     direction_latch: false
     initial_direction: forward

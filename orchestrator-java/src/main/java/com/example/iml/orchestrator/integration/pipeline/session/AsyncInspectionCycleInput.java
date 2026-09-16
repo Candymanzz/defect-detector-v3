@@ -52,6 +52,10 @@ public record AsyncInspectionCycleInput(
         PipelineStagesLog pipelineStagesLog,
         long inspectionId,
         long triggerSequence,
+        int phaseId,
+        long parentCycleId,
+        long rawTriggerSequence,
+        ExecutorService cycleExecutor,
         BucketInspectionAggregator bucketAggregator
 ) {
 
@@ -93,6 +97,10 @@ public record AsyncInspectionCycleInput(
                 pipelineStagesLog,
                 inspectionId,
                 triggerSequence,
+                phaseId,
+                parentCycleId,
+                rawTriggerSequence,
+                cycleExecutor,
                 bucketAggregator
         );
     }
@@ -130,7 +138,28 @@ public record AsyncInspectionCycleInput(
                 pipelineStagesLog,
                 inspectionId,
                 triggerSequence,
+                phaseId,
+                parentCycleId,
+                rawTriggerSequence,
+                cycleExecutor,
                 bucketAggregator
+        );
+    }
+
+    public AsyncInspectionCycleInput withTriggerIdentity(
+            long triggerSequence,
+            int phaseId,
+            long parentCycleId,
+            long rawTriggerSequence
+    ) {
+        return new AsyncInspectionCycleInput(
+                projectRoot, saveCaptures, cameraId, productType, detectorId, activeReference,
+                referenceMsFinal, tCameraStartNanos, worker, lightClient, pythonPool, geometryPool,
+                pythonCfg, geometryCfg, fanOut, geometrySlots, pythonSlots, geometryRoundRobin,
+                pythonRoundRobin, captureStageExecutor, pythonStageExecutor, geometryStageExecutor,
+                decisionStageExecutor, uiCfg, uiServer, uiVisualsPython, uiArtifactsExecutor,
+                flashLeadMs, pipelineStagesLog, inspectionId, triggerSequence, phaseId,
+                parentCycleId, rawTriggerSequence, cycleExecutor, bucketAggregator
         );
     }
 
@@ -167,6 +196,10 @@ public record AsyncInspectionCycleInput(
                 pipelineStagesLog,
                 inspectionId,
                 triggerSequence,
+                phaseId,
+                parentCycleId,
+                rawTriggerSequence,
+                cycleExecutor,
                 bucketAggregator
         );
     }
@@ -203,6 +236,7 @@ public record AsyncInspectionCycleInput(
             PipelineStagesLog pipelineStagesLog,
             long inspectionId,
             long triggerSequence,
+            ExecutorService cycleExecutor,
             BucketInspectionAggregator bucketAggregator
     ) {
         return new AsyncInspectionCycleInput(
@@ -237,6 +271,10 @@ public record AsyncInspectionCycleInput(
                 pipelineStagesLog,
                 inspectionId,
                 triggerSequence,
+                0,
+                triggerSequence,
+                triggerSequence,
+                cycleExecutor,
                 bucketAggregator
         );
     }

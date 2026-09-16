@@ -28,6 +28,7 @@ public final class IntegrationShutdownCoordinator {
     public record ShutdownResources(
             PipelineStagesLog pipelineStagesLog,
             ExecutorService cameraExecutor,
+            ExecutorService inspectionCycleExecutor,
             ExecutorService captureStageExecutor,
             ExecutorService pythonStageExecutor,
             ExecutorService geometryStageExecutor,
@@ -66,6 +67,7 @@ public final class IntegrationShutdownCoordinator {
         if (r.cameraExecutor != null) {
             r.cameraExecutor.shutdownNow();
         }
+        r.servicePools.shutdownExecutor(r.inspectionCycleExecutor);
         r.servicePools.shutdownExecutor(r.captureStageExecutor);
         r.servicePools.shutdownExecutor(r.pythonStageExecutor);
         r.servicePools.shutdownExecutor(r.geometryStageExecutor);

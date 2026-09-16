@@ -13,6 +13,8 @@ export type StoredReferenceImage = {
   imageUrl: string;
   frame: ShmFrameRefData;
   productType: string;
+  phaseId?: number;
+  groupId?: number;
   committedAtMs?: number;
   roiPoints: InterestPointNorm[];
   jointRoiPoints?: InterestPointNorm[];
@@ -174,8 +176,10 @@ export function commitReferenceBundleImages(
     if (baseImageUrl) {
       const referenceImage = {
         imageUrl: versionReferenceImageUrl(baseImageUrl, nextReferenceImageVersion),
-        frame: createDurableReferenceFrame(view.frame),
+        frame: createDurableReferenceFrame(view.frame, bundle.phase_id ?? 0),
         productType: bundle.product_type,
+        phaseId: bundle.phase_id ?? 0,
+        groupId: bundle.group_id,
         committedAtMs: Date.now(),
         roiPoints: copyRoiPoints(roiPointsByCameraId?.[cameraId] ?? view.interest_polygon_norm),
         jointRoiPoints:
@@ -229,8 +233,25 @@ export function getReferenceImageUrl(cameraId?: number) {
   return getReferenceImage(cameraId)?.imageUrl;
 }
 
-export function getReferenceImage(cameraId?: number) {
-  return cameraId === undefined ? undefined : referenceImagesByCameraId.get(cameraId);
+export function getReferenceImage(cameraId?: number, phaseId?: number, groupId?: number) {
+  if (cameraId === undefined) {
+    return undefined;
+  }
+  const activeImage = referenceImagesByCameraId.get(cameraId);
+  if (phaseId === undefined || groupId === undefined) {
+    return activeImage;
+  }
+  if (activeImage?.phaseId === phaseId && activeImage.groupId === groupId) {
+    return activeImage;
+  }
+  return archivedReferenceGroups
+    .find(
+      (archive) =>
+        (archive.bundle.phase_id ?? 0) === phaseId &&
+        (archive.bundle.group_id ?? -1) === groupId &&
+        archive.cameraIds.includes(cameraId),
+    )
+    ?.images.find((image) => image.cameraId === cameraId);
 }
 
 export function getReferenceImagesSnapshot() {
@@ -386,6 +407,8 @@ function createArchivedReferenceGroup(
   const jointFrame = sortedImages[jointViewIndex]?.frame ?? sortedImages[0].frame;
   const bundle: ClientReferenceBundlePayload = {
     product_type: sortedImages[0].productType,
+    phase_id: sortedImages[0].phaseId ?? 0,
+    ...(sortedImages[0].groupId == null ? {} : { group_id: sortedImages[0].groupId }),
     joint_view_index: jointViewIndex,
     heatmap_width: jointFrame.width,
     heatmap_height: jointFrame.height,
@@ -457,6 +480,8 @@ function copyStoredReferenceImage(referenceImage: StoredReferenceImage): StoredR
     imageUrl: referenceImage.imageUrl,
     frame: { ...referenceImage.frame },
     productType: referenceImage.productType,
+    phaseId: referenceImage.phaseId,
+    groupId: referenceImage.groupId,
     committedAtMs: referenceImage.committedAtMs,
     roiPoints: copyRoiPoints(referenceImage.roiPoints),
     jointRoiPoints: referenceImage.jointRoiPoints ? copyRoiPoints(referenceImage.jointRoiPoints) : undefined,
@@ -493,6 +518,8 @@ function isDuplicateArchive(archive: ArchivedReferenceGroup) {
   return archivedReferenceGroups.some(
     (existingArchive) =>
       existingArchive.cameraIds.join(",") === archive.cameraIds.join(",") &&
+      (existingArchive.bundle.phase_id ?? 0) === (archive.bundle.phase_id ?? 0) &&
+      (existingArchive.bundle.group_id ?? -1) === (archive.bundle.group_id ?? -1) &&
       archive.cameraIds.every(
         (cameraId) => existingArchive.imageUrlsByCameraId[cameraId] === archive.imageUrlsByCameraId[cameraId],
       ),
@@ -522,7 +549,7 @@ function isLearnedImageUrlInUse(imageUrl: string) {
 
 function createArchiveId(images: Array<StoredReferenceImage & { cameraId: number }>) {
   const frameKey = images.map((image) => `${image.cameraId}:${image.frame.frame_id}`).join("|");
-  return `${Date.now()}-${frameKey}-${Math.random().toString(16).slice(2)}`;
+  return `${Date.now()}-${images[0]?.phaseId ?? 0}:${images[0]?.groupId ?? -1}-${frameKey}-${Math.random().toString(16).slice(2)}`;
 }
 
 function markArchivedReferenceGroupsChanged() {
@@ -536,100 +563,53 @@ function copyRoiPoints(points: InterestPointNorm[]) {
   }));
 }
 
-export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[]) {
+export function updateReferenceFpZones(
+  cameraIds: number[],
+  zones: FpZoneNorm[],
+  phaseId?: number,
+  groupId?: number,
+) {
   let changed = false;
   for (const cameraId of cameraIds) {
     const referenceImage = referenceImagesByCameraId.get(cameraId);
-    if (!referenceImage) continue;
+    if (
+      !referenceImage ||
+      (phaseId != null && (referenceImage.phaseId ?? 0) !== phaseId) ||
+      (groupId != null && (referenceImage.groupId ?? -1) !== groupId)
+    ) continue;
     referenceImagesByCameraId.set(cameraId, {
       ...referenceImage,
       fpZones: copyFpZonesForCamera(zones, cameraId),
     });
     changed = true;
   }
+  if (phaseId != null && groupId != null) {
+    for (const archive of archivedReferenceGroups) {
+      if ((archive.bundle.phase_id ?? 0) !== phaseId || (archive.bundle.group_id ?? -1) !== groupId) continue;
+      archive.images = archive.images.map((image) =>
+        cameraIds.includes(image.cameraId)
+          ? { ...image, fpZones: copyFpZonesForCamera(zones, image.cameraId) }
+          : image,
+      );
+      archive.bundle = {
+        ...archive.bundle,
+        fp_zones: [
+          ...archive.bundle.fp_zones.filter((zone) => zone.camera_id == null || !cameraIds.includes(zone.camera_id)),
+          ...copyFpZones(zones),
+        ],
+      };
+      changed = true;
+    }
+  }
+  if (changed) markArchivedReferenceGroupsChanged();
   if (changed) emitReferenceImageChange();
   if (changed) queuePersistReferenceState();
 }
 
-export async function attachLearnedCasesToActiveReference(cameraId: number, cases: LearnedNormalCase[]) {
-  if (cases.length === 0) return;
-  const activeImage = referenceImagesByCameraId.get(cameraId);
-  if (!activeImage) return;
-  const archive = archivedReferenceGroups.find((candidate) =>
-    candidate.images.some(
-      (image) => image.cameraId === cameraId && image.frame.frame_id === activeImage.frame.frame_id,
-    ),
-  );
-  if (!archive) return;
-
-  const storedCases = (
-    await Promise.all(
-      cases.map(async (item): Promise<StoredLearnedCase | null> => {
-        try {
-          const response = await fetch(orchestratorApi.learnedNormalImageUrl(item.id), { cache: "no-store" });
-          if (!response.ok) return null;
-          return { ...item, imageUrl: URL.createObjectURL(await response.blob()) };
-        } catch {
-          return null;
-        }
-      }),
-    )
-  ).filter((item): item is StoredLearnedCase => item !== null);
-  if (storedCases.length === 0) return;
-
-  archive.learnedCaseIdsByCameraId[cameraId] = [
-    ...new Set([...(archive.learnedCaseIdsByCameraId[cameraId] ?? []), ...storedCases.map((item) => item.id)]),
-  ];
-  const previousCases = archive.learnedCasesByCameraId[cameraId] ?? [];
-  const nextById = new Map(previousCases.map((item) => [item.id, item]));
-  const replacedImageUrls = new Set<string>();
-  for (const item of storedCases) {
-    const previous = nextById.get(item.id);
-    if (previous) replacedImageUrls.add(previous.imageUrl);
-    nextById.set(item.id, item);
-  }
-  archive.learnedCasesByCameraId[cameraId] = [...nextById.values()];
-  replacedImageUrls.forEach((imageUrl) => {
-    if (imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(imageUrl)) URL.revokeObjectURL(imageUrl);
-  });
-  markArchivedReferenceGroupsChanged();
-  queuePersistReferenceState();
-  emitReferenceImageChange();
-}
-
-export function detachLearnedCaseFromReferences(caseId: string) {
-  let changed = false;
-  const removedImageUrls = new Set<string>();
-  for (const archive of archivedReferenceGroups) {
-    for (const [cameraId, caseIds] of Object.entries(archive.learnedCaseIdsByCameraId)) {
-      const nextIds = caseIds.filter((id) => id !== caseId);
-      if (nextIds.length === caseIds.length) continue;
-      archive.learnedCaseIdsByCameraId[Number(cameraId)] = nextIds;
-      changed = true;
-    }
-    for (const [cameraId, cases] of Object.entries(archive.learnedCasesByCameraId)) {
-      const removed = cases.filter((item) => item.id === caseId);
-      if (removed.length === 0) continue;
-      removed.forEach((item) => removedImageUrls.add(item.imageUrl));
-      archive.learnedCasesByCameraId[Number(cameraId)] = cases.filter((item) => item.id !== caseId);
-      changed = true;
-    }
-  }
-  if (!changed) return;
-  removedImageUrls.forEach((imageUrl) => {
-    if (imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(imageUrl)) {
-      URL.revokeObjectURL(imageUrl);
-    }
-  });
-  markArchivedReferenceGroupsChanged();
-  queuePersistReferenceState();
-  emitReferenceImageChange();
-}
-
-function createDurableReferenceFrame(frame: ShmFrameRefData): ShmFrameRefData {
+function createDurableReferenceFrame(frame: ShmFrameRefData, phaseId = 0): ShmFrameRefData {
   return {
     ...frame,
-    shm_name: `/iml_ref_cam${frame.camera_id}`,
+    shm_name: `/iml_ref_phase${Math.max(0, phaseId)}_cam${frame.camera_id}`,
     shm_offset: 0,
     expires_at_ms: undefined,
     ttl_ms: undefined,
@@ -708,7 +688,9 @@ async function hydratePersistedReferenceState() {
     for (const archive of state.archives) {
       const images = archive.images.flatMap(({ cameraId, imageKey, ...image }) => {
         const imageUrl = resolveUrl(imageKey);
-        return imageUrl ? [{ cameraId, ...image, imageUrl, frame: createDurableReferenceFrame(image.frame) }] : [];
+        return imageUrl
+          ? [{ cameraId, ...image, imageUrl, frame: createDurableReferenceFrame(image.frame, image.phaseId ?? 0) }]
+          : [];
       });
       if (images.length !== archive.images.length) continue;
       archivedReferenceGroups.push({
@@ -719,7 +701,10 @@ async function hydratePersistedReferenceState() {
         jointCameraId: archive.jointCameraId,
         bundle: {
           ...archive.bundle,
-          views: archive.bundle.views.map((view) => ({ ...view, frame: createDurableReferenceFrame(view.frame) })),
+          views: archive.bundle.views.map((view) => ({
+            ...view,
+            frame: createDurableReferenceFrame(view.frame, archive.bundle.phase_id ?? 0),
+          })),
         },
         imageUrlsByCameraId: Object.fromEntries(images.map((image) => [image.cameraId, image.imageUrl])),
         images,
@@ -791,8 +776,10 @@ async function migrateLegacyLearnedCases() {
 function restorePersistedReferenceImage(persisted: PersistedReferenceImage, imageUrl: string): StoredReferenceImage {
   return {
     imageUrl,
-    frame: createDurableReferenceFrame(persisted.frame),
+    frame: createDurableReferenceFrame(persisted.frame, persisted.phaseId ?? 0),
     productType: persisted.productType,
+    phaseId: persisted.phaseId,
+    groupId: persisted.groupId,
     committedAtMs: persisted.committedAtMs,
     roiPoints: copyRoiPoints(persisted.roiPoints),
     jointRoiPoints: persisted.jointRoiPoints ? copyRoiPoints(persisted.jointRoiPoints) : undefined,

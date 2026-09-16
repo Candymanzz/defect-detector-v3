@@ -36,6 +36,8 @@ public final class FrameArchiveService implements AutoCloseable {
             int cameraId,
             long frameId,
             long inspectionId,
+            int phaseId,
+            int groupId,
             String productType,
             String detectorId,
             InspectionDecision decision,
@@ -60,57 +62,16 @@ public final class FrameArchiveService implements AutoCloseable {
                 int heatmapWidth,
                 int heatmapHeight
         ) {
-            this(
-                    cameraId,
-                    frameId,
-                    inspectionId,
-                    productType,
-                    detectorId,
-                    decision,
-                    frameJpeg,
-                    heatmapU8,
-                    heatmapWidth,
-                    heatmapHeight,
-                    null,
-                    0,
-                    0
-            );
-        }
-
-        public SaveRequest(
-                int cameraId,
-                long frameId,
-                long inspectionId,
-                String productType,
-                String detectorId,
-                InspectionDecision decision,
-                Path frameJpeg,
-                Path heatmapU8,
-                int heatmapWidth,
-                int heatmapHeight,
-                String learnedReviewId
-        ) {
-            this(
-                    cameraId,
-                    frameId,
-                    inspectionId,
-                    productType,
-                    detectorId,
-                    decision,
-                    frameJpeg,
-                    heatmapU8,
-                    heatmapWidth,
-                    heatmapHeight,
-                    learnedReviewId,
-                    0,
-                    0
-            );
+            this(cameraId, frameId, inspectionId, 0, -1, productType, detectorId, decision, frameJpeg, heatmapU8,
+                    heatmapWidth, heatmapHeight);
         }
     }
 
     public record ArchivedFrame(
             long frameId,
             long inspectionId,
+            int phaseId,
+            int groupId,
             boolean overallPass,
             String action,
             double anomalyScore,
@@ -475,6 +436,8 @@ public final class FrameArchiveService implements AutoCloseable {
         root.put("camera_id", request.cameraId());
         root.put("frame_id", Long.toString(request.frameId()));
         root.put("inspection_id", Long.toString(request.inspectionId()));
+        root.put("phase_id", request.phaseId());
+        root.put("group_id", request.groupId());
         root.put("saved_at_ms", System.currentTimeMillis());
         root.put("archived", true);
         if (request.productType() != null && !request.productType().isBlank()) {
@@ -572,6 +535,8 @@ public final class FrameArchiveService implements AutoCloseable {
         try {
             Map<String, Object> root = JSON.readValue(Files.readString(resultPath), new TypeReferenceMap());
             long inspectionId = parseLong(root.get("inspection_id"), frameId);
+            int phaseId = (int) parseLong(root.get("phase_id"), 0L);
+            int groupId = (int) parseLong(root.get("group_id"), -1L);
             boolean overallPass = Boolean.TRUE.equals(root.get("overall_pass"));
             String action = stringValue(root.get("action"));
             double anomalyScore = parseDouble(root.get("anomaly_score"));
@@ -625,6 +590,8 @@ public final class FrameArchiveService implements AutoCloseable {
             return Optional.of(new ArchivedFrame(
                     frameId,
                     inspectionId,
+                    phaseId,
+                    groupId,
                     overallPass,
                     action,
                     anomalyScore,

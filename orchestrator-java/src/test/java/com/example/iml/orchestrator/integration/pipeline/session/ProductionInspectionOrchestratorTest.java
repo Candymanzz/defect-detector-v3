@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.session;
 
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
+import com.example.iml.orchestrator.integration.pipeline.reference.PipelineReferenceRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -12,6 +13,7 @@ import java.util.concurrent.Executors;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ProductionInspectionOrchestratorTest {
 
@@ -64,6 +66,32 @@ class ProductionInspectionOrchestratorTest {
         assertTrue("client-type".equals(resolved.productType()));
     }
 
+    @Test
+    void cycleInputCarriesPhaseAwareTriggerIdentity() {
+        AsyncInspectionCycleInput input = minimalInput(3, null)
+                .withTriggerIdentity(102L, 1, 101L, 102L);
+
+        assertEquals(1, input.phaseId());
+        assertEquals(101L, input.parentCycleId());
+        assertEquals(102L, input.rawTriggerSequence());
+        assertEquals(102L, input.triggerSequence());
+    }
+
+    @Test
+    void productionCycleSelectsReferenceForTriggerPhase() {
+        AsyncInspectionCycleInput in = minimalInput(2, null);
+        PipelineReferenceRegistry refs = new PipelineReferenceRegistry();
+        refs.put(0, 2, new ReferenceSnapshot("phase-0", Map.of("shm_name", "ref-0")));
+        refs.put(1, 2, new ReferenceSnapshot("phase-1", Map.of("shm_name", "ref-1")));
+
+        AsyncInspectionCycleInput resolved = ProductionInspectionOrchestrator.resolveCycleInput(
+                in, true, refs, false, 1);
+
+        assertNotNull(resolved);
+        assertEquals("phase-1", resolved.productType());
+        assertEquals("ref-1", resolved.activeReference().header().get("shm_name"));
+    }
+
     private static AsyncInspectionCycleInput minimalInput(int cameraId, ReferenceSnapshot activeReference) {
         var saveCaptures = new IntegrationFeatureConfig.SaveCapturesConfig(false, "testimage", 0.92f);
         return AsyncInspectionCycleInput.of(
@@ -98,6 +126,7 @@ class ProductionInspectionOrchestratorTest {
                 null,
                 0L,
                 0L,
+                Executors.newSingleThreadExecutor(),
                 null
         );
     }

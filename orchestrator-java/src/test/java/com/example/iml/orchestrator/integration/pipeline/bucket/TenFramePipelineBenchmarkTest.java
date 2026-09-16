@@ -6,26 +6,34 @@ import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Замер: 10 кадров (2 ведра Omron × 5 камер), профиль задержек как на линии.
+ * Детерминированный замер полного двухфазного цикла:
+ * 2 фазы × 10 камер, по две bucket-группы в каждой фазе.
  */
 class TenFramePipelineBenchmarkTest {
 
-    private static final long SLA_MS = 4000L;
+    private static final long PHASE_DELAY_MS = 700L;
+    private static final long AGGREGATION_TIMEOUT_MS = 2500L;
+    private static final long[] PHASE_0_DELAYS_MS = {
+            1180L, 160L, 940L, 400L, 700L, 1060L, 280L, 820L, 520L, 1240L
+    };
+    private static final long[] PHASE_1_DELAYS_MS = {
+            210L, 30L, 330L, 90L, 390L, 270L, 60L, 360L, 150L, 300L
+    };
 
     private final List<AutoCloseable> toClose = new ArrayList<>();
     private final List<ExecutorService> executors = new ArrayList<>();
@@ -43,116 +51,126 @@ class TenFramePipelineBenchmarkTest {
     }
 
     @Test
-    void benchmarkTenFramesTwoBuckets() throws Exception {
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void benchmarkTwoPhasesTenCamerasPreservesOrderedPhaseAwareFanOut() throws Exception {
         BucketInspectionAggregator aggregator = track(new BucketInspectionAggregator(
                 LogManager.getLogger(TenFramePipelineBenchmarkTest.class),
                 new BucketInspectionConfig(
                         true,
                         List.of(
-                                new BucketGroup(0, List.of(0, 1, 2, 3, 4)),
-                                new BucketGroup(1, List.of(5, 6, 7, 8, 9))
+                                new BucketGroup(0, 0, List.of(0, 1, 2, 3, 4)),
+                                new BucketGroup(0, 1, List.of(5, 6, 7, 8, 9)),
+                                new BucketGroup(1, 2, List.of(0, 1, 2, 3, 4)),
+                                new BucketGroup(1, 3, List.of(5, 6, 7, 8, 9))
                         ),
-                        SLA_MS,
-                        SLA_MS
+                        AGGREGATION_TIMEOUT_MS,
+                        AGGREGATION_TIMEOUT_MS
                 )
         ));
 
-        Map<Integer, Long> frameDoneMs = new ConcurrentHashMap<>();
-        Map<Integer, Long> bucketDoneMs = new ConcurrentHashMap<>();
         List<BucketFanOutResult> published = new CopyOnWriteArrayList<>();
-        long[] t0Holder = new long[1];
-
-        BucketFanOutSink fanOut = result -> {
-            long now = elapsedMs(t0Holder[0]);
-            bucketDoneMs.put(result.groupId(), now);
-            published.add(result);
-        };
-
-        long triggerSequence = 1L;
-        t0Holder[0] = System.nanoTime();
-        long t0 = t0Holder[0];
-        ExecutorService pool = trackExecutor(Executors.newFixedThreadPool(10));
-        CountDownLatch done = new CountDownLatch(10);
+        List<String> arrivals = new CopyOnWriteArrayList<>();
+        BucketFanOutSink fanOut = published::add;
+        long parentCycleId = 100L;
+        long phase0RawSequence = 100L;
+        long phase1RawSequence = 101L;
+        long startedAt = System.nanoTime();
+        AtomicLong phase1StartedAtMs = new AtomicLong(-1L);
+        ExecutorService pool = trackExecutor(Executors.newFixedThreadPool(20));
+        CountDownLatch done = new CountDownLatch(20);
 
         for (int cameraId = 0; cameraId < 10; cameraId++) {
             int cam = cameraId;
             pool.submit(() -> {
                 try {
-                    long frameMs = simulatePipelineMs(cam);
-                    sleepQuiet(frameMs);
+                    sleepQuiet(PHASE_0_DELAYS_MS[cam]);
+                    arrivals.add("0:" + cam);
                     aggregator.recordFrameResult(
-                            triggerSequence,
+                            phase0RawSequence,
+                            parentCycleId,
+                            0,
+                            phase0RawSequence,
                             cam,
-                            InspectionDecision.simple(cam, 1000L + cam, true, "ACCEPT", 0.1, "ГОДЕН", "PASS"),
+                            passDecision(0, cam),
                             fanOut
                     );
-                    frameDoneMs.put(cam, elapsedMs(t0));
                 } finally {
                     done.countDown();
                 }
             });
         }
 
-        assertEquals(true, done.await(SLA_MS + 500L, TimeUnit.MILLISECONDS));
-        awaitBuckets(published, 2, SLA_MS + 500L);
+        sleepUntil(startedAt + TimeUnit.MILLISECONDS.toNanos(PHASE_DELAY_MS));
+        phase1StartedAtMs.set(elapsedMs(startedAt));
+        for (int cameraId = 0; cameraId < 10; cameraId++) {
+            int cam = cameraId;
+            pool.submit(() -> {
+                try {
+                    sleepQuiet(PHASE_1_DELAYS_MS[cam]);
+                    arrivals.add("1:" + cam);
+                    aggregator.recordFrameResult(
+                            phase1RawSequence,
+                            parentCycleId,
+                            1,
+                            phase1RawSequence,
+                            cam,
+                            passDecision(1, cam),
+                            fanOut
+                    );
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
 
-        long wallMs = elapsedMs(t0);
-        long bucket0Ms = bucketDoneMs.getOrDefault(0, -1L);
-        long bucket1Ms = bucketDoneMs.getOrDefault(1, -1L);
-        long slowestFrameMs = frameDoneMs.values().stream().max(Long::compare).orElse(-1L);
-        int framesOk = published.stream().mapToInt(r -> r.frameDecisions().size()).sum();
+        assertTrue(done.await(2, TimeUnit.SECONDS), "all 20 concurrent results must complete");
 
-        StringBuilder report = new StringBuilder();
-        report.append("\n=== 10-frame pipeline benchmark ===\n");
-        report.append(String.format("SLA target:        %d ms%n", SLA_MS));
-        report.append(String.format("Frames completed:  %d / 10%n", frameDoneMs.size()));
-        report.append(String.format("Bucket frames:     %d / 10 (in published results)%n", framesOk));
-        report.append(String.format("Bucket 0 (Omron 1): %d ms  pass=%s  frames=%d/5%n",
-                bucket0Ms,
-                published.stream().filter(r -> r.groupId() == 0).findFirst().map(BucketFanOutResult::overallPass).orElse(false),
-                published.stream().filter(r -> r.groupId() == 0).findFirst().map(r -> r.frameDecisions().size()).orElse(0)));
-        report.append(String.format("Bucket 1 (Omron 2): %d ms  pass=%s  frames=%d/5%n",
-                bucket1Ms,
-                published.stream().filter(r -> r.groupId() == 1).findFirst().map(BucketFanOutResult::overallPass).orElse(false),
-                published.stream().filter(r -> r.groupId() == 1).findFirst().map(r -> r.frameDecisions().size()).orElse(0)));
-        report.append(String.format("Slowest frame:     %d ms (cam %d)%n",
-                slowestFrameMs,
-                frameDoneMs.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(-1)));
-        report.append(String.format("Wall clock (both): %d ms  SLA %s%n",
-                wallMs, wallMs <= SLA_MS ? "OK" : "FAIL"));
-        report.append("Per-camera (simulated pipeline ms -> done ms):\n");
-        frameDoneMs.entrySet().stream()
-                .sorted(Comparator.comparingInt(Map.Entry::getKey))
-                .forEach(e -> report.append(String.format("  cam-%d: pipeline~%4d ms  done@%4d ms  bucket=%d%n",
-                        e.getKey(), simulatePipelineMs(e.getKey()), e.getValue(), e.getKey() < 5 ? 0 : 1)));
-        report.append("===================================\n");
-
-        System.out.println(report);
-
-        assertEquals(10, frameDoneMs.size());
-        assertEquals(2, published.size());
-        assertEquals(10, framesOk);
+        assertTrue(phase1StartedAtMs.get() >= PHASE_DELAY_MS, "phase1 must not start before 700 ms");
+        assertTrue(
+                arrivals.indexOf("1:1") < arrivals.indexOf("0:0"),
+                "phase results must arrive interleaved rather than phase-by-phase"
+        );
+        assertEquals(
+                List.of(0, 1, 2, 3),
+                published.stream().map(BucketFanOutResult::groupId).toList()
+        );
+        assertEquals(
+                List.of(0, 0, 1, 1),
+                published.stream().map(BucketFanOutResult::phaseId).toList()
+        );
+        assertEquals(
+                List.of(phase0RawSequence, phase0RawSequence, phase1RawSequence, phase1RawSequence),
+                published.stream().map(BucketFanOutResult::rawTriggerSequence).toList()
+        );
+        assertEquals(
+                List.of(phase0RawSequence, phase0RawSequence, phase1RawSequence, phase1RawSequence),
+                published.stream().map(BucketFanOutResult::triggerSequence).toList()
+        );
+        assertTrue(published.stream().allMatch(result -> result.parentCycleId() == parentCycleId));
+        assertTrue(published.stream().allMatch(BucketFanOutResult::overallPass));
+        assertEquals(20, published.stream().mapToInt(result -> result.frameDecisions().size()).sum());
     }
 
-    /** capture + geometry + python + stagger (мс), по профилю 10 GigE камер. */
-    private static long simulatePipelineMs(int cameraId) {
-        int stagger = (cameraId % 5) * 120;
-        int capture = 80 + (cameraId % 3) * 30;
-        int geometry = 60 + (cameraId % 2) * 40;
-        int python = 400 + (cameraId % 5) * 280;
-        return stagger + capture + geometry + python;
+    private static InspectionDecision passDecision(int phaseId, int cameraId) {
+        return InspectionDecision.simple(
+                cameraId,
+                1000L + phaseId * 100L + cameraId,
+                true,
+                "ACCEPT",
+                0.1,
+                "ГОДЕН",
+                "PASS"
+        );
     }
 
-    private static void awaitBuckets(List<BucketFanOutResult> published, int expected, long timeoutMs)
-            throws InterruptedException {
-        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
-        while (System.nanoTime() < deadline) {
-            if (published.size() >= expected) {
+    private static void sleepUntil(long deadlineNanos) {
+        while (true) {
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0L) {
                 return;
             }
-            Thread.sleep(5L);
+            sleepQuiet(Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos)));
         }
-        throw new AssertionError("expected " + expected + " buckets, got " + published.size());
     }
 
     private static long elapsedMs(long t0Nanos) {

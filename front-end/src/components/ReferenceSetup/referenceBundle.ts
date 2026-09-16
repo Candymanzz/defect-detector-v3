@@ -15,6 +15,8 @@ export function createReferenceBundleFromCameraFrames(
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
   jointRoiPolygon: InterestPointNorm[],
   fpZones: FpZoneNorm[],
+  phaseId = 0,
+  groupId?: number,
 ): ClientReferenceBundlePayload {
   if (cameraIds.length === 0) {
     throw new Error("Список настроенных камер пуст");
@@ -80,6 +82,8 @@ export function createReferenceBundleFromCameraFrames(
 
   return {
     product_type: productType,
+    phase_id: phaseId,
+    ...(groupId == null ? {} : { group_id: groupId }),
     joint_view_index: jointViewIndex,
     heatmap_width: jointFrame.current.width,
     heatmap_height: jointFrame.current.height,

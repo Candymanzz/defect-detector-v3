@@ -50,7 +50,10 @@ public final class AsyncInspectionCycleRunner {
                 in.lightClient(),
                 in.captureStageExecutor(),
                 in.triggerSequence(),
-                "current capture"
+                "current capture",
+                in.phaseId(),
+                in.parentCycleId(),
+                in.rawTriggerSequence()
         );
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
             captureFuture.cancel(true);
@@ -88,7 +91,8 @@ public final class AsyncInspectionCycleRunner {
                         in.pythonCfg(),
                         in.pythonPool(),
                         in.pythonSlots(),
-                        in.pythonRoundRobin()
+                        in.pythonRoundRobin(),
+                        in.phaseId()
                 ),
                 in.pythonStageExecutor()
         );
@@ -157,6 +161,9 @@ public final class AsyncInspectionCycleRunner {
                     // UI после FINS по seq (приоритет ПЛК).
                     in.bucketAggregator().recordFrameResult(
                             in.triggerSequence(),
+                            in.parentCycleId(),
+                            in.phaseId(),
+                            in.rawTriggerSequence(),
                             in.cameraId(),
                             decision,
                             in.fanOut(),
@@ -191,6 +198,9 @@ public final class AsyncInspectionCycleRunner {
                 telemetryExtras.putAll(timingExtras);
             }
             telemetryExtras.put("positioning_ms", positioningMs);
+            telemetryExtras.put("phase_id", in.phaseId());
+            telemetryExtras.put("parent_cycle_id", in.parentCycleId());
+            telemetryExtras.put("raw_trigger_sequence", in.rawTriggerSequence());
             telemetryExtras.put("capture_to_geometry_done_ms", captureToGeometryDoneMs);
             telemetryExtras.put("capture_to_python_done_ms", captureToPythonDoneMs);
             if (captureFrameToInspectionEndMs >= 0) {
@@ -300,7 +310,10 @@ public final class AsyncInspectionCycleRunner {
                 in.lightClient(),
                 in.captureStageExecutor(),
                 in.triggerSequence(),
-                "capture without reference"
+                "capture without reference",
+                in.phaseId(),
+                in.parentCycleId(),
+                in.rawTriggerSequence()
         );
         PipelineState state;
         try {
@@ -372,6 +385,9 @@ public final class AsyncInspectionCycleRunner {
             if (inspectionGate != null && in.bucketAggregator() != null) {
                 in.bucketAggregator().recordFrameResult(
                         in.triggerSequence(),
+                        in.parentCycleId(),
+                        in.phaseId(),
+                        in.rawTriggerSequence(),
                         in.cameraId(),
                         decision,
                         in.fanOut(),
@@ -389,7 +405,12 @@ public final class AsyncInspectionCycleRunner {
         long captureMs = state.captureMs();
         svc.pipelineTelemetry().logInspectionCycle(
                 in.pipelineStagesLog(),
-                Map.of("capture_only", true),
+                Map.of(
+                        "capture_only", true,
+                        "phase_id", in.phaseId(),
+                        "parent_cycle_id", in.parentCycleId(),
+                        "raw_trigger_sequence", in.rawTriggerSequence()
+                ),
                 in.cameraId(),
                 in.productType(),
                 in.detectorId(),

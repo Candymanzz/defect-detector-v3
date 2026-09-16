@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 import java.util.regex.Pattern;
+import java.util.LinkedHashMap;
 
 
 
@@ -113,6 +114,16 @@ public final class HttpFrontController {
         );
 
         router.register(HttpRoute.exact("GET", "/api/cameras", camera::listCameras));
+        router.register(HttpRoute.exact("GET", "/api/inspection-layout", req -> {
+            var groups = ctx.inspectionBucketGroups().stream().map(group -> {
+                var item = new LinkedHashMap<String, Object>();
+                item.put("phase_id", group.phaseId());
+                item.put("group_id", group.id());
+                item.put("camera_ids", group.cameraIds());
+                return item;
+            }).toList();
+            HttpResponses.sendJson(req, 200, java.util.Map.of("groups", groups));
+        }));
 
         if (ctx.cameraStreamEnabled()) {
             CameraMjpegHttpController mjpeg = new CameraMjpegHttpController(
