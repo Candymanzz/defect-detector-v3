@@ -131,6 +131,20 @@ public final class OmronFinsTransport implements AutoCloseable {
       String address,
       Object value
   ) throws IOException {
+    synchronized (this) {
+      return exchangeLocked(request, sid, operation, signal, area, address, value);
+    }
+  }
+
+  private byte[] exchangeLocked(
+      byte[] request,
+      int sid,
+      String operation,
+      String signal,
+      String area,
+      String address,
+      Object value
+  ) throws IOException {
     InetAddress target = InetAddress.getByName(host);
     DatagramPacket packet = new DatagramPacket(request, request.length, target, port);
     socket.send(packet);

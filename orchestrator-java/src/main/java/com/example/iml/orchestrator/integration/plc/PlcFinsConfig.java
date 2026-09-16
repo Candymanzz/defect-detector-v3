@@ -16,6 +16,8 @@ public record PlcFinsConfig(
     int srcNode,
     int responseTimeoutMs,
     int pulseMs,
+    /** Параллельные импульсы reject (разные линии); одна линия сериализуется по имени сигнала. */
+    int pulseThreads,
     int queueSize,
     Path registerMapPath,
     String visionReadySignal,
@@ -38,6 +40,7 @@ public record PlcFinsConfig(
     int srcNode = Math.max(0, Math.min(254, YamlScalars.toInt(plc.get("src_node"), 0)));
     int responseTimeoutMs = Math.max(100, YamlScalars.toInt(plc.get("response_timeout_ms"), 1000));
     int pulseMs = Math.max(0, YamlScalars.toInt(plc.get("pulse_ms"), 50));
+    int pulseThreads = Math.max(1, Math.min(8, YamlScalars.toInt(plc.get("pulse_threads"), 4)));
     int queueSize = Math.max(1, YamlScalars.toInt(plc.get("queue_size"), 128));
     String mapRel = String.valueOf(plc.getOrDefault("register_map_path", "plk/register-map.yaml")).trim();
     Path registerMapPath = projectRoot.resolve(mapRel).normalize();
@@ -51,6 +54,7 @@ public record PlcFinsConfig(
         srcNode,
         responseTimeoutMs,
         pulseMs,
+        pulseThreads,
         queueSize,
         registerMapPath,
         visionReady,
@@ -67,6 +71,7 @@ public record PlcFinsConfig(
         0,
         1000,
         50,
+        4,
         64,
         projectRoot.resolve("plk/register-map.yaml"),
         "vision_ready",
