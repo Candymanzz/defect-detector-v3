@@ -23,8 +23,8 @@
 /iml_detectors/services/__pycache__/
 
 # Runtime logs (orchestrator, geometry, IoInputMonitor, supervisor)
-**/logs/
-*.log
+# **/logs/
+# *.log
 *.log.gz
 hs_err_pid*.log
 replay_pid*.log

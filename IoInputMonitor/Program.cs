@@ -100,7 +100,7 @@ internal static class Program
             Line0Edge = options.Capture.Line0Edge
         };
 
-        using var session = new IoBoxSession(options.ComPort);
+        using var session = new IoBoxSession(options.ComPort, options.StealComOnBusy);
         session.Line0OutputPort = doPort;
         session.Line0OutputPorts = doPorts;
         Console.WriteLine($"Открываю {options.ComPort} для {doLabel} (edge={capture.Line0Edge} active_high={capture.ActiveHigh})...");
@@ -184,7 +184,7 @@ internal static class Program
             Line0Edge = options.Capture.Line0Edge
         };
 
-        using var session = new IoBoxSession(options.ComPort);
+        using var session = new IoBoxSession(options.ComPort, options.StealComOnBusy);
         Console.WriteLine($"Открываю {options.ComPort} для импульса DO{port}...");
         session.Open();
         try { MvIoNative.SetDebugView(1); } catch { /* optional */ }
@@ -259,10 +259,12 @@ internal static class Program
         if (options.ConfigPath != null)
             Console.WriteLine($"Конфиг: {options.ConfigPath}");
 
-        using var session = new IoBoxSession(options.ComPort);
+        using var session = new IoBoxSession(options.ComPort, options.StealComOnBusy);
         Console.WriteLine($"Открываю {options.ComPort}...");
         session.Open();
         Console.WriteLine($"Подключено: {session.OpenedComName}");
+        if (options.StealComOnBusy)
+            Console.WriteLine("steal_com_on_busy=true — при COM busy убью чужой IoInputMonitor.dll");
 
         string inputsLabel = string.Join(", ", options.InputPorts.Select(static p => $"DI{p}"));
 
@@ -755,6 +757,7 @@ internal static class Program
 
             Конфиг (по умолчанию config/blocks/52-io-input.yaml):
               com_port, inputs, edge (rising|falling|both), debounce_ms, configure_sdk
+              steal_com_on_busy (true) — при COM busy убить чужой IoInputMonitor.dll и retry
               rising — только замыкание (LOW→HIGH)
               falling — только размыкание (HIGH→LOW)
               both — оба фронта через динамическое перевооружение SDK (событийно, без polling)
@@ -764,6 +767,8 @@ internal static class Program
             Параметры:
               --com COMx       COM-порт IO box (переопределяет конфиг)
               --input N        DI 1..8 (переопределяет inputs из конфига)
+              --steal-com      Включить захват COM (по умолчанию из конфига / true)
+              --no-steal-com   Не убивать чужой IoInputMonitor при busy
               --scan           Однократно показать DI1..DI8 и выйти
               --pulse 5        Импульс только на DO5 (Line0)
               --pulse-ms M     Длительность импульса (по умолчанию из capture.pulse_duration_ms)
@@ -790,6 +795,7 @@ internal static class Program
         public IoInputEdgeMode EdgeMode { get; set; } = IoInputEdgeMode.Rising;
         public bool ConfigureSdk { get; set; }
         public int DebounceMs { get; set; } = 50;
+        public bool StealComOnBusy { get; set; } = true;
         public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
         public IoCaptureOptions Capture { get; set; } = new();
         public bool ScanAll { get; set; }
@@ -863,6 +869,12 @@ internal static class Program
                     case "--input":
                         options.InputPorts = [int.Parse(RequireValue(args, ref i, "--input"))];
                         break;
+                    case "--no-steal-com":
+                        options.StealComOnBusy = false;
+                        break;
+                    case "--steal-com":
+                        options.StealComOnBusy = true;
+                        break;
                     default:
                         if (arg.StartsWith(IoInputConfigLoader.ConfigCliPrefix, StringComparison.OrdinalIgnoreCase))
                             break;
@@ -894,6 +906,7 @@ internal static class Program
                 EdgeMode = loaded.Options.EdgeMode,
                 ConfigureSdk = loaded.Options.ConfigureSdk,
                 DebounceMs = loaded.Options.DebounceMs,
+                StealComOnBusy = loaded.Options.StealComOnBusy,
                 UdpPublish = loaded.Options.UdpPublish,
                 Capture = loaded.Options.Capture,
                 ConfigPath = loaded.ConfigPath

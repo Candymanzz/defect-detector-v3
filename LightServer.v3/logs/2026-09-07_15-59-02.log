@@ -1,0 +1,18 @@
+﻿--- LightServer log started 2026-09-07 15:59:02 ---
+2026-09-07 15:59:02.658 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-09-07_15-59-02.log
+2026-09-07 15:59:02.898 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-09-07 15:59:02.898 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-09-07 15:59:02.898 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-09-07 15:59:02.903 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-09-07 15:59:03.661 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-09-07 15:59:04.782 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-1@169.254.220.23: Open 0x80000214
+2026-09-07 15:59:05.280 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM2:0]
+2026-09-07 15:59:05.827 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-2@169.254.220.22: Open 0x80000214
+2026-09-07 15:59:06.005 [Information] LightServer.Services.IsolatedComPortLight: COM2: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM2 (DA8782414)
+2026-09-07 15:59:06.006 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM2
+2026-09-07 15:59:06.006 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM2)
+2026-09-07 15:59:06.880 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-3@169.254.220.24: Open 0x80000214
+2026-09-07 15:59:07.933 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-4@169.254.220.25: Open 0x80000214
+2026-09-07 15:59:20.192 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"error":"Ethernet bank: ни одно MV-LE не открыто."}

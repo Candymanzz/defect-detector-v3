@@ -202,7 +202,12 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     || (Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
                     && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg());
-            boolean concentricityPass = concentricity.deviationMm() <= request.maxConcentricityMm();
+            // Sibling (angled) cameras: joint is visibility-only. Perspective makes yellow-rim
+            // wedge / circle centres look skewed — gate only on the joint camera where the
+            // yellow band is intentionally inspected (no need to draw yellow on every bucket).
+            boolean siblingView = request.jointVisibilityOnly();
+            boolean concentricityPass = siblingView
+                    || concentricity.deviationMm() <= request.maxConcentricityMm();
             boolean jointPass = evaluateJointPass(request, joint);
             // After upstream positioning, surface QC belongs to python — geometry absdiff
             // wrinkles are too light-sensitive and caused false rejects on matched frames.
@@ -780,12 +785,28 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
     }
 
     private static boolean evaluateRimSkewPass(InspectionRequest request, LabelRimSkewAnalyzer.Result rim) {
+        // Yellow-rim skew only on the joint camera (full mode). Angled sibling buckets
+        // always see an optical wedge; requiring yellow stripes on every view is wrong.
+        if (!isJointCameraYellowInspect(request)) {
+            return true;
+        }
         if (rim == null || !rim.active()) {
             return true;
         }
         boolean skewOk = rim.skewDeg() <= request.maxJointRimSkewDeg();
         boolean asymOk = rim.gapAsymmetryMm() <= request.maxJointGapAsymmetryMm();
         return skewOk && asymOk;
+    }
+
+    /** Joint camera with seam/yellow band ROI — the only view where rim-skew may reject. */
+    static boolean isJointCameraYellowInspect(InspectionRequest request) {
+        if (request == null) {
+            return false;
+        }
+        if (request.jointRoi() == null && (request.jointRoiPolygonNorm() == null || request.jointRoiPolygonNorm().size() < 3)) {
+            return false;
+        }
+        return !request.jointVisibilityOnly();
     }
 
     private static boolean evaluateJointPass(InspectionRequest request, JointResult joint) {
@@ -902,6 +923,46 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 9999.0
         );
         return evaluateJointPass(request, joint);
+    }
+
+    /** Package-visible: rim-skew reject only on joint (yellow-band) camera. */
+    static boolean evaluateRimSkewPassForTest(
+            boolean hasJointRoi,
+            boolean visibilityOnly,
+            boolean rimActive,
+            double skewDeg,
+            double gapAsymmetryMm,
+            double maxSkewDeg,
+            double maxGapAsymmetryMm
+    ) {
+        InspectionRequest request = new InspectionRequest(
+                "",
+                "",
+                null,
+                null,
+                hasJointRoi ? new RoiRect(0, 0, 1, 1) : null,
+                null,
+                null,
+                0.02,
+                0.5,
+                1.0,
+                9999.0,
+                0.5,
+                0.45,
+                visibilityOnly ? "visibility" : "full",
+                0.25,
+                3.0,
+                5.0,
+                0.6,
+                false,
+                0.5,
+                maxSkewDeg,
+                maxGapAsymmetryMm
+        );
+        LabelRimSkewAnalyzer.Result rim = rimActive
+                ? new LabelRimSkewAnalyzer.Result(true, skewDeg, 0.0, gapAsymmetryMm, gapAsymmetryMm)
+                : LabelRimSkewAnalyzer.Result.inactive();
+        return evaluateRimSkewPass(request, rim);
     }
 
     private WrinklesResult inspectWrinkles(Mat reference, Mat current, RoiRect wrinklesRoi) {

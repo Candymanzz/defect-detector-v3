@@ -1,0 +1,90 @@
+﻿--- LightServer log started 2026-06-26 14:26:30 ---
+2026-06-26 14:26:30.232 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 2, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-06-26_14-26-30.log
+2026-06-26 14:26:30.340 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-06-26 14:26:30.341 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-06-26 14:26:30.341 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-06-26 14:26:30.348 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-06-26 14:26:33.911 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=2, map=[COM2:0, COM3:1]
+2026-06-26 14:26:35.021 [Information] LightServer.Services.IsolatedComPortLight: COM2: открыт idx=0/2 mode=bank-On MV-LE200-48W24-2D @ COM2 (DA8782414)
+2026-06-26 14:26:36.358 [Information] LightServer.Services.IsolatedComPortLight: COM3: открыт idx=1/2 mode=bank-On MV-VC3704H-128G60 @ COM3 (DA8813549)
+2026-06-26 14:26:36.358 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM2, COM3
+2026-06-26 14:26:36.358 [Information] LightServer.Services.ComLightBankService: ComLightBank: открыто 2 COM (COM2, COM3)
+2026-06-26 14:26:38.200 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"devices":[{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:26:38.221 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"devices":[{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:26:38.226 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"devices":[{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:26:38.481 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:38.482 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:39.282 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:39.282 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 1021 ms (parallel)
+2026-06-26 14:26:39.292 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:39.665 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:39.665 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:39.966 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:39.966 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 458 ms (parallel)
+2026-06-26 14:26:39.966 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:40.394 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:40.394 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:40.536 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:40.536 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 363 ms (parallel)
+2026-06-26 14:26:40.537 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:40.933 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:40.933 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:41.249 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:41.250 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 506 ms (parallel)
+2026-06-26 14:26:41.250 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:41.663 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:41.663 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:41.869 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:41.869 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 412 ms (parallel)
+2026-06-26 14:26:41.869 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:42.265 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:42.265 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:42.454 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:42.454 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 378 ms (parallel)
+2026-06-26 14:26:42.455 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:42.835 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:42.836 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:43.041 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:43.041 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 379 ms (parallel)
+2026-06-26 14:26:43.041 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:43.435 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:43.435 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:43.686 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:43.686 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 439 ms (parallel)
+2026-06-26 14:26:43.686 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:44.096 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:44.096 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:44.382 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:44.382 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 488 ms (parallel)
+2026-06-26 14:26:44.382 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}
+2026-06-26 14:26:44.732 [Warning] LightServer.Services.IsolatedComPortLight: COM2: direct on failed ch3 bank-on-fail
+2026-06-26 14:26:44.733 [Warning] LightServer.Services.ComLightIsolatedBank: Bank on fail COM2: COM2: bank-on-fail ch3
+2026-06-26 14:26:44.954 [Information] LightServer.Services.IsolatedComPortLight: COM3: On bank-seq-on
+2026-06-26 14:26:44.955 [Information] LightServer.Services.ComLightIsolatedBank: Bank direct-on 2 COM in 364 ms (parallel)
+2026-06-26 14:26:44.955 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"On","brightness":"20"}
+  << Response: {"success":false,"message":null,"error":"Часть COM не включилась.","state":"on","brightness":"20,20,20,20,20,20,20,20","results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: bank-on-fail ch3","lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]},{"comPort":"COM3","success":true,"message":"bank-seq-on","error":null,"lightControllerSource":"On","channels":[1,2,3,4],"brightness":[51,51,51,51]}]}

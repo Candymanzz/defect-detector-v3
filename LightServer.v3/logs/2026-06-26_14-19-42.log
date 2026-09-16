@@ -1,0 +1,22 @@
+﻿--- LightServer log started 2026-06-26 14:19:42 ---
+2026-06-26 14:19:42.977 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 2, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-06-26_14-19-42.log
+2026-06-26 14:19:43.083 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-06-26 14:19:43.083 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-06-26 14:19:43.083 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-06-26 14:19:43.091 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-06-26 14:19:46.416 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=2, map=[COM2:0, COM3:1]
+2026-06-26 14:19:47.426 [Information] LightServer.Services.IsolatedComPortLight: COM2: открыт idx=0/2 mode=bank-On MV-LE200-48W24-2D @ COM2 (DA8782414)
+2026-06-26 14:19:48.505 [Information] LightServer.Services.IsolatedComPortLight: COM3: открыт idx=1/2 mode=bank-On MV-VC3704H-128G60 @ COM3 (DA8813549)
+2026-06-26 14:19:48.505 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM2, COM3
+2026-06-26 14:19:48.506 [Information] LightServer.Services.ComLightBankService: ComLightBank: открыто 2 COM (COM2, COM3)
+2026-06-26 14:19:50.935 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"devices":[{"comPort":"COM2","channels":[1,2,3,4]},{"comPort":"COM3","channels":[1,2,3,4]}],"usage":{"post":"POST /api/com/light","bodyOn":{"state":"on","brightness":"100"},"bodyOff":{"state":"off"}}}
+2026-06-26 14:19:51.527 [Information] LightServer.Services.IsolatedComPortLight: COM3: Off bank-off
+2026-06-26 14:19:51.598 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"Off"}
+  << Response: {"success":false,"message":null,"error":"Не все COM выключились.","state":"off","brightness":null,"results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: off ch3 (bank-off-fail)","lightControllerSource":"Off","channels":[1,2,3,4],"brightness":null},{"comPort":"COM3","success":true,"message":"bank-off","error":null,"lightControllerSource":"Off","channels":[1,2,3,4],"brightness":null}]}
+2026-06-26 14:19:52.419 [Information] LightServer.Services.IsolatedComPortLight: COM3: Off bank-off
+2026-06-26 14:19:52.419 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/com/light => 400
+  >> Request: {"state":"Off"}
+  << Response: {"success":false,"message":null,"error":"Не все COM выключились.","state":"off","brightness":null,"results":[{"comPort":"COM2","success":false,"message":null,"error":"COM2: off ch3 (bank-off-fail)","lightControllerSource":"Off","channels":[1,2,3,4],"brightness":null},{"comPort":"COM3","success":true,"message":"bank-off","error":null,"lightControllerSource":"Off","channels":[1,2,3,4],"brightness":null}]}

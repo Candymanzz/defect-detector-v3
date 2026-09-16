@@ -1,0 +1,11 @@
+﻿--- LightServer log started 2026-07-10 13:39:21 ---
+2026-07-10 13:39:22.079 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-10_13-39-21.log
+2026-07-10 13:39:22.201 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-10 13:39:22.201 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-10 13:39:22.201 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-10 13:39:22.201 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-10 13:39:24.012 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM1:0]
+2026-07-10 13:39:25.062 [Information] LightServer.Services.IsolatedComPortLight: COM1: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM1 (DA8782414)
+2026-07-10 13:39:25.062 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM1
+2026-07-10 13:39:25.062 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM1)
+2026-07-10 13:44:27.111 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

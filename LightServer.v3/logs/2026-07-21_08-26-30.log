@@ -1,0 +1,1100 @@
+﻿--- LightServer log started 2026-07-21 08:26:30 ---
+2026-07-21 08:26:30.219 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 0, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-21_08-26-30.log
+2026-07-21 08:26:30.222 [Warning] LightServer: COM-устройства не настроены — задайте config/blocks/51-light-hardware.yaml или ComLightDevices в appsettings.json (D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\)
+2026-07-21 08:26:30.300 [Information] LightServer.Services.ComLightBankService: ComLightBank: COM-устройства не заданы — банк пропущен (только Ethernet/MV-LE).
+2026-07-21 08:26:30.348 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-21 08:26:30.348 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-21 08:26:30.348 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-21 08:26:30.348 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-21 08:26:30.980 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-07-21 08:26:31.009 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-1@192.168.1.153: Open 0x80000215
+2026-07-21 08:26:31.010 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-2@192.168.1.154 не найден
+2026-07-21 08:26:31.010 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-3@192.168.1.155 не найден
+2026-07-21 08:26:31.053 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank: открыт mv-le-4@169.254.220.1 channels=[1,2,3,4] mode=bank-direct
+2026-07-21 08:26:31.053 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank готов: 1/4 (169.254.220.1)
+2026-07-21 08:26:41.619 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"ready":1,"transport":"ethernet-gige","skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:26:42.335 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.153","channels":[1,2],"brightness":[204,204],"error":"Open: 0x80000215"}
+2026-07-21 08:26:43.006 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.153","channels":[3,4],"brightness":[204,204],"error":"Open: 0x80000215"}
+2026-07-21 08:26:43.679 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":3,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.154","channels":[1,2],"brightness":[204,204],"error":"Устройство не найдено по ipAddress='192.168.1.154'."}
+2026-07-21 08:26:44.345 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.154","channels":[3,4],"brightness":[204,204],"error":"Устройство не найдено по ipAddress='192.168.1.154'."}
+2026-07-21 08:26:45.013 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.155","channels":[1,2],"brightness":[204,204],"error":"Устройство не найдено по ipAddress='192.168.1.155'."}
+2026-07-21 08:26:45.677 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.155","channels":[3,4],"brightness":[204,204],"error":"Устройство не найдено по ipAddress='192.168.1.155'."}
+2026-07-21 08:26:45.688 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[204,204,255,255]
+2026-07-21 08:26:45.691 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[1,2],"brightness":[204,204]}
+2026-07-21 08:26:45.698 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[204,204,204,204]
+2026-07-21 08:26:45.699 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[3,4],"brightness":[204,204]}
+2026-07-21 08:27:22.680 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:22.682 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:27.654 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:27.654 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:27.676 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:27.676 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:27.677 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:30.513 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:30.513 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:30.533 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:30.533 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:30.533 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:30.834 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:30.834 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:35.843 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:35.843 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:35.865 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:35.865 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:35.865 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:39.946 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:39.946 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:39.973 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:39.973 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:39.973 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:40.270 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:40.270 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:45.291 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:45.291 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:45.312 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:45.312 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:45.312 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:49.390 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:49.390 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:49.410 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:49.410 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:49.411 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:49.697 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:49.697 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:54.704 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:54.704 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:54.723 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:54.723 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:54.723 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:58.808 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:27:58.808 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:27:58.831 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:27:58.831 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:58.831 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:27:59.131 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:27:59.131 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:04.149 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:04.149 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:04.169 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:04.169 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:04.170 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:08.274 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:08.274 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:08.301 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:08.301 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:08.301 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:08.592 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:08.593 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:13.606 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:13.606 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:13.627 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:13.627 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:13.627 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:17.718 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:17.718 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:17.742 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:17.742 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:17.742 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:18.040 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:18.040 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:23.052 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:23.052 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:23.073 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:23.073 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:23.073 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:27.156 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:27.156 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:27.177 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:27.177 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:27.178 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:27.478 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:27.479 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:32.495 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:32.495 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:32.514 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:32.515 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:32.515 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:36.625 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:36.625 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:36.646 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:36.646 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:36.646 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:36.947 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:36.947 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:41.962 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:41.962 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:41.982 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:41.982 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:41.982 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:46.054 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:46.054 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:46.075 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:46.075 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:46.075 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:46.374 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:46.375 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:51.386 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:51.386 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:51.407 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:51.407 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:51.407 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:55.522 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:28:55.522 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:28:55.543 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:28:55.543 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:55.543 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:28:55.847 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:28:55.848 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:00.853 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:00.853 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:00.874 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:00.874 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:00.874 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:04.957 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:04.957 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:04.978 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:04.978 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:04.978 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:05.275 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:05.275 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:10.279 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:10.279 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:10.299 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:10.299 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:10.299 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:14.412 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:14.412 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:14.434 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:14.434 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:14.435 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:14.724 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:14.724 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:19.740 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:19.740 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:19.762 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:19.762 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:19.762 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:23.853 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:23.853 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:23.874 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:23.874 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:23.874 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:24.173 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:24.174 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:29.183 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:29.183 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:29.204 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:29.204 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:29.204 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:33.081 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":148,"rightPower":148}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.153","channels":[1,2],"brightness":[148,148],"error":"Open: 0x80000215"}
+2026-07-21 08:29:33.317 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[204,204,204,204]
+2026-07-21 08:29:33.317 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[204,204,204,204]
+2026-07-21 08:29:33.339 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[204,204,204,204]
+2026-07-21 08:29:33.339 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:33.339 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:33.640 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:33.640 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:33.741 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":148,"rightPower":148}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.153","channels":[3,4],"brightness":[148,148],"error":"Open: 0x80000215"}
+2026-07-21 08:29:34.411 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":3,"leftPower":148,"rightPower":148}
+  << Response: {"success":false,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.154","channels":[1,2],"brightness":[148,148],"error":"Устройство не найдено по ipAddress='192.168.1.154'."}
+2026-07-21 08:29:35.074 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":148,"rightPower":148}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.154","channels":[3,4],"brightness":[148,148],"error":"Устройство не найдено по ipAddress='192.168.1.154'."}
+2026-07-21 08:29:35.741 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":148,"rightPower":148}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.155","channels":[1,2],"brightness":[148,148],"error":"Устройство не найдено по ipAddress='192.168.1.155'."}
+2026-07-21 08:29:36.408 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":148,"rightPower":148}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.155","channels":[3,4],"brightness":[148,148],"error":"Устройство не найдено по ipAddress='192.168.1.155'."}
+2026-07-21 08:29:36.414 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[148,148,204,204]
+2026-07-21 08:29:36.414 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":148,"rightPower":148}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[1,2],"brightness":[148,148]}
+2026-07-21 08:29:36.419 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank brightness primed 169.254.220.1 powers=[148,148,148,148]
+2026-07-21 08:29:36.419 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":148,"rightPower":148}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"ethernet-bank-brightness","ipAddress":"169.254.220.1","channels":[3,4],"brightness":[148,148]}
+2026-07-21 08:29:36.426 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:36.427 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:36.457 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:29:36.457 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:29:36.472 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:29:36.472 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:36.472 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:36.575 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:36.575 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:42.753 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:29:42.753 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:29:42.774 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:29:42.774 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:42.774 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:43.074 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:43.074 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:48.083 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:29:48.083 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:29:48.105 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:29:48.105 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:48.105 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:52.203 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:29:52.203 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:29:52.226 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:29:52.226 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:52.226 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:52.521 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:52.521 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:29:57.530 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:29:57.530 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:29:57.551 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:29:57.551 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:29:57.551 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:01.656 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:01.656 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:01.678 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:01.678 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:01.678 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:01.966 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:01.966 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:06.972 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:06.972 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:06.993 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:06.993 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:06.993 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:11.077 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:11.077 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:11.098 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:11.098 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:11.098 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:11.408 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:11.408 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:16.427 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:16.427 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:16.448 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:16.448 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:16.448 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:20.520 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:20.520 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:20.541 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:20.541 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:20.542 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:20.841 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:20.842 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:25.845 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:25.845 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:25.864 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:25.864 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:25.864 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:29.962 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:29.962 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:29.983 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:29.983 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:29.983 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:30.281 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:30.282 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:35.287 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:35.287 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:35.308 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:35.308 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:35.308 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:39.418 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:39.418 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:39.439 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:39.439 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:39.439 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:39.734 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:39.735 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:40.550 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":true,"ready":1,"transport":"ethernet-gige","skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:44.746 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:44.746 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:44.767 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:44.767 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:44.767 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:48.847 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:48.847 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:48.870 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:48.870 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:48.870 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:49.165 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:49.165 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:49.435 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:49.435 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:49.456 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:49.456 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:49.456 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:49.992 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:49.993 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:54.181 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:54.181 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:54.203 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:54.203 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:54.203 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:58.179 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:58.179 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:58.202 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:58.202 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:58.202 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:58.283 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:30:58.283 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:30:58.304 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:30:58.304 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:58.304 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:30:58.602 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:30:58.603 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:03.617 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:03.617 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:03.638 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:03.638 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:03.638 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:07.732 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:07.732 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:07.755 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:07.755 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:07.755 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:08.049 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:08.050 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:13.059 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:13.059 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:13.080 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:13.080 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:13.080 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:17.204 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:17.204 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:17.225 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:17.225 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:17.225 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:17.519 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:17.519 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:22.528 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:22.528 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:22.549 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:22.549 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:22.549 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:26.635 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:26.635 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:26.657 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:26.657 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:26.657 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:26.957 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:26.957 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:31.960 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:31.960 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:31.982 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:31.982 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:31.982 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:36.050 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:36.050 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:36.072 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:36.072 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:36.072 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:36.369 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:36.369 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:41.383 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:41.383 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:41.404 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:41.404 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:41.404 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:45.494 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:45.494 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:45.514 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:45.514 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:45.514 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:45.813 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:45.814 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:50.819 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:50.819 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:50.841 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:50.841 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:50.841 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:54.935 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:31:54.935 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:31:54.955 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:31:54.955 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:54.955 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:31:55.253 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:31:55.254 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:00.266 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:00.266 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:00.286 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:00.286 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:00.286 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:04.388 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:04.388 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:04.409 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:04.409 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:04.409 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:04.709 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:04.709 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:09.715 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:09.715 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:09.736 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:09.736 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:09.736 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:13.833 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:13.833 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:13.859 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:13.859 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:13.860 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:14.150 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:14.151 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:19.163 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:19.163 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:19.184 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:19.184 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:19.184 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:23.296 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:23.296 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:23.317 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:23.317 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:23.317 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:23.613 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:23.613 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:28.616 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:28.616 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:28.637 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:28.637 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:28.637 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:32.757 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:32.757 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:32.778 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:32.778 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:32.778 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:33.076 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:33.076 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:38.080 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:38.080 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:38.101 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:38.101 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:38.101 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:42.201 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:42.201 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:42.222 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:42.222 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:42.222 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:42.518 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:42.519 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:47.534 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:47.534 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:47.555 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:47.555 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:47.555 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:51.640 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:51.640 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:51.661 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:51.661 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:51.661 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:51.958 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:51.958 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:32:56.964 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:32:56.964 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:32:56.986 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:32:56.986 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:32:56.986 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:01.085 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:01.085 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:01.105 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:01.105 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:01.105 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:01.406 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:01.406 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:06.416 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:06.416 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:06.437 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:06.437 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:06.437 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:10.543 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:10.543 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:10.564 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:10.564 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:10.564 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:10.862 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:10.862 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:15.865 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:15.865 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:15.886 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:15.886 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:15.886 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:20.002 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:20.002 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:20.023 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:20.023 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:20.023 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:20.318 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:20.318 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:25.330 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:25.330 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:25.349 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:25.349 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:25.349 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:29.442 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:29.442 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:29.463 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:29.463 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:29.463 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:29.761 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:29.761 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:34.767 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:34.767 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:34.788 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:34.788 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:34.788 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:38.895 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:38.895 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:38.918 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:38.918 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:38.918 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:39.214 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:39.214 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:44.219 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:44.219 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:44.241 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:44.242 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:44.242 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:48.327 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:48.327 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:48.347 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:48.347 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:48.347 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:48.646 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:48.646 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:53.656 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:53.656 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:53.677 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:53.677 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:53.677 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:57.743 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:33:57.743 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:33:57.763 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:33:57.764 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:57.764 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:33:58.063 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:33:58.063 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:03.071 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:03.071 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:03.092 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:03.092 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:03.092 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:07.174 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:07.174 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:07.195 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:07.195 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:07.195 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:07.489 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:07.489 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:12.496 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:12.496 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:12.517 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:12.517 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:12.517 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:16.646 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:16.646 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:16.666 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:16.666 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:16.667 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:16.967 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:16.967 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:21.978 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:21.978 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:21.999 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:21.999 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:21.999 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:26.059 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:26.059 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:26.080 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:26.080 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:26.080 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:26.374 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:26.374 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:31.380 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:31.380 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:31.400 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:31.400 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:31.401 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:35.503 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:35.503 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:35.524 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:35.524 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:35.524 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:35.822 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:35.822 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:40.833 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:40.833 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:40.855 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:40.855 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:40.855 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:44.967 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:44.967 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:44.988 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:44.988 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:44.988 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:45.289 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:45.289 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:50.307 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:50.307 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:50.329 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:50.329 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:50.329 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:54.425 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:54.425 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:54.448 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:54.448 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:54.449 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:54.741 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:54.741 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:34:59.752 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:34:59.753 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:34:59.772 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:34:59.772 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:34:59.772 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:03.863 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:03.863 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:03.885 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:03.885 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:03.885 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:04.180 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:04.180 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:09.194 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:09.194 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:09.215 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:09.215 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:09.215 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:13.317 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:13.317 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:13.337 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:13.337 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:13.338 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:13.641 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:13.641 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:18.651 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:18.651 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:18.672 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:18.672 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:18.672 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:22.750 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:22.751 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:22.772 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:22.772 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:22.772 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:23.068 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:23.068 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:28.086 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:28.086 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:28.107 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:28.107 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:28.107 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:32.192 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:32.192 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:32.213 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:32.213 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:32.213 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:32.511 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:32.511 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:37.527 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:37.527 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:37.547 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:37.547 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:37.548 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:41.635 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:41.635 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:41.657 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:41.657 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:41.657 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:41.956 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:41.956 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:46.971 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:46.971 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:46.992 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:46.992 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:46.992 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:51.103 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:51.103 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:51.123 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:51.124 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:51.124 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:51.422 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:51.422 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:35:56.432 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:35:56.432 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:35:56.453 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:35:56.453 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:35:56.453 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:36:00.539 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:36:00.539 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:36:00.561 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:36:00.562 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:36:00.562 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:36:00.857 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:36:00.857 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-off"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:36:05.861 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank On 169.254.220.1 brightness=[148,148,148,148]
+2026-07-21 08:36:05.861 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn 169.254.220.1 forceOffFirst=True brightness=[148,148,148,148]
+2026-07-21 08:36:05.882 [Information] LightServer.Services.IsolatedEthernetLight: Ethernet bank ApplyDirectOn done 169.254.220.1 mode=bank-seq-on:LightBrightness readBack=[148,148,148,148]
+2026-07-21 08:36:05.882 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank on: ready=1 ok=1 err=0 brightnessIps=0
+2026-07-21 08:36:05.882 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"on"}
+  << Response: {"success":true,"state":"on","transport":"ethernet-gige","ready":1,"applied":["169.254.220.1: bank-seq-on:LightBrightness"],"errors":[],"skipped":{"192.168.1.153":"mv-le-1@192.168.1.153: Open 0x80000215","192.168.1.154":"не найден в EnumDevices","192.168.1.155":"не найден в EnumDevices"},"error":null}
+2026-07-21 08:36:09.276 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

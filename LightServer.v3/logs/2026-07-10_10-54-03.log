@@ -1,0 +1,98 @@
+﻿--- LightServer log started 2026-07-10 10:54:03 ---
+2026-07-10 10:54:03.372 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 3, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-10_10-54-03.log
+2026-07-10 10:54:03.485 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-10 10:54:03.485 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-10 10:54:03.485 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-10 10:54:03.486 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-10 10:54:08.449 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-10 10:54:08.452 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:08.452 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:08.452 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:08.453 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:08.454 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:16.119 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-10 10:54:16.120 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:16.120 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:16.120 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:16.120 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:16.120 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:16.154 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-07-10 10:54:21.016 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-10 10:54:21.016 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:21.016 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:21.016 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:21.016 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:21.016 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:21.017 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-07-10 10:54:25.913 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-10 10:54:25.914 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:25.914 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:25.914 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:25.914 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:25.914 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:25.915 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-07-10 10:54:30.810 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-10 10:54:30.810 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:30.811 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:30.811 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:30.811 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:30.811 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:30.811 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-07-10 10:54:31.657 [Warning] LightServer.Services.LightControlService: SerialLight:DisableSdkLock=true — SDK/COM без lock (эксперимент, возможны гонки и сбои)
+2026-07-10 10:54:35.701 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-10 10:54:35.702 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:35.702 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:35.702 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:35.702 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:35.702 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:35.703 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-07-10 10:54:36.448 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":1,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":1,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.1","deviceIndex":2,"channels":[1,2],"brightness":[204,204]}
+2026-07-10 10:54:41.263 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=0, map=[]
+2026-07-10 10:54:41.264 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM1: COM1 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:41.264 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:41.264 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:41.264 [Error] LightServer.Services.ComLightIsolatedBank: IsolatedBank: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:41.264 [Error] LightServer.Services.ComLightBankService: ComLightBank: инициализация не удалась: COM1 не найден в EnumDevices. Видно: []; COM2 не найден в EnumDevices. Видно: []; COM3 не найден в EnumDevices. Видно: []
+2026-07-10 10:54:41.265 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/light => 200
+  >> Request: (empty)
+  << Response: (empty)
+2026-07-10 10:54:41.972 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":2,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":2,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.1","deviceIndex":4,"channels":[3,4],"brightness":[204,204]}
+2026-07-10 10:54:46.887 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":3,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":3,"deviceId":"com2","route":"com","comPort":"COM2","channels":[1,2],"brightness":[204,204],"error":"На COM_Port#COM2 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-10 10:54:46.894 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":204,"rightPower":204}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"com2","route":"com","comPort":"COM2","channels":[3,4],"brightness":[204,204],"error":"На COM_Port#COM2 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-10 10:54:47.624 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":5,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":5,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.103","deviceIndex":0,"channels":[1,2],"brightness":[204,204]}
+2026-07-10 10:54:48.349 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":6,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":6,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.103","deviceIndex":1,"channels":[3,4],"brightness":[204,204]}
+2026-07-10 10:54:49.089 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":7,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.9","deviceIndex":0,"channels":[1,2],"brightness":[204,204]}
+2026-07-10 10:54:49.799 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {"cameraNumber":8,"leftPower":204,"rightPower":204}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.9","deviceIndex":1,"channels":[3,4],"brightness":[204,204]}
+2026-07-10 10:54:49.816 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":9,"power":204}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[204],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-10 10:54:49.821 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {"cameraNumber":10,"power":204}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[204],"error":"На COM_Port#COM1 ничего не найдено после SetEnumSerialPorts. Закройте MVS Client и повторите."}
+2026-07-10 10:56:20.249 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...

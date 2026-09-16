@@ -1,0 +1,147 @@
+﻿--- LightServer log started 2026-07-11 14:59:18 ---
+2026-07-11 14:59:19.112 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-11_14-59-18.log
+2026-07-11 14:59:19.234 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-11 14:59:19.234 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-11 14:59:19.234 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-11 14:59:19.234 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-11 14:59:21.122 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM1:0]
+2026-07-11 14:59:22.148 [Information] LightServer.Services.IsolatedComPortLight: COM1: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM1 (DA8782414)
+2026-07-11 14:59:22.148 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM1
+2026-07-11 14:59:22.148 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM1)
+2026-07-11 14:59:27.898 [Warning] LightServer.Services.LightControlService: SerialLight:DisableSdkLock=true — SDK/COM без lock (эксперимент, возможны гонки и сбои)
+2026-07-11 14:59:28.581 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/devices => 200
+  >> Request: (empty)
+  << Response: {"count":14,"devices":[{"index":0,"tLayerType":"MvGigEDevice","modelName":"MV-LE200-60W24-4TD","serialNumber":"DA8793683","ipAddress":"192.168.1.11","comPort":null},{"index":1,"tLayerType":"MvGigEDevice","modelName":"MV-LE200-60W24-4TD","serialNumber":"DA8793684","ipAddress":"192.168.1.11","comPort":null},{"index":2,"tLayerType":"MvGigEDevice","modelName":"MV-LE200-60W24-4TD","serialNumber":"DA8793682","ipAddress":"192.168.1.11","comPort":null},{"index":3,"tLayerType":"MvGigEDevice","modelName":"MV-LE200-60W24-4TD","serialNumber":"DA8793673","ipAddress":"169.254.220.1","comPort":null},{"index":4,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8716293","ipAddress":"169.254.220.10","comPort":null},{"index":5,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8792567","ipAddress":"169.254.220.9","comPort":null},{"index":6,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8716305","ipAddress":"169.254.6.8","comPort":null},{"index":7,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8716299","ipAddress":"169.254.6.7","comPort":null},{"index":8,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8792556","ipAddress":"169.254.146.5","comPort":null},{"index":9,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8792550","ipAddress":"169.254.146.6","comPort":null},{"index":10,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8792540","ipAddress":"169.254.222.3","comPort":null},{"index":11,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8716318","ipAddress":"169.254.222.4","comPort":null},{"index":12,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8716312","ipAddress":"169.254.218.1","comPort":null},{"index":13,"tLayerType":"MvGigEDevice","modelName":"MV-CS050-10GC","serialNumber":"DA8716316","ipAddress":"169.254.218.2","comPort":null}]}
+2026-07-11 14:59:28.662 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/com/devices?ports=COM1,COM2,COM3 => 200
+  >> Request: (empty)
+  << Response: {"count":3,"devices":[{"index":0,"tLayerType":"MvCameraLinkDevice","modelName":"MV-LE200-48W24-2D","serialNumber":"DA8782414","ipAddress":null,"comPort":"COM1"},{"index":-1,"tLayerType":"HostComPort","modelName":"Host COM Port","serialNumber":"","ipAddress":null,"comPort":"COM2"},{"index":-1,"tLayerType":"HostComPort","modelName":"Host COM Port","serialNumber":"","ipAddress":null,"comPort":"COM3"}]}
+2026-07-11 14:59:41.948 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  1
+}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.103","channels":[1,2],"brightness":[150,150],"error":"Устройство не найдено по ipAddress='192.168.1.103'."}
+2026-07-11 14:59:42.632 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  2
+}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"192.168.1.103","channels":[3,4],"brightness":[150,150],"error":"Устройство не найдено по ipAddress='192.168.1.103'."}
+2026-07-11 14:59:43.292 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  3
+}
+  << Response: {"success":false,"cameraNumber":3,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.9","channels":[1,2],"brightness":[150,150],"error":"Устройство не найдено по ipAddress='192.168.1.9'."}
+2026-07-11 14:59:43.948 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  4
+}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-2","route":"network","ipAddress":"192.168.1.9","channels":[3,4],"brightness":[150,150],"error":"Устройство не найдено по ipAddress='192.168.1.9'."}
+2026-07-11 14:59:44.611 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  5
+}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.100","channels":[1,2],"brightness":[150,150],"error":"Устройство не найдено по ipAddress='192.168.1.100'."}
+2026-07-11 14:59:45.268 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  6
+}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-3","route":"network","ipAddress":"192.168.1.100","channels":[3,4],"brightness":[150,150],"error":"Устройство не найдено по ipAddress='192.168.1.100'."}
+2026-07-11 14:59:46.001 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  7
+}
+  << Response: {"success":true,"cameraNumber":7,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":3,"channels":[1,2],"brightness":[150,150]}
+2026-07-11 14:59:46.752 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 200
+  >> Request: {
+    "rightPower":  150,
+    "leftPower":  150,
+    "cameraNumber":  8
+}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","deviceIndex":5,"channels":[3,4],"brightness":[150,150]}
+2026-07-11 14:59:59.881 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 400
+  >> Request: {
+    "cameraNumber":  9,
+    "power":  150
+}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"com1","route":"com","comPort":"COM1","channels":[1],"brightness":[150],"error":"Prime channels failed on ch3."}
+2026-07-11 15:00:00.948 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {
+    "cameraNumber":  10,
+    "power":  150
+}
+  << Response: {"success":true,"cameraNumber":10,"deviceId":"com1","route":"com","comPort":"COM1","channels":[2],"brightness":[150]}
+2026-07-11 15:00:08.009 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/light => 400
+  >> Request: {"IpAddress":"192.168.1.11","LightControllerSource":"On","Channels":[1,2],"Brightness":[150,150]}
+  << Response: {"success":false,"message":null,"error":"Найдено несколько устройств по ipAddress='192.168.1.11': [idx=0:MV-LE200-60W24-4TD/DA8793682/ip=192.168.1.11, idx=1:MV-LE200-60W24-4TD/DA8793684/ip=192.168.1.11, idx=2:MV-LE200-60W24-4TD/DA8793683/ip=192.168.1.11]. Уточните serialNumber или ipAddress.","deviceIndex":null,"comPort":null,"lightControllerSource":"On","channels":[1,2],"brightness":[150,150]}
+2026-07-11 15:00:23.142 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/light => 400
+  >> Request: {
+    "Brightness":  [
+                       180,
+                       180
+                   ],
+    "LightControllerSource":  "On",
+    "deviceIndex":  0,
+    "Channels":  [
+                     1,
+                     2
+                 ]
+}
+  << Response: {"success":false,"message":null,"error":"Open: 0x80000221","deviceIndex":0,"comPort":null,"lightControllerSource":"On","channels":[1,2],"brightness":[180,180]}
+2026-07-11 15:00:23.776 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/light => 400
+  >> Request: {
+    "Brightness":  [
+                       180,
+                       180
+                   ],
+    "LightControllerSource":  "On",
+    "deviceIndex":  1,
+    "Channels":  [
+                     1,
+                     2
+                 ]
+}
+  << Response: {"success":false,"message":null,"error":"Open: 0x80000221","deviceIndex":1,"comPort":null,"lightControllerSource":"On","channels":[1,2],"brightness":[180,180]}
+2026-07-11 15:00:24.394 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/light => 400
+  >> Request: {
+    "Brightness":  [
+                       180,
+                       180
+                   ],
+    "LightControllerSource":  "On",
+    "deviceIndex":  2,
+    "Channels":  [
+                     1,
+                     2
+                 ]
+}
+  << Response: {"success":false,"message":null,"error":"Open: 0x80000221","deviceIndex":2,"comPort":null,"lightControllerSource":"On","channels":[1,2],"brightness":[180,180]}
+2026-07-11 15:00:26.753 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/light => 400
+  >> Request: {
+    "Brightness":  [
+                       180,
+                       180
+                   ],
+    "LightControllerSource":  "On",
+    "deviceIndex":  3,
+    "Channels":  [
+                     1,
+                     2
+                 ]
+}
+  << Response: {"success":false,"message":null,"error":"Устройство не поддерживает LightControllerSelector (не MV-LE по этому API).","deviceIndex":3,"comPort":null,"lightControllerSource":"On","channels":[1,2],"brightness":[180,180]}
+2026-07-11 15:00:36.807 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/light => 400
+  >> Request: {"deviceIndex":0,"LightControllerSource":"On","Channels":[1,2],"Brightness":[180,180]}
+  << Response: {"success":false,"message":null,"error":"Open: 0x80000221","deviceIndex":0,"comPort":null,"lightControllerSource":"On","channels":[1,2],"brightness":[180,180]}

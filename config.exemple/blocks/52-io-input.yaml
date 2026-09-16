@@ -9,6 +9,8 @@ io_input:
   # DI3 ~10 мс: SDK Glitch=0. Soft refractory ≥80 мс режет bounce Rising.
   debounce_ms: 0
   configure_sdk: true
+  # При COM busy (сирота после crash) — убить чужой IoInputMonitor.dll и retry Open.
+  steal_com_on_busy: true
   inputs:
     - 1                 # DI1 = работа (конвейер); ↓ снимает direction latch
     - 2                 # DI2 = направление

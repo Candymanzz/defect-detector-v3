@@ -1,0 +1,15 @@
+﻿--- LightServer log started 2026-08-21 14:12:48 ---
+2026-08-21 14:12:48.716 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-08-21_14-12-48.log
+2026-08-21 14:12:48.831 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-08-21 14:12:48.831 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-08-21 14:12:48.831 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-08-21 14:12:48.831 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-08-21 14:12:49.463 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=14, targets=4
+2026-08-21 14:12:49.496 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-1@169.254.220.23: Open 0x80000203
+2026-08-21 14:12:49.521 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-2@169.254.220.22: Open 0x80000203
+2026-08-21 14:12:49.536 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-3@169.254.220.2: Open 0x80000203
+2026-08-21 14:12:49.551 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: open failed mv-le-4@169.254.220.1: Open 0x80000203
+2026-08-21 14:12:51.024 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM1:0]
+2026-08-21 14:12:51.696 [Information] LightServer.Services.IsolatedComPortLight: COM1: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM1 (DA8782414)
+2026-08-21 14:12:51.696 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM1
+2026-08-21 14:12:51.696 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM1)

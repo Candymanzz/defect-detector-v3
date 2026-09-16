@@ -42,4 +42,23 @@ class ServiceHealthGateTest {
         assertFalse(gate.healthyForVision());
         assertEquals(Set.of("analis_surface"), gate.visionBlockingReasons());
     }
+
+    @Test
+    void addOnChangedNotifiesAllListeners() {
+        ServiceHealthGate gate = new ServiceHealthGate();
+        AtomicInteger first = new AtomicInteger();
+        AtomicInteger second = new AtomicInteger();
+        gate.addOnChanged(first::incrementAndGet);
+        gate.addOnChanged(second::incrementAndGet);
+
+        gate.markUnhealthy("geometry_0");
+        assertEquals(1, first.get());
+        assertEquals(1, second.get());
+    }
+
+    @Test
+    void affectsVisionPlcExcludesIoInputMonitor() {
+        assertFalse(ServiceHealthGate.affectsVisionPlc(ServiceHealthGate.IO_INPUT_MONITOR));
+        assertTrue(ServiceHealthGate.affectsVisionPlc("analis_surface"));
+    }
 }

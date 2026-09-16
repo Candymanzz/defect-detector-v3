@@ -1,8 +1,10 @@
 package com.example.iml.orchestrator.integration.health;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Агрегат здоровья критичных сервисов.
@@ -14,10 +16,24 @@ public final class ServiceHealthGate {
     public static final String IO_INPUT_MONITOR = "io_input_monitor";
 
     private final Set<String> unhealthy = ConcurrentHashMap.newKeySet();
-    private volatile Runnable onChanged;
+    private final List<Runnable> onChangedListeners = new CopyOnWriteArrayList<>();
 
+    /** Заменяет всех слушателей одним (тесты / legacy). */
     public void setOnChanged(Runnable onChanged) {
-        this.onChanged = onChanged;
+        onChangedListeners.clear();
+        addOnChanged(onChanged);
+    }
+
+    public void addOnChanged(Runnable onChanged) {
+        if (onChanged != null) {
+            onChangedListeners.add(onChanged);
+        }
+    }
+
+    /** Участвует ли сервис в vision_ready / vision_fault на ПЛК. */
+    public static boolean affectsVisionPlc(String name) {
+        String key = normalize(name);
+        return key != null && !IO_INPUT_MONITOR.equals(key);
     }
 
     public boolean healthy() {
@@ -72,8 +88,7 @@ public final class ServiceHealthGate {
     }
 
     private void fireChanged() {
-        Runnable listener = onChanged;
-        if (listener != null) {
+        for (Runnable listener : onChangedListeners) {
             try {
                 listener.run();
             } catch (Exception ignored) {

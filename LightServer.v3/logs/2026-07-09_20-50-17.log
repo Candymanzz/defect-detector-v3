@@ -1,0 +1,14 @@
+﻿--- LightServer log started 2026-07-09 20:50:17 ---
+2026-07-09 20:50:18.069 [Information] LightServer: Content root: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 3, файл лога: D:\visionGay\defect-detector-v3\LightServer.v3\logs\2026-07-09_20-50-17.log
+2026-07-09 20:50:18.183 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-07-09 20:50:18.183 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-07-09 20:50:18.183 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-07-09 20:50:18.183 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\visionGay\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-07-09 20:50:24.691 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM1:0]
+2026-07-09 20:50:25.426 [Information] LightServer.Services.IsolatedComPortLight: COM1: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM1 (DA8782414)
+2026-07-09 20:50:25.429 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM2: COM2 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM1 (DA8782414)]
+2026-07-09 20:50:25.429 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: пропуск COM3: COM3 не найден в EnumDevices. Видно: [MV-LE200-48W24-2D @ COM1 (DA8782414)]
+2026-07-09 20:50:25.429 [Warning] LightServer.Services.ComLightIsolatedBank: IsolatedBank: Частично: готовы [COM1], пропущены [COM2, COM3].
+2026-07-09 20:50:25.430 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/3 COM (COM1)
+2026-07-09 20:50:25.430 [Warning] LightServer.Services.ComLightBankService: ComLightBank: пропущены COM2, COM3
+2026-07-09 20:51:57.695 [Information] Microsoft.Hosting.Lifetime: Application is shutting down...
