@@ -166,7 +166,12 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                         );
                     }
                     if (lineCapture != null && lineCapture.isEnabled() && triggerSequence > 0L) {
-                        captureHolder[0] = lineCapture.captureForLine(triggerSequence, cameraId, worker);
+                        captureHolder[0] = lineCapture.captureForLine(
+                                triggerSequence,
+                                cameraId,
+                                worker,
+                                phaseId
+                        );
                     } else {
                         captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));
                     }

@@ -1929,7 +1929,7 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
 }
 
 static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
-                               char *err, size_t err_len) {
+                               int clear_buffer, char *err, size_t err_len) {
     if (strcmp(st->capture_source, "hik") == 0) {
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
         int use_sync = !wait_only && (sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE);
@@ -1943,10 +1943,15 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                 snprintf(err, err_len, "hik software trigger failed: 0x%x", nRet);
                 return -1;
             }
-        } else if (wait_only) {
+        } else if (wait_only && clear_buffer) {
             /* hardware Line0 (DO5): сбросить очередь SDK без GetOneFrame-drain
-             * (drain гоняется с DO5 и выкидывает нужный кадр). */
+             * (drain гоняется с DO5 и выкидывает нужный кадр).
+             * two-phase: clear_buffer=false на 2-м wait_frame — кадр 2-го DO5 уже в очереди. */
             (void)hik_flush_image_buffer(st);
+        } else if (wait_only && !clear_buffer) {
+            fprintf(stderr,
+                    "sync_diag channel=worker event=wait_frame_skip_clear cam=%d (keep SDK queue for 2nd line pulse)\n",
+                    st->camera_id);
         }
         nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
                                         (unsigned int)st->frame_timeout_ms);
@@ -2065,13 +2070,14 @@ static void stream_lock_leave(worker_state_t *st) {
 #endif
 }
 
-static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_only, char *err, size_t err_len) {
+static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_only, int clear_buffer, char *err,
+                                size_t err_len) {
     uint64_t capture_started_ns = now_ns();
     uint64_t frame_id = st->next_frame_id;
     int slot_index = (int)((frame_id - 1) % (uint64_t)st->ring_slots);
     size_t slot_offset = (size_t)slot_index * st->frame_bytes;
     uint8_t *frame = st->shm_base + slot_offset;
-    if (capture_from_source(st, frame, frame_id, sync_capture, wait_only, err, err_len) != 0) {
+    if (capture_from_source(st, frame, frame_id, sync_capture, wait_only, clear_buffer, err, err_len) != 0) {
         st->capture_dropped++;
         return -1;
     }
@@ -2163,7 +2169,7 @@ static void *stream_thread_proc(void *param) {
         }
         stream_lock_enter(st);
         char cap_err[256] = {0};
-        if (capture_frame_to_shm(st, 0, 0, cap_err, sizeof(cap_err)) != 0) {
+        if (capture_frame_to_shm(st, 0, 0, 1, cap_err, sizeof(cap_err)) != 0) {
             fprintf(stderr, "stream capture failed camera=%d: %s\n", st->camera_id,
                     cap_err[0] ? cap_err : "unknown");
         }
@@ -2599,15 +2605,17 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
             int sync_capture = 0;
             int trigger_only = 0;
             int wait_frame = 0;
+            int clear_buffer = 1;
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "sync", &sync_capture);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "trigger_only", &trigger_only);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "wait_frame", &wait_frame);
+            (void)json_find_bool(header_buf, (int)strlen(header_buf), "clear_buffer", &clear_buffer);
             stream_lock_enter(&st);
             int cap_rc;
             if (trigger_only) {
                 cap_rc = fire_software_trigger_only(&st, cap_err, sizeof(cap_err));
             } else {
-                cap_rc = capture_frame_to_shm(&st, sync_capture, wait_frame, cap_err, sizeof(cap_err));
+                cap_rc = capture_frame_to_shm(&st, sync_capture, wait_frame, clear_buffer, cap_err, sizeof(cap_err));
             }
             stream_lock_leave(&st);
             if (cap_rc != 0) {

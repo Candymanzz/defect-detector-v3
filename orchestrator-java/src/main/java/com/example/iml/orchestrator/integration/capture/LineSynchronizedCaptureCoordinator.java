@@ -421,6 +421,16 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             int cameraId,
             WorkerProcessSupervisor worker
     ) throws Exception {
+        return captureForLine(triggerSequence, cameraId, worker, 0);
+    }
+
+    public BinaryProtocol.Message captureForLine(
+            long triggerSequence,
+            int cameraId,
+            WorkerProcessSupervisor worker,
+            int phaseId
+    ) throws Exception {
+        boolean clearBufferBeforeWait = phaseId <= 0;
         if (!isEnabled() || triggerSequence <= 0L) {
             return worker.command(Map.of("op", "capture", "sync", true));
         }
@@ -474,7 +484,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
                 );
                 return capture;
             }
-            BinaryProtocol.Message capture = waitFrameForCamera(round, cameraId, worker);
+            BinaryProtocol.Message capture = waitFrameForCamera(round, cameraId, worker, clearBufferBeforeWait);
             round.releaseParticipant();
             if (!isUsableCapture(capture)) {
                 throw new IllegalStateException(
@@ -484,9 +494,11 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             }
             long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
             LOG.debug(
-                    "sync_diag channel=inspect event=line_frame_from_hw cam={} seq={} frame_id={}",
+                    "sync_diag channel=inspect event=line_frame_from_hw cam={} seq={} phase={} clear_buffer={} frame_id={}",
                     cameraId,
                     triggerSequence,
+                    phaseId,
+                    clearBufferBeforeWait,
                     frameId
             );
             return capture;
@@ -682,7 +694,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             Map.Entry<Integer, WorkerProcessSupervisor> entry = entries.get(i);
             int camId = entry.getKey();
             WorkerProcessSupervisor worker = entry.getValue();
-            BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId);
+            BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId, true);
             if (!isUsableCapture(msg)) {
                 if (lenient) {
                     LOG.warn("line capture cam={} skipped (lenient): {}", camId, describeCapture(msg));
@@ -719,13 +731,14 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private BinaryProtocol.Message waitFrameForCamera(
             Round round,
             int cameraId,
-            WorkerProcessSupervisor worker
+            WorkerProcessSupervisor worker,
+            boolean clearBufferBeforeWait
     ) throws Exception {
         BinaryProtocol.Message existing = round.results.get(cameraId);
         if (isUsableCapture(existing)) {
             return existing;
         }
-        BinaryProtocol.Message msg = waitFrameWithRetry(worker, cameraId);
+        BinaryProtocol.Message msg = waitFrameWithRetry(worker, cameraId, clearBufferBeforeWait);
         if (!isUsableCapture(msg)) {
             throw new IllegalStateException(
                     "line capture unusable cam=" + cameraId + ": " + describeCapture(msg)
@@ -746,7 +759,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             int camId = entry.getKey();
             WorkerProcessSupervisor worker = entry.getValue();
             waitTasks.add(() -> {
-                BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId);
+                BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId, true);
                 if (!isUsableCapture(msg)) {
                     if (lenient) {
                         LOG.warn("line capture cam={} skipped (lenient): {}", camId, describeCapture(msg));
@@ -766,11 +779,22 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         return okCount;
     }
 
-    private BinaryProtocol.Message waitFrameWithRetry(WorkerProcessSupervisor worker, int cameraId) throws Exception {
+    private static Map<String, Object> waitFrameCommand(boolean clearBufferBeforeWait) {
+        if (clearBufferBeforeWait) {
+            return Map.of("op", "capture", "wait_frame", true);
+        }
+        return Map.of("op", "capture", "wait_frame", true, "clear_buffer", false);
+    }
+
+    private BinaryProtocol.Message waitFrameWithRetry(
+            WorkerProcessSupervisor worker,
+            int cameraId,
+            boolean clearBufferBeforeWait
+    ) throws Exception {
         BinaryProtocol.Message last = null;
         int maxAttempts = hardwareLineTrigger ? WAIT_FRAME_MAX_ATTEMPTS : WAIT_FRAME_MAX_ATTEMPTS_SOFTWARE;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            last = worker.command(Map.of("op", "capture", "wait_frame", true));
+            last = worker.command(waitFrameCommand(clearBufferBeforeWait));
             if (isUsableCapture(last)) {
                 return last;
             }
