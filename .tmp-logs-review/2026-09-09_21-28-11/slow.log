@@ -1,0 +1,11 @@
+=== slow log started: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\analisSurface\backend\logs\2026-09-09_21-28-11\slow.log ===
+2026-09-09T21:28:38.442 SLOW POST /inspect-shm status=200 duration_ms=1003.3
+2026-09-09T21:37:01.996 SLOW POST /inspect-shm status=200 duration_ms=1070.0
+2026-09-09T21:37:12.024 SLOW POST /inspect-shm status=200 duration_ms=1002.6
+2026-09-09T21:37:12.107 SLOW POST /inspect-shm status=200 duration_ms=1108.5
+2026-09-09T21:37:12.186 SLOW POST /inspect-shm status=200 duration_ms=1092.9
+2026-09-09T21:37:32.160 SLOW POST /inspect-shm status=200 duration_ms=1069.1
+2026-09-09T21:37:32.245 SLOW POST /inspect-shm status=200 duration_ms=1188.7
+2026-09-09T21:37:32.343 SLOW POST /inspect-shm status=200 duration_ms=1157.3
+2026-09-09T21:37:42.322 SLOW POST /inspect-shm status=200 duration_ms=1061.9
+2026-09-09T21:37:42.407 SLOW POST /inspect-shm status=200 duration_ms=1149.9
