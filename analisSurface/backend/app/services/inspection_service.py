@@ -142,8 +142,10 @@ class InspectionService:
         self._analysis_settings_detailed_knobs: Dict[str, dict[str, object]] = {}
         self._analysis_settings_lock = threading.Lock()
         self._analysis_settings_mtime_ns = -1
-        self._orb = cv2.ORB_create(nfeatures=1800)
+        self._orb = cv2.ORB_create(nfeatures=3000)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        self._sift = cv2.SIFT_create(nfeatures=2000)  # Fallback для сложных случаев
+        self._clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))  # Нормализация яркости
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
         self._fp_crops_dir = Path(__file__).resolve().parent.parent / "data" / "fp_zone_crops"
         self.fp_zones: Dict[str, list[FPZone]] = {}
@@ -173,6 +175,8 @@ class InspectionService:
         self._clear_learned_normals_for_product(product_type)
         self._reference_hashes[product_type] = reference_fingerprint(image)
         self._update_ref_orb_cache(product_type, image)
+        # Проверяем адекватность ROI после установки эталона
+        self._validate_roi_coverage(product_type, image)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
         image = frame.copy()
@@ -180,6 +184,33 @@ class InspectionService:
         self._clear_learned_normals_for_product(product_type)
         self._reference_hashes[product_type] = reference_fingerprint(image)
         self._update_ref_orb_cache(product_type, image)
+        # Проверяем адекватность ROI после установки эталона
+        self._validate_roi_coverage(product_type, image)
+
+    def _validate_roi_coverage(self, product_type: str, image: np.ndarray) -> None:
+        """Проверить, что ROI не исключает критические области."""
+        if product_type not in self.roi_polygons:
+            # ROI не настроен — анализируется весь кадр, всё ОК
+            return
+
+        roi_polygon = self.roi_polygons[product_type]
+        h, w = image.shape[:2]
+        roi_mask = polygon_mask_from_norm_points(roi_polygon, w, h)
+
+        coverage = np.count_nonzero(roi_mask) / roi_mask.size
+
+        if coverage < 0.3:
+            logger.warning(
+                f"ROI для {product_type} покрывает только {coverage:.1%} кадра. "
+                f"Проверьте, что важные области (этикетка, края, дефектные зоны) не исключены из анализа."
+            )
+        elif coverage > 0.95:
+            logger.info(
+                f"ROI для {product_type} покрывает {coverage:.1%} кадра (почти всё). "
+                f"Возможно, ROI можно уточнить для снижения ложных срабатываний."
+            )
+        else:
+            logger.info(f"ROI для {product_type} покрывает {coverage:.1%} кадра — OK")
 
 
     def _clear_learned_normals_for_product(self, product_type: str) -> None:
@@ -2035,7 +2066,9 @@ class InspectionService:
 
     def _update_ref_orb_cache(self, product_type: str, reference: np.ndarray) -> None:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
-        kp_ref, des_ref = self._orb.detectAndCompute(ref_gray, None)
+        # Применяем CLAHE для нормализации яркости
+        ref_gray_normalized = self._clahe.apply(ref_gray)
+        kp_ref, des_ref = self._orb.detectAndCompute(ref_gray_normalized, None)
         self._ref_orb_cache[product_type] = (kp_ref, des_ref)
 
     def _get_ref_orb(self, product_type: str, reference: np.ndarray) -> Tuple[list, Optional[np.ndarray]]:
@@ -2091,8 +2124,10 @@ class InspectionService:
             return self._refine_alignment_ecc(geometry_aligned, reference)
 
         cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
+        # Применяем CLAHE для нормализации яркости перед детекцией keypoints
+        cur_gray_normalized = self._clahe.apply(cur_gray)
         kp_ref, des_ref = self._get_ref_orb(product_type, reference)
-        kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
+        kp_cur, des_cur = self._orb.detectAndCompute(cur_gray_normalized, None)
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
             log_analysis_stage(
                 "alignment",
@@ -2137,15 +2172,154 @@ class InspectionService:
             )
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
+        # Вычисляем метрики качества alignment
+        inliers = int(np.sum(mask))
+        inlier_ratio = float(inliers / len(good_matches))
+        homography_det = float(np.linalg.det(homography[:2, :2]))
+
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
+
+        # Логируем качество alignment для диагностики
+        alignment_quality = "good" if inlier_ratio >= 0.6 else "poor" if inlier_ratio >= 0.4 else "critical"
         log_analysis_stage(
             "alignment",
-            "ORB homography with ECC refine",
+            f"ORB homography with ECC refine ({alignment_quality})",
             product_type=product_type,
-            extra={"method": "orb_h_ecc", "good_matches": len(good_matches)},
+            extra={
+                "method": "orb_h_ecc",
+                "good_matches": len(good_matches),
+                "inliers": inliers,
+                "inlier_ratio": round(inlier_ratio, 3),
+                "homography_det": round(homography_det, 4),
+                "quality": alignment_quality
+            },
         )
+
+        # Предупреждение при низком качестве
+        if inlier_ratio < 0.4:
+            logger.warning(
+                f"Low alignment quality for {product_type}: inlier_ratio={inlier_ratio:.2%}. "
+                f"Trying SIFT fallback..."
+            )
+            # Пробуем SIFT для более надёжного выравнивания
+            sift_aligned = self._try_sift_alignment(
+                current, reference, product_type, cur_gray_normalized
+            )
+            if sift_aligned is not None:
+                return sift_aligned
+            # Если SIFT тоже не помог, используем результат ORB с предупреждением
+            logger.warning(
+                f"SIFT fallback also failed for {product_type}. "
+                f"Using ORB result with low quality. Risk of false positives/negatives."
+            )
+
         return self._refine_alignment_ecc(aligned, reference)
+
+    def _try_sift_alignment(
+        self,
+        current: np.ndarray,
+        reference: np.ndarray,
+        product_type: str,
+        cur_gray_normalized: np.ndarray,
+    ) -> Optional[np.ndarray]:
+        """Попытка выравнивания через SIFT (fallback для сложных случаев)."""
+        try:
+            ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
+            ref_gray_normalized = self._clahe.apply(ref_gray)
+
+            # SIFT детекция
+            kp_ref_sift, des_ref_sift = self._sift.detectAndCompute(ref_gray_normalized, None)
+            kp_cur_sift, des_cur_sift = self._sift.detectAndCompute(cur_gray_normalized, None)
+
+            if des_ref_sift is None or des_cur_sift is None or len(kp_ref_sift) < 8 or len(kp_cur_sift) < 8:
+                log_analysis_stage(
+                    "alignment",
+                    "SIFT fallback: insufficient keypoints",
+                    product_type=product_type,
+                    skipped=True,
+                    extra={"method": "sift_insufficient", "kp_ref": len(kp_ref_sift), "kp_cur": len(kp_cur_sift)},
+                )
+                return None
+
+            # Матчинг с L2 нормой для SIFT
+            matcher_sift = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+            matches_sift = matcher_sift.knnMatch(des_cur_sift, des_ref_sift, k=2)
+
+            # Lowe ratio test
+            good_matches_sift = []
+            for pair in matches_sift:
+                if len(pair) >= 2:
+                    m, n = pair
+                    if m.distance < 0.75 * n.distance:
+                        good_matches_sift.append(m)
+
+            if len(good_matches_sift) < 8:
+                log_analysis_stage(
+                    "alignment",
+                    "SIFT fallback: insufficient good matches",
+                    product_type=product_type,
+                    skipped=True,
+                    extra={"method": "sift_insufficient_matches", "good_matches": len(good_matches_sift)},
+                )
+                return None
+
+            # RANSAC
+            src_pts_sift = np.float32([kp_cur_sift[m.queryIdx].pt for m in good_matches_sift]).reshape(-1, 1, 2)
+            dst_pts_sift = np.float32([kp_ref_sift[m.trainIdx].pt for m in good_matches_sift]).reshape(-1, 1, 2)
+
+            homography_sift, mask_sift = cv2.findHomography(src_pts_sift, dst_pts_sift, cv2.RANSAC, 1.0)
+
+            if homography_sift is None or mask_sift is None:
+                log_analysis_stage(
+                    "alignment",
+                    "SIFT fallback: homography failed",
+                    product_type=product_type,
+                    skipped=True,
+                    extra={"method": "sift_homography_failed"},
+                )
+                return None
+
+            inliers_sift = int(np.sum(mask_sift))
+            inlier_ratio_sift = float(inliers_sift / len(good_matches_sift))
+
+            # SIFT должен дать лучший результат, иначе не используем
+            if inlier_ratio_sift < 0.5:
+                log_analysis_stage(
+                    "alignment",
+                    "SIFT fallback: inlier ratio still low",
+                    product_type=product_type,
+                    skipped=True,
+                    extra={
+                        "method": "sift_low_quality",
+                        "inlier_ratio": round(inlier_ratio_sift, 3)
+                    },
+                )
+                return None
+
+            # SIFT сработал!
+            height, width = reference.shape[:2]
+            aligned_sift = cv2.warpPerspective(current, homography_sift, (width, height))
+
+            log_analysis_stage(
+                "alignment",
+                "SIFT fallback succeeded",
+                product_type=product_type,
+                extra={
+                    "method": "sift_h_ecc",
+                    "good_matches": len(good_matches_sift),
+                    "inliers": inliers_sift,
+                    "inlier_ratio": round(inlier_ratio_sift, 3),
+                    "quality": "good" if inlier_ratio_sift >= 0.7 else "acceptable"
+                },
+            )
+
+            return self._refine_alignment_ecc(aligned_sift, reference)
+
+        except Exception as e:
+            logger.exception(f"SIFT fallback exception for {product_type}: {e}")
+            return None
+
 
     @staticmethod
     def _downscale_aligned_pair(
@@ -2820,16 +2994,41 @@ class InspectionService:
         diff_map: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Full pre-learning heatmap energy used only for UI visualization."""
-        mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-        if diff_map is None:
-            return mask_gray
+        try:
+            mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
 
-        diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
-        combined = cv2.max(mask_gray, diff_norm)
-        combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
-        combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
-        return np.clip(combined_gamma, 0, 255).astype(np.uint8)
+            # Проверка на NaN/Inf в mask
+            if not np.all(np.isfinite(mask_gray)):
+                logger.warning("mask contains NaN or Inf, cleaning...")
+                mask_gray = np.nan_to_num(mask_gray, nan=0.0, posinf=255.0, neginf=0.0)
+
+            if diff_map is None:
+                return mask_gray
+
+            diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+
+            # Проверка на NaN/Inf в diff_map
+            if not np.all(np.isfinite(diff_gray)):
+                logger.warning("diff_map contains NaN or Inf, cleaning...")
+                diff_gray = np.nan_to_num(diff_gray, nan=0.0, posinf=255.0, neginf=0.0)
+
+            # Проверка размеров
+            if diff_gray.shape[:2] != mask_gray.shape[:2]:
+                logger.warning(
+                    f"Size mismatch in heatmap: diff {diff_gray.shape} vs mask {mask_gray.shape}, resizing"
+                )
+                diff_gray = cv2.resize(diff_gray, (mask_gray.shape[1], mask_gray.shape[0]))
+
+            diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
+            combined = cv2.max(mask_gray, diff_norm)
+            combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
+            combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
+            return np.clip(combined_gamma, 0, 255).astype(np.uint8)
+
+        except Exception as e:
+            logger.exception(f"Failed to generate heatmap: {e}")
+            # Возвращаем пустой heatmap вместо краша
+            return np.zeros(mask.shape[:2] if mask.ndim >= 2 else (256, 256), dtype=np.uint8)
 
     def _colorize_heatmap(self, heatmap_gray: np.ndarray, mask: np.ndarray) -> np.ndarray:
         heatmap = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)
