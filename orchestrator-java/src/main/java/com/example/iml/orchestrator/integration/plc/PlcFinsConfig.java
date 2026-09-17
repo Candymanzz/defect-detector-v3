@@ -11,6 +11,7 @@ import java.util.Map;
 public record PlcFinsConfig(
     boolean enabled,
     String host,
+    String bindAddress,
     int port,
     int destNode,
     int srcNode,
@@ -33,6 +34,7 @@ public record PlcFinsConfig(
     }
     boolean enabled = YamlScalars.toBool(plc.get("enabled"), false);
     String host = String.valueOf(plc.getOrDefault("host", "127.0.0.1")).trim();
+    String bindAddress = String.valueOf(plc.getOrDefault("bind_address", "")).trim();
     int port = Math.max(1, YamlScalars.toInt(plc.get("port"), 9600));
     int destNode = Math.max(0, Math.min(254, YamlScalars.toInt(plc.get("dest_node"), 0)));
     int srcNode = Math.max(0, Math.min(254, YamlScalars.toInt(plc.get("src_node"), 0)));
@@ -46,6 +48,7 @@ public record PlcFinsConfig(
     return new PlcFinsConfig(
         enabled,
         host,
+        bindAddress,
         port,
         destNode,
         srcNode,
@@ -62,6 +65,7 @@ public record PlcFinsConfig(
     return new PlcFinsConfig(
         false,
         "127.0.0.1",
+        "",
         9600,
         0,
         0,

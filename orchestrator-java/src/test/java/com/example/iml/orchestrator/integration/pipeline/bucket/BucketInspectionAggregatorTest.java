@@ -108,6 +108,38 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
+    void syncTimeoutPublishesReadyGroupOnlyWithoutSyntheticReject() throws Exception {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(
+                                new BucketGroup(0, List.of(0, 1)),
+                                new BucketGroup(1, List.of(2, 3))
+                        ),
+                        80L,
+                        80L
+                )
+        );
+        List<BucketFanOutResult> published = new ArrayList<>();
+        BucketFanOutSink fanOut = published::add;
+
+        // Line1 reject ready; line2 never arrives.
+        aggregator.recordFrameResult(21L, 0, decision(0, 400L, true), fanOut);
+        aggregator.recordFrameResult(21L, 1, decision(1, 401L, false), fanOut);
+        assertEquals(0, published.size());
+
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1500);
+        while (published.isEmpty() && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
+
+        assertEquals(1, published.size(), "only ready line must fan out after sync timeout");
+        assertEquals(0, published.get(0).groupId());
+        assertTrue(!published.get(0).overallPass());
+    }
+
+    @Test
     void jointPassIgnoresLowSiblingVisibilityStrictGate() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(

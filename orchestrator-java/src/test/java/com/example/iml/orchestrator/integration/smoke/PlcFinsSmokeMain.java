@@ -41,9 +41,10 @@ public final class PlcFinsSmokeMain {
 
     PlcRegisterMap map = PlcRegisterMapLoader.load(cfg.registerMapPath());
     log.info(
-        "PLC smoke host={}:{} dest_node={} src_node={} map={}",
+        "PLC smoke host={}:{} bind_address={} dest_node={} src_node={} map={}",
         cfg.host(),
         cfg.port(),
+        cfg.bindAddress(),
         cfg.destNode(),
         cfg.srcNode(),
         cfg.registerMapPath()

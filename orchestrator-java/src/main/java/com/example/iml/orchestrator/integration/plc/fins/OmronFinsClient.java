@@ -14,9 +14,16 @@ public final class OmronFinsClient implements AutoCloseable {
   private final OmronFinsSignalAccess signals;
   private final OmronFinsTimingAccess timings;
 
-  public OmronFinsClient(String host, int port, int destNode, int srcNode, int responseTimeoutMs)
+  public OmronFinsClient(
+      String host,
+      String bindAddress,
+      int port,
+      int destNode,
+      int srcNode,
+      int responseTimeoutMs
+  )
       throws IOException {
-    this.transport = new OmronFinsTransport(host, port, destNode, srcNode, responseTimeoutMs);
+    this.transport = new OmronFinsTransport(host, bindAddress, port, destNode, srcNode, responseTimeoutMs);
     this.signals = new OmronFinsSignalAccess(transport);
     this.timings = new OmronFinsTimingAccess(transport);
   }

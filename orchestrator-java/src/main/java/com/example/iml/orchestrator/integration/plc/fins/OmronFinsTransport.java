@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,13 +31,26 @@ public final class OmronFinsTransport implements AutoCloseable {
   private final AtomicInteger serviceId = new AtomicInteger(1);
   private final PlcFinsTrafficSubject trafficSubject = new PlcFinsTrafficSubject();
 
-  public OmronFinsTransport(String host, int port, int destNode, int srcNode, int responseTimeoutMs)
+  public OmronFinsTransport(
+      String host,
+      String bindAddress,
+      int port,
+      int destNode,
+      int srcNode,
+      int responseTimeoutMs
+  )
       throws IOException {
     this.host = host;
     this.port = port;
     this.destNode = destNode;
     this.srcNode = srcNode;
-    this.socket = new DatagramSocket();
+    if (bindAddress == null || bindAddress.isBlank()) {
+      this.socket = new DatagramSocket();
+    } else {
+      InetAddress localAddress = InetAddress.getByName(bindAddress.trim());
+      this.socket = new DatagramSocket(new InetSocketAddress(localAddress, 0));
+      log.info("plc fins UDP socket bound local={}:{}", localAddress.getHostAddress(), socket.getLocalPort());
+    }
     this.socket.setSoTimeout(responseTimeoutMs);
   }
 

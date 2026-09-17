@@ -97,6 +97,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
   public static PlcFinsPublisher create(Logger log, PlcFinsConfig config, PlcRegisterMap registerMap) throws IOException {
     OmronFinsClient client = new OmronFinsClient(
         config.host(),
+        config.bindAddress(),
         config.port(),
         config.destNode(),
         config.srcNode(),
@@ -179,6 +180,20 @@ public final class PlcFinsPublisher implements AutoCloseable {
       writeBit(registerMap.require(config.visionReadySignal()), false);
     } catch (Exception e) {
       log.debug("plc fins force vision_ready off: {}", e.getMessage());
+    }
+  }
+
+  /** Сброс линий брака (W0.06/W0.07) — на случай оборванного pulse или shutdown. */
+  private void forceRejectLinesOff() {
+    for (PlcSignalDefinition signal : registerMap.signals()) {
+      if (signal.bucketGroupId() == null) {
+        continue;
+      }
+      try {
+        writeBit(signal, false);
+      } catch (Exception e) {
+        log.warn("plc fins force reject off signal={}: {}", signal.name(), e.getMessage());
+      }
     }
   }
 
@@ -355,10 +370,12 @@ public final class PlcFinsPublisher implements AutoCloseable {
       return;
     }
     if (job instanceof PulseBitJob pulse) {
+      boolean raised = false;
       try {
         // Длительность всегда от момента записи true — не от enqueue.
         // Иначе второй pulse в очереди (reject_line_2 после reject_line_1) сжимается до ~0 ms.
         writeBit(pulse.signal(), pulse.activeValue());
+        raised = true;
         // Фронт уже на ПЛК — отпускаем awaitEdge до sleep/сброса.
         if (pulse.future() != null) {
           pulse.future().complete(null);
@@ -369,10 +386,9 @@ public final class PlcFinsPublisher implements AutoCloseable {
             Thread.sleep(waitMs);
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return;
+            // finally сбросит бит — не оставляем reject HIGH после interrupt/shutdown.
           }
         }
-        writeBit(pulse.signal(), false);
       } catch (Exception e) {
         if (pulse.future() != null && !pulse.future().isDone()) {
           pulse.future().completeExceptionally(e);
@@ -380,6 +396,18 @@ public final class PlcFinsPublisher implements AutoCloseable {
           throw io;
         } else {
           throw new IOException(e);
+        }
+      } finally {
+        if (raised) {
+          try {
+            writeBit(pulse.signal(), false);
+          } catch (Exception clearEx) {
+            log.warn(
+                "plc fins pulse clear failed signal={}: {}",
+                pulse.signal().name(),
+                clearEx.getMessage()
+            );
+          }
         }
       }
       return;
@@ -426,6 +454,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
     }
     try {
       forceVisionReadyOff();
+      forceRejectLinesOff();
       client.close();
     } catch (Exception e) {
       log.debug("plc fins close: {}", e.getMessage());

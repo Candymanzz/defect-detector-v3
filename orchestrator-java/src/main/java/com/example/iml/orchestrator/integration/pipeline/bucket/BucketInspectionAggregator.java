@@ -464,20 +464,11 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 if (barrier.readyByGroup.containsKey(group.id())) {
                     continue;
                 }
+                // Не синтезируем reject для отсутствующей линии — только готовые ведра.
                 log.warn(
-                        "inspection sequence sync timeout seq={} missing_group={} — synthetic reject for line",
+                        "inspection sequence sync timeout seq={} missing_group={} — skip PLC fanout for line (no synthetic reject)",
                         triggerSequence,
                         group.id()
-                );
-                barrier.readyByGroup.put(
-                        group.id(),
-                        new BucketFanOutResult(
-                                group.id(),
-                                triggerSequence,
-                                false,
-                                group.cameraIds(),
-                                Map.of()
-                        )
                 );
             }
             toPublish = takeBarrierResults(barrier);
