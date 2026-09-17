@@ -123,6 +123,37 @@ class InspectionService:
         self._reference_hashes[product_type] = reference_fingerprint(image)
         self._update_ref_orb_cache(product_type, image)
 
+
+    def _clear_learned_normals_for_product(self, product_type: str) -> None:
+        """Сброс сохраненных норм для product_type при установке нового эталона."""
+        cases = self._accepted_normals.list(product_type=product_type)
+        if not cases:
+            return
+        deleted_count = 0
+        for case in cases:
+            case_id = case.get("id")
+            if case_id and self._accepted_normals.delete(case_id):
+                deleted_count += 1
+                self._learning_reviews.unmark_case(case_id)
+        if deleted_count > 0:
+            logger.info(
+                f"Cleared {deleted_count} learned normals for "
+                f"product_type={product_type} after new reference"
+            )
+            # Удаляем автоматически созданные FP-зоны для этого product_type
+            changed = False
+            if product_type in self.fp_zones:
+                retained = []
+                for zone in self.fp_zones[product_type]:
+                    if zone.source_defect_id:
+                        self._delete_fp_crop_file(zone.id)
+                        changed = True
+                        continue
+                    retained.append(zone)
+                self.fp_zones[product_type] = retained
+            if changed:
+                self._save_fp_zones()
+
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
         return self.references.get(product_type)
 
