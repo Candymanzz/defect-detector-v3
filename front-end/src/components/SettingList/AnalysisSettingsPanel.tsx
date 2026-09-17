@@ -18,6 +18,7 @@ const DEFAULT_PRO: ProAnalysisKnobs = {
   edge_suppression: 50,
   text_handling: 50,
   preprocess_strength: 50,
+  illumination_tolerance: 50,
 };
 
 const SIMPLE_FIELDS = [
@@ -32,6 +33,11 @@ const PRO_FIELDS = [
   { name: "edge_suppression", label: "Реакция на края", hint: "Насколько учитывать отличия у границ детали." },
   { name: "text_handling", label: "Работа с текстом и печатью", hint: "Чувствительность к изменениям надписей и контраста." },
   { name: "preprocess_strength", label: "Предобработка изображения", hint: "Сила выравнивания локального контраста." },
+  {
+    name: "illumination_tolerance",
+    label: "Защита от теней и бликов",
+    hint: "Выше — сильнее плавные тени, засветы и блики по всей области ROI исключаются из результата.",
+  },
 ] as const;
 
 type Props = {
@@ -403,6 +409,7 @@ function createAnalysisDraft(mode: Mode, simple: SimpleAnalysisKnobs, pro: ProAn
       edge_suppression: pro.edge_suppression,
       text_handling: pro.text_handling,
       preprocess_strength: pro.preprocess_strength,
+      illumination_tolerance: pro.illumination_tolerance,
     },
   } satisfies { simple: SimpleAnalysisKnobs; strengths: StrengthKnobs };
 }

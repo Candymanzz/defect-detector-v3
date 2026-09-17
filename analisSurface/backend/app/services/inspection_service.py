@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
-from app.file_logging import log_analysis_stage
+from app.file_logging import log_analysis_stage, log_illumination_detection
 from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
 from app.services.inspection_geometry import (
@@ -46,6 +46,74 @@ _FP_CROP_MIN = 64
 # mini-etalon crops must retain their original score semantics.
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
+
+# Illumination classification runs over the complete active ROI. It only
+# affects differences which preserve the reference's local detail and gradient
+# structure, so a real local defect is not treated as a smooth light field.
+_BOTTOM_SHADOW_MAX_SUPPRESSION = 0.30
+_BOTTOM_SHADOW_BROAD_MAX_SUPPRESSION = 0.75
+_BOTTOM_SHADOW_BROAD_MIN_ROI_RATIO = 0.08
+_BOTTOM_SHADOW_BROAD_MIN_COLUMN_COVERAGE = 0.70
+_BOTTOM_SHADOW_HARD_IGNORE_CONFIDENCE = 0.55
+_BOTTOM_SHADOW_MIN_SHIFT = 6.0
+_BOTTOM_SHADOW_FULL_SHIFT = 22.0
+_BOTTOM_SHADOW_DETAIL_SCALE = 18.0
+_BOTTOM_SHADOW_GRADIENT_SCALE = 32.0
+_BOTTOM_SHADOW_DETECTION_CONFIDENCE = 0.20
+_BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO = 0.002
+
+
+def _piecewise_illumination_value(
+    tolerance: float,
+    low: float,
+    middle: float,
+    high: float,
+) -> float:
+    """Interpolate a control while keeping 50% exactly backward-compatible."""
+    value = max(0.0, min(1.0, float(tolerance)))
+    if value <= 0.5:
+        return low + (middle - low) * (value * 2.0)
+    return middle + (high - middle) * ((value - 0.5) * 2.0)
+
+
+def _illumination_filter_parameters(tolerance: float) -> dict[str, float]:
+    """Translate the public 0..1 control into safe detector thresholds."""
+    return {
+        "min_shift": _piecewise_illumination_value(
+            tolerance, 12.0, _BOTTOM_SHADOW_MIN_SHIFT, 3.0
+        ),
+        "full_shift": _piecewise_illumination_value(
+            tolerance, 32.0, _BOTTOM_SHADOW_FULL_SHIFT, 14.0
+        ),
+        "detail_scale": _piecewise_illumination_value(
+            tolerance, 10.0, _BOTTOM_SHADOW_DETAIL_SCALE, 28.0
+        ),
+        "gradient_scale": _piecewise_illumination_value(
+            tolerance, 18.0, _BOTTOM_SHADOW_GRADIENT_SCALE, 48.0
+        ),
+        "detection_confidence": _piecewise_illumination_value(
+            tolerance, 0.35, _BOTTOM_SHADOW_DETECTION_CONFIDENCE, 0.10
+        ),
+        "detection_min_roi_ratio": _piecewise_illumination_value(
+            tolerance, 0.01, _BOTTOM_SHADOW_DETECTION_MIN_ROI_RATIO, 0.0005
+        ),
+        "broad_min_roi_ratio": _piecewise_illumination_value(
+            tolerance, 0.18, _BOTTOM_SHADOW_BROAD_MIN_ROI_RATIO, 0.03
+        ),
+        "broad_min_column_coverage": _piecewise_illumination_value(
+            tolerance, 0.90, _BOTTOM_SHADOW_BROAD_MIN_COLUMN_COVERAGE, 0.45
+        ),
+        # A threshold above 1.0 at zero disables hard exclusion completely.
+        "hard_ignore_confidence": _piecewise_illumination_value(
+            tolerance, 1.01, _BOTTOM_SHADOW_HARD_IGNORE_CONFIDENCE, 0.35
+        ),
+        "local_max_suppression": _piecewise_illumination_value(
+            tolerance, 0.0, _BOTTOM_SHADOW_MAX_SUPPRESSION, 0.60
+        ),
+        "broad_max_suppression": _piecewise_illumination_value(
+            tolerance, 0.0, _BOTTOM_SHADOW_BROAD_MAX_SUPPRESSION, 0.95
+        ),
+    }
 
 
 class InspectionService:
@@ -94,22 +162,10 @@ class InspectionService:
             session_wipe=session_wipe,
         )
 
-        self._anomaly_engine = None
-        self._load_anomalib_engine()
         self._load_fp_zones()
         self._load_roi_sub_zones()
         self._load_analysis_settings()
         self._stamp_analysis_settings_mtime()
-
-    def _load_anomalib_engine(self) -> None:
-        try:
-            from anomalib.deploy import OpenVINOInferencer  # type: ignore
-
-            self._anomaly_engine = OpenVINOInferencer(
-                path="models/patchcore/openvino/model.xml" # model path
-            )
-        except Exception:
-            self._anomaly_engine = None
 
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
@@ -230,13 +286,9 @@ class InspectionService:
         review = self._learning_reviews.get(inspection_id)
         if review is None:
             raise KeyError("inspection")
-        if defect_id in review.accepted_defect_ids:
-            raise ValueError("Defect is already accepted as normal")
         candidate = next((item for item in review.defects if item.id == defect_id), None)
         if candidate is None:
             raise KeyError("defect")
-        if candidate.matched_case_id is not None:
-            raise ValueError("Defect is already recognized as an accepted normal")
 
         aligned, _, _ = decode_review_arrays(review)
         accepted_case = self._accepted_normals.add_from_candidate(
@@ -274,21 +326,22 @@ class InspectionService:
         inspection_id: str,
         note: str = "",
     ) -> dict:
-        """Одной операцией запомнить все ещё не принятые дефекты review."""
+        """Одной операцией добавить все дефекты review как новые примеры нормы."""
         review = self._learning_reviews.get(inspection_id)
         if review is None:
             raise KeyError("inspection")
 
-        candidates = [
-            candidate
-            for candidate in review.defects
-            if candidate.id not in review.accepted_defect_ids
-            and candidate.matched_case_id is None
-        ]
+        # Повторное обучение разрешено: каждый вызов создаёт новые cases,
+        # даже если этот review или его дефекты уже принимались ранее.
+        candidates = list(review.defects)
         if not candidates:
-            raise ValueError("All review defects are already accepted as normal")
+            raise ValueError("Learning review has no defects")
 
         accepted_cases = []
+        previous_states = [
+            (candidate.matched_case_id, candidate.similarity, candidate.id in review.accepted_defect_ids)
+            for candidate in candidates
+        ]
         aligned, _, _ = decode_review_arrays(review)
         try:
             for candidate in candidates:
@@ -305,11 +358,13 @@ class InspectionService:
                 review.accepted_defect_ids.add(candidate.id)
                 accepted_cases.append(accepted_case)
         except Exception:
-            for candidate, accepted_case in zip(candidates, accepted_cases):
+            for candidate, accepted_case, previous in zip(candidates, accepted_cases, previous_states):
                 self._accepted_normals.delete(accepted_case.id)
-                candidate.matched_case_id = None
-                candidate.similarity = None
-                review.accepted_defect_ids.discard(candidate.id)
+                candidate.matched_case_id, candidate.similarity, was_accepted = previous
+                if was_accepted:
+                    review.accepted_defect_ids.add(candidate.id)
+                else:
+                    review.accepted_defect_ids.discard(candidate.id)
             raise
 
         self._learning_reviews.put(review)
@@ -811,7 +866,13 @@ class InspectionService:
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
+        analysis_roi_mask = None
         if polygon is not None:
+            analysis_roi_mask = polygon_mask_from_norm_points(
+                reference.shape[1],
+                reference.shape[0],
+                polygon,
+            )
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
             log_analysis_stage(
                 "roi_mask",
@@ -833,12 +894,17 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
+        illumination_diagnostics: dict[str, object] = {}
         diff_map = self._compute_advanced_difference(
             aligned,
             reference,
             settings,
             vertical_compensation=True,
+            bottom_shadow_suppression=True,
+            roi_mask=analysis_roi_mask,
+            illumination_diagnostics=illumination_diagnostics,
         )
+        log_illumination_detection(product_type, illumination_diagnostics)
         log_analysis_stage(
             "diff_map",
             "difference map computed",
@@ -918,7 +984,17 @@ class InspectionService:
                 product_type=product_type,
                 extra={
                     "matched_cases": len(learned_filter.matched_case_ids),
+                    "matched_candidates": learned_filter.matched_candidates_count,
+                    "suppressed_candidates": len(learned_filter.suppressed_candidates),
+                    "all_important_candidates_matched": learned_filter.all_important_candidates_matched,
+                    "raw_score": round(float(raw_score), 4),
                     "learned_score": round(float(learned_score), 4),
+                    "raw_mask_pixels": int(np.count_nonzero(raw_segmentation_mask)),
+                    "filtered_mask_pixels": int(np.count_nonzero(segmentation_mask)),
+                    "raw_diff_nonzero": int(np.count_nonzero(np.any(diff_map != 0, axis=2))),
+                    "filtered_diff_nonzero": int(
+                        np.count_nonzero(np.any(learned_diff_map != 0, axis=2))
+                    ),
                 },
             )
         else:
@@ -994,7 +1070,12 @@ class InspectionService:
             display_region[local_mask] = 255
 
         excluded_normal_zones = []
-        for candidate in learned_filter.candidates:
+        # Only annotate candidates that were fully removed from the score maps.
+        # A matched normal can still leave a meaningful residual (for example a
+        # new scratch inside a previously accepted broad glare area); that
+        # candidate must remain a normal defect and must not receive an
+        # "excluded" outline.
+        for candidate in learned_filter.suppressed_candidates:
             if candidate.matched_case_id is None:
                 continue
             matched_case = self._accepted_normals.get(candidate.matched_case_id)
@@ -1013,6 +1094,7 @@ class InspectionService:
                 "case_id": candidate.matched_case_id,
                 "similarity": candidate.similarity,
                 "polygon": polygon_norm,
+                "excluded_from_score": True,
             }
             if matched_case is not None and matched_case.polygon:
                 zone["polygon_px"] = list(matched_case.polygon)
@@ -1035,6 +1117,7 @@ class InspectionService:
                     "case_id": zone.id,
                     "similarity": None,
                     "polygon": list(zone.points_norm_ref),
+                    "excluded_from_score": True,
                 }
             )
 
@@ -1225,6 +1308,7 @@ class InspectionService:
             "edge_suppression",
             "text_handling",
             "preprocess_strength",
+            "illumination_tolerance",
         ):
             if key in raw:
                 value = float(raw[key])
@@ -1829,7 +1913,8 @@ class InspectionService:
 
         This modifies only the color heatmap returned by the local multipart
         ``/inspect`` endpoint. The gray SHM heatmap and inspection score stay
-        unchanged.
+        unchanged. Every zone marked as excluded from the score is rendered,
+        including matched FP mini-etalon zones.
         """
         if not excluded_zones:
             return heatmap
@@ -1837,7 +1922,7 @@ class InspectionService:
         height, width = heatmap.shape[:2]
         polygons: list[np.ndarray] = []
         for zone in excluded_zones:
-            if zone.get("kind") != "accepted_normal":
+            if zone.get("excluded_from_score") is not True:
                 continue
             pixel_polygon = zone.get("polygon_px") or []
             coordinate_width = int(zone.get("coordinate_width") or 0)
@@ -2160,6 +2245,9 @@ class InspectionService:
         settings: AnalysisSettings,
         *,
         vertical_compensation: bool = False,
+        bottom_shadow_suppression: bool = False,
+        roi_mask: Optional[np.ndarray] = None,
+        illumination_diagnostics: Optional[dict[str, object]] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2170,6 +2258,10 @@ class InspectionService:
         # against local min/max envelope of reference.
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
+        # Preserve the pre-CLAHE signal for illumination classification. CLAHE
+        # is useful for defects, but may turn a smooth shadow into local texture.
+        illumination_ref_gray = ref_gray.copy()
+        illumination_cur_gray = cur_gray.copy()
 
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
@@ -2218,6 +2310,17 @@ class InspectionService:
         robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
         robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
 
+        shadow_confidence = None
+        if bottom_shadow_suppression:
+            robust_gray, shadow_confidence = self._suppress_smooth_bottom_shadow(
+                robust_gray,
+                illumination_ref_gray,
+                illumination_cur_gray,
+                roi_mask=roi_mask,
+                diagnostics=illumination_diagnostics,
+                illumination_tolerance=settings.illumination_tolerance,
+            )
+
         # The bucket is inverted in the camera view, so the upper part of the
         # image is farther from the camera and its defects are weaker. Apply a
         # small smooth gain there. The cap is intentionally conservative to
@@ -2264,12 +2367,244 @@ class InspectionService:
         )
         if np.any(contrast_loss_zone):
             robust_float = robust_gray.astype(np.float32)
-            robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
+            if shadow_confidence is not None:
+                # A broad illumination change can lower gradient magnitude and
+                # otherwise trigger the missing-text boost. Keep the boost for
+                # structural changes, while fading it only for likely shadows.
+                boost = settings.contrast_loss_boost - (
+                    (settings.contrast_loss_boost - 1.0)
+                    * shadow_confidence[contrast_loss_zone]
+                )
+                robust_float[contrast_loss_zone] *= boost
+            else:
+                robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
             robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
 
         # Median blur removes salt-like speckles without erasing thin linear defects.
         robust_gray = cv2.medianBlur(robust_gray, 3)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
+
+    @staticmethod
+    def _suppress_smooth_bottom_shadow(
+        robust_gray: np.ndarray,
+        reference_gray: np.ndarray,
+        current_gray: np.ndarray,
+        *,
+        roi_mask: Optional[np.ndarray] = None,
+        diagnostics: Optional[dict[str, object]] = None,
+        illumination_tolerance: float = 0.5,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Reduce broad illumination shifts across the complete active ROI.
+
+        A likely shadow has a sizeable low-frequency brightness shift but keeps
+        local detail and gradient structure close to the reference. The result
+        is a confidence map, not a hard mask. Negative shifts are classified as
+        shadows and positive shifts as glare for diagnostics.
+        """
+        height, width = robust_gray.shape[:2]
+        tolerance = max(0.0, min(1.0, float(illumination_tolerance)))
+        parameters = _illumination_filter_parameters(tolerance)
+        if diagnostics is not None:
+            diagnostics.clear()
+            diagnostics.update(
+                {
+                    "enabled": True,
+                    "tolerance_percent": round(tolerance * 100.0, 1),
+                    "eligible_height_percent": 0.0,
+                    "eligible_roi_percent": 0.0,
+                    "shadow_detected": False,
+                    "glare_detected": False,
+                    "shadow_roi_percent": 0.0,
+                    "glare_roi_percent": 0.0,
+                    "confidence_max": 0.0,
+                    "confidence_mean": 0.0,
+                    "broad_illumination": False,
+                    "detected_column_percent": 0.0,
+                    "max_applied_suppression_percent": 0.0,
+                    "hard_ignored_roi_percent": 0.0,
+                    "mean_suppression_percent": 0.0,
+                    "diff_energy_reduction_percent": 0.0,
+                }
+            )
+        if height == 0 or width == 0:
+            return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+
+        if roi_mask is None:
+            active_mask = np.ones((height, width), dtype=bool)
+            first_row, last_row = 0, height - 1
+        else:
+            if roi_mask.shape[:2] != (height, width):
+                roi_mask = cv2.resize(
+                    roi_mask,
+                    (width, height),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+            active_mask = roi_mask > 0
+            active_rows = np.flatnonzero(np.any(active_mask, axis=1))
+            if active_rows.size == 0:
+                return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+            first_row, last_row = int(active_rows[0]), int(active_rows[-1])
+
+        roi_height = max(1, last_row - first_row)
+        # Do not tie the detector to a physical image direction: the bucket or
+        # camera can be mounted differently while the configured ROI remains
+        # the authoritative inspection area.
+        first_weighted_row = first_row
+
+        active_roi = active_mask[first_weighted_row : last_row + 1]
+        active_columns = np.flatnonzero(np.any(active_roi, axis=0))
+        if active_columns.size == 0:
+            return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+
+        kernel_size = int(round(min(height, width) * 0.08))
+        kernel_size = min(81, max(7, kernel_size | 1))
+        margin = kernel_size // 2 + 4
+        crop_y0 = max(0, first_weighted_row - margin)
+        crop_y1 = min(height, last_row + 1)
+        crop_x0 = max(0, int(active_columns[0]) - margin)
+        crop_x1 = min(width, int(active_columns[-1]) + margin + 1)
+
+        ref_float = reference_gray[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
+        cur_float = current_gray[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
+        local_active_mask = active_mask[crop_y0:crop_y1, crop_x0:crop_x1].astype(np.float32)
+        # Every ROI pixel gets equal spatial weight. The mask still guarantees
+        # that pixels outside the polygon cannot be suppressed or scored.
+        illumination_weight = local_active_mask
+
+        # Kernel scales with image size, so the classification follows broad
+        # light fields rather than scratches or printed details.
+        low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
+        low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
+
+        illumination_shift = np.abs(low_cur - low_ref)
+        illumination_confidence = np.clip(
+            (illumination_shift - parameters["min_shift"])
+            / (parameters["full_shift"] - parameters["min_shift"]),
+            0.0,
+            1.0,
+        )
+        illumination_confidence = illumination_confidence * illumination_confidence * (
+            3.0 - 2.0 * illumination_confidence
+        )
+
+        ref_detail = ref_float - low_ref
+        cur_detail = cur_float - low_cur
+        detail_delta = np.abs(cur_detail - ref_detail)
+        detail_confidence = np.exp(
+            -np.square(detail_delta / parameters["detail_scale"])
+        )
+
+        ref_grad_x = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
+        ref_grad_y = cv2.Sobel(ref_float, cv2.CV_32F, 0, 1, ksize=3)
+        cur_grad_x = cv2.Sobel(cur_float, cv2.CV_32F, 1, 0, ksize=3)
+        cur_grad_y = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
+        gradient_delta = cv2.magnitude(cur_grad_x - ref_grad_x, cur_grad_y - ref_grad_y)
+        gradient_confidence = np.exp(
+            -np.square(gradient_delta / parameters["gradient_scale"])
+        )
+
+        local_confidence = (
+            illumination_weight
+            * illumination_confidence
+            * detail_confidence
+            * gradient_confidence
+        ).astype(np.float32)
+        # The left edge of the public control is a true off position. Ramp to
+        # the established confidence by 50%, then only tune thresholds/caps.
+        local_confidence *= min(1.0, tolerance * 2.0)
+        # Avoid a noisy on/off suppression boundary around individual pixels.
+        local_confidence = cv2.GaussianBlur(local_confidence, (9, 9), 0)
+        local_confidence *= local_active_mask
+        shadow_confidence = np.zeros((height, width), dtype=np.float32)
+        shadow_confidence[crop_y0:crop_y1, crop_x0:crop_x1] = local_confidence
+
+        detected_mask = (
+            local_confidence >= parameters["detection_confidence"]
+        ) & (local_active_mask > 0)
+        active_pixels = max(1, int(np.count_nonzero(active_mask)))
+        detected_roi_ratio = float(np.count_nonzero(detected_mask)) / active_pixels
+        active_local_columns = np.any(local_active_mask > 0, axis=0)
+        detected_columns = np.any(detected_mask, axis=0)
+        detected_column_ratio = float(np.count_nonzero(detected_columns)) / max(
+            1,
+            int(np.count_nonzero(active_local_columns)),
+        )
+        broad_illumination = (
+            detected_roi_ratio >= parameters["broad_min_roi_ratio"]
+            and detected_column_ratio >= parameters["broad_min_column_coverage"]
+        )
+        suppression_cap = (
+            parameters["broad_max_suppression"]
+            if broad_illumination
+            else parameters["local_max_suppression"]
+        )
+
+        corrected = robust_gray.astype(np.float32)
+        corrected_crop = corrected[crop_y0:crop_y1, crop_x0:crop_x1]
+        energy_before = float(np.sum(corrected_crop[local_active_mask > 0]))
+        corrected_crop *= (
+            1.0 - suppression_cap * local_confidence
+        )
+        hard_ignore_mask = (
+            broad_illumination
+            & (local_confidence >= parameters["hard_ignore_confidence"])
+        )
+        corrected_crop[hard_ignore_mask] = 0.0
+        if diagnostics is not None:
+            eligible_mask = (illumination_weight > 0) & (local_active_mask > 0)
+            eligible_pixels = int(np.count_nonzero(eligible_mask))
+            signed_shift = low_cur - low_ref
+            shadow_mask = detected_mask & (signed_shift <= -parameters["min_shift"])
+            glare_mask = detected_mask & (signed_shift >= parameters["min_shift"])
+            shadow_pixels = int(np.count_nonzero(shadow_mask))
+            glare_pixels = int(np.count_nonzero(glare_mask))
+            shadow_ratio = shadow_pixels / active_pixels
+            glare_ratio = glare_pixels / active_pixels
+            energy_after = float(np.sum(corrected_crop[local_active_mask > 0]))
+            diagnostics.update(
+                {
+                    "eligible_height_percent": round(
+                        100.0
+                        * max(0, last_row - first_weighted_row + 1)
+                        / max(1, last_row - first_row + 1),
+                        3,
+                    ),
+                    "eligible_roi_percent": round(100.0 * eligible_pixels / active_pixels, 3),
+                    "shadow_detected": shadow_ratio >= parameters["detection_min_roi_ratio"],
+                    "glare_detected": glare_ratio >= parameters["detection_min_roi_ratio"],
+                    "shadow_roi_percent": round(100.0 * shadow_ratio, 3),
+                    "glare_roi_percent": round(100.0 * glare_ratio, 3),
+                    "confidence_max": round(float(np.max(local_confidence)), 4),
+                    "confidence_mean": round(
+                        float(np.mean(local_confidence[eligible_mask]))
+                        if eligible_pixels
+                        else 0.0,
+                        4,
+                    ),
+                    "broad_illumination": broad_illumination,
+                    "detected_column_percent": round(100.0 * detected_column_ratio, 3),
+                    "max_applied_suppression_percent": round(100.0 * suppression_cap, 1),
+                    "hard_ignored_roi_percent": round(
+                        100.0 * float(np.count_nonzero(hard_ignore_mask)) / active_pixels,
+                        3,
+                    ),
+                    "mean_suppression_percent": round(
+                        100.0
+                        * suppression_cap
+                        * (
+                            float(np.mean(local_confidence[eligible_mask]))
+                            if eligible_pixels
+                            else 0.0
+                        ),
+                        3,
+                    ),
+                    "diff_energy_reduction_percent": round(
+                        100.0 * max(0.0, energy_before - energy_after) / max(1.0, energy_before),
+                        3,
+                    ),
+                }
+            )
+        return np.clip(corrected, 0.0, 255.0).astype(np.uint8), shadow_confidence
 
     @staticmethod
     def _vertical_compensation_gain(height: int) -> np.ndarray:
@@ -2447,21 +2782,6 @@ class InspectionService:
             heuristic_score = max(heuristic_score, settings.scratch_score_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
-        if settings.use_patchcore and self._anomaly_engine is not None:
-            try:
-                prediction = self._anomaly_engine.predict(image=diff_map)
-                model_score = float(prediction.pred_score)
-                mask = prediction.pred_mask.astype(np.uint8) * 255
-                if len(mask.shape) == 2:
-                    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-                # Merge model mask with heuristic mask so thin scratches seen in diff_map
-                # are not lost when model mask is conservative on textured surfaces.
-                merged_mask = cv2.bitwise_or(mask, heuristic_mask)
-                # Use the larger score to avoid missing obvious defects when model score is conservative.
-                return max(model_score, heuristic_score), merged_mask
-            except Exception:
-                pass
-
         return heuristic_score, heuristic_mask
 
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
@@ -2475,9 +2795,22 @@ class InspectionService:
             return mask_gray
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
-        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
-        return cv2.max(mask_gray, gated_diff)
+        mask_binary = mask_gray > 0
+
+        # Keep the measured diff intensity as the primary signal. A binary
+        # segmentation mask is only a weak floor; using it at full strength
+        # would turn every detected component into a saturated 255 blob.
+        mask_floor = (mask_gray.astype(np.float32) * 0.25).astype(np.uint8)
+        core = np.maximum(diff_gray, mask_floor)
+        core[~mask_binary] = 0
+
+        # Add a small, soft edge halo for visual continuity without extending
+        # the scored mask itself. This makes hard-edged components readable
+        # while preserving the original diff contrast inside them.
+        halo = cv2.GaussianBlur(mask_gray, (0, 0), sigmaX=3.0)
+        halo = (halo.astype(np.float32) * 0.5).astype(np.uint8)
+        halo[mask_binary] = 0
+        return np.maximum(core, halo).astype(np.uint8)
 
     def _build_pre_learning_heatmap_gray(
         self,

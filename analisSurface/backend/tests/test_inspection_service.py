@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
+from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import expand_simple
 from app.services.inspection_geometry import (
     polygon_area,
@@ -38,6 +39,219 @@ def test_vertical_compensation_is_smooth_bounded_and_top_weighted() -> None:
     assert np.all(np.diff(gain) <= 1e-6)
     # The compensation is already gone before the lowest quarter of the frame.
     assert gain[75] == pytest.approx(1.0)
+
+
+def test_bottom_shadow_filter_reduces_smooth_illumination_shift() -> None:
+    service = InspectionService.__new__(InspectionService)
+    height, width = 240, 320
+    x = np.linspace(70, 180, width, dtype=np.float32)
+    gray = np.tile(x, (height, 1))
+    # Keep realistic surface structure so the filter must distinguish light
+    # from content instead of relying on a featureless synthetic image.
+    for column in range(24, width, 42):
+        cv2.line(gray, (column, 15), (column, height - 15), 25, 1)
+    reference = np.stack([gray, gray, gray], axis=-1).astype(np.uint8)
+
+    ramp = np.clip((np.arange(height, dtype=np.float32) - 150.0) / 70.0, 0.0, 1.0)
+    shadowed_gray = gray * (1.0 - 0.18 * ramp[:, np.newaxis])
+    shadowed = np.stack([shadowed_gray, shadowed_gray, shadowed_gray], axis=-1).astype(np.uint8)
+    settings = AnalysisSettings.defaults()
+    settings.enable_clahe = False
+
+    baseline = service._compute_advanced_difference(shadowed, reference, settings)
+    filtered = service._compute_advanced_difference(
+        shadowed,
+        reference,
+        settings,
+        bottom_shadow_suppression=True,
+    )
+
+    baseline_gray = cv2.cvtColor(baseline, cv2.COLOR_BGR2GRAY)
+    filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+    assert float(np.mean(filtered_gray[190:230])) < float(np.mean(baseline_gray[190:230])) * 0.86
+    # The top of the image is outside the handling band and remains bit-exact.
+    assert np.array_equal(filtered_gray[:150], baseline_gray[:150])
+
+
+def test_bottom_shadow_filter_preserves_local_defect_edges() -> None:
+    service = InspectionService.__new__(InspectionService)
+    height, width = 240, 320
+    gray = np.full((height, width), 145, dtype=np.uint8)
+    cv2.line(gray, (15, 205), (305, 205), 125, 2)
+    reference = np.stack([gray, gray, gray], axis=-1)
+
+    ramp = np.clip((np.arange(height, dtype=np.float32) - 150.0) / 70.0, 0.0, 1.0)
+    shadowed_gray = gray.astype(np.float32) * (1.0 - 0.18 * ramp[:, np.newaxis])
+    current = np.stack([shadowed_gray, shadowed_gray, shadowed_gray], axis=-1).astype(np.uint8)
+    cv2.rectangle(current, (142, 190), (178, 218), (235, 235, 235), 3)
+    settings = AnalysisSettings.defaults()
+    settings.enable_clahe = False
+
+    baseline = service._compute_advanced_difference(current, reference, settings)
+    filtered = service._compute_advanced_difference(
+        current,
+        reference,
+        settings,
+        bottom_shadow_suppression=True,
+    )
+    settings.illumination_tolerance = 1.0
+    strongly_filtered = service._compute_advanced_difference(
+        current,
+        reference,
+        settings,
+        bottom_shadow_suppression=True,
+    )
+    baseline_gray = cv2.cvtColor(baseline, cv2.COLOR_BGR2GRAY)
+    filtered_gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+    strongly_filtered_gray = cv2.cvtColor(strongly_filtered, cv2.COLOR_BGR2GRAY)
+
+    defect = np.zeros((height, width), dtype=bool)
+    defect[185:224, 137:183] = True
+    assert int(filtered_gray[defect].max()) >= int(baseline_gray[defect].max()) * 0.90
+    assert float(np.percentile(filtered_gray[defect], 90)) >= float(
+        np.percentile(baseline_gray[defect], 90)
+    ) * 0.90
+    # Even the strongest illumination protection keeps the high-frequency
+    # edges of a real local defect instead of treating them as smooth light.
+    assert float(np.percentile(strongly_filtered_gray[defect], 90)) >= float(
+        np.percentile(baseline_gray[defect], 90)
+    ) * 0.85
+
+
+def test_illumination_filter_covers_entire_roi_and_respects_mask() -> None:
+    service = InspectionService.__new__(InspectionService)
+    image = np.full((200, 240), 30, dtype=np.uint8)
+    reference = np.full_like(image, 120)
+    current = np.full_like(image, 100)
+    roi_mask = np.zeros_like(image)
+    roi_mask[20:141, 30:211] = 255
+
+    diagnostics: dict[str, object] = {}
+    _, confidence = service._suppress_smooth_bottom_shadow(
+        image,
+        reference,
+        current,
+        roi_mask=roi_mask,
+        diagnostics=diagnostics,
+    )
+
+    # The same smooth shift is eligible at the top, middle, and bottom of ROI.
+    assert float(confidence[45, 120]) > 0.5
+    assert float(confidence[80, 120]) > 0.5
+    assert float(confidence[138, 120]) > 0.5
+    # Outside the configured rectangle there is no confidence at all.
+    assert float(confidence[10, 120]) == pytest.approx(0.0)
+    assert float(confidence[80, 20]) == pytest.approx(0.0)
+    assert int(np.count_nonzero(confidence[141:])) == 0
+    assert float(diagnostics["eligible_height_percent"]) == pytest.approx(100.0)
+    assert float(diagnostics["eligible_roi_percent"]) == pytest.approx(100.0)
+
+
+@pytest.mark.parametrize(
+    "current_level,expected_kind",
+    [(85, "shadow"), (155, "glare")],
+)
+def test_bottom_shadow_filter_classifies_shadow_and_glare(
+    current_level: int,
+    expected_kind: str,
+) -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 40, dtype=np.uint8)
+    robust[:50] = 0  # Keep the synthetic signal focused on the illuminated area.
+    reference = np.full_like(robust, 120)
+    current = np.full_like(robust, current_level)
+    diagnostics: dict[str, object] = {}
+
+    corrected, _ = service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    assert float(diagnostics["eligible_height_percent"]) >= 70.0
+    assert float(diagnostics["eligible_roi_percent"]) >= 70.0
+    assert diagnostics[f"{expected_kind}_detected"] is True
+    other_kind = "glare" if expected_kind == "shadow" else "shadow"
+    assert diagnostics[f"{other_kind}_detected"] is False
+    assert diagnostics["broad_illumination"] is True
+    assert float(diagnostics["max_applied_suppression_percent"]) == pytest.approx(75.0)
+    assert float(np.mean(corrected[80:])) < float(np.mean(robust[80:]))
+
+
+def test_bottom_shadow_filter_keeps_local_light_patch_conservative() -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 40, dtype=np.uint8)
+    reference = np.full_like(robust, 120)
+    current = reference.copy()
+    current[70:145, 65:145] = 160
+    diagnostics: dict[str, object] = {}
+
+    service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    assert diagnostics["broad_illumination"] is False
+    assert float(diagnostics["max_applied_suppression_percent"]) == pytest.approx(30.0)
+
+
+def test_broad_illumination_is_removed_from_score_signal() -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 40, dtype=np.uint8)
+    robust[:50] = 0  # Keep the synthetic signal focused on the illuminated area.
+    reference = np.full_like(robust, 120)
+    current = np.full_like(robust, 85)
+    diagnostics: dict[str, object] = {}
+    corrected, _ = service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    assert diagnostics["broad_illumination"] is True
+    assert float(diagnostics["hard_ignored_roi_percent"]) > 0.0
+    score, _ = service._run_anomaly_model(
+        cv2.cvtColor(corrected, cv2.COLOR_GRAY2BGR),
+        AnalysisSettings.defaults(),
+    )
+    assert score == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("current_level", [108, 132])
+def test_illumination_tolerance_changes_shadow_and_glare_suppression(
+    current_level: int,
+) -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 32, dtype=np.uint8)
+    robust[:50] = 0
+    reference = np.full_like(robust, 120)
+    current = np.full_like(robust, current_level)
+    low_diagnostics: dict[str, object] = {}
+    high_diagnostics: dict[str, object] = {}
+
+    low, _ = service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        illumination_tolerance=0.0,
+        diagnostics=low_diagnostics,
+    )
+    high, _ = service._suppress_smooth_bottom_shadow(
+        robust,
+        reference,
+        current,
+        illumination_tolerance=1.0,
+        diagnostics=high_diagnostics,
+    )
+
+    assert np.array_equal(low, robust)
+    assert float(np.mean(high[80:])) < float(np.mean(low[80:])) * 0.5
+    assert high_diagnostics["tolerance_percent"] == 100.0
+    assert float(high_diagnostics["diff_energy_reduction_percent"]) > 25.0
 
 
 def test_inspect_identical_frames_passes(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
@@ -115,8 +329,9 @@ def test_accept_all_review_defects_saves_score_driving_candidates(
     )
     assert replay.status == "ГОДЕН"
     assert replay.learned_normal_matches_count == 2 or replay.rechecked_zones_count >= 1
-    with pytest.raises(ValueError, match="already accepted"):
-        inspection_service.accept_all_review_defects_as_normal(result.inspection_id)
+    repeated = inspection_service.accept_all_review_defects_as_normal(result.inspection_id)
+    assert repeated["accepted_count"] == 2
+    assert len(repeated["accepted_cases"]) == 2
 
 
 def test_accept_all_review_defects_handles_mixed_shapes_and_sizes(
@@ -547,6 +762,14 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     assert accepted["original_status"] == "БРАК"
     assert inspection_service.get_learning_review(original.inspection_id)["original_status"] == "БРАК"
 
+    repeated = inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+        note="repeat",
+    )
+    assert repeated["accepted_case"]["id"] != accepted["accepted_case"]["id"]
+    assert len(inspection_service.list_accepted_normal_cases()) == 2
+
     future = inspection_service.inspect_frame(
         "bench",
         acceptable,
@@ -562,6 +785,7 @@ def test_operator_acceptance_is_post_factum_and_applies_to_future_frames(
     assert preview is not None
     assert preview[1] == "image/png"
     assert inspection_service.delete_accepted_normal_case(case_id) is True
+    assert inspection_service.delete_accepted_normal_case(repeated["accepted_case"]["id"]) is True
     assert inspection_service.list_accepted_normal_cases() == []
     review_after_delete = inspection_service.get_learning_review(original.inspection_id)
     assert review_after_delete is not None

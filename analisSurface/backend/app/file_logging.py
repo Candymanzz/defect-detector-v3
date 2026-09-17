@@ -69,12 +69,12 @@ def _ensure_initialized() -> None:
                 f"started_at={_timestamp()}",
                 f"session_dir={_SESSION_DIR}",
                 f"log_health_checks={_log_health_checks()}",
-                "files=requests.log,responses.log,analysis.log,errors.log,slow.log",
+                "files=requests.log,responses.log,analysis.log,illumination.log,errors.log,slow.log",
                 "notes=health endpoints skipped unless ANALIS_SURFACE_LOG_HEALTH=1",
             ]
         )
         (_SESSION_DIR / "session.txt").write_text(session_meta + "\n", encoding="utf-8")
-        for name in ("requests", "responses", "analysis", "errors", "slow"):
+        for name in ("requests", "responses", "analysis", "illumination", "errors", "slow"):
             (_SESSION_DIR / f"{name}.log").write_text(
                 f"=== {name} log started: {_SESSION_DIR / f'{name}.log'} ===\n",
                 encoding="utf-8",
@@ -210,6 +210,32 @@ def log_analysis_stage(
     if extra:
         lines.append(" ".join(f"{key}={value}" for key, value in extra.items()))
     _append("analysis", lines)
+
+
+def log_illumination_detection(
+    product_type: str,
+    diagnostics: Mapping[str, Any],
+) -> None:
+    """Persist one compact shadow/glare decision for every inspected frame."""
+    shadow_detected = bool(diagnostics.get("shadow_detected", False))
+    glare_detected = bool(diagnostics.get("glare_detected", False))
+    if shadow_detected and glare_detected:
+        classification = "mixed"
+    elif shadow_detected:
+        classification = "shadow"
+    elif glare_detected:
+        classification = "glare"
+    else:
+        classification = "none"
+    payload = dict(diagnostics)
+    payload["classification"] = classification
+    _append(
+        "illumination",
+        [
+            f"{_timestamp()} product_type={product_type} classification={classification}",
+            json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        ],
+    )
 
 
 def log_error(

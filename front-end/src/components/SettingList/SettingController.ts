@@ -40,6 +40,7 @@ const DEFAULT_ANALYSIS_SETTINGS: AnalysisSettings = {
   clahe_clip_limit: 1.2,
   fp_recheck_enabled: true,
   fp_trigger_diff_q90: 22,
+  illumination_tolerance: 0.5,
 };
 
 export const INITIAL_SETTING_STATUS: SettingStatus = {
@@ -372,6 +373,11 @@ function normalizeAnalysisSettings(settings: AnalysisSettings): AnalysisSettings
     fp_trigger_diff_q90: Math.max(
       0,
       toFiniteNumber(settings.fp_trigger_diff_q90, DEFAULT_ANALYSIS_SETTINGS.fp_trigger_diff_q90),
+    ),
+    illumination_tolerance: clampNumber(
+      toFiniteNumber(settings.illumination_tolerance, DEFAULT_ANALYSIS_SETTINGS.illumination_tolerance),
+      0,
+      1,
     ),
   };
 }

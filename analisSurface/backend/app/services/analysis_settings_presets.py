@@ -67,6 +67,7 @@ STRENGTH_FIELD_NAMES = (
     "edge_suppression",
     "text_handling",
     "preprocess_strength",
+    "illumination_tolerance",
 )
 
 DEFAULT_STRENGTHS: dict[str, float] = {name: 50.0 for name in STRENGTH_FIELD_NAMES}
@@ -160,6 +161,7 @@ def expand_merged(
     edge_suppression: float = 50.0,
     text_handling: float = 50.0,
     preprocess_strength: float = 50.0,
+    illumination_tolerance: float = 50.0,
 ) -> dict[str, Any]:
     """Чувствительность (simple) + силы групп (detailed) → полный AnalysisSettings.
 
@@ -175,6 +177,7 @@ def expand_merged(
             "edge_suppression": edge_suppression,
             "text_handling": text_handling,
             "preprocess_strength": preprocess_strength,
+            "illumination_tolerance": illumination_tolerance,
         }
     )
     sensitivity_100 = sensitivity * 100.0
@@ -207,6 +210,13 @@ def expand_merged(
         _PREPROCESS_FIELDS,
         effective_group_sensitivity(sensitivity_100, strengths["preprocess_strength"]),
         result,
+    )
+
+    # Illumination tolerance is an independent operator control. It keeps the
+    # same meaning when the general defect sensitivity changes.
+    result["illumination_tolerance"] = round(
+        strengths["illumination_tolerance"] / 100.0,
+        6,
     )
 
     AnalysisSettings.from_overrides(result)

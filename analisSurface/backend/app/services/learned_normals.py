@@ -23,6 +23,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from app.file_logging import log_analysis_stage
+
 
 logger = logging.getLogger(__name__)
 
@@ -905,9 +907,39 @@ class AcceptedNormalMemory:
             self._cases[case.id] = case
             try:
                 self._save_case(case)
-            except Exception:
+            except Exception as exc:
                 self._cases.pop(case.id, None)
+                log_analysis_stage(
+                    "learned_training",
+                    "accepted normal case save failed",
+                    product_type=product_type,
+                    skipped=True,
+                    extra={
+                        "case_id": case.id,
+                        "source_inspection_id": inspection_id,
+                        "source_defect_id": candidate.id,
+                        "reference_hash": reference_hash,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:300],
+                    },
+                )
                 raise
+        log_analysis_stage(
+            "learned_training",
+            "accepted normal case saved",
+            product_type=product_type,
+            extra={
+                "case_id": case.id,
+                "source_inspection_id": inspection_id,
+                "source_defect_id": candidate.id,
+                "reference_hash": reference_hash,
+                "bbox": candidate.bbox,
+                "bbox_norm": tuple(round(float(value), 6) for value in candidate.bbox_norm),
+                "area": candidate.area,
+                "diff_q90": round(float(candidate.diff_q90), 3),
+                "diff_max": round(float(candidate.diff_max), 3),
+            },
+        )
         return case
 
     def delete(self, case_id: str) -> bool:
@@ -958,6 +990,19 @@ class AcceptedNormalMemory:
                 and case.reference_hash == reference_hash
             ]
 
+        log_analysis_stage(
+            "learned_normals",
+            "matching input prepared",
+            product_type=product_type,
+            extra={
+                "reference_hash": reference_hash,
+                "enabled_cases": len(cases),
+                "candidates": len(candidates),
+                "segmentation_pixels": int(np.count_nonzero(_gray(segmentation_mask))),
+                "diff_nonzero": int(np.count_nonzero(_gray(diff_map))),
+            },
+        )
+
         important_candidate_ids = {
             candidate.id for candidate in filter_review_candidates(candidates)
         }
@@ -971,8 +1016,27 @@ class AcceptedNormalMemory:
         matched_case_ids: list[str] = []
         suppressed_candidates: list[DefectCandidate] = []
         for candidate in candidates:
-            best_case, best_similarity = self._best_matching_case(candidate, cases)
+            match_diagnostics: list[dict[str, object]] = []
+            best_case, best_similarity = self._best_matching_case(
+                candidate,
+                cases,
+                diagnostics=match_diagnostics,
+            )
+            for diagnostic in match_diagnostics:
+                log_analysis_stage(
+                    "learned_match",
+                    "candidate compared with saved normal",
+                    product_type=product_type,
+                    extra=diagnostic,
+                )
             if best_case is None:
+                log_analysis_stage(
+                    "learned_match",
+                    "candidate not matched",
+                    product_type=product_type,
+                    skipped=not cases,
+                    extra={"candidate_id": candidate.id, "cases_checked": len(cases)},
+                )
                 continue
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
@@ -983,6 +1047,33 @@ class AcceptedNormalMemory:
                 aligned,
                 filtered_diff,
                 filtered_mask,
+            )
+            candidate_x, candidate_y, candidate_width, candidate_height = candidate.bbox
+            residual_diff = _gray(
+                filtered_diff[
+                    candidate_y : candidate_y + candidate_height,
+                    candidate_x : candidate_x + candidate_width,
+                ]
+            )
+            residual_mask = _gray(
+                filtered_mask[
+                    candidate_y : candidate_y + candidate_height,
+                    candidate_x : candidate_x + candidate_width,
+                ]
+            )
+            log_analysis_stage(
+                "learned_subtraction",
+                "saved normal subtraction applied",
+                product_type=product_type,
+                extra={
+                    "candidate_id": candidate.id,
+                    "case_id": best_case.id,
+                    "similarity": round(float(best_similarity), 4),
+                    "fully_suppressed": fully_suppressed,
+                    "residual_diff_pixels": int(np.count_nonzero(residual_diff)),
+                    "residual_diff_max": int(residual_diff.max()) if residual_diff.size else 0,
+                    "residual_mask_pixels": int(np.count_nonzero(residual_mask)),
+                },
             )
             if fully_suppressed:
                 suppressed_candidates.append(candidate)
@@ -1019,11 +1110,28 @@ class AcceptedNormalMemory:
     def _best_matching_case(
         candidate: DefectCandidate,
         cases: list[AcceptedNormalCase],
+        diagnostics: Optional[list[dict[str, object]]] = None,
     ) -> tuple[Optional[AcceptedNormalCase], float]:
         best_case: Optional[AcceptedNormalCase] = None
         best_similarity = 0.0
         for case in cases:
-            similarity = candidate_similarity(candidate, case)
+            comparison: dict[str, object] = {}
+            similarity = candidate_similarity(candidate, case, diagnostics=comparison)
+            if diagnostics is not None:
+                diagnostics.append(
+                    {
+                        "candidate_id": candidate.id,
+                        "case_id": case.id,
+                        "similarity": round(float(similarity), 4) if similarity is not None else None,
+                        "candidate_bbox_norm": tuple(round(float(value), 6) for value in candidate.bbox_norm),
+                        "case_bbox_norm": tuple(round(float(value), 6) for value in case.bbox_norm),
+                        "candidate_area": candidate.area,
+                        "case_area": case.area,
+                        "candidate_diff_q90": round(float(candidate.diff_q90), 3),
+                        "case_diff_q90": round(float(case.diff_q90), 3),
+                        **comparison,
+                    }
+                )
             if similarity is not None and similarity > best_similarity:
                 best_similarity = similarity
                 best_case = case
@@ -1222,8 +1330,18 @@ class AcceptedNormalMemory:
                         coordinate_height=coordinate_height,
                     )
                 self._cases[case.id] = case
-            except Exception:
+            except Exception as exc:
                 logger.exception("failed to load accepted-normal case metadata=%s", json_path)
+                log_analysis_stage(
+                    "learned_training",
+                    "accepted normal case load failed",
+                    skipped=True,
+                    extra={
+                        "metadata": str(json_path),
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:300],
+                    },
+                )
 
 
 def extract_defect_candidates(
@@ -1542,8 +1660,20 @@ def _diff_core_mask(diff_template: np.ndarray, mask: np.ndarray) -> np.ndarray:
     ) > 0
 
 
-def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -> Optional[float]:
-    """Сопоставить форму и размер только рядом с местом сохранённой нормы."""
+def candidate_similarity(
+    candidate: DefectCandidate,
+    case: AcceptedNormalCase,
+    *,
+    diagnostics: Optional[dict[str, object]] = None,
+) -> Optional[float]:
+    """Compare a candidate with a saved accepted-normal case."""
+
+    def reject(reason: str, **values: object) -> None:
+        if diagnostics is not None:
+            diagnostics.update(values)
+            diagnostics["decision"] = "rejected"
+            diagnostics["reject_reason"] = reason
+
     cx, cy, cw, ch = candidate.bbox_norm
     sx, sy, sw, sh = case.bbox_norm
 
@@ -1553,21 +1683,34 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         candidate_center[0] - sample_center[0],
         candidate_center[1] - sample_center[1],
     )
+    if diagnostics is not None:
+        diagnostics.update(
+            {
+                "position_distance": round(float(position_distance), 5),
+                "position_tolerance": POSITION_TOLERANCE_NORM,
+            }
+        )
     # Проверка выполняется до дорогого сравнения шаблонов. Координаты нормированы,
     # поэтому допуск одинаков по смыслу при полном кадре и inspect_scale=0.5.
     if position_distance > POSITION_TOLERANCE_NORM:
+        reject("position_distance_exceeds_tolerance")
         return None
 
     candidate_area_norm = max(1e-9, cw * ch)
     sample_area_norm = max(1e-9, sw * sh)
     bbox_area_ratio = candidate_area_norm / sample_area_norm
+    if diagnostics is not None:
+        diagnostics["bbox_area_ratio"] = round(float(bbox_area_ratio), 4)
     # Нижней границы нет: любая уменьшенная версия подтверждённого следа может
     # совпасть. Увеличение ограничено, чтобы большая аномалия не наследовала
     # исключение от маленького примера.
     if bbox_area_ratio >= 1.55:
+        reject("candidate_bbox_too_large", max_bbox_area_ratio=1.55)
         return None
 
-    if candidate.diff_q90 > max(case.diff_q90 * 1.60, case.diff_q90 + 12.0):
+    maximum_diff_q90 = max(case.diff_q90 * 1.60, case.diff_q90 + 12.0)
+    if candidate.diff_q90 > maximum_diff_q90:
+        reject("candidate_diff_q90_too_high", max_diff_q90=round(float(maximum_diff_q90), 3))
         return None
     maximum_diff_max = (
         max(case.diff_max * 1.75, case.diff_max + 35.0)
@@ -1575,6 +1718,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         else max(case.diff_max * 1.50, case.diff_max + 20.0)
     )
     if candidate.diff_max > maximum_diff_max:
+        reject("candidate_diff_max_too_high", max_diff_max=round(float(maximum_diff_max), 3))
         return None
 
     case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
@@ -1591,6 +1735,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         sample_geometry = _mask_geometry(sample_mask)
         case._geometry_cache = sample_geometry
     if candidate_geometry is None or sample_geometry is None:
+        reject("invalid_candidate_or_case_geometry")
         return None
 
     sample_is_thin_trace = (
@@ -1650,25 +1795,41 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     # PCA-угол нестабилен и не должен мешать совпадению.
     if min(candidate_geometry.elongation, sample_geometry.elongation) >= 1.8:
         maximum_angle_distance = 45.0 if sample_is_bent_trace else 30.0
-        if _angle_distance(candidate_geometry.angle_degrees, sample_geometry.angle_degrees) > maximum_angle_distance:
+        angle_distance = _angle_distance(candidate_geometry.angle_degrees, sample_geometry.angle_degrees)
+        if angle_distance > maximum_angle_distance:
+            reject(
+                "elongated_shape_angle_mismatch",
+                angle_distance=round(float(angle_distance), 3),
+                max_angle_distance=maximum_angle_distance,
+            )
             return None
     one_is_elongated = max(candidate_geometry.elongation, sample_geometry.elongation) >= 2.5
     other_is_compact = min(candidate_geometry.elongation, sample_geometry.elongation) <= 1.45
     if one_is_elongated and other_is_compact:
+        reject("elongated_shape_does_not_match_compact_shape")
         return None
 
     # Эти проверки масштабонезависимы: абсолютная площадь не участвует. Положение
     # уже проверено выше по нормированному расстоянию между центрами.
     if aspect_similarity < 0.40:
+        reject("aspect_ratio_mismatch", aspect_similarity=round(float(aspect_similarity), 4), min_aspect_similarity=0.40)
         return None
     minimum_fill_similarity = 0.30 if sample_is_thin_trace else 0.38
     if fill_similarity < minimum_fill_similarity:
+        reject("fill_ratio_mismatch", fill_similarity=round(float(fill_similarity), 4), min_fill_similarity=minimum_fill_similarity)
         return None
     minimum_compactness_similarity = 0.28 if sample_is_thin_trace else 0.33
     if (
         compactness_similarity < minimum_compactness_similarity
         or solidity_similarity < 0.42
     ) and not scaled_core_geometry_candidate:
+        reject(
+            "contour_density_or_solidity_mismatch",
+            compactness_similarity=round(float(compactness_similarity), 4),
+            min_compactness_similarity=minimum_compactness_similarity,
+            solidity_similarity=round(float(solidity_similarity), 4),
+            min_solidity_similarity=0.42,
+        )
         return None
 
     comparison_region = cv2.dilate(
@@ -1677,6 +1838,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         iterations=1,
     ) > 0
     if not np.any(comparison_region):
+        reject("empty_comparison_region")
         return None
     diff_similarity = 1.0 - float(
         np.mean(
@@ -1701,6 +1863,22 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         and diff_similarity >= 0.82
         and appearance_similarity >= 0.70
     )
+    if diagnostics is not None:
+        diagnostics.update(
+            {
+                "shape_similarity": round(float(tolerant_shape_similarity), 4),
+                "dice_similarity": round(float(dice_similarity), 4),
+                "core_shape_similarity": round(float(core_tolerant_similarity), 4),
+                "core_dice_similarity": round(float(core_dice_similarity), 4),
+                "aspect_similarity": round(float(aspect_similarity), 4),
+                "fill_similarity": round(float(fill_similarity), 4),
+                "compactness_similarity": round(float(compactness_similarity), 4),
+                "solidity_similarity": round(float(solidity_similarity), 4),
+                "elongation_similarity": round(float(elongation_similarity), 4),
+                "diff_similarity": round(float(diff_similarity), 4),
+                "appearance_similarity": round(float(appearance_similarity), 4),
+            }
+        )
 
     # Узкий режим для уменьшенной разорванной версии сохранённой тонкой трассы.
     # Он не применяется к пятнам/сколам и не разрешает увеличение. Такой след
@@ -1727,7 +1905,20 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
             + diff_similarity * 0.25
             + appearance_similarity * 0.10
         )
-        return float(partial_similarity) if partial_similarity >= 0.66 else None
+        if partial_similarity < 0.66:
+            reject(
+                "partial_thin_trace_similarity_too_low",
+                similarity=round(float(partial_similarity), 4),
+                min_similarity=0.66,
+            )
+            return None
+        if diagnostics is not None:
+            diagnostics.update(
+                decision="matched_partial_thin_trace",
+                similarity=round(float(partial_similarity), 4),
+                min_similarity=0.66,
+            )
+        return float(partial_similarity)
 
     stable_thin_trace_candidate = (
         sample_is_thin_trace
@@ -1747,8 +1938,14 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         and not stable_scaled_shape_candidate
         and (tolerant_shape_similarity < 0.72 or dice_similarity < 0.32)
     ):
+        reject("shape_overlap_too_low", min_shape_similarity=0.72, min_dice_similarity=0.32)
         return None
     if diff_similarity < 0.70 or appearance_similarity < 0.45:
+        reject(
+            "diff_or_appearance_mismatch",
+            min_diff_similarity=0.70,
+            min_appearance_similarity=0.45,
+        )
         return None
 
     geometry_similarity = (
@@ -1766,20 +1963,28 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     )
     if both_filled_compact and not stable_scaled_shape_candidate:
         if dice_similarity < 0.83 or aspect_similarity < 0.78:
+            reject("compact_shape_overlap_or_aspect_mismatch", min_dice_similarity=0.83, min_aspect_similarity=0.78)
             return None
         contour_distance = _contour_match_distance(candidate_geometry, sample_geometry)
         if contour_distance > 0.25:
+            reject("compact_shape_contour_distance_too_high", contour_distance=round(float(contour_distance), 4), max_contour_distance=0.25)
             return None
         vertex_difference = abs(
             candidate_geometry.contour_vertices - sample_geometry.contour_vertices
         )
         if vertex_difference > 2 or (vertex_difference >= 2 and contour_distance > 0.20):
+            reject(
+                "compact_shape_vertex_count_mismatch",
+                contour_vertices_difference=vertex_difference,
+                contour_distance=round(float(contour_distance), 4),
+            )
             return None
     if (
         geometry_similarity < 0.72
         and not stable_thin_trace_candidate
         and not stable_scaled_shape_candidate
     ):
+        reject("combined_geometry_similarity_too_low", geometry_similarity=round(float(geometry_similarity), 4), min_geometry_similarity=0.72)
         return None
 
     # Уменьшенная версия одного и того же следа может немного не добрать общий
@@ -1817,7 +2022,20 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     else:
         minimum_similarity = GENERAL_MIN_SIMILARITY
     if similarity < minimum_similarity:
+        reject(
+            "final_similarity_below_threshold",
+            geometry_similarity=round(float(geometry_similarity), 4),
+            similarity=round(float(similarity), 4),
+            min_similarity=minimum_similarity,
+        )
         return None
+    if diagnostics is not None:
+        diagnostics.update(
+            decision="matched",
+            geometry_similarity=round(float(geometry_similarity), 4),
+            similarity=round(float(similarity), 4),
+            min_similarity=minimum_similarity,
+        )
     return float(similarity)
 
 

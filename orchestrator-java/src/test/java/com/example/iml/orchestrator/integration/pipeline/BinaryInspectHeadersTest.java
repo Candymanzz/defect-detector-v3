@@ -289,7 +289,8 @@ class BinaryInspectHeadersTest {
                         "scratch_sensitivity", 80,
                         "edge_suppression", 50,
                         "text_handling", 50,
-                        "preprocess_strength", 100
+                        "preprocess_strength", 100,
+                        "illumination_tolerance", 85
                 )
         ));
         BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
@@ -309,6 +310,7 @@ class BinaryInspectHeadersTest {
         Map<String, Object> detailed = (Map<String, Object>) header.get("detailed");
         assertEquals(0.3, simple.get("threshold"));
         assertEquals(80, detailed.get("scratch_sensitivity"));
+        assertEquals(85, detailed.get("illumination_tolerance"));
         assertFalse(header.containsKey("pro"));
     }
 

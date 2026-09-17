@@ -337,6 +337,7 @@ export type AnalysisSettings = {
   clahe_clip_limit: number;
   fp_recheck_enabled: boolean;
   fp_trigger_diff_q90: number;
+  illumination_tolerance: number;
 };
 
 export type AnalysisSettingsResponse = {
@@ -363,6 +364,8 @@ export type ProAnalysisKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  /** Independent 0–100 strength of shadow/glare rejection. */
+  illumination_tolerance: number;
 };
 
 /** Силы групп алгоритма (0–100), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
@@ -372,6 +375,8 @@ export type StrengthKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  /** Independent 0–100 strength of shadow/glare rejection. */
+  illumination_tolerance: number;
 };
 
 export type StrengthKnobsResponse = {

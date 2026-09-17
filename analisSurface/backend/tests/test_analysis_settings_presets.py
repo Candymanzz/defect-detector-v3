@@ -50,6 +50,15 @@ def test_normalize_strengths_ignores_threshold() -> None:
     assert "threshold" not in strengths
     assert strengths["noise_tolerance"] == 80.0
     assert strengths["scratch_sensitivity"] == 50.0
+    assert strengths["illumination_tolerance"] == 50.0
+
+
+def test_illumination_tolerance_is_direct_and_independent_from_sensitivity() -> None:
+    low_sensitivity = expand_merged(0.25, 0.0, illumination_tolerance=85)
+    high_sensitivity = expand_merged(0.25, 1.0, illumination_tolerance=85)
+
+    assert low_sensitivity["illumination_tolerance"] == pytest.approx(0.85)
+    assert high_sensitivity["illumination_tolerance"] == pytest.approx(0.85)
 
 
 def test_effective_group_sensitivity() -> None:

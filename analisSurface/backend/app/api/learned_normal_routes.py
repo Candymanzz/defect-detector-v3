@@ -347,9 +347,10 @@ LEARNING_REVIEW_HTML = r"""<!doctype html>
         <div class="metrics"><span>score ${Number(defect.score).toFixed(3)}</span><span>площадь ${defect.area}</span><span>q90 ${Number(defect.diff_q90).toFixed(1)}</span><span>max ${Number(defect.diff_max).toFixed(1)}</span></div>
       </div>`).join('')
       : '<div class="muted">На этом кадре нет контуров для дообучения.</div>';
-    const pending = currentReview.defects.filter(defect => !defect.manually_accepted && !defect.accepted_as_normal);
-    document.getElementById('acceptButton').disabled = pending.length === 0;
-    document.getElementById('acceptAllButton').disabled = pending.length === 0;
+    // Повторное дообучение разрешено: один и тот же review можно сохранить
+    // несколько раз, поэтому кнопка зависит только от наличия контуров.
+    document.getElementById('acceptButton').disabled = currentReview.defects.length === 0;
+    document.getElementById('acceptAllButton').disabled = currentReview.defects.length === 0;
     const cf = document.getElementById('counterfactual');
     cf.textContent = currentReview.counterfactual_status ? `Ознакомительный пересчёт: ${currentReview.counterfactual_status}, score ${Number(currentReview.counterfactual_score).toFixed(3)}. Никуда не передан.` : '';
     const currentId = currentReview.inspection_id;

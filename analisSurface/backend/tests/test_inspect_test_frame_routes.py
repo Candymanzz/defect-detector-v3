@@ -90,6 +90,7 @@ def test_inspect_test_frame_accepts_legacy_pro_knobs() -> None:
             "edge_suppression": 30,
             "text_handling": 65,
             "preprocess_strength": 90,
+            "illumination_tolerance": 80,
         },
     )
 
@@ -102,10 +103,12 @@ def test_inspect_test_frame_accepts_legacy_pro_knobs() -> None:
         edge_suppression=30,
         text_handling=65,
         preprocess_strength=90,
+        illumination_tolerance=80,
     )
     assert settings.default_threshold == expected["default_threshold"]
     assert settings.min_diff_signal == expected["min_diff_signal"]
     assert settings.min_scratch_aspect == expected["min_scratch_aspect"]
+    assert settings.illumination_tolerance == 0.8
 
 
 def test_inspect_shm_applies_temporary_pro_knobs(monkeypatch) -> None:
