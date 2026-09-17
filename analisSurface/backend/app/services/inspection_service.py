@@ -170,12 +170,14 @@ class InspectionService:
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
         self.references[product_type] = image
+        self._clear_learned_normals_for_product(product_type)
         self._reference_hashes[product_type] = reference_fingerprint(image)
         self._update_ref_orb_cache(product_type, image)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
         image = frame.copy()
         self.references[product_type] = image
+        self._clear_learned_normals_for_product(product_type)
         self._reference_hashes[product_type] = reference_fingerprint(image)
         self._update_ref_orb_cache(product_type, image)
 
