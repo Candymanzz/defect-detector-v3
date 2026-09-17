@@ -5,7 +5,7 @@
 /scripts/
 /script/
 /docs/
-/logs/
+#/logs/
 .dev-stack.pids.json
 .tmp/
 

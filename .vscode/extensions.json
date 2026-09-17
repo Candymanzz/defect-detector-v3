@@ -1,3 +1,11 @@
 {
-  "recommendations": ["esbenp.prettier-vscode"]
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "ms-python.python",
+    "ms-vscode.cpptools",
+    "ms-vscode.cmake-tools",
+    "dbaeumer.vscode-eslint",
+    "ms-dotnettools.csharp",
+    "vscjava.vscode-java-pack"
+  ]
 }

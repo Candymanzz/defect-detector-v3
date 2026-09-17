@@ -1,0 +1,79 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "analisSurface uvicorn",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main:app",
+        "--reload",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "cwd": "${workspaceFolder}/analisSurface/backend",
+      "jinja": true
+    },
+    {
+      "name": "camera-worker",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/camera-worker/build/Release/camera_worker.exe",
+      "args": [
+        "${workspaceFolder}/config.exemple/config.json",
+        "0"
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "front-end",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/front-end",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "IoInputMonitor",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/IoInputMonitor/bin/Release/net10.0/IoInputMonitor.exe",
+      "args": ["--list"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "LightServer.v3",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/LightServer.v3/bin/Release/net10.0/LightServer.dll",
+      "args": ["--urls", "http://127.0.0.1:5080"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "orchestrator-java",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "com.example.iml.orchestrator.OrchestratorMain",
+      "args": "${workspaceFolder}/config.exemple/config.yaml",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "java-geometry-service",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "com.example.iml.geometry.runner.GeometryRunnerMain",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "java-positioning-service",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "com.example.iml.positioning.runner.PositioningRunnerMain",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

@@ -32,5 +32,5 @@
   "[yaml]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "cmake.sourceDirectory": "/Users/pavel_stykachow/Documents/GitHub/defect-detector-v3/camera-worker"
+  "cmake.sourceDirectory": "${workspaceFolder}/camera-worker"
 }
