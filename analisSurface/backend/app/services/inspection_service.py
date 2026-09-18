@@ -131,6 +131,9 @@ class InspectionService:
         self._analysis_settings_simple_knobs: Dict[str, dict[str, object]] = {}
         self._analysis_settings_detailed_knobs: Dict[str, dict[str, object]] = {}
         self._analysis_settings_lock = threading.Lock()
+        self._product_locks_guard = threading.Lock()
+        self._product_locks: Dict[str, threading.RLock] = {}
+        self._feature_lock = threading.Lock()
         self._analysis_settings_mtime_ns = -1
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
@@ -172,15 +175,21 @@ class InspectionService:
 
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
-        self.references[product_type] = image
-        self._reference_hashes[product_type] = reference_fingerprint(image)
-        self._update_ref_orb_cache(product_type, image)
+        with self._product_lock(product_type):
+            self.references[product_type] = image
+            self._reference_hashes[product_type] = reference_fingerprint(image)
+            self._update_ref_orb_cache(product_type, image)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
         image = frame.copy()
-        self.references[product_type] = image
-        self._reference_hashes[product_type] = reference_fingerprint(image)
-        self._update_ref_orb_cache(product_type, image)
+        with self._product_lock(product_type):
+            self.references[product_type] = image
+            self._reference_hashes[product_type] = reference_fingerprint(image)
+            self._update_ref_orb_cache(product_type, image)
+
+    def _product_lock(self, product_type: str) -> threading.RLock:
+        with self._product_locks_guard:
+            return self._product_locks.setdefault(product_type, threading.RLock())
 
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
         return self.references.get(product_type)
@@ -416,7 +425,8 @@ class InspectionService:
         return counterfactual_score, counterfactual_status
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
-        self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
+        with self._product_lock(product_type):
+            self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
 
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
@@ -780,7 +790,12 @@ class InspectionService:
             pre_learning_heatmap=True,
         )
 
-    def inspect_frame(
+    def inspect_frame(self, product_type: str, frame: np.ndarray, *args, **kwargs) -> InspectionResult:
+        """Inspect against one atomic camera-scoped configuration snapshot."""
+        with self._product_lock(product_type):
+            return self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
+
+    def _inspect_frame_unlocked(
         self,
         product_type: str,
         frame: np.ndarray,
@@ -830,6 +845,7 @@ class InspectionService:
             product_type,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
+        align_finished = time.perf_counter()
 
         if inspect_scale_after_align is not None and inspect_scale_after_align < 0.999:
             aligned, reference = self._downscale_aligned_pair(
@@ -869,6 +885,7 @@ class InspectionService:
             settings,
             vertical_compensation=True,
         )
+        diff_finished = time.perf_counter()
         log_analysis_stage(
             "diff_map",
             "difference map computed",
@@ -878,6 +895,7 @@ class InspectionService:
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
         anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
+        anomaly_finished = time.perf_counter()
         log_analysis_stage(
             "anomaly_detection",
             "initial anomaly score computed",
@@ -971,6 +989,7 @@ class InspectionService:
             ref_hash,
             inspection_threshold,
         )
+        fp_recheck_finished = time.perf_counter()
         filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
         fp_skipped = not self.get_fp_zones(product_type) or not settings.fp_recheck_enabled
@@ -1027,6 +1046,13 @@ class InspectionService:
         for candidate in learned_filter.candidates:
             if candidate.matched_case_id is None:
                 continue
+            x, y, box_width, box_height = candidate.bbox
+            residual_region = segmentation_mask[y : y + box_height, x : x + box_width]
+            if int(np.count_nonzero(residual_region)) > 0:
+                # A saved broad normal may still contain a new scratch. In that
+                # case the region is not wholly excluded and must not be labelled
+                # as an accepted-normal overlay.
+                continue
             matched_case = self._accepted_normals.get(candidate.matched_case_id)
             # Prefer the saved case geometry: it is in the same fixed camera
             # coordinate space as the heatmap and remains stable when the
@@ -1043,6 +1069,7 @@ class InspectionService:
                 "case_id": candidate.matched_case_id,
                 "similarity": candidate.similarity,
                 "polygon": polygon_norm,
+                "excluded_from_score": True,
             }
             if matched_case is not None and matched_case.polygon:
                 zone["polygon_px"] = list(matched_case.polygon)
@@ -1065,6 +1092,7 @@ class InspectionService:
                     "case_id": zone.id,
                     "similarity": None,
                     "polygon": list(zone.points_norm_ref),
+                    "excluded_from_score": True,
                 }
             )
 
@@ -1072,17 +1100,18 @@ class InspectionService:
         # используются исходные diff и mask, а не результат вычитания норм.
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
+        heatmap_started = time.perf_counter()
         heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
-            heatmap_u8 = (
-                pre_learning_heatmap_u8
-                if pre_learning_heatmap_u8 is not None
-                else self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
-            )
+            heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
         elif include_heatmap_u8:
             try:
-                heatmap_u8 = self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
+                # Production/UI heatmap must describe the same signal that produced
+                # the verdict.  Using the raw pre-learning mask here made accepted
+                # normals and suppressed FP zones remain bright even for a passing
+                # inspection.
+                heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
 
@@ -1124,6 +1153,7 @@ class InspectionService:
                 product_type=product_type,
                 skipped=not include_visuals,
             )
+        heatmap_finished = time.perf_counter()
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
         # TEST/UI re-runs must not invent a new review id for the same frameId.
@@ -1224,6 +1254,12 @@ class InspectionService:
             heatmap_u8=heatmap_u8,
             segmentation_mask=segmentation_mask if include_visuals else None,
             excluded_normal_zones=excluded_normal_zones,
+            py_align_ms=(align_finished - pipeline_started) * 1000.0,
+            py_diff_ms=(diff_finished - align_finished) * 1000.0,
+            py_anomaly_ms=(anomaly_finished - diff_finished) * 1000.0,
+            py_fp_recheck_ms=(fp_recheck_finished - anomaly_finished) * 1000.0,
+            py_heatmap_ms=(heatmap_finished - heatmap_started) * 1000.0,
+            py_total_ms=(time.perf_counter() - pipeline_started) * 1000.0,
         )
 
     def _score_inspection_regions(
@@ -1890,7 +1926,7 @@ class InspectionService:
         height, width = heatmap.shape[:2]
         polygons: list[np.ndarray] = []
         for zone in excluded_zones:
-            if zone.get("kind") != "accepted_normal":
+            if zone.get("excluded_from_score") is False:
                 continue
             pixel_polygon = zone.get("polygon_px") or []
             coordinate_width = int(zone.get("coordinate_width") or 0)
@@ -2001,7 +2037,8 @@ class InspectionService:
 
     def _update_ref_orb_cache(self, product_type: str, reference: np.ndarray) -> None:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
-        kp_ref, des_ref = self._orb.detectAndCompute(ref_gray, None)
+        with self._feature_lock:
+            kp_ref, des_ref = self._orb.detectAndCompute(ref_gray, None)
         self._ref_orb_cache[product_type] = (kp_ref, des_ref)
 
     def _get_ref_orb(self, product_type: str, reference: np.ndarray) -> Tuple[list, Optional[np.ndarray]]:
@@ -2058,7 +2095,8 @@ class InspectionService:
 
         cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
         kp_ref, des_ref = self._get_ref_orb(product_type, reference)
-        kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
+        with self._feature_lock:
+            kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
             log_analysis_stage(
                 "alignment",
@@ -2070,7 +2108,8 @@ class InspectionService:
             return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         # Lowe ratio test: оставляем только однозначные дескрипторные соответствия.
-        matches = self._matcher.knnMatch(des_cur, des_ref, k=2)
+        with self._feature_lock:
+            matches = self._matcher.knnMatch(des_cur, des_ref, k=2)
         good_matches = []
         for pair in matches:
             if len(pair) < 2:
@@ -2528,9 +2567,15 @@ class InspectionService:
             return mask_gray
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
-        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
-        return cv2.max(mask_gray, gated_diff)
+        # The mask is a gate, not heat energy.  max(mask, diff) turns every
+        # detected component into solid 255 and discards the useful difference
+        # amplitude.  Preserve that amplitude and add only a soft visual halo.
+        core = np.where(mask_gray > 0, diff_gray, 0).astype(np.uint8)
+        if not np.any(core) and np.any(mask_gray):
+            core = mask_gray.copy()
+        halo = cv2.GaussianBlur(core, (11, 11), 0)
+        halo = np.clip(halo.astype(np.float32) * 0.65, 0, 255).astype(np.uint8)
+        return cv2.max(core, halo)
 
     def _build_pre_learning_heatmap_gray(
         self,

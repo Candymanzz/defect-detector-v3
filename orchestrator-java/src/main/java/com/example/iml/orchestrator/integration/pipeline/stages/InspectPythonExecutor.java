@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
@@ -156,6 +157,19 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             } else {
                 pyHeader = BinaryInspectHeaders.pythonInspectHeader(
                         cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
+                long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
+                pyHeader.put(
+                        "heatmap_u8_output_path",
+                        FrameJpegWriter.imlShmFilePath(
+                                "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
+                        ).toString()
+                );
+                pyHeader.put(
+                        "heatmap_max_width",
+                        Math.max(1, YamlScalars.toInt(
+                                pythonCfg == null ? null : pythonCfg.get("heatmap_preview_max_width"), 512
+                        ))
+                );
                 applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
                 Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
                 if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {

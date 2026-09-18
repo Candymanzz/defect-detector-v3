@@ -150,6 +150,12 @@ def to_inspect_response(result) -> InspectResponse:
         learned_normal_adjustment=getattr(result, "learned_normal_adjustment", 0.0),
         matched_accepted_case_ids=getattr(result, "matched_accepted_case_ids", None) or [],
         excluded_normal_zones=getattr(result, "excluded_normal_zones", None) or [],
+        py_align_ms=getattr(result, "py_align_ms", 0.0),
+        py_diff_ms=getattr(result, "py_diff_ms", 0.0),
+        py_anomaly_ms=getattr(result, "py_anomaly_ms", 0.0),
+        py_fp_recheck_ms=getattr(result, "py_fp_recheck_ms", 0.0),
+        py_heatmap_ms=getattr(result, "py_heatmap_ms", 0.0),
+        py_total_ms=getattr(result, "py_total_ms", 0.0),
         fp_zone_scores=[
             FPZoneScoreResponse(
                 zone_id=entry.zone_id,
@@ -203,8 +209,10 @@ def to_visuals_response(
     visual_outputs: dict[str, ShmImageOutputInfo],
 ) -> ShmVisualsResponse:
     base = to_inspect_response(result)
+    base_data = base.model_dump()
+    base_data.pop("heatmap_u8", None)
     return ShmVisualsResponse(
-        **base.model_dump(),
+        **base_data,
         aligned_image_u8=to_shm_image_output(visual_outputs.get("aligned_image")),
         diff_map_u8=to_shm_image_output(visual_outputs.get("diff_map")),
         heatmap_u8=to_shm_image_output(visual_outputs.get("heatmap")),

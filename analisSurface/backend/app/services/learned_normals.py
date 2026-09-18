@@ -30,10 +30,15 @@ TEMPLATE_SIZE = 64
 TEMPLATE_INNER_SIZE = 56
 TEMPLATE_VERSION = 3
 # Максимальное расстояние между центрами текущего и сохранённого дефекта в
-# нормированных координатах кадра. 0.15 означает локальный сдвиг
-# (например, около 184 px по горизонтали на рабочем кадре шириной 1224 px),
+# нормированных координатах кадра. 0.085 означает только локальный джиттер
+# (например, около 104 px по горизонтали на рабочем кадре шириной 1224 px),
 # но не перенос исключения на другую часть изделия.
-POSITION_TOLERANCE_NORM = 0.15
+# Learned exceptions are evaluated after image alignment.  Keep their spatial
+# allowance in pixels of the actual analysis frame; percentages of the frame
+# made the same exception drift by tens of pixels on production images.
+POSITION_TOLERANCE_PX = 6.0
+POSITION_JITTER_FLOOR_PX = 4.0
+POLYGON_GAP_FLOOR_PX = 3.0
 THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
 REDUCED_SHAPE_MIN_SIMILARITY = 0.78
@@ -485,10 +490,9 @@ class InspectionReviewStore:
             self._order[inspection_id] = review.summary()
             self._order.move_to_end(inspection_id)
             while len(self._order) > self.max_items:
-                # Drop from the hot index only — keep review files so accept-all can still
-                # resolve UUID from frame-archive metadata after many later inspections.
-                self._order.popitem(last=False)
-                self._trim_cold_review_dirs()
+                # The configured FIFO limit applies to both the hot index and disk.
+                evicted_id, _ = self._order.popitem(last=False)
+                self._delete_review_dir(evicted_id)
         return review
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
@@ -942,7 +946,7 @@ class AcceptedNormalMemory:
         """Каскад по кропу вокруг сохранённого ложняка, не второй полный inspect.
 
         1. Кандидат в маске — кроп уже сработал против основного эталона.
-        2. Нет блоба рядом с нормой (~15% кадра) — мини-эталон не трогаем.
+        2. Нет блоба в локальном размер-зависимом допуске (не более 8.5% кадра) — мини-эталон не трогаем.
         3. Блоб рядом — кроп vs мини-эталон (форма + diff):
            похож → погасить; для широкого блика оставить цветовой остаток,
            чтобы новый скол поверх ложняка остался браком.
@@ -988,20 +992,9 @@ class AcceptedNormalMemory:
                 suppressed_candidates.append(candidate)
             matched_case_ids.append(best_case.id)
 
-        # После вычитания нормы слабые остатки нельзя ранжировать заново как
-        # «самые важные»: иначе тот же принятый оператором кадр снова становится
-        # БРАК. Если совпали все исходно значимые области, подавляем только
-        # незначимые компоненты исходного кадра. Новый значимый дефект не даст
-        # этому условию выполниться и продолжит влиять на вердикт.
-        if (
-            important_candidate_ids
-            and important_candidate_ids.issubset(matched_candidate_ids)
-        ):
-            for candidate in candidates:
-                if candidate.id in matched_candidate_ids:
-                    continue
-                self._suppress_candidate(filtered_diff, filtered_mask, candidate)
-                suppressed_candidates.append(candidate)
+        # Never suppress an unmatched component merely because every other
+        # important component matched. Its spatial gate has already said that
+        # the saved normal does not explain it; it must remain score-bearing.
 
         return LearnedFilterResult(
             filtered_diff_map=filtered_diff,
@@ -1039,14 +1032,26 @@ class AcceptedNormalMemory:
     ) -> bool:
         """Apply a saved normal and report whether its candidate was fully removed."""
         x, y, box_width, box_height = candidate.bbox
+        _, _, candidate_width_norm, candidate_height_norm = candidate.bbox_norm
+        _, _, case_width_norm, case_height_norm = matched_case.bbox_norm
+        bbox_area_ratio = (
+            (candidate_width_norm * candidate_height_norm)
+            / max(1e-9, case_width_norm * case_height_norm)
+        )
         # Широкий блик: кроп vs мини-эталон в RGB, чтобы новый дефект поверх
         # знакомого засвета остался в остатке. Тонкие царапины гасятся по форме.
+        broad_color_region = (
+            box_width * box_height >= 2048
+            and candidate.area / max(1, box_width * box_height) >= 0.35
+            and (box_width * box_height) / max(1, aligned.shape[0] * aligned.shape[1]) >= 0.10
+        )
         use_color_residual = (
             matched_case.source_crop is not None
             and matched_case.source_crop.size > 0
-            and box_width * box_height >= 2048
-            and candidate.area / max(1, box_width * box_height) >= 0.35
-            and (box_width * box_height) / max(1, aligned.shape[0] * aligned.shape[1]) >= 0.10
+            # Similar-size matches can be checked pixel-wise and must retain a
+            # new branch/scratch inside the same connected component. Strongly
+            # reduced/fragmented legitimate variants keep shape-based handling.
+            and (broad_color_region or bbox_area_ratio >= 0.70)
         )
         if use_color_residual:
             residual_padding = 2
@@ -1073,6 +1078,10 @@ class AcceptedNormalMemory:
             # true exclusion. A new defect inside it remains score-bearing and
             # must not be presented to the operator as an excluded whole zone.
             return not bool(np.any(color_residual))
+        # candidate_similarity has already compared the complete component
+        # against the saved shape/diff/appearance templates. Suppress that
+        # matched component only; unrelated components are never removed by
+        # the cascade below.
         AcceptedNormalMemory._suppress_candidate(filtered_diff, filtered_mask, candidate)
         return True
 
@@ -1525,6 +1534,78 @@ def _mask_overlap_metrics(first_mask: np.ndarray, second_mask: np.ndarray) -> tu
     return tolerant_similarity, dice_similarity
 
 
+def _spatial_mask_geometry(
+    mask: np.ndarray,
+    bbox_norm: tuple[float, float, float, float],
+    coordinate_scale: tuple[float, float] = (1.0, 1.0),
+) -> Optional[tuple[np.ndarray, np.ndarray, float, float]]:
+    """Return centroid, major/minor axes and elongation in full-frame coordinates."""
+    binary = np.asarray(mask) > 0
+    y_points, x_points = np.where(binary)
+    if x_points.size < 3:
+        return None
+
+    x, y, width, height = bbox_norm
+    scale_x, scale_y = coordinate_scale
+    x *= scale_x
+    width *= scale_x
+    y *= scale_y
+    height *= scale_y
+    mask_height, mask_width = binary.shape[:2]
+    points = np.column_stack(
+        (
+            x + ((x_points.astype(np.float64) + 0.5) / max(1, mask_width)) * width,
+            y + ((y_points.astype(np.float64) + 0.5) / max(1, mask_height)) * height,
+        )
+    )
+    centroid = np.mean(points, axis=0)
+    centered = points - centroid
+    covariance = centered.T @ centered / max(1, points.shape[0] - 1)
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    major_index = int(np.argmax(eigenvalues))
+    major_value = max(1e-12, float(eigenvalues[major_index]))
+    minor_value = max(1e-12, float(eigenvalues[1 - major_index]))
+    major_axis = eigenvectors[:, major_index]
+    minor_axis = eigenvectors[:, 1 - major_index]
+    return centroid, major_axis, minor_axis, math.sqrt(major_value / minor_value)
+
+
+def _point_to_segment_distance(point: np.ndarray, start: np.ndarray, end: np.ndarray) -> float:
+    segment = end - start
+    length_squared = float(np.dot(segment, segment))
+    if length_squared <= 1e-18:
+        return float(np.linalg.norm(point - start))
+    projection = float(np.clip(np.dot(point - start, segment) / length_squared, 0.0, 1.0))
+    return float(np.linalg.norm(point - (start + projection * segment)))
+
+
+def _polygon_gap(
+    first: list[tuple[float, float]],
+    second: list[tuple[float, float]],
+) -> Optional[float]:
+    """Minimum distance between two full-frame polygons; zero when they overlap."""
+    if len(first) < 3 or len(second) < 3:
+        return None
+    first_points = np.asarray(first, dtype=np.float32)
+    second_points = np.asarray(second, dtype=np.float32)
+    try:
+        intersection_area, _ = cv2.intersectConvexConvex(first_points, second_points)
+        if intersection_area > 1e-12:
+            return 0.0
+    except cv2.error:
+        pass
+
+    minimum = math.inf
+    for points, other in ((first_points, second_points), (second_points, first_points)):
+        for point in points:
+            for index in range(len(other)):
+                minimum = min(
+                    minimum,
+                    _point_to_segment_distance(point, other[index], other[(index + 1) % len(other)]),
+                )
+    return float(minimum) if math.isfinite(minimum) else None
+
+
 def _diff_core_mask(diff_template: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Выделить устойчивое ядро отличия, менее зависимое от морфологии общей маски."""
     binary_mask = np.asarray(mask, dtype=bool)
@@ -1547,16 +1628,99 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     cx, cy, cw, ch = candidate.bbox_norm
     sx, sy, sw, sh = case.bbox_norm
 
-    candidate_center = (cx + cw * 0.5, cy + ch * 0.5)
-    sample_center = (sx + sw * 0.5, sy + sh * 0.5)
+    case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
+    bbox_x, bbox_y, bbox_width, bbox_height = candidate.bbox
+    frame_width = (
+        bbox_width / cw
+        if cw > 1e-9 and bbox_width > 0
+        else float(case.coordinate_width or 1)
+    )
+    frame_height = (
+        bbox_height / ch
+        if ch > 1e-9 and bbox_height > 0
+        else float(case.coordinate_height or 1)
+    )
+    coordinate_scale = (frame_width, frame_height)
+    candidate_spatial = _spatial_mask_geometry(
+        candidate.mask_template, candidate.bbox_norm, coordinate_scale,
+    )
+    sample_spatial = _spatial_mask_geometry(
+        case_mask_template, case.bbox_norm, coordinate_scale,
+    )
+    candidate_center = np.array(
+        ((cx + cw * 0.5) * frame_width, (cy + ch * 0.5) * frame_height),
+        dtype=np.float64,
+    )
+    sample_center = np.array(
+        ((sx + sw * 0.5) * frame_width, (sy + sh * 0.5) * frame_height),
+        dtype=np.float64,
+    )
+    if candidate_spatial is not None:
+        candidate_center = candidate_spatial[0]
+    if sample_spatial is not None:
+        sample_center = sample_spatial[0]
     position_distance = math.hypot(
         candidate_center[0] - sample_center[0],
         candidate_center[1] - sample_center[1],
     )
+    # Small saved normals must not inherit a frame-wide allowance. Permit a
+    # minimum amount of segmentation/alignment jitter, then scale the allowance
+    # with the saved geometry up to the global safety cap.
+    sample_width_px = sw * frame_width
+    sample_height_px = sh * frame_height
+    sample_diagonal = math.hypot(sample_width_px, sample_height_px)
+    position_tolerance = min(
+        POSITION_TOLERANCE_PX,
+        max(POSITION_JITTER_FLOOR_PX, sample_diagonal * 0.12),
+    )
     # Проверка выполняется до дорогого сравнения шаблонов. Координаты нормированы,
     # поэтому допуск одинаков по смыслу при полном кадре и inspect_scale=0.5.
-    if position_distance > POSITION_TOLERANCE_NORM:
+    if position_distance > position_tolerance:
         return None
+
+    # A long scratch may have a large bbox diagonal while being only a few
+    # pixels wide.  Its learned exception may follow small alignment jitter
+    # along the trace, but must not move freely across the trace.
+    if sample_spatial is not None and sample_spatial[3] >= 3.0:
+        displacement = candidate_center - sample_center
+        transverse_distance = abs(float(np.dot(displacement, sample_spatial[2])))
+        minor_extent = min(sample_width_px, sample_height_px)
+        transverse_tolerance = min(
+            position_tolerance,
+            max(POLYGON_GAP_FLOOR_PX, min(5.0, minor_extent * 0.35)),
+        )
+        if transverse_distance > transverse_tolerance:
+            return None
+
+    candidate_polygon_px = [
+        (x * frame_width, y * frame_height) for x, y in candidate.polygon_norm
+    ]
+    sample_polygon_px = [
+        (x * frame_width, y * frame_height) for x, y in case.polygon_norm
+    ]
+    geometry_gap = _polygon_gap(candidate_polygon_px, sample_polygon_px)
+    if geometry_gap is None:
+        horizontal_gap = max(sx - (cx + cw), cx - (sx + sw), 0.0) * frame_width
+        vertical_gap = max(sy - (cy + ch), cy - (sy + sh), 0.0) * frame_height
+        geometry_gap = math.hypot(horizontal_gap, vertical_gap)
+    polygon_gap_tolerance = max(
+        POLYGON_GAP_FLOOR_PX,
+        min(6.0, min(sample_width_px, sample_height_px) * 0.35),
+    )
+    if geometry_gap > polygon_gap_tolerance:
+        return None
+
+    inner_tolerance = position_tolerance * 0.40
+    if position_distance <= inner_tolerance:
+        position_quality = 1.0
+    else:
+        transition = (position_distance - inner_tolerance) / max(
+            1e-9,
+            position_tolerance - inner_tolerance,
+        )
+        # Distance is primarily a safety gate; this small continuous penalty
+        # makes an exact-location case win over an edge-of-tolerance case.
+        position_quality = 1.0 - min(1.0, transition) * 0.25
 
     candidate_area_norm = max(1e-9, cw * ch)
     sample_area_norm = max(1e-9, sw * sh)
@@ -1577,7 +1741,6 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if candidate.diff_max > maximum_diff_max:
         return None
 
-    case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
     candidate_mask = candidate.mask_template > 0
     candidate_diff_template = candidate.diff_template
     candidate_appearance_template = candidate.appearance_template
@@ -1726,7 +1889,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
             + fill_similarity * 0.10
             + diff_similarity * 0.25
             + appearance_similarity * 0.10
-        )
+        ) * position_quality
         return float(partial_similarity) if partial_similarity >= 0.66 else None
 
     stable_thin_trace_candidate = (
@@ -1807,7 +1970,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         + diff_similarity * 0.18
         + appearance_similarity * 0.07
         + scale_similarity * 0.05
-    )
+    ) * position_quality
     if stable_thin_trace_candidate:
         minimum_similarity = THIN_TRACE_MIN_SIMILARITY
     elif stable_scaled_shape_candidate:

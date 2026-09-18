@@ -134,8 +134,17 @@ def write_u8_image_to_shm(output_path: str, image: np.ndarray) -> ShmImageOutput
         raise ValueError("visual output must be a 2D or 3D uint8 image")
 
     shm_path = resolve_shm_path(output_path)
+    if sys.platform == "win32":
+        shm_root = _windows_iml_shm_dir().resolve(strict=False)
+        resolved_output = shm_path.resolve(strict=False)
+        if shm_root not in (resolved_output, *resolved_output.parents):
+            raise ValueError(f"visual output path must resolve inside {shm_root}")
     data = contiguous.tobytes()
-    fd = os.open(shm_path, os.O_CREAT | os.O_RDWR, 0o666)
+    shm_path.parent.mkdir(parents=True, exist_ok=True)
+    # Each output path is frame-unique. Write it directly: production Windows
+    # policy allows the requested SHM file but can deny/block auxiliary sibling
+    # files, which previously made every inspect return HTTP 500.
+    fd = os.open(shm_path, os.O_RDWR | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         os.ftruncate(fd, len(data))
         with mmap.mmap(fd, len(data), access=mmap.ACCESS_WRITE) as output_map:

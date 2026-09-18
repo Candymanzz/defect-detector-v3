@@ -55,6 +55,13 @@ class InspectResponse(BaseModel):
     # score or verdict and let production UI mark already excluded areas.
     excluded_normal_zones: list[dict] = Field(default_factory=list)
     fp_zone_scores: list[FPZoneScoreResponse] = Field(default_factory=list)
+    py_align_ms: float = 0.0
+    py_diff_ms: float = 0.0
+    py_anomaly_ms: float = 0.0
+    py_fp_recheck_ms: float = 0.0
+    py_heatmap_ms: float = 0.0
+    py_total_ms: float = 0.0
+    heatmap_u8: Optional[ShmImageOutput] = None
 
 
 class InspectWithVisualsResponse(InspectResponse):
@@ -218,6 +225,8 @@ class ShmFrameRequest(BaseModel):
     skip_learning_review: bool = False
     defer_learning_review: bool = False
     test_analyze: bool = False
+    heatmap_u8_output_path: Optional[str] = None
+    heatmap_max_width: Optional[int] = None
 
 
 class TestFrameInspectRequest(BaseModel):

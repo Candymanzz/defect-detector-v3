@@ -605,12 +605,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 }
             }
         }
-        Object heatmapOut = header.get("heatmap_u8_output_path");
-        if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
-            synchronized (scopeLock("heatmap:" + String.valueOf(heatmapOut).trim())) {
-                return inspectShmVisuals(header);
-            }
-        }
         Map<String, Object> body = shmFrameJson(header);
         String invalid = validateRequiredShmFrameFields(body, "inspect-shm");
         if (invalid != null) {
@@ -628,6 +622,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         rememberLearnedReview(header, json);
         Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
         pyHeader.put("product_type", originalProductType);
+        appendHeatmapOutput(pyHeader, json);
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
     }
 
@@ -876,6 +871,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
         copyIfPresent(body, header, "roi_polygon_norm");
+        copyIfPresent(body, header, "heatmap_u8_output_path");
+        copyIfPresent(body, header, "heatmap_max_width");
         if (YamlScalars.toBool(header.get("test_analyze"), false)
                 || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
             body.put("skip_learning_review", true);
@@ -997,7 +994,21 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         h.put("learned_normal_adjustment", YamlScalars.toDouble(json.get("learned_normal_adjustment"), 0.0));
         Object excludedNormalZones = json.get("excluded_normal_zones");
         h.put("excluded_normal_zones", excludedNormalZones instanceof List<?> ? excludedNormalZones : List.of());
+        for (String timing : List.of("py_align_ms", "py_diff_ms", "py_anomaly_ms", "py_fp_recheck_ms", "py_heatmap_ms", "py_total_ms")) {
+            h.put(timing, YamlScalars.toDouble(json.get(timing), 0.0));
+        }
         return h;
+    }
+
+    private static void appendHeatmapOutput(Map<String, Object> header, Map<String, Object> json) {
+        Object value = json.get("heatmap_u8");
+        if (!(value instanceof Map<?, ?> heatmap)) {
+            return;
+        }
+        header.put("heatmap_u8_path", heatmap.get("path"));
+        header.put("heatmap_u8_width", heatmap.get("width"));
+        header.put("heatmap_u8_height", heatmap.get("height"));
+        header.put("heatmap_u8_stride", heatmap.get("stride"));
     }
 
     private void rememberLearnedReview(Map<String, Object> header, Map<String, Object> json) {

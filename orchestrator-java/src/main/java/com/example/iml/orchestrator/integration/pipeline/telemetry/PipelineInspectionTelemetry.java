@@ -63,12 +63,12 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
                 : state.capture().header();
         long decisionMs = YamlScalars.nanosToMs(tDecisionEndNanos - tDecisionStartNanos);
         long fanoutMs = YamlScalars.nanosToMs(tFanoutEndNanos - tDecisionEndNanos);
-        double pyStageAlignMs = YamlScalars.toDouble(pyHeader.get("stage_ms_align"), 0.0);
-        double pyStageDiffMs = YamlScalars.toDouble(pyHeader.get("stage_ms_diff"), 0.0);
-        double pyStageAnomalyMs = YamlScalars.toDouble(pyHeader.get("stage_ms_anomaly"), 0.0);
-        double pyStageFpRecheckMs = YamlScalars.toDouble(pyHeader.get("stage_ms_fp_recheck"), 0.0);
-        double pyStageEncodeMs = YamlScalars.toDouble(pyHeader.get("stage_ms_encode"), 0.0);
-        double pyStageTotalMs = YamlScalars.toDouble(pyHeader.get("stage_ms_total"), 0.0);
+        double pyStageAlignMs = YamlScalars.toDouble(pyHeader.get("py_align_ms"), 0.0);
+        double pyStageDiffMs = YamlScalars.toDouble(pyHeader.get("py_diff_ms"), 0.0);
+        double pyStageAnomalyMs = YamlScalars.toDouble(pyHeader.get("py_anomaly_ms"), 0.0);
+        double pyStageFpRecheckMs = YamlScalars.toDouble(pyHeader.get("py_fp_recheck_ms"), 0.0);
+        double pyStageHeatmapMs = YamlScalars.toDouble(pyHeader.get("py_heatmap_ms"), 0.0);
+        double pyStageTotalMs = YamlScalars.toDouble(pyHeader.get("py_total_ms"), 0.0);
         long positioningMs = YamlScalars.toLong(capHeader.get("positioning_ms"), 0L);
 
         LinkedHashMap<String, Object> row = new LinkedHashMap<>();
@@ -107,8 +107,8 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
         row.put("py_anomaly_s", pyStageAnomalyMs / 1000.0);
         row.put("py_fp_recheck_ms", pyStageFpRecheckMs);
         row.put("py_fp_recheck_s", pyStageFpRecheckMs / 1000.0);
-        row.put("py_encode_ms", pyStageEncodeMs);
-        row.put("py_encode_s", pyStageEncodeMs / 1000.0);
+        row.put("py_heatmap_ms", pyStageHeatmapMs);
+        row.put("py_heatmap_s", pyStageHeatmapMs / 1000.0);
         row.put("py_reported_total_ms", pyStageTotalMs);
         row.put("py_reported_total_s", pyStageTotalMs / 1000.0);
         row.put("overall_pass", decision.overallPass());

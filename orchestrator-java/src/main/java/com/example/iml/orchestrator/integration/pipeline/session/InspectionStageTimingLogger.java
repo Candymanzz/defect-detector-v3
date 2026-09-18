@@ -35,7 +35,7 @@ public final class InspectionStageTimingLogger {
         log.info("stage_timing cam={} frame={} total_ms={} pipeline_ms={} reference_ms={} capture_ms={} positioning_ms={} "
                         + "python_ms={} geometry_ms={} decision_ms={} fanout_ms={} "
                         + "pos_orb_ms={} pos_warp_ms={} pos_ecc_ms={} pos_write_ms={} "
-                        + "py_align_ms={} py_diff_ms={} py_anomaly_ms={} py_fp_recheck_ms={} py_encode_ms={} py_total_ms={}",
+                        + "py_align_ms={} py_diff_ms={} py_anomaly_ms={} py_fp_recheck_ms={} py_heatmap_ms={} py_total_ms={}",
                 cameraId,
                 decision.frameId(),
                 YamlScalars.nanosToMs(tFanoutEndNanos - tCameraStartNanos),
@@ -51,11 +51,11 @@ public final class InspectionStageTimingLogger {
                 YamlScalars.toDouble(capHeader.get("positioning_stage_ms_warp"), 0.0),
                 YamlScalars.toDouble(capHeader.get("positioning_stage_ms_ecc"), 0.0),
                 YamlScalars.toDouble(capHeader.get("positioning_stage_ms_write"), 0.0),
-                YamlScalars.toDouble(pyHeader.get("stage_ms_align"), 0.0),
-                YamlScalars.toDouble(pyHeader.get("stage_ms_diff"), 0.0),
-                YamlScalars.toDouble(pyHeader.get("stage_ms_anomaly"), 0.0),
-                YamlScalars.toDouble(pyHeader.get("stage_ms_fp_recheck"), 0.0),
-                YamlScalars.toDouble(pyHeader.get("stage_ms_encode"), 0.0),
-                YamlScalars.toDouble(pyHeader.get("stage_ms_total"), 0.0));
+                YamlScalars.toDouble(pyHeader.get("py_align_ms"), 0.0),
+                YamlScalars.toDouble(pyHeader.get("py_diff_ms"), 0.0),
+                YamlScalars.toDouble(pyHeader.get("py_anomaly_ms"), 0.0),
+                YamlScalars.toDouble(pyHeader.get("py_fp_recheck_ms"), 0.0),
+                YamlScalars.toDouble(pyHeader.get("py_heatmap_ms"), 0.0),
+                YamlScalars.toDouble(pyHeader.get("py_total_ms"), 0.0));
     }
 }

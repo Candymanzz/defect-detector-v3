@@ -96,10 +96,10 @@ def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSetti
 
 def cleanup_requested_visual_outputs(payload: ShmVisualsRequest) -> None:
     for raw_path in (
-        payload.aligned_image_u8_output_path,
-        payload.diff_map_u8_output_path,
-        payload.heatmap_u8_output_path,
-        payload.segmentation_mask_u8_output_path,
+        getattr(payload, "aligned_image_u8_output_path", None),
+        getattr(payload, "diff_map_u8_output_path", None),
+        getattr(payload, "heatmap_u8_output_path", None),
+        getattr(payload, "segmentation_mask_u8_output_path", None),
     ):
         if not raw_path:
             continue
@@ -124,10 +124,10 @@ def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[s
             roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], roi_polygon) > 0
             heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
     requested = {
-        "aligned_image": (payload.aligned_image_u8_output_path, result.aligned_image),
-        "diff_map": (payload.diff_map_u8_output_path, result.diff_map),
-        "heatmap": (payload.heatmap_u8_output_path, heatmap_u8),
-        "segmentation_mask": (payload.segmentation_mask_u8_output_path, result.segmentation_mask),
+        "aligned_image": (getattr(payload, "aligned_image_u8_output_path", None), result.aligned_image),
+        "diff_map": (getattr(payload, "diff_map_u8_output_path", None), result.diff_map),
+        "heatmap": (getattr(payload, "heatmap_u8_output_path", None), heatmap_u8),
+        "segmentation_mask": (getattr(payload, "segmentation_mask_u8_output_path", None), result.segmentation_mask),
     }
     outputs: dict[str, ShmImageOutputInfo] = {}
     for name, (output_path, image) in requested.items():
@@ -290,10 +290,24 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
     Выход: InspectResponse — status, anomaly_score, threshold, sub_zone_scores, ...
     """
     try:
-        result = await _inspect_shm_parallel(payload, include_visuals=False, include_heatmap_u8=False)
+        result = await _inspect_shm_parallel(
+            payload,
+            include_visuals=False,
+            include_heatmap_u8=payload.heatmap_u8_output_path is not None,
+        )
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    if payload.heatmap_u8_output_path is not None:
+        try:
+            outputs = write_requested_visual_outputs(payload, result)
+        except Exception as exc:
+            logger.exception("primary inspection heatmap export failed")
+            cleanup_requested_visual_outputs(payload)
+            # The image is auxiliary. Never turn a completed inspection into a
+            # transport error/REJECT merely because its heatmap could not be written.
+            return to_inspect_response(result)
+        return to_visuals_response(result, outputs)
     return to_inspect_response(result)
 
 
@@ -326,10 +340,12 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
     try:
         visual_outputs = write_requested_visual_outputs(payload, result)
     except Exception as exc:
-        # UI artifacts are best-effort and must not invalidate a completed inspection.
-        logger.warning("inspection visual output export failed: %s", exc)
+        # This endpoint exists specifically to produce artifacts.  Returning 200
+        # with a null heatmap makes the orchestrator treat a failed export as a
+        # successful one and silently lose the visualization.
+        logger.exception("inspection visual output export failed")
         cleanup_requested_visual_outputs(payload)
-        visual_outputs = {}
+        raise HTTPException(status_code=500, detail=f"visual output export failed: {exc}") from exc
 
     return to_visuals_response(result, visual_outputs)
 

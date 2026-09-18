@@ -1097,7 +1097,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             if (geometryRuntimeConfig != null) {
                 geometryRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
             }
-            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath("iml_ui_heatmap_cam_" + cameraId);
+            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
+                    "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
+            );
             pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
             pyHeader.put(
                     "heatmap_max_width",

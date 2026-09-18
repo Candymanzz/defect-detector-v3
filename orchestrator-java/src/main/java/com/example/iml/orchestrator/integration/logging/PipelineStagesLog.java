@@ -70,7 +70,7 @@ public final class PipelineStagesLog implements AutoCloseable {
             sb.append(" diff=").append(fmtSec(row.get("py_diff_s")));
             sb.append(" anomaly=").append(fmtSec(row.get("py_anomaly_s")));
             sb.append(" fp=").append(fmtSec(row.get("py_fp_recheck_s")));
-            sb.append(" enc=").append(fmtSec(row.get("py_encode_s")));
+            sb.append(" heatmap=").append(fmtSec(row.get("py_heatmap_s")));
             sb.append(" py_int=").append(fmtSec(row.get("py_reported_total_s")));
             sb.append(") decision=").append(fmtSec(row.get("decision_s")));
             sb.append(" fanout=").append(fmtSec(row.get("fanout_s")));
