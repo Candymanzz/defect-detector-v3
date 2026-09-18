@@ -210,6 +210,7 @@ def _inspect_shm_sync(
     *,
     include_visuals: bool,
     include_heatmap_u8: bool,
+    force_skip_learning_review: bool = False,
 ):
     _sync_request_roi(payload.product_type, payload.roi_polygon_norm)
     frame = _copy_shm_bgr_frame(payload)
@@ -257,7 +258,10 @@ def _inspect_shm_sync(
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
         analysis_profile=payload.analysis_profile,
         temporary_analysis_overrides=temporary_overrides,
-        store_learning_review=not (payload.skip_learning_review or payload.test_analyze),
+        store_learning_review=not (
+            force_skip_learning_review or payload.skip_learning_review or payload.test_analyze
+        ),
+        defer_learning_review=payload.defer_learning_review,
     )
 
 
@@ -266,6 +270,7 @@ async def _inspect_shm_parallel(
     *,
     include_visuals: bool,
     include_heatmap_u8: bool,
+    force_skip_learning_review: bool = False,
 ):
     loop = asyncio.get_running_loop()
     job = partial(
@@ -273,6 +278,7 @@ async def _inspect_shm_parallel(
         payload,
         include_visuals=include_visuals,
         include_heatmap_u8=include_heatmap_u8,
+        force_skip_learning_review=force_skip_learning_review,
     )
     return await loop.run_in_executor(inspect_executor, job)
 
@@ -310,6 +316,9 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
                 )
             ),
             include_heatmap_u8=payload.heatmap_u8_output_path is not None,
+            # This endpoint repeats the production analysis only to build UI
+            # artifacts. The primary /inspect-shm call owns the review record.
+            force_skip_learning_review=True,
         )
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

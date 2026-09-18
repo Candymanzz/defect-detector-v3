@@ -406,6 +406,10 @@ public final class BinaryInspectHeaders {
         // inject anomaly threshold into this header.
         // Горячий путь: false; превью — {@link com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar}.
         pyHeader.put("include_visuals", includeVisuals);
+        pyHeader.put(
+                "defer_learning_review",
+                YamlScalars.toBool(pythonCfg == null ? null : pythonCfg.get("defer_learning_review"), false)
+        );
         if (pythonCfg != null && pythonCfg.get("rois") != null) {
             pyHeader.put("rois", pythonCfg.get("rois"));
         }

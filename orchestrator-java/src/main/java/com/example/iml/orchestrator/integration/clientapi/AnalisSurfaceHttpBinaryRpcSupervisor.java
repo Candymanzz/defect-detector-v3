@@ -706,6 +706,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private BinaryProtocol.Message inspectShmVisuals(Map<String, Object> header) throws IOException {
         Map<String, Object> body = shmFrameJson(header);
+        // The production inspect_shm request owns the learning-review record.
+        // This second pass exists only to export heatmaps/UI artifacts.
+        body.put("skip_learning_review", true);
         String invalid = validateRequiredShmFrameFields(body, "inspect-shm-visuals");
         if (invalid != null) {
             return new BinaryProtocol.Message(
@@ -876,6 +879,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (YamlScalars.toBool(header.get("test_analyze"), false)
                 || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
             body.put("skip_learning_review", true);
+        }
+        if (YamlScalars.toBool(header.get("defer_learning_review"), false)) {
+            body.put("defer_learning_review", true);
         }
         if (header.get("analysis_test_settings") instanceof Map<?, ?> temporaryAnalysis && !temporaryAnalysis.isEmpty()) {
             body.put("analysis_test_settings", temporaryAnalysis);

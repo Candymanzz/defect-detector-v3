@@ -146,6 +146,39 @@ def test_inspect_shm_applies_temporary_pro_knobs(monkeypatch) -> None:
     overrides = captured["temporary_analysis_overrides"]
     assert overrides["default_threshold"] == 0.42
     assert overrides["min_diff_signal"] != 12.0
+    assert captured["store_learning_review"] is True
+    assert captured["defer_learning_review"] is False
+
+
+def test_visuals_inspection_forces_learning_review_skip(monkeypatch) -> None:
+    captured = {}
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+    monkeypatch.setattr("app.api.inspection_routes._copy_shm_bgr_frame", lambda payload: frame)
+
+    def fake_inspect_frame(**kwargs):
+        captured.update(kwargs)
+        return "ok"
+
+    monkeypatch.setattr(inspection_service, "inspect_frame", fake_inspect_frame)
+    payload = ShmFrameRequest(
+        product_type="visuals-only",
+        shm_name="unused",
+        width=8,
+        height=8,
+        defer_learning_review=True,
+    )
+
+    assert (
+        _inspect_shm_sync(
+            payload,
+            include_visuals=True,
+            include_heatmap_u8=True,
+            force_skip_learning_review=True,
+        )
+        == "ok"
+    )
+    assert captured["store_learning_review"] is False
+    assert captured["defer_learning_review"] is True
 
 
 def test_inspect_test_frame_does_not_persist_knobs(tmp_path: Path) -> None:

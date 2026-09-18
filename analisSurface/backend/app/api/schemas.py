@@ -216,6 +216,7 @@ class ShmFrameRequest(BaseModel):
     # silently fall back to full-frame processing.
     roi_polygon_norm: Optional[list[dict[str, float]]] = None
     skip_learning_review: bool = False
+    defer_learning_review: bool = False
     test_analyze: bool = False
 
 

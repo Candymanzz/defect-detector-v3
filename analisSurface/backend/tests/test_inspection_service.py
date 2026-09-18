@@ -1,4 +1,5 @@
 import json
+import threading
 from pathlib import Path
 
 import cv2
@@ -1172,6 +1173,42 @@ def test_learning_reviews_fifo_evicts_oldest_on_disk(
     assert service.get_learning_review(inspection_ids[1]) is not None
     assert service.get_learning_review(inspection_ids[3]) is not None
     assert len(service.list_learning_reviews()) == 3
+
+
+def test_learning_review_can_be_saved_after_verdict_returns(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("deferred", gray_frame)
+    inspection_service._deferred_learning_reviews._defer_delay_s = 0
+    real_add = inspection_service._learning_reviews.add
+    writer_started = threading.Event()
+    allow_write = threading.Event()
+
+    def blocked_add(**kwargs):
+        writer_started.set()
+        assert allow_write.wait(timeout=2)
+        return real_add(**kwargs)
+
+    inspection_service._learning_reviews.add = blocked_add
+    current = gray_frame.copy()
+    current[10:30, 10:50] = 255
+
+    result = inspection_service.inspect_frame(
+        "deferred",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        defer_learning_review=True,
+    )
+
+    assert result.inspection_id is not None
+    assert writer_started.wait(timeout=1)
+    assert inspection_service.get_learning_review(result.inspection_id) is None
+
+    allow_write.set()
+    inspection_service._deferred_learning_reviews._queue.join()
+    assert inspection_service.get_learning_review(result.inspection_id) is not None
 
 
 def test_accepted_normal_is_wiped_on_service_restart(

@@ -63,7 +63,10 @@ public final class ShmMatWriter {
             }
             raf.seek(0);
             raf.write(bytes, 0, needed);
-            raf.getFD().sync();
+            // The output is transient IPC shared memory, not durable storage. Closing the
+            // handle makes the write visible to the consumer that runs after the RPC reply;
+            // forcing every 3.6 MiB frame to physical storage adds 50-350 ms on Windows and
+            // cannot improve alignment or image integrity.
         }
     }
 

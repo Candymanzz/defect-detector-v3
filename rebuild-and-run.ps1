@@ -166,11 +166,34 @@ if (-not $SkipCameraWorker) {
         cmake --build build --config Release
         Pop-Location
     }
+    # Ensure MVS runtime DLLs sit next to camera_worker.exe (also done by CMake POST_BUILD).
+    $mvsRuntime = Join-Path $RepoRoot "LightServer.v3\ThirdParty\MVS\Runtime\win64"
+    $workerOutDirs = @(
+        (Join-Path $CameraWorkerDir "build\Release"),
+        (Join-Path $CameraWorkerDir "build\Debug")
+    ) | Where-Object { Test-Path (Join-Path $_ "camera_worker.exe") }
+    if ((Test-Path (Join-Path $mvsRuntime "MvCameraControl.dll")) -and $workerOutDirs.Count -gt 0) {
+        foreach ($outDir in $workerOutDirs) {
+            Copy-Item (Join-Path $mvsRuntime "*.dll") $outDir -Force
+            Write-Host "Copied MVS Runtime DLLs -> $outDir"
+        }
+    }
   } else {
     $hasWorker = (Test-Path (Join-Path $CameraWorkerDir "build\Release\camera_worker.exe")) `
               -or (Test-Path (Join-Path $CameraWorkerDir "build\Debug\camera_worker.exe"))
     if ($hasWorker) {
         Write-Host "WARN: cmake not in PATH, using existing camera_worker.exe" -ForegroundColor Yellow
+        $mvsRuntime = Join-Path $RepoRoot "LightServer.v3\ThirdParty\MVS\Runtime\win64"
+        $workerOutDirs = @(
+            (Join-Path $CameraWorkerDir "build\Release"),
+            (Join-Path $CameraWorkerDir "build\Debug")
+        ) | Where-Object { Test-Path (Join-Path $_ "camera_worker.exe") }
+        if ((Test-Path (Join-Path $mvsRuntime "MvCameraControl.dll")) -and $workerOutDirs.Count -gt 0) {
+            foreach ($outDir in $workerOutDirs) {
+                Copy-Item (Join-Path $mvsRuntime "*.dll") $outDir -Force
+                Write-Host "Copied MVS Runtime DLLs -> $outDir"
+            }
+        }
     } else {
         throw "cmake not found and camera_worker.exe missing. Install CMake or use -SkipCameraWorker"
     }

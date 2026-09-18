@@ -216,7 +216,12 @@ public final class PipelineCameraRuntimeService {
         ctx.setGeometryStageExecutor(poolFactory.createStageExecutor(
                 "stage-geometry", Math.max(1, ctx.geometryPool().size()), cfg.stageQueueSize()));
         ctx.setDecisionStageExecutor(poolFactory.createStageExecutor("stage-decision", cfg.cameraParallelism(), cfg.stageQueueSize()));
-        log.info("pipeline settings: queue_size={} python_parallelism={}", cfg.stageQueueSize(), cfg.pythonParallelism());
+        log.info(
+                "pipeline settings: queue_size={} python_parallelism={} python_request_parallelism={}",
+                cfg.stageQueueSize(),
+                cfg.pythonParallelism(),
+                cfg.pythonRequestParallelism()
+        );
     }
 
     private void runCameraTasks(
@@ -225,7 +230,9 @@ public final class PipelineCameraRuntimeService {
             OrchestratorStopSignal stopSignal
     ) throws Exception {
         Semaphore geometrySlots = new Semaphore(Math.max(1, ctx.geometryPool().size()));
-        Semaphore pythonSlots = new Semaphore(Math.max(1, ctx.pythonPool().size()));
+        // HTTP supervisors and uvicorn's inspect executor support concurrent requests.
+        // Limiting this to the number of server URLs serialized ten cameras in batches of two.
+        Semaphore pythonSlots = new Semaphore(ctx.bootConfig().pythonRequestParallelism());
         AtomicInteger geometryRoundRobin = new AtomicInteger(0);
         AtomicInteger pythonRoundRobin = new AtomicInteger(0);
 

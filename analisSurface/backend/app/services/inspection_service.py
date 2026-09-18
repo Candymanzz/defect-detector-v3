@@ -1,6 +1,9 @@
 import base64
+import copy
 import json
 import logging
+import os
+import queue
 import threading
 import time
 import uuid
@@ -48,6 +51,61 @@ _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 
 
+class _DeferredLearningReviewWriter:
+    """Bounded, best-effort writer kept off the production verdict path."""
+
+    def __init__(self, store: InspectionReviewStore) -> None:
+        raw_size = os.environ.get("ANALIS_LEARNING_REVIEW_QUEUE_SIZE", "16")
+        raw_delay = os.environ.get("ANALIS_LEARNING_REVIEW_DEFER_DELAY_MS", "250")
+        try:
+            queue_size = max(1, min(128, int(raw_size)))
+        except ValueError:
+            queue_size = 16
+        try:
+            self._defer_delay_s = max(0, min(5000, int(raw_delay))) / 1000.0
+        except ValueError:
+            self._defer_delay_s = 0.250
+        self._store = store
+        self._queue: queue.Queue[Optional[dict]] = queue.Queue(maxsize=queue_size)
+        self._thread = threading.Thread(
+            target=self._run,
+            name="learning-review-writer",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def submit(self, task: dict) -> bool:
+        try:
+            self._queue.put_nowait(task)
+            return True
+        except queue.Full:
+            return False
+
+    def _run(self) -> None:
+        while True:
+            task = self._queue.get()
+            try:
+                if task is None:
+                    return
+                if self._defer_delay_s > 0:
+                    time.sleep(self._defer_delay_s)
+                self._store.add(**task)
+                log_analysis_stage(
+                    "learning_review",
+                    "deferred inspection history saved",
+                    product_type=str(task.get("product_type", "")),
+                    extra={"inspection_id": task.get("inspection_id")},
+                )
+            except Exception:
+                logger.exception(
+                    "failed to save deferred inspection history product_type=%s inspection_id=%s",
+                    task.get("product_type") if task else None,
+                    task.get("inspection_id") if task else None,
+                )
+            finally:
+                self._queue.task_done()
+
+
 class InspectionService:
     """Ядро инспекции: выравнивание, diff, детекция аномалий, FP мини-эталоны, вердикт.
 
@@ -93,6 +151,7 @@ class InspectionService:
             storage_dir=reviews_dir if reviews_dir is not None else data_dir / "learning_reviews",
             session_wipe=session_wipe,
         )
+        self._deferred_learning_reviews = _DeferredLearningReviewWriter(self._learning_reviews)
 
         self._anomaly_engine = None
         self._load_anomalib_engine()
@@ -736,6 +795,7 @@ class InspectionService:
         pre_learning_heatmap: bool = False,
         inspect_scale_after_align: Optional[float] = None,
         store_learning_review: bool = True,
+        defer_learning_review: bool = False,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         pipeline_started = time.perf_counter()
@@ -749,6 +809,7 @@ class InspectionService:
                 "threshold": threshold,
                 "include_visuals": include_visuals,
                 "store_learning_review": store_learning_review,
+                "defer_learning_review": defer_learning_review,
             },
         )
         if settings is None:
@@ -1069,35 +1130,58 @@ class InspectionService:
         inspection_id = None
         if store_learning_review:
             inspection_id = str(uuid.uuid4())
-            try:
-                self._learning_reviews.add(
-                    inspection_id=inspection_id,
-                    product_type=product_type,
-                    reference_hash=ref_hash,
-                    status=status,
-                    score=anomaly_score,
-                    threshold=inspection_threshold,
-                    aligned=aligned,
-                    diff_map=diff_map,
-                    raw_mask=raw_segmentation_mask,
-                    candidates=review_candidates,
-                )
-            except Exception:
-                inspection_id = None
-                logger.exception("failed to save inspection history product_type=%s", product_type)
-                log_analysis_stage(
-                    "learning_review",
-                    "failed to save inspection history",
-                    product_type=product_type,
-                    skipped=True,
-                )
+            review_task = {
+                "inspection_id": inspection_id,
+                "product_type": product_type,
+                "reference_hash": ref_hash,
+                "status": status,
+                "score": anomaly_score,
+                "threshold": inspection_threshold,
+                "aligned": aligned.copy() if defer_learning_review else aligned,
+                "diff_map": diff_map.copy() if defer_learning_review else diff_map,
+                "raw_mask": raw_segmentation_mask.copy() if defer_learning_review else raw_segmentation_mask,
+                "candidates": copy.deepcopy(review_candidates) if defer_learning_review else review_candidates,
+            }
+            if defer_learning_review:
+                if self._deferred_learning_reviews.submit(review_task):
+                    log_analysis_stage(
+                        "learning_review",
+                        "inspection history queued for deferred save",
+                        product_type=product_type,
+                        extra={"inspection_id": inspection_id, "status": status},
+                    )
+                else:
+                    logger.warning(
+                        "learning review queue full; dropping product_type=%s inspection_id=%s",
+                        product_type,
+                        inspection_id,
+                    )
+                    log_analysis_stage(
+                        "learning_review",
+                        "deferred history queue full; review dropped",
+                        product_type=product_type,
+                        skipped=True,
+                    )
+                    inspection_id = None
             else:
-                log_analysis_stage(
-                    "learning_review",
-                    "inspection history saved",
-                    product_type=product_type,
-                    extra={"inspection_id": inspection_id, "status": status},
-                )
+                try:
+                    self._learning_reviews.add(**review_task)
+                except Exception:
+                    inspection_id = None
+                    logger.exception("failed to save inspection history product_type=%s", product_type)
+                    log_analysis_stage(
+                        "learning_review",
+                        "failed to save inspection history",
+                        product_type=product_type,
+                        skipped=True,
+                    )
+                else:
+                    log_analysis_stage(
+                        "learning_review",
+                        "inspection history saved",
+                        product_type=product_type,
+                        extra={"inspection_id": inspection_id, "status": status},
+                    )
         else:
             log_analysis_stage(
                 "learning_review",

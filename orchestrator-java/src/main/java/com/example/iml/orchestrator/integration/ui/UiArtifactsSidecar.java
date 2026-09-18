@@ -920,7 +920,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!positioningAttempted) {
             return true;
         }
-        return YamlScalars.toBool(cap.get(InspectPositioningExecutor.HEADER_ALIGNED), false);
+        if (YamlScalars.toBool(cap.get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
+            return true;
+        }
+        // A completed reject still has a valid pinned raw capture. Publish it for
+        // diagnostics so the UI does not appear frozen; it remains unaligned and
+        // the inspection pipeline reports the positioning reject.
+        String positioningStatus = String.valueOf(cap.getOrDefault("positioning_status", "")).trim();
+        return "FAIL".equalsIgnoreCase(positioningStatus)
+                || "ERROR".equalsIgnoreCase(positioningStatus);
     }
 
     /**

@@ -213,6 +213,21 @@ class BinaryInspectHeadersTest {
     }
 
     @Test
+    void pythonHeaderForwardsDeferredLearningReviewSetting() {
+        Map<String, Object> header = BinaryInspectHeaders.pythonInspectHeader(
+                1,
+                "bench-lan1",
+                "surface",
+                capture,
+                null,
+                Map.of("defer_learning_review", true),
+                false
+        );
+
+        assertEquals(true, header.get("defer_learning_review"));
+    }
+
+    @Test
     void geometryRuntimeDoesNotInjectAnomalyThresholdIntoPythonHeader() {
         Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.pythonInspectHeader(
                 1,

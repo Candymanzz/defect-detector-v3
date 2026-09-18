@@ -1,5 +1,5 @@
 cameras:
-  # Топология: 5 коммутаторов × 2 камеры — пары id на одном коммутаторе (после переноса IP): 0+3, 1+4, 2+8, 5+9, 6+7.
+  # Топология: 5 коммутаторов × 2 камеры — фактические пары id: 0+3, 1+4, 2+8, 5+6, 7+9.
   # id в ПО ↔ LAN на линии. IP должны совпадать в config.json.
   - id: 0
     enabled: true
@@ -73,7 +73,7 @@ cameras:
     enabled: true
     inspection_enabled: true
     ip: "169.254.218.1"
-    gige_transfer_slot: 1
+    gige_transfer_slot: 0
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
@@ -86,7 +86,7 @@ cameras:
     # Торцевой ракурс: стык/геометрия не видны — только python/поверхность.
     geometry_enabled: false
     ip: "169.254.218.2"
-    gige_transfer_slot: 0
+    gige_transfer_slot: 1
     exposure_us: 3000
     capture_trigger_mode: "line0"
     detector: "v1"
