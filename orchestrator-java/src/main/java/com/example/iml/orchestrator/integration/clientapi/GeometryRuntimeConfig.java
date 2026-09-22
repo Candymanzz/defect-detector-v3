@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -264,6 +265,11 @@ public final class GeometryRuntimeConfig {
         double thresholdDefault = defaultPythonThreshold(pythonYaml);
         m.put("threshold", thresholdDefault);
         m.put("maxWrinklesScore", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_wrinkles_score"), thresholdDefault));
+        // Тот же порядок, что InspectGeometryExecutor: YAML root → profiles.<analysis_profile> → runtime JSON.
+        BinaryInspectHeaders.applyGeometryProfileOverrides(
+                m,
+                BinaryInspectHeaders.resolveGeometryProfileOverrides(yamlGeometry, analysisProfile)
+        );
         applyToGeometryHeader(m, analysisProfile);
         m.put("wrinklesRoi", m.get("mainRoi"));
         return m;

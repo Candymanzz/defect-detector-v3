@@ -636,9 +636,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         boolean hasSimple = body.get("simple") instanceof Map<?, ?>;
         boolean hasPro = body.get("pro") instanceof Map<?, ?>;
-        if (!hasSimple && !hasPro) {
-            return "inspect-test-frame: simple knobs required";
-        }
+        // Нет knobs — analisSurface применит сохранённый analysis_profile (как на линии).
         if (hasSimple && hasPro) {
             return "inspect-test-frame: provide either simple or pro knobs, not both";
         }

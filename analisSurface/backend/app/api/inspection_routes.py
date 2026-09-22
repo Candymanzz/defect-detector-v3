@@ -70,7 +70,8 @@ def load_test_frame_bgr(payload: TestFrameInspectRequest) -> np.ndarray:
     return image
 
 
-def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSettings:
+def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSettings | None:
+    """Ephemeral UI knobs → AnalysisSettings; None = взять сохранённый analysis_profile."""
     profile = payload.analysis_profile or payload.product_type
     if payload.simple is not None:
         strengths = normalize_strengths(
@@ -92,7 +93,8 @@ def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSetti
             **normalize_strengths(pro),
         )
     else:
-        raise ValueError("simple or pro knobs required")
+        # Без черновика — как на линии: overrides из analysis_settings.json по профилю.
+        return None
     return AnalysisSettings.from_overrides(overrides)
 
 
@@ -442,9 +444,8 @@ async def inspect_test_frame(payload: TestFrameInspectRequest) -> ShmVisualsResp
     """POST /inspect-test-frame — инспекция выбранного JPEG с ephemeral knobs.
 
     Кэш BGR по cache_key + file_path + image_url; analysis_settings на диск не пишутся.
+    Без simple/pro — применяются сохранённые настройки analysis_profile (как на линии).
     """
-    if payload.simple is None and payload.pro is None:
-        raise HTTPException(status_code=400, detail="simple or pro knobs required")
     if payload.simple is not None and payload.pro is not None:
         raise HTTPException(status_code=400, detail="provide either simple or pro knobs, not both")
     try:

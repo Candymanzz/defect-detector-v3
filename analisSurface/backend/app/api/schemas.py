@@ -233,7 +233,10 @@ class ShmFrameRequest(BaseModel):
 
 
 class TestFrameInspectRequest(BaseModel):
-    """Вход /inspect-test-frame: JPEG с диска + ручки UI, без записи analysis_settings."""
+    """Вход /inspect-test-frame: JPEG с диска + ручки UI, без записи analysis_settings.
+
+    simple/pro опциональны: если не переданы — берутся сохранённые настройки analysis_profile.
+    """
 
     cache_key: str
     file_path: str

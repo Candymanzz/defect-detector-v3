@@ -330,6 +330,49 @@ class BinaryInspectHeadersTest {
         assertFalse(header.containsKey("pro"));
     }
 
+    @Test
+    void pythonTestFrameInspectHeaderOmitsKnobsWhenDraftEmpty() {
+        Map<String, Object> cap = new HashMap<>();
+        cap.put("frame_id", 42L);
+        cap.put("test_analyze", true);
+        cap.put("test_analyze_job_id", "abc123def456");
+        cap.put("test_frame_file_path", "/tmp/iml-test-pins/x/frame.jpg");
+        cap.put("test_frame_cache_key", "0:42");
+        cap.put("analysis_test_settings", Map.of());
+        BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE, Map.copyOf(cap), new byte[0]);
+        BinaryProtocol.Message geom = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of("homographyRefToCurrent", List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)),
+                new byte[0]
+        );
+
+        Map<String, Object> header = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                0, "bench", "v1", captureMsg, geom, null, 512);
+
+        assertFalse(header.containsKey("simple"));
+        assertFalse(header.containsKey("pro"));
+        assertFalse(header.containsKey("detailed"));
+    }
+
+    @Test
+    void pythonTestFrameInspectHeaderOmitsKnobsWhenDraftMissing() {
+        Map<String, Object> cap = new HashMap<>();
+        cap.put("frame_id", 42L);
+        cap.put("test_analyze", true);
+        cap.put("test_analyze_job_id", "abc123def456");
+        cap.put("test_frame_file_path", "/tmp/iml-test-pins/x/frame.jpg");
+        cap.put("test_frame_cache_key", "0:42");
+        BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE, Map.copyOf(cap), new byte[0]);
+
+        Map<String, Object> header = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                0, "bench", "v1", captureMsg, null, null, 512);
+
+        assertFalse(header.containsKey("simple"));
+        assertFalse(header.containsKey("pro"));
+    }
+
     private static void assertTrueMapsEqual(Object expected, Object actual) {
         if (!(expected instanceof Map<?, ?> expectedMap) || !(actual instanceof Map<?, ?> actualMap)) {
             throw new AssertionError("expected map values");

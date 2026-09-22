@@ -553,8 +553,8 @@ public final class BinaryInspectHeaders {
     @SuppressWarnings("unchecked")
     static void putEphemeralTestKnobs(Map<String, Object> pyHeader, Map<String, Object> captureHeader) {
         Object temporary = captureHeader.get("analysis_test_settings");
+        // Пустой черновик: не подставляем сток 0.25/0.5 — Python возьмёт сохранённый analysis_profile.
         if (!(temporary instanceof Map<?, ?> settings) || settings.isEmpty()) {
-            pyHeader.put("simple", Map.of("threshold", 0.25, "sensitivity", 0.5));
             return;
         }
         Object simpleDirect = settings.get("simple");
@@ -570,7 +570,10 @@ public final class BinaryInspectHeaders {
         }
         Object proDirect = settings.get("pro");
         if (proDirect instanceof Map<?, ?> proMap && !(settings.get("simple") instanceof Map<?, ?>)) {
-            pyHeader.put("pro", copyStringObjectMap(proMap));
+            Map<String, Object> pro = copyStringObjectMap(proMap);
+            if (!pro.isEmpty()) {
+                pyHeader.put("pro", pro);
+            }
             return;
         }
         Object modeObj = settings.get("mode");
@@ -579,21 +582,13 @@ public final class BinaryInspectHeaders {
         Map<String, Object> knobs = knobsObj instanceof Map<?, ?> raw
                 ? copyStringObjectMap(raw)
                 : Map.of();
+        if (knobs.isEmpty()) {
+            return;
+        }
         if ("pro".equals(mode)) {
-            pyHeader.put("pro", knobs.isEmpty()
-                    ? Map.of(
-                    "threshold", 0.25,
-                    "noise_tolerance", 0.5,
-                    "scratch_sensitivity", 0.5,
-                    "edge_suppression", 0.5,
-                    "text_handling", 0.5,
-                    "preprocess_strength", 0.5
-            )
-                    : knobs);
+            pyHeader.put("pro", knobs);
         } else {
-            pyHeader.put("simple", knobs.isEmpty()
-                    ? Map.of("threshold", 0.25, "sensitivity", 0.5)
-                    : knobs);
+            pyHeader.put("simple", knobs);
         }
     }
 

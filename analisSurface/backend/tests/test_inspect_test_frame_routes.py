@@ -273,6 +273,49 @@ def test_inspect_test_frame_does_not_persist_knobs(tmp_path: Path) -> None:
     assert inspection_service.get_simple_knobs("local-test") is None
 
 
+def test_inspect_test_frame_without_knobs_uses_saved_profile(tmp_path: Path) -> None:
+    reset_test_frame_bgr_cache()
+    jpeg = tmp_path / "frame.jpg"
+    _write_jpeg(jpeg, 90)
+    frame = cv2.imread(str(jpeg))
+    inspection_service.set_reference_frame("saved-profile", frame)
+    inspection_service._analysis_settings_file = tmp_path / "analysis_settings.json"
+    expanded = expand_merged(0.41, 0.2)
+    inspection_service.apply_simple_settings(
+        "saved-profile",
+        expanded,
+        {"threshold": 0.41, "sensitivity": 0.2},
+    )
+
+    captured: dict[str, object] = {}
+    original = inspection_service.inspect_frame
+
+    def wrapping_inspect_frame(**kwargs):
+        captured["settings"] = kwargs.get("settings")
+        captured["analysis_profile"] = kwargs.get("analysis_profile")
+        return original(**kwargs)
+
+    inspection_service.inspect_frame = wrapping_inspect_frame  # type: ignore[method-assign]
+    try:
+        response = client.post(
+            "/inspect-test-frame",
+            json={
+                "cache_key": "1:2",
+                "file_path": str(jpeg),
+                "product_type": "saved-profile",
+                "analysis_profile": "saved-profile",
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert captured["settings"] is None
+        assert captured["analysis_profile"] == "saved-profile"
+        assert abs(float(response.json()["threshold"]) - 0.41) < 1e-6
+    finally:
+        inspection_service.inspect_frame = original  # type: ignore[method-assign]
+        inspection_service.reset_analysis_settings("saved-profile")
+        inspection_service.clear_inspection_context()
+
+
 def test_inspect_test_frame_resizes_to_reference_resolution(tmp_path: Path) -> None:
     reset_test_frame_bgr_cache()
     reference = np.full((96, 128, 3), 30, dtype=np.uint8)
