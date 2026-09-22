@@ -122,17 +122,15 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   public void publishBucket(BucketFanOutResult result) {
-    publishBucket(result, false, false);
+    publishBucket(result, false);
   }
 
   /**
    * Вердикт ведра в ПЛК. При {@code awaitEdge=true} ждёт подтверждения записи фронта
-   * (PASS→false или REJECT→true).
-   *
-   * @param holdRejectUntilPass режим пластиковой ручки (D4405=1): reject держится HIGH до PASS;
-   *                            иначе импульс {@code pulse_ms} как раньше
+   * (PASS→false или REJECT→true). При браке — импульс {@code pulse_ms} на каждый цикл
+   * (серия браков не удерживает линию HIGH).
    */
-  public void publishBucket(BucketFanOutResult result, boolean awaitEdge, boolean holdRejectUntilPass) {
+  public void publishBucket(BucketFanOutResult result, boolean awaitEdge) {
     // ready держится отдельно (sticky HIGH); здесь только вердикт reject.
     Optional<PlcSignalDefinition> signalOpt = registerMap.rejectSignalForGroup(result.groupId());
     if (signalOpt.isEmpty()) {
@@ -142,23 +140,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
     PlcSignalDefinition signal = signalOpt.get();
     CompletableFuture<Void> edge = awaitEdge ? new CompletableFuture<>() : null;
     if (result.overallPass()) {
-      Boolean last = lastSignalValues.get(signal.name());
-      // Plastic-handle mode is a state level, not a per-cycle pulse:
-      // PASS->PASS and FAIL->FAIL must not create any PLC activity.
-      if (holdRejectUntilPass && Boolean.FALSE.equals(last)) {
-        if (edge != null) {
-          edge.complete(null);
-        }
-      } else if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
-        edge.completeExceptionally(new IOException("plc fins queue full"));
-      }
-    } else if (holdRejectUntilPass && config.pulseMs() > 0) {
-      Boolean last = lastSignalValues.get(signal.name());
-      if (Boolean.TRUE.equals(last)) {
-        if (edge != null) {
-          edge.complete(null);
-        }
-      } else if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
+      if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     } else if (config.pulseMs() > 0) {

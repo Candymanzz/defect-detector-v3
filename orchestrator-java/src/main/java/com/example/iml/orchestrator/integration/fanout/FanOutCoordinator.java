@@ -44,7 +44,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     private final PlcRegisterMap registerMap;
     private volatile ServiceHealthGate healthGate;
     private volatile ClientWsSessionState lastSessionState = ClientWsSessionState.NO_REFERENCE;
-    /** Кэш D4405: удержание reject до PASS только при пластиковой ручке. */
+    /** Кэш D4405: early reject всех линий при первом браке (пластиковая ручка). */
     private volatile boolean plasticHandleMode;
     private final Set<Long> earlyPlasticRejectSequences = ConcurrentHashMap.newKeySet();
 
@@ -140,7 +140,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         }
         if (inspectionEnabled()) {
             if (plcPublisher != null) {
-                plcPublisher.publishBucket(effectiveResult, true, plasticHandleMode);
+                plcPublisher.publishBucket(effectiveResult, true);
             }
         } else {
             log.debug(

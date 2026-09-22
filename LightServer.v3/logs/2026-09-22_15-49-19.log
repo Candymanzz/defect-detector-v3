@@ -381,3 +381,18 @@
 2026-09-22 15:51:12.422 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
   >> Request: {"state":"on"}
   << Response: {"success":true,"state":"on","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.4: bank-seq-on:LightBrightness","169.254.220.3: bank-seq-on:LightBrightness","169.254.220.2: bank-seq-on:LightBrightness","169.254.220.1: bank-seq-on:LightBrightness","COM2: bank-seq-on"],"errors":[],"skipped":{},"com":{"success":true,"message":"Подключённые COM включены, яркость %: 60,60.","error":null,"applied":["COM2: bank-seq-on"],"errors":[]},"error":null}
+2026-09-22 16:10:39.048 [Information] LightServer.Services.IsolatedComPortLight: COM2: Off bank-off
+2026-09-22 16:10:39.048 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=4 err=0; com ok=True applied=1 err=0 brightnessCsv=-
+2026-09-22 16:10:39.049 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.4: bank-off","169.254.220.3: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off","COM2: bank-off"],"errors":[],"skipped":{},"com":{"success":true,"message":"Все подключённые COM выключены.","error":null,"applied":["COM2: bank-off"],"errors":[]},"error":null}
+2026-09-22 16:10:39.380 [Information] LightServer.Services.IsolatedComPortLight: COM2: Off bank-off
+2026-09-22 16:10:39.380 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=4 err=0; com ok=True applied=1 err=0 brightnessCsv=-
+2026-09-22 16:10:39.380 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.4: bank-off","169.254.220.3: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off","COM2: bank-off"],"errors":[],"skipped":{},"com":{"success":true,"message":"Все подключённые COM выключены.","error":null,"applied":["COM2: bank-off"],"errors":[]},"error":null}
+2026-09-22 16:10:40.051 [Information] LightServer.Services.IsolatedComPortLight: COM2: Off bank-off
+2026-09-22 16:10:40.051 [Information] LightServer.Controllers.CameraFlashBankController: camera-flash/bank off: eth ready=4 ok=4 err=0; com ok=True applied=1 err=0 brightnessCsv=-
+2026-09-22 16:10:40.051 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 200
+  >> Request: {"state":"off"}
+  << Response: {"success":true,"state":"off","transport":"ethernet-gige+com","ready":4,"applied":["169.254.220.4: bank-off","169.254.220.3: bank-off","169.254.220.2: bank-off","169.254.220.1: bank-off","COM2: bank-off"],"errors":[],"skipped":{},"com":{"success":true,"message":"Все подключённые COM выключены.","error":null,"applied":["COM2: bank-off"],"errors":[]},"error":null}
