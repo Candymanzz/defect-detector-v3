@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -47,11 +48,30 @@ public final class ExternalServiceProcess implements AutoCloseable {
                 }
             }
         }
-        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        redirectServiceLogs(pb, name);
         Process process = pb.start();
         log.info("started external service {} pid={} command={}", name, process.pid(), command);
         return new ExternalServiceProcess(name, process);
+    }
+
+    /**
+     * Пишем stdout/stderr сервиса в {@code logs/svc-&lt;name&gt;.log}, чтобы native/uvicorn crash
+     * был в файле (INHERIT часто теряется при GUI/Electron запуске).
+     */
+    private static void redirectServiceLogs(ProcessBuilder pb, String name) {
+        try {
+            Path logsDir = Path.of(System.getProperty("user.dir", ".")).resolve("logs");
+            Files.createDirectories(logsDir);
+            String safe = name == null ? "service" : name.replaceAll("[^a-zA-Z0-9._-]+", "_");
+            Path logFile = logsDir.resolve("svc-" + safe + ".log");
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile.toFile()));
+            log.info("external service {} stdout/stderr -> {}", name, logFile.toAbsolutePath());
+        } catch (Exception e) {
+            log.warn("external service {} log redirect failed, falling back to INHERIT: {}", name, e.getMessage());
+            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        }
     }
 
     public boolean isAlive() {

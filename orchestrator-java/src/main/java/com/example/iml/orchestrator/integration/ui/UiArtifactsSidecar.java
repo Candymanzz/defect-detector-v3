@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.ui;
 
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
+import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientapi.LearnedReviewIndex;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
@@ -1058,6 +1059,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (uiVisualsPython == null) {
             return HeatmapArtifact.empty();
         }
+        if (AnalisSurfaceHttpBinaryRpcSupervisor.shouldSkipUiHeatmap()) {
+            log.debug(
+                    "ui heatmap skipped cam={} frame={} reason=python_transport_backoff",
+                    cameraId,
+                    frameId
+            );
+            return HeatmapArtifact.empty();
+        }
         if (activeReference == null || activeReference.header() == null
                 || activeReference.header().get("shm_name") == null) {
             log.debug("ui heatmap skipped cam={} frame={} reason=reference_not_synced", cameraId, frameId);
@@ -1108,6 +1117,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
             );
             pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
+            // Повторный inspect только для UI heatmap — learning review пишет production-проход.
+            pyHeader.put("skip_learning_review", true);
             pyHeader.put(
                     "heatmap_max_width",
                     Math.max(0, YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("heatmap_preview_max_width"), 512))

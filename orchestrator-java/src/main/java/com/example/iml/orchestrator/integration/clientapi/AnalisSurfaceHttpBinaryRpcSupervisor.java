@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -37,10 +39,15 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private static final Logger LOG = LogManager.getLogger(AnalisSurfaceHttpBinaryRpcSupervisor.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    /** После стольких подряд 5xx на /inspect-shm помечаем member unhealthy → watchdog рестартит пул. */
+    private static final int INSPECT_TRANSPORT_FAIL_THRESHOLD = 5;
+    /** Окно, в котором UI heatmap пропускается после transport fault (разгрузка больного пула). */
+    private static final long UI_HEATMAP_BACKOFF_MS = 5_000L;
     /** Общий кэш подписей эталона/ROI для всего HTTP-пула (round-robin не дублирует upload). */
     private static final ConcurrentHashMap<String, String> SHARED_REFERENCE_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> SHARED_ROI_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Object> SCOPE_LOCKS = new ConcurrentHashMap<>();
+    private static final AtomicLong LAST_POOL_TRANSPORT_FAULT_MS = new AtomicLong(0L);
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
@@ -94,6 +101,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private final int commandTimeoutMs;
     private int restartCount;
     private volatile Consumer<Boolean> healthListener;
+    private final AtomicInteger consecutiveInspectTransportFailures = new AtomicInteger();
 
     public AnalisSurfaceHttpBinaryRpcSupervisor(String name, String baseUrl, int commandTimeoutMs) {
         this.name = Objects.requireNonNull(name);
@@ -124,6 +132,41 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         this.healthListener = healthListener;
     }
 
+    /**
+     * UI sidecar: не гонять повторный /inspect-shm за heatmap, пока пул только что сыпал 5xx.
+     */
+    public static boolean shouldSkipUiHeatmap() {
+        long lastFault = LAST_POOL_TRANSPORT_FAULT_MS.get();
+        if (lastFault <= 0L) {
+            return false;
+        }
+        return System.currentTimeMillis() - lastFault < UI_HEATMAP_BACKOFF_MS;
+    }
+
+    /** Watchdog: не сбрасывать unhealthy, пока streak 5xx активен. */
+    public boolean hasInspectTransportFault() {
+        return consecutiveInspectTransportFailures.get() >= INSPECT_TRANSPORT_FAIL_THRESHOLD;
+    }
+
+    private void noteInspectTransportSuccess() {
+        consecutiveInspectTransportFailures.set(0);
+        reportHealthy();
+    }
+
+    private void noteInspectTransportFailure(int statusCode) {
+        LAST_POOL_TRANSPORT_FAULT_MS.set(System.currentTimeMillis());
+        int failures = consecutiveInspectTransportFailures.incrementAndGet();
+        if (failures >= INSPECT_TRANSPORT_FAIL_THRESHOLD) {
+            LOG.warn(
+                    "{} inspect transport failures streak={} status={} — marking unhealthy for pool restart",
+                    name,
+                    failures,
+                    statusCode
+            );
+            reportUnhealthy();
+        }
+    }
+
     private void reportHealthy() {
         Consumer<Boolean> listener = healthListener;
         if (listener != null) {
@@ -152,7 +195,18 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     @Override
     public void restart() throws IOException {
         restartCount++;
+        clearInspectTransportFault();
+        clearPoolTransportFaultBackoff();
         start();
+    }
+
+    /** Сброс streak после рестарта OS-процессов uvicorn. */
+    public void clearInspectTransportFault() {
+        consecutiveInspectTransportFailures.set(0);
+    }
+
+    public static void clearPoolTransportFaultBackoff() {
+        LAST_POOL_TRANSPORT_FAULT_MS.set(0L);
     }
 
     @Override
@@ -162,6 +216,10 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     @Override
     public BinaryProtocol.Message health() throws IOException {
+        if (hasInspectTransportFault()) {
+            reportUnhealthy();
+            throw new IOException(name + " inspect transport fault streak active");
+        }
         IOException last = null;
         for (String path : List.of("/detector/health", "/health")) {
             try {
@@ -183,14 +241,20 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     public BinaryProtocol.Message command(Map<String, Object> header) throws IOException {
         try {
             BinaryProtocol.Message response = commandNoRetry(header);
-            reportHealthy();
+            // MSG_ERROR (например HTTP 500 на inspect) не должен сбрасывать unhealthy —
+            // иначе watchdog никогда не увидит больной пул.
+            if (response != null && response.type() != BinaryProtocol.MSG_ERROR) {
+                reportHealthy();
+            }
             return response;
         } catch (IOException first) {
             LOG.warn("{} command failed; retry once: {}", name, first.getMessage());
             try {
                 restart();
                 BinaryProtocol.Message response = commandNoRetry(header);
-                reportHealthy();
+                if (response != null && response.type() != BinaryProtocol.MSG_ERROR) {
+                    reportHealthy();
+                }
                 return response;
             } catch (IOException second) {
                 reportUnhealthy();
@@ -616,8 +680,10 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         HttpResponse<byte[]> resp = httpPostJson("/inspect-shm", body);
         if (resp.statusCode() / 100 != 2) {
+            noteInspectTransportFailure(resp.statusCode());
             return errorMessageToMsg(resp, "inspect-shm");
         }
+        noteInspectTransportSuccess();
         Map<String, Object> json = readJson(resp.body());
         rememberLearnedReview(header, json);
         Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);

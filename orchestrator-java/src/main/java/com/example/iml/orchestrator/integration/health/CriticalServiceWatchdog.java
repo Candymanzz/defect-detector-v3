@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.health;
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationComponent;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
@@ -382,7 +383,9 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             return;
         }
         if (reason.startsWith("analis_surface_")) {
-            recoverPythonHttpSupervisor(reason);
+            // HTTP supervisor.restart() не поднимает uvicorn — эскалируем в полный рестарт пула.
+            log.warn("pipeline recovery escalating {} to analis_surface process pool restart", reason);
+            attemptServiceRestart("analis_surface", this::restartAnalisSurfacePool);
             return;
         }
         if (reason.startsWith("camera_worker_")) {
@@ -409,6 +412,7 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 healthGate.markHealthy(name);
                 reattachAfterRestart(name);
                 if ("analis_surface".equals(name)) {
+                    clearAnalisSurfaceTransportFaults();
                     probePythonHttpPool();
                     attachAnalisSurfaceExitHandlers();
                 }
@@ -707,6 +711,23 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             sleepQuiet(100L);
         }
         return process.isAlive();
+    }
+
+    private void clearAnalisSurfaceTransportFaults() {
+        AnalisSurfaceHttpBinaryRpcSupervisor.clearPoolTransportFaultBackoff();
+        List<BinaryRpcSupervisor> pool = ctx.pythonPool();
+        if (pool == null) {
+            healthGate.markHealthy("analis_surface");
+            return;
+        }
+        for (int i = 0; i < pool.size(); i++) {
+            BinaryRpcSupervisor supervisor = pool.get(i);
+            if (supervisor instanceof AnalisSurfaceHttpBinaryRpcSupervisor http) {
+                http.clearInspectTransportFault();
+            }
+            healthGate.markHealthy("analis_surface_" + i);
+        }
+        healthGate.markHealthy("analis_surface");
     }
 
     private boolean restartLightServer() {

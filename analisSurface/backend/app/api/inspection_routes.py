@@ -7,6 +7,7 @@
 import asyncio
 import logging
 import threading
+import traceback
 from functools import partial
 from pathlib import Path
 
@@ -15,7 +16,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 
 from app.api.dependencies import inspect_executor, inspection_service
-from app.api.mappers import to_inspect_response, to_visuals_response
+from app.api.mappers import to_inspect_response, to_shm_image_output, to_visuals_response
 from app.api.schemas import (
     DetectorHealthResponse,
     InspectResponse,
@@ -24,6 +25,7 @@ from app.api.schemas import (
     ShmVisualsResponse,
     TestFrameInspectRequest,
 )
+from app.file_logging import log_analysis_stage, log_error
 from app.runtime import get_application_id
 from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import expand_merged, normalize_strengths
@@ -122,7 +124,8 @@ def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[s
         roi_polygon = inspection_service.get_roi_polygon(payload.product_type)
         if roi_polygon is not None:
             roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], roi_polygon) > 0
-            heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
+            heatmap_u8 = heatmap_u8.copy()
+            heatmap_u8[~roi_mask] = 0
     requested = {
         "aligned_image": (getattr(payload, "aligned_image_u8_output_path", None), result.aligned_image),
         "diff_map": (getattr(payload, "diff_map_u8_output_path", None), result.diff_map),
@@ -287,6 +290,22 @@ async def _inspect_shm_parallel(
     return await loop.run_in_executor(inspect_executor, job)
 
 
+def _log_inspect_failure(endpoint: str, product_type: str, exc: BaseException) -> None:
+    tb = traceback.format_exc()
+    logger.exception("%s failed product_type=%s", endpoint, product_type)
+    log_error(
+        "inspect_exception",
+        f"{endpoint} product_type={product_type}: {exc}",
+        extra={"endpoint": endpoint, "product_type": product_type, "traceback": tb},
+    )
+    log_analysis_stage(
+        "error",
+        f"{endpoint} failed: {exc}",
+        product_type=product_type,
+        extra={"exception_type": type(exc).__name__},
+    )
+
+
 @router.post("/inspect-shm", response_model=InspectResponse)
 async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
     """POST /inspect-shm — только вердикт и score, без визуалов (быстрый путь конвейера).
@@ -300,7 +319,11 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
             include_heatmap_u8=payload.heatmap_u8_output_path is not None,
         )
     except (OSError, ValueError) as exc:
+        _log_inspect_failure("/inspect-shm", payload.product_type, exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        _log_inspect_failure("/inspect-shm", payload.product_type, exc)
+        raise HTTPException(status_code=500, detail=f"inspect failed: {exc}") from exc
 
     if payload.heatmap_u8_output_path is not None:
         try:
@@ -311,7 +334,13 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
             # The image is auxiliary. Never turn a completed inspection into a
             # transport error/REJECT merely because its heatmap could not be written.
             return to_inspect_response(result)
-        return to_visuals_response(result, outputs)
+        # Stay on InspectResponse (heatmap_u8 field) — do not return ShmVisualsResponse
+        # under response_model=InspectResponse (can yield opaque HTTP 500).
+        base = to_inspect_response(result)
+        heatmap = to_shm_image_output(outputs.get("heatmap"))
+        if heatmap is None:
+            return base
+        return base.model_copy(update={"heatmap_u8": heatmap})
     return to_inspect_response(result)
 
 
@@ -339,7 +368,11 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
             force_skip_learning_review=True,
         )
     except (OSError, ValueError) as exc:
+        _log_inspect_failure("/inspect-shm-visuals", payload.product_type, exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        _log_inspect_failure("/inspect-shm-visuals", payload.product_type, exc)
+        raise HTTPException(status_code=500, detail=f"inspect failed: {exc}") from exc
 
     try:
         visual_outputs = write_requested_visual_outputs(payload, result)
@@ -348,6 +381,11 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
         # with a null heatmap makes the orchestrator treat a failed export as a
         # successful one and silently lose the visualization.
         logger.exception("inspection visual output export failed")
+        log_error(
+            "visual_export_failed",
+            f"/inspect-shm-visuals product_type={payload.product_type}: {exc}",
+            extra={"traceback": traceback.format_exc()},
+        )
         cleanup_requested_visual_outputs(payload)
         raise HTTPException(status_code=500, detail=f"visual output export failed: {exc}") from exc
 

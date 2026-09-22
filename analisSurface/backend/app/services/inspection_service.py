@@ -1,5 +1,6 @@
 import base64
 import copy
+import gc
 import json
 import logging
 import os
@@ -33,12 +34,16 @@ from app.services.inspection_geometry import (
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
 from app.services.learned_normals import (
     AcceptedNormalMemory,
+    DefectCandidate,
     InspectionReviewStore,
     decode_review_arrays,
     extract_defect_candidates,
     filter_review_candidates,
     reference_fingerprint,
 )
+from app.services.learned_normals import _decode as _decode_review_image
+from app.services.learned_normals import _encode as _encode_review_image
+from dataclasses import replace as _dc_replace
 
 
 logger = logging.getLogger(__name__)
@@ -61,21 +66,26 @@ _ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
 
 
 class _DeferredLearningReviewWriter:
-    """Bounded, best-effort writer kept off the production verdict path."""
+    """Bounded, best-effort writer kept off the production verdict path.
+
+    В очередь кладём уже сжатые JPEG/PNG (не ndarray), иначе 10 камер × UI
+    быстро съедают сотни МБ и заканчиваются OOM на аллокации в пару МБ.
+    """
 
     def __init__(self, store: InspectionReviewStore) -> None:
-        raw_size = os.environ.get("ANALIS_LEARNING_REVIEW_QUEUE_SIZE", "16")
+        raw_size = os.environ.get("ANALIS_LEARNING_REVIEW_QUEUE_SIZE", "8")
         raw_delay = os.environ.get("ANALIS_LEARNING_REVIEW_DEFER_DELAY_MS", "250")
         try:
             queue_size = max(1, min(128, int(raw_size)))
         except ValueError:
-            queue_size = 16
+            queue_size = 8
         try:
             self._defer_delay_s = max(0, min(5000, int(raw_delay))) / 1000.0
         except ValueError:
             self._defer_delay_s = 0.250
         self._store = store
         self._queue: queue.Queue[Optional[dict]] = queue.Queue(maxsize=queue_size)
+        self._writes_since_gc = 0
         self._thread = threading.Thread(
             target=self._run,
             name="learning-review-writer",
@@ -83,9 +93,46 @@ class _DeferredLearningReviewWriter:
         )
         self._thread.start()
 
+    @staticmethod
+    def _compact_task(task: dict) -> dict:
+        """Сжать кадры до bytes до постановки в очередь; маски кандидатов обнулить."""
+        aligned = task["aligned"]
+        diff_map = task["diff_map"]
+        raw_mask = task["raw_mask"]
+        candidates = task.get("candidates") or []
+        light_candidates = [
+            _dc_replace(candidate, mask=np.zeros((0, 0), dtype=bool))
+            if isinstance(candidate, DefectCandidate)
+            else candidate
+            for candidate in candidates
+        ]
+        return {
+            "inspection_id": task["inspection_id"],
+            "product_type": task["product_type"],
+            "reference_hash": task["reference_hash"],
+            "status": task["status"],
+            "score": task["score"],
+            "threshold": task["threshold"],
+            "aligned_jpeg": _encode_review_image(
+                aligned, ".jpg", [cv2.IMWRITE_JPEG_QUALITY, 85]
+            ),
+            "diff_png": _encode_review_image(diff_map, ".png"),
+            "raw_mask_png": _encode_review_image(raw_mask, ".png"),
+            "candidates": light_candidates,
+            "_encoded": True,
+        }
+
     def submit(self, task: dict) -> bool:
         try:
-            self._queue.put_nowait(task)
+            compact = self._compact_task(task)
+        except Exception:
+            logger.exception(
+                "failed to compact deferred learning review product_type=%s",
+                task.get("product_type"),
+            )
+            return False
+        try:
+            self._queue.put_nowait(compact)
             return True
         except queue.Full:
             return False
@@ -98,6 +145,19 @@ class _DeferredLearningReviewWriter:
                     return
                 if self._defer_delay_s > 0:
                     time.sleep(self._defer_delay_s)
+                if task.pop("_encoded", False):
+                    aligned = _decode_review_image(
+                        task.pop("aligned_jpeg"), cv2.IMREAD_COLOR
+                    )
+                    diff_map = _decode_review_image(
+                        task.pop("diff_png"), cv2.IMREAD_UNCHANGED
+                    )
+                    raw_mask = _decode_review_image(
+                        task.pop("raw_mask_png"), cv2.IMREAD_UNCHANGED
+                    )
+                    task["aligned"] = aligned
+                    task["diff_map"] = diff_map
+                    task["raw_mask"] = raw_mask
                 self._store.add(**task)
                 log_analysis_stage(
                     "learning_review",
@@ -105,6 +165,10 @@ class _DeferredLearningReviewWriter:
                     product_type=str(task.get("product_type", "")),
                     extra={"inspection_id": task.get("inspection_id")},
                 )
+                self._writes_since_gc += 1
+                if self._writes_since_gc >= 8:
+                    self._writes_since_gc = 0
+                    gc.collect(0)
             except Exception:
                 logger.exception(
                     "failed to save deferred inspection history product_type=%s inspection_id=%s",
@@ -112,6 +176,9 @@ class _DeferredLearningReviewWriter:
                     task.get("inspection_id") if task else None,
                 )
             finally:
+                if isinstance(task, dict):
+                    for key in ("aligned", "diff_map", "raw_mask", "candidates"):
+                        task.pop(key, None)
                 self._queue.task_done()
 
 
@@ -155,6 +222,7 @@ class InspectionService:
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
         self._last_aligned: Dict[str, np.ndarray] = {}
         self._last_aligned_ref_hash: Dict[str, str] = {}
+        self._inspects_since_gc = 0
         data_dir = Path(__file__).resolve().parent.parent / "data"
         self._accepted_normals = AcceptedNormalMemory(
             learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals",
@@ -818,7 +886,13 @@ class InspectionService:
     def inspect_frame(self, product_type: str, frame: np.ndarray, *args, **kwargs) -> InspectionResult:
         """Inspect against one atomic camera-scoped configuration snapshot."""
         with self._product_lock(product_type):
-            return self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
+            result = self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
+        # Лёгкий GC поколение 0 — снимает пики после тяжёлых OpenCV/numpy буферов.
+        self._inspects_since_gc += 1
+        if self._inspects_since_gc >= 16:
+            self._inspects_since_gc = 0
+            gc.collect(0)
+        return result
 
     def _inspect_frame_unlocked(
         self,
@@ -904,14 +978,28 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
-        illumination_diagnostics: dict[str, object] = {}
-        diff_map = self._compute_advanced_difference(
-            aligned,
-            reference,
-            settings,
-            vertical_compensation=True,
-            illumination_diagnostics=illumination_diagnostics,
+        log_analysis_stage(
+            "illumination",
+            "difference map starting",
+            product_type=product_type,
         )
+        illumination_diagnostics: dict[str, object] = {}
+        try:
+            diff_map = self._compute_advanced_difference(
+                aligned,
+                reference,
+                settings,
+                vertical_compensation=True,
+                illumination_diagnostics=illumination_diagnostics,
+            )
+        except Exception as exc:
+            log_analysis_stage(
+                "illumination",
+                f"difference map failed: {exc}",
+                product_type=product_type,
+                extra={"exception_type": type(exc).__name__},
+            )
+            raise
         log_analysis_stage(
             "illumination",
             "shadow/glare guard applied",
@@ -942,8 +1030,7 @@ class InspectionService:
                 "mask_pixels": int(np.count_nonzero(segmentation_mask)),
             },
         )
-        self._last_diff_maps[product_type] = diff_map.copy()
-        self._last_segmentation_masks[product_type] = segmentation_mask.copy()
+        self._last_aligned[product_type] = aligned.copy()
         raw_score = anomaly_score
         raw_segmentation_mask = segmentation_mask.copy()
         # Freeze the local multipart heatmap before accepted normals, FP
@@ -992,6 +1079,7 @@ class InspectionService:
                     aligned,
                     learned_diff_map,
                     segmentation_mask,
+                    include_match_templates=False,
                 )
                 significant_residuals = filter_review_candidates(
                     residual_candidates,
@@ -1102,6 +1190,7 @@ class InspectionService:
             aligned,
             filtered_diff_map,
             segmentation_mask,
+            include_match_templates=store_learning_review,
         )
         # Сохраняем в review только значимые области: они и отображаются, и
         # принимаются групповой кнопкой как допустимая норма.
@@ -1193,7 +1282,8 @@ class InspectionService:
         heatmap_visual_mask = raw_segmentation_mask
         if polygon is not None and heatmap_u8 is not None:
             roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], polygon) > 0
-            heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
+            heatmap_u8 = heatmap_u8.copy()
+            heatmap_u8[~roi_mask] = 0
             heatmap_visual_mask = raw_segmentation_mask.copy()
             heatmap_visual_mask[~roi_mask] = 0
         if include_visuals and pre_learning_heatmap:
@@ -1231,6 +1321,11 @@ class InspectionService:
         inspection_id = None
         if store_learning_review:
             inspection_id = str(uuid.uuid4())
+            # Маски кандидатов обнуляем до очереди — иначе deepcopy держит full-frame bool.
+            light_candidates = [
+                _dc_replace(candidate, mask=np.zeros((0, 0), dtype=bool))
+                for candidate in review_candidates
+            ]
             review_task = {
                 "inspection_id": inspection_id,
                 "product_type": product_type,
@@ -1241,7 +1336,7 @@ class InspectionService:
                 "aligned": aligned.copy() if defer_learning_review else aligned,
                 "diff_map": diff_map.copy() if defer_learning_review else diff_map,
                 "raw_mask": raw_segmentation_mask.copy() if defer_learning_review else raw_segmentation_mask,
-                "candidates": copy.deepcopy(review_candidates) if defer_learning_review else review_candidates,
+                "candidates": light_candidates if defer_learning_review else review_candidates,
             }
             if defer_learning_review:
                 if self._deferred_learning_reviews.submit(review_task):
@@ -1251,6 +1346,10 @@ class InspectionService:
                         product_type=product_type,
                         extra={"inspection_id": inspection_id, "status": status},
                     )
+                    # Копии уже сжаты в writer.submit; локальные ndarray можно отпустить.
+                    review_task.pop("aligned", None)
+                    review_task.pop("diff_map", None)
+                    review_task.pop("raw_mask", None)
                 else:
                     logger.warning(
                         "learning review queue full; dropping product_type=%s inspection_id=%s",
@@ -1264,6 +1363,10 @@ class InspectionService:
                         skipped=True,
                     )
                     inspection_id = None
+                    review_task.pop("aligned", None)
+                    review_task.pop("diff_map", None)
+                    review_task.pop("raw_mask", None)
+                    review_task.pop("candidates", None)
             else:
                 try:
                     self._learning_reviews.add(**review_task)
@@ -1283,6 +1386,11 @@ class InspectionService:
                         product_type=product_type,
                         extra={"inspection_id": inspection_id, "status": status},
                     )
+                finally:
+                    review_task.pop("aligned", None)
+                    review_task.pop("diff_map", None)
+                    review_task.pop("raw_mask", None)
+                    review_task.pop("candidates", None)
         else:
             log_analysis_stage(
                 "learning_review",

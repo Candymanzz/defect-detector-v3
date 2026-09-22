@@ -182,7 +182,9 @@ def _fit_template(image: np.ndarray, *, binary: bool = False) -> np.ndarray:
     y = (TEMPLATE_SIZE - resized_height) // 2
     canvas[y : y + resized_height, x : x + resized_width] = resized
     if binary:
-        return np.where(canvas > 0, 255, 0).astype(np.uint8)
+        out = np.zeros((TEMPLATE_SIZE, TEMPLATE_SIZE), dtype=np.uint8)
+        out[canvas > 0] = 255
+        return out
     return canvas.astype(np.uint8)
 
 
@@ -1274,9 +1276,14 @@ def extract_defect_candidates(
     aligned: np.ndarray,
     diff_map: np.ndarray,
     segmentation_mask: np.ndarray,
+    *,
+    include_match_templates: bool = True,
 ) -> list[DefectCandidate]:
     mask_gray = _gray(segmentation_mask)
-    binary = np.where(mask_gray > 0, 255, 0).astype(np.uint8)
+    # Не использовать np.where(..., 255, 0): Python-int → int64 (~8 байт/пиксель)
+    # и при забитом heap падает аллокация ~5 MiB на кадр ~768×918.
+    binary = np.zeros(mask_gray.shape[:2], dtype=np.uint8)
+    binary[mask_gray > 0] = 255
     height, width = binary.shape[:2]
     # Тонкий след может разорваться порогом на несколько близких островков.
     # Dilation используется только для назначения островков одной группе. Сама
@@ -1287,8 +1294,9 @@ def extract_defect_candidates(
     grouping_binary = cv2.dilate(binary, grouping_kernel, iterations=1)
     count, labels, stats, _ = cv2.connectedComponentsWithStats(grouping_binary, connectivity=8)
     diff_gray = _gray(diff_map)
-    aligned_gray = _gray(aligned)
+    aligned_gray = _gray(aligned) if include_match_templates else None
     candidates: list[DefectCandidate] = []
+    empty_u8 = np.zeros((0, 0), dtype=np.uint8)
 
     raw_candidates: list[tuple[int, int, int, int, int, int]] = []
     for label_idx in range(1, count):
@@ -1316,7 +1324,6 @@ def extract_defect_candidates(
         local_binary = binary[y : y + box_height, x : x + box_width]
         local_mask = (local_labels == label_idx) & (local_binary > 0)
         local_diff = diff_gray[y : y + box_height, x : x + box_width]
-        local_aligned = aligned_gray[y : y + box_height, x : x + box_width]
         values = local_diff[local_mask]
         diff_mean = float(np.mean(values)) if values.size else 0.0
         diff_q90 = float(np.percentile(values, 90)) if values.size else 0.0
@@ -1332,7 +1339,10 @@ def extract_defect_candidates(
             )
         )
 
-        contours, _ = cv2.findContours(local_mask.astype(np.uint8) * 255, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contour_u8 = local_mask.astype(np.uint8, copy=True)
+        contour_u8 *= np.uint8(255)
+        # findContours может портить входной буфер — работаем с копией.
+        contours, _ = cv2.findContours(contour_u8.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         polygon_norm: list[tuple[float, float]] = []
         if contours:
             # У сгруппированного прерывистого следа может быть несколько
@@ -1354,6 +1364,19 @@ def extract_defect_candidates(
             y1 = (y + box_height - 1) / max(1, height - 1)
             polygon_norm = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
 
+        if include_match_templates:
+            assert aligned_gray is not None
+            local_aligned = aligned_gray[y : y + box_height, x : x + box_width]
+            mask_template = _fit_template(contour_u8, binary=True)
+            diff_template = _fit_template(local_diff)
+            appearance_template = _fit_template(local_aligned)
+            source_crop = aligned[y : y + box_height, x : x + box_width].copy()
+        else:
+            mask_template = empty_u8
+            diff_template = empty_u8
+            appearance_template = empty_u8
+            source_crop = None
+
         candidates.append(
             DefectCandidate(
                 id=f"defect-{ordinal}",
@@ -1371,10 +1394,10 @@ def extract_defect_candidates(
                 diff_max=diff_max,
                 score=score,
                 mask=local_mask.copy(),
-                mask_template=_fit_template(local_mask.astype(np.uint8) * 255, binary=True),
-                diff_template=_fit_template(local_diff),
-                appearance_template=_fit_template(local_aligned),
-                source_crop=aligned[y : y + box_height, x : x + box_width].copy(),
+                mask_template=mask_template,
+                diff_template=diff_template,
+                appearance_template=appearance_template,
+                source_crop=source_crop,
             )
         )
     return candidates

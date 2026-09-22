@@ -2,7 +2,7 @@ import json
 import logging
 import time
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -60,6 +60,23 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         extra={"detail": exc.errors(), "body": body_text},
     )
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Ловим необработанные ошибки, чтобы 500 всегда попадали в errors.log."""
+    import traceback
+
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    LOG.exception("unhandled path=%s", request.url.path)
+    log_error(
+        "unhandled_exception",
+        f"{request.method} {request.url.path}: {exc}",
+        extra={"traceback": traceback.format_exc()},
+    )
+    return JSONResponse(status_code=500, content={"detail": f"Internal Server Error: {exc}"})
 
 
 @app.middleware("http")
