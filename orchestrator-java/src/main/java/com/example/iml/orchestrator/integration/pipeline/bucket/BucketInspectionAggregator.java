@@ -545,34 +545,17 @@ public final class BucketInspectionAggregator implements AutoCloseable {
 
     private SeamStrictGate evaluateSeamStrictGate(Map<Integer, InspectionDecision> decisions) {
         InspectionDecision joint = null;
-        double siblingSum = 0.0;
-        int siblingCount = 0;
         for (InspectionDecision decision : decisions.values()) {
-            if (decision == null) {
-                continue;
-            }
-            if (decision.jointCamera()) {
+            if (decision != null && decision.jointCamera()) {
                 joint = decision;
-            } else if (decision.jointVisibility() > 0.0 || !"CAPTURE".equals(decision.action())) {
-                siblingSum += decision.jointVisibility();
-                siblingCount++;
+                break;
             }
         }
         if (joint == null) {
             return SeamStrictGate.inactive();
         }
-        double siblingVisibility = siblingCount == 0 ? 1.0 : siblingSum / siblingCount;
-        // Шов на joint-камере прошёл обычные пороги — sibling strict не валит ведро.
-        if (joint.jointPass()) {
-            return new SeamStrictGate(false, false, siblingVisibility, joint);
-        }
-        // Шов дал брак — доп. проверка: при низкой видимости у соседей ужесточённые пороги.
-        boolean strictActive = siblingVisibility < jointSeamPolicy.siblingMinVisibility();
-        if (!strictActive) {
-            return new SeamStrictGate(false, false, siblingVisibility, joint);
-        }
-        boolean strictPass = jointSeamPolicy.passesStrict(joint.jointParallelismDeg(), joint.jointWidthMm());
-        return new SeamStrictGate(true, !strictPass, siblingVisibility, joint);
+        // Geometry runs only on the joint camera — no sibling visibility. Seam verdict is final.
+        return new SeamStrictGate(false, false, 1.0, joint);
     }
 
     private static List<Integer> rejectCameraIds(Map<Integer, InspectionDecision> decisions) {

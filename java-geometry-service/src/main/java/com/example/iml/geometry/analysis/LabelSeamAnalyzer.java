@@ -16,11 +16,13 @@ import java.util.List;
 
 /**
  * Контроль шва этикетки внутри joint ROI: сегментация полосы зазора → ширина в нескольких
- * сечениях вдоль оси, параллельность кромок, видимость.
+ * сечениях <em>перпендикулярно</em> заданной оси, выравнивание кромок к этой оси, видимость.
  *
- * <p>Ось шва берётся из ориентированного ROI-полигона (длинные стороны) — работает и для
- * горизонтального, и для наклонного стыка. Пары линий фильтруются по этой оси, чтобы
- * не брать перпендикулярный шум. Taper меряется вдоль оси шва (начало/конец), а не по Y кадра.
+ * <p>Ось шва задаётся ориентированным ROI-полигоном (длинные стороны) на joint-камере —
+ * на разных ракурсах абсолютный угол кадра разный, поэтому гейт всегда относителен этой оси.
+ * Пары линий фильтруются по оси, чтобы не брать перпендикулярный шум. Taper — вдоль оси
+ * (начало/конец), а не по Y кадра. Метрика {@code parallelismDeg} при известной оси —
+ * max отклонение кромок от оси (не угол между кромками: ракурсная сходимость ≠ брак).
  */
 public final class LabelSeamAnalyzer {
 
@@ -243,7 +245,7 @@ public final class LabelSeamAnalyzer {
             }
             return new Result(
                     true,
-                    best.angleDiffDeg(),
+                    gateSkewDeg(best.a().angleDeg(), best.b().angleDeg(), expectedAxisDeg),
                     widthMm,
                     widthTopMm,
                     widthBottomMm,
@@ -324,6 +326,21 @@ public final class LabelSeamAnalyzer {
             }
         }
         return out;
+    }
+
+    /**
+     * Gate metric for seam-edge orientation.
+     * With a defined ROI axis: max |edge − axis| (perspective convergence of two edges
+     * that still track the drawn axis must not reject). Without axis: classic |edgeA − edgeB|.
+     */
+    public static double gateSkewDeg(double edgeADeg, double edgeBDeg, double expectedAxisDeg) {
+        if (!Double.isNaN(expectedAxisDeg)) {
+            return Math.max(
+                    smallestAngleDiffDeg(edgeADeg, expectedAxisDeg),
+                    smallestAngleDiffDeg(edgeBDeg, expectedAxisDeg)
+            );
+        }
+        return smallestAngleDiffDeg(edgeADeg, edgeBDeg);
     }
 
     private static SeamPair findBestPair(

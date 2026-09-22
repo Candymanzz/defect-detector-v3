@@ -180,7 +180,39 @@
     "joint_min_width_mm_strict": 0.4,
     "joint_max_width_mm_strict": 1.5,
     "joint_seam_segmentation_enabled": true,
-    "max_wrinkles_score": 0.45
+    "max_wrinkles_score": 0.45,
+    "profiles": {
+      "bench-lan1": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan2": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan3": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan4": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan5": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan6": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan7": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan8": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan9": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan10": {
+        "max_joint_parallelism_deg": 5.0
+      }
+    }
   },
   "python_detector": {
     "base_url": "http://127.0.0.1:8000",

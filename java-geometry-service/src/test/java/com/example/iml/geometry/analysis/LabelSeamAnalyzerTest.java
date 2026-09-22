@@ -90,16 +90,28 @@ class LabelSeamAnalyzerTest {
     }
 
     @Test
-    void horizontalConvergingSeamFailsParallelismGateBand() {
+    void horizontalConvergingSeamReportsAxisSkew() {
+        // Edges at ±5° around horizontal axis → gate metric is max|edge−axis| ≈ 5°,
+        // not the 10° edge-to-edge angle (perspective convergence on angled cameras).
         Mat roi = syntheticConvergingSeamHorizontal(280, 140, 10.0);
         try {
             LabelSeamAnalyzer.Result result = LabelSeamAnalyzer.analyze(
                     roi, null, 0.02, 0.25, 5.0, 0.0);
             assertTrue(result.found(), "expected horizontal converging edges");
-            assertTrue(result.parallelismDeg() > 5.0, "parallelismDeg=" + result.parallelismDeg());
+            assertTrue(
+                    result.parallelismDeg() > 4.0 && result.parallelismDeg() < 7.0,
+                    "axis-relative skew expected ~5°, got " + result.parallelismDeg()
+            );
         } finally {
             roi.release();
         }
+    }
+
+    @Test
+    void gateSkewUsesAxisWhenProvided() {
+        // Mutual angle 10°, but both edges within 5° of axis 0 → report 5°.
+        assertEquals(5.0, LabelSeamAnalyzer.gateSkewDeg(5.0, 175.0, 0.0), 1e-9);
+        assertEquals(10.0, LabelSeamAnalyzer.gateSkewDeg(0.0, 10.0, Double.NaN), 1e-9);
     }
 
     @Test

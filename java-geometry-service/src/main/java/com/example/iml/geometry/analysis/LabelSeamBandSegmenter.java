@@ -143,7 +143,10 @@ public final class LabelSeamBandSegmenter {
                 return LabelSeamAnalyzer.Result.empty(0.05);
             }
 
-            double parallelismDeg = LabelSeamAnalyzer.smallestAngleDiffDeg(lineA.angleDeg(), lineB.angleDeg());
+            // Width samples are already perpendicular to axisDeg; gate skew vs that axis
+            // (not edge-to-edge angle — angled cameras make parallel seams converge in-frame).
+            double parallelismDeg = LabelSeamAnalyzer.gateSkewDeg(
+                    lineA.angleDeg(), lineB.angleDeg(), axisDeg);
             WidthStats width = measureWidthAlongAxis(lineA, lineB, edges.axisSamples());
             // fitLine intentionally smooths noisy edges, but that also hides a short local
             // opening in an otherwise straight seam. Keep the stable fitted mean for normal

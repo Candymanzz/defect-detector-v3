@@ -107,6 +107,10 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             log.info("integration cam={}: geometry skipped (client reference without joint ROI)", cameraId);
             return withSkippedGeometryPass(state, cameraId, "geometry skipped: no joint ROI from client");
         }
+        if (!BinaryInspectHeaders.isJointGeometryCamera(cameraId, activeReference)) {
+            log.info("integration cam={}: geometry skipped (not joint camera)", cameraId);
+            return withSkippedGeometryPass(state, cameraId, "geometry skipped: not joint camera");
+        }
         if (geometryPool.isEmpty()) {
             return state;
         }
@@ -163,11 +167,10 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                     log.info(
                             "geometry_timing cam={} frame={} wall_ms={} service_ms={} "
                                     + "prep_ms={} align_ms={} align_skipped={} warp_ms={} "
-                                    + "joint_ms={} joint_ran={} joint_found={} "
-                                    + "rim_ms={} wrinkles_ms={} concentricity_ms={} debug_ms={} "
-                                    + "status={} pose_locked={} shift=({}, {}) rot={} conc_mm={} "
-                                    + "joint_par={} joint_w={} joint_vis={} wrinkle={} rim_skew={} "
-                                    + "pass_align={} pass_conc={} pass_joint={} pass_wrinkle={} pass_rim={} overall={}",
+                                    + "joint_ms={} joint_ran={} joint_found={} debug_ms={} "
+                                    + "status={} pose_locked={} shift=({}, {}) rot={} "
+                                    + "joint_par={} joint_w={} joint_vis={} "
+                                    + "pass_align={} pass_joint={} overall={}",
                             cameraId,
                             state.capture().header().get("frame_id"),
                             wallMs,
@@ -179,26 +182,17 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                             YamlScalars.toDouble(rh.get("stage_ms_joint"), 0.0),
                             rh.getOrDefault("joint_ran", rh.get("diag_joint_ran")),
                             rh.getOrDefault("joint_found", rh.get("diag_joint_found")),
-                            YamlScalars.toDouble(rh.get("stage_ms_rim_skew"), 0.0),
-                            YamlScalars.toDouble(rh.get("stage_ms_wrinkles"), 0.0),
-                            YamlScalars.toDouble(rh.get("stage_ms_concentricity"), 0.0),
                             YamlScalars.toDouble(rh.get("stage_ms_debug"), 0.0),
                             rh.getOrDefault("status", "?"),
                             rh.getOrDefault("pose_locked", rh.get("diag_pose_locked")),
                             rh.get("shiftXmm"),
                             rh.get("shiftYmm"),
                             rh.get("rotationDeg"),
-                            rh.get("concentricityMm"),
                             rh.get("jointParallelismDeg"),
                             rh.get("jointWidthMm"),
                             rh.get("jointVisibility"),
-                            rh.get("wrinklesScore"),
-                            rh.get("jointRimSkewDeg"),
                             rh.get("alignmentPass"),
-                            rh.get("concentricityPass"),
                             rh.get("jointPass"),
-                            rh.get("wrinklesPass"),
-                            rh.get("rimSkewPass"),
                             rh.get("overallPass")
                     );
                 }
@@ -292,12 +286,11 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
         header.put("poseQcFromPositioning", true);
 
         boolean jointPass = !header.containsKey("jointPass") || YamlScalars.toBool(header.get("jointPass"), true);
-        boolean wrinklesPass = !header.containsKey("wrinklesPass") || YamlScalars.toBool(header.get("wrinklesPass"), true);
-        boolean concentricityPass = !header.containsKey("concentricityPass")
-                || YamlScalars.toBool(header.get("concentricityPass"), true);
-        boolean rimSkewPass = !header.containsKey("rimSkewPass") || YamlScalars.toBool(header.get("rimSkewPass"), true);
-        boolean overallPass = alignmentPass && jointPass && wrinklesPass && concentricityPass && rimSkewPass;
+        boolean overallPass = alignmentPass && jointPass;
         header.put("overallPass", overallPass);
+        header.put("concentricityPass", true);
+        header.put("wrinklesPass", true);
+        header.put("rimSkewPass", true);
         if (!overallPass) {
             header.put("status", "FAIL");
             if (!alignmentPass) {

@@ -11,6 +11,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BinaryInspectHeadersTest {
@@ -66,9 +67,9 @@ class BinaryInspectHeadersTest {
                 1, capture, otherCameraRef, null, null);
 
         assertNotNull(jointHeader.get("jointRoi"));
-        assertNotNull(otherHeader.get("jointRoi"));
+        assertNull(otherHeader.get("jointRoi"));
         assertEquals("full", jointHeader.get("jointMode"));
-        assertEquals("visibility", otherHeader.get("jointMode"));
+        assertEquals("off", otherHeader.get("jointMode"));
         assertNotNull(otherHeader.get("wrinklesRoi"));
         assertEquals(otherHeader.get("mainRoi"), otherHeader.get("wrinklesRoi"));
         assertEquals(0.5, jointHeader.get("maxJointDefectMm"));
@@ -78,7 +79,9 @@ class BinaryInspectHeadersTest {
         assertEquals(0.8, jointHeader.get("maxJointTaperMm"));
         assertEquals(0.5, jointHeader.get("jointSeamSegmentationSensitivity"));
         assertEquals(true, jointHeader.get("jointSeamSegmentationEnabled"));
-        assertEquals(true, otherHeader.get("jointSeamSegmentationEnabled"));
+        assertEquals(false, otherHeader.get("jointSeamSegmentationEnabled"));
+        assertTrue(BinaryInspectHeaders.isJointGeometryCamera(2, jointCameraRef));
+        assertFalse(BinaryInspectHeaders.isJointGeometryCamera(1, otherCameraRef));
     }
 
     @Test

@@ -77,14 +77,8 @@ public final class InspectionResponsePayloadBuilder {
             payload.put("maxJointRimSkewDeg", request.maxJointRimSkewDeg());
             payload.put("maxJointGapAsymmetryMm", request.maxJointGapAsymmetryMm());
         }
-        if (request != null && request.jointRoi() != null) {
-            boolean visibilityOnly = request.jointVisibilityOnly();
-            payload.put("jointMode", visibilityOnly ? "visibility" : "full");
-            payload.put("jointCamera", !visibilityOnly);
-        } else {
-            payload.put("jointMode", "full");
-            payload.put("jointCamera", false);
-        }
+        payload.put("jointMode", "full");
+        payload.put("jointCamera", request != null && request.jointRoi() != null && !request.jointVisibilityOnly());
         if (includeDebug) {
             payload.put("debugImageBase64", response.debugImageBase64());
         }

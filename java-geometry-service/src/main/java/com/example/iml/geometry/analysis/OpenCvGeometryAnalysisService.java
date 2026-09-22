@@ -212,35 +212,10 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             diag.put("joint_found", joint.found());
             diag.put("joint_ran", request.jointRoi() != null);
 
-            long tRim0 = System.nanoTime();
-            LabelRimSkewAnalyzer.Result rimSkew = inspectRimSkew(alignedCurrent, mainRect, request);
-            double stageMsRim = nanosToMs(System.nanoTime() - tRim0);
-            recordStage("rim_skew", tRim0);
-            diag.put("stage_ms_rim_skew", stageMsRim);
-
-            long tWrinkles0 = System.nanoTime();
-            WrinklesResult wrinkles = inspectWrinkles(
-                    reference,
-                    alignedCurrent,
-                    resolveWrinklesRoi(request)
-            );
-            double stageMsWrinkles = nanosToMs(System.nanoTime() - tWrinkles0);
-            recordStage("wrinkles", tWrinkles0);
-            diag.put("stage_ms_wrinkles", stageMsWrinkles);
-
+            // Geometry QC is intentionally narrow: label shift + seam integrity/parallelism
+            // on the joint camera only. Wrinkles / concentricity / rim-skew are not gated here
+            // (surface QC is python; angled views must not invent optical defects).
             double deviationRadiusMm = Math.hypot(alignment.shiftXmm, alignment.shiftYmm);
-
-            long tConcentricity0 = System.nanoTime();
-            Mat concentricityRoi = new Mat(alignedCurrent, mainRect);
-            ConcentricityResult concentricity;
-            try {
-                concentricity = estimateConcentricity(concentricityRoi, request.pixelsToMm());
-            } finally {
-                concentricityRoi.release();
-            }
-            double stageMsConcentricity = nanosToMs(System.nanoTime() - tConcentricity0);
-            recordStage("concentricity", tConcentricity0);
-            diag.put("stage_ms_concentricity", stageMsConcentricity);
 
             String debugBase64 = "";
             double stageMsDebug = 0;
@@ -259,18 +234,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     || (Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
                     && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg());
-            // Sibling (angled) cameras: joint is visibility-only. Perspective makes yellow-rim
-            // wedge / circle centres look skewed — gate only on the joint camera where the
-            // yellow band is intentionally inspected (no need to draw yellow on every bucket).
-            boolean siblingView = request.jointVisibilityOnly();
-            boolean concentricityPass = siblingView
-                    || concentricity.deviationMm() <= request.maxConcentricityMm();
             boolean jointPass = evaluateJointPass(request, joint);
-            // After upstream positioning, surface QC belongs to python — geometry absdiff
-            // wrinkles are too light-sensitive and caused false rejects on matched frames.
-            boolean wrinklesPass = poseLocked || wrinkles.score <= request.maxWrinklesScore();
-            boolean rimSkewPass = evaluateRimSkewPass(request, rimSkew);
-            boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass && rimSkewPass;
+            boolean overallPass = alignmentPass && jointPass;
 
             double stageMsTotal = nanosToMs(System.nanoTime() - tTotal0);
             diag.put("stage_ms_total", stageMsTotal);
@@ -279,11 +244,10 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             log.info(
                     "geometry_usage {} status={} pose_locked={} total_ms={} "
                             + "prep_ms={} align_ms={} align_skipped={} warp_ms={} "
-                            + "joint_ms={} joint_ran={} joint_found={} "
-                            + "rim_ms={} wrinkles_ms={} concentricity_ms={} debug_ms={} "
-                            + "shift=({}, {}) rot={} conc_mm={} "
-                            + "joint_par={} joint_w={} joint_vis={} wrinkle={} rim_skew={} "
-                            + "pass_align={} pass_conc={} pass_joint={} pass_wrinkle={} pass_rim={}",
+                            + "joint_ms={} joint_ran={} joint_found={} debug_ms={} "
+                            + "shift=({}, {}) rot={} "
+                            + "joint_par={} joint_w={} joint_vis={} "
+                            + "pass_align={} pass_joint={}",
                     ctx(logContext),
                     overallPass ? "PASS" : "FAIL",
                     poseLocked,
@@ -295,24 +259,15 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     fmt(stageMsJoint),
                     request.jointRoi() != null,
                     joint.found(),
-                    fmt(stageMsRim),
-                    fmt(stageMsWrinkles),
-                    fmt(stageMsConcentricity),
                     fmt(stageMsDebug),
                     fmt(alignment.shiftXmm),
                     fmt(alignment.shiftYmm),
                     fmt(alignment.rotationDeg),
-                    fmt(concentricity.deviationMm()),
                     fmt(joint.parallelismDeg()),
                     fmt(joint.widthMm()),
                     fmt(joint.visibility()),
-                    fmt(wrinkles.score),
-                    fmt(rimSkew.skewDeg()),
                     alignmentPass,
-                    concentricityPass,
-                    jointPass,
-                    wrinklesPass,
-                    rimSkewPass
+                    jointPass
             );
 
             return new InspectionResponse(
@@ -320,7 +275,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     alignment.shiftYmm,
                     alignment.rotationDeg,
                     homographyToArray(alignment.homographyRefToCurrent),
-                    concentricity.deviationMm(),
+                    0.0,
                     deviationRadiusMm,
                     joint.defectMm,
                     joint.parallelismDeg,
@@ -329,16 +284,16 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     joint.widthBottomMm,
                     joint.taperMm,
                     joint.visibility,
-                    wrinkles.score,
-                    rimSkew.skewDeg(),
-                    rimSkew.gapLeftMm(),
-                    rimSkew.gapRightMm(),
-                    rimSkew.gapAsymmetryMm(),
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
                     alignmentPass,
-                    concentricityPass,
+                    true,
                     jointPass,
-                    wrinklesPass,
-                    rimSkewPass,
+                    true,
+                    true,
                     overallPass,
                     debugBase64,
                     overallPass ? "PASS" : "FAIL",
@@ -937,8 +892,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         if (request.jointRoi() == null) {
             return true;
         }
+        // Non-joint cameras must not run geometry at all (orchestrator skips them).
+        // Defensive: visibility mode never rejects.
         if (request.jointVisibilityOnly()) {
-            // Sibling cameras only report seam visibility; they must not fail the frame.
             return true;
         }
         if (!joint.found) {
@@ -951,9 +907,11 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         if (joint.widthMm < noiseFloorMm) {
             return true;
         }
-        // Width above max is always a defect. Below min — only when edges are NOT parallel:
-        // if parallelism already confirms a real seam pair, skip the min-width gate
-        // (narrow real seams / Canny thin pairs with good parity).
+        // Width above max is always a defect. Below min — only when edges are NOT aligned
+        // to the ROI axis (gate skew): if orientation already confirms a real seam along the
+        // drawn axis, skip the min-width gate (narrow real seams / Canny thin pairs).
+        // Gate metric is axis-relative when the joint ROI polygon defines an axis — mutual
+        // edge convergence from camera perspective must not reject a good seam.
         double maxParallelismDeg = request.maxJointParallelismDeg();
         if (request.jointSeamSegmentationEnabled()) {
             // Sensitivity scales parallelism tolerance:

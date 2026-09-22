@@ -146,7 +146,7 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
-    void jointPassIgnoresLowSiblingVisibilityStrictGate() {
+    void jointCameraPassKeepsBucketPassWithoutSiblingGeometry() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),
@@ -161,8 +161,7 @@ class BucketInspectionAggregatorTest {
         AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
         BucketFanOutSink fanOut = fanOutSink(published);
 
-        // Joint прошёл обычные пороги (jointPass=true) — sibling strict не валит ведро,
-        // даже если parallelism выше strict-лимита и sibling_vis низкая.
+        // Sibling skips geometry (jointCamera=false); only joint seam/shift matters.
         aggregator.recordFrameResult(
                 30L,
                 0,
@@ -172,7 +171,7 @@ class BucketInspectionAggregatorTest {
         aggregator.recordFrameResult(
                 30L,
                 1,
-                seamDecision(1, 401L, true, false, true, 0.0, 0.0, 0.05),
+                seamDecision(1, 401L, true, false, true, 0.0, 0.0, 0.0),
                 fanOut
         );
 
@@ -181,7 +180,7 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
-    void jointFailPlusLowSiblingVisibilityAppliesStrictAsExtraReject() {
+    void jointCameraOverallRejectRejectsBucket() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),
@@ -196,17 +195,16 @@ class BucketInspectionAggregatorTest {
         AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
         BucketFanOutSink fanOut = fanOutSink(published);
 
-        // overallPass=true, но jointPass=false — доп. sibling-strict добивает ведро.
         aggregator.recordFrameResult(
                 32L,
                 0,
-                seamDecision(0, 600L, true, true, false, 2.0, 0.3, 0.9),
+                seamDecision(0, 600L, false, true, false, 2.0, 0.3, 0.9),
                 fanOut
         );
         aggregator.recordFrameResult(
                 32L,
                 1,
-                seamDecision(1, 601L, true, false, true, 0.0, 0.0, 0.05),
+                seamDecision(1, 601L, true, false, true, 0.0, 0.0, 0.0),
                 fanOut
         );
 
@@ -215,7 +213,7 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
-    void highSiblingVisibilityKeepsNormalBucketPass() {
+    void siblingSkipDoesNotAffectBucketWhenJointPasses() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),
@@ -239,7 +237,7 @@ class BucketInspectionAggregatorTest {
         aggregator.recordFrameResult(
                 31L,
                 1,
-                seamDecision(1, 501L, true, false, true, 0.0, 0.0, 0.8),
+                seamDecision(1, 501L, true, false, true, 0.0, 0.0, 0.0),
                 fanOut
         );
 

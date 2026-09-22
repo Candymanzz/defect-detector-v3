@@ -49,7 +49,7 @@ public final class BinaryInspectHeaders {
             gHeader.put("client_reference_bundle", true);
         }
         gHeader.put("jointRoi", resolveJointRoi(cameraId, activeReference, geometryCfg));
-        Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
+        Object jointPolygon = resolveJointRoiPolygonNorm(cameraId, activeReference);
         if (jointPolygon instanceof List<?> poly && poly.size() >= 3) {
             gHeader.put("jointRoiPolygonNorm", poly);
         }
@@ -310,9 +310,28 @@ public final class BinaryInspectHeaders {
         return width > 0d && height > 0d;
     }
 
+    /**
+     * Geometry (seam + label shift) runs only on the camera where the joint ROI was drawn.
+     * Other cameras in the bucket skip geometry entirely — their view angle cannot share the seam axis.
+     */
+    public static boolean isJointGeometryCamera(int cameraId, ReferenceSnapshot activeReference) {
+        if (activeReference == null || activeReference.header() == null) {
+            return false;
+        }
+        int jointCameraId = YamlScalars.toInt(activeReference.header().get("joint_camera_id"), -1);
+        if (jointCameraId >= 0) {
+            return jointCameraId == cameraId;
+        }
+        // Legacy / no designation: do not invent a joint camera.
+        return false;
+    }
+
     private static Object resolveJointRoi(int cameraId, ReferenceSnapshot activeReference, Map<String, Object> geometryCfg) {
         if (activeReference != null && activeReference.header() != null) {
-            // joint_roi_norm один на ведро: на joint-камере — full inspect, на остальных — visibility.
+            if (!isJointGeometryCamera(cameraId, activeReference)) {
+                return null;
+            }
+            // joint_roi_norm один на ведро: полный inspect только на joint-камере.
             Object raw = activeReference.header().get("joint_roi_norm");
             if (raw instanceof Map<?, ?> normalized) {
                 int frameWidth = YamlScalars.toInt(activeReference.header().get("width"), 0);
@@ -334,8 +353,11 @@ public final class BinaryInspectHeaders {
         return geometryCfg == null ? null : geometryCfg.get("joint_roi");
     }
 
-    private static Object resolveJointRoiPolygonNorm(ReferenceSnapshot activeReference) {
+    private static Object resolveJointRoiPolygonNorm(int cameraId, ReferenceSnapshot activeReference) {
         if (activeReference == null || activeReference.header() == null) {
+            return null;
+        }
+        if (!isJointGeometryCamera(cameraId, activeReference)) {
             return null;
         }
         Object raw = activeReference.header().get("joint_roi_polygon_norm");
@@ -349,11 +371,8 @@ public final class BinaryInspectHeaders {
         if (jointRoi == null) {
             return "off";
         }
-        if (activeReference != null && activeReference.header() != null) {
-            int jointCameraId = YamlScalars.toInt(activeReference.header().get("joint_camera_id"), -1);
-            if (jointCameraId >= 0 && cameraId != jointCameraId) {
-                return "visibility";
-            }
+        if (!isJointGeometryCamera(cameraId, activeReference)) {
+            return "off";
         }
         return "full";
     }

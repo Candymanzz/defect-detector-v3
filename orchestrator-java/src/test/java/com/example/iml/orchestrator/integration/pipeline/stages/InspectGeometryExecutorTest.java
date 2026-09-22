@@ -148,7 +148,7 @@ class InspectGeometryExecutorTest {
                 state,
                 2,
                 "bench",
-                reference(),
+                referenceForJointCamera(2),
                 Map.of(),
                 Map.of(),
                 List.of(stubSupervisor("geometry")),
@@ -211,7 +211,7 @@ class InspectGeometryExecutorTest {
                 stateWithCapture(),
                 4,
                 "bench",
-                reference(),
+                referenceForJointCamera(4),
                 Map.of("max_shift_mm", 1.5),
                 Map.of(),
                 List.of(geometry),
@@ -286,7 +286,7 @@ class InspectGeometryExecutorTest {
                 stateWithCapture(),
                 4,
                 "bench",
-                reference(),
+                referenceForJointCamera(4),
                 Map.of(),
                 Map.of(),
                 List.of(geometry),
@@ -335,6 +335,7 @@ class InspectGeometryExecutorTest {
                 "height", 90,
                 "stride", 360,
                 "client_reference_bundle", true,
+                "joint_camera_id", 0,
                 "joint_roi_norm", Map.of("x", 0.1, "y", 0.1, "width", 0.2, "height", 0.2)
         ));
 
@@ -469,11 +470,16 @@ class InspectGeometryExecutorTest {
     }
 
     private static ReferenceSnapshot reference() {
+        return referenceForJointCamera(0);
+    }
+
+    private static ReferenceSnapshot referenceForJointCamera(int jointCameraId) {
         return new ReferenceSnapshot("bench", Map.of(
                 "shm_name", "ref_shm",
                 "width", 120,
                 "height", 90,
-                "stride", 360
+                "stride", 360,
+                "joint_camera_id", jointCameraId
         ));
     }
 
