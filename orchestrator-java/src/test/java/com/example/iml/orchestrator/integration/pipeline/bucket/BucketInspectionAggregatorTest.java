@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -105,6 +106,43 @@ class BucketInspectionAggregatorTest {
         assertTrue(!published.get(0).overallPass());
         assertEquals(1, published.get(1).groupId());
         assertTrue(published.get(1).overallPass());
+    }
+
+    @Test
+    void firstRejectedFrameOffersImmediatePlasticHandleRejectBeforeBucketsComplete() {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(
+                                new BucketGroup(0, List.of(0, 1)),
+                                new BucketGroup(1, List.of(2, 3))
+                        ),
+                        1000L,
+                        1000L
+                )
+        );
+        AtomicInteger earlyRejects = new AtomicInteger();
+        List<BucketFanOutResult> published = new ArrayList<>();
+        BucketFanOutSink fanOut = new BucketFanOutSink() {
+            @Override
+            public void publishBucket(BucketFanOutResult result) {
+                published.add(result);
+            }
+
+            @Override
+            public boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+                assertEquals(21L, triggerSequence);
+                assertEquals(0, cameraId);
+                earlyRejects.incrementAndGet();
+                return true;
+            }
+        };
+
+        aggregator.recordFrameResult(21L, 0, decision(0, 310L, false), fanOut);
+
+        assertEquals(1, earlyRejects.get());
+        assertEquals(0, published.size(), "normal bucket/UI verdict still waits for all frames");
     }
 
     @Test

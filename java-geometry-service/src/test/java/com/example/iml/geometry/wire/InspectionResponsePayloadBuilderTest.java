@@ -39,7 +39,8 @@ class InspectionResponsePayloadBuilderTest {
                 true,
                 true,
                 "debug-b64",
-                "PASS"
+                "PASS",
+                Map.of()
         );
 
         Map<String, Object> header = InspectionResponsePayloadBuilder.toResponseHeader(response, false);
@@ -67,7 +68,8 @@ class InspectionResponsePayloadBuilderTest {
                 0, 0, 0, 0,
                 true, true, true, true, true, true,
                 "img",
-                "PASS"
+                "PASS",
+                Map.of()
         );
 
         Map<String, Object> header = InspectionResponsePayloadBuilder.toResponseHeader(response, true);

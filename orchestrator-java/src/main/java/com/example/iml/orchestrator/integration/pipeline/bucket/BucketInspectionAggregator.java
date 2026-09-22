@@ -225,6 +225,9 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             if (afterPlcUi != null) {
                 state.pendingUiByCamera.put(cameraId, afterPlcUi);
             }
+            if (!decision.overallPass() && fanOut != null) {
+                fanOut.publishEarlyPlasticHandleReject(triggerSequence, cameraId);
+            }
             scheduleTimeoutIfNeeded(state, fanOut);
             if (isBucketComplete(state)) {
                 publishBucket(state, fanOut, false);
@@ -518,6 +521,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         for (BucketFanOutResult result : results) {
             fanOut.publishBucket(result);
         }
+        fanOut.finishSequence(results.get(0).triggerSequence());
         runPendingUi(pendingUi);
     }
 

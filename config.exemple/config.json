@@ -170,7 +170,7 @@
     "max_rotation_deg": 1.0,
     "max_joint_defect_mm": 0.5,
     "joint_min_width_mm": 0.25,
-    "joint_max_width_mm": 3.0,
+    "joint_max_width_mm": 1.6,
     "max_joint_parallelism_deg": 2.5,
     "max_joint_taper_mm": 0.8,
     "max_joint_rim_skew_deg": 2.5,
@@ -178,7 +178,7 @@
     "joint_sibling_min_visibility": 0.25,
     "max_joint_parallelism_deg_strict": 2.5,
     "joint_min_width_mm_strict": 0.4,
-    "joint_max_width_mm_strict": 2.5,
+    "joint_max_width_mm_strict": 1.5,
     "joint_seam_segmentation_enabled": true,
     "max_wrinkles_score": 0.45
   },

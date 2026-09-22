@@ -50,6 +50,15 @@ _FP_CROP_MIN = 64
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 
+# Smooth illumination changes keep local texture and gradients, unlike a real
+# scratch/tear. Suppress them conservatively before structural defect boosts.
+_ILLUMINATION_MIN_SHIFT = 6.0
+_ILLUMINATION_FULL_SHIFT = 22.0
+_ILLUMINATION_DETAIL_SCALE = 18.0
+_ILLUMINATION_GRADIENT_SCALE = 32.0
+_ILLUMINATION_LOCAL_MAX_SUPPRESSION = 0.30
+_ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
+
 
 class _DeferredLearningReviewWriter:
     """Bounded, best-effort writer kept off the production verdict path."""
@@ -895,11 +904,19 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
+        illumination_diagnostics: dict[str, object] = {}
         diff_map = self._compute_advanced_difference(
             aligned,
             reference,
             settings,
             vertical_compensation=True,
+            illumination_diagnostics=illumination_diagnostics,
+        )
+        log_analysis_stage(
+            "illumination",
+            "shadow/glare guard applied",
+            product_type=product_type,
+            extra=illumination_diagnostics,
         )
         diff_finished = time.perf_counter()
         log_analysis_stage(
@@ -2356,6 +2373,7 @@ class InspectionService:
         settings: AnalysisSettings,
         *,
         vertical_compensation: bool = False,
+        illumination_diagnostics: Optional[dict[str, object]] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2366,6 +2384,10 @@ class InspectionService:
         # against local min/max envelope of reference.
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
+        # Classify illumination on the original gray signal. CLAHE is useful
+        # for defects but can turn a smooth shadow/glare into artificial texture.
+        illumination_ref_gray = ref_gray.copy()
+        illumination_cur_gray = cur_gray.copy()
 
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
@@ -2414,6 +2436,15 @@ class InspectionService:
         robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
         robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
 
+        illumination_confidence = None
+        if vertical_compensation:
+            robust_gray, illumination_confidence = self._suppress_smooth_illumination(
+                robust_gray,
+                illumination_ref_gray,
+                illumination_cur_gray,
+                diagnostics=illumination_diagnostics,
+            )
+
         # The bucket is inverted in the camera view, so the upper part of the
         # image is farther from the camera and its defects are weaker. Apply a
         # small smooth gain there. The cap is intentionally conservative to
@@ -2450,7 +2481,15 @@ class InspectionService:
         )
         if np.any(contrast_loss_zone):
             robust_float = robust_gray.astype(np.float32)
-            robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
+            if illumination_confidence is None:
+                robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
+            else:
+                # Do not re-amplify the smooth light field as "missing print".
+                boost = settings.contrast_loss_boost - (
+                    (settings.contrast_loss_boost - 1.0)
+                    * illumination_confidence[contrast_loss_zone]
+                )
+                robust_float[contrast_loss_zone] *= boost
             robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
 
         # Structural masking for text-heavy regions:
@@ -2467,6 +2506,111 @@ class InspectionService:
                 0,
             ).astype(np.uint8)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
+
+    @staticmethod
+    def _suppress_smooth_illumination(
+        robust_gray: np.ndarray,
+        reference_gray: np.ndarray,
+        current_gray: np.ndarray,
+        *,
+        diagnostics: Optional[dict[str, object]] = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Suppress broad shadow/glare while retaining local structural changes."""
+        height, width = robust_gray.shape[:2]
+        if diagnostics is not None:
+            diagnostics.clear()
+            diagnostics.update(
+                shadow_percent=0.0,
+                glare_percent=0.0,
+                saturated_percent=0.0,
+                structural_protected_percent=0.0,
+                broad_illumination=False,
+                suppression_percent=0.0,
+                raw_energy=0.0,
+                corrected_energy=0.0,
+            )
+        if height == 0 or width == 0:
+            return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+
+        kernel_size = int(round(min(height, width) * 0.08))
+        kernel_size = min(81, max(7, kernel_size | 1))
+        ref_float = reference_gray.astype(np.float32)
+        cur_float = current_gray.astype(np.float32)
+        low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
+        low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
+
+        shift = np.abs(low_cur - low_ref)
+        light_confidence = np.clip(
+            (shift - _ILLUMINATION_MIN_SHIFT)
+            / (_ILLUMINATION_FULL_SHIFT - _ILLUMINATION_MIN_SHIFT),
+            0.0,
+            1.0,
+        )
+        light_confidence = light_confidence * light_confidence * (3.0 - 2.0 * light_confidence)
+
+        # A genuine defect changes high-frequency detail or gradient structure;
+        # only pixels preserving both are eligible for illumination suppression.
+        detail_delta = np.abs((cur_float - low_cur) - (ref_float - low_ref))
+        detail_confidence = np.exp(-np.square(detail_delta / _ILLUMINATION_DETAIL_SCALE))
+        ref_gx = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
+        ref_gy = cv2.Sobel(ref_float, cv2.CV_32F, 0, 1, ksize=3)
+        cur_gx = cv2.Sobel(cur_float, cv2.CV_32F, 1, 0, ksize=3)
+        cur_gy = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
+        gradient_delta = cv2.magnitude(cur_gx - ref_gx, cur_gy - ref_gy)
+        gradient_confidence = np.exp(-np.square(gradient_delta / _ILLUMINATION_GRADIENT_SCALE))
+
+        confidence = (light_confidence * detail_confidence * gradient_confidence).astype(np.float32)
+        confidence = cv2.GaussianBlur(confidence, (9, 9), 0)
+
+        # Dual branch guard: the photometric branch may suppress a smooth light
+        # field, while structural changes and clipped highlights always retain
+        # their raw response. A saturated area has lost image information and
+        # must never be silently converted to PASS.
+        structural_mask = (
+            (detail_delta >= _ILLUMINATION_DETAIL_SCALE)
+            | (gradient_delta >= _ILLUMINATION_GRADIENT_SCALE)
+        )
+        saturated_mask = (current_gray >= 250) & (reference_gray < 245)
+        protected_mask = structural_mask | saturated_mask
+        confidence[protected_mask] = 0.0
+
+        detected = confidence >= 0.20
+        detected_ratio = float(np.count_nonzero(detected)) / max(1, height * width)
+        detected_columns = float(np.count_nonzero(np.any(detected, axis=0))) / max(1, width)
+        broad = detected_ratio >= 0.08 and detected_columns >= 0.70
+        suppression = (
+            _ILLUMINATION_BROAD_MAX_SUPPRESSION
+            if broad
+            else _ILLUMINATION_LOCAL_MAX_SUPPRESSION
+        )
+
+        raw_float = robust_gray.astype(np.float32)
+        corrected = raw_float * (1.0 - suppression * confidence)
+        if broad:
+            corrected[confidence >= 0.55] = 0.0
+        corrected[protected_mask] = np.maximum(corrected[protected_mask], raw_float[protected_mask])
+
+        if diagnostics is not None:
+            signed_shift = low_cur - low_ref
+            shadow_mask = detected & (signed_shift <= -_ILLUMINATION_MIN_SHIFT)
+            glare_mask = detected & (signed_shift >= _ILLUMINATION_MIN_SHIFT)
+            pixels = max(1, height * width)
+            raw_energy = float(np.sum(raw_float))
+            corrected_energy = float(np.sum(corrected))
+            diagnostics.update(
+                shadow_percent=round(100.0 * np.count_nonzero(shadow_mask) / pixels, 3),
+                glare_percent=round(100.0 * np.count_nonzero(glare_mask) / pixels, 3),
+                saturated_percent=round(100.0 * np.count_nonzero(saturated_mask) / pixels, 3),
+                structural_protected_percent=round(100.0 * np.count_nonzero(structural_mask) / pixels, 3),
+                broad_illumination=bool(broad),
+                suppression_percent=round(
+                    100.0 * max(0.0, raw_energy - corrected_energy) / max(1.0, raw_energy),
+                    3,
+                ),
+                raw_energy=round(raw_energy, 1),
+                corrected_energy=round(corrected_energy, 1),
+            )
+        return np.clip(corrected, 0.0, 255.0).astype(np.uint8), confidence
 
     @staticmethod
     def _vertical_compensation_gain(height: int) -> np.ndarray:

@@ -74,6 +74,85 @@ def test_vertical_compensation_is_smooth_bounded_and_top_weighted() -> None:
     assert gain[75] == pytest.approx(1.0)
 
 
+@pytest.mark.parametrize("current_level", [85, 155])
+def test_smooth_shadow_and_glare_are_suppressed(current_level: int) -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 40, dtype=np.uint8)
+    reference = np.full_like(robust, 120)
+    current = np.full_like(robust, current_level)
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+    )
+
+    assert float(np.mean(confidence)) > 0.5
+    assert float(np.mean(corrected)) < float(np.mean(robust)) * 0.35
+
+
+def test_illumination_filter_preserves_local_defect() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference = np.full((180, 240), 130, dtype=np.uint8)
+    current = np.full_like(reference, 100)
+    cv2.rectangle(current, (95, 65), (145, 115), 225, 3)
+    robust = np.full_like(reference, 45)
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+    )
+
+    defect_border = np.zeros_like(reference, dtype=bool)
+    defect_border[62:119, 92:149] = True
+    defect_border[70:110, 100:140] = False
+    assert float(np.percentile(confidence[defect_border], 90)) < 0.5
+    assert float(np.percentile(corrected[defect_border], 90)) >= 30.0
+
+
+def test_saturated_glare_is_not_suppressed_to_pass() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference = np.full((160, 220), 125, dtype=np.uint8)
+    current = np.full_like(reference, 155)
+    current[45:115, 70:150] = 255
+    robust = np.full_like(reference, 40)
+    diagnostics: dict[str, object] = {}
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    saturated = current >= 250
+    assert np.all(confidence[saturated] == 0.0)
+    assert np.array_equal(corrected[saturated], robust[saturated])
+    assert float(diagnostics["saturated_percent"]) > 10.0
+
+
+def test_illumination_diagnostics_report_before_after_energy() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference = np.full((120, 180), 120, dtype=np.uint8)
+    current = np.full_like(reference, 85)
+    robust = np.full_like(reference, 40)
+    diagnostics: dict[str, object] = {}
+
+    corrected, _ = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    assert diagnostics["broad_illumination"] is True
+    assert float(diagnostics["shadow_percent"]) > 90.0
+    assert float(diagnostics["suppression_percent"]) > 50.0
+    assert float(diagnostics["corrected_energy"]) < float(diagnostics["raw_energy"])
+    assert float(np.mean(corrected)) < float(np.mean(robust))
+
+
 @pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
 def test_thin_scratch_rejects_in_both_principal_directions(
     inspection_service: InspectionService,

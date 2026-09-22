@@ -11,7 +11,8 @@ java_geometry:
   # Min width применяется только если параллельность кромок НЕ ок;
   # при хорошей параллельности min-порог не валит шов (остаётся только max).
   joint_min_width_mm: 0.25
-  joint_max_width_mm: 3.0
+  # Для пластиковой ручки ровный зазор около 2 мм — брак.
+  joint_max_width_mm: 1.6
   # Ракурс снизу даёт сходимость кромок в кадре — допуск шире, чем для фронтального вида.
   # Параллельность двух кромок шва (горизонтальный/наклонный — ось из joint ROI).
   # База для верхней линии; низ (ракурс/сходимость) — шире в profiles bench-lan6..10.
@@ -28,7 +29,7 @@ java_geometry:
   joint_sibling_min_visibility: 0.25
   max_joint_parallelism_deg_strict: 2.5
   joint_min_width_mm_strict: 0.4
-  joint_max_width_mm_strict: 2.5
+  joint_max_width_mm_strict: 1.5
   # Сегментация полосы стыка + fitLine кромок (параллельность). Всегда включена.
   joint_seam_segmentation_enabled: true
   # 0..1: выше — легче захватить слабую полосу и жёстче допуск параллельности (вердикт).

@@ -228,7 +228,7 @@ public final class GeometryRuntimeConfig {
         m.put("maxRotationDeg", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_rotation_deg"), 1.0));
         m.put("maxJointDefectMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_defect_mm"), 0.5));
         m.put("jointMinWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_min_width_mm"), 0.25));
-        m.put("jointMaxWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_max_width_mm"), 3.0));
+        m.put("jointMaxWidthMm", YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("joint_max_width_mm"), 1.6));
         m.put(
                 "maxJointParallelismDeg",
                 YamlScalars.toDouble(yamlGeometry == null ? null : yamlGeometry.get("max_joint_parallelism_deg"), 5.0)

@@ -6,4 +6,11 @@ package com.example.iml.orchestrator.integration.fanout;
 public interface BucketFanOutSink {
 
     void publishBucket(BucketFanOutResult result);
+
+    default boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+        return false;
+    }
+
+    default void finishSequence(long triggerSequence) {
+    }
 }

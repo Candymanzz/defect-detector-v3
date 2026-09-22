@@ -142,7 +142,14 @@ public final class PlcFinsPublisher implements AutoCloseable {
     PlcSignalDefinition signal = signalOpt.get();
     CompletableFuture<Void> edge = awaitEdge ? new CompletableFuture<>() : null;
     if (result.overallPass()) {
-      if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
+      Boolean last = lastSignalValues.get(signal.name());
+      // Plastic-handle mode is a state level, not a per-cycle pulse:
+      // PASS->PASS and FAIL->FAIL must not create any PLC activity.
+      if (holdRejectUntilPass && Boolean.FALSE.equals(last)) {
+        if (edge != null) {
+          edge.complete(null);
+        }
+      } else if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     } else if (holdRejectUntilPass && config.pulseMs() > 0) {
@@ -173,6 +180,32 @@ public final class PlcFinsPublisher implements AutoCloseable {
                 result.groupId(),
                 e.getMessage()
         );
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    }
+  }
+
+  /** Raises every configured bucket reject line and waits for the PLC acknowledgements. */
+  public void publishRejectAllGroupsAndAwait(long triggerSequence) {
+    List<PlcSignalDefinition> signals = registerMap.signals().stream()
+        .filter(signal -> signal.bucketGroupId() != null)
+        .sorted(java.util.Comparator.comparingInt(PlcSignalDefinition::bucketGroupId))
+        .toList();
+    for (PlcSignalDefinition signal : signals) {
+      if (Boolean.TRUE.equals(lastSignalValues.get(signal.name()))) {
+        continue;
+      }
+      CompletableFuture<Void> edge = new CompletableFuture<>();
+      if (!enqueue(new WriteBitJob(signal, true, edge))) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
+      try {
+        await(edge);
+      } catch (IOException | InterruptedException | TimeoutException e) {
+        log.warn("plc fins early reject await failed seq={} signal={}: {}",
+            triggerSequence, signal.name(), e.getMessage());
         if (e instanceof InterruptedException) {
           Thread.currentThread().interrupt();
         }

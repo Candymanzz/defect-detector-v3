@@ -60,7 +60,7 @@ public final class BinaryInspectHeaders {
         gHeader.put("maxRotationDeg", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_rotation_deg"), 1.0));
         gHeader.put("maxJointDefectMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_defect_mm"), 0.5));
         gHeader.put("jointMinWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_min_width_mm"), 0.25));
-        gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 3.0));
+        gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 1.6));
         gHeader.put(
                 "maxJointParallelismDeg",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_parallelism_deg"), 5.0)

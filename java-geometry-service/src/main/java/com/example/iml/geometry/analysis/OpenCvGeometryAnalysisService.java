@@ -6,6 +6,8 @@ import com.example.iml.geometry.dto.InspectionRequest;
 import com.example.iml.geometry.dto.InspectionResponse;
 import com.example.iml.geometry.dto.NormPoint;
 import com.example.iml.geometry.dto.RoiRect;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.*;
 import org.opencv.core.KeyPoint;
@@ -14,11 +16,16 @@ import org.opencv.features2d.ORB;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
+
+    private static final Logger log = LogManager.getLogger(OpenCvGeometryAnalysisService.class);
 
     private static final int MAX_ALIGNMENT_DIM = 640;
     private static final int MAX_CIRCLE_DIM = 320;
@@ -120,6 +127,19 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             String referenceCacheKey,
             boolean poseLocked
     ) {
+        return inspectMats(reference, current, request, includeDebugImage, referenceCacheKey, poseLocked, Map.of());
+    }
+
+    public InspectionResponse inspectMats(
+            Mat reference,
+            Mat current,
+            InspectionRequest request,
+            boolean includeDebugImage,
+            String referenceCacheKey,
+            boolean poseLocked,
+            Map<String, Object> logContext
+    ) {
+        long tTotal0 = System.nanoTime();
         Mat alignedCurrent = null;
         Mat debug = null;
         Mat referenceRoi = null;
@@ -127,27 +147,48 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         Mat roiMask = null;
         AlignmentResult alignment = null;
         List<NormPoint> mainPolygon = request.mainRoiPolygonNorm();
+        Map<String, Object> diag = new LinkedHashMap<>();
         try {
             validateInputFrames(reference, current);
 
+            long tPrep0 = System.nanoTime();
             Rect mainRect = resolveMainRect(request, current.cols(), current.rows());
             referenceRoi = cloneRoi(reference, mainRect);
             currentRoi = cloneRoi(current, mainRect);
-            if (mainPolygon != null && mainPolygon.size() >= 3) {
+            boolean polygonMask = mainPolygon != null && mainPolygon.size() >= 3;
+            if (polygonMask) {
                 roiMask = RoiPolygonMask.maskForRect(mainPolygon, mainRect, current.cols(), current.rows());
                 RoiPolygonMask.applyMask(referenceRoi, roiMask);
                 RoiPolygonMask.applyMask(currentRoi, roiMask);
             }
+            double stageMsPrep = nanosToMs(System.nanoTime() - tPrep0);
+            recordStage("prep", tPrep0);
+            diag.put("stage_ms_prep", stageMsPrep);
+            diag.put("frame_w", current.cols());
+            diag.put("frame_h", current.rows());
+            diag.put("roi_x", mainRect.x);
+            diag.put("roi_y", mainRect.y);
+            diag.put("roi_w", mainRect.width);
+            diag.put("roi_h", mainRect.height);
+            diag.put("polygon_mask", polygonMask);
+            diag.put("pose_locked", poseLocked);
+            diag.put("has_joint_roi", request.jointRoi() != null);
+            diag.put("joint_visibility_only", request.jointVisibilityOnly());
 
             long tAlign0 = System.nanoTime();
             if (poseLocked) {
                 // Frame was already warped to the reference pose by java-positioning.
                 // Re-running ORB here often invents a residual H and destroys the lock.
                 alignment = identityAlignment();
+                diag.put("align_skipped_pose_locked", true);
             } else {
                 alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm(), referenceCacheKey);
+                diag.put("align_skipped_pose_locked", false);
             }
+            double stageMsAlign = nanosToMs(System.nanoTime() - tAlign0);
             recordStage("align", tAlign0);
+            diag.put("stage_ms_align", stageMsAlign);
+
             long tWarp0 = System.nanoTime();
             if (poseLocked) {
                 alignedCurrent = current.clone();
@@ -159,15 +200,23 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 RoiPolygonMask.applyMask(alignedCurrentRoi, roiMask);
                 alignedCurrentRoi.release();
             }
+            double stageMsWarp = nanosToMs(System.nanoTime() - tWarp0);
             recordStage("warp", tWarp0);
+            diag.put("stage_ms_warp", stageMsWarp);
 
             long tJoint0 = System.nanoTime();
             JointResult joint = inspectJoint(alignedCurrent, request);
+            double stageMsJoint = nanosToMs(System.nanoTime() - tJoint0);
             recordStage("joint", tJoint0);
+            diag.put("stage_ms_joint", stageMsJoint);
+            diag.put("joint_found", joint.found());
+            diag.put("joint_ran", request.jointRoi() != null);
 
             long tRim0 = System.nanoTime();
             LabelRimSkewAnalyzer.Result rimSkew = inspectRimSkew(alignedCurrent, mainRect, request);
+            double stageMsRim = nanosToMs(System.nanoTime() - tRim0);
             recordStage("rim_skew", tRim0);
+            diag.put("stage_ms_rim_skew", stageMsRim);
 
             long tWrinkles0 = System.nanoTime();
             WrinklesResult wrinkles = inspectWrinkles(
@@ -175,7 +224,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     alignedCurrent,
                     resolveWrinklesRoi(request)
             );
+            double stageMsWrinkles = nanosToMs(System.nanoTime() - tWrinkles0);
             recordStage("wrinkles", tWrinkles0);
+            diag.put("stage_ms_wrinkles", stageMsWrinkles);
 
             double deviationRadiusMm = Math.hypot(alignment.shiftXmm, alignment.shiftYmm);
 
@@ -187,16 +238,22 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             } finally {
                 concentricityRoi.release();
             }
+            double stageMsConcentricity = nanosToMs(System.nanoTime() - tConcentricity0);
             recordStage("concentricity", tConcentricity0);
+            diag.put("stage_ms_concentricity", stageMsConcentricity);
 
             String debugBase64 = "";
+            double stageMsDebug = 0;
             if (includeDebugImage) {
                 long tDebug0 = System.nanoTime();
                 debug = alignedCurrent.clone();
                 drawDebug(debug, mainRect, alignment, deviationRadiusMm, request);
                 debugBase64 = imageCodec.encodeBase64Png(debug);
+                stageMsDebug = nanosToMs(System.nanoTime() - tDebug0);
                 recordStage("debug", tDebug0);
             }
+            diag.put("stage_ms_debug", stageMsDebug);
+            diag.put("debug_written", includeDebugImage);
 
             boolean alignmentPass = poseLocked
                     || (Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
@@ -214,6 +271,49 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             boolean wrinklesPass = poseLocked || wrinkles.score <= request.maxWrinklesScore();
             boolean rimSkewPass = evaluateRimSkewPass(request, rimSkew);
             boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass && rimSkewPass;
+
+            double stageMsTotal = nanosToMs(System.nanoTime() - tTotal0);
+            diag.put("stage_ms_total", stageMsTotal);
+            diag.put("status", overallPass ? "PASS" : "FAIL");
+
+            log.info(
+                    "geometry_usage {} status={} pose_locked={} total_ms={} "
+                            + "prep_ms={} align_ms={} align_skipped={} warp_ms={} "
+                            + "joint_ms={} joint_ran={} joint_found={} "
+                            + "rim_ms={} wrinkles_ms={} concentricity_ms={} debug_ms={} "
+                            + "shift=({}, {}) rot={} conc_mm={} "
+                            + "joint_par={} joint_w={} joint_vis={} wrinkle={} rim_skew={} "
+                            + "pass_align={} pass_conc={} pass_joint={} pass_wrinkle={} pass_rim={}",
+                    ctx(logContext),
+                    overallPass ? "PASS" : "FAIL",
+                    poseLocked,
+                    fmt(stageMsTotal),
+                    fmt(stageMsPrep),
+                    fmt(stageMsAlign),
+                    poseLocked,
+                    fmt(stageMsWarp),
+                    fmt(stageMsJoint),
+                    request.jointRoi() != null,
+                    joint.found(),
+                    fmt(stageMsRim),
+                    fmt(stageMsWrinkles),
+                    fmt(stageMsConcentricity),
+                    fmt(stageMsDebug),
+                    fmt(alignment.shiftXmm),
+                    fmt(alignment.shiftYmm),
+                    fmt(alignment.rotationDeg),
+                    fmt(concentricity.deviationMm()),
+                    fmt(joint.parallelismDeg()),
+                    fmt(joint.widthMm()),
+                    fmt(joint.visibility()),
+                    fmt(wrinkles.score),
+                    fmt(rimSkew.skewDeg()),
+                    alignmentPass,
+                    concentricityPass,
+                    jointPass,
+                    wrinklesPass,
+                    rimSkewPass
+            );
 
             return new InspectionResponse(
                     alignment.shiftXmm,
@@ -241,7 +341,8 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     rimSkewPass,
                     overallPass,
                     debugBase64,
-                    overallPass ? "PASS" : "FAIL"
+                    overallPass ? "PASS" : "FAIL",
+                    diag
             );
         } finally {
             release(referenceRoi, currentRoi, roiMask, debug, alignedCurrent);
@@ -249,6 +350,29 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 alignment.homographyRefToCurrent.release();
             }
         }
+    }
+
+    private static double nanosToMs(long nanos) {
+        return nanos / 1_000_000.0;
+    }
+
+    private static String fmt(double v) {
+        if (!Double.isFinite(v)) {
+            return "NaN";
+        }
+        return String.format(Locale.ROOT, "%.3f", v);
+    }
+
+    private static String ctx(Map<String, Object> logContext) {
+        if (logContext == null || logContext.isEmpty()) {
+            return "";
+        }
+        Object cam = logContext.get("camera_id");
+        Object frame = logContext.get("frame_id");
+        if (cam == null && frame == null) {
+            return "";
+        }
+        return "cam=" + cam + " frame=" + frame;
     }
 
     private AlignmentResult identityAlignment() {

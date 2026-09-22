@@ -1,5 +1,7 @@
 package com.example.iml.geometry.dto;
 
+import java.util.Map;
+
 public record InspectionResponse(
         double shiftXmm,
         double shiftYmm,
@@ -28,6 +30,10 @@ public record InspectionResponse(
         boolean rimSkewPass,
         boolean overallPass,
         String debugImageBase64,
-        String status
+        String status,
+        Map<String, Object> diagnostics
 ) {
+    public InspectionResponse {
+        diagnostics = diagnostics == null ? Map.of() : Map.copyOf(diagnostics);
+    }
 }

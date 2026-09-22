@@ -206,6 +206,26 @@ class LabelSeamAnalyzerTest {
     }
 
     @Test
+    void segmenterReportsSustainedLocalOpeningInsteadOfHidingItInFittedMean() {
+        Mat roi = new Mat(120, 260, CvType.CV_8UC3, new Scalar(30, 30, 30));
+        try {
+            // Most of the seam is 20 px (0.4 mm), but a sustained central section
+            // opens to 100 px (2.0 mm). The old fitLine mean flattened this opening.
+            Imgproc.rectangle(roi, new Point(10, 50), new Point(250, 70), new Scalar(220, 220, 220), -1);
+            Imgproc.rectangle(roi, new Point(100, 10), new Point(160, 110), new Scalar(220, 220, 220), -1);
+
+            LabelSeamAnalyzer.Result result = LabelSeamBandSegmenter.analyze(
+                    roi, null, 0.02, 0.25, 1.6, 0.0);
+
+            assertTrue(result.found(), "segmented seam must be found");
+            assertTrue(result.widthMm() > 1.6, "local 2 mm opening must exceed reject threshold: " + result.widthMm());
+            assertTrue(result.defectMm() > 0.0, "local opening must be reported as a width defect");
+        } finally {
+            roi.release();
+        }
+    }
+
+    @Test
     void estimateAxisDegFromHorizontalOrientedRect() {
         // Oriented rect: long sides horizontal (y≈0.4 and y≈0.6), short vertical.
         List<NormPoint> poly = List.of(
