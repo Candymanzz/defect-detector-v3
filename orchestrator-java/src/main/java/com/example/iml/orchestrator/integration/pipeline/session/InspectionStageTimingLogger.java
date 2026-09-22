@@ -34,7 +34,8 @@ public final class InspectionStageTimingLogger {
         long pipelineMs = state.captureMs() + positioningMs + state.geometryMs() + state.pythonMs() + decisionMs + fanoutMs;
         log.info("stage_timing cam={} frame={} total_ms={} pipeline_ms={} reference_ms={} capture_ms={} positioning_ms={} "
                         + "python_ms={} geometry_ms={} decision_ms={} fanout_ms={} "
-                        + "pos_orb_ms={} pos_warp_ms={} pos_ecc_ms={} pos_write_ms={} "
+                        + "pos_coarse_ms={} pos_orb_ms={} pos_warp_ms={} pos_polish_ms={} pos_ecc_ms={} pos_post_polish_ms={} pos_write_ms={} "
+                        + "pos_coarse_used={} pos_orb_applied={} pos_polish_used={} pos_ecc_skip={} pos_ecc_applied={} pos_post_polish_used={} "
                         + "py_align_ms={} py_diff_ms={} py_anomaly_ms={} py_fp_recheck_ms={} py_heatmap_ms={} py_total_ms={}",
                 cameraId,
                 decision.frameId(),
@@ -47,10 +48,19 @@ public final class InspectionStageTimingLogger {
                 state.geometryMs(),
                 decisionMs,
                 fanoutMs,
+                YamlScalars.toDouble(capHeader.get("positioning_stage_ms_coarse"), 0.0),
                 YamlScalars.toDouble(capHeader.get("positioning_stage_ms_orb"), 0.0),
                 YamlScalars.toDouble(capHeader.get("positioning_stage_ms_warp"), 0.0),
+                YamlScalars.toDouble(capHeader.get("positioning_stage_ms_residual_polish"), 0.0),
                 YamlScalars.toDouble(capHeader.get("positioning_stage_ms_ecc"), 0.0),
+                YamlScalars.toDouble(capHeader.get("positioning_stage_ms_post_ecc_polish"), 0.0),
                 YamlScalars.toDouble(capHeader.get("positioning_stage_ms_write"), 0.0),
+                capHeader.get("positioning_coarse_used"),
+                capHeader.get("positioning_orb_applied"),
+                capHeader.get("positioning_residual_polish"),
+                capHeader.get("positioning_ecc_skipped"),
+                capHeader.get("positioning_ecc_applied"),
+                capHeader.get("positioning_post_ecc_polish"),
                 YamlScalars.toDouble(pyHeader.get("py_align_ms"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("py_diff_ms"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("py_anomaly_ms"), 0.0),

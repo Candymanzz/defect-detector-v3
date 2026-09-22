@@ -88,6 +88,15 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
         row.put("positioning_warp_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_warp"), 0.0));
         row.put("positioning_ecc_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_ecc"), 0.0));
         row.put("positioning_write_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_write"), 0.0));
+        row.put("positioning_coarse_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_coarse"), 0.0));
+        row.put("positioning_polish_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_residual_polish"), 0.0));
+        row.put("positioning_post_polish_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_post_ecc_polish"), 0.0));
+        row.put("positioning_coarse_used", capHeader.get("positioning_coarse_used"));
+        row.put("positioning_orb_applied", capHeader.get("positioning_orb_applied"));
+        row.put("positioning_ecc_skipped", capHeader.get("positioning_ecc_skipped"));
+        row.put("positioning_ecc_applied", capHeader.get("positioning_ecc_applied"));
+        row.put("positioning_residual_polish", capHeader.get("positioning_residual_polish"));
+        row.put("positioning_post_ecc_polish", capHeader.get("positioning_post_ecc_polish"));
         row.put("python_ms", state.pythonMs());
         row.put("geometry_ms", state.geometryMs());
         row.put("capture_s", state.captureMs() / 1000.0);

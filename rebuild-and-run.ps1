@@ -19,6 +19,7 @@ Set-Location $RepoRoot
 
 $OrchestratorJar = Join-Path $RepoRoot "orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar"
 $GeometryJar = Join-Path $RepoRoot "java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar"
+$PositioningJar = Join-Path $RepoRoot "java-positioning-service\target\java-positioning-service-0.1.0-SNAPSHOT.jar"
 $PythonBackend = Join-Path $RepoRoot "analisSurface\backend"
 $PythonVenv = Join-Path $PythonBackend ".venv"
 $PythonExe = Join-Path $PythonVenv "Scripts\python.exe"
@@ -103,6 +104,13 @@ Invoke-BuildStep "Build java-geometry-service" {
     Pop-Location
 }
 if (-not (Test-Path $GeometryJar)) { throw "Build failed: $GeometryJar" }
+
+Invoke-BuildStep "Build java-positioning-service" {
+    Push-Location (Join-Path $RepoRoot "java-positioning-service")
+    mvn -q package -DskipTests
+    Pop-Location
+}
+if (-not (Test-Path $PositioningJar)) { throw "Build failed: $PositioningJar" }
 
 Invoke-BuildStep "Python venv + pip" {
     if (-not (Test-Path $PythonVenv)) {

@@ -70,6 +70,22 @@ public final class PositioningHeaderMapper {
             // Flat keys only — nested Map is fine for Jackson, but keep one level for consumers.
             Map<String, Object> sanitizedDiag = sanitizeDiag(response.diagnostics());
             out.put("diagnostics", sanitizedDiag);
+            // Promote split stage timings / usage flags to top-level for orchestrator grep.
+            copyDiagNum(out, sanitizedDiag, "stage_ms_coarse");
+            copyDiagNum(out, sanitizedDiag, "stage_ms_residual_polish");
+            copyDiagNum(out, sanitizedDiag, "stage_ms_post_ecc_polish");
+            copyDiagBool(out, sanitizedDiag, "coarse_used");
+            copyDiagBool(out, sanitizedDiag, "coarse_rejected");
+            copyDiagBool(out, sanitizedDiag, "coarse_residual_fallback");
+            copyDiagBool(out, sanitizedDiag, "orb_applied");
+            copyDiagBool(out, sanitizedDiag, "orb_fullframe_fallback");
+            copyDiagBool(out, sanitizedDiag, "orb_rejected_quality");
+            copyDiagBool(out, sanitizedDiag, "orb_failed");
+            copyDiagBool(out, sanitizedDiag, "residual_polish");
+            copyDiagBool(out, sanitizedDiag, "ecc_skipped");
+            copyDiagBool(out, sanitizedDiag, "ecc_applied");
+            copyDiagBool(out, sanitizedDiag, "ecc_rejected");
+            copyDiagBool(out, sanitizedDiag, "post_ecc_residual_polish");
             for (Map.Entry<String, Object> e : sanitizedDiag.entrySet()) {
                 String key = e.getKey();
                 if ("status".equals(key) || "ref_cache_key".equals(key)) {
@@ -79,6 +95,20 @@ public final class PositioningHeaderMapper {
             }
         }
         return out;
+    }
+
+    private static void copyDiagNum(Map<String, Object> out, Map<String, Object> diag, String key) {
+        Object v = diag.get(key);
+        if (v instanceof Number n) {
+            out.put(key, jsonNum(n.doubleValue()));
+        }
+    }
+
+    private static void copyDiagBool(Map<String, Object> out, Map<String, Object> diag, String key) {
+        Object v = diag.get(key);
+        if (v instanceof Boolean b) {
+            out.put(key, b);
+        }
     }
 
     /** Jackson cannot encode NaN/Inf — that turned every positioning RPC into MSG_ERROR. */
