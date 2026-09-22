@@ -113,7 +113,7 @@ public final class FrameArchiveService implements AutoCloseable {
             long inspectionId,
             boolean overallPass,
             String action,
-            double anomalyScore,
+            Double anomalyScore,
             String pythonStatus,
             String geometryStatus,
             String productType,
@@ -508,7 +508,11 @@ public final class FrameArchiveService implements AutoCloseable {
         if (decision != null) {
             root.put("overall_pass", decision.overallPass());
             root.put("action", decision.action());
-            root.put("anomaly_score", decision.anomalyScore());
+            if (decision.hasAnomalyScore()) {
+                root.put("anomaly_score", decision.anomalyScore());
+            } else {
+                root.putNull("anomaly_score");
+            }
             root.put("python_status", decision.pythonStatus());
             root.put("geometry_status", decision.geometryStatus());
             if (decision.geometry() != null && !decision.geometry().isEmpty()) {
@@ -574,7 +578,9 @@ public final class FrameArchiveService implements AutoCloseable {
             long inspectionId = parseLong(root.get("inspection_id"), frameId);
             boolean overallPass = Boolean.TRUE.equals(root.get("overall_pass"));
             String action = stringValue(root.get("action"));
-            double anomalyScore = parseDouble(root.get("anomaly_score"));
+            Double anomalyScore = root.get("anomaly_score") instanceof Number
+                    ? parseDouble(root.get("anomaly_score"))
+                    : null;
             String pythonStatus = stringValue(root.get("python_status"));
             String geometryStatus = stringValue(root.get("geometry_status"));
             String productType = stringValue(root.get("product_type"));

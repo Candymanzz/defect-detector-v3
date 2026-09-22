@@ -158,18 +158,24 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 pyHeader = BinaryInspectHeaders.pythonInspectHeader(
                         cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
                 long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
-                pyHeader.put(
-                        "heatmap_u8_output_path",
-                        FrameJpegWriter.imlShmFilePath(
-                                "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
-                        ).toString()
+                boolean deferHeatmap = YamlScalars.toBool(
+                        pythonCfg == null ? null : pythonCfg.get("defer_heatmap"),
+                        false
                 );
-                pyHeader.put(
-                        "heatmap_max_width",
-                        Math.max(1, YamlScalars.toInt(
-                                pythonCfg == null ? null : pythonCfg.get("heatmap_preview_max_width"), 512
-                        ))
-                );
+                if (!deferHeatmap) {
+                    pyHeader.put(
+                            "heatmap_u8_output_path",
+                            FrameJpegWriter.imlShmFilePath(
+                                    "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
+                            ).toString()
+                    );
+                    pyHeader.put(
+                            "heatmap_max_width",
+                            Math.max(1, YamlScalars.toInt(
+                                    pythonCfg == null ? null : pythonCfg.get("heatmap_preview_max_width"), 512
+                            ))
+                    );
+                }
                 applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
                 Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
                 if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
@@ -179,11 +185,11 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                         pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
                         1.0
                 );
-                boolean captureAlreadyDownscaled = state.capture() != null
-                        && state.capture().header() != null
-                        && YamlScalars.toDouble(state.capture().header().get("downscale_scale"), 1.0d) < 0.999d;
-                if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
-                    PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
+                if (inspectScale < 0.999d) {
+                    // Keep current/reference SHM descriptors at the same full resolution.
+                    // Python aligns first and then resizes the pair atomically, avoiding
+                    // the historic full-reference/downscaled-frame mismatch.
+                    pyHeader.put("inspect_scale", inspectScale);
                 }
             }
             pythonSlots.acquire();

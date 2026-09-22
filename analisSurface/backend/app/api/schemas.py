@@ -225,6 +225,9 @@ class ShmFrameRequest(BaseModel):
     skip_learning_review: bool = False
     defer_learning_review: bool = False
     test_analyze: bool = False
+    # Applied inside Python after full-resolution alignment to the reference.
+    # Both the aligned frame and reference are resized together.
+    inspect_scale: Optional[float] = None
     heatmap_u8_output_path: Optional[str] = None
     heatmap_max_width: Optional[int] = None
 
@@ -248,7 +251,7 @@ class TestFrameInspectRequest(BaseModel):
     pro: Optional[ProSettingsKnobs] = None
     heatmap_u8_output_path: Optional[str] = None
     heatmap_max_width: Optional[int] = None
-    # Match production inspect_shm when orchestrator uses python_detector.inspect_scale.
+    # Match production /inspect-shm scaling for UI test analysis.
     inspect_scale: Optional[float] = None
     aligned_image_u8_output_path: Optional[str] = None
     diff_map_u8_output_path: Optional[str] = None

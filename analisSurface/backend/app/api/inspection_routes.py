@@ -213,6 +213,9 @@ def _inspect_shm_sync(
     force_skip_learning_review: bool = False,
 ):
     _sync_request_roi(payload.product_type, payload.roi_polygon_norm)
+    inspect_scale = payload.inspect_scale
+    if inspect_scale is not None and (not 0.0 < inspect_scale <= 1.0):
+        raise ValueError("inspect_scale must be in (0, 1]")
     frame = _copy_shm_bgr_frame(payload)
     temporary_overrides = None
     if payload.analysis_test_settings:
@@ -258,6 +261,7 @@ def _inspect_shm_sync(
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
         analysis_profile=payload.analysis_profile,
         temporary_analysis_overrides=temporary_overrides,
+        inspect_scale_after_align=inspect_scale,
         store_learning_review=not (
             force_skip_learning_review or payload.skip_learning_review or payload.test_analyze
         ),

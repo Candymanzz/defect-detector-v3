@@ -23,6 +23,24 @@ public record InspectionDecision(
         geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
     }
 
+    /**
+     * A failed/missing analysis response is fail-safe REJECT, but it did not
+     * actually measure an anomaly. Do not expose the internal numeric fallback
+     * as a real zero score to operators.
+     */
+    public boolean hasAnomalyScore() {
+        if (!Double.isFinite(anomalyScore) || pythonStatus == null) {
+            return false;
+        }
+        String status = pythonStatus.trim().toUpperCase(java.util.Locale.ROOT);
+        return !status.isEmpty()
+                && !"UNKNOWN".equals(status)
+                && !"FAIL".equals(status)
+                && !"ERROR".equals(status)
+                && !"NO_REFERENCE".equals(status)
+                && !"SKIPPED".equals(status);
+    }
+
     public static InspectionDecision captureOnly(int cameraId, long frameId) {
         return new InspectionDecision(
                 cameraId,

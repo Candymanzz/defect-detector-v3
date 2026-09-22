@@ -82,7 +82,7 @@ internal sealed class IoCaptureGate
 
     public bool IsSelectedForward => SelectedDirection == IoLineDirection.Forward;
 
-    /// <summary>UI / HTTP: forward|reverse (отображение). На DO5 не влияет — фильтр только DI2.</summary>
+    /// <summary>UI / HTTP: forward|reverse. DO5 fires only when the physical DI2 direction matches.</summary>
     public IoCaptureDecision SetSelectedDirection(string? wireValue)
     {
         IoLineDirection? parsed = ParseDirection(wireValue);
@@ -95,6 +95,14 @@ internal sealed class IoCaptureGate
                 return IoCaptureDecision.None;
 
             _selectedDirection = parsed.Value;
+            // A direction change starts a new capture window. Re-evaluate the
+            // current DI2 level immediately so reverse (DI2=0) can arm without
+            // waiting for another DI2 edge.
+            _directionArmed = false;
+            _directionLatched = false;
+            _captureFiredThisPulse = false;
+            _captureFiredThisDi2Window = false;
+            TryArmFromCurrentDirection();
             return IoCaptureDecision.DirectionModeChanged;
         }
     }
@@ -129,10 +137,10 @@ internal sealed class IoCaptureGate
 
             if (port == _directionPort)
             {
-                bool prevHigh = _directionKnown && MapDirection(_directionRawActive);
+                bool prevHigh = _directionKnown && MatchesSelectedDirection(_directionRawActive);
                 _directionRawActive = active;
                 _directionKnown = true;
-                bool nowHigh = MapDirection(active);
+                bool nowHigh = MatchesSelectedDirection(active);
 
                 // Новое окно DI2=1 / конец окна — снова разрешаем один DI3.
                 if (prevHigh != nowHigh)
@@ -153,7 +161,7 @@ internal sealed class IoCaptureGate
                 return IoCaptureDecision.None;
 
             IoCaptureDecision decision = IoCaptureDecision.None;
-            bool di2High = _directionKnown && MapDirection(_directionRawActive);
+            bool di2High = _directionKnown && MatchesSelectedDirection(_directionRawActive);
             if (risingEdge && active && !_triggerActive)
             {
                 if (_requireDirection && !_directionArmed)
@@ -240,7 +248,8 @@ internal sealed class IoCaptureGate
                     : $"один раз DI{_directionPort}=1, далее DI{_triggerPort}↑{disarmHint}";
             }
 
-            return $"DI{_directionPort}=1 затем DI{_triggerPort}↑";
+            int expectedLevel = _selectedDirection == IoLineDirection.Forward ? 1 : 0;
+            return $"DI{_directionPort}={expectedLevel} затем DI{_triggerPort}↑";
         }
     }
 
@@ -261,8 +270,8 @@ internal sealed class IoCaptureGate
             return;
         }
 
-        bool forward = MapDirection(_directionRawActive);
-        if (forward)
+        bool matches = MatchesSelectedDirection(_directionRawActive);
+        if (matches)
         {
             _directionArmed = true;
             if (_directionLatch)
@@ -277,6 +286,14 @@ internal sealed class IoCaptureGate
 
     private bool MapDirection(bool raw) =>
         _directionInvert ? !raw : raw;
+
+    private bool MatchesSelectedDirection(bool raw)
+    {
+        bool physicalForward = MapDirection(raw);
+        return _selectedDirection == IoLineDirection.Forward
+            ? physicalForward
+            : !physicalForward;
+    }
 
     internal static IoLineDirection? ParseDirection(string? raw)
     {

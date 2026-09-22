@@ -19,6 +19,7 @@ import {
   hasImmutableInspectArtifact,
   isPreviewFrameNewerOrEqual,
   isInspectionCounterReset,
+  inspectionHistoryLimit,
   latestSnapshotToInspectResult,
   loadArchivedInspectionHistory,
   loadMainOverviewData,
@@ -1199,7 +1200,10 @@ function mergeInspectionStats(
         if (item.result === "capture") {
           return items;
         }
-        return [item, ...items.filter((existingItem) => existingItem.frameId !== item.frameId)];
+        return trimInspectionStatsItems([
+          item,
+          ...items.filter((existingItem) => existingItem.frameId !== item.frameId),
+        ]);
       }, currentItems);
     }
     return merged;
@@ -1225,9 +1229,16 @@ function addInspectionStatsItem(
     };
     return {
       ...current,
-      [inspectResult.camera_id]: [nextItem, ...cameraStats.filter((item) => item.frameId !== nextItem.frameId)],
+      [inspectResult.camera_id]: trimInspectionStatsItems([
+        nextItem,
+        ...cameraStats.filter((item) => item.frameId !== nextItem.frameId),
+      ]),
     };
   });
+}
+
+export function trimInspectionStatsItems(items: InspectionHistoryItem[]) {
+  return items.slice(0, inspectionHistoryLimit);
 }
 
 function createInspectionStatsCounts(historyByCameraId: Record<number, InspectionHistoryItem[]>) {

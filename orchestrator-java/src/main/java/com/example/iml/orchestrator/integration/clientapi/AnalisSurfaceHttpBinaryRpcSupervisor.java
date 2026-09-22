@@ -873,6 +873,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         copyIfPresent(body, header, "roi_polygon_norm");
         copyIfPresent(body, header, "heatmap_u8_output_path");
         copyIfPresent(body, header, "heatmap_max_width");
+        copyIfPresent(body, header, "inspect_scale");
         if (YamlScalars.toBool(header.get("test_analyze"), false)
                 || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
             body.put("skip_learning_review", true);

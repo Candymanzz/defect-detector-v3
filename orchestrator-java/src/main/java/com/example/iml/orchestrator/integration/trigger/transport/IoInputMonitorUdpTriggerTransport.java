@@ -422,13 +422,13 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     captureFiredThisPulse = false;
                     di3RiseEpochMs = System.currentTimeMillis();
                     boolean directionOk = !ioInputConfig.requireDirection()
-                            || (ioInputConfig.directionLatch() ? directionLatched : directionActive);
+                            || (ioInputConfig.directionLatch() ? directionLatched : directionMatchesSelected());
                     if (!directionOk) {
                         log.info(
                                 "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
                                 directionSourceLabel()
                         );
-                    } else if (directionActive && captureFiredThisDi2Window) {
+                    } else if (directionMatchesSelected() && captureFiredThisDi2Window) {
                         log.info(
                                 "io_input_trigger skip DI3↑: холостой (уже сняли при DI2=1), source={}",
                                 directionSourceLabel()
@@ -691,8 +691,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (captureFiredThisPulse) {
             return;
         }
-        if (directionActive && captureFiredThisDi2Window) {
-            log.info("io_input_trigger skip: холостой DI3 (уже сняли при DI2=1)");
+        if (directionMatchesSelected() && captureFiredThisDi2Window) {
+            log.info("io_input_trigger skip: холостой DI3 (уже сняли в выбранном направлении)");
             return;
         }
         if (ioInputConfig.requireWork() && !isEffectiveWork()) {
@@ -719,7 +719,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
-            if (directionActive) {
+            if (directionMatchesSelected()) {
                 captureFiredThisDi2Window = true;
             }
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
@@ -743,19 +743,25 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         return bus.dispatchLineBroadcast("io_input", seq, targetCameras);
     }
 
-    /**
-     * UI «Прямой/Обратный» не фильтрует. При {@code require_direction} — DI2=1
-     * (или уже latched после первого DI2=1).
-     */
+    /** UI direction and physical DI2 direction must agree before capture. */
     private boolean allowsCaptureForSelectedDirection() {
         if (!ioInputConfig.requireDirection()) {
             return true;
         }
-        if (ioInputConfig.directionLatch() ? directionLatched : directionActive) {
+        if (ioInputConfig.directionLatch() ? directionLatched : directionMatchesSelected()) {
             return true;
         }
-        log.info("io_input_trigger skip: DI2=0 (need direction before DI3 capture)");
+        log.info(
+                "io_input_trigger skip: physical_direction={} selected_direction={}",
+                directionActive ? "forward" : "reverse",
+                manualLineDirection == null ? "forward" : manualLineDirection.wireValue()
+        );
         return false;
+    }
+
+    private boolean directionMatchesSelected() {
+        boolean selectedForward = manualLineDirection == null || manualLineDirection.isForward();
+        return selectedForward == directionActive;
     }
 
     private String effectiveDirectionWire() {

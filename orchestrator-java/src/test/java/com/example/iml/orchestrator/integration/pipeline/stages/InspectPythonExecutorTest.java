@@ -150,7 +150,7 @@ class InspectPythonExecutorTest {
                 "bench",
                 "detector-1",
                 reference(),
-                Map.of(),
+                Map.of("defer_heatmap", true, "inspect_scale", 0.75),
                 List.of(python),
                 new Semaphore(1),
                 new AtomicInteger(0)
@@ -159,6 +159,9 @@ class InspectPythonExecutorTest {
         assertEquals(BinaryProtocol.MSG_RESPONSE, result.py().type());
         assertTrue(Boolean.TRUE.equals(result.py().header().get("ok")));
         assertEquals(3, sentHeader.get().get("camera_id"));
+        assertFalse(sentHeader.get().containsKey("heatmap_u8_output_path"));
+        assertFalse(sentHeader.get().containsKey("heatmap_max_width"));
+        assertEquals(0.75, ((Number) sentHeader.get().get("inspect_scale")).doubleValue(), 1e-9);
         assertTrue(result.pythonMs() >= 0);
     }
 

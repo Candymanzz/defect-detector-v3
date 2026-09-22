@@ -104,15 +104,19 @@ public class IoCaptureGateTests
     }
 
     [Fact]
-    public void UiSwitchDoesNotChangeDi2ArmRule()
+    public void UiSwitchToReverseRequiresDi2Low()
     {
         var gate = CreateGate();
         gate.SeedDirection(true);
         Assert.True(gate.IsDirectionArmed);
 
         gate.SetSelectedDirection("reverse");
-        Assert.True(gate.IsDirectionArmed);
+        Assert.False(gate.IsDirectionArmed);
         Assert.Equal("reverse", gate.SelectedWireValue);
+        Assert.Equal(IoCaptureDecision.SkipNoDirection, gate.Evaluate(3, true, risingEdge: true));
+
+        gate.Evaluate(2, false, risingEdge: false);
+        Assert.True(gate.IsDirectionArmed);
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
     }
 

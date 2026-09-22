@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pytest
 
+from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import expand_simple
 from app.services.inspection_geometry import (
     polygon_area,
@@ -14,6 +15,38 @@ from app.services.inspection_geometry import (
     validate_polygon_points,
 )
 from app.services.inspection_service import InspectionService
+
+
+def test_fp_zones_are_refreshed_between_server_processes(tmp_path: Path) -> None:
+    services = [
+        InspectionService(
+            learned_normals_dir=tmp_path / f"accepted-{index}",
+            reviews_dir=tmp_path / f"reviews-{index}",
+            session_wipe=True,
+        )
+        for index in range(2)
+    ]
+    for service in services:
+        service._anomaly_engine = None
+        service._fp_zones_file = tmp_path / "fp_zones.json"
+        service._fp_crops_dir = tmp_path / "fp_zone_crops"
+        service._fp_zones_generation = None
+        service._load_fp_zones()
+
+    writer, inspection_worker = services
+    zone = writer.add_fp_zone(
+        "camera-1::part-a",
+        [(0.1, 0.1), (0.3, 0.1), (0.3, 0.3), (0.1, 0.3)],
+        32,
+        32,
+        aligned=np.zeros((32, 32, 3), dtype=np.uint8),
+        reference_hash="reference-v1",
+    )
+
+    assert [item.id for item in inspection_worker.get_fp_zones("camera-1::part-a")] == [zone.id]
+
+    assert writer.delete_fp_zone(zone.id) is True
+    assert inspection_worker.get_fp_zones("camera-1::part-a") == []
 
 
 def test_validate_polygon_points_rejects_out_of_range() -> None:
@@ -39,6 +72,90 @@ def test_vertical_compensation_is_smooth_bounded_and_top_weighted() -> None:
     assert np.all(np.diff(gain) <= 1e-6)
     # The compensation is already gone before the lowest quarter of the frame.
     assert gain[75] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
+def test_thin_scratch_rejects_in_both_principal_directions(
+    inspection_service: InspectionService,
+    orientation: str,
+) -> None:
+    reference = np.full((180, 260, 3), 80, dtype=np.uint8)
+    current = reference.copy()
+    if orientation == "horizontal":
+        cv2.line(current, (45, 90), (215, 90), (145, 145, 145), 2, cv2.LINE_AA)
+    else:
+        cv2.line(current, (130, 20), (130, 160), (145, 145, 145), 2, cv2.LINE_AA)
+
+    inspection_service._anomaly_engine = None
+    inspection_service.set_reference_frame(f"scratch-{orientation}", reference)
+    result = inspection_service.inspect_frame(
+        f"scratch-{orientation}",
+        current,
+        threshold=0.45,
+        include_visuals=False,
+        alignment_h_ref_to_cur=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    )
+
+    assert result.status == "БРАК"
+    assert result.anomaly_score > result.threshold
+
+
+def test_min_diff_signal_is_also_binary_threshold(
+    inspection_service: InspectionService,
+) -> None:
+    diff = np.zeros((100, 100, 3), dtype=np.uint8)
+    diff[40:50, 40:50] = 9
+    settings = AnalysisSettings.from_overrides(
+        {"use_patchcore": False, "min_diff_signal": 8.0, "min_defect_area": 4}
+    )
+
+    score, mask = inspection_service._run_anomaly_model(diff, settings)
+
+    assert score > 0.0
+    assert np.count_nonzero(mask) > 0
+
+
+def test_component_intensity_increases_local_score(
+    inspection_service: InspectionService,
+) -> None:
+    settings = AnalysisSettings.from_overrides(
+        {"use_patchcore": False, "min_diff_signal": 8.0, "min_defect_area": 4}
+    )
+    weak = np.zeros((100, 100, 3), dtype=np.uint8)
+    strong = weak.copy()
+    weak[40:50, 40:50] = 30
+    strong[40:50, 40:50] = 120
+
+    weak_score, _ = inspection_service._run_anomaly_model(weak, settings)
+    strong_score, _ = inspection_service._run_anomaly_model(strong, settings)
+
+    assert strong_score > weak_score
+
+
+def test_unchanged_full_roi_reuses_initial_anomaly_pass(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspection_service.set_reference_frame("single-pass", gray_frame)
+    calls = 0
+    original = inspection_service._run_anomaly_model
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(inspection_service, "_run_anomaly_model", counted)
+    inspection_service.inspect_frame(
+        "single-pass",
+        gray_frame.copy(),
+        threshold=0.25,
+        include_visuals=False,
+        alignment_h_ref_to_cur=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    )
+
+    assert calls == 1
 
 
 def test_inspect_identical_frames_passes(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
@@ -1008,6 +1125,34 @@ def test_far_position_gate_is_invariant_to_inspect_scale(
 
     assert result.learned_normal_matches_count == 0
     assert result.status == "БРАК"
+
+
+def test_inspect_scale_resizes_aligned_frame_and_reference_as_one_pair(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((160, 240, 3), 80, dtype=np.uint8)
+    current = reference.copy()
+    current[50:75, 90:120] = 140
+    product_type = "scaled-pair"
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame(product_type, reference)
+    full_resolution_reference_hash = inspection_service._reference_hashes[product_type]
+
+    result = inspection_service.inspect_frame(
+        product_type,
+        current,
+        threshold=0.5,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+        inspect_scale_after_align=0.75,
+    )
+
+    assert inspection_service._last_aligned[product_type].shape[:2] == (120, 180)
+    assert inspection_service._last_diff_maps[product_type].shape[:2] == (120, 180)
+    assert inspection_service._reference_hashes[product_type] == full_resolution_reference_hash
+    review = inspection_service.get_learning_review(result.inspection_id)
+    assert review is not None
+    assert review["reference_hash"] == full_resolution_reference_hash
 
 
 def test_learned_normal_does_not_follow_smaller_fragmented_shape_to_new_position(

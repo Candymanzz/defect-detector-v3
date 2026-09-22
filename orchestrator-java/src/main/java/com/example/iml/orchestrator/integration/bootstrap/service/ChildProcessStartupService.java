@@ -217,7 +217,11 @@ public final class ChildProcessStartupService {
         ctx.setGeometrySnapshotCache(new GeometrySnapshotCache());
         ctx.setGeometryRuntimeConfig(new GeometryRuntimeConfig(openGeometryRuntimeStore(ctx.projectRoot())));
         ctx.setInspectionGate(PerCameraInspectionGate.fromCameras(ctx.cameras()));
-        ctx.setManualLineDirection(new ManualLineDirectionService());
+        ManualLineDirectionService manualLineDirection = new ManualLineDirectionService();
+        var ioDirectionClient = com.example.iml.orchestrator.integration.trigger.IoInputMonitorDirectionClient
+                .fromIntegration(log, ctx.integration());
+        manualLineDirection.setOnChanged(ioDirectionClient::publishDirection);
+        ctx.setManualLineDirection(manualLineDirection);
         ctx.setPlcFinsHolder(new PlcFinsServiceHolder());
         var clientWsHolder = new com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder();
         ctx.setClientWsHolder(clientWsHolder);

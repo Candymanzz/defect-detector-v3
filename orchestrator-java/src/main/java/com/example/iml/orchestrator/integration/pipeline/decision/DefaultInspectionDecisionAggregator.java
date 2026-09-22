@@ -77,7 +77,7 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
                     decision.action(),
                     pythonPass,
                     decision.pythonStatus(),
-                    anomalyScore,
+                    decision.hasAnomalyScore() ? anomalyScore : null,
                     pyResp == null || pyResp.header() == null ? null : pyResp.header().get("threshold"),
                     geometryPass,
                     decision.geometryStatus(),
@@ -95,7 +95,7 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
 
     private static boolean isGeometryPass(BinaryProtocol.Message geomResp) {
         if (geomResp == null) {
-            return true;
+            return false;
         }
         if (geomResp.header() != null
                 && "SKIPPED".equals(String.valueOf(geomResp.header().getOrDefault("status", "")))) {

@@ -88,10 +88,12 @@ public final class CameraPreviewHttpController implements HttpController {
                 return;
             }
             if (uri.endsWith("/current.jpg") && l.currentJpeg() != null && Files.isRegularFile(l.currentJpeg())) {
+                setEphemeralArtifactCacheHeaders(ctx);
                 HttpResponses.send(ctx, 200, "image/jpeg", Files.readAllBytes(l.currentJpeg()));
                 return;
             }
             if (uri.endsWith("/heatmap.u8") && l.heatmapU8() != null && Files.isRegularFile(l.heatmapU8())) {
+                setEphemeralArtifactCacheHeaders(ctx);
                 HttpResponses.send(ctx, 200, "application/octet-stream", Files.readAllBytes(l.heatmapU8()));
                 return;
             }
@@ -159,8 +161,17 @@ public final class CameraPreviewHttpController implements HttpController {
             HttpResponses.notFound(ctx);
             return;
         }
-        ctx.exchange().getResponseHeaders().set("Cache-Control", "private, max-age=31536000, immutable");
+        // Inspection bundles live for only a couple of minutes and every frame
+        // has a new token. Marking them immutable made Chromium retain thousands
+        // of one-shot JPEG/heatmap responses during long production runs.
+        setEphemeralArtifactCacheHeaders(ctx);
         HttpResponses.send(ctx, 200, contentType, artifact);
+    }
+
+    private static void setEphemeralArtifactCacheHeaders(HttpRequestContext ctx) {
+        ctx.exchange().getResponseHeaders().set("Cache-Control", "no-store, no-cache, must-revalidate");
+        ctx.exchange().getResponseHeaders().set("Pragma", "no-cache");
+        ctx.exchange().getResponseHeaders().set("Expires", "0");
     }
 
     @Override

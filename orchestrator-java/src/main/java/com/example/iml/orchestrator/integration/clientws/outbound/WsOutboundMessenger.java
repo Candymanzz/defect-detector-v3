@@ -233,7 +233,7 @@ public final class WsOutboundMessenger {
             frame.put("frame_id", Long.toString(decision.frameId()));
             frame.put("overall_pass", decision.overallPass());
             frame.put("action", decision.action());
-            frame.put("anomaly_score", decision.anomalyScore());
+            putAnomalyScore(frame, decision);
             frame.put("python_status", decision.pythonStatus());
             frame.put("geometry_status", decision.geometryStatus());
             frames.add(frame);
@@ -615,7 +615,7 @@ public final class WsOutboundMessenger {
         if (decision != null) {
             payload.put("overall_pass", decision.overallPass());
             payload.put("action", decision.action());
-            payload.put("anomaly_score", decision.anomalyScore());
+            putAnomalyScore(payload, decision);
             payload.put("python_status", decision.pythonStatus());
             payload.put("geometry_status", decision.geometryStatus());
             if (decision.geometry() != null && !decision.geometry().isEmpty()) {
@@ -756,6 +756,14 @@ public final class WsOutboundMessenger {
             }
         }
         root.put("message_id", UUID.randomUUID().toString());
+    }
+
+    private static void putAnomalyScore(ObjectNode target, InspectionDecision decision) {
+        if (decision.hasAnomalyScore()) {
+            target.put("anomaly_score", decision.anomalyScore());
+        } else {
+            target.putNull("anomaly_score");
+        }
     }
 
     private String writeJson(ObjectNode root) throws ClientWsJsonSerializationException {

@@ -159,6 +159,7 @@ def test_inspect_shm_applies_temporary_pro_knobs(monkeypatch) -> None:
         shm_name="unused",
         width=8,
         height=8,
+        inspect_scale=0.75,
         analysis_test_settings={
             "mode": "pro",
             "knobs": {
@@ -178,6 +179,7 @@ def test_inspect_shm_applies_temporary_pro_knobs(monkeypatch) -> None:
     assert overrides["min_diff_signal"] != 12.0
     assert captured["store_learning_review"] is True
     assert captured["defer_learning_review"] is False
+    assert captured["inspect_scale_after_align"] == 0.75
 
 
 def test_visuals_inspection_forces_learning_review_skip(monkeypatch) -> None:

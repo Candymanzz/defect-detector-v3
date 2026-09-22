@@ -780,6 +780,7 @@ class AcceptedNormalMemory:
         self.storage_dir = Path(storage_dir)
         self._cases: dict[str, AcceptedNormalCase] = {}
         self._lock = threading.RLock()
+        self._storage_generation: Optional[str] = None
         if session_wipe:
             wipe_directory(self.storage_dir)
         else:
@@ -788,6 +789,7 @@ class AcceptedNormalMemory:
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
         with self._lock:
+            self._refresh_from_disk_if_changed()
             cases = list(self._cases.values())
             if product_type:
                 cases = [case for case in cases if case.product_type == product_type]
@@ -797,11 +799,13 @@ class AcceptedNormalMemory:
 
     def get(self, case_id: str) -> Optional[AcceptedNormalCase]:
         with self._lock:
+            self._refresh_from_disk_if_changed()
             return self._cases.get(case_id)
 
     def image(self, case_id: str) -> Optional[tuple[bytes, str]]:
         """Наглядный crop сохранённого фрагмента с подсвеченной маской."""
         with self._lock:
+            self._refresh_from_disk_if_changed()
             case = self._cases.get(case_id)
             if case is None:
                 return None
@@ -906,9 +910,11 @@ class AcceptedNormalMemory:
             coordinate_height=coordinate_height,
         )
         with self._lock:
+            self._refresh_from_disk_if_changed()
             self._cases[case.id] = case
             try:
                 self._save_case(case)
+                self._publish_storage_generation()
             except Exception:
                 self._cases.pop(case.id, None)
                 raise
@@ -916,6 +922,7 @@ class AcceptedNormalMemory:
 
     def delete(self, case_id: str) -> bool:
         with self._lock:
+            self._refresh_from_disk_if_changed()
             case = self._cases.pop(case_id, None)
             if case is None:
                 return False
@@ -924,14 +931,17 @@ class AcceptedNormalMemory:
                     (self.storage_dir / f"{case_id}{suffix}").unlink(missing_ok=True)
                 except OSError:
                     logger.exception("failed to delete accepted-normal artifact case_id=%s", case_id)
+            self._publish_storage_generation()
             return True
 
     def clear(self) -> int:
         """Удалить все сохранённые нормы текущей сессии."""
         with self._lock:
+            self._refresh_from_disk_if_changed()
             deleted_count = len(self._cases)
             self._cases.clear()
             wipe_directory(self.storage_dir)
+            self._publish_storage_generation()
             return deleted_count
 
     def apply(
@@ -954,6 +964,7 @@ class AcceptedNormalMemory:
         """
         candidates = extract_defect_candidates(aligned, diff_map, segmentation_mask)
         with self._lock:
+            self._refresh_from_disk_if_changed()
             cases = [
                 case
                 for case in self._cases.values()
@@ -1142,8 +1153,31 @@ class AcceptedNormalMemory:
         temp_json.replace(json_path)
         temp_npz.replace(npz_path)
 
+    def _read_storage_generation(self) -> Optional[str]:
+        try:
+            return (self.storage_dir / ".generation").read_text(encoding="ascii").strip()
+        except OSError:
+            return None
+
+    def _publish_storage_generation(self) -> None:
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+        generation = uuid.uuid4().hex
+        marker = self.storage_dir / ".generation"
+        temporary_marker = self.storage_dir / f".generation.{generation}.tmp"
+        temporary_marker.write_text(generation, encoding="ascii")
+        temporary_marker.replace(marker)
+        self._storage_generation = generation
+
+    def _refresh_from_disk_if_changed(self) -> None:
+        current_generation = self._read_storage_generation()
+        if current_generation == self._storage_generation:
+            return
+        self._load()
+
     def _load(self) -> None:
+        self._cases.clear()
         if not self.storage_dir.exists():
+            self._storage_generation = None
             return
         for json_path in self.storage_dir.glob("*.json"):
             try:
@@ -1233,6 +1267,7 @@ class AcceptedNormalMemory:
                 self._cases[case.id] = case
             except Exception:
                 logger.exception("failed to load accepted-normal case metadata=%s", json_path)
+        self._storage_generation = self._read_storage_generation()
 
 
 def extract_defect_candidates(

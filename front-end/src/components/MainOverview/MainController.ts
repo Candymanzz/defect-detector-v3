@@ -411,7 +411,7 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
     },
     overall_pass: frame.overall_pass,
     action: frame.action,
-    anomaly_score: frame.anomaly_score,
+    anomaly_score: frame.anomaly_score ?? undefined,
     python_status: frame.python_status,
     geometry_status: frame.geometry_status,
     geometry: frame.geometry,

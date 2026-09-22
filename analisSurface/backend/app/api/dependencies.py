@@ -12,5 +12,8 @@ def _inspect_worker_count() -> int:
         return 10
 
 
-inspection_service = InspectionService(learned_normals_session_wipe=False)
+inspection_service = InspectionService(
+    session_wipe=False,
+    learned_normals_session_wipe=False,
+)
 inspect_executor = ThreadPoolExecutor(max_workers=_inspect_worker_count(), thread_name_prefix="inspect")

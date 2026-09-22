@@ -260,7 +260,7 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         if (decision != null) {
             overallPass = decision.overallPass();
             action = decision.action();
-            anomalyScore = decision.anomalyScore();
+            anomalyScore = decision.hasAnomalyScore() ? decision.anomalyScore() : null;
             pythonStatus = decision.pythonStatus();
             geometryStatus = decision.geometryStatus();
         }

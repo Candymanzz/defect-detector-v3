@@ -251,7 +251,7 @@ export type FrameArchiveHistoryFrame = {
   inspection_id: string;
   overall_pass: boolean;
   action: string;
-  anomaly_score: number;
+  anomaly_score: number | null;
   python_status: string;
   geometry_status: string;
   product_type: string;

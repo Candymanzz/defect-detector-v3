@@ -140,6 +140,8 @@ class InspectionService:
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
         self._fp_crops_dir = Path(__file__).resolve().parent.parent / "data" / "fp_zone_crops"
         self.fp_zones: Dict[str, list[FPZone]] = {}
+        self._fp_zones_lock = threading.RLock()
+        self._fp_zones_generation: Optional[str] = None
         self._last_diff_maps: Dict[str, np.ndarray] = {}
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
         self._last_aligned: Dict[str, np.ndarray] = {}
@@ -659,9 +661,11 @@ class InspectionService:
             source_inspection_id=source_inspection_id,
             source_defect_id=source_defect_id,
         )
-        self.fp_zones.setdefault(product_type, []).append(zone)
-        self._save_fp_zones()
-        self._save_fp_crop(zone)
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            self.fp_zones.setdefault(product_type, []).append(zone)
+            self._save_fp_crop(zone)
+            self._save_fp_zones()
         return zone
 
     def _add_fp_zones_from_candidates(self, review, candidates, note: str = "") -> list[FPZone]:
@@ -700,46 +704,54 @@ class InspectionService:
     def _delete_fp_zones_for_source(self, source_defect_id: str, source_inspection_id: str) -> None:
         if not source_defect_id and not source_inspection_id:
             return
-        changed = False
-        for product_type, zones in list(self.fp_zones.items()):
-            retained = []
-            for zone in zones:
-                linked = (
-                    source_defect_id
-                    and zone.source_defect_id == source_defect_id
-                    and zone.source_inspection_id == source_inspection_id
-                )
-                if linked:
-                    self._delete_fp_crop_file(zone.id)
-                    changed = True
-                    continue
-                retained.append(zone)
-            self.fp_zones[product_type] = retained
-        if changed:
-            self._save_fp_zones()
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            changed = False
+            for product_type, zones in list(self.fp_zones.items()):
+                retained = []
+                for zone in zones:
+                    linked = (
+                        source_defect_id
+                        and zone.source_defect_id == source_defect_id
+                        and zone.source_inspection_id == source_inspection_id
+                    )
+                    if linked:
+                        self._delete_fp_crop_file(zone.id)
+                        changed = True
+                        continue
+                    retained.append(zone)
+                self.fp_zones[product_type] = retained
+            if changed:
+                self._save_fp_zones()
 
     def _delete_auto_fp_zones(self) -> None:
-        changed = False
-        for product_type, zones in list(self.fp_zones.items()):
-            retained = []
-            for zone in zones:
-                if zone.source_defect_id:
-                    self._delete_fp_crop_file(zone.id)
-                    changed = True
-                    continue
-                retained.append(zone)
-            self.fp_zones[product_type] = retained
-        if changed:
-            self._save_fp_zones()
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            changed = False
+            for product_type, zones in list(self.fp_zones.items()):
+                retained = []
+                for zone in zones:
+                    if zone.source_defect_id:
+                        self._delete_fp_crop_file(zone.id)
+                        changed = True
+                        continue
+                    retained.append(zone)
+                self.fp_zones[product_type] = retained
+            if changed:
+                self._save_fp_zones()
 
     def get_fp_zones(self, product_type: str) -> list[FPZone]:
-        return list(self.fp_zones.get(product_type, []))
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            return list(self.fp_zones.get(product_type, []))
 
     def get_fp_zone(self, zone_id: str) -> Optional[FPZone]:
-        for zones in self.fp_zones.values():
-            for zone in zones:
-                if zone.id == zone_id:
-                    return zone
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            for zones in self.fp_zones.values():
+                for zone in zones:
+                    if zone.id == zone_id:
+                        return zone
         return None
 
     def get_fp_zone_crop_png(self, zone_id: str) -> Optional[bytes]:
@@ -752,21 +764,25 @@ class InspectionService:
         return buffer.tobytes()
 
     def delete_fp_zone(self, zone_id: str) -> bool:
-        for product_type, zones in self.fp_zones.items():
-            retained = [zone for zone in zones if zone.id != zone_id]
-            if len(retained) != len(zones):
-                self.fp_zones[product_type] = retained
-                self._delete_fp_crop_file(zone_id)
-                self._save_fp_zones()
-                return True
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            for product_type, zones in self.fp_zones.items():
+                retained = [zone for zone in zones if zone.id != zone_id]
+                if len(retained) != len(zones):
+                    self.fp_zones[product_type] = retained
+                    self._delete_fp_crop_file(zone_id)
+                    self._save_fp_zones()
+                    return True
         return False
 
     def delete_all_fp_zones(self) -> int:
-        deleted_count = sum(len(zones) for zones in self.fp_zones.values())
-        self.fp_zones = {}
-        self._save_fp_zones()
-        self._clear_fp_crop_files()
-        return deleted_count
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            deleted_count = sum(len(zones) for zones in self.fp_zones.values())
+            self.fp_zones = {}
+            self._clear_fp_crop_files()
+            self._save_fp_zones()
+            return deleted_count
 
     def inspect(
         self,
@@ -894,7 +910,11 @@ class InspectionService:
         )
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
-        anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
+        anomaly_score, segmentation_mask = self._run_anomaly_model(
+            diff_map,
+            settings,
+            decision_threshold=inspection_threshold,
+        )
         anomaly_finished = time.perf_counter()
         log_analysis_stage(
             "anomaly_detection",
@@ -945,7 +965,11 @@ class InspectionService:
         learned_diff_map = learned_filter.filtered_diff_map
         segmentation_mask = learned_filter.filtered_mask
         if learned_filter.matched_case_ids:
-            learned_score, segmentation_mask = self._run_anomaly_model(learned_diff_map, settings)
+            learned_score, segmentation_mask = self._run_anomaly_model(
+                learned_diff_map,
+                settings,
+                decision_threshold=inspection_threshold,
+            )
             if learned_filter.all_important_candidates_matched:
                 residual_candidates = extract_defect_candidates(
                     aligned,
@@ -956,7 +980,21 @@ class InspectionService:
                     residual_candidates,
                     baseline_maximum_impact=learned_filter.original_max_candidate_impact,
                 )
-                if not significant_residuals:
+                guarded_residuals = [
+                    candidate
+                    for candidate in residual_candidates
+                    if (
+                        candidate.diff_q90 >= max(12.0, settings.min_diff_signal * 1.5)
+                        and candidate.diff_max >= max(18.0, settings.min_diff_signal * 2.0)
+                    )
+                    or (
+                        max(candidate.bbox[2], candidate.bbox[3])
+                        / max(1, min(candidate.bbox[2], candidate.bbox[3]))
+                        >= settings.scratch_aspect_floor
+                        and candidate.diff_q90 >= settings.min_diff_signal
+                    )
+                ]
+                if not significant_residuals and not guarded_residuals:
                     learned_diff_map = np.zeros_like(learned_diff_map)
                     segmentation_mask = np.zeros_like(segmentation_mask)
                     learned_score = 0.0
@@ -1006,6 +1044,21 @@ class InspectionService:
 
         # 8. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
         sub_zones = self.get_roi_sub_zones(product_type)
+        precomputed_main_score: Optional[float] = None
+        if (
+            polygon is None
+            and not sub_zones
+            and not learned_filter.matched_case_ids
+            and fp_skipped
+        ):
+            full_region = np.ones(filtered_diff_map.shape[:2], dtype=bool)
+            activity = self._measure_zone_activity_mask(
+                filtered_diff_map,
+                segmentation_mask,
+                full_region,
+            )
+            precomputed_main_score = float(max(raw_score, activity["score"]))
+
         main_roi_score, sub_zone_scores, anomaly_score, status = self._score_inspection_regions(
             filtered_diff_map=filtered_diff_map,
             segmentation_mask=segmentation_mask,
@@ -1013,6 +1066,7 @@ class InspectionService:
             settings=settings,
             polygon=polygon,
             sub_zones=sub_zones,
+            precomputed_main_score=precomputed_main_score,
         )
         log_analysis_stage(
             "regional_scoring",
@@ -1271,22 +1325,34 @@ class InspectionService:
         settings: AnalysisSettings,
         polygon: Optional[list[Tuple[float, float]]],
         sub_zones: list[RoiSubZone],
+        precomputed_main_score: Optional[float] = None,
     ) -> tuple[float, list[RoiSubZoneScore], float, str]:
         """Единый расчёт вердикта для live-inspect и ознакомительного review."""
         h, w = filtered_diff_map.shape[:2]
         hole_polygons = [zone.points for zone in sub_zones]
         main_region_mask = combine_region_masks(w, h, polygon, hole_polygons)
-        main_roi_score = self._score_region(
-            filtered_diff_map,
-            segmentation_mask,
-            main_region_mask,
-            settings,
+        main_roi_score = (
+            float(precomputed_main_score)
+            if precomputed_main_score is not None
+            else self._score_region(
+                filtered_diff_map,
+                segmentation_mask,
+                main_region_mask,
+                settings,
+                inspection_threshold,
+            )
         )
         sub_zone_scores: list[RoiSubZoneScore] = []
         for zone in sub_zones:
             zone_mask = polygon_mask_from_norm_points(w, h, zone.points) > 0
-            zone_score = self._score_region(filtered_diff_map, segmentation_mask, zone_mask, settings)
             zone_threshold = zone.threshold if zone.threshold is not None else inspection_threshold
+            zone_score = self._score_region(
+                filtered_diff_map,
+                segmentation_mask,
+                zone_mask,
+                settings,
+                zone_threshold,
+            )
             sub_zone_scores.append(
                 RoiSubZoneScore(
                     zone_id=zone.id,
@@ -1467,6 +1533,7 @@ class InspectionService:
     def _load_fp_zones(self) -> None:
         self.fp_zones = {}
         if not self._fp_zones_file.exists():
+            self._fp_zones_generation = self._read_fp_zones_generation()
             return
         try:
             raw_payload = json.loads(self._fp_zones_file.read_text(encoding="utf-8"))
@@ -1495,6 +1562,21 @@ class InspectionService:
                     self.fp_zones.setdefault(product_type, []).append(zone)
         except Exception:
             self.fp_zones = {}
+        self._fp_zones_generation = self._read_fp_zones_generation()
+
+    def _fp_zones_generation_file(self) -> Path:
+        return self._fp_zones_file.with_suffix(".generation")
+
+    def _read_fp_zones_generation(self) -> Optional[str]:
+        try:
+            return self._fp_zones_generation_file().read_text(encoding="ascii").strip()
+        except OSError:
+            return None
+
+    def _refresh_fp_zones_if_changed(self) -> None:
+        generation = self._read_fp_zones_generation()
+        if generation != self._fp_zones_generation:
+            self._load_fp_zones()
 
     def _save_fp_zones(self) -> None:
         self._fp_zones_file.parent.mkdir(parents=True, exist_ok=True)
@@ -1517,7 +1599,16 @@ class InspectionService:
                         "source_defect_id": zone.source_defect_id,
                     }
                 )
-        self._fp_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+        payload = json.dumps(entries, ensure_ascii=True, indent=2)
+        temporary = self._fp_zones_file.with_name(f"{self._fp_zones_file.name}.{uuid.uuid4().hex}.tmp")
+        temporary.write_text(payload, encoding="utf-8")
+        temporary.replace(self._fp_zones_file)
+        generation = uuid.uuid4().hex
+        marker = self._fp_zones_generation_file()
+        temporary_marker = marker.with_name(f"{marker.name}.{generation}.tmp")
+        temporary_marker.write_text(generation, encoding="ascii")
+        temporary_marker.replace(marker)
+        self._fp_zones_generation = generation
 
     def _fp_crop_path(self, zone_id: str) -> Path:
         return self._fp_crops_dir / f"{zone_id}.png"
@@ -1623,13 +1714,22 @@ class InspectionService:
         segmentation_mask: np.ndarray,
         region_mask: np.ndarray,
         settings: AnalysisSettings,
+        decision_threshold: Optional[float] = None,
     ) -> float:
         """Score одной области: повторный прогон детектора на маске + метрики активности."""
         if not np.any(region_mask):
             return 0.0
         masked_diff = diff_map.copy()
         masked_diff[~region_mask] = 0
-        score, _ = self._run_anomaly_model(masked_diff, settings)
+        score, _ = self._run_anomaly_model(
+            masked_diff,
+            settings,
+            decision_threshold=(
+                settings.default_threshold
+                if decision_threshold is None
+                else decision_threshold
+            ),
+        )
         # Важно: считать activity по реальной маске ROI, а не по bbox-полигону —
         # bbox раздувает зону и завышает active_ratio вне ROI.
         activity = self._measure_zone_activity_mask(diff_map, segmentation_mask, region_mask)
@@ -1846,7 +1946,11 @@ class InspectionService:
                 )
             )
 
-        remaining_score, filtered_mask = self._run_anomaly_model(filtered_diff_map, settings)
+        remaining_score, filtered_mask = self._run_anomaly_model(
+            filtered_diff_map,
+            settings,
+            decision_threshold=inspection_threshold,
+        )
         return {
             "final_score": float(remaining_score),
             "rechecked_zone_ids": rechecked_zone_ids,
@@ -2321,36 +2425,26 @@ class InspectionService:
             robust_float *= row_gain[:, np.newaxis]
             robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
 
-        # Edge suppression on strong static reference edges (lid/border/text bounds):
-        # reduce anomaly response in a small tolerance band around those edges.
-        edges_ref = cv2.Canny(ref_gray, 80, 160)
-        edges_zone = cv2.dilate(edges_ref, np.ones((3, 3), dtype=np.uint8), iterations=2)
-        edge_mask = edges_zone > 0
-        robust_gray = robust_gray.astype(np.float32)
-        robust_gray[edge_mask] *= settings.edge_suppress_factor
-        robust_gray = np.clip(robust_gray, 0, 255).astype(np.uint8)
-
-        # Structural masking for text-heavy regions:
-        # where reference has dense structure, require stronger local contrast
-        # to treat response as anomaly.
-        structure_mask = cv2.Sobel(ref_gray, cv2.CV_8U, 1, 1, ksize=3)
-        text_like_zone = structure_mask > settings.text_structure_threshold
-        if np.any(text_like_zone):
-            text_vals = robust_gray[text_like_zone]
-            robust_gray[text_like_zone] = np.where(
-                text_vals >= settings.text_min_contrast,
-                text_vals,
-                0,
-            ).astype(np.uint8)
-
-        # Boost zones where reference has strong text gradients but current frame
-        # has low gradients (possible erased/missing text).
+        # Compute gradients once and reuse them for stable-edge suppression,
+        # text handling and missing-structure detection.
         ref_grad_x = cv2.Sobel(ref_gray, cv2.CV_32F, 1, 0, ksize=3)
         ref_grad_y = cv2.Sobel(ref_gray, cv2.CV_32F, 0, 1, ksize=3)
         cur_grad_x = cv2.Sobel(cur_gray, cv2.CV_32F, 1, 0, ksize=3)
         cur_grad_y = cv2.Sobel(cur_gray, cv2.CV_32F, 0, 1, ksize=3)
         ref_grad_mag = cv2.magnitude(ref_grad_x, ref_grad_y)
         cur_grad_mag = cv2.magnitude(cur_grad_x, cur_grad_y)
+
+        # Suppress only reference edges that are also present in the current
+        # frame. A missing/broken edge is evidence and must keep its response.
+        edges_ref = cv2.Canny(ref_gray, 80, 160)
+        edges_cur = cv2.Canny(cur_gray, 80, 160)
+        edges_zone = cv2.dilate(edges_ref, np.ones((3, 3), dtype=np.uint8), iterations=2)
+        current_edge_zone = cv2.dilate(edges_cur, np.ones((3, 3), dtype=np.uint8), iterations=2)
+        edge_mask = (edges_zone > 0) & (current_edge_zone > 0)
+        robust_gray = robust_gray.astype(np.float32)
+        robust_gray[edge_mask] *= settings.edge_suppress_factor
+        robust_gray = np.clip(robust_gray, 0, 255).astype(np.uint8)
+
         contrast_loss_zone = (ref_grad_mag > settings.contrast_loss_ref_grad) & (
             cur_grad_mag < settings.contrast_loss_cur_grad
         )
@@ -2359,8 +2453,19 @@ class InspectionService:
             robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
             robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
 
-        # Median blur removes salt-like speckles without erasing thin linear defects.
-        robust_gray = cv2.medianBlur(robust_gray, 3)
+        # Structural masking for text-heavy regions:
+        # where reference has dense structure, require stronger local contrast
+        # to treat response as anomaly.
+        structure_mask = cv2.Sobel(ref_gray, cv2.CV_8U, 1, 1, ksize=3)
+        text_like_zone = structure_mask > settings.text_structure_threshold
+        if np.any(text_like_zone):
+            text_vals = robust_gray[text_like_zone]
+            preserve_missing_structure = contrast_loss_zone[text_like_zone]
+            robust_gray[text_like_zone] = np.where(
+                (text_vals >= settings.text_min_contrast) | preserve_missing_structure,
+                text_vals,
+                0,
+            ).astype(np.uint8)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
 
     @staticmethod
@@ -2432,6 +2537,8 @@ class InspectionService:
         self,
         diff_map: np.ndarray,
         settings: AnalysisSettings,
+        *,
+        decision_threshold: Optional[float] = None,
     ) -> Tuple[float, np.ndarray]:
         """Вернуть (score 0..1, маска дефектов BGR).
 
@@ -2447,7 +2554,10 @@ class InspectionService:
             zero = np.zeros_like(gray_blur, dtype=np.uint8)
             return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
         threshold_value = float(
-            max(10.0, min(np.percentile(gray_blur, settings.diff_percentile), 35.0))
+            max(
+                settings.min_diff_signal,
+                min(np.percentile(gray_blur, settings.diff_percentile), 35.0),
+            )
         )
         _, binary = cv2.threshold(gray_blur, threshold_value, 255, cv2.THRESH_BINARY)
 
@@ -2504,7 +2614,13 @@ class InspectionService:
                     filtered_region = filtered[y : y + h, x : x + w]
                     filtered_region[component_mask] = 255
                     max_aspect = max(max_aspect, float(aspect))
-                    local_score = float((aspect / 15.0) + (area / 500.0))
+                    component_values = gray_blur[y : y + h, x : x + w][component_mask]
+                    component_q90 = float(np.percentile(component_values, 90)) if component_values.size else 0.0
+                    local_score = float(
+                        (aspect / 15.0)
+                        + (area / 500.0)
+                        + ((component_q90 / 255.0) * 0.25)
+                    )
                     if text_overlap > 0.2:
                         local_score *= 1.3
 
@@ -2536,7 +2652,12 @@ class InspectionService:
         # often jumped displayed anomaly from ~80% to 100%.
         heuristic_score = float(np.clip((max_object_score * 0.55) + (top_mean * 0.40), 0.0, 1.0))
         if max_aspect > settings.scratch_aspect_floor:
-            heuristic_score = max(heuristic_score, settings.scratch_score_floor)
+            # A positively identified scratch must not remain just below the
+            # active verdict threshold. Keep a small margin to avoid equality
+            # and floating-point rounding differences between regional passes.
+            threshold = settings.default_threshold if decision_threshold is None else decision_threshold
+            reject_floor = min(1.0, float(threshold) + 0.01)
+            heuristic_score = max(heuristic_score, settings.scratch_score_floor, reject_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
         if settings.use_patchcore and self._anomaly_engine is not None:

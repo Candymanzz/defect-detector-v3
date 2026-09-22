@@ -13,8 +13,8 @@ public final class ManualLineDirectionService {
         REVERSE
     }
 
-    /** По умолчанию обратный: DI3 на ходе вперёд не снимаем, на ходе назад — снимаем. */
-    private volatile Direction direction = Direction.REVERSE;
+    /** Matches io_input.capture.initial_direction=forward until UI explicitly changes it. */
+    private volatile Direction direction = Direction.FORWARD;
     private volatile Consumer<String> onChanged = ignored -> { };
 
     public Direction direction() {

@@ -1097,6 +1097,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             if (geometryRuntimeConfig != null) {
                 geometryRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
             }
+            double inspectScale = YamlScalars.toDouble(
+                    pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                    1.0d
+            );
+            if (inspectScale < 0.999d) {
+                pyHeader.put("inspect_scale", inspectScale);
+            }
             Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
                     "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
             );

@@ -2,12 +2,32 @@ import numpy as np
 import pytest
 
 from app.services.learned_normals import (
+    AcceptedNormalMemory,
     DefectCandidate,
     _convert_legacy_template,
     _fit_template,
     _mask_geometry,
     filter_review_candidates,
 )
+
+
+def test_accepted_normals_are_refreshed_between_server_processes(tmp_path) -> None:
+    storage_dir = tmp_path / "accepted_normals"
+    writer = AcceptedNormalMemory(storage_dir, session_wipe=False)
+    inspection_worker = AcceptedNormalMemory(storage_dir, session_wipe=False)
+
+    saved = writer.add_from_candidate(
+        product_type="camera-1::part-a",
+        reference_hash="reference-v1",
+        inspection_id="inspection-1",
+        candidate=_candidate("candidate-1", area=4, width=2, height=2),
+        source_frame=np.zeros((8, 8, 3), dtype=np.uint8),
+    )
+
+    assert [case["id"] for case in inspection_worker.list()] == [saved.id]
+
+    assert writer.delete(saved.id) is True
+    assert inspection_worker.list() == []
 
 
 def _candidate(
