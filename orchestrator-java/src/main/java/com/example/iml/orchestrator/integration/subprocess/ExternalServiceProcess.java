@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.subprocess;
 
+import com.example.iml.orchestrator.logging.LogDirectories;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -55,13 +56,13 @@ public final class ExternalServiceProcess implements AutoCloseable {
     }
 
     /**
-     * Пишем stdout/stderr сервиса в {@code logs/svc-&lt;name&gt;.log}, чтобы native/uvicorn crash
-     * был в файле (INHERIT часто теряется при GUI/Electron запуске).
+     * Пишем stdout/stderr сервиса в {@code logs/&lt;bucket&gt;/svc-&lt;name&gt;.log}
+     * (native/uvicorn crash иначе теряется при GUI/Electron запуске).
      */
     private static void redirectServiceLogs(ProcessBuilder pb, String name) {
         try {
-            Path logsDir = Path.of(System.getProperty("user.dir", ".")).resolve("logs");
-            Files.createDirectories(logsDir);
+            String bucket = LogDirectories.serviceBucketForName(name);
+            Path logsDir = LogDirectories.ensureServiceDir(bucket);
             String safe = name == null ? "service" : name.replaceAll("[^a-zA-Z0-9._-]+", "_");
             Path logFile = logsDir.resolve("svc-" + safe + ".log");
             pb.redirectErrorStream(true);

@@ -1,6 +1,0 @@
-﻿--- LightServer log started 2026-09-22 09:19:13 ---
-2026-09-22 09:19:14.104 [Information] LightServer: Content root: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\logs\2026-09-22_09-19-13.log
-2026-09-22 09:19:14.250 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
-2026-09-22 09:19:14.250 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
-2026-09-22 09:19:14.250 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
-2026-09-22 09:19:14.250 [Information] Microsoft.Hosting.Lifetime: Content root path: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\bin\Release\net10.0\

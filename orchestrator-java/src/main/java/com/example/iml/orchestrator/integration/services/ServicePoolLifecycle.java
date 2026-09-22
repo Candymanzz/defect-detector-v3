@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.services;
 import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
+import com.example.iml.orchestrator.logging.LogDirectories;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -85,26 +86,46 @@ public final class ServicePoolLifecycle {
     }
 
     /**
-     * Isolates OpenCV native extract dirs per worker so Windows loaders do not delete each other's DLLs.
+     * Isolates OpenCV native extract dirs per worker and points Log4j2 at {@code logs/&lt;service&gt;/}.
      */
     static List<String> withUniqueJavaIoTmpDir(List<String> command, String serviceName, Path projectRoot)
             throws IOException {
         if (command == null || command.isEmpty() || !looksLikeJavaLauncher(command.get(0))) {
             return command;
         }
+        boolean hasTmpDir = false;
+        boolean hasLogDir = false;
         for (String arg : command) {
             if (arg != null && arg.startsWith("-Djava.io.tmpdir=")) {
-                return command;
+                hasTmpDir = true;
             }
+            if (arg != null && arg.startsWith("-D" + LogDirectories.PROP_LOG_DIR + "=")) {
+                hasLogDir = true;
+            }
+        }
+        if (hasTmpDir && hasLogDir) {
+            return command;
         }
         Path base = projectRoot == null
                 ? Path.of(System.getProperty("java.io.tmpdir", "."))
                 : projectRoot.resolve(".tmp").resolve("svc-io");
         Path tmp = base.resolve(sanitizeServiceName(serviceName));
         Files.createDirectories(tmp);
-        List<String> out = new ArrayList<>(command.size() + 1);
+        if (projectRoot != null) {
+            System.setProperty(
+                    LogDirectories.PROP_PROJECT_ROOT,
+                    projectRoot.toAbsolutePath().normalize().toString()
+            );
+        }
+        String logBucket = LogDirectories.serviceBucketForName(serviceName);
+        List<String> out = new ArrayList<>(command.size() + 2);
         out.add(command.get(0));
-        out.add("-Djava.io.tmpdir=" + tmp.toAbsolutePath().normalize());
+        if (!hasTmpDir) {
+            out.add("-Djava.io.tmpdir=" + tmp.toAbsolutePath().normalize());
+        }
+        if (!hasLogDir) {
+            out.add(LogDirectories.jvmLogDirArg(logBucket));
+        }
         out.addAll(command.subList(1, command.size()));
         return List.copyOf(out);
     }

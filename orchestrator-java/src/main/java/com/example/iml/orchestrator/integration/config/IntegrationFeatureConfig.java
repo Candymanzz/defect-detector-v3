@@ -65,14 +65,14 @@ public final class IntegrationFeatureConfig {
 
     public static TimingStagesLogConfig parseTimingStagesLog(Map<String, Object> integration) {
         if (integration == null) {
-            return new TimingStagesLogConfig(false, "logs/pipeline-stages.jsonl");
+            return new TimingStagesLogConfig(false, "logs/orchestrator/pipeline-stages.jsonl");
         }
         Object raw = integration.get("timing_stages_log");
         if (!(raw instanceof Map<?, ?> m)) {
-            return new TimingStagesLogConfig(false, "logs/pipeline-stages.jsonl");
+            return new TimingStagesLogConfig(false, "logs/orchestrator/pipeline-stages.jsonl");
         }
         boolean enabled = YamlScalars.toBool(m.get("enabled"), false);
-        String file = m.get("file") != null ? String.valueOf(m.get("file")) : "logs/pipeline-stages.jsonl";
+        String file = m.get("file") != null ? String.valueOf(m.get("file")) : "logs/orchestrator/pipeline-stages.jsonl";
         return new TimingStagesLogConfig(enabled, file);
     }
 

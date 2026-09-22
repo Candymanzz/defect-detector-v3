@@ -1,4 +1,4 @@
-"""Файловое логирование в backend/logs/<дата_время>/ с раздельными файлами."""
+"""Файловое логирование в <repo>/logs/analisSurface/<дата_время>/ с раздельными файлами."""
 
 from __future__ import annotations
 
@@ -11,14 +11,34 @@ from typing import Any, Mapping, Optional
 
 from app.detector_settings import is_file_logging_enabled
 
-_LOGS_ROOT = Path(__file__).resolve().parent.parent / "logs"
 _MAX_BODY_CHARS = 4000
 _SLOW_REQUEST_MS = 1000.0
 _LOCK = threading.Lock()
 _SESSION_DIR: Optional[Path] = None
 _INITIALIZED = False
+_LOGS_ROOT: Optional[Path] = None
 
 _SKIP_PATHS = frozenset({"/health", "/detector/health"})
+
+
+def _find_repo_logs_root() -> Path:
+    """Prefer env, then <repo>/logs/analisSurface, else legacy backend/logs."""
+    for key in ("ANALIS_SURFACE_LOG_DIR", "IML_ANALIS_LOG_DIR"):
+        configured = os.environ.get(key, "").strip()
+        if configured:
+            return Path(configured)
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "orchestrator-java").is_dir() and (parent / "analisSurface").is_dir():
+            return parent / "logs" / "analisSurface"
+    return here.parent.parent / "logs"
+
+
+def _logs_root() -> Path:
+    global _LOGS_ROOT
+    if _LOGS_ROOT is None:
+        _LOGS_ROOT = _find_repo_logs_root()
+    return _LOGS_ROOT
 
 
 def _enabled() -> bool:
@@ -60,9 +80,10 @@ def _ensure_initialized() -> None:
     with _LOCK:
         if _INITIALIZED:
             return
-        _LOGS_ROOT.mkdir(parents=True, exist_ok=True)
+        root = _logs_root()
+        root.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        _SESSION_DIR = _LOGS_ROOT / stamp
+        _SESSION_DIR = root / stamp
         _SESSION_DIR.mkdir(parents=True, exist_ok=True)
         session_meta = "\n".join(
             [

@@ -5,7 +5,6 @@
 /scripts/
 /script/
 /docs/
-/logs/
 .dev-stack.pids.json
 .tmp/
 .DS_Store
@@ -22,8 +21,10 @@
 /iml_detectors/__pycache__/
 /iml_detectors/services/__pycache__/
 
-# Runtime logs (orchestrator, geometry, IoInputMonitor, supervisor)
-**/logs/
+# Runtime logs — everything under logs/, except the layout README
+**/logs/**
+!/logs/
+!/logs/README.md
 *.log
 *.log.gz
 hs_err_pid*.log

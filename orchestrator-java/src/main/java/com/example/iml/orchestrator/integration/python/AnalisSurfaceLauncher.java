@@ -116,7 +116,13 @@ public final class AnalisSurfaceLauncher {
                         processName,
                         command,
                         settings.workingDir(),
-                        Map.of("ANALIS_INSPECT_WORKERS", String.valueOf(settings.inspectWorkers()))
+                        Map.of(
+                                "ANALIS_INSPECT_WORKERS", String.valueOf(settings.inspectWorkers()),
+                                "ANALIS_SURFACE_LOG_DIR",
+                                projectRoot.resolve("logs").resolve("analisSurface").toAbsolutePath().normalize().toString(),
+                                "IML_PROJECT_ROOT",
+                                projectRoot.toAbsolutePath().normalize().toString()
+                        )
                 );
                 waitForHealth(healthUrl, settings.startupTimeoutMs(), process);
                 processes.add(process);

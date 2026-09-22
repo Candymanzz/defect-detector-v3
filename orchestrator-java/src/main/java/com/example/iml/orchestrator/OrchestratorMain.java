@@ -2,6 +2,7 @@ package com.example.iml.orchestrator;
 
 import com.example.iml.orchestrator.config.StartupConfigurationReporter;
 import com.example.iml.orchestrator.config.YamlFileConfigLoader;
+import com.example.iml.orchestrator.logging.LogDirectories;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -12,6 +13,11 @@ import java.nio.file.Path;
  * Точка входа: только разбор аргументов, проверка пути и делегирование {@link OrchestratorApplication}.
  */
 public final class OrchestratorMain {
+
+    static {
+        // До LogManager: иначе log4j2 подхватит user.dir/logs и засорит корень/модуль.
+        LogDirectories.configureOrchestratorLogging();
+    }
 
     private static final Logger log = LogManager.getLogger(OrchestratorMain.class);
 

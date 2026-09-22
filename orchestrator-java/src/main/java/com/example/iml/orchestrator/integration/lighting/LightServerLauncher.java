@@ -73,10 +73,27 @@ public final class LightServerLauncher {
             if (dir != null && Files.isDirectory(dir)) {
                 Map<String, String> env = new LinkedHashMap<>();
                 env.put("ASPNETCORE_CONTENTROOT", dir.toString());
+                Path lightLogs = projectRoot.resolve("logs").resolve("lightserver");
+                try {
+                    Files.createDirectories(lightLogs);
+                } catch (Exception ignored) {
+                    // optional
+                }
+                env.put("LIGHTSERVER_LOGS_DIR", lightLogs.toAbsolutePath().normalize().toString());
+                env.put("IML_PROJECT_ROOT", projectRoot.toAbsolutePath().normalize().toString());
                 return env;
             }
             break;
         }
-        return Map.of();
+        Map<String, String> fallback = new LinkedHashMap<>();
+        Path lightLogs = projectRoot.resolve("logs").resolve("lightserver");
+        try {
+            Files.createDirectories(lightLogs);
+        } catch (Exception ignored) {
+            // optional
+        }
+        fallback.put("LIGHTSERVER_LOGS_DIR", lightLogs.toAbsolutePath().normalize().toString());
+        fallback.put("IML_PROJECT_ROOT", projectRoot.toAbsolutePath().normalize().toString());
+        return fallback;
     }
 }

@@ -27,6 +27,9 @@ def _resolve_log_dir() -> Path:
     configured = os.environ.get(_LOG_DIR_ENV, "").strip()
     if configured:
         return Path(configured)
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "orchestrator-java").is_dir() and (parent / "analisSurface").is_dir():
+            return parent / "logs" / "analisSurface"
     return Path(__file__).resolve().parents[1] / "logs"
 
 

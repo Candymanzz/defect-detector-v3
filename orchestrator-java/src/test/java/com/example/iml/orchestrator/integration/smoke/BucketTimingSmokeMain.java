@@ -56,7 +56,7 @@ public final class BucketTimingSmokeMain {
         }
 
         long slaMs = Math.max(DEFAULT_SLA_MS, bucketCfg.timeoutMs());
-        Path logFile = projectRoot.resolve("orchestrator-java/logs/orchestrator-runtime.log");
+        Path logFile = projectRoot.resolve("logs/orchestrator/orchestrator-runtime.log");
         if (!Files.isRegularFile(logFile)) {
             results.add(SmokeResult.skip("timing", "log", "log file not found: " + logFile));
             return results;
